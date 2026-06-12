@@ -1,0 +1,111 @@
+# Architecture
+
+## Objective
+
+Build an agent that periodically ingests GitHub changes and converts them into useful, reviewable improvement proposals. The agent should learn from repositories without becoming an uncontrolled self-modifying system.
+
+## Components
+
+### Scheduler
+
+Runs the intake job once per hour. It owns the last-seen cursor and should never assume the previous run completed successfully unless the digest was persisted.
+
+Recommended first choice:
+
+- GitHub Actions for a repository-scoped agent.
+
+Alternative choices:
+
+- Local daemon for private workstation experiments.
+- Serverless timer for cross-repository organization monitoring.
+
+### GitHub Intake
+
+Reads only explicitly allowed repositories and event types.
+
+Initial event types:
+
+- commits
+- pull requests
+- issues
+- releases
+- workflow runs
+
+The intake should normalize each item into a compact event envelope with source URL, timestamp, actor, repo, event kind, title, summary, changed paths, labels, and raw relevance hints.
+
+### Relevance Filter
+
+Scores events by:
+
+- subject match
+- touched paths
+- failure/success signal
+- dependency/API changes
+- repeated patterns
+- relationship to known work
+
+The filter must explain why an event was selected or ignored.
+
+### Learning Digest
+
+Writes a bounded hourly digest:
+
+- new facts
+- reusable implementation patterns
+- risks or regressions
+- candidate actions
+- evidence links
+- confidence and urgency
+
+The digest should be small enough for humans and agents to review.
+
+### Proposal Generator
+
+Turns high-value digest entries into candidate improvements:
+
+- documentation update
+- test addition
+- config change
+- code patch draft
+- follow-up issue
+- "do nothing" decision
+
+The default output is a proposal, not a push.
+
+### Verification Gate
+
+Runs local checks for any generated patch or config change. A failed verification produces a digest entry and stops the write path.
+
+### Approval Gate
+
+Required for:
+
+- pushing branches
+- opening pull requests
+- writing Linear comments
+- changing schedules
+- changing policy
+- changing credential scopes
+- modifying the agent's own code
+
+## State
+
+The minimum durable state:
+
+- cursor per repository
+- digest ID
+- processed event IDs
+- proposal IDs
+- verification result
+- approval decision
+
+Do not store tokens, raw secrets, or private chats in repo state.
+
+## Failure Handling
+
+- Empty update: write a small no-op digest or heartbeat.
+- API rate limit: preserve cursor and retry later.
+- Partial failure: persist the successful normalized events and mark digest incomplete.
+- Verification failure: do not publish; include failure evidence.
+- Missing approval: leave proposal pending.
+

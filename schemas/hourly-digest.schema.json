@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SVM-23 Hourly GitHub Growth Digest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["digest_id", "generated_at", "repositories", "items", "proposals"],
+  "properties": {
+    "digest_id": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "repositories": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "cursor": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_url", "event_kind", "summary", "relevance_reason", "confidence"],
+        "properties": {
+          "source_url": { "type": "string" },
+          "event_kind": { "type": "string" },
+          "summary": { "type": "string" },
+          "relevance_reason": { "type": "string" },
+          "risk_flags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["proposal_id", "kind", "summary", "requires_approval"],
+        "properties": {
+          "proposal_id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"]
+          },
+          "summary": { "type": "string" },
+          "evidence_urls": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "requires_approval": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
+
