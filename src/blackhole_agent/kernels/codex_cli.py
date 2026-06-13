@@ -102,6 +102,11 @@ class CodexCliKernel:
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Codex CLI failed with exit code {result.returncode}; "
+                f"result details were written to {result_path}."
+            )
         return result
 
 

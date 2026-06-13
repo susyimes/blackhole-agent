@@ -52,8 +52,9 @@ def event_payload(event_id: str, kind: str, title: str, *, created_at: str | Non
 class FakeResponse:
     status_code = 200
 
-    def __init__(self, payload: list[dict]) -> None:
+    def __init__(self, payload: list[dict], *, links: dict | None = None) -> None:
         self._payload = payload
+        self.links = links or {}
 
     def json(self) -> list[dict]:
         return self._payload
@@ -67,6 +68,28 @@ class FakeSession:
     def get(self, url: str, **kwargs) -> FakeResponse:
         self.requests.append({"url": url, **kwargs})
         return FakeResponse(self.payload)
+
+
+class PagedFakeSession:
+    def __init__(self, responses: list[FakeResponse]) -> None:
+        self.responses = responses
+        self.requests: list[dict] = []
+
+    def get(self, url: str, **kwargs) -> FakeResponse:
+        self.requests.append({"url": url, **kwargs})
+        if not self.responses:
+            raise AssertionError("unexpected extra request")
+        return self.responses.pop(0)
+
+
+class FakeEventsClient:
+    def __init__(self, events: list[dict]) -> None:
+        self.events = events
+        self.per_page_values: list[int] = []
+
+    def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
+        self.per_page_values.append(per_page)
+        return self.events
 
 
 def digest_with_proposal() -> dict:
@@ -96,6 +119,26 @@ def test_normalize_pull_request_event_extracts_reviewable_text():
     assert event.title == "opened pull request: Add agent workflow benchmark"
     assert event.url == "https://github.com/example/repo/pull/1"
     assert event.actor == "octocat"
+
+
+def test_github_events_client_follows_paginated_event_links():
+    session = PagedFakeSession(
+        [
+            FakeResponse(
+                [event_payload("first-page", "PushEvent", "workflow one")],
+                links={"next": {"url": "https://api.example.test/page/2"}},
+            ),
+            FakeResponse([event_payload("second-page", "PushEvent", "workflow two")]),
+        ]
+    )
+    client = GitHubEventsClient(session=session, api_base_url="https://api.example.test")
+
+    events = client.list_repository_events("example/repo", per_page=50)
+
+    assert [event["id"] for event in events] == ["first-page", "second-page"]
+    assert session.requests[0]["params"] == {"per_page": 50}
+    assert session.requests[1]["url"] == "https://api.example.test/page/2"
+    assert session.requests[1]["params"] is None
 
 
 def test_select_new_events_uses_state_and_lookback_window():
@@ -169,6 +212,24 @@ def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     assert digest["proposals"][0]["kind"] == "code_patch"
     assert state["seen_event_ids"] == ["3"]
     assert fake_session.requests[0]["headers"]["Authorization"] == "Bearer test-token"
+
+
+def test_run_intake_once_updates_state_for_all_paginated_events(tmp_path):
+    events = [event_payload(str(index), "PushEvent", f"workflow update {index}") for index in range(101)]
+    client = FakeEventsClient(events)
+
+    result = run_intake_once(
+        repos=["example/repo"],
+        output_dir=tmp_path,
+        topics=["workflow"],
+        client=client,
+        max_events_per_repo=100,
+    )
+
+    state = json.loads(result.state_path.read_text(encoding="utf-8"))
+    assert client.per_page_values == [100]
+    assert len(state["seen_event_ids"]) == 101
+    assert "100" in state["seen_event_ids"]
 
 
 def test_github_growth_help():

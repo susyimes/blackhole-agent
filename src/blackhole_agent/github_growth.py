@@ -169,19 +169,28 @@ class GitHubEventsClient:
             self._headers["Authorization"] = f"Bearer {token}"
 
     def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict[str, Any]]:
+        if per_page < 1 or per_page > 100:
+            raise ValueError("per_page must be between 1 and 100")
         owner, name = parse_repo_spec(repo)
-        response = self._session.get(
-            f"{self._api_base_url}/repos/{owner}/{name}/events",
-            headers=self._headers,
-            params={"per_page": per_page},
-            timeout=self._timeout,
-        )
-        if response.status_code >= 400:
-            raise RuntimeError(f"GitHub events request failed for {repo}: HTTP {response.status_code}")
-        payload = response.json()
-        if not isinstance(payload, list):
-            raise RuntimeError(f"GitHub events request failed for {repo}: expected a JSON list")
-        return payload
+        url: str | None = f"{self._api_base_url}/repos/{owner}/{name}/events"
+        params: dict[str, int] | None = {"per_page": per_page}
+        events: list[dict[str, Any]] = []
+        while url:
+            response = self._session.get(
+                url,
+                headers=self._headers,
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code >= 400:
+                raise RuntimeError(f"GitHub events request failed for {repo}: HTTP {response.status_code}")
+            payload = response.json()
+            if not isinstance(payload, list):
+                raise RuntimeError(f"GitHub events request failed for {repo}: expected a JSON list")
+            events.extend(payload)
+            url = (getattr(response, "links", {}) or {}).get("next", {}).get("url")
+            params = None
+        return events
 
 
 def parse_repo_spec(repo: str) -> tuple[str, str]:
@@ -241,7 +250,7 @@ def select_new_events(
     state: GrowthState,
     *,
     lookback_hours: int,
-    max_events: int,
+    max_events: int | None = None,
 ) -> list[GitHubEvent]:
     newest_seen_at = state.last_seen_at_by_repo.get(repo)
     if newest_seen_at:
@@ -256,7 +265,7 @@ def select_new_events(
         if event.id in state.seen_event_ids or created_at < since:
             continue
         selected.append(event)
-        if len(selected) >= max_events:
+        if max_events is not None and len(selected) >= max_events:
             break
     return selected
 
@@ -666,7 +675,7 @@ def run_intake_once(
     for repo in normalized_repos:
         raw_events = github.list_repository_events(repo, per_page=max_events_per_repo)
         events.extend(
-            select_new_events(repo, raw_events, state, lookback_hours=lookback_hours, max_events=max_events_per_repo)
+            select_new_events(repo, raw_events, state, lookback_hours=lookback_hours)
         )
     events.sort(key=lambda event: parse_github_timestamp(event.created_at), reverse=True)
     signals = extract_growth_signals(events, topics=topics or list(DEFAULT_TOPICS))
@@ -744,7 +753,7 @@ def main(
     token_env: str = typer.Option("GITHUB_TOKEN", "--token-env", help="Environment variable containing a GitHub token."),
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance terms. Defaults to agent/workflow/test/security topics."),
     lookback_hours: int = typer.Option(1, "--lookback-hours", min=1, help="Initial lookback window when no state exists."),
-    max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub event fetch limit per repo."),
+    max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub event page size; all Link-paginated pages are fetched."),
     interval_seconds: int = typer.Option(0, "--interval-seconds", min=0, help="Run forever at this interval; 0 runs exactly once."),
     evolution_mode: str = typer.Option("digest", "--evolution-mode", help="One of: digest, plan, codex."),
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="blackhole-agent checkout to improve in plan/codex mode."),

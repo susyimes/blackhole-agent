@@ -1,6 +1,8 @@
 import json
 import subprocess
 
+import pytest
+
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, build_codex_exec_command
 
 
@@ -41,3 +43,21 @@ def test_codex_kernel_writes_task_and_result_files(tmp_path):
     assert result.task_path.read_text(encoding="utf-8") == "Improve tests"
     latest = json.loads((tmp_path / "out" / "latest-codex-run.json").read_text(encoding="utf-8"))
     assert latest["last_message"] == "done"
+
+
+def test_codex_kernel_raises_on_nonzero_exit_after_writing_result(tmp_path):
+    def fake_runner(command, **kwargs):
+        last_message = command[command.index("--output-last-message") + 1]
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write("partial failure details")
+        return subprocess.CompletedProcess(command, 7, stdout="partial stdout", stderr="boom")
+
+    kernel = CodexCliKernel(CodexCliConfig(codex_bin="codex"), command_runner=fake_runner)
+
+    with pytest.raises(RuntimeError, match="Codex CLI failed with exit code 7"):
+        kernel.run("Improve tests", cwd=tmp_path, output_dir=tmp_path / "out", timeout_seconds=12)
+
+    latest = json.loads((tmp_path / "out" / "latest-codex-run.json").read_text(encoding="utf-8"))
+    assert latest["returncode"] == 7
+    assert latest["last_message"] == "partial failure details"
+    assert latest["stderr_tail"] == "boom"
