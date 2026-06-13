@@ -3,9 +3,10 @@
 ## Phase 1: Local Read-Only Prototype
 
 - [x] Add a GitHub client using a local token from environment.
-- [x] Support an explicit repository allowlist.
+- [x] Discover public GitHub trend repositories with bounded repository search.
+- [x] Keep explicit repository lists available as a manual/debug mode.
 - [x] Fetch recent GitHub repository events and normalize issues, pull requests, commits, releases, and related activity.
-- [x] Persist a cursor and processed event IDs locally.
+- [x] Persist a cursor, processed event IDs, first-seen trend repositories, and last observed trend star counts locally.
 - [x] Generate hourly digest JSON and markdown files.
 - [x] Add tests for deduplication, cursor handling, digest writing, and controller behavior.
 

@@ -12,7 +12,7 @@ import shlex
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,12 +22,13 @@ from rich.console import Console
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 
-_HELP_TEXT = """Collect recent GitHub activity and turn it into reviewable growth proposals.
+_HELP_TEXT = """Discover public GitHub trends and turn them into reviewable growth proposals.
 
-By default the command is read-only against GitHub and writes local digest/state
-files. With `--evolution-mode plan` it turns signals into a concrete
-self-improvement task. With `--evolution-mode codex` it creates a branch and asks
-the local Codex CLI kernel to modify this repository locally.
+By default the command discovers recently created public repositories that are
+gaining attention, then writes local digest/state files. Pass `--repos` to use a
+manual repository list instead. With `--evolution-mode plan` it turns signals
+into a concrete self-improvement task. With `--evolution-mode codex` it creates
+a branch and asks the local Codex CLI kernel to modify this repository locally.
 """
 
 DEFAULT_TOPICS = (
@@ -51,6 +52,7 @@ INTERESTING_EVENT_TYPES = {
     "PullRequestReviewEvent",
     "PushEvent",
     "ReleaseEvent",
+    "RepositoryTrend",
     "WorkflowRunEvent",
 }
 HIGH_RISK_TERMS = ("auth", "credential", "secret", "security", "token")
@@ -94,19 +96,87 @@ class GrowthState:
 
     seen_event_ids: set[str] = field(default_factory=set)
     last_seen_at_by_repo: dict[str, str] = field(default_factory=dict)
+    trend_seen_repositories: set[str] = field(default_factory=set)
+    trend_last_stars_by_repo: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GrowthState":
         return cls(
             seen_event_ids=set(data.get("seen_event_ids", [])),
             last_seen_at_by_repo=dict(data.get("last_seen_at_by_repo", {})),
+            trend_seen_repositories=set(data.get("trend_seen_repositories", [])),
+            trend_last_stars_by_repo={
+                str(repo): int(stars) for repo, stars in dict(data.get("trend_last_stars_by_repo", {})).items()
+            },
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "seen_event_ids": sorted(self.seen_event_ids),
             "last_seen_at_by_repo": dict(sorted(self.last_seen_at_by_repo.items())),
+            "trend_seen_repositories": sorted(self.trend_seen_repositories),
+            "trend_last_stars_by_repo": dict(sorted(self.trend_last_stars_by_repo.items())),
         }
+
+
+@dataclass(frozen=True)
+class TrendingRepository:
+    """Repository metadata returned by GitHub repository search."""
+
+    full_name: str
+    html_url: str
+    description: str
+    language: str | None
+    stargazers_count: int
+    forks_count: int
+    open_issues_count: int
+    created_at: str
+    updated_at: str
+    pushed_at: str
+    topics: list[str]
+
+    @classmethod
+    def from_search_item(cls, item: dict[str, Any]) -> "TrendingRepository":
+        return cls(
+            full_name=str(item.get("full_name") or ""),
+            html_url=str(item.get("html_url") or ""),
+            description=_compact(item.get("description") or ""),
+            language=item.get("language"),
+            stargazers_count=int(item.get("stargazers_count") or 0),
+            forks_count=int(item.get("forks_count") or 0),
+            open_issues_count=int(item.get("open_issues_count") or 0),
+            created_at=str(item.get("created_at") or ""),
+            updated_at=str(item.get("updated_at") or ""),
+            pushed_at=str(item.get("pushed_at") or ""),
+            topics=[str(topic) for topic in item.get("topics") or []],
+        )
+
+
+@dataclass(frozen=True)
+class GitHubTrendConfig:
+    """Controls the GitHub repository search used to approximate public trends."""
+
+    query: str = ""
+    window_days: int = 7
+    min_stars: int = 25
+    limit: int = 10
+    sort: str = "stars"
+    order: str = "desc"
+    include_forks: bool = False
+
+
+@dataclass(frozen=True)
+class GitHubTrendSearchResult:
+    """Repositories discovered by one trend search."""
+
+    query: str
+    sort: str
+    order: str
+    window_days: int
+    min_stars: int
+    repositories: list[TrendingRepository]
+    total_count: int
+    incomplete_results: bool
 
 
 @dataclass(frozen=True)
@@ -147,7 +217,7 @@ class SelfEvolutionRunResult:
 
 
 class GitHubEventsClient:
-    """Small GitHub REST client for repository event feeds."""
+    """Small GitHub REST client for repository trend search and event feeds."""
 
     def __init__(
         self,
@@ -191,6 +261,69 @@ class GitHubEventsClient:
             url = (getattr(response, "links", {}) or {}).get("next", {}).get("url")
             params = None
         return events
+
+    def search_trending_repositories(
+        self,
+        config: GitHubTrendConfig,
+        *,
+        now: datetime | None = None,
+    ) -> GitHubTrendSearchResult:
+        if config.limit < 1 or config.limit > 100:
+            raise ValueError("trend limit must be between 1 and 100")
+        if config.window_days < 1:
+            raise ValueError("trend window days must be at least 1")
+        if config.min_stars < 0:
+            raise ValueError("trend min stars cannot be negative")
+        if config.sort not in {"stars", "forks", "updated"}:
+            raise ValueError("trend sort must be one of: stars, forks, updated")
+        if config.order not in {"asc", "desc"}:
+            raise ValueError("trend order must be one of: asc, desc")
+
+        query = build_trending_repository_query(config, now=now)
+        response = self._session.get(
+            f"{self._api_base_url}/search/repositories",
+            headers=self._headers,
+            params={
+                "q": query,
+                "sort": config.sort,
+                "order": config.order,
+                "per_page": config.limit,
+            },
+            timeout=self._timeout,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"GitHub trend search failed: HTTP {response.status_code}")
+        payload = response.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise RuntimeError("GitHub trend search failed: expected a JSON object with an items list")
+        repositories = [TrendingRepository.from_search_item(item) for item in payload["items"]]
+        repositories = [repo for repo in repositories if repo.full_name]
+        return GitHubTrendSearchResult(
+            query=query,
+            sort=config.sort,
+            order=config.order,
+            window_days=config.window_days,
+            min_stars=config.min_stars,
+            repositories=repositories,
+            total_count=int(payload.get("total_count") or 0),
+            incomplete_results=bool(payload.get("incomplete_results") or False),
+        )
+
+
+def build_trending_repository_query(config: GitHubTrendConfig, *, now: datetime | None = None) -> str:
+    now = now or datetime.now(timezone.utc)
+    created_since = (now - timedelta(days=config.window_days)).date()
+    return build_trending_repository_query_for_date(config, created_since=created_since)
+
+
+def build_trending_repository_query_for_date(config: GitHubTrendConfig, *, created_since: date) -> str:
+    terms = [config.query.strip()] if config.query.strip() else []
+    terms.append(f"created:>={created_since.isoformat()}")
+    if config.min_stars > 0:
+        terms.append(f"stars:>={config.min_stars}")
+    if not config.include_forks:
+        terms.append("fork:false")
+    return " ".join(terms)
 
 
 def parse_repo_spec(repo: str) -> tuple[str, str]:
@@ -278,6 +411,101 @@ def update_state(state: GrowthState, events: list[GitHubEvent]) -> None:
             state.last_seen_at_by_repo[event.repo] = event.created_at
 
 
+def update_trend_state(state: GrowthState, repositories: list[TrendingRepository]) -> None:
+    for repository in repositories:
+        state.trend_seen_repositories.add(repository.full_name)
+        state.trend_last_stars_by_repo[repository.full_name] = repository.stargazers_count
+
+
+def trend_repository_to_event(
+    repository: TrendingRepository,
+    *,
+    generated_at: str,
+    previous_stars: int | None = None,
+    first_seen: bool = True,
+) -> GitHubEvent:
+    language = repository.language or "unknown language"
+    topics = ", ".join(repository.topics[:6]) if repository.topics else "none"
+    if previous_stars is None:
+        star_delta = "unknown"
+    else:
+        star_delta = str(repository.stargazers_count - previous_stars)
+    title = (
+        f"trending repository: {repository.full_name} "
+        f"({repository.stargazers_count} stars, {language})"
+    )
+    summary = (
+        f"description={repository.description or 'none'}; "
+        f"stars={repository.stargazers_count}; forks={repository.forks_count}; "
+        f"open_issues={repository.open_issues_count}; star_delta_since_last_run={star_delta}; "
+        f"first_seen={first_seen}; created_at={repository.created_at}; pushed_at={repository.pushed_at}; "
+        f"topics={topics}"
+    )
+    return GitHubEvent(
+        id=f"trend:{repository.full_name}",
+        repo=repository.full_name,
+        kind="RepositoryTrend",
+        actor=repository.full_name.split("/", 1)[0],
+        created_at=generated_at,
+        title=title,
+        url=repository.html_url or _repo_url(repository.full_name),
+        summary=summary,
+    )
+
+
+def build_trend_events(
+    repositories: list[TrendingRepository],
+    *,
+    state: GrowthState,
+    generated_at: str,
+) -> list[GitHubEvent]:
+    return [
+        trend_repository_to_event(
+            repository,
+            generated_at=generated_at,
+            previous_stars=state.trend_last_stars_by_repo.get(repository.full_name),
+            first_seen=repository.full_name not in state.trend_seen_repositories,
+        )
+        for repository in repositories
+    ]
+
+
+def build_trend_source_metadata(result: GitHubTrendSearchResult, *, state: GrowthState) -> dict[str, Any]:
+    repositories: list[dict[str, Any]] = []
+    for repository in result.repositories:
+        previous_stars = state.trend_last_stars_by_repo.get(repository.full_name)
+        repositories.append(
+            {
+                "full_name": repository.full_name,
+                "html_url": repository.html_url,
+                "description": repository.description,
+                "language": repository.language,
+                "stargazers_count": repository.stargazers_count,
+                "forks_count": repository.forks_count,
+                "open_issues_count": repository.open_issues_count,
+                "star_delta_since_last_run": None
+                if previous_stars is None
+                else repository.stargazers_count - previous_stars,
+                "first_seen": repository.full_name not in state.trend_seen_repositories,
+                "created_at": repository.created_at,
+                "updated_at": repository.updated_at,
+                "pushed_at": repository.pushed_at,
+                "topics": repository.topics,
+            }
+        )
+    return {
+        "kind": "github_trending_repositories",
+        "query": result.query,
+        "sort": result.sort,
+        "order": result.order,
+        "window_days": result.window_days,
+        "min_stars": result.min_stars,
+        "total_count": result.total_count,
+        "incomplete_results": result.incomplete_results,
+        "repositories": repositories,
+    }
+
+
 def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> list[GrowthSignal]:
     topic_terms = [topic.lower() for topic in topics]
     signals: list[GrowthSignal] = []
@@ -312,6 +540,8 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
 def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
     if risk_flags:
         return "summarize the pattern and require human review before borrowing it"
+    if event.kind == "RepositoryTrend":
+        return "review the repository for reusable patterns and turn only one concrete lesson into a validation task"
     if event.kind == "ReleaseEvent":
         return "review release notes for reusable implementation or workflow changes"
     if event.kind == "PullRequestEvent":
@@ -329,10 +559,11 @@ def build_digest(
     *,
     state: GrowthState,
     generated_at: str | None = None,
+    source: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     generated_at = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     digest_id = "github-growth-" + generated_at.replace("-", "").replace(":", "").replace("+00:00", "Z")
-    return {
+    digest = {
         "digest_id": digest_id,
         "generated_at": generated_at,
         "repositories": repos,
@@ -350,6 +581,9 @@ def build_digest(
         ],
         "proposals": build_proposals(signals),
     }
+    if source is not None:
+        digest["source"] = source
+    return digest
 
 
 def build_proposals(signals: list[GrowthSignal], *, limit: int = 5) -> list[dict[str, Any]]:
@@ -370,6 +604,8 @@ def build_proposals(signals: list[GrowthSignal], *, limit: int = 5) -> list[dict
 def classify_proposal_kind(signal: GrowthSignal) -> str:
     if signal.risk_flags:
         return "follow_up_issue"
+    if signal.kind == "RepositoryTrend":
+        return "follow_up_issue"
     if signal.kind == "ReleaseEvent":
         return "documentation"
     if signal.kind == "PushEvent":
@@ -388,9 +624,42 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
         f"Digest: `{digest['digest_id']}`",
         f"Generated: {digest['generated_at']}",
         "",
-        "## Sources",
-        "",
     ]
+    source = digest.get("source")
+    if source:
+        lines.extend(
+            [
+                "## Trend Source",
+                "",
+                f"- Kind: `{source.get('kind', 'unknown')}`",
+                f"- Query: `{source.get('query', '')}`",
+                f"- Sort: `{source.get('sort', '')} {source.get('order', '')}`",
+                f"- Total matches: {source.get('total_count', 0)}",
+                f"- Incomplete results: {source.get('incomplete_results', False)}",
+                "",
+            ]
+        )
+        event_fetch_errors = source.get("event_fetch_errors") or []
+        if event_fetch_errors:
+            lines.extend(["### Event Fetch Warnings", ""])
+            for error in event_fetch_errors:
+                lines.append(f"- `{error.get('repo', 'unknown')}`: {error.get('error', '')}")
+            lines.append("")
+        repositories = source.get("repositories") or []
+        if repositories:
+            lines.extend(["### Trending Repositories", ""])
+            for repository in repositories:
+                delta = repository.get("star_delta_since_last_run")
+                delta_text = "unknown" if delta is None else f"{delta:+d}"
+                first_seen = "new" if repository.get("first_seen") else "seen"
+                lines.append(
+                    "- "
+                    f"[{repository['full_name']}]({repository['html_url']}) "
+                    f"- {repository.get('stargazers_count', 0)} stars ({delta_text}), "
+                    f"{repository.get('language') or 'unknown language'}, {first_seen}"
+                )
+            lines.append("")
+    lines.extend(["## Sources", ""])
     for repo in digest["repositories"]:
         lines.append(f"- `{repo}`")
     lines.extend(["", "## Items", ""])
@@ -655,32 +924,56 @@ def run_controller_command(
 
 def run_intake_once(
     *,
-    repos: list[str],
+    repos: list[str] | None = None,
     output_dir: Path,
     state_path: Path | None = None,
     token: str | None = None,
     topics: list[str] | None = None,
     lookback_hours: int = 1,
     max_events_per_repo: int = 100,
+    trend_config: GitHubTrendConfig | None = None,
     client: GitHubEventsClient | None = None,
 ) -> DigestWriteResult:
-    if not repos:
+    repo_specs = repos or []
+    if not repo_specs and trend_config is None:
         raise ValueError("At least one repository is required")
-    normalized_repos = ["/".join(parse_repo_spec(repo)) for repo in repos]
+    normalized_repos = ["/".join(parse_repo_spec(repo)) for repo in repo_specs]
     state_file = state_path or output_dir / "state.json"
     state = load_state(state_file)
     github = client or GitHubEventsClient(token=token)
+    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    trend_result: GitHubTrendSearchResult | None = None
+    trend_events: list[GitHubEvent] = []
+    trend_source: dict[str, Any] | None = None
+    if trend_config is not None:
+        trend_result = github.search_trending_repositories(trend_config)
+        trend_repos = [repository.full_name for repository in trend_result.repositories]
+        normalized_repos = list(dict.fromkeys([*normalized_repos, *trend_repos]))
+        trend_events = build_trend_events(trend_result.repositories, state=state, generated_at=generated_at)
+        trend_source = build_trend_source_metadata(trend_result, state=state)
 
     events: list[GitHubEvent] = []
+    event_fetch_errors: list[dict[str, str]] = []
     for repo in normalized_repos:
-        raw_events = github.list_repository_events(repo, per_page=max_events_per_repo)
+        try:
+            raw_events = github.list_repository_events(repo, per_page=max_events_per_repo)
+        except RuntimeError as error:
+            if trend_config is None:
+                raise
+            event_fetch_errors.append({"repo": repo, "error": str(error)})
+            continue
         events.extend(
             select_new_events(repo, raw_events, state, lookback_hours=lookback_hours)
         )
+    if trend_source is not None:
+        trend_source["event_fetch_errors"] = event_fetch_errors
     events.sort(key=lambda event: parse_github_timestamp(event.created_at), reverse=True)
-    signals = extract_growth_signals(events, topics=topics or list(DEFAULT_TOPICS))
+    signals = extract_growth_signals([*trend_events, *events], topics=topics or list(DEFAULT_TOPICS))
     update_state(state, events)
-    digest = build_digest(normalized_repos, signals, state=state)
+    if trend_result is not None:
+        update_trend_state(state, trend_result.repositories)
+    digest = build_digest(normalized_repos, signals, state=state, generated_at=generated_at, source=trend_source)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -747,12 +1040,19 @@ def _repo_url(repo: str) -> str:
 # fmt: off
 @app.command(help=_HELP_TEXT)
 def main(
-    repos: str = typer.Option("", "--repos", "-r", help="Comma-separated GitHub repositories in owner/name form."),
+    repos: str = typer.Option("", "--repos", "-r", help="Optional comma-separated repositories; omit to discover public GitHub trends."),
+    trend_query: str = typer.Option("", "--trend-query", help="Additional GitHub repository search terms, such as language:Python or topic:agents."),
+    trend_window_days: int = typer.Option(7, "--trend-window-days", min=1, help="Discover repositories created within this many days."),
+    trend_min_stars: int = typer.Option(25, "--trend-min-stars", min=0, help="Minimum stars for discovered trend repositories."),
+    trend_limit: int = typer.Option(10, "--trend-limit", min=1, max=100, help="Maximum trend repositories to track per pass."),
+    trend_sort: str = typer.Option("stars", "--trend-sort", help="Trend search sort: stars, forks, or updated."),
+    trend_order: str = typer.Option("desc", "--trend-order", help="Trend search order: asc or desc."),
+    include_forks: bool = typer.Option(False, "--include-forks", help="Include forked repositories in trend discovery."),
     output_dir: Path = typer.Option(Path(".blackhole-agent/github-growth"), "--output-dir", "-o", help="Directory for digest and state files."),
     state_path: Path | None = typer.Option(None, "--state", help="State file path. Defaults to <output-dir>/state.json."),
     token_env: str = typer.Option("GITHUB_TOKEN", "--token-env", help="Environment variable containing a GitHub token."),
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance terms. Defaults to agent/workflow/test/security topics."),
-    lookback_hours: int = typer.Option(1, "--lookback-hours", min=1, help="Initial lookback window when no state exists."),
+    lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window when no state exists."),
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub event page size; all Link-paginated pages are fetched."),
     interval_seconds: int = typer.Option(0, "--interval-seconds", min=0, help="Run forever at this interval; 0 runs exactly once."),
     evolution_mode: str = typer.Option("digest", "--evolution-mode", help="One of: digest, plan, codex."),
@@ -769,14 +1069,27 @@ def main(
 ) -> None:
     # fmt: on
     repo_list = parse_comma_separated(repos)
-    if not repo_list:
-        raise typer.BadParameter("Pass at least one repository with --repos owner/name")
     if evolution_mode not in {"digest", "plan", "codex"}:
         raise typer.BadParameter("--evolution-mode must be one of: digest, plan, codex")
+    if trend_sort not in {"stars", "forks", "updated"}:
+        raise typer.BadParameter("--trend-sort must be one of: stars, forks, updated")
+    if trend_order not in {"asc", "desc"}:
+        raise typer.BadParameter("--trend-order must be one of: asc, desc")
     if evolution_mode == "codex" and interval_seconds > 0:
         raise typer.BadParameter("--evolution-mode codex is one-shot; use a scheduler to launch separate runs")
     topic_list = parse_comma_separated(topics) or list(DEFAULT_TOPICS)
     token = os.getenv(token_env)
+    trend_config = None
+    if not repo_list:
+        trend_config = GitHubTrendConfig(
+            query=trend_query,
+            window_days=trend_window_days,
+            min_stars=trend_min_stars,
+            limit=trend_limit,
+            sort=trend_sort,
+            order=trend_order,
+            include_forks=include_forks,
+        )
 
     while True:
         result = run_intake_once(
@@ -787,7 +1100,14 @@ def main(
             topics=topic_list,
             lookback_hours=lookback_hours,
             max_events_per_repo=max_events_per_repo,
+            trend_config=trend_config,
         )
+        source = result.digest.get("source") or {}
+        if source:
+            console.print(
+                f"Trend search tracked {len(source.get('repositories') or [])} repo(s) "
+                f"from query [bold]{source.get('query', '')}[/bold]"
+            )
         console.print(f"Wrote {len(result.digest['items'])} item(s) to [bold green]{result.markdown_path}[/bold green]")
         if evolution_mode in {"plan", "codex"}:
             plan = build_self_evolution_plan(

@@ -15,6 +15,72 @@
       "type": "object",
       "additionalProperties": { "type": "string" }
     },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "query", "sort", "order", "repositories"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["github_trending_repositories"]
+        },
+        "query": { "type": "string" },
+        "sort": { "type": "string" },
+        "order": { "type": "string" },
+        "window_days": { "type": "integer", "minimum": 1 },
+        "min_stars": { "type": "integer", "minimum": 0 },
+        "total_count": { "type": "integer", "minimum": 0 },
+        "incomplete_results": { "type": "boolean" },
+        "event_fetch_errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["repo", "error"],
+            "properties": {
+              "repo": { "type": "string" },
+              "error": { "type": "string" }
+            }
+          }
+        },
+        "repositories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "full_name",
+              "html_url",
+              "stargazers_count",
+              "forks_count",
+              "star_delta_since_last_run",
+              "first_seen",
+              "created_at",
+              "updated_at",
+              "pushed_at"
+            ],
+            "properties": {
+              "full_name": { "type": "string" },
+              "html_url": { "type": "string" },
+              "description": { "type": "string" },
+              "language": { "type": ["string", "null"] },
+              "stargazers_count": { "type": "integer", "minimum": 0 },
+              "forks_count": { "type": "integer", "minimum": 0 },
+              "open_issues_count": { "type": "integer", "minimum": 0 },
+              "star_delta_since_last_run": { "type": ["integer", "null"] },
+              "first_seen": { "type": "boolean" },
+              "created_at": { "type": "string" },
+              "updated_at": { "type": "string" },
+              "pushed_at": { "type": "string" },
+              "topics": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
     "items": {
       "type": "array",
       "items": {

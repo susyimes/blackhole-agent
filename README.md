@@ -4,7 +4,7 @@ Linear issue: https://linear.app/svmes/issue/SVM-23/黑洞项目自动在github�
 
 This repository is the durable private GitHub artifact for SVM-23.
 
-SVM-23 describes a "black hole" agent that periodically asks GitHub for updates, extracts useful signals, and uses those signals to improve itself. The implementation is now based on the small controller style from `susyimes/mini-swe-agent`, especially its GitHub growth loop, with a local Codex CLI kernel for bounded self-improvement runs.
+SVM-23 describes a "black hole" agent that periodically scans public GitHub trends, extracts useful signals, and uses those signals to improve itself. The implementation is now based on the small controller style from `susyimes/mini-swe-agent`, with a GitHub trend-discovery loop and a local Codex CLI kernel for bounded self-improvement runs.
 
 This repo intentionally does not contain credentials, default scheduled jobs, GitHub write automation, or automatic self-push behavior.
 
@@ -12,7 +12,8 @@ This repo intentionally does not contain credentials, default scheduled jobs, Gi
 
 ```text
 hourly trigger
-  -> GitHub intake with explicit repo allowlist
+  -> GitHub trend discovery for recently created / fast-attention public repos
+  -> recent event intake for discovered repos
   -> relevance filter
   -> learning digest
   -> candidate improvement proposals
@@ -26,7 +27,7 @@ hourly trigger
 
 - Python package: `blackhole_agent`
 - CLI: `blackhole` or `blackhole-agent`
-- GitHub growth controller: `blackhole_agent.github_growth`
+- GitHub trend and growth controller: `blackhole_agent.github_growth`
 - Local Codex CLI kernel: `blackhole_agent.kernels.codex_cli`
 - Structured digest output follows `schemas/hourly-digest.schema.json`
 
@@ -36,19 +37,32 @@ Install and run locally:
 uv run blackhole --help
 ```
 
-Create a read-only digest:
+Create a read-only public trend digest:
 
 ```bash
 uv run blackhole \
-  --repos susyimes/blackhole-agent,susyimes/mini-swe-agent \
+  --trend-query "topic:ai" \
+  --trend-window-days 7 \
+  --trend-min-stars 25 \
+  --trend-limit 10 \
   --output-dir .blackhole-agent/github-growth
 ```
 
-Create a reviewable self-evolution task without running Codex:
+GitHub does not expose an official "Trending" REST endpoint, so the controller approximates trends with repository search: recently created public repositories, minimum stars, sorted by stars/forks/updated. Each run stores a snapshot plus `star_delta_since_last_run` in local state.
+
+Create a digest from a manual repository list instead of public trends:
 
 ```bash
 uv run blackhole \
-  --repos susyimes/mini-swe-agent \
+  --repos susyimes/mini-swe-agent,susyimes/blackhole-agent \
+  --output-dir .blackhole-agent/github-growth
+```
+
+Create a reviewable self-evolution task from public trend signals without running Codex:
+
+```bash
+uv run blackhole \
+  --trend-query "agent language:Python" \
   --evolution-mode plan \
   --repo-path .
 ```
@@ -57,7 +71,7 @@ Run the local Codex CLI kernel on a prepared branch:
 
 ```bash
 uv run blackhole \
-  --repos susyimes/mini-swe-agent \
+  --trend-query "agent language:Python" \
   --evolution-mode codex \
   --repo-path . \
   --branch-prefix codex/blackhole-evolve
@@ -83,9 +97,10 @@ uv run blackhole \
 
 ## Next Implementation Inputs
 
-Before coding the live agent, decide:
+Before running the live agent continuously, decide:
 
-- Which event types it may ingest: commits, PRs, issues, releases, workflow runs, or all activity.
+- Which trend slices it should watch: global, AI, agent frameworks, developer tools, security, workflow automation, or language-specific niches.
+- Which event types it may ingest from discovered repositories: commits, PRs, issues, releases, workflow runs, or all activity.
 - Whether the agent may open PRs, write Linear comments, or only produce local reports.
 - Which runtime should schedule it: GitHub Actions, local daemon, serverless, or another scheduler.
 - How approval should work for self-updates.

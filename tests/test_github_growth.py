@@ -1,15 +1,19 @@
 import json
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from typer.testing import CliRunner
 
 from blackhole_agent.github_growth import (
     GitHubEventsClient,
+    GitHubTrendConfig,
+    GitHubTrendSearchResult,
     GrowthState,
+    TrendingRepository,
     app,
     build_self_evolution_plan,
+    build_trending_repository_query_for_date,
     extract_growth_signals,
     normalize_event,
     prepare_self_evolution_branch,
@@ -52,11 +56,11 @@ def event_payload(event_id: str, kind: str, title: str, *, created_at: str | Non
 class FakeResponse:
     status_code = 200
 
-    def __init__(self, payload: list[dict], *, links: dict | None = None) -> None:
+    def __init__(self, payload: object, *, links: dict | None = None) -> None:
         self._payload = payload
         self.links = links or {}
 
-    def json(self) -> list[dict]:
+    def json(self) -> object:
         return self._payload
 
 
@@ -90,6 +94,38 @@ class FakeEventsClient:
     def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
         self.per_page_values.append(per_page)
         return self.events
+
+
+class FakeTrendClient:
+    def __init__(self, result: GitHubTrendSearchResult, *, failed_repos: set[str] | None = None) -> None:
+        self.result = result
+        self.failed_repos = failed_repos or set()
+        self.event_repo_calls: list[str] = []
+
+    def search_trending_repositories(self, config: GitHubTrendConfig) -> GitHubTrendSearchResult:
+        return self.result
+
+    def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
+        self.event_repo_calls.append(repo)
+        if repo in self.failed_repos:
+            raise RuntimeError(f"GitHub events request failed for {repo}: HTTP 403")
+        return []
+
+
+def trend_repository(*, stars: int = 125) -> TrendingRepository:
+    return TrendingRepository(
+        full_name="example/trend-agent",
+        html_url="https://github.com/example/trend-agent",
+        description="A useful agent workflow project",
+        language="Python",
+        stargazers_count=stars,
+        forks_count=12,
+        open_issues_count=3,
+        created_at="2026-06-10T00:00:00Z",
+        updated_at="2026-06-13T00:00:00Z",
+        pushed_at="2026-06-13T00:00:00Z",
+        topics=["agent", "workflow"],
+    )
 
 
 def digest_with_proposal() -> dict:
@@ -139,6 +175,55 @@ def test_github_events_client_follows_paginated_event_links():
     assert session.requests[0]["params"] == {"per_page": 50}
     assert session.requests[1]["url"] == "https://api.example.test/page/2"
     assert session.requests[1]["params"] is None
+
+
+def test_build_trending_repository_query_adds_recent_stars_and_fork_filters():
+    query = build_trending_repository_query_for_date(
+        GitHubTrendConfig(query="language:Python topic:agents", window_days=7, min_stars=25),
+        created_since=date(2026, 6, 1),
+    )
+
+    assert query == "language:Python topic:agents created:>=2026-06-01 stars:>=25 fork:false"
+
+
+def test_github_events_client_searches_trending_repositories():
+    payload = {
+        "total_count": 42,
+        "incomplete_results": False,
+        "items": [
+            {
+                "full_name": "example/trend-agent",
+                "html_url": "https://github.com/example/trend-agent",
+                "description": "A useful agent workflow project",
+                "language": "Python",
+                "stargazers_count": 125,
+                "forks_count": 12,
+                "open_issues_count": 3,
+                "created_at": "2026-06-10T00:00:00Z",
+                "updated_at": "2026-06-13T00:00:00Z",
+                "pushed_at": "2026-06-13T00:00:00Z",
+                "topics": ["agent", "workflow"],
+            }
+        ],
+    }
+    session = FakeSession(payload)
+    client = GitHubEventsClient(session=session, api_base_url="https://api.example.test")
+
+    result = client.search_trending_repositories(
+        GitHubTrendConfig(query="language:Python", window_days=3, min_stars=20, limit=5),
+        now=datetime(2026, 6, 13, tzinfo=timezone.utc),
+    )
+
+    assert session.requests[0]["url"] == "https://api.example.test/search/repositories"
+    assert session.requests[0]["params"] == {
+        "q": "language:Python created:>=2026-06-10 stars:>=20 fork:false",
+        "sort": "stars",
+        "order": "desc",
+        "per_page": 5,
+    }
+    assert result.total_count == 42
+    assert result.repositories[0].full_name == "example/trend-agent"
+    assert result.repositories[0].stargazers_count == 125
 
 
 def test_select_new_events_uses_state_and_lookback_window():
@@ -232,12 +317,86 @@ def test_run_intake_once_updates_state_for_all_paginated_events(tmp_path):
     assert "100" in state["seen_event_ids"]
 
 
+def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "seen_event_ids": [],
+                "last_seen_at_by_repo": {},
+                "trend_seen_repositories": ["example/trend-agent"],
+                "trend_last_stars_by_repo": {"example/trend-agent": 100},
+            }
+        ),
+        encoding="utf-8",
+    )
+    trend_result = GitHubTrendSearchResult(
+        query="created:>=2026-06-06 stars:>=25 fork:false",
+        sort="stars",
+        order="desc",
+        window_days=7,
+        min_stars=25,
+        repositories=[trend_repository(stars=125)],
+        total_count=1,
+        incomplete_results=False,
+    )
+    client = FakeTrendClient(trend_result)
+
+    result = run_intake_once(
+        output_dir=tmp_path,
+        state_path=state_path,
+        trend_config=GitHubTrendConfig(),
+        client=client,
+    )
+
+    digest = result.digest
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert digest["repositories"] == ["example/trend-agent"]
+    assert digest["source"]["kind"] == "github_trending_repositories"
+    assert digest["source"]["event_fetch_errors"] == []
+    assert digest["source"]["repositories"][0]["star_delta_since_last_run"] == 25
+    assert digest["source"]["repositories"][0]["first_seen"] is False
+    assert digest["items"][0]["event_kind"] == "RepositoryTrend"
+    assert digest["proposals"][0]["kind"] == "follow_up_issue"
+    assert client.event_repo_calls == ["example/trend-agent"]
+    assert state["trend_last_stars_by_repo"]["example/trend-agent"] == 125
+
+
+def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
+    trend_result = GitHubTrendSearchResult(
+        query="created:>=2026-06-06 stars:>=25 fork:false",
+        sort="stars",
+        order="desc",
+        window_days=7,
+        min_stars=25,
+        repositories=[trend_repository()],
+        total_count=1,
+        incomplete_results=False,
+    )
+    client = FakeTrendClient(trend_result, failed_repos={"example/trend-agent"})
+
+    result = run_intake_once(
+        output_dir=tmp_path,
+        trend_config=GitHubTrendConfig(),
+        client=client,
+    )
+
+    assert result.digest["items"][0]["event_kind"] == "RepositoryTrend"
+    assert result.digest["source"]["event_fetch_errors"] == [
+        {
+            "repo": "example/trend-agent",
+            "error": "GitHub events request failed for example/trend-agent: HTTP 403",
+        }
+    ]
+
+
 def test_github_growth_help():
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
 
     assert result.exit_code == 0
-    assert "Collect recent GitHub activity" in result.stdout
+    assert "Discover public GitHub trends" in result.stdout
+    assert "--trend-query" in result.stdout
     assert "codex" in result.stdout
 
 

@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build an agent that periodically ingests GitHub changes and converts them into useful, reviewable improvement proposals. The agent should learn from repositories without becoming an uncontrolled self-modifying system.
+Build an agent that periodically tracks public GitHub trends and converts them into useful, reviewable improvement proposals. The agent should learn from the broader ecosystem without becoming an uncontrolled self-modifying system.
 
 ## Components
 
@@ -12,16 +12,26 @@ Runs the intake job once per hour. It owns the last-seen cursor and should never
 
 Recommended first choice:
 
-- GitHub Actions for a repository-scoped agent.
+- GitHub Actions or another hourly scheduler for a read-only trend scanner.
 
 Alternative choices:
 
 - Local daemon for private workstation experiments.
-- Serverless timer for cross-repository organization monitoring.
+- Serverless timer for broader public trend monitoring.
 
 ### GitHub Intake
 
-Reads only explicitly allowed repositories and event types.
+Discovers recently created public repositories that are gaining attention, then reads recent events for those repositories. A manual repository list remains available for debugging and narrow experiments.
+
+Trend discovery uses GitHub repository search with bounded query parameters:
+
+- creation window
+- minimum stars
+- optional search terms such as `topic:ai` or `language:Python`
+- sort by stars, forks, or updated time
+- fork inclusion policy
+
+The digest should keep a trend snapshot with star count, first-seen status, and star delta since the previous run.
 
 Initial event types:
 
@@ -113,6 +123,8 @@ Required for:
 The minimum durable state:
 
 - cursor per repository
+- first-seen trend repositories
+- last observed star count per trend repository
 - digest ID
 - processed event IDs
 - proposal IDs
