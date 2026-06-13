@@ -21,6 +21,7 @@ from blackhole_agent.github_growth import (
     run_self_evolution_codex,
     select_new_events,
 )
+from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
 
 
 def event_payload(event_id: str, kind: str, title: str, *, created_at: str | None = None) -> dict:
@@ -420,8 +421,23 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert plan is not None
     assert plan.branch_name.startswith("codex/blackhole-evolve/")
     assert "You are Codex running as the local kernel for blackhole-agent." in plan.task
+    assert f"Persona version: {PERSONA_VERSION}" in plan.task
+    assert "Core mechanism:" in plan.task
+    assert "Rollback contract:" in plan.task
+    assert "Track GitHub trends on a scheduled cadence, normally hourly." in plan.task
+    assert "A restart must be performed by an external scheduler or supervisor" in plan.task
     assert "Do not push, merge" in plan.task
     assert "Improve agent workflow tests" in plan.task
+
+
+def test_persona_layer_captures_operational_self_model():
+    rendered = render_persona_layer()
+
+    assert "Persona layer: blackhole-agent" in rendered
+    assert "Selection policy:" in rendered
+    assert "Make at most one conceptual improvement per kernel run." in rendered
+    assert "create a rollback point" in rendered
+    assert "Do not optimize for virality" in rendered
 
 
 def test_prepare_self_evolution_branch_rejects_dirty_worktree(tmp_path):
@@ -434,6 +450,46 @@ def test_prepare_self_evolution_branch_rejects_dirty_worktree(tmp_path):
 
     with pytest.raises(RuntimeError, match="dirty worktree"):
         prepare_self_evolution_branch(plan, command_runner=dirty_runner)
+
+
+def test_prepare_self_evolution_branch_writes_rollback_point(tmp_path):
+    plan = build_self_evolution_plan(digest_with_proposal(), repo_path=tmp_path)
+    assert plan is not None
+    commands = []
+
+    def runner(command, **kwargs):
+        commands.append((command, kwargs))
+        if command == ["git", "status", "--porcelain"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command == ["git", "rev-parse", "--verify", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="abc123def4567890\n", stderr="")
+        if command == ["git", "branch", "--show-current"]:
+            return subprocess.CompletedProcess(command, 0, stdout="main\n", stderr="")
+        if command[:2] == ["git", "update-ref"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "switch", "-c"]:
+            return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    rollback_point = prepare_self_evolution_branch(
+        plan,
+        output_dir=tmp_path / "out",
+        command_runner=runner,
+    )
+
+    assert rollback_point is not None
+    assert rollback_point.original_branch == "main"
+    assert rollback_point.original_head == "abc123def4567890"
+    assert rollback_point.rollback_ref.startswith("refs/blackhole-agent/rollback/")
+    assert rollback_point.restore_commands[0] == ["git", "switch", "main"]
+    assert rollback_point.restore_commands[1] == ["git", "reset", "--hard", rollback_point.rollback_ref]
+    assert (tmp_path / "out" / "latest-rollback-point.json").exists()
+    assert (tmp_path / "out" / "latest-rollback-point.md").exists()
+    latest = json.loads((tmp_path / "out" / "latest-rollback-point.json").read_text(encoding="utf-8"))
+    assert latest["original_head"] == "abc123def4567890"
+    assert latest["restore_commands"][2] == ["git", "clean", "-fd"]
+    assert commands[3][0][:2] == ["git", "update-ref"]
+    assert commands[4][0] == ["git", "switch", "-c", plan.branch_name]
 
 
 def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):

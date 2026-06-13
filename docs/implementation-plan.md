@@ -23,6 +23,7 @@
 - [x] Pass long tasks through stdin instead of command-line arguments.
 - [x] Capture Codex's final message and run metadata as local artifacts.
 - [x] Add `--evolution-mode codex` to create a branch and run the kernel locally.
+- [x] Write a rollback point before local self-evolution branch creation.
 - [x] Add tests that verify Codex command construction without invoking the real CLI.
 
 ## Phase 3: Approval-Gated Writes

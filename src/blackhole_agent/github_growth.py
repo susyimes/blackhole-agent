@@ -21,6 +21,7 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
+from blackhole_agent.persona import render_persona_layer
 
 _HELP_TEXT = """Discover public GitHub trends and turn them into reviewable growth proposals.
 
@@ -214,6 +215,19 @@ class SelfEvolutionRunResult:
     stdout_tail: str
     stderr_tail: str
     last_message: str
+
+
+@dataclass(frozen=True)
+class RollbackPoint:
+    """A local recovery anchor captured before a self-evolution run mutates code."""
+
+    created_at: str
+    repo_path: str
+    original_branch: str
+    original_head: str
+    rollback_ref: str
+    status_porcelain: str
+    restore_commands: list[list[str]]
 
 
 class GitHubEventsClient:
@@ -782,6 +796,8 @@ def render_self_evolution_task(
         [
             "You are Codex running as the local kernel for blackhole-agent.",
             "",
+            render_persona_layer(),
+            "",
             f"Repository path: {repo_path}",
             f"Working branch prepared by controller: {branch_name}",
             f"Source digest: {digest_id}",
@@ -838,18 +854,128 @@ def write_self_evolution_plan(output_dir: Path, plan: SelfEvolutionPlan) -> tupl
     return json_path, markdown_path
 
 
+def create_rollback_point(
+    *,
+    repo_path: Path,
+    status_porcelain: str,
+    command_runner: Any = subprocess.run,
+) -> RollbackPoint:
+    """Create a durable local git ref that can restore the pre-evolution HEAD."""
+
+    created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    head = run_controller_command(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=True,
+    ).stdout.strip()
+    branch = run_controller_command(
+        ["git", "branch", "--show-current"],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=True,
+    ).stdout.strip()
+    rollback_ref = f"refs/blackhole-agent/rollback/{timestamp}-{head[:12]}"
+    run_controller_command(
+        ["git", "update-ref", rollback_ref, head],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=True,
+    )
+    restore_commands = build_restore_commands(original_branch=branch, rollback_ref=rollback_ref)
+    return RollbackPoint(
+        created_at=created_at,
+        repo_path=str(repo_path),
+        original_branch=branch,
+        original_head=head,
+        rollback_ref=rollback_ref,
+        status_porcelain=status_porcelain,
+        restore_commands=restore_commands,
+    )
+
+
+def build_restore_commands(*, original_branch: str, rollback_ref: str) -> list[list[str]]:
+    checkout_command = ["git", "switch", original_branch] if original_branch else ["git", "switch", "--detach", rollback_ref]
+    return [
+        checkout_command,
+        ["git", "reset", "--hard", rollback_ref],
+        ["git", "clean", "-fd"],
+    ]
+
+
+def write_rollback_point(output_dir: Path, rollback_point: RollbackPoint) -> tuple[Path, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    json_path = output_dir / f"rollback-point-{timestamp}.json"
+    markdown_path = output_dir / f"rollback-point-{timestamp}.md"
+    json_text = json.dumps(asdict(rollback_point), indent=2, sort_keys=True) + "\n"
+    markdown_text = render_rollback_point_markdown(rollback_point)
+    json_path.write_text(json_text, encoding="utf-8")
+    markdown_path.write_text(markdown_text, encoding="utf-8")
+    (output_dir / "latest-rollback-point.json").write_text(json_text, encoding="utf-8")
+    (output_dir / "latest-rollback-point.md").write_text(markdown_text, encoding="utf-8")
+    return json_path, markdown_path
+
+
+def render_rollback_point_markdown(rollback_point: RollbackPoint) -> str:
+    lines = [
+        "# Rollback Point",
+        "",
+        f"Created: {rollback_point.created_at}",
+        f"Repository: `{rollback_point.repo_path}`",
+        f"Original branch: `{rollback_point.original_branch or '(detached HEAD)'}`",
+        f"Original HEAD: `{rollback_point.original_head}`",
+        f"Rollback ref: `{rollback_point.rollback_ref}`",
+        "",
+        "## Recovery Commands",
+        "",
+        "Run these from the repository root only after choosing to discard the failed self-evolution diff:",
+        "",
+    ]
+    lines.extend(f"```bash\n{render_shell_command(command)}\n```" for command in rollback_point.restore_commands)
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            "",
+            "- `git reset --hard` discards tracked working tree changes.",
+            "- `git clean -fd` removes untracked files and directories.",
+            "- Keep this artifact outside any cleanup path until the recovered agent has started successfully.",
+            "",
+        ]
+    )
+    if rollback_point.status_porcelain.strip():
+        lines.extend(["## Pre-Run Dirty Status", "", "```text", rollback_point.status_porcelain.rstrip(), "```", ""])
+    return "\n".join(lines)
+
+
+def render_shell_command(command: list[str]) -> str:
+    return " ".join(shlex.quote(part) for part in command)
+
+
 def prepare_self_evolution_branch(
     plan: SelfEvolutionPlan,
     *,
+    output_dir: Path | None = None,
     allow_dirty: bool = False,
     command_runner: Any = subprocess.run,
-) -> None:
+) -> RollbackPoint | None:
     repo_path = Path(plan.repo_path)
+    status = run_controller_command(["git", "status", "--porcelain"], cwd=repo_path, command_runner=command_runner)
     if not allow_dirty:
-        status = run_controller_command(["git", "status", "--porcelain"], cwd=repo_path, command_runner=command_runner)
         if status.stdout.strip():
             raise RuntimeError("Refusing self-evolution on a dirty worktree. Commit/stash changes or pass --allow-dirty.")
+    rollback_point: RollbackPoint | None = None
+    if output_dir is not None:
+        rollback_point = create_rollback_point(
+            repo_path=repo_path,
+            status_porcelain=status.stdout,
+            command_runner=command_runner,
+        )
+        write_rollback_point(output_dir, rollback_point)
     run_controller_command(["git", "switch", "-c", plan.branch_name], cwd=repo_path, command_runner=command_runner, check=True)
+    return rollback_point
 
 
 def run_self_evolution_codex(
@@ -1123,7 +1249,16 @@ def main(
                 _, markdown_path = write_self_evolution_plan(output_dir, plan)
                 console.print(f"Wrote self-evolution plan to [bold green]{markdown_path}[/bold green]")
                 if evolution_mode == "codex":
-                    prepare_self_evolution_branch(plan, allow_dirty=allow_dirty)
+                    rollback_point = prepare_self_evolution_branch(
+                        plan,
+                        output_dir=output_dir,
+                        allow_dirty=allow_dirty,
+                    )
+                    if rollback_point is not None:
+                        console.print(
+                            "Wrote rollback point to "
+                            f"[bold green]{output_dir / 'latest-rollback-point.md'}[/bold green]"
+                        )
                     run_result = run_self_evolution_codex(
                         plan,
                         output_dir=output_dir,

@@ -86,7 +86,7 @@ The default output is a proposal, not a push.
 
 Runs only when explicitly selected with `--evolution-mode codex`.
 
-The controller creates a bounded task from the digest proposals, prepares a local branch, and invokes:
+The controller creates a bounded task from the digest proposals, writes a rollback point, prepares a local branch, and invokes:
 
 ```text
 codex exec --cd <repo> --sandbox workspace-write --ask-for-approval never --ephemeral -
@@ -101,6 +101,20 @@ The kernel is intentionally local:
 - no Linear writes
 - no policy or credential changes
 - no schedule changes
+
+### Rollback Gate
+
+Before any self-evolution branch is prepared, the controller records:
+
+- original branch
+- original HEAD
+- local rollback ref
+- pre-run dirty status
+- explicit recovery commands
+
+The rollback point is written to `latest-rollback-point.json` and `latest-rollback-point.md` in the run output directory. It is the universal recovery path if a future activation fails to start or behaves unsafely.
+
+Rollback execution is intentionally not automatic because it uses destructive commands such as `git reset --hard` and `git clean -fd`. A human operator or external supervisor must choose it.
 
 ### Verification Gate
 
@@ -128,6 +142,7 @@ The minimum durable state:
 - digest ID
 - processed event IDs
 - proposal IDs
+- rollback ref and rollback artifact paths
 - verification result
 - approval decision
 - Codex task path and final message path for local kernel runs
