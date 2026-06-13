@@ -2,19 +2,27 @@
 
 ## Phase 1: Local Read-Only Prototype
 
-- Add a GitHub client using a local token from environment.
-- Support an explicit repository allowlist.
-- Fetch recent issues, pull requests, commits, releases, and workflow runs.
-- Persist a cursor and processed event IDs locally.
-- Generate an hourly digest markdown file.
-- Add tests for deduplication, cursor handling, empty updates, and rate limit responses.
+- [x] Add a GitHub client using a local token from environment.
+- [x] Support an explicit repository allowlist.
+- [x] Fetch recent GitHub repository events and normalize issues, pull requests, commits, releases, and related activity.
+- [x] Persist a cursor and processed event IDs locally.
+- [x] Generate hourly digest JSON and markdown files.
+- [x] Add tests for deduplication, cursor handling, digest writing, and controller behavior.
 
 ## Phase 2: Structured Digest And Proposal Drafting
 
-- Emit digest JSON that follows `schemas/hourly-digest.schema.json`.
-- Add a proposal generator that maps digest items to follow-up actions.
-- Keep generated patches local until approval.
-- Add tests for relevance scoring and proposal classification.
+- [x] Emit digest JSON that follows `schemas/hourly-digest.schema.json`.
+- [x] Add a proposal generator that maps digest items to follow-up actions.
+- [x] Keep generated patches local until approval.
+- [x] Add tests for relevance scoring and proposal classification.
+
+## Phase 2.5: Local Codex CLI Kernel
+
+- [x] Add a `CodexCliKernel` wrapper around `codex exec`.
+- [x] Pass long tasks through stdin instead of command-line arguments.
+- [x] Capture Codex's final message and run metadata as local artifacts.
+- [x] Add `--evolution-mode codex` to create a branch and run the kernel locally.
+- [x] Add tests that verify Codex command construction without invoking the real CLI.
 
 ## Phase 3: Approval-Gated Writes
 

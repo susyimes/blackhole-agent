@@ -72,6 +72,26 @@ Turns high-value digest entries into candidate improvements:
 
 The default output is a proposal, not a push.
 
+### Local Codex CLI Kernel
+
+Runs only when explicitly selected with `--evolution-mode codex`.
+
+The controller creates a bounded task from the digest proposals, prepares a local branch, and invokes:
+
+```text
+codex exec --cd <repo> --sandbox workspace-write --ask-for-approval never --ephemeral -
+```
+
+The task is passed through stdin, and Codex writes its final response to an output artifact with `--output-last-message`.
+
+The kernel is intentionally local:
+
+- no automatic push
+- no automatic PR creation
+- no Linear writes
+- no policy or credential changes
+- no schedule changes
+
 ### Verification Gate
 
 Runs local checks for any generated patch or config change. A failed verification produces a digest entry and stops the write path.
@@ -98,6 +118,7 @@ The minimum durable state:
 - proposal IDs
 - verification result
 - approval decision
+- Codex task path and final message path for local kernel runs
 
 Do not store tokens, raw secrets, or private chats in repo state.
 

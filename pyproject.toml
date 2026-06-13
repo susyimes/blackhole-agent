@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackhole-agent"
+dynamic = ["version"]
+description = "A review-gated GitHub growth agent with a local Codex CLI kernel"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "rich",
+    "typer",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+blackhole = "blackhole_agent.cli:app"
+blackhole-agent = "blackhole_agent.cli:app"
+
+[tool.setuptools.dynamic]
+version = {attr = "blackhole_agent.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["blackhole_agent*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
