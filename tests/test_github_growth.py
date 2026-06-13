@@ -141,7 +141,7 @@ def digest_with_proposal() -> dict:
                 "kind": "test",
                 "summary": "Borrow cautiously from example/repo: Improve agent workflow tests.",
                 "evidence_urls": ["https://github.com/example/repo/pull/1"],
-                "requires_approval": True,
+                "requires_approval": False,
             }
         ],
     }
@@ -269,7 +269,7 @@ def test_extract_growth_signals_flags_security_for_review():
 
     assert len(signals) == 1
     assert signals[0].risk_flags == ["security", "token"]
-    assert "human review" in signals[0].recommended_action
+    assert "rollback-backed validation" in signals[0].recommended_action
 
 
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
@@ -424,9 +424,10 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert f"Persona version: {PERSONA_VERSION}" in plan.task
     assert "Core mechanism:" in plan.task
     assert "Rollback contract:" in plan.task
+    assert "Autonomy contract:" in plan.task
     assert "Track GitHub trends on a scheduled cadence, normally hourly." in plan.task
     assert "A restart must be performed by an external scheduler or supervisor" in plan.task
-    assert "Do not push, merge" in plan.task
+    assert "Apply local repository changes autonomously" in plan.task
     assert "Improve agent workflow tests" in plan.task
 
 
@@ -437,7 +438,7 @@ def test_persona_layer_captures_operational_self_model():
     assert "Selection policy:" in rendered
     assert "Make at most one conceptual improvement per kernel run." in rendered
     assert "create a rollback point" in rendered
-    assert "Do not optimize for virality" in rendered
+    assert "Autonomously apply local source changes" in rendered
 
 
 def test_prepare_self_evolution_branch_rejects_dirty_worktree(tmp_path):

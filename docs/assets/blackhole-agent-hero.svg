@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-labelledby="title desc">
+  <title id="title">blackhole-agent control loop</title>
+  <desc id="desc">A stylized black hole diagram showing GitHub trends flowing through digest, persona, rollback, Codex kernel, review, and local diff stages.</desc>
+  <defs>
+    <radialGradient id="space" cx="50%" cy="50%" r="72%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="45%" stop-color="#0b1020"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#000000"/>
+      <stop offset="52%" stop-color="#010409"/>
+      <stop offset="72%" stop-color="#101827"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </radialGradient>
+    <linearGradient id="disk" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0"/>
+      <stop offset="18%" stop-color="#38bdf8"/>
+      <stop offset="40%" stop-color="#a78bfa"/>
+      <stop offset="58%" stop-color="#f472b6"/>
+      <stop offset="82%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" stop-opacity="0.92"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0.72"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.22 0 0 0 0 0.75 0 0 0 0 1 0 0 0 0.75 0" result="blue"/>
+      <feMerge>
+        <feMergeNode in="blue"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="hotGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 1 0 0 0 0 0.42 0 0 0 0 0.72 0 0 0 0.72 0" result="pink"/>
+      <feMerge>
+        <feMergeNode in="pink"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .label { fill: #e5e7eb; font: 700 28px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .micro { fill: #94a3b8; font: 600 15px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .node { fill: #f8fafc; font: 700 16px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .code { fill: #bae6fd; font: 700 15px ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+      .edge { stroke: #38bdf8; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 10; opacity: 0.75; }
+      .ring { fill: none; stroke: #1e293b; stroke-width: 1; opacity: 0.9; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="560" rx="28" fill="url(#space)"/>
+
+  <g opacity="0.72">
+    <circle cx="122" cy="92" r="1.8" fill="#e0f2fe"/>
+    <circle cx="226" cy="140" r="1.2" fill="#bfdbfe"/>
+    <circle cx="322" cy="70" r="1.5" fill="#f8fafc"/>
+    <circle cx="422" cy="516" r="1.3" fill="#dbeafe"/>
+    <circle cx="726" cy="72" r="1.7" fill="#fde68a"/>
+    <circle cx="1014" cy="118" r="1.4" fill="#e0f2fe"/>
+    <circle cx="1158" cy="430" r="1.8" fill="#f0abfc"/>
+    <circle cx="1082" cy="504" r="1.2" fill="#bfdbfe"/>
+    <circle cx="638" cy="482" r="1.4" fill="#f8fafc"/>
+    <circle cx="76" cy="438" r="1.1" fill="#bfdbfe"/>
+  </g>
+
+  <g transform="translate(72 54)">
+    <text class="label" x="0" y="0">blackhole-agent</text>
+    <text class="micro" x="2" y="34">GitHub trend gravity well for bounded self-improvement</text>
+  </g>
+
+  <g transform="translate(876 50)">
+    <rect width="300" height="58" rx="18" fill="#020617" stroke="#334155"/>
+    <circle cx="31" cy="29" r="8" fill="#22c55e" filter="url(#glow)"/>
+    <text class="code" x="54" y="35">review-gated / rollback-first</text>
+  </g>
+
+  <g transform="translate(640 296)">
+    <ellipse rx="372" ry="86" fill="url(#disk)" opacity="0.95" filter="url(#hotGlow)" transform="rotate(-9)"/>
+    <ellipse rx="300" ry="52" fill="#020617" opacity="0.74" transform="rotate(-9)"/>
+    <circle r="112" fill="url(#core)" filter="url(#glow)"/>
+    <circle r="76" fill="#000000"/>
+    <circle r="118" class="ring"/>
+    <circle r="155" class="ring"/>
+    <circle r="202" class="ring"/>
+    <text class="node" x="-68" y="-8">event horizon</text>
+    <text class="micro" x="-70" y="20">one safe diff escapes</text>
+  </g>
+
+  <path class="edge" d="M210 184 C312 112, 472 112, 556 206"/>
+  <path class="edge" d="M315 420 C442 488, 540 450, 604 383"/>
+  <path class="edge" d="M726 207 C810 110, 966 114, 1070 182"/>
+  <path class="edge" d="M676 384 C740 462, 856 488, 998 418"/>
+  <path class="edge" d="M640 76 C640 140, 640 170, 640 206"/>
+  <path class="edge" d="M640 410 C640 452, 640 482, 640 510"/>
+
+  <g transform="translate(100 150)">
+    <rect width="224" height="78" rx="18" fill="url(#panel)" stroke="#1d4ed8"/>
+    <text class="node" x="24" y="32">01 GitHub Trends</text>
+    <text class="micro" x="24" y="56">stars, forks, releases</text>
+  </g>
+
+  <g transform="translate(114 366)">
+    <rect width="224" height="78" rx="18" fill="url(#panel)" stroke="#0891b2"/>
+    <text class="node" x="24" y="32">02 Digest</text>
+    <text class="micro" x="24" y="56">evidence over noise</text>
+  </g>
+
+  <g transform="translate(528 30)">
+    <rect width="224" height="78" rx="18" fill="url(#panel)" stroke="#7c3aed"/>
+    <text class="node" x="24" y="32">03 Persona Layer</text>
+    <text class="micro" x="24" y="56">mission and boundaries</text>
+  </g>
+
+  <g transform="translate(932 150)">
+    <rect width="250" height="78" rx="18" fill="url(#panel)" stroke="#db2777"/>
+    <text class="node" x="24" y="32">04 Rollback Point</text>
+    <text class="micro" x="24" y="56">HEAD, ref, recovery path</text>
+  </g>
+
+  <g transform="translate(914 366)">
+    <rect width="250" height="78" rx="18" fill="url(#panel)" stroke="#f59e0b"/>
+    <text class="node" x="24" y="32">05 Codex Kernel</text>
+    <text class="micro" x="24" y="56">bounded local mutation</text>
+  </g>
+
+  <g transform="translate(508 488)">
+    <rect width="264" height="48" rx="16" fill="#020617" stroke="#22c55e"/>
+    <text class="code" x="25" y="30">small inspectable local diff</text>
+  </g>
+
+  <g opacity="0.94">
+    <path d="M396 276 C474 244, 532 240, 592 270" fill="none" stroke="#93c5fd" stroke-width="3" stroke-linecap="round"/>
+    <path d="M884 282 C810 316, 748 318, 684 290" fill="none" stroke="#f9a8d4" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="398" cy="276" r="4" fill="#93c5fd"/>
+    <circle cx="884" cy="282" r="4" fill="#f9a8d4"/>
+  </g>
+</svg>

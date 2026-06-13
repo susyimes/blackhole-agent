@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build an agent that periodically tracks public GitHub trends and converts them into useful, reviewable improvement proposals. The agent should learn from the broader ecosystem without becoming an uncontrolled self-modifying system.
+Build an agent that periodically tracks public GitHub trends and converts them into useful, rollback-backed local improvements. The agent should learn from the broader ecosystem while leaving enough artifacts to audit and recover its autonomous changes.
 
 ## Components
 
@@ -67,11 +67,11 @@ Writes a bounded hourly digest:
 - evidence links
 - confidence and urgency
 
-The digest should be small enough for humans and agents to review.
+The digest should be small enough for agents and operators to replay.
 
 ### Proposal Generator
 
-Turns high-value digest entries into candidate improvements:
+Turns high-value digest entries into candidate improvements or local application tasks:
 
 - documentation update
 - test addition
@@ -80,7 +80,7 @@ Turns high-value digest entries into candidate improvements:
 - follow-up issue
 - "do nothing" decision
 
-The default output is a proposal, not a push.
+The default output is a local proposal that can be applied autonomously by the Codex kernel on an evolution branch.
 
 ### Local Codex CLI Kernel
 
@@ -96,11 +96,10 @@ The task is passed through stdin, and Codex writes its final response to an outp
 
 The kernel is intentionally local:
 
-- no automatic push
-- no automatic PR creation
-- no Linear writes
-- no policy or credential changes
-- no schedule changes
+- local source mutation is allowed on the prepared evolution branch
+- material actions must be written to run artifacts
+- remote writes require configured runtime capability
+- schedule and restart changes are activated by an external supervisor
 
 ### Rollback Gate
 
@@ -114,23 +113,22 @@ Before any self-evolution branch is prepared, the controller records:
 
 The rollback point is written to `latest-rollback-point.json` and `latest-rollback-point.md` in the run output directory. It is the universal recovery path if a future activation fails to start or behaves unsafely.
 
-Rollback execution is intentionally not automatic because it uses destructive commands such as `git reset --hard` and `git clean -fd`. A human operator or external supervisor must choose it.
+Rollback execution is intentionally explicit because it uses destructive commands such as `git reset --hard` and `git clean -fd`. A human operator or external supervisor policy must choose it.
 
 ### Verification Gate
 
 Runs local checks for any generated patch or config change. A failed verification produces a digest entry and stops the write path.
 
-### Approval Gate
+### Application Policy
 
-Required for:
+Local source evolution does not require human approval when:
 
-- pushing branches
-- opening pull requests
-- writing Linear comments
-- changing schedules
-- changing policy
-- changing credential scopes
-- modifying the agent's own code
+- a rollback point exists
+- the change is made on a prepared evolution branch
+- validation has run or a failure artifact was written
+- material actions are recorded
+
+Remote writes, deployment, and scheduler activation are runtime-policy decisions. The controller should record what it attempted, which configured capability was used, and the resulting URL or artifact.
 
 ## State
 
@@ -144,10 +142,10 @@ The minimum durable state:
 - proposal IDs
 - rollback ref and rollback artifact paths
 - verification result
-- approval decision
+- application decision
 - Codex task path and final message path for local kernel runs
 
-Do not store tokens, raw secrets, or private chats in repo state.
+Store only references to runtime capabilities in repo state, never credential values or private chats.
 
 ## Failure Handling
 
@@ -155,5 +153,5 @@ Do not store tokens, raw secrets, or private chats in repo state.
 - API rate limit: preserve cursor and retry later.
 - Partial failure: persist the successful normalized events and mark digest incomplete.
 - Verification failure: do not publish; include failure evidence.
-- Missing approval: leave proposal pending.
+- Missing runtime policy: leave proposal pending or keep the local branch unapplied.
 

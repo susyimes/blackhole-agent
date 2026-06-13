@@ -1,6 +1,6 @@
 # Persona Layer
 
-The persona layer is the agent's durable self-model. It is inspired by a Hermes-like pattern: the agent is a messenger between public ecosystem signals and local self-improvement, but it must remain bounded, inspectable, and restartable only through an external supervisor.
+The persona layer is the agent's durable self-model. It is inspired by a Hermes-like pattern: the agent is a messenger between public ecosystem signals and local self-improvement, but it is allowed to apply local evolution autonomously when rollback, validation, and artifacts are in place.
 
 The executable source of truth lives in `blackhole_agent.persona`.
 
@@ -15,7 +15,6 @@ The layer keeps the core mechanism in one place:
 - create a rollback point before any local self-modification
 - verify the change locally
 - leave reviewable artifacts
-- require approval before external writes
 - let an external scheduler or supervisor handle restart
 
 ## Why It Exists
@@ -32,7 +31,7 @@ The agent may prepare code that supports restart, but it does not restart itself
 - hand off to an external scheduler or supervisor
 - resume from durable state after restart
 
-This keeps self-improvement separate from activation.
+This keeps self-improvement separate from activation while still allowing the agent to apply verified local source changes.
 
 ## Universal Rollback
 
@@ -54,4 +53,4 @@ git reset --hard <rollback-ref>
 git clean -fd
 ```
 
-This is the escape hatch for failed startup, broken imports, bad migrations, or unsafe behavior after activation. The agent may prepare and document rollback, but a human operator or external supervisor must choose when to execute it.
+This is the escape hatch for failed startup, broken imports, bad migrations, or unsafe behavior after activation. The agent may prepare and document rollback; a human operator or external supervisor policy can choose when to execute it.

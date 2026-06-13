@@ -1,9 +1,9 @@
-"""Hourly GitHub intake for a bounded blackhole-agent growth loop.
+"""Hourly GitHub trend intake for a rollback-backed blackhole-agent growth loop.
 
 This controller is adapted from the mini-swe-agent `github_growth` runner. The
 important change is the local mutation engine: blackhole-agent can hand a bounded
-self-improvement task to the local Codex CLI kernel while keeping GitHub writes,
-pushes, and PR creation outside the automatic path.
+self-improvement task to the local Codex CLI kernel, write rollback artifacts,
+and apply local evolution on a prepared branch.
 """
 
 import json
@@ -553,7 +553,7 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
 
 def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
     if risk_flags:
-        return "summarize the pattern and require human review before borrowing it"
+        return "summarize the risk pattern and require rollback-backed validation before borrowing it"
     if event.kind == "RepositoryTrend":
         return "review the repository for reusable patterns and turn only one concrete lesson into a validation task"
     if event.kind == "ReleaseEvent":
@@ -609,7 +609,7 @@ def build_proposals(signals: list[GrowthSignal], *, limit: int = 5) -> list[dict
                 "kind": classify_proposal_kind(signal),
                 "summary": f"Borrow cautiously from {signal.repo}: {signal.title}. {signal.recommended_action}.",
                 "evidence_urls": [signal.url] if signal.url else [],
-                "requires_approval": True,
+                "requires_approval": False,
             }
         )
     return proposals
@@ -699,7 +699,7 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
             [
                 f"- `{proposal['kind']}`: {proposal['summary']}",
                 f"  - Evidence: {evidence}",
-                f"  - Requires approval: {proposal['requires_approval']}",
+                f"  - Autonomous local apply: {not proposal['requires_approval']}",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -726,7 +726,7 @@ def build_self_evolution_plan(
                 "kind": "test",
                 "summary": "Improve the blackhole-agent growth controller's observability or tests.",
                 "evidence_urls": [],
-                "requires_approval": True,
+                "requires_approval": False,
             }
         ]
 
@@ -788,7 +788,7 @@ def render_self_evolution_task(
                 f"   Proposal ID: {proposal.get('proposal_id', '')}",
                 f"   Kind: {proposal.get('kind', 'no_action')}",
                 f"   Evidence: {evidence}",
-                f"   Requires approval: {proposal.get('requires_approval', True)}",
+                f"   Autonomous local apply: {not proposal.get('requires_approval', True)}",
             ]
         )
     extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
@@ -812,9 +812,10 @@ def render_self_evolution_task(
             "",
             "Operating constraints:",
             "- Stay inside this repository.",
-            "- Do not read, print, modify, or commit secrets, tokens, credentials, or private user files.",
-            "- Do not push, merge, publish packages, deploy, or call external write APIs.",
-            "- Keep the diff focused enough for a human reviewer to understand quickly.",
+            "- Apply local repository changes autonomously when they are small, logged, and rollback-backed.",
+            "- Use only capabilities and runtime configuration available to this run.",
+            "- Record material filesystem and external actions in run artifacts.",
+            "- Keep the diff focused enough to audit quickly after the fact.",
             "- Add or update tests or docs whenever behavior changes.",
             "- Run the narrowest useful validation command and include the result in the final answer.",
             "- If the proposals are unsafe or too vague, improve the growth controller's safety or tests instead.",

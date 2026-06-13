@@ -14,7 +14,7 @@
 
 - [x] Emit digest JSON that follows `schemas/hourly-digest.schema.json`.
 - [x] Add a proposal generator that maps digest items to follow-up actions.
-- [x] Keep generated patches local until approval.
+- [x] Keep generated patches local, rollback-backed, and autonomously applicable on an evolution branch.
 - [x] Add tests for relevance scoring and proposal classification.
 
 ## Phase 2.5: Local Codex CLI Kernel
@@ -26,25 +26,25 @@
 - [x] Write a rollback point before local self-evolution branch creation.
 - [x] Add tests that verify Codex command construction without invoking the real CLI.
 
-## Phase 3: Approval-Gated Writes
+## Phase 3: Autonomous Application Records
 
-- Add an explicit approval record format.
-- Allow approved PR creation for a configured target repository.
-- Allow approved Linear comment creation.
-- Record every external write with source digest, approval ID, and result URL.
+- Add an explicit application record format.
+- Allow configured PR creation for a configured target repository.
+- Allow configured Linear comment creation.
+- Record every external write with source digest, runtime capability, and result URL.
 
 ## Phase 4: Self-Improvement Boundary
 
 - Allow the agent to propose changes to this repository.
-- Require PR review before merge.
-- Add regression tests that prevent automatic self-push without approval.
+- Allow autonomous local application on a prepared evolution branch after rollback point creation.
+- Add regression tests that prevent unconfigured remote writes.
 - Add a safety report that lists every policy and scope used by a run.
 
 ## Non-Goals
 
 - No hidden credential storage.
-- No default writes to GitHub or Linear.
+- No unconfigured writes to GitHub or Linear.
 - No automatic deployment.
-- No automatic merge.
-- No automatic policy or token scope expansion.
+- No automatic merge without a configured runtime policy.
+- No implicit runtime capability expansion.
 

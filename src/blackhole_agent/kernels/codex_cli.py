@@ -1,9 +1,9 @@
 """Local Codex CLI kernel.
 
-This wrapper intentionally treats Codex as a local kernel, not as a hidden
-publisher. It can edit the checkout under the configured sandbox, but the
-blackhole controller still keeps branch creation, review, push, and PR creation
-as separate approval-gated steps.
+This wrapper intentionally treats Codex as a local mutation kernel, not as a
+remote publisher. It can edit the checkout under the configured sandbox, while
+the blackhole controller keeps rollback, run artifacts, and runtime capability
+selection outside the model process.
 """
 
 import json
