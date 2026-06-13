@@ -53,8 +53,21 @@ Scores events by:
 - dependency/API changes
 - repeated patterns
 - relationship to known work
+- memory bias from historically useful repositories and topics
 
 The filter must explain why an event was selected or ignored.
+
+### Memory Layer
+
+Stores lightweight cross-run learning in `memory.json`, separate from cursor state.
+
+The memory tracks:
+
+- repository stats: seen count, useful signal count, validation count, failure count, last seen time
+- topic stats: seen count, useful signal count, validation count, failure count, last seen time
+- lessons: proposal ID, source digest, summary, evidence, outcome
+
+This layer is intentionally small and transparent. It biases proposal ordering toward sources and topics that have produced useful lessons before. It can be deleted without corrupting cursor state.
 
 ### Learning Digest
 
@@ -137,6 +150,8 @@ The minimum durable state:
 - cursor per repository
 - first-seen trend repositories
 - last observed star count per trend repository
+- memory statistics per repository and topic
+- lesson summaries and outcomes
 - digest ID
 - processed event IDs
 - proposal IDs

@@ -7,6 +7,7 @@
 - [x] Keep explicit repository lists available as a manual/debug mode.
 - [x] Fetch recent GitHub repository events and normalize issues, pull requests, commits, releases, and related activity.
 - [x] Persist a cursor, processed event IDs, first-seen trend repositories, and last observed trend star counts locally.
+- [x] Persist lightweight memory for useful repositories, topics, and proposed lessons.
 - [x] Generate hourly digest JSON and markdown files.
 - [x] Add tests for deduplication, cursor handling, digest writing, and controller behavior.
 
@@ -14,6 +15,7 @@
 
 - [x] Emit digest JSON that follows `schemas/hourly-digest.schema.json`.
 - [x] Add a proposal generator that maps digest items to follow-up actions.
+- [x] Bias proposal ordering with the lightweight memory layer.
 - [x] Keep generated patches local, rollback-backed, and autonomously applicable on an evolution branch.
 - [x] Add tests for relevance scoring and proposal classification.
 

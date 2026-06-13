@@ -32,6 +32,7 @@ It borrows the deliberately small controller style of `susyimes/mini-swe-agent`,
 hourly trigger
   -> GitHub trend discovery
   -> recent event intake for discovered repos
+  -> memory bias from past useful sources
   -> relevance and risk scoring
   -> structured learning digest
   -> candidate improvement proposals
@@ -96,6 +97,7 @@ uv run blackhole \
 | --- | --- | --- |
 | CLI | `blackhole_agent.cli` | Typer entry point |
 | Trend controller | `blackhole_agent.github_growth` | Search trends, fetch events, write digests, plan evolution |
+| Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
 | Codex kernel | `blackhole_agent.kernels.codex_cli` | Bounded `codex exec` wrapper |
 | Digest schema | `schemas/hourly-digest.schema.json` | Structured output contract |
@@ -116,6 +118,27 @@ That layer defines:
 - autonomy contract: self-apply local changes when rollback-backed and validated
 
 See `docs/persona-layer.md`.
+
+## Memory Layer
+
+`blackhole-agent` keeps a small file-backed memory next to `state.json`.
+
+The memory layer records:
+
+- repositories that repeatedly produce useful signals
+- topics that lead to good proposals
+- lessons proposed from previous digests
+- lightweight outcome counters such as `validated` and `failed`
+
+It is deliberately simple JSON, not a vector database. If it gets noisy, delete `memory.json` and the agent starts fresh without losing cursor state.
+
+By default the memory file lives at:
+
+```text
+.blackhole-agent/github-growth/memory.json
+```
+
+Use `--memory <path>` to point the agent at a different durable memory file.
 
 ## Rollback First
 
@@ -166,6 +189,7 @@ One run can write:
 | `latest.json` | latest structured GitHub growth digest |
 | `latest.md` | human-readable digest |
 | `state.json` | cursor, seen events, trend star snapshots |
+| `memory.json` | repo/topic/lesson memory used to bias future proposals |
 | `latest-self-evolution-plan.json` | structured self-evolution plan |
 | `latest-self-evolution-plan.md` | Codex task with persona layer |
 | `latest-rollback-point.json` | machine-readable recovery anchor |
@@ -189,7 +213,7 @@ uv run ruff check .
 ## Roadmap
 
 - stronger trend scoring beyond stars and recency
-- richer signal clustering across repositories
+- richer signal clustering across repositories and memory lessons
 - automatic local validation plans per proposal type
 - external supervisor for hourly scheduling, restart, and health-based rollback
 - autonomous application records for PR creation and Linear updates

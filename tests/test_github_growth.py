@@ -9,9 +9,12 @@ from blackhole_agent.github_growth import (
     GitHubEventsClient,
     GitHubTrendConfig,
     GitHubTrendSearchResult,
+    GrowthMemory,
+    GrowthSignal,
     GrowthState,
     TrendingRepository,
     app,
+    build_proposals,
     build_self_evolution_plan,
     build_trending_repository_query_for_date,
     extract_growth_signals,
@@ -291,12 +294,18 @@ def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     assert result.markdown_path.exists()
     assert (tmp_path / "latest.json").exists()
     assert result.state_path.exists()
+    assert result.memory_path.exists()
     digest = json.loads(result.json_path.read_text(encoding="utf-8"))
     state = json.loads(result.state_path.read_text(encoding="utf-8"))
+    memory = json.loads(result.memory_path.read_text(encoding="utf-8"))
     assert digest["repositories"] == ["example/repo"]
     assert digest["items"][0]["event_kind"] == "PullRequestEvent"
     assert digest["proposals"][0]["kind"] == "code_patch"
     assert state["seen_event_ids"] == ["3"]
+    assert memory["repositories"]["example/repo"]["seen"] >= 1
+    assert memory["topics"]["agent"]["useful_signals"] == 1
+    assert memory["topics"]["workflow"]["useful_signals"] == 1
+    assert memory["lessons"][0]["outcome"] == "proposed"
     assert fake_session.requests[0]["headers"]["Authorization"] == "Bearer test-token"
 
 
@@ -391,6 +400,58 @@ def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
     ]
 
 
+def test_memory_bias_prioritizes_previously_useful_sources():
+    signals = [
+        GrowthSignal(
+            event_id="a",
+            repo="example/cold",
+            kind="RepositoryTrend",
+            title="trending repository: example/cold",
+            url="https://github.com/example/cold",
+            relevance_reason="matched topics: workflow",
+            risk_flags=[],
+            recommended_action="test cold",
+            confidence=0.82,
+        ),
+        GrowthSignal(
+            event_id="b",
+            repo="example/hot",
+            kind="RepositoryTrend",
+            title="trending repository: example/hot",
+            url="https://github.com/example/hot",
+            relevance_reason="matched topics: agent",
+            risk_flags=[],
+            recommended_action="test hot",
+            confidence=0.82,
+        ),
+    ]
+    memory = GrowthMemory(
+        repositories={
+            "example/hot": {
+                "seen": 4,
+                "useful_signals": 8,
+                "validated": 2,
+                "failed": 0,
+                "last_seen_at": "2026-06-13T00:00:00Z",
+            }
+        },
+        topics={
+            "agent": {
+                "seen": 5,
+                "useful_signals": 6,
+                "validated": 1,
+                "failed": 0,
+                "last_seen_at": "2026-06-13T00:00:00Z",
+            }
+        },
+    )
+
+    proposals = build_proposals(signals, memory=memory)
+
+    assert proposals[0]["proposal_id"] == "b-1"
+    assert "example/hot" in proposals[0]["summary"]
+
+
 def test_github_growth_help():
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
@@ -398,6 +459,7 @@ def test_github_growth_help():
     assert result.exit_code == 0
     assert "Discover public GitHub trends" in result.stdout
     assert "--trend-query" in result.stdout
+    assert "--memory" in result.stdout
     assert "codex" in result.stdout
 
 

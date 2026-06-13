@@ -120,6 +120,33 @@ class GrowthState:
         }
 
 
+@dataclass
+class GrowthMemory:
+    """Small durable memory used to bias future trend selection."""
+
+    version: int = 1
+    repositories: dict[str, dict[str, Any]] = field(default_factory=dict)
+    topics: dict[str, dict[str, Any]] = field(default_factory=dict)
+    lessons: list[dict[str, Any]] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GrowthMemory":
+        return cls(
+            version=int(data.get("version", 1)),
+            repositories={str(repo): dict(stats) for repo, stats in dict(data.get("repositories", {})).items()},
+            topics={str(topic): dict(stats) for topic, stats in dict(data.get("topics", {})).items()},
+            lessons=[dict(lesson) for lesson in data.get("lessons", []) if isinstance(lesson, dict)],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "repositories": dict(sorted(self.repositories.items())),
+            "topics": dict(sorted(self.topics.items())),
+            "lessons": self.lessons,
+        }
+
+
 @dataclass(frozen=True)
 class TrendingRepository:
     """Repository metadata returned by GitHub repository search."""
@@ -188,6 +215,7 @@ class DigestWriteResult:
     json_path: Path
     markdown_path: Path
     state_path: Path
+    memory_path: Path
 
 
 @dataclass(frozen=True)
@@ -360,6 +388,86 @@ def load_state(path: Path) -> GrowthState:
 def save_state(path: Path, state: GrowthState) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_memory(path: Path) -> GrowthMemory:
+    if not path.exists():
+        return GrowthMemory()
+    return GrowthMemory.from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def save_memory(path: Path, memory: GrowthMemory) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(memory.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def update_memory_from_digest(memory: GrowthMemory, digest: dict[str, Any], *, lesson_limit: int = 200) -> None:
+    generated_at = str(digest.get("generated_at") or "")
+    for repo in digest.get("repositories", []):
+        touch_memory_stats(memory.repositories, str(repo), generated_at=generated_at)
+    for item in digest.get("items", []):
+        repo = repo_from_digest_summary(str(item.get("summary") or ""))
+        if repo:
+            touch_memory_stats(memory.repositories, repo, generated_at=generated_at, useful_increment=1)
+        for topic in topics_from_relevance(str(item.get("relevance_reason") or "")):
+            touch_memory_stats(memory.topics, topic, generated_at=generated_at, useful_increment=1)
+    existing_lesson_ids = {str(lesson.get("lesson_id")) for lesson in memory.lessons}
+    for proposal in digest.get("proposals", []):
+        proposal_id = str(proposal.get("proposal_id") or "")
+        if not proposal_id or proposal_id in existing_lesson_ids:
+            continue
+        memory.lessons.append(
+            {
+                "lesson_id": proposal_id,
+                "source_digest_id": digest.get("digest_id", ""),
+                "generated_at": generated_at,
+                "kind": proposal.get("kind", "no_action"),
+                "summary": proposal.get("summary", ""),
+                "evidence_urls": proposal.get("evidence_urls", []),
+                "outcome": "proposed",
+                "confidence": proposal.get("confidence"),
+            }
+        )
+        existing_lesson_ids.add(proposal_id)
+    if len(memory.lessons) > lesson_limit:
+        memory.lessons = memory.lessons[-lesson_limit:]
+
+
+def touch_memory_stats(
+    table: dict[str, dict[str, Any]],
+    key: str,
+    *,
+    generated_at: str,
+    useful_increment: int = 0,
+) -> None:
+    stats = table.setdefault(
+        key,
+        {
+            "seen": 0,
+            "useful_signals": 0,
+            "validated": 0,
+            "failed": 0,
+            "last_seen_at": "",
+        },
+    )
+    stats["seen"] = int(stats.get("seen") or 0) + 1
+    stats["useful_signals"] = int(stats.get("useful_signals") or 0) + useful_increment
+    stats["validated"] = int(stats.get("validated") or 0)
+    stats["failed"] = int(stats.get("failed") or 0)
+    stats["last_seen_at"] = generated_at
+
+
+def repo_from_digest_summary(summary: str) -> str:
+    if ": " not in summary:
+        return ""
+    return summary.split(": ", 1)[0].strip()
+
+
+def topics_from_relevance(relevance_reason: str) -> list[str]:
+    prefix = "matched topics: "
+    if not relevance_reason.startswith(prefix):
+        return []
+    return [topic.strip() for topic in relevance_reason.removeprefix(prefix).split(",") if topic.strip()]
 
 
 def parse_github_timestamp(value: str) -> datetime:
@@ -574,6 +682,7 @@ def build_digest(
     state: GrowthState,
     generated_at: str | None = None,
     source: dict[str, Any] | None = None,
+    memory: GrowthMemory | None = None,
 ) -> dict[str, Any]:
     generated_at = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     digest_id = "github-growth-" + generated_at.replace("-", "").replace(":", "").replace("+00:00", "Z")
@@ -593,16 +702,22 @@ def build_digest(
             }
             for signal in signals
         ],
-        "proposals": build_proposals(signals),
+        "proposals": build_proposals(signals, memory=memory),
     }
     if source is not None:
         digest["source"] = source
     return digest
 
 
-def build_proposals(signals: list[GrowthSignal], *, limit: int = 5) -> list[dict[str, Any]]:
+def build_proposals(
+    signals: list[GrowthSignal],
+    *,
+    memory: GrowthMemory | None = None,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
     proposals: list[dict[str, Any]] = []
-    for index, signal in enumerate(signals[:limit], start=1):
+    ranked_signals = rank_signals_with_memory(signals, memory=memory)
+    for index, signal in enumerate(ranked_signals[:limit], start=1):
         proposals.append(
             {
                 "proposal_id": f"{signal.event_id}-{index}",
@@ -613,6 +728,32 @@ def build_proposals(signals: list[GrowthSignal], *, limit: int = 5) -> list[dict
             }
         )
     return proposals
+
+
+def rank_signals_with_memory(
+    signals: list[GrowthSignal],
+    *,
+    memory: GrowthMemory | None = None,
+) -> list[GrowthSignal]:
+    if memory is None:
+        return signals
+    indexed = list(enumerate(signals))
+    indexed.sort(key=lambda item: (-memory_bias_for_signal(item[1], memory), item[0]))
+    return [signal for _, signal in indexed]
+
+
+def memory_bias_for_signal(signal: GrowthSignal, memory: GrowthMemory) -> float:
+    repo_stats = memory.repositories.get(signal.repo, {})
+    repo_bias = memory_stats_bias(repo_stats)
+    topic_bias = sum(memory_stats_bias(memory.topics.get(topic, {})) for topic in topics_from_relevance(signal.relevance_reason))
+    return repo_bias + min(topic_bias, 2.0)
+
+
+def memory_stats_bias(stats: dict[str, Any]) -> float:
+    useful = int(stats.get("useful_signals") or 0)
+    validated = int(stats.get("validated") or 0)
+    failed = int(stats.get("failed") or 0)
+    return max(0.0, min(3.0, useful * 0.15 + validated * 0.5 - failed * 0.35))
 
 
 def classify_proposal_kind(signal: GrowthSignal) -> str:
@@ -1054,6 +1195,7 @@ def run_intake_once(
     repos: list[str] | None = None,
     output_dir: Path,
     state_path: Path | None = None,
+    memory_path: Path | None = None,
     token: str | None = None,
     topics: list[str] | None = None,
     lookback_hours: int = 1,
@@ -1066,7 +1208,9 @@ def run_intake_once(
         raise ValueError("At least one repository is required")
     normalized_repos = ["/".join(parse_repo_spec(repo)) for repo in repo_specs]
     state_file = state_path or output_dir / "state.json"
+    memory_file = memory_path or output_dir / "memory.json"
     state = load_state(state_file)
+    memory = load_memory(memory_file)
     github = client or GitHubEventsClient(token=token)
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -1100,7 +1244,15 @@ def run_intake_once(
     update_state(state, events)
     if trend_result is not None:
         update_trend_state(state, trend_result.repositories)
-    digest = build_digest(normalized_repos, signals, state=state, generated_at=generated_at, source=trend_source)
+    digest = build_digest(
+        normalized_repos,
+        signals,
+        state=state,
+        generated_at=generated_at,
+        source=trend_source,
+        memory=memory,
+    )
+    update_memory_from_digest(memory, digest)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1113,7 +1265,14 @@ def run_intake_once(
     (output_dir / "latest.json").write_text(json_text, encoding="utf-8")
     (output_dir / "latest.md").write_text(markdown_text, encoding="utf-8")
     save_state(state_file, state)
-    return DigestWriteResult(digest=digest, json_path=json_path, markdown_path=markdown_path, state_path=state_file)
+    save_memory(memory_file, memory)
+    return DigestWriteResult(
+        digest=digest,
+        json_path=json_path,
+        markdown_path=markdown_path,
+        state_path=state_file,
+        memory_path=memory_file,
+    )
 
 
 def _event_text(repo: str, kind: str, payload: dict[str, Any]) -> tuple[str, str, str]:
@@ -1177,6 +1336,7 @@ def main(
     include_forks: bool = typer.Option(False, "--include-forks", help="Include forked repositories in trend discovery."),
     output_dir: Path = typer.Option(Path(".blackhole-agent/github-growth"), "--output-dir", "-o", help="Directory for digest and state files."),
     state_path: Path | None = typer.Option(None, "--state", help="State file path. Defaults to <output-dir>/state.json."),
+    memory_path: Path | None = typer.Option(None, "--memory", help="Memory file path. Defaults to <output-dir>/memory.json."),
     token_env: str = typer.Option("GITHUB_TOKEN", "--token-env", help="Environment variable containing a GitHub token."),
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance terms. Defaults to agent/workflow/test/security topics."),
     lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window when no state exists."),
@@ -1223,6 +1383,7 @@ def main(
             repos=repo_list,
             output_dir=output_dir,
             state_path=state_path,
+            memory_path=memory_path,
             token=token,
             topics=topic_list,
             lookback_hours=lookback_hours,
@@ -1236,6 +1397,7 @@ def main(
                 f"from query [bold]{source.get('query', '')}[/bold]"
             )
         console.print(f"Wrote {len(result.digest['items'])} item(s) to [bold green]{result.markdown_path}[/bold green]")
+        console.print(f"Updated memory at [bold green]{result.memory_path}[/bold green]")
         if evolution_mode in {"plan", "codex"}:
             plan = build_self_evolution_plan(
                 result.digest,
