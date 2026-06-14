@@ -519,6 +519,9 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "Digest evidence policy:" in plan.task
     assert "Treat the Source digest and proposal Evidence URLs as the primary context" in plan.task
     assert "do not re-run broad trend discovery" in plan.task
+    assert "Runtime policy budget:" in plan.task
+    assert "Network: use only proposal Evidence URLs" in plan.task
+    assert "do not push, restart, or provision remote sandboxes" in plan.task
     assert "Improve agent workflow tests" in plan.task
 
 

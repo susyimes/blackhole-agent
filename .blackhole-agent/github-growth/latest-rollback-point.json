@@ -1,19 +1,19 @@
 {
-  "created_at": "2026-06-14T07:54:25.606991Z",
-  "original_branch": "codex/blackhole-evolve/20260614T075326.070292-borrow-cautiously-from-omnigent-ai-omnigent-tren",
-  "original_head": "69a4ba7e5e5e065f3d049a6d7eee13646e25252c",
-  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-blackhole-worktrees\\20260614T075310Z",
+  "created_at": "2026-06-14T08:54:21Z",
+  "original_branch": "codex/blackhole-evolve/20260614T085325.724171-borrow-cautiously-from-omnigent-ai-omnigent-tren",
+  "original_head": "8c1708bb590f1768338fd6fe4a68775d5fc86df7",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-blackhole-worktrees\\20260614T085310Z",
   "restore_commands": [
     [
       "git",
       "switch",
-      "codex/blackhole-evolve/20260614T075326.070292-borrow-cautiously-from-omnigent-ai-omnigent-tren"
+      "codex/blackhole-evolve/20260614T085325.724171-borrow-cautiously-from-omnigent-ai-omnigent-tren"
     ],
     [
       "git",
       "reset",
       "--hard",
-      "refs/blackhole-agent/rollback/20260614T075425Z-69a4ba7e5e5e"
+      "refs/blackhole-agent/rollback/20260614T085421Z-8c1708bb590f"
     ],
     [
       "git",
@@ -21,6 +21,6 @@
       "-fd"
     ]
   ],
-  "rollback_ref": "refs/blackhole-agent/rollback/20260614T075425Z-69a4ba7e5e5e",
+  "rollback_ref": "refs/blackhole-agent/rollback/20260614T085421Z-8c1708bb590f",
   "status_porcelain": ""
 }
