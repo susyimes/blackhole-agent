@@ -268,6 +268,46 @@ def test_startup_health_success_records_manual_activation_baseline(tmp_path):
     assert activation["previous_head"] == "stable123"
 
 
+def test_startup_health_success_bootstraps_activation_from_latest_promotion(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    output_dir = repo / ".blackhole-agent" / "supervisor"
+    output_dir.mkdir(parents=True)
+    (output_dir / "latest-supervisor-pass.json").write_text(
+        json.dumps(
+            {
+                "promotion_result": {
+                    "target_before": "older123",
+                    "target_after": "stable123",
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def runner(command, **kwargs):
+        if command[:2] == ["uv", "run"]:
+            return subprocess.CompletedProcess(command, 0, stdout="ok\n", stderr="")
+        if command == ["git", "rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="hotfix123\n", stderr="")
+        if command == ["git", "branch", "--show-current"]:
+            return subprocess.CompletedProcess(command, 0, stdout="main\n", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=output_dir,
+        health_commands=("uv run pytest",),
+    )
+    record = run_startup_health_check(config, command_runner=runner)
+
+    assert record.returncode == 0
+    activation = json.loads((output_dir / "latest-activation.json").read_text(encoding="utf-8"))
+    assert activation["current_head"] == "hotfix123"
+    assert activation["previous_head"] == "stable123"
+
+
 def test_startup_health_failure_rolls_back_to_activation_previous_head(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()

@@ -914,16 +914,27 @@ def startup_rollback_target(
 
 
 def latest_promotion_rollback_target(config: SupervisorConfig) -> str:
+    promotion = latest_promotion_payload(config)
+    target = promotion.get("target_before") or ""
+    return str(target)
+
+
+def latest_promotion_activation_head(config: SupervisorConfig) -> str:
+    promotion = latest_promotion_payload(config)
+    target = promotion.get("target_after") or ""
+    return str(target)
+
+
+def latest_promotion_payload(config: SupervisorConfig) -> dict[str, Any]:
     path = config.resolved_output_dir / "latest-supervisor-pass.json"
     if not path.exists():
-        return ""
+        return {}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return ""
+        return {}
     promotion = payload.get("promotion_result") or {}
-    target = promotion.get("target_before") or ""
-    return str(target)
+    return promotion if isinstance(promotion, dict) else {}
 
 
 def read_latest_activation(config: SupervisorConfig) -> dict[str, Any]:
@@ -964,6 +975,14 @@ def write_activation_record(
         elif existing_head == current_head:
             previous_head = str(existing.get("previous_head") or "")
             previous_branch = previous_branch or str(existing.get("previous_branch") or "")
+    if not previous_head:
+        latest_promoted_head = latest_promotion_activation_head(config)
+        if latest_promoted_head and latest_promoted_head != current_head:
+            previous_head = latest_promoted_head
+            previous_branch = previous_branch or config.target_branch
+        elif latest_promoted_head == current_head:
+            previous_head = latest_promotion_rollback_target(config)
+            previous_branch = previous_branch or config.target_branch
     payload = {
         "activation_id": activation_id,
         "created_at": utc_now_iso(),
