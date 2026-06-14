@@ -275,6 +275,32 @@ def test_extract_growth_signals_flags_security_for_review():
     assert "rollback-backed validation" in signals[0].recommended_action
 
 
+def test_extract_growth_signals_flags_remote_execution_sandboxes_for_review():
+    event = normalize_event(
+        "example/repo",
+        {
+            "id": "k8s-runner",
+            "type": "IssuesEvent",
+            "actor": {"login": "octocat"},
+            "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "payload": {
+                "action": "opened",
+                "issue": {
+                    "title": "Feature request: Kubernetes sandbox launcher",
+                    "html_url": "https://github.com/example/repo/issues/39",
+                    "body": "Launch runner Pods with RBAC and a service account in a K8s cluster.",
+                },
+            },
+        },
+    )
+
+    signals = extract_growth_signals([event], topics=["workflow"])
+
+    assert len(signals) == 1
+    assert signals[0].risk_flags == ["remote-execution"]
+    assert signals[0].recommended_action == "summarize the risk pattern and require rollback-backed validation before borrowing it"
+
+
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(
         [

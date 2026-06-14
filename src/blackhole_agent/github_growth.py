@@ -8,6 +8,7 @@ and apply local evolution on a prepared branch.
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import time
@@ -57,6 +58,21 @@ INTERESTING_EVENT_TYPES = {
     "WorkflowRunEvent",
 }
 HIGH_RISK_TERMS = ("auth", "credential", "secret", "security", "token")
+REMOTE_EXECUTION_TERMS = (
+    "cluster",
+    "k8s",
+    "kubeconfig",
+    "kubernetes",
+    "pod",
+    "pods",
+    "rbac",
+    "runner",
+    "runners",
+    "sandbox",
+    "sandboxes",
+    "service account",
+    "serviceaccount",
+)
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -636,7 +652,7 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
         matched_topics = [topic for topic in topic_terms if topic in haystack]
         if event.kind not in INTERESTING_EVENT_TYPES and not matched_topics:
             continue
-        risk_flags = sorted({term for term in HIGH_RISK_TERMS if term in haystack})
+        risk_flags = detect_risk_flags(haystack)
         if matched_topics:
             relevance = "matched topics: " + ", ".join(sorted(set(matched_topics)))
             confidence = 0.82
@@ -657,6 +673,17 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
             )
         )
     return signals
+
+
+def detect_risk_flags(haystack: str) -> list[str]:
+    flags = {term for term in HIGH_RISK_TERMS if term in haystack}
+    if any(contains_risk_term(haystack, term) for term in REMOTE_EXECUTION_TERMS):
+        flags.add("remote-execution")
+    return sorted(flags)
+
+
+def contains_risk_term(haystack: str, term: str) -> bool:
+    return re.search(rf"\b{re.escape(term)}\b", haystack) is not None
 
 
 def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
