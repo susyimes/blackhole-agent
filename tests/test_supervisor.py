@@ -7,6 +7,7 @@ from blackhole_agent.supervisor import (
     SupervisorConfig,
     build_wake_command,
     promote_candidate,
+    run_startup_health_check,
     run_wake_once,
 )
 
@@ -191,6 +192,41 @@ def test_promote_candidate_rolls_back_when_post_merge_health_fails(tmp_path):
     assert state["merged"] is True
     assert state["reset"] is True
     assert ["git", "push", "origin", "main"] not in [call[0] for call in calls]
+
+
+def test_startup_health_failure_rolls_back_to_previous_promotion(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    output_dir = repo / ".blackhole-agent" / "supervisor"
+    output_dir.mkdir(parents=True)
+    (output_dir / "latest-supervisor-pass.json").write_text(
+        json.dumps({"promotion_result": {"target_before": "base123"}}) + "\n",
+        encoding="utf-8",
+    )
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, Path(kwargs["cwd"])))
+        if command[:2] == ["uv", "run"]:
+            return subprocess.CompletedProcess(command, 9, stdout="", stderr="broken startup")
+        if command == ["git", "reset", "--hard", "base123"]:
+            return subprocess.CompletedProcess(command, 0, stdout="reset\n", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=output_dir,
+        health_commands=("uv run pytest",),
+    )
+    record = run_startup_health_check(config, command_runner=runner)
+
+    assert record.returncode == 0
+    assert record.rollback_attempted is True
+    assert record.rollback_succeeded is True
+    assert record.rollback_target == "base123"
+    assert ["git", "reset", "--hard", "base123"] in [call[0] for call in calls]
+    latest = json.loads((output_dir / "latest-startup-health.json").read_text(encoding="utf-8"))
+    assert latest["rollback_succeeded"] is True
 
 
 def test_run_wake_once_does_not_commit_or_promote_failed_pass(tmp_path):

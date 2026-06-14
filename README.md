@@ -148,6 +148,8 @@ uv run ruff check .
 
 After a promotion the supervisor writes a restart request. Use `--exit-after-promotion` when an outer watchdog, service manager, or Windows Scheduled Task should relaunch the process from the new `main`.
 
+On process start, the supervisor runs the same health commands against the active checkout. If startup health fails, it reads the previous promotion's `target_before` from `latest-supervisor-pass.json`, resets back to that commit, and writes `latest-startup-health.json`.
+
 For a half-hour local experiment:
 
 ```bash
@@ -268,6 +270,7 @@ One run can write:
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
 | `latest-supervisor-heartbeat.json` | latest supervisor health heartbeat with activation branch/HEAD |
 | `latest-restart-request.json` | restart handoff written after a successful promotion |
+| `latest-startup-health.json` | startup health record and rollback status |
 | `supervisor.log` | append-only native wake loop log |
 
 ## Development

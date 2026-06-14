@@ -154,6 +154,8 @@ Successful promotions can be pushed to the configured remote. This is a runtime 
 
 After a successful promotion, the supervisor writes `latest-restart-request.json`. Operators can run the supervisor under an outer watchdog and enable `--exit-after-promotion`; the supervisor then exits with the configured restart code so the outer process can relaunch from the latest `main`.
 
+On process start, the supervisor runs the configured health commands before scheduling the next pass. If startup health fails, it reads the last promotion's `target_before`, performs a local `git reset --hard <target_before>`, and records the decision in `latest-startup-health.json`.
+
 ### Application Policy
 
 Local source evolution does not require human approval when:
@@ -192,5 +194,6 @@ Store only references to runtime capabilities in repo state, never credential va
 - Partial failure: persist the successful normalized events and mark digest incomplete.
 - Verification failure: do not publish; include failure evidence.
 - Post-merge health failure: reset the target branch to the pre-merge HEAD and record rollback status.
+- Startup health failure after restart: reset to the previous promotion's target HEAD and record startup health status.
 - Missing runtime policy: leave proposal pending or keep the local branch unapplied.
 

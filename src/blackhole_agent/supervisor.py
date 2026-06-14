@@ -84,6 +84,8 @@ class SupervisorConfig:
     require_rollback_artifact: bool = True
     health_commands: tuple[str, ...] = DEFAULT_HEALTH_COMMANDS
     health_timeout_seconds: int = 900
+    startup_health_check: bool = True
+    rollback_on_startup_health_failure: bool = True
     exit_after_promotion: bool = False
     restart_exit_code: int = DEFAULT_RESTART_EXIT_CODE
 
@@ -164,6 +166,22 @@ class PromotionResult:
     rollback_succeeded: bool
     restart_requested: bool
     restart_request_path: str
+    stdout_tail: str
+    stderr_tail: str
+
+
+@dataclass(frozen=True)
+class StartupHealthRecord:
+    """Health check record written when a supervisor process starts."""
+
+    check_id: str
+    started_at: str
+    finished_at: str
+    health_checks: list[HealthCheckResult]
+    returncode: int
+    rollback_attempted: bool
+    rollback_succeeded: bool
+    rollback_target: str
     stdout_tail: str
     stderr_tail: str
 
@@ -282,6 +300,10 @@ def run_supervisor_loop(
         f"blackhole supervisor waking every {config.interval_seconds}s; "
         f"mode={config.evolution_mode}; output={config.resolved_output_dir}"
     )
+    if config.startup_health_check:
+        startup_record = run_startup_health_check(config, command_runner=command_runner)
+        if startup_record.returncode != 0 and config.exit_on_failure:
+            return startup_record.returncode
     if not config.run_immediately:
         sleep(config.interval_seconds)
 
@@ -798,6 +820,69 @@ def run_health_checks(
     return results
 
 
+def run_startup_health_check(
+    config: SupervisorConfig,
+    *,
+    command_runner: Any = subprocess.run,
+) -> StartupHealthRecord:
+    """Run health checks on process start and optionally roll back a bad activation."""
+
+    prepare_supervisor_output(config)
+    check_id = compact_utc_timestamp()
+    started_at = utc_now_iso()
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+    checks = run_health_checks(config, config.repo_path, command_runner=command_runner)
+    failed_check = first_failed_health_check(checks)
+    returncode = failed_check.returncode if failed_check is not None else 0
+    rollback_target = ""
+    rollback_attempted = False
+    rollback_succeeded = False
+    if failed_check is not None and config.rollback_on_startup_health_failure:
+        rollback_target = latest_promotion_rollback_target(config)
+        if rollback_target:
+            rollback_attempted = True
+            reset = command_runner(
+                ["git", "reset", "--hard", rollback_target],
+                cwd=config.repo_path,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            stdout_parts.append(reset.stdout or "")
+            stderr_parts.append(reset.stderr or "")
+            rollback_succeeded = reset.returncode == 0
+            if rollback_succeeded:
+                returncode = 0
+    record = StartupHealthRecord(
+        check_id=check_id,
+        started_at=started_at,
+        finished_at=utc_now_iso(),
+        health_checks=checks,
+        returncode=returncode,
+        rollback_attempted=rollback_attempted,
+        rollback_succeeded=rollback_succeeded,
+        rollback_target=rollback_target,
+        stdout_tail=tail_text("\n".join(stdout_parts)),
+        stderr_tail=tail_text("\n".join(stderr_parts)),
+    )
+    write_startup_health_record(config.resolved_output_dir, record)
+    return record
+
+
+def latest_promotion_rollback_target(config: SupervisorConfig) -> str:
+    path = config.resolved_output_dir / "latest-supervisor-pass.json"
+    if not path.exists():
+        return ""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    promotion = payload.get("promotion_result") or {}
+    target = promotion.get("target_before") or ""
+    return str(target)
+
+
 def first_failed_health_check(results: list[HealthCheckResult]) -> HealthCheckResult | None:
     for result in results:
         if result.returncode != 0:
@@ -908,6 +993,12 @@ def write_pass_record(output_dir: Path, record: SupervisorPassRecord) -> None:
     )
 
 
+def write_startup_health_record(output_dir: Path, record: StartupHealthRecord) -> None:
+    payload = startup_health_record_to_dict(record)
+    write_json(output_dir / f"startup-health-{record.check_id}.json", payload)
+    write_json(output_dir / "latest-startup-health.json", payload)
+
+
 def append_supervisor_log(output_dir: Path, record: SupervisorPassRecord) -> None:
     lines = [
         "",
@@ -953,6 +1044,12 @@ def promotion_result_to_dict(result: PromotionResult) -> dict[str, Any]:
     data = asdict(result)
     data["health_checks"] = [asdict(check) for check in result.health_checks]
     data["post_merge_health_checks"] = [asdict(check) for check in result.post_merge_health_checks]
+    return data
+
+
+def startup_health_record_to_dict(record: StartupHealthRecord) -> dict[str, Any]:
+    data = asdict(record)
+    data["health_checks"] = [asdict(check) for check in record.health_checks]
     return data
 
 
@@ -1099,6 +1196,16 @@ def main(
         help="Newline-separated commands that must pass before and after promotion.",
     ),
     health_timeout_seconds: int = typer.Option(900, "--health-timeout-seconds", min=1, help="Timeout per health command."),
+    startup_health_check: bool = typer.Option(
+        True,
+        "--startup-health-check/--no-startup-health-check",
+        help="Run health commands when the supervisor process starts.",
+    ),
+    rollback_on_startup_health_failure: bool = typer.Option(
+        True,
+        "--rollback-on-startup-health-failure/--no-rollback-on-startup-health-failure",
+        help="Reset to the previous promoted HEAD when startup health fails.",
+    ),
     exit_after_promotion: bool = typer.Option(
         False,
         "--exit-after-promotion/--stay-running-after-promotion",
@@ -1155,6 +1262,8 @@ def main(
         require_rollback_artifact=require_rollback_artifact,
         health_commands=parse_health_commands(health_commands),
         health_timeout_seconds=health_timeout_seconds,
+        startup_health_check=startup_health_check,
+        rollback_on_startup_health_failure=rollback_on_startup_health_failure,
         exit_after_promotion=exit_after_promotion,
         restart_exit_code=restart_exit_code,
     )
