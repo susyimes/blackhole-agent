@@ -148,13 +148,13 @@ After a successful Codex pass, the supervisor may promote the candidate into `ma
 
 The default health commands are `uv run pytest` and `uv run ruff check .`. If post-merge health fails, the supervisor resets the target branch back to the pre-merge HEAD and records that rollback in the pass artifact.
 
-Successful promotions can be pushed to the configured remote. This is a runtime policy controlled by `--push-promotions/--no-push-promotions`.
+Successful promotions can be pushed to the configured remote. This is a runtime policy controlled by `--push-promotions/--no-push-promotions`. A successful promotion also writes `latest-activation.json` with the promoted HEAD and its previous rollback head.
 
 ### Restart Handoff
 
 After a successful promotion, the supervisor writes `latest-restart-request.json`. Operators can run the supervisor under an outer watchdog and enable `--exit-after-promotion`; the supervisor then exits with the configured restart code so the outer process can relaunch from the latest `main`.
 
-On process start, the supervisor runs the configured health commands before scheduling the next pass. If startup health fails, it reads the last promotion's `target_before`, performs a local `git reset --hard <target_before>`, and records the decision in `latest-startup-health.json`.
+On process start, the supervisor runs the configured health commands before scheduling the next pass. If startup health passes, the current checkout is recorded as `latest-activation.json`; this lets manual hotfixes become the rollback baseline after verification. If startup health fails, the supervisor uses `latest-activation.json` to choose a rollback target, falling back to the last promotion's `target_before` when no activation record exists.
 
 ### Application Policy
 
@@ -183,7 +183,7 @@ The minimum durable state:
 - verification result
 - application decision
 - Codex task path and final message path for local kernel runs
-- supervisor heartbeat, pass records, candidate worktree path, promotion result, restart request, activation branch/HEAD, and optional local commit SHA
+- supervisor heartbeat, pass records, candidate worktree path, promotion result, restart request, activation baseline, activation branch/HEAD, and optional local commit SHA
 
 Store only references to runtime capabilities in repo state, never credential values or private chats.
 
@@ -194,6 +194,6 @@ Store only references to runtime capabilities in repo state, never credential va
 - Partial failure: persist the successful normalized events and mark digest incomplete.
 - Verification failure: do not publish; include failure evidence.
 - Post-merge health failure: reset the target branch to the pre-merge HEAD and record rollback status.
-- Startup health failure after restart: reset to the previous promotion's target HEAD and record startup health status.
+- Startup health failure after restart: reset through the latest activation baseline and record startup health status.
 - Missing runtime policy: leave proposal pending or keep the local branch unapplied.
 

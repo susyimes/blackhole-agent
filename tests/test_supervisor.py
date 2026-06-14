@@ -126,12 +126,16 @@ def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):
     latest = json.loads((output_dir / "latest-supervisor-pass.json").read_text(encoding="utf-8"))
     heartbeat = json.loads((output_dir / "latest-supervisor-heartbeat.json").read_text(encoding="utf-8"))
     restart_request = json.loads((output_dir / "latest-restart-request.json").read_text(encoding="utf-8"))
+    activation = json.loads((output_dir / "latest-activation.json").read_text(encoding="utf-8"))
     assert latest["promotion_result"]["promoted"] is True
     assert latest["promotion_result"]["pushed"] is True
     assert heartbeat["last_promoted"] is True
     assert heartbeat["last_pushed"] is True
     assert heartbeat["last_restart_requested"] is True
     assert restart_request["target_head"] == "cand123"
+    assert activation["reason"] == "promotion_applied"
+    assert activation["current_head"] == "cand123"
+    assert activation["previous_head"] == "base123"
 
 
 def test_promote_candidate_rolls_back_when_post_merge_health_fails(tmp_path):
@@ -221,6 +225,90 @@ def test_run_health_checks_isolates_candidate_import_environment(tmp_path, monke
     assert seen["cwd"] == repo
     assert "VIRTUAL_ENV" not in seen["env"]
     assert seen["env"]["PYTHONPATH"] == str(repo / "src")
+
+
+def test_startup_health_success_records_manual_activation_baseline(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    output_dir = repo / ".blackhole-agent" / "supervisor"
+    output_dir.mkdir(parents=True)
+    (output_dir / "latest-activation.json").write_text(
+        json.dumps(
+            {
+                "current_branch": "main",
+                "current_head": "stable123",
+                "previous_branch": "main",
+                "previous_head": "older123",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def runner(command, **kwargs):
+        if command[:2] == ["uv", "run"]:
+            return subprocess.CompletedProcess(command, 0, stdout="ok\n", stderr="")
+        if command == ["git", "rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="hotfix123\n", stderr="")
+        if command == ["git", "branch", "--show-current"]:
+            return subprocess.CompletedProcess(command, 0, stdout="main\n", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=output_dir,
+        health_commands=("uv run pytest",),
+    )
+    record = run_startup_health_check(config, command_runner=runner)
+
+    assert record.returncode == 0
+    activation = json.loads((output_dir / "latest-activation.json").read_text(encoding="utf-8"))
+    assert activation["reason"] == "startup_health_passed"
+    assert activation["current_head"] == "hotfix123"
+    assert activation["previous_head"] == "stable123"
+
+
+def test_startup_health_failure_rolls_back_to_activation_previous_head(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    output_dir = repo / ".blackhole-agent" / "supervisor"
+    output_dir.mkdir(parents=True)
+    (output_dir / "latest-activation.json").write_text(
+        json.dumps(
+            {
+                "current_branch": "main",
+                "current_head": "bad123",
+                "previous_branch": "main",
+                "previous_head": "stable123",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, Path(kwargs["cwd"])))
+        if command[:2] == ["uv", "run"]:
+            return subprocess.CompletedProcess(command, 9, stdout="", stderr="broken startup")
+        if command == ["git", "rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="bad123\n", stderr="")
+        if command == ["git", "reset", "--hard", "stable123"]:
+            return subprocess.CompletedProcess(command, 0, stdout="reset\n", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=output_dir,
+        health_commands=("uv run pytest",),
+    )
+    record = run_startup_health_check(config, command_runner=runner)
+
+    assert record.returncode == 0
+    assert record.rollback_attempted is True
+    assert record.rollback_succeeded is True
+    assert record.rollback_target == "stable123"
+    assert ["git", "reset", "--hard", "stable123"] in [call[0] for call in calls]
 
 
 def test_startup_health_failure_rolls_back_to_previous_promotion(tmp_path):

@@ -141,6 +141,7 @@ Defaults:
 - successful Codex source changes: committed in the candidate worktree
 - promotion: health-gated fast-forward into `main`, then pushed to `origin`
 - restart handoff: `latest-restart-request.json`
+- stable activation baseline: `latest-activation.json`
 
 The important detail: `codex` mode remains one-shot inside `blackhole`; the supervisor is the durable loop that re-enters it once per hour. That means the next pass reloads the current checkout instead of keeping an old in-memory controller alive forever.
 
@@ -156,6 +157,7 @@ candidate worktree
   -> git merge --ff-only <candidate-head>
   -> post-merge health commands
   -> git push origin main
+  -> latest-activation.json
   -> latest-restart-request.json
 ```
 
@@ -175,9 +177,9 @@ uv run pytest
 uv run ruff check .
 ```
 
-After a promotion the supervisor writes a restart request. Use `--exit-after-promotion` when an outer watchdog, service manager, or Windows Scheduled Task should relaunch the process from the new `main`.
+After a promotion the supervisor writes a stable activation record and a restart request. Use `--exit-after-promotion` when an outer watchdog, service manager, or Windows Scheduled Task should relaunch the process from the new `main`.
 
-On process start, the supervisor runs the same health commands against the active checkout. If startup health fails, it reads the previous promotion's `target_before` from `latest-supervisor-pass.json`, resets back to that commit, and writes `latest-startup-health.json`.
+On process start, the supervisor runs the same health commands against the active checkout. If startup health passes, the current HEAD is recorded as `latest-activation.json`, so manual hotfixes can become the new stable baseline after verification. If startup health fails, the supervisor first rolls back through that activation baseline, then falls back to the previous promotion record when no activation record exists.
 
 For a half-hour local experiment:
 
@@ -309,6 +311,7 @@ One run can write:
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
 | `latest-supervisor-heartbeat.json` | latest supervisor health heartbeat with activation branch/HEAD |
 | `latest-restart-request.json` | restart handoff written after a successful promotion |
+| `latest-activation.json` | latest health-verified activation and its previous rollback head |
 | `latest-startup-health.json` | startup health record and rollback status |
 | `supervisor.log` | append-only native wake loop log |
 

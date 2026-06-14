@@ -29,6 +29,7 @@ SUPPORTED_EVOLUTION_MODES = {"digest", "plan", "codex"}
 DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/supervisor")
 DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = ("uv run pytest", "uv run ruff check .")
 DEFAULT_RESTART_EXIT_CODE = 75
+LATEST_ACTIVATION_FILENAME = "latest-activation.json"
 DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION = (
     "Native supervisor note: this wake is one pass in an autonomous scheduled loop. "
     "Keep the change small, rollback-backed, locally verifiable, and do not push. "
@@ -778,6 +779,15 @@ def promote_candidate(
         if not pushed:
             return result(promoted=True, pushed=False, returncode=push_returncode)
 
+    write_activation_record(
+        config,
+        reason="promotion_applied",
+        source_id=pass_id,
+        current_head=target_after,
+        current_branch=config.target_branch,
+        previous_head=target_before,
+        command_runner=command_runner,
+    )
     restart_request_path = write_restart_request(config, pass_id, candidate_branch, candidate_head, target_after)
     return result(
         promoted=True,
@@ -847,8 +857,15 @@ def run_startup_health_check(
     rollback_target = ""
     rollback_attempted = False
     rollback_succeeded = False
-    if failed_check is not None and config.rollback_on_startup_health_failure:
-        rollback_target = latest_promotion_rollback_target(config)
+    if failed_check is None:
+        write_activation_record(
+            config,
+            reason="startup_health_passed",
+            source_id=check_id,
+            command_runner=command_runner,
+        )
+    elif config.rollback_on_startup_health_failure:
+        rollback_target = startup_rollback_target(config, command_runner=command_runner)
         if rollback_target:
             rollback_attempted = True
             reset = command_runner(
@@ -879,6 +896,23 @@ def run_startup_health_check(
     return record
 
 
+def startup_rollback_target(
+    config: SupervisorConfig,
+    *,
+    command_runner: Any = subprocess.run,
+) -> str:
+    activation = read_latest_activation(config)
+    current_head = git_text(config.repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
+    activation_head = str(activation.get("current_head") or "")
+    previous_head = str(activation.get("previous_head") or "")
+    if activation_head:
+        if current_head and current_head != activation_head:
+            return activation_head
+        if previous_head:
+            return previous_head
+    return latest_promotion_rollback_target(config)
+
+
 def latest_promotion_rollback_target(config: SupervisorConfig) -> str:
     path = config.resolved_output_dir / "latest-supervisor-pass.json"
     if not path.exists():
@@ -890,6 +924,62 @@ def latest_promotion_rollback_target(config: SupervisorConfig) -> str:
     promotion = payload.get("promotion_result") or {}
     target = promotion.get("target_before") or ""
     return str(target)
+
+
+def read_latest_activation(config: SupervisorConfig) -> dict[str, Any]:
+    path = config.resolved_output_dir / LATEST_ACTIVATION_FILENAME
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def write_activation_record(
+    config: SupervisorConfig,
+    *,
+    reason: str,
+    source_id: str,
+    current_head: str = "",
+    current_branch: str = "",
+    previous_head: str = "",
+    previous_branch: str = "",
+    command_runner: Any = subprocess.run,
+) -> Path:
+    activation_id = compact_utc_timestamp()
+    existing = read_latest_activation(config)
+    current_head = current_head or git_text(config.repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
+    current_branch = current_branch or git_text(
+        config.repo_path,
+        ["git", "branch", "--show-current"],
+        command_runner=command_runner,
+    )
+    existing_head = str(existing.get("current_head") or "")
+    if not previous_head:
+        if existing_head and existing_head != current_head:
+            previous_head = existing_head
+            previous_branch = previous_branch or str(existing.get("current_branch") or "")
+        elif existing_head == current_head:
+            previous_head = str(existing.get("previous_head") or "")
+            previous_branch = previous_branch or str(existing.get("previous_branch") or "")
+    payload = {
+        "activation_id": activation_id,
+        "created_at": utc_now_iso(),
+        "reason": reason,
+        "source_id": source_id,
+        "target_branch": config.target_branch,
+        "current_branch": current_branch,
+        "current_head": current_head,
+        "previous_branch": previous_branch,
+        "previous_head": previous_head,
+        "health_commands": list(config.health_commands),
+    }
+    path = config.resolved_output_dir / f"activation-{activation_id}.json"
+    write_json(path, payload)
+    write_json(config.resolved_output_dir / LATEST_ACTIVATION_FILENAME, payload)
+    return path
 
 
 def first_failed_health_check(results: list[HealthCheckResult]) -> HealthCheckResult | None:
