@@ -314,7 +314,9 @@ def test_extract_growth_signals_flags_agent_governance_controls_for_validation()
     assert signals[0].recommended_action == (
         "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
     )
-    assert build_proposals(signals)[0]["kind"] == "follow_up_issue"
+    proposal = build_proposals(signals)[0]
+    assert proposal["kind"] == "follow_up_issue"
+    assert "risky agent controls" in proposal["validation_task"]
 
 
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
@@ -539,6 +541,16 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "Network: use only proposal Evidence URLs" in plan.task
     assert "do not push, restart, or provision remote sandboxes" in plan.task
     assert "Improve agent workflow tests" in plan.task
+
+
+def test_build_self_evolution_plan_includes_proposal_validation_task(tmp_path):
+    digest = digest_with_proposal()
+    digest["proposals"][0]["validation_task"] = "Run the focused governance validation test before changing behavior."
+
+    plan = build_self_evolution_plan(digest, repo_path=tmp_path)
+
+    assert plan is not None
+    assert "Validation task: Run the focused governance validation test before changing behavior." in plan.task
 
 
 def test_persona_layer_captures_operational_self_model():

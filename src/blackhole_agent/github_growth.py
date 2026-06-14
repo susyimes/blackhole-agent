@@ -767,10 +767,32 @@ def build_proposals(
                 "kind": classify_proposal_kind(signal),
                 "summary": f"Borrow cautiously from {signal.repo}: {signal.title}. {signal.recommended_action}.",
                 "evidence_urls": [signal.url] if signal.url else [],
+                "validation_task": validation_task_for_signal(signal),
                 "requires_approval": False,
             }
         )
     return proposals
+
+
+def validation_task_for_signal(signal: GrowthSignal) -> str:
+    if "governance-control" in signal.risk_flags:
+        return (
+            "Before borrowing governance behavior, add or update a local test that proves risky agent controls are "
+            "only represented as reviewable proposals and that the generated Codex task names the validation gate."
+        )
+    if "remote-execution" in signal.risk_flags:
+        return (
+            "Before borrowing remote execution behavior, validate locally that the proposal records the capability "
+            "requirement and does not enable new runners, sandboxes, or cluster access."
+        )
+    if signal.risk_flags:
+        return (
+            "Summarize the risk in a local artifact or test fixture and verify the change stays rollback-backed "
+            "without expanding runtime capabilities."
+        )
+    if signal.kind == "RepositoryTrend":
+        return "Review the evidence URL, extract one reusable pattern, and verify the local change with a focused test."
+    return "Verify the proposed lesson with the narrowest local test or documentation check that covers the changed behavior."
 
 
 def rank_signals_with_memory(
@@ -886,6 +908,9 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
                 f"  - Autonomous local apply: {not proposal['requires_approval']}",
             ]
         )
+        validation_task = str(proposal.get("validation_task") or "").strip()
+        if validation_task:
+            lines.append(f"  - Validation task: {validation_task}")
     return "\n".join(lines) + "\n"
 
 
@@ -975,6 +1000,9 @@ def render_self_evolution_task(
                 f"   Autonomous local apply: {not proposal.get('requires_approval', True)}",
             ]
         )
+        validation_task = str(proposal.get("validation_task") or "").strip()
+        if validation_task:
+            proposal_lines.append(f"   Validation task: {validation_task}")
     extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
     return "\n".join(
         [
