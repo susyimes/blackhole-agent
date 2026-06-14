@@ -301,6 +301,51 @@ def test_extract_growth_signals_flags_remote_execution_sandboxes_for_review():
     assert signals[0].recommended_action == "summarize the risk pattern and require rollback-backed validation before borrowing it"
 
 
+def test_tool_dispatch_gaps_record_capability_requirement_without_enabling_runners(tmp_path):
+    event = normalize_event(
+        "omnigent-ai/omnigent",
+        {
+            "id": "web-search-gap",
+            "type": "IssuesEvent",
+            "actor": {"login": "wildcard"},
+            "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "payload": {
+                "action": "opened",
+                "issue": {
+                    "title": "web_search is non-functional on non-OpenAI models",
+                    "html_url": "https://github.com/omnigent-ai/omnigent/issues/53",
+                    "body": (
+                        "The web_search builtin reaches the runner dispatch table with no handler and returns "
+                        "Error: web_search not in local dispatch table for provider-backed models."
+                    ),
+                },
+            },
+        },
+    )
+
+    signals = extract_growth_signals([event], topics=["agent"])
+    proposal = build_proposals(signals)[0]
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-web-search-gap",
+            "generated_at": "2026-06-14T13:09:24Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+
+    assert signals[0].risk_flags == ["capability-requirement", "remote-execution"]
+    assert signals[0].recommended_action == (
+        "record the capability requirement and require rollback-backed validation before borrowing runner behavior"
+    )
+    assert proposal["kind"] == "follow_up_issue"
+    assert "capability requirement" in proposal["validation_task"]
+    assert "does not enable new runners, sandboxes, cluster access, or remote execution" in proposal["validation_task"]
+    assert plan is not None
+    assert "Validation task: " in plan.task
+    assert "does not enable new runners, sandboxes, cluster access, or remote execution" in plan.task
+
+
 def test_extract_growth_signals_flags_agent_governance_controls_for_validation():
     event = normalize_event(
         "example/repo",

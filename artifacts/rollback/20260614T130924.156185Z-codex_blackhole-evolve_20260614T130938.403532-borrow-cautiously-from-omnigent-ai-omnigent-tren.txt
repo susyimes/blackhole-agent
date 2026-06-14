@@ -1,0 +1,4 @@
+original_branch=codex/blackhole-evolve/20260614T130938.403532-borrow-cautiously-from-omnigent-ai-omnigent-tren
+original_head=25f5f0bee41f1db9cebedb017a48341defe944f3
+rollback_ref=refs/blackhole-rollback/codex/blackhole-evolve/20260614T130938.403532-borrow-cautiously-from-omnigent-ai-omnigent-tren
+recovery_commands=git reset --hard refs/blackhole-rollback/codex/blackhole-evolve/20260614T130938.403532-borrow-cautiously-from-omnigent-ai-omnigent-tren ; git clean -fd

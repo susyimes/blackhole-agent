@@ -85,6 +85,15 @@ REMOTE_EXECUTION_TERMS = (
     "service account",
     "serviceaccount",
 )
+CAPABILITY_GAP_TERMS = (
+    "dispatch table",
+    "no handler",
+    "not in local dispatch table",
+    "provider",
+    "search_provider",
+    "tool call",
+    "web_search",
+)
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -691,6 +700,8 @@ def detect_risk_flags(haystack: str) -> list[str]:
     flags = {term for term in HIGH_RISK_TERMS if term in haystack}
     if any(contains_risk_term(haystack, term) for term in GOVERNANCE_CONTROL_TERMS):
         flags.add("governance-control")
+    if is_capability_gap_signal(haystack):
+        flags.add("capability-requirement")
     if any(contains_risk_term(haystack, term) for term in REMOTE_EXECUTION_TERMS):
         flags.add("remote-execution")
     return sorted(flags)
@@ -700,9 +711,18 @@ def contains_risk_term(haystack: str, term: str) -> bool:
     return re.search(rf"\b{re.escape(term)}\b", haystack) is not None
 
 
+def is_capability_gap_signal(haystack: str) -> bool:
+    if "not in local dispatch table" in haystack:
+        return True
+    matched_terms = [term for term in CAPABILITY_GAP_TERMS if contains_risk_term(haystack, term)]
+    return "web_search" in matched_terms and bool({"dispatch table", "no handler", "provider"} & set(matched_terms))
+
+
 def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
     if "governance-control" in risk_flags:
         return "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
+    if "capability-requirement" in risk_flags:
+        return "record the capability requirement and require rollback-backed validation before borrowing runner behavior"
     if risk_flags:
         return "summarize the risk pattern and require rollback-backed validation before borrowing it"
     if event.kind == "RepositoryTrend":
@@ -779,6 +799,11 @@ def validation_task_for_signal(signal: GrowthSignal) -> str:
         return (
             "Before borrowing governance behavior, add or update a local test that proves risky agent controls are "
             "only represented as reviewable proposals and that the generated Codex task names the validation gate."
+        )
+    if "capability-requirement" in signal.risk_flags:
+        return (
+            "Before borrowing runner or tool-dispatch behavior, validate locally that the proposal records the "
+            "capability requirement and does not enable new runners, sandboxes, cluster access, or remote execution."
         )
     if "remote-execution" in signal.risk_flags:
         return (
