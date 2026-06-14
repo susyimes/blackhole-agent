@@ -490,6 +490,9 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "Track GitHub trends on a scheduled cadence, normally hourly." in plan.task
     assert "A restart must be performed by an external scheduler or supervisor" in plan.task
     assert "Apply local repository changes autonomously" in plan.task
+    assert "Digest evidence policy:" in plan.task
+    assert "Treat the Source digest and proposal Evidence URLs as the primary context" in plan.task
+    assert "do not re-run broad trend discovery" in plan.task
     assert "Improve agent workflow tests" in plan.task
 
 

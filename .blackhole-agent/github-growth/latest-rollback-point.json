@@ -1,0 +1,26 @@
+{
+  "created_at": "2026-06-14T05:50:25.866453Z",
+  "original_branch": "codex/blackhole-evolve/20260614T054934.793892-borrow-cautiously-from-claudiodrews-memory-os-tr",
+  "original_head": "02f49cc6f14c2721401d6606306d743561fc30ab",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent",
+  "restore_commands": [
+    [
+      "git",
+      "switch",
+      "codex/blackhole-evolve/20260614T054934.793892-borrow-cautiously-from-claudiodrews-memory-os-tr"
+    ],
+    [
+      "git",
+      "reset",
+      "--hard",
+      "refs/blackhole-agent/rollback/20260614T055025Z-02f49cc6f14c"
+    ],
+    [
+      "git",
+      "clean",
+      "-fd"
+    ]
+  ],
+  "rollback_ref": "refs/blackhole-agent/rollback/20260614T055025Z-02f49cc6f14c",
+  "status_porcelain": ""
+}
