@@ -795,6 +795,7 @@ def run_health_checks(
     command_runner: Any = subprocess.run,
 ) -> list[HealthCheckResult]:
     results: list[HealthCheckResult] = []
+    env = build_health_env(repo_path)
     for command_text in config.health_commands:
         if not command_text.strip():
             continue
@@ -802,6 +803,7 @@ def run_health_checks(
         completed = command_runner(
             command,
             cwd=repo_path,
+            env=env,
             capture_output=True,
             text=True,
             timeout=config.health_timeout_seconds,
@@ -818,6 +820,13 @@ def run_health_checks(
         if completed.returncode != 0:
             break
     return results
+
+
+def build_health_env(repo_path: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env.pop("VIRTUAL_ENV", None)
+    env["PYTHONPATH"] = str(repo_path / "src")
+    return env
 
 
 def run_startup_health_check(

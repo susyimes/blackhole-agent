@@ -6,6 +6,7 @@ from pathlib import Path
 from blackhole_agent.supervisor import (
     SupervisorConfig,
     build_wake_command,
+    run_health_checks,
     promote_candidate,
     run_startup_health_check,
     run_wake_once,
@@ -192,6 +193,34 @@ def test_promote_candidate_rolls_back_when_post_merge_health_fails(tmp_path):
     assert state["merged"] is True
     assert state["reset"] is True
     assert ["git", "push", "origin", "main"] not in [call[0] for call in calls]
+
+
+def test_run_health_checks_isolates_candidate_import_environment(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "src").mkdir()
+    monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "outer" / ".venv"))
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "outer" / "src"))
+    seen = {}
+
+    def runner(command, **kwargs):
+        seen["command"] = command
+        seen["cwd"] = Path(kwargs["cwd"])
+        seen["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(command, 0, stdout="ok\n", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=repo / ".blackhole-agent" / "supervisor",
+        health_commands=("uv run pytest",),
+    )
+    results = run_health_checks(config, repo, command_runner=runner)
+
+    assert results[0].returncode == 0
+    assert seen["command"] == ["uv", "run", "pytest"]
+    assert seen["cwd"] == repo
+    assert "VIRTUAL_ENV" not in seen["env"]
+    assert seen["env"]["PYTHONPATH"] == str(repo / "src")
 
 
 def test_startup_health_failure_rolls_back_to_previous_promotion(tmp_path):
