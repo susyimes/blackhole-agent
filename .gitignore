@@ -6,4 +6,5 @@ __pycache__/
 .env
 .env.*
 .symphony-handoff.md
+.blackhole-agent/
 

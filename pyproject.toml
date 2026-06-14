@@ -23,6 +23,7 @@ dev = [
 [project.scripts]
 blackhole = "blackhole_agent.cli:app"
 blackhole-agent = "blackhole_agent.cli:app"
+blackhole-supervisor = "blackhole_agent.supervisor:app"
 
 [tool.setuptools.dynamic]
 version = {attr = "blackhole_agent.__version__"}

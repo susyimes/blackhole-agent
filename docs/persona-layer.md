@@ -15,7 +15,7 @@ The layer keeps the core mechanism in one place:
 - create a rollback point before any local self-modification
 - verify the change locally
 - leave reviewable artifacts
-- let an external scheduler or supervisor handle restart
+- let the native supervisor or another external supervisor handle restart
 
 ## Why It Exists
 
@@ -28,7 +28,7 @@ The agent may prepare code that supports restart, but it does not restart itself
 - require a rollback point from the run being activated
 - persist digest state and run metadata
 - verify the candidate branch or commit
-- hand off to an external scheduler or supervisor
+- hand off to the native supervisor or another external supervisor
 - resume from durable state after restart
 
 This keeps self-improvement separate from activation while still allowing the agent to apply verified local source changes.

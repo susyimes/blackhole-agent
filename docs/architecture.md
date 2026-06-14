@@ -6,17 +6,19 @@ Build an agent that periodically tracks public GitHub trends and converts them i
 
 ## Components
 
-### Scheduler
+### Native Supervisor
 
-Runs the intake job once per hour. It owns the last-seen cursor and should never assume the previous run completed successfully unless the digest was persisted.
+Runs the intake job once per hour by launching a fresh one-shot child process. It owns wake cadence, heartbeat artifacts, pass records, and optional local commits for successful autonomous source changes. It should never assume the previous run completed successfully unless the digest and pass record were persisted.
 
-Recommended first choice:
+Repository-native command:
 
-- GitHub Actions or another hourly scheduler for a read-only trend scanner.
+```text
+blackhole-supervisor --repo-path . --interval-seconds 3600
+```
 
 Alternative choices:
 
-- Local daemon for private workstation experiments.
+- GitHub Actions or another hourly scheduler for a read-only trend scanner.
 - Serverless timer for broader public trend monitoring.
 
 ### GitHub Intake
@@ -113,7 +115,7 @@ The kernel is intentionally local:
 - local source mutation is allowed on the prepared evolution branch
 - material actions must be written to run artifacts
 - remote writes require configured runtime capability
-- schedule and restart changes are activated by an external supervisor
+- schedule and restart changes are activated by the native supervisor or another configured runtime supervisor
 
 ### Rollback Gate
 
@@ -160,6 +162,7 @@ The minimum durable state:
 - verification result
 - application decision
 - Codex task path and final message path for local kernel runs
+- supervisor heartbeat, pass records, activation branch/HEAD, and optional local commit SHA
 
 Store only references to runtime capabilities in repo state, never credential values or private chats.
 

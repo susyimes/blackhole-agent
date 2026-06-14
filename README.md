@@ -83,6 +83,14 @@ uv run blackhole \
   --branch-prefix codex/blackhole-evolve
 ```
 
+Run the native hourly wake loop:
+
+```bash
+uv run blackhole-supervisor \
+  --repo-path . \
+  --interval-seconds 3600
+```
+
 Manual repository mode remains available for focused experiments:
 
 ```bash
@@ -97,11 +105,44 @@ uv run blackhole \
 | --- | --- | --- |
 | CLI | `blackhole_agent.cli` | Typer entry point |
 | Trend controller | `blackhole_agent.github_growth` | Search trends, fetch events, write digests, plan evolution |
+| Native supervisor | `blackhole_agent.supervisor` | Hourly wake loop for one-shot autonomous growth passes |
 | Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
 | Codex kernel | `blackhole_agent.kernels.codex_cli` | Bounded `codex exec` wrapper |
 | Digest schema | `schemas/hourly-digest.schema.json` | Structured output contract |
 | Architecture docs | `docs/architecture.md` | Component boundaries and runtime policy |
+
+## Native Wake Supervisor
+
+`blackhole-supervisor` is the repository-native runtime loop. It wakes on a fixed cadence, launches a fresh one-shot child process, records the pass, then sleeps until the next wake.
+
+Defaults:
+
+- cadence: `3600` seconds
+- mode: `codex`
+- trend query: `agent language:Python`
+- output: `.blackhole-agent/supervisor`
+- child growth artifacts: `.blackhole-agent/supervisor/growth`
+- successful Codex source changes: committed locally, not pushed
+
+The important detail: `codex` mode remains one-shot inside `blackhole`; the supervisor is the durable loop that re-enters it once per hour. That means the next pass reloads the current checkout instead of keeping an old in-memory controller alive forever.
+
+For a half-hour local experiment:
+
+```bash
+uv run blackhole-supervisor \
+  --repo-path . \
+  --interval-seconds 1800
+```
+
+For a dry pass that writes digest artifacts without mutation:
+
+```bash
+uv run blackhole-supervisor \
+  --evolution-mode digest \
+  --max-passes 1 \
+  --no-commit-successful-changes
+```
 
 ## Persona Layer
 
@@ -195,6 +236,9 @@ One run can write:
 | `latest-rollback-point.json` | machine-readable recovery anchor |
 | `latest-rollback-point.md` | human-readable rollback instructions |
 | `latest-codex-run.json` | Codex kernel run metadata |
+| `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
+| `latest-supervisor-heartbeat.json` | latest supervisor health heartbeat with activation branch/HEAD |
+| `supervisor.log` | append-only native wake loop log |
 
 ## Development
 
@@ -215,7 +259,7 @@ uv run ruff check .
 - stronger trend scoring beyond stars and recency
 - richer signal clustering across repositories and memory lessons
 - automatic local validation plans per proposal type
-- external supervisor for hourly scheduling, restart, and health-based rollback
+- health-based rollback policy inside the native supervisor
 - autonomous application records for PR creation and Linear updates
 - startup health checks that can trigger the rollback artifact
 
