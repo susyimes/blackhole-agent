@@ -1,20 +1,20 @@
 # Rollback Point
 
-Created: 2026-06-14T08:54:21Z
-Repository: `C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260614T085310Z`
-Original branch: `codex/blackhole-evolve/20260614T085325.724171-borrow-cautiously-from-omnigent-ai-omnigent-tren`
-Original HEAD: `8c1708bb590f1768338fd6fe4a68775d5fc86df7`
-Rollback ref: `refs/blackhole-agent/rollback/20260614T085421Z-8c1708bb590f`
+Created: 2026-06-14T10:55:28.624379Z
+Repository: `C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260614T105310Z`
+Original branch: `codex/blackhole-evolve/20260614T105325.805358-borrow-cautiously-from-omnigent-ai-omnigent-tren`
+Original HEAD: `83b604e4d12054baad9a55c02eb6fd2d78249296`
+Rollback ref: `refs/blackhole-agent/rollback/20260614T105528Z-83b604e4d120`
 
 ## Recovery Commands
 
 Run these from the repository root only after choosing to discard the failed self-evolution diff:
 
 ```bash
-git switch codex/blackhole-evolve/20260614T085325.724171-borrow-cautiously-from-omnigent-ai-omnigent-tren
+git switch codex/blackhole-evolve/20260614T105325.805358-borrow-cautiously-from-omnigent-ai-omnigent-tren
 ```
 ```bash
-git reset --hard refs/blackhole-agent/rollback/20260614T085421Z-8c1708bb590f
+git reset --hard refs/blackhole-agent/rollback/20260614T105528Z-83b604e4d120
 ```
 ```bash
 git clean -fd

@@ -301,6 +301,22 @@ def test_extract_growth_signals_flags_remote_execution_sandboxes_for_review():
     assert signals[0].recommended_action == "summarize the risk pattern and require rollback-backed validation before borrowing it"
 
 
+def test_extract_growth_signals_flags_agent_governance_controls_for_validation():
+    event = normalize_event(
+        "example/repo",
+        event_payload("governance", "PushEvent", "agent policy gates for spend and tool access"),
+    )
+
+    signals = extract_growth_signals([event], topics=["agent"])
+
+    assert len(signals) == 1
+    assert signals[0].risk_flags == ["governance-control"]
+    assert signals[0].recommended_action == (
+        "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
+    )
+    assert build_proposals(signals)[0]["kind"] == "follow_up_issue"
+
+
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(
         [

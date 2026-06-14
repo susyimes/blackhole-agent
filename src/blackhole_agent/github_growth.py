@@ -58,6 +58,18 @@ INTERESTING_EVENT_TYPES = {
     "WorkflowRunEvent",
 }
 HIGH_RISK_TERMS = ("auth", "credential", "secret", "security", "token")
+GOVERNANCE_CONTROL_TERMS = (
+    "approval",
+    "approvals",
+    "budget",
+    "cost",
+    "policies",
+    "policy",
+    "spend",
+    "tool access",
+    "tool limit",
+    "tool limits",
+)
 REMOTE_EXECUTION_TERMS = (
     "cluster",
     "k8s",
@@ -677,6 +689,8 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
 
 def detect_risk_flags(haystack: str) -> list[str]:
     flags = {term for term in HIGH_RISK_TERMS if term in haystack}
+    if any(contains_risk_term(haystack, term) for term in GOVERNANCE_CONTROL_TERMS):
+        flags.add("governance-control")
     if any(contains_risk_term(haystack, term) for term in REMOTE_EXECUTION_TERMS):
         flags.add("remote-execution")
     return sorted(flags)
@@ -687,6 +701,8 @@ def contains_risk_term(haystack: str, term: str) -> bool:
 
 
 def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
+    if "governance-control" in risk_flags:
+        return "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
     if risk_flags:
         return "summarize the risk pattern and require rollback-backed validation before borrowing it"
     if event.kind == "RepositoryTrend":
