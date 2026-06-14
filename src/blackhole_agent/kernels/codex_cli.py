@@ -25,6 +25,7 @@ class CodexCliConfig:
     sandbox: str = "workspace-write"
     approval_policy: str = "never"
     ephemeral: bool = True
+    ignore_user_config: bool = True
     skip_git_repo_check: bool = False
     bypass_approvals_and_sandbox: bool = False
     color: str = "never"
@@ -133,11 +134,15 @@ def build_codex_exec_command(
         command.extend(["--model", config.model])
     if config.profile:
         command.extend(["--profile", config.profile])
+    if config.ignore_user_config:
+        command.append("--ignore-user-config")
     if config.bypass_approvals_and_sandbox:
         command.append("--dangerously-bypass-approvals-and-sandbox")
     else:
         command.extend(["--sandbox", config.sandbox])
-        command.extend(["--ask-for-approval", config.approval_policy])
+        # Modern `codex exec` is non-interactive and no longer accepts an
+        # approval-policy flag. Keep the config field for controller/API
+        # compatibility, but do not emit the removed CLI option.
     if config.ephemeral:
         command.append("--ephemeral")
     if config.skip_git_repo_check:

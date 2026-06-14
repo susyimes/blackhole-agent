@@ -102,10 +102,11 @@ Runs only when explicitly selected with `--evolution-mode codex`.
 The controller creates a bounded task from the digest proposals, writes a rollback point, prepares a local branch, and invokes:
 
 ```text
-codex exec --cd <repo> --sandbox workspace-write --ask-for-approval never --ephemeral -
+codex exec --cd <repo> --ignore-user-config --sandbox workspace-write --ephemeral -
 ```
 
 The task is passed through stdin, and Codex writes its final response to an output artifact with `--output-last-message`.
+Operators that want the autonomous loop to mutate without the Codex sandbox can pass `--bypass-approvals-and-sandbox`, which forwards Codex's explicit full-access bypass flag.
 
 The kernel is intentionally local:
 

@@ -1128,6 +1128,8 @@ def run_self_evolution_codex(
     profile: str | None = None,
     sandbox: str = "workspace-write",
     approval_policy: str = "never",
+    ignore_user_config: bool = True,
+    bypass_approvals_and_sandbox: bool = False,
     timeout_seconds: int = 3600,
     command_runner: Any = subprocess.run,
 ) -> SelfEvolutionRunResult:
@@ -1136,6 +1138,8 @@ def run_self_evolution_codex(
         profile=profile,
         sandbox=sandbox,
         approval_policy=approval_policy,
+        ignore_user_config=ignore_user_config,
+        bypass_approvals_and_sandbox=bypass_approvals_and_sandbox,
     )
     kernel = CodexCliKernel(config, command_runner=command_runner)
     result: CodexCliRunResult = kernel.run(
@@ -1349,7 +1353,9 @@ def main(
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI in codex mode."),
     profile: str | None = typer.Option(None, "--profile", help="Codex config profile to pass in codex mode."),
     sandbox: str = typer.Option("workspace-write", "--sandbox", help="Codex sandbox for codex mode."),
-    approval_policy: str = typer.Option("never", "--approval-policy", help="Codex approval policy for codex mode."),
+    approval_policy: str = typer.Option("never", "--approval-policy", help="Legacy compatibility option; current codex exec has no approval flag."),
+    ignore_user_config: bool = typer.Option(True, "--ignore-user-config/--use-user-config", help="Ignore user Codex config in codex mode while keeping auth available."),
+    bypass_approvals_and_sandbox: bool = typer.Option(False, "--bypass-approvals-and-sandbox", help="Pass Codex's dangerous full-access bypass flag in codex mode."),
     allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow codex mode to start from a dirty worktree."),
     codex_timeout_seconds: int = typer.Option(3600, "--codex-timeout-seconds", min=1, help="Timeout for the Codex CLI kernel run."),
     extra_instruction: str = typer.Option("", "--extra-instruction", help="Additional instruction appended to the self-evolution task."),
@@ -1429,6 +1435,8 @@ def main(
                         profile=profile,
                         sandbox=sandbox,
                         approval_policy=approval_policy,
+                        ignore_user_config=ignore_user_config,
+                        bypass_approvals_and_sandbox=bypass_approvals_and_sandbox,
                         timeout_seconds=codex_timeout_seconds,
                     )
                     console.print(

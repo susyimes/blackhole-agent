@@ -17,7 +17,9 @@ def test_build_codex_exec_command_reads_task_from_stdin(tmp_path):
     assert ["--model", "gpt-5"] == command[command.index("--model") : command.index("--model") + 2]
     assert ["--profile", "work"] == command[command.index("--profile") : command.index("--profile") + 2]
     assert "--ephemeral" in command
+    assert "--ignore-user-config" in command
     assert "--skip-git-repo-check" in command
+    assert "--ask-for-approval" not in command
     assert command[-1] == "-"
 
 
@@ -43,6 +45,17 @@ def test_codex_kernel_writes_task_and_result_files(tmp_path):
     assert result.task_path.read_text(encoding="utf-8") == "Improve tests"
     latest = json.loads((tmp_path / "out" / "latest-codex-run.json").read_text(encoding="utf-8"))
     assert latest["last_message"] == "done"
+
+
+def test_build_codex_exec_command_can_bypass_sandbox(tmp_path):
+    command = build_codex_exec_command(
+        CodexCliConfig(bypass_approvals_and_sandbox=True),
+        cwd=tmp_path,
+        output_last_message=tmp_path / "last.md",
+    )
+
+    assert "--dangerously-bypass-approvals-and-sandbox" in command
+    assert "--sandbox" not in command
 
 
 def test_codex_kernel_raises_on_nonzero_exit_after_writing_result(tmp_path):
