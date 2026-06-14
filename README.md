@@ -29,7 +29,9 @@ It borrows the deliberately small controller style of `susyimes/mini-swe-agent`,
 ## Control Loop
 
 ```text
-hourly trigger
+supervisor wake
+  -> startup health check
+  -> isolated candidate git worktree
   -> GitHub trend discovery
   -> recent event intake for discovered repos
   -> memory bias from past useful sources
@@ -38,9 +40,11 @@ hourly trigger
   -> candidate improvement proposals
   -> persona-layer task framing
   -> rollback point creation
-  -> optional local Codex CLI kernel run
-  -> local validation
-  -> autonomous local application / audit trail
+  -> one-shot local Codex CLI kernel run
+  -> candidate commit
+  -> health-gated promotion into main
+  -> push to origin
+  -> restart request / startup rollback guard
 ```
 
 GitHub does not expose an official Trending REST endpoint, so the controller approximates trends with repository search: recently created public repositories, minimum stars, optional query terms, and sorting by stars, forks, or updated time.
@@ -91,6 +95,16 @@ uv run blackhole-supervisor \
   --interval-seconds 3600
 ```
 
+Run the fully autonomous local loop used by this workstation:
+
+```bash
+uv run blackhole-supervisor \
+  --repo-path . \
+  --model gpt-5.5 \
+  --bypass-approvals-and-sandbox \
+  --interval-seconds 3600
+```
+
 Manual repository mode remains available for focused experiments:
 
 ```bash
@@ -114,7 +128,7 @@ uv run blackhole \
 
 ## Native Wake Supervisor
 
-`blackhole-supervisor` is the repository-native runtime loop. It wakes on a fixed cadence, launches a fresh one-shot child process, records the pass, then sleeps until the next wake.
+`blackhole-supervisor` is the repository-native runtime loop. It wakes on a fixed cadence, creates an isolated candidate worktree, launches a fresh one-shot child process there, records the pass, promotes verified commits into `main`, pushes them, writes a restart request, then sleeps until the next wake.
 
 Defaults:
 
@@ -129,6 +143,21 @@ Defaults:
 - restart handoff: `latest-restart-request.json`
 
 The important detail: `codex` mode remains one-shot inside `blackhole`; the supervisor is the durable loop that re-enters it once per hour. That means the next pass reloads the current checkout instead of keeping an old in-memory controller alive forever.
+
+The supervisor is intentionally a promotion controller, not just a timer:
+
+```text
+candidate worktree
+  -> blackhole --evolution-mode codex
+  -> local commit
+  -> rollback artifact gate
+  -> health commands
+  -> git switch main
+  -> git merge --ff-only <candidate-head>
+  -> post-merge health commands
+  -> git push origin main
+  -> latest-restart-request.json
+```
 
 Promotion is autonomous but gated. A candidate is promoted only when:
 
@@ -173,6 +202,16 @@ For a local pass that promotes but does not push:
 uv run blackhole-supervisor \
   --max-passes 1 \
   --no-push-promotions
+```
+
+For a watchdog-managed loop that exits after each successful promotion:
+
+```bash
+uv run blackhole-supervisor \
+  --repo-path . \
+  --model gpt-5.5 \
+  --bypass-approvals-and-sandbox \
+  --exit-after-promotion
 ```
 
 ## Persona Layer
@@ -250,7 +289,7 @@ The default posture:
 - record material filesystem and external actions as artifacts
 - let runtime configuration define available capabilities
 
-`codex` mode applies changes on a prepared evolution branch. Audit can happen after the fact; rollback is the escape hatch when startup or validation fails.
+Standalone `codex` mode applies changes on a prepared evolution branch inside the selected checkout. Under `blackhole-supervisor`, that checkout is an isolated candidate worktree, and only a health-gated fast-forward promotion can reach `main`.
 
 ## Output Artifacts
 
@@ -292,9 +331,8 @@ uv run ruff check .
 - stronger trend scoring beyond stars and recency
 - richer signal clustering across repositories and memory lessons
 - automatic local validation plans per proposal type
-- health-based rollback policy inside the native supervisor
 - autonomous application records for PR creation and Linear updates
-- startup health checks that can trigger the rollback artifact
+- external watchdog recipe for restart-on-promotion
 
 ## North Star
 
@@ -302,4 +340,4 @@ The agent should feel like a black hole for useful public engineering momentum:
 
 it absorbs signal, compresses it, and emits small, validated local improvements.
 
-Less permission-slip paperwork. More gravity. More evolution. Still recoverable when the singularity bites back.
+Less permission-slip paperwork. More gravity. More evolution. Still rollback-backed when the singularity bites back.
