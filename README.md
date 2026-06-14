@@ -123,9 +123,30 @@ Defaults:
 - trend query: `agent language:Python`
 - output: `.blackhole-agent/supervisor`
 - child growth artifacts: `.blackhole-agent/supervisor/growth`
-- successful Codex source changes: committed locally, not pushed
+- candidate workspace: isolated sibling git worktree
+- successful Codex source changes: committed in the candidate worktree
+- promotion: health-gated fast-forward into `main`, then pushed to `origin`
+- restart handoff: `latest-restart-request.json`
 
 The important detail: `codex` mode remains one-shot inside `blackhole`; the supervisor is the durable loop that re-enters it once per hour. That means the next pass reloads the current checkout instead of keeping an old in-memory controller alive forever.
+
+Promotion is autonomous but gated. A candidate is promoted only when:
+
+- a candidate commit exists
+- the rollback artifact exists
+- the target worktree is clean
+- candidate health commands pass
+- `main` can merge the candidate with `git merge --ff-only`
+- post-merge health commands pass
+
+By default the health commands are:
+
+```text
+uv run pytest
+uv run ruff check .
+```
+
+After a promotion the supervisor writes a restart request. Use `--exit-after-promotion` when an outer watchdog, service manager, or Windows Scheduled Task should relaunch the process from the new `main`.
 
 For a half-hour local experiment:
 
@@ -142,6 +163,14 @@ uv run blackhole-supervisor \
   --evolution-mode digest \
   --max-passes 1 \
   --no-commit-successful-changes
+```
+
+For a local pass that promotes but does not push:
+
+```bash
+uv run blackhole-supervisor \
+  --max-passes 1 \
+  --no-push-promotions
 ```
 
 ## Persona Layer
@@ -238,6 +267,7 @@ One run can write:
 | `latest-codex-run.json` | Codex kernel run metadata |
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
 | `latest-supervisor-heartbeat.json` | latest supervisor health heartbeat with activation branch/HEAD |
+| `latest-restart-request.json` | restart handoff written after a successful promotion |
 | `supervisor.log` | append-only native wake loop log |
 
 ## Development

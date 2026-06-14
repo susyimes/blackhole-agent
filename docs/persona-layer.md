@@ -28,6 +28,7 @@ The agent may prepare code that supports restart, but it does not restart itself
 - require a rollback point from the run being activated
 - persist digest state and run metadata
 - verify the candidate branch or commit
+- promote only through a health-gated fast-forward path
 - hand off to the native supervisor or another external supervisor
 - resume from durable state after restart
 

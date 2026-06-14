@@ -8,7 +8,7 @@ Build an agent that periodically tracks public GitHub trends and converts them i
 
 ### Native Supervisor
 
-Runs the intake job once per hour by launching a fresh one-shot child process. It owns wake cadence, heartbeat artifacts, pass records, and optional local commits for successful autonomous source changes. It should never assume the previous run completed successfully unless the digest and pass record were persisted.
+Runs the intake job once per hour by launching a fresh one-shot child process in an isolated candidate worktree. It owns wake cadence, heartbeat artifacts, pass records, candidate worktree cleanup, health-gated promotion, restart requests, and optional pushes for successful autonomous source changes. It should never assume the previous run completed successfully unless the digest and pass record were persisted.
 
 Repository-native command:
 
@@ -135,6 +135,25 @@ Rollback execution is intentionally explicit because it uses destructive command
 
 Runs local checks for any generated patch or config change. A failed verification produces a digest entry and stops the write path.
 
+### Promotion Gate
+
+After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:
+
+- the candidate has a new commit
+- `latest-rollback-point.json` exists
+- the target worktree is clean
+- candidate health commands pass
+- `main` can accept the commit with `git merge --ff-only`
+- post-merge health commands pass
+
+The default health commands are `uv run pytest` and `uv run ruff check .`. If post-merge health fails, the supervisor resets the target branch back to the pre-merge HEAD and records that rollback in the pass artifact.
+
+Successful promotions can be pushed to the configured remote. This is a runtime policy controlled by `--push-promotions/--no-push-promotions`.
+
+### Restart Handoff
+
+After a successful promotion, the supervisor writes `latest-restart-request.json`. Operators can run the supervisor under an outer watchdog and enable `--exit-after-promotion`; the supervisor then exits with the configured restart code so the outer process can relaunch from the latest `main`.
+
 ### Application Policy
 
 Local source evolution does not require human approval when:
@@ -162,7 +181,7 @@ The minimum durable state:
 - verification result
 - application decision
 - Codex task path and final message path for local kernel runs
-- supervisor heartbeat, pass records, activation branch/HEAD, and optional local commit SHA
+- supervisor heartbeat, pass records, candidate worktree path, promotion result, restart request, activation branch/HEAD, and optional local commit SHA
 
 Store only references to runtime capabilities in repo state, never credential values or private chats.
 
@@ -172,5 +191,6 @@ Store only references to runtime capabilities in repo state, never credential va
 - API rate limit: preserve cursor and retry later.
 - Partial failure: persist the successful normalized events and mark digest incomplete.
 - Verification failure: do not publish; include failure evidence.
+- Post-merge health failure: reset the target branch to the pre-merge HEAD and record rollback status.
 - Missing runtime policy: leave proposal pending or keep the local branch unapplied.
 

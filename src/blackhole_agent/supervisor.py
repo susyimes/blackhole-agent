@@ -1,13 +1,15 @@
 """Native wake supervisor for blackhole-agent.
 
-The supervisor is deliberately outside the mutation kernel. It wakes on a fixed
-cadence, launches one fresh blackhole child process, records the run, and then
-sleeps until the next cadence boundary. Each child process reloads the current
-checkout, so self-evolution can affect the following wake without embedding a
-long-lived Codex loop inside the controller.
+The supervisor stays outside the mutation kernel. It wakes on a fixed cadence,
+creates an isolated candidate worktree, launches one fresh blackhole child
+process, records the run, promotes verified candidate commits, and then sleeps
+until the next cadence boundary. Each child process reloads the current checkout,
+so self-evolution can affect later wakes without embedding a long-lived Codex
+loop inside the controller.
 """
 
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -25,6 +27,8 @@ console = Console(highlight=False)
 
 SUPPORTED_EVOLUTION_MODES = {"digest", "plan", "codex"}
 DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/supervisor")
+DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = ("uv run pytest", "uv run ruff check .")
+DEFAULT_RESTART_EXIT_CODE = 75
 DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION = (
     "Native supervisor note: this wake is one pass in an autonomous scheduled loop. "
     "Keep the change small, rollback-backed, locally verifiable, and do not push. "
@@ -40,6 +44,7 @@ class SupervisorConfig:
     repo_path: Path
     output_dir: Path = DEFAULT_OUTPUT_DIR
     growth_output_dir: Path | None = None
+    worktree_parent_dir: Path | None = None
     interval_seconds: int = 3600
     max_passes: int = 0
     run_immediately: bool = True
@@ -70,10 +75,33 @@ class SupervisorConfig:
     codex_timeout_seconds: int = 3600
     extra_instruction: str = ""
     commit_successful_changes: bool = True
+    use_candidate_worktree: bool = True
+    cleanup_candidate_worktree: bool = True
+    target_branch: str = "main"
+    remote_name: str = "origin"
+    promote_successful_changes: bool = True
+    push_promotions: bool = True
+    require_rollback_artifact: bool = True
+    health_commands: tuple[str, ...] = DEFAULT_HEALTH_COMMANDS
+    health_timeout_seconds: int = 900
+    exit_after_promotion: bool = False
+    restart_exit_code: int = DEFAULT_RESTART_EXIT_CODE
+
+    @property
+    def resolved_output_dir(self) -> Path:
+        return resolve_path(self.repo_path, self.output_dir)
 
     @property
     def resolved_growth_output_dir(self) -> Path:
-        return self.growth_output_dir or self.output_dir / "growth"
+        if self.growth_output_dir is not None:
+            return resolve_path(self.repo_path, self.growth_output_dir)
+        return self.resolved_output_dir / "growth"
+
+    @property
+    def resolved_worktree_parent_dir(self) -> Path:
+        if self.worktree_parent_dir is not None:
+            return resolve_path(self.repo_path, self.worktree_parent_dir)
+        return self.repo_path.parent / f".{self.repo_path.name}-blackhole-worktrees"
 
 
 @dataclass(frozen=True)
@@ -85,6 +113,57 @@ class CommitResult:
     returncode: int
     status_before: str
     commit_sha: str
+    stdout_tail: str
+    stderr_tail: str
+
+
+@dataclass(frozen=True)
+class WorktreeResult:
+    """Result of preparing and cleaning a candidate worktree."""
+
+    attempted: bool
+    created: bool
+    path: str
+    create_returncode: int
+    remove_attempted: bool
+    removed: bool
+    remove_returncode: int
+    stdout_tail: str
+    stderr_tail: str
+
+
+@dataclass(frozen=True)
+class HealthCheckResult:
+    """Result of one health command."""
+
+    command: list[str]
+    cwd: str
+    returncode: int
+    stdout_tail: str
+    stderr_tail: str
+
+
+@dataclass(frozen=True)
+class PromotionResult:
+    """Result of promoting a candidate branch into the target branch."""
+
+    attempted: bool
+    promoted: bool
+    pushed: bool
+    returncode: int
+    candidate_branch: str
+    candidate_head: str
+    target_branch: str
+    target_before: str
+    target_after: str
+    rollback_artifact_path: str
+    rollback_artifact_exists: bool
+    health_checks: list[HealthCheckResult]
+    post_merge_health_checks: list[HealthCheckResult]
+    rollback_attempted: bool
+    rollback_succeeded: bool
+    restart_requested: bool
+    restart_request_path: str
     stdout_tail: str
     stderr_tail: str
 
@@ -107,12 +186,15 @@ class SupervisorPassRecord:
     elapsed_seconds: float
     stdout_tail: str
     stderr_tail: str
+    worktree_result: WorktreeResult | None
     commit_result: CommitResult | None
+    promotion_result: PromotionResult | None
 
 
-def build_wake_command(config: SupervisorConfig) -> list[str]:
+def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = None) -> list[str]:
     """Build the one-shot child command for a supervisor wake."""
 
+    child_repo_path = repo_path or config.repo_path
     command = [
         sys.executable,
         "-m",
@@ -128,7 +210,7 @@ def build_wake_command(config: SupervisorConfig) -> list[str]:
         "--evolution-mode",
         config.evolution_mode,
         "--repo-path",
-        str(config.repo_path),
+        str(child_repo_path),
     ]
     if config.repos:
         command.extend(["--repos", config.repos])
@@ -195,10 +277,10 @@ def run_supervisor_loop(
 
     validate_supervisor_config(config)
     prepare_supervisor_output(config)
-    write_json(config.output_dir / "supervisor-config.json", config_to_dict(config))
+    write_json(config.resolved_output_dir / "supervisor-config.json", config_to_dict(config))
     console.print(
         f"blackhole supervisor waking every {config.interval_seconds}s; "
-        f"mode={config.evolution_mode}; output={config.output_dir}"
+        f"mode={config.evolution_mode}; output={config.resolved_output_dir}"
     )
     if not config.run_immediately:
         sleep(config.interval_seconds)
@@ -209,9 +291,11 @@ def run_supervisor_loop(
         loop_started = monotonic()
         record = run_wake_once(config, command_runner=command_runner)
         passes += 1
-        last_returncode = record.returncode
-        if record.returncode != 0 and config.exit_on_failure:
-            return record.returncode
+        last_returncode = supervisor_effective_returncode(record)
+        if should_exit_after_promotion(config, record):
+            return config.restart_exit_code
+        if last_returncode != 0 and config.exit_on_failure:
+            return last_returncode
         if config.max_passes and passes >= config.max_passes:
             return last_returncode
         elapsed = monotonic() - loop_started
@@ -223,22 +307,74 @@ def run_wake_once(
     *,
     command_runner: Any = subprocess.run,
 ) -> SupervisorPassRecord:
-    """Run one child pass, write artifacts, and optionally commit successful changes."""
+    """Run one child pass, write artifacts, and optionally promote successful changes."""
 
+    validate_supervisor_config(config)
     prepare_supervisor_output(config)
     pass_id = compact_utc_timestamp()
     started_at = utc_now_iso()
     started_monotonic = time.monotonic()
-    start_branch = git_text(config.repo_path, ["git", "branch", "--show-current"], command_runner=command_runner)
-    start_head = git_text(config.repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
-    command = build_wake_command(config)
+    child_repo_path = config.repo_path
+    worktree_result: WorktreeResult | None = None
+    create_stdout = ""
+    create_stderr = ""
+    worktree_created = False
+    worktree_create_returncode = 0
+    worktree_remove_attempted = False
+    worktree_removed = False
+    worktree_remove_returncode = 0
     timed_out = False
     commit_result: CommitResult | None = None
+    promotion_result: PromotionResult | None = None
+    stdout = ""
+    stderr = ""
+
+    if config.use_candidate_worktree and config.evolution_mode == "codex":
+        worktree_path, create_completed = create_candidate_worktree(config, pass_id, command_runner=command_runner)
+        child_repo_path = worktree_path
+        create_stdout = create_completed.stdout or ""
+        create_stderr = create_completed.stderr or ""
+        worktree_create_returncode = int(create_completed.returncode)
+        worktree_created = create_completed.returncode == 0
+        if not worktree_created:
+            record = build_pass_record(
+                config,
+                pass_id=pass_id,
+                started_at=started_at,
+                started_monotonic=started_monotonic,
+                child_repo_path=child_repo_path,
+                command=[],
+                returncode=worktree_create_returncode,
+                timed_out=False,
+                stdout=create_stdout,
+                stderr=create_stderr,
+                worktree_result=WorktreeResult(
+                    attempted=True,
+                    created=False,
+                    path=str(worktree_path),
+                    create_returncode=worktree_create_returncode,
+                    remove_attempted=False,
+                    removed=False,
+                    remove_returncode=0,
+                    stdout_tail=tail_text(create_stdout),
+                    stderr_tail=tail_text(create_stderr),
+                ),
+                commit_result=None,
+                promotion_result=None,
+                command_runner=command_runner,
+            )
+            write_pass_record(config.resolved_output_dir, record)
+            append_supervisor_log(config.resolved_output_dir, record)
+            return record
+
+    start_branch = git_text(child_repo_path, ["git", "branch", "--show-current"], command_runner=command_runner)
+    start_head = git_text(child_repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
+    command = build_wake_command(config, repo_path=child_repo_path)
 
     try:
         completed = command_runner(
             command,
-            cwd=config.repo_path,
+            cwd=child_repo_path,
             capture_output=True,
             text=True,
             timeout=config.pass_timeout_seconds,
@@ -253,31 +389,128 @@ def run_wake_once(
         stderr = timeout_text(error.stderr) or f"Timed out after {config.pass_timeout_seconds} seconds."
 
     if returncode == 0 and config.commit_successful_changes and config.evolution_mode == "codex":
-        commit_result = commit_successful_changes(config.repo_path, pass_id, command_runner=command_runner)
+        commit_result = commit_successful_changes(child_repo_path, pass_id, command_runner=command_runner)
 
-    finish_branch = git_text(config.repo_path, ["git", "branch", "--show-current"], command_runner=command_runner)
-    finish_head = git_text(config.repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
-    finished_at = utc_now_iso()
+    finish_branch = git_text(child_repo_path, ["git", "branch", "--show-current"], command_runner=command_runner)
+    finish_head = git_text(child_repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
+    if should_promote_candidate(config, returncode, start_head, finish_head, commit_result):
+        promotion_result = promote_candidate(
+            config,
+            candidate_repo_path=child_repo_path,
+            pass_id=pass_id,
+            candidate_branch=finish_branch,
+            candidate_head=finish_head,
+            command_runner=command_runner,
+        )
+
+    if worktree_created and config.cleanup_candidate_worktree:
+        worktree_remove_attempted = True
+        remove_completed = command_runner(
+            ["git", "worktree", "remove", "--force", str(child_repo_path)],
+            cwd=config.repo_path,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        worktree_remove_returncode = int(remove_completed.returncode)
+        worktree_removed = remove_completed.returncode == 0
+        create_stdout = "\n".join(part for part in (create_stdout, remove_completed.stdout or "") if part)
+        create_stderr = "\n".join(part for part in (create_stderr, remove_completed.stderr or "") if part)
+
+    if config.use_candidate_worktree and config.evolution_mode == "codex":
+        worktree_result = WorktreeResult(
+            attempted=True,
+            created=worktree_created,
+            path=str(child_repo_path),
+            create_returncode=worktree_create_returncode,
+            remove_attempted=worktree_remove_attempted,
+            removed=worktree_removed,
+            remove_returncode=worktree_remove_returncode,
+            stdout_tail=tail_text(create_stdout),
+            stderr_tail=tail_text(create_stderr),
+        )
+
     record = SupervisorPassRecord(
         pass_id=pass_id,
         started_at=started_at,
-        finished_at=finished_at,
+        finished_at=utc_now_iso(),
         start_branch=start_branch,
         start_head=start_head,
         finish_branch=finish_branch,
         finish_head=finish_head,
         command=command,
-        cwd=str(config.repo_path),
+        cwd=str(child_repo_path),
         returncode=returncode,
         timed_out=timed_out,
         elapsed_seconds=round(time.monotonic() - started_monotonic, 3),
         stdout_tail=tail_text(stdout),
         stderr_tail=tail_text(stderr),
+        worktree_result=worktree_result,
         commit_result=commit_result,
+        promotion_result=promotion_result,
     )
-    write_pass_record(config.output_dir, record)
-    append_supervisor_log(config.output_dir, record)
+    write_pass_record(config.resolved_output_dir, record)
+    append_supervisor_log(config.resolved_output_dir, record)
     return record
+
+
+def build_pass_record(
+    config: SupervisorConfig,
+    *,
+    pass_id: str,
+    started_at: str,
+    started_monotonic: float,
+    child_repo_path: Path,
+    command: list[str],
+    returncode: int,
+    timed_out: bool,
+    stdout: str,
+    stderr: str,
+    worktree_result: WorktreeResult | None,
+    commit_result: CommitResult | None,
+    promotion_result: PromotionResult | None,
+    command_runner: Any,
+) -> SupervisorPassRecord:
+    return SupervisorPassRecord(
+        pass_id=pass_id,
+        started_at=started_at,
+        finished_at=utc_now_iso(),
+        start_branch=git_text(child_repo_path, ["git", "branch", "--show-current"], command_runner=command_runner),
+        start_head=git_text(child_repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner),
+        finish_branch=git_text(child_repo_path, ["git", "branch", "--show-current"], command_runner=command_runner),
+        finish_head=git_text(child_repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner),
+        command=command,
+        cwd=str(child_repo_path),
+        returncode=returncode,
+        timed_out=timed_out,
+        elapsed_seconds=round(time.monotonic() - started_monotonic, 3),
+        stdout_tail=tail_text(stdout),
+        stderr_tail=tail_text(stderr),
+        worktree_result=worktree_result,
+        commit_result=commit_result,
+        promotion_result=promotion_result,
+    )
+
+
+def create_candidate_worktree(
+    config: SupervisorConfig,
+    pass_id: str,
+    *,
+    command_runner: Any = subprocess.run,
+) -> tuple[Path, subprocess.CompletedProcess]:
+    """Create a detached candidate worktree from the target branch."""
+
+    parent = config.resolved_worktree_parent_dir
+    parent.mkdir(parents=True, exist_ok=True)
+    worktree_path = parent / pass_id
+    completed = command_runner(
+        ["git", "worktree", "add", "--detach", str(worktree_path), config.target_branch],
+        cwd=config.repo_path,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return worktree_path, completed
 
 
 def commit_successful_changes(
@@ -362,6 +595,255 @@ def commit_successful_changes(
     )
 
 
+def should_promote_candidate(
+    config: SupervisorConfig,
+    child_returncode: int,
+    start_head: str,
+    finish_head: str,
+    commit_result: CommitResult | None,
+) -> bool:
+    if not config.promote_successful_changes:
+        return False
+    if config.evolution_mode != "codex" or child_returncode != 0:
+        return False
+    if commit_result is not None and commit_result.returncode != 0:
+        return False
+    if commit_result is not None and commit_result.committed:
+        return True
+    return bool(start_head and finish_head and start_head != finish_head)
+
+
+def promote_candidate(
+    config: SupervisorConfig,
+    *,
+    candidate_repo_path: Path,
+    pass_id: str,
+    candidate_branch: str,
+    candidate_head: str,
+    command_runner: Any = subprocess.run,
+) -> PromotionResult:
+    """Promote a verified candidate commit into the target branch and optionally push it."""
+
+    health_checks: list[HealthCheckResult] = []
+    post_merge_health_checks: list[HealthCheckResult] = []
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+    rollback_artifact_path = config.resolved_growth_output_dir / "latest-rollback-point.json"
+    rollback_artifact_exists = rollback_artifact_path.exists()
+    target_before = git_text(
+        config.repo_path,
+        ["git", "rev-parse", "--verify", config.target_branch],
+        command_runner=command_runner,
+    )
+    target_after = target_before
+
+    def result(
+        *,
+        promoted: bool = False,
+        pushed: bool = False,
+        returncode: int = 0,
+        rollback_attempted: bool = False,
+        rollback_succeeded: bool = False,
+        restart_requested: bool = False,
+        restart_request_path: str = "",
+    ) -> PromotionResult:
+        return PromotionResult(
+            attempted=True,
+            promoted=promoted,
+            pushed=pushed,
+            returncode=returncode,
+            candidate_branch=candidate_branch,
+            candidate_head=candidate_head,
+            target_branch=config.target_branch,
+            target_before=target_before,
+            target_after=target_after,
+            rollback_artifact_path=str(rollback_artifact_path),
+            rollback_artifact_exists=rollback_artifact_exists,
+            health_checks=health_checks,
+            post_merge_health_checks=post_merge_health_checks,
+            rollback_attempted=rollback_attempted,
+            rollback_succeeded=rollback_succeeded,
+            restart_requested=restart_requested,
+            restart_request_path=restart_request_path,
+            stdout_tail=tail_text("\n".join(stdout_parts)),
+            stderr_tail=tail_text("\n".join(stderr_parts)),
+        )
+
+    if not candidate_head:
+        return result(returncode=1, restart_request_path="")
+    if config.require_rollback_artifact and not rollback_artifact_exists:
+        return result(returncode=1, restart_request_path="")
+
+    target_status = command_runner(
+        ["git", "status", "--porcelain"],
+        cwd=config.repo_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    stdout_parts.append(target_status.stdout or "")
+    stderr_parts.append(target_status.stderr or "")
+    if target_status.returncode != 0:
+        return result(returncode=int(target_status.returncode))
+    if (target_status.stdout or "").strip():
+        stderr_parts.append("target worktree is not clean")
+        return result(returncode=1)
+
+    health_checks = run_health_checks(config, candidate_repo_path, command_runner=command_runner)
+    failed_health = first_failed_health_check(health_checks)
+    if failed_health is not None:
+        return result(returncode=failed_health.returncode)
+
+    switch = command_runner(
+        ["git", "switch", config.target_branch],
+        cwd=config.repo_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    stdout_parts.append(switch.stdout or "")
+    stderr_parts.append(switch.stderr or "")
+    if switch.returncode != 0:
+        return result(returncode=int(switch.returncode))
+
+    merge = command_runner(
+        ["git", "merge", "--ff-only", candidate_head],
+        cwd=config.repo_path,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    stdout_parts.append(merge.stdout or "")
+    stderr_parts.append(merge.stderr or "")
+    if merge.returncode != 0:
+        return result(returncode=int(merge.returncode))
+
+    target_after = git_text(config.repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
+    post_merge_health_checks = run_health_checks(config, config.repo_path, command_runner=command_runner)
+    failed_post_health = first_failed_health_check(post_merge_health_checks)
+    if failed_post_health is not None:
+        reset = command_runner(
+            ["git", "reset", "--hard", target_before],
+            cwd=config.repo_path,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        stdout_parts.append(reset.stdout or "")
+        stderr_parts.append(reset.stderr or "")
+        rollback_succeeded = reset.returncode == 0
+        target_after = git_text(config.repo_path, ["git", "rev-parse", "HEAD"], command_runner=command_runner)
+        return result(
+            returncode=failed_post_health.returncode,
+            rollback_attempted=True,
+            rollback_succeeded=rollback_succeeded,
+        )
+
+    pushed = False
+    push_returncode = 0
+    if config.push_promotions:
+        push = command_runner(
+            ["git", "push", config.remote_name, config.target_branch],
+            cwd=config.repo_path,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        stdout_parts.append(push.stdout or "")
+        stderr_parts.append(push.stderr or "")
+        pushed = push.returncode == 0
+        push_returncode = int(push.returncode)
+        if not pushed:
+            return result(promoted=True, pushed=False, returncode=push_returncode)
+
+    restart_request_path = write_restart_request(config, pass_id, candidate_branch, candidate_head, target_after)
+    return result(
+        promoted=True,
+        pushed=pushed,
+        returncode=push_returncode,
+        restart_requested=True,
+        restart_request_path=str(restart_request_path),
+    )
+
+
+def run_health_checks(
+    config: SupervisorConfig,
+    repo_path: Path,
+    *,
+    command_runner: Any = subprocess.run,
+) -> list[HealthCheckResult]:
+    results: list[HealthCheckResult] = []
+    for command_text in config.health_commands:
+        if not command_text.strip():
+            continue
+        command = split_command(command_text)
+        completed = command_runner(
+            command,
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=config.health_timeout_seconds,
+        )
+        results.append(
+            HealthCheckResult(
+                command=command,
+                cwd=str(repo_path),
+                returncode=int(completed.returncode),
+                stdout_tail=tail_text(completed.stdout or ""),
+                stderr_tail=tail_text(completed.stderr or ""),
+            )
+        )
+        if completed.returncode != 0:
+            break
+    return results
+
+
+def first_failed_health_check(results: list[HealthCheckResult]) -> HealthCheckResult | None:
+    for result in results:
+        if result.returncode != 0:
+            return result
+    return None
+
+
+def write_restart_request(
+    config: SupervisorConfig,
+    pass_id: str,
+    candidate_branch: str,
+    candidate_head: str,
+    target_head: str,
+) -> Path:
+    payload = {
+        "created_at": utc_now_iso(),
+        "pass_id": pass_id,
+        "reason": "promotion_applied",
+        "candidate_branch": candidate_branch,
+        "candidate_head": candidate_head,
+        "target_branch": config.target_branch,
+        "target_head": target_head,
+        "restart_exit_code": config.restart_exit_code,
+        "health_commands": list(config.health_commands),
+    }
+    path = config.resolved_output_dir / f"restart-request-{pass_id}.json"
+    write_json(path, payload)
+    write_json(config.resolved_output_dir / "latest-restart-request.json", payload)
+    return path
+
+
+def supervisor_effective_returncode(record: SupervisorPassRecord) -> int:
+    if record.returncode != 0:
+        return record.returncode
+    if record.commit_result is not None and record.commit_result.returncode != 0:
+        return record.commit_result.returncode
+    if record.promotion_result is not None and record.promotion_result.returncode != 0:
+        return record.promotion_result.returncode
+    return 0
+
+
+def should_exit_after_promotion(config: SupervisorConfig, record: SupervisorPassRecord) -> bool:
+    promotion = record.promotion_result
+    return bool(config.exit_after_promotion and promotion and promotion.restart_requested)
+
+
 def git_text(
     repo_path: Path,
     command: list[str],
@@ -386,13 +868,19 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
         raise ValueError("max_passes cannot be negative")
     if config.pass_timeout_seconds < 1:
         raise ValueError("pass_timeout_seconds must be at least 1")
+    if config.health_timeout_seconds < 1:
+        raise ValueError("health_timeout_seconds must be at least 1")
+    if config.restart_exit_code < 0:
+        raise ValueError("restart_exit_code cannot be negative")
     if config.evolution_mode not in SUPPORTED_EVOLUTION_MODES:
         raise ValueError("evolution_mode must be one of: digest, plan, codex")
 
 
 def prepare_supervisor_output(config: SupervisorConfig) -> None:
-    config.output_dir.mkdir(parents=True, exist_ok=True)
+    config.resolved_output_dir.mkdir(parents=True, exist_ok=True)
     config.resolved_growth_output_dir.mkdir(parents=True, exist_ok=True)
+    if config.use_candidate_worktree:
+        config.resolved_worktree_parent_dir.mkdir(parents=True, exist_ok=True)
 
 
 def write_pass_record(output_dir: Path, record: SupervisorPassRecord) -> None:
@@ -407,11 +895,15 @@ def write_pass_record(output_dir: Path, record: SupervisorPassRecord) -> None:
             "last_started_at": record.started_at,
             "last_finished_at": record.finished_at,
             "last_returncode": record.returncode,
+            "last_effective_returncode": supervisor_effective_returncode(record),
             "last_timed_out": record.timed_out,
             "last_start_branch": record.start_branch,
             "last_start_head": record.start_head,
             "last_finish_branch": record.finish_branch,
             "last_finish_head": record.finish_head,
+            "last_promoted": bool(record.promotion_result and record.promotion_result.promoted),
+            "last_pushed": bool(record.promotion_result and record.promotion_result.pushed),
+            "last_restart_requested": bool(record.promotion_result and record.promotion_result.restart_requested),
         },
     )
 
@@ -427,11 +919,16 @@ def append_supervisor_log(output_dir: Path, record: SupervisorPassRecord) -> Non
         f"finish_branch={record.finish_branch}",
         f"finish_head={record.finish_head}",
         f"returncode={record.returncode}",
+        f"effective_returncode={supervisor_effective_returncode(record)}",
         f"timed_out={record.timed_out}",
         "$ " + " ".join(shlex.quote(part) for part in record.command),
     ]
+    if record.worktree_result is not None:
+        lines.append(f"worktree_result={json.dumps(asdict(record.worktree_result), sort_keys=True)}")
     if record.commit_result is not None:
         lines.append(f"commit_result={json.dumps(asdict(record.commit_result), sort_keys=True)}")
+    if record.promotion_result is not None:
+        lines.append(f"promotion_result={json.dumps(promotion_result_to_dict(record.promotion_result), sort_keys=True)}")
     if record.stdout_tail:
         lines.extend(["--- stdout tail ---", record.stdout_tail.rstrip()])
     if record.stderr_tail:
@@ -443,21 +940,48 @@ def append_supervisor_log(output_dir: Path, record: SupervisorPassRecord) -> Non
 
 def pass_record_to_dict(record: SupervisorPassRecord) -> dict[str, Any]:
     data = asdict(record)
+    if record.worktree_result is not None:
+        data["worktree_result"] = asdict(record.worktree_result)
     if record.commit_result is not None:
         data["commit_result"] = asdict(record.commit_result)
+    if record.promotion_result is not None:
+        data["promotion_result"] = promotion_result_to_dict(record.promotion_result)
+    return data
+
+
+def promotion_result_to_dict(result: PromotionResult) -> dict[str, Any]:
+    data = asdict(result)
+    data["health_checks"] = [asdict(check) for check in result.health_checks]
+    data["post_merge_health_checks"] = [asdict(check) for check in result.post_merge_health_checks]
     return data
 
 
 def config_to_dict(config: SupervisorConfig) -> dict[str, Any]:
     data = asdict(config)
     data["repo_path"] = str(config.repo_path)
-    data["output_dir"] = str(config.output_dir)
+    data["output_dir"] = str(config.resolved_output_dir)
     data["growth_output_dir"] = str(config.resolved_growth_output_dir)
+    data["worktree_parent_dir"] = str(config.resolved_worktree_parent_dir)
+    data["health_commands"] = list(config.health_commands)
     return data
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def resolve_path(repo_path: Path, path: Path) -> Path:
+    return path if path.is_absolute() else repo_path / path
+
+
+def split_command(command_text: str) -> list[str]:
+    return shlex.split(command_text, posix=os.name != "nt")
+
+
+def parse_health_commands(value: str) -> tuple[str, ...]:
+    commands = [line.strip() for line in value.splitlines() if line.strip()]
+    return tuple(commands) or DEFAULT_HEALTH_COMMANDS
 
 
 def utc_now_iso() -> str:
@@ -490,6 +1014,11 @@ def main(
         None,
         "--growth-output-dir",
         help="Child growth artifact directory. Defaults to <output-dir>/growth.",
+    ),
+    worktree_parent_dir: Path | None = typer.Option(
+        None,
+        "--worktree-parent-dir",
+        help="Candidate worktree parent. Defaults to a sibling directory next to the repo.",
     ),
     interval_seconds: int = typer.Option(3600, "--interval-seconds", min=1, help="Wake cadence in seconds."),
     max_passes: int = typer.Option(0, "--max-passes", min=0, help="Stop after this many passes; 0 runs forever."),
@@ -537,11 +1066,56 @@ def main(
         "--commit-successful-changes/--no-commit-successful-changes",
         help="Commit dirty source changes after a successful codex pass.",
     ),
+    use_candidate_worktree: bool = typer.Option(
+        True,
+        "--candidate-worktree/--same-worktree",
+        help="Run codex evolution inside an isolated candidate git worktree.",
+    ),
+    cleanup_candidate_worktree: bool = typer.Option(
+        True,
+        "--cleanup-candidate-worktree/--keep-candidate-worktree",
+        help="Remove candidate worktrees after pass artifacts are written.",
+    ),
+    target_branch: str = typer.Option("main", "--target-branch", help="Branch that receives promoted candidates."),
+    remote_name: str = typer.Option("origin", "--remote-name", help="Remote used for promotion pushes."),
+    promote_successful_changes: bool = typer.Option(
+        True,
+        "--promote-successful-changes/--no-promote-successful-changes",
+        help="Fast-forward the target branch after a verified candidate commit.",
+    ),
+    push_promotions: bool = typer.Option(
+        True,
+        "--push-promotions/--no-push-promotions",
+        help="Push successful promotions to the configured remote.",
+    ),
+    require_rollback_artifact: bool = typer.Option(
+        True,
+        "--require-rollback-artifact/--no-require-rollback-artifact",
+        help="Require latest rollback artifact before promotion.",
+    ),
+    health_commands: str = typer.Option(
+        "\n".join(DEFAULT_HEALTH_COMMANDS),
+        "--health-commands",
+        help="Newline-separated commands that must pass before and after promotion.",
+    ),
+    health_timeout_seconds: int = typer.Option(900, "--health-timeout-seconds", min=1, help="Timeout per health command."),
+    exit_after_promotion: bool = typer.Option(
+        False,
+        "--exit-after-promotion/--stay-running-after-promotion",
+        help="Exit with restart code after a promotion writes restart-request.json.",
+    ),
+    restart_exit_code: int = typer.Option(
+        DEFAULT_RESTART_EXIT_CODE,
+        "--restart-exit-code",
+        min=0,
+        help="Process exit code used when --exit-after-promotion is enabled.",
+    ),
 ) -> None:
     config = SupervisorConfig(
         repo_path=repo_path.resolve(),
         output_dir=output_dir,
         growth_output_dir=growth_output_dir,
+        worktree_parent_dir=worktree_parent_dir,
         interval_seconds=interval_seconds,
         max_passes=max_passes,
         run_immediately=run_immediately,
@@ -572,6 +1146,17 @@ def main(
         codex_timeout_seconds=codex_timeout_seconds,
         extra_instruction=extra_instruction,
         commit_successful_changes=commit_successful_changes,
+        use_candidate_worktree=use_candidate_worktree,
+        cleanup_candidate_worktree=cleanup_candidate_worktree,
+        target_branch=target_branch,
+        remote_name=remote_name,
+        promote_successful_changes=promote_successful_changes,
+        push_promotions=push_promotions,
+        require_rollback_artifact=require_rollback_artifact,
+        health_commands=parse_health_commands(health_commands),
+        health_timeout_seconds=health_timeout_seconds,
+        exit_after_promotion=exit_after_promotion,
+        restart_exit_code=restart_exit_code,
     )
     try:
         exit_code = run_supervisor_loop(config)
