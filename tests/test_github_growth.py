@@ -761,6 +761,53 @@ def test_repository_trend_security_harness_stays_human_reviewed_triage(tmp_path)
     assert "human-reviewed triage candidates" in plan.task
 
 
+def test_repository_trend_agent_harness_requires_replayable_validation_report(tmp_path):
+    event = trend_repository_to_event(
+        TrendingRepository(
+            full_name="samarailly51-pixel/opencode-harness",
+            html_url="https://github.com/samarailly51-pixel/opencode-harness",
+            description=(
+                "Clean-room model-agnostic coding agent harness with traces, eval suites, "
+                "and evaluation reports for reproducible agent workflows."
+            ),
+            language="Python",
+            stargazers_count=193,
+            forks_count=5,
+            open_issues_count=0,
+            created_at="2026-06-14T00:00:00Z",
+            updated_at="2026-06-15T00:00:00Z",
+            pushed_at="2026-06-15T00:00:00Z",
+            topics=["agent", "workflow"],
+        ),
+        generated_at="2026-06-15T09:57:47Z",
+    )
+
+    signals = extract_growth_signals([event], topics=["agent", "workflow"])
+    proposal = build_proposals(signals)[0]
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-opencode-harness",
+            "generated_at": "2026-06-15T09:57:47Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+
+    assert signals[0].risk_flags == ["agent-harness-validation"]
+    assert proposal["kind"] == "follow_up_issue"
+    assert proposal["implementation_scope"] == "risk_review_before_local_change"
+    assert proposal["validation_gate"] == "rollback-backed-risk-review"
+    assert "replayable validation report" in proposal["validation_task"]
+    assert "no new runtime capabilities are enabled" in proposal["validation_task"]
+    assert proposal_manifest_control(proposal)["validation_report_requirement"] == (
+        "Harness lessons must stay as replayable local validation reports with evidence URLs, commands, "
+        "outcomes, rollback ref, and skipped capabilities; they must not enable new runtime capabilities."
+    )
+    assert plan is not None
+    assert "Validation gate: rollback-backed-risk-review" in plan.task
+    assert "replayable validation report" in plan.task
+
+
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(
         [

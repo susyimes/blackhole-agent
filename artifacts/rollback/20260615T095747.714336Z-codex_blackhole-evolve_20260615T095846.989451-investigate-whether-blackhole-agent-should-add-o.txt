@@ -1,0 +1,11 @@
+Rollback point for blackhole-agent self-evolution run
+
+Created at: 2026-06-15T09:57:47.714336Z
+Original branch: codex/blackhole-evolve/20260615T095846.989451-investigate-whether-blackhole-agent-should-add-o
+Original HEAD: b0c3fc875eb194047da1c7fd4fa2fa860aa53d57
+Rollback ref: refs/blackhole-agent/rollback/20260615T095747Z/20260615T095747.714336Z
+
+Recovery commands (explicit/destructive):
+  git switch codex/blackhole-evolve/20260615T095846.989451-investigate-whether-blackhole-agent-should-add-o
+  git reset --hard refs/blackhole-agent/rollback/20260615T095747Z/20260615T095747.714336Z
+  git clean -fd

@@ -104,6 +104,22 @@ GOVERNANCE_CONTROL_TERMS = (
     "tool restriction",
     "tool restrictions",
 )
+AGENT_HARNESS_VALIDATION_TERMS = (
+    "agent harness",
+    "auditability",
+    "coding agent harness",
+    "eval suite",
+    "eval suites",
+    "evaluation report",
+    "evaluation reports",
+    "model-agnostic",
+    "replay",
+    "replayable",
+    "reproducible",
+    "trace",
+    "traces",
+    "validation harness",
+)
 REMOTE_EXECUTION_TERMS = (
     "cluster",
     "k8s",
@@ -739,6 +755,8 @@ def detect_risk_flags(haystack: str) -> list[str]:
         flags.add("security-triage-candidate")
     if any(contains_risk_term(haystack, term) for term in GOVERNANCE_CONTROL_TERMS):
         flags.add("governance-control")
+    if any(contains_risk_term(haystack, term) for term in AGENT_HARNESS_VALIDATION_TERMS):
+        flags.add("agent-harness-validation")
     if is_capability_gap_signal(haystack):
         flags.add("capability-requirement")
     if any(contains_risk_term(haystack, term) for term in REMOTE_EXECUTION_TERMS):
@@ -764,6 +782,8 @@ def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
         return "record the capability requirement and require rollback-backed validation before borrowing runner behavior"
     if "security-triage-candidate" in risk_flags:
         return "capture the security triage pattern as reviewable artifacts before borrowing scanner behavior"
+    if "agent-harness-validation" in risk_flags:
+        return "capture the harness pattern as a local validation report without expanding runtime capabilities"
     if risk_flags:
         return "summarize the risk pattern and require rollback-backed validation before borrowing it"
     if event.kind == "RepositoryTrend":
@@ -1063,6 +1083,12 @@ def validation_task_for_signal(signal: GrowthSignal) -> str:
             "Before borrowing security-scanning behavior, validate locally that the proposal asks for structured "
             "review artifacts and keeps LLM-generated findings as human-reviewed triage candidates."
         )
+    if "agent-harness-validation" in signal.risk_flags:
+        return (
+            "Summarize the harness lesson in a local artifact or test fixture, require a replayable validation "
+            "report covering evidence URLs, commands, outcomes, rollback ref, and skipped capabilities, and verify "
+            "no new runtime capabilities are enabled."
+        )
     if signal.risk_flags:
         return (
             "Summarize the risk in a local artifact or test fixture and verify the change stays rollback-backed "
@@ -1098,6 +1124,11 @@ def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
         control["review_artifact_requirement"] = (
             "Security-scanning lessons must stay as structured review artifacts; "
             "LLM-generated findings remain human-reviewed triage candidates."
+        )
+    if "agent-harness-validation" in proposal.get("risk_flags", []):
+        control["validation_report_requirement"] = (
+            "Harness lessons must stay as replayable local validation reports with evidence URLs, commands, "
+            "outcomes, rollback ref, and skipped capabilities; they must not enable new runtime capabilities."
         )
     return control
 
