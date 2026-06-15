@@ -22,7 +22,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
-from blackhole_agent.proposal_synthesis import PROPOSAL_MODES
+from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
@@ -67,7 +67,7 @@ class SupervisorConfig:
     topics: str = ""
     lookback_hours: int = 24
     max_events_per_repo: int = 100
-    proposal_mode: str = "heuristic"
+    proposal_mode: str = DEFAULT_PROPOSAL_MODE
     proposal_model: str | None = None
     proposal_timeout_seconds: int = 180
     branch_prefix: str = "codex/blackhole-evolve"
@@ -1277,7 +1277,7 @@ def main(
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance topics."),
     lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window."),
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub events page size."),
-    proposal_mode: str = typer.Option("heuristic", "--proposal-mode", help="One of: heuristic, llm, hybrid."),
+    proposal_mode: str = typer.Option(DEFAULT_PROPOSAL_MODE, "--proposal-mode", help="One of: heuristic, llm, hybrid."),
     proposal_model: str | None = typer.Option(
         None,
         "--proposal-model",

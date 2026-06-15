@@ -11,6 +11,7 @@ from typing import Any
 
 PROPOSAL_SYNTHESIS_SCHEMA_VERSION = 1
 PROPOSAL_MODES = {"heuristic", "llm", "hybrid"}
+DEFAULT_PROPOSAL_MODE = "hybrid"
 ALLOWED_PROPOSAL_KINDS = {"documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"}
 ALLOWED_IMPLEMENTATION_SCOPES = {
     "local_validation_candidate",

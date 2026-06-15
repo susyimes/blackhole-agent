@@ -25,6 +25,7 @@ from rich.console import Console
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.persona import render_persona_layer
 from blackhole_agent.proposal_synthesis import (
+    DEFAULT_PROPOSAL_MODE,
     PROPOSAL_MODES,
     ProposalSynthesisReview,
     build_proposal_evidence_package,
@@ -1715,7 +1716,7 @@ def run_intake_once(
     client: GitHubEventsClient | None = None,
     repo_path: Path = Path("."),
     self_model_path: Path | None = None,
-    proposal_mode: str = "heuristic",
+    proposal_mode: str = DEFAULT_PROPOSAL_MODE,
     proposal_model: str | None = None,
     proposal_profile: str | None = None,
     proposal_timeout_seconds: int = 180,
@@ -1883,7 +1884,7 @@ def main(
     force_evolve: bool = typer.Option(False, "--force-evolve", help="Create a fallback self-evolution task even without matched signals."),
     branch_prefix: str = typer.Option("codex/blackhole-evolve", "--branch-prefix", help="Branch prefix used by codex mode."),
     self_model_path: Path = typer.Option(DEFAULT_SELF_MODEL_PATH, "--self-model-path", help="Repository-relative self-model file for revisable self-recognition."),
-    proposal_mode: str = typer.Option("heuristic", "--proposal-mode", help="One of: heuristic, llm, hybrid."),
+    proposal_mode: str = typer.Option(DEFAULT_PROPOSAL_MODE, "--proposal-mode", help="One of: heuristic, llm, hybrid."),
     proposal_model: str | None = typer.Option(None, "--proposal-model", help="Model for read-only LLM proposal interpretation. Defaults to --model when omitted."),
     proposal_timeout_seconds: int = typer.Option(180, "--proposal-timeout-seconds", min=1, help="Timeout for read-only LLM proposal interpretation."),
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI in codex mode."),

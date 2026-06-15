@@ -241,13 +241,7 @@ The point is to let the agent form its own provisional self-description over rep
 
 ## Proposal Modes
 
-By default proposal generation remains deterministic:
-
-```text
-signals -> heuristic proposals -> Codex self-evolution task
-```
-
-For experiments, pass `--proposal-mode hybrid` or `--proposal-mode llm` to add a read-only interpretation layer before proposals are finalized:
+By default proposal generation uses the enhanced hybrid route:
 
 ```text
 signals / digest / memory / self-model
@@ -255,6 +249,13 @@ signals / digest / memory / self-model
   -> candidate growth routes
   -> deterministic evidence and risk review
   -> final proposals
+  -> Codex self-evolution task
+```
+
+For a conservative deterministic run, pass `--proposal-mode heuristic`:
+
+```text
+signals -> heuristic proposals -> Codex self-evolution task
 ```
 
 The LLM cannot add evidence URLs, remove risk flags, grant permissions, or decide final validation gates. Invalid or unsafe output falls back to heuristic proposals and writes `latest-llm-proposal-review.json`.

@@ -32,7 +32,7 @@ def test_build_wake_command_launches_one_shot_child(tmp_path):
     assert command[command.index("--trend-query") + 1] == "agent language:Python"
     assert command[command.index("--output-dir") + 1] == str(tmp_path / "supervisor" / "growth")
     assert command[command.index("--repo-path") + 1] == str(tmp_path)
-    assert command[command.index("--proposal-mode") + 1] == "heuristic"
+    assert command[command.index("--proposal-mode") + 1] == "hybrid"
     assert command[command.index("--proposal-timeout-seconds") + 1] == "180"
     assert Path(command[command.index("--self-model-path") + 1]).parts == ("docs", "self-model.md")
     assert "--force-evolve" in command
