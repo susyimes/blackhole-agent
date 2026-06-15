@@ -64,6 +64,16 @@ INTERESTING_EVENT_TYPES = {
     "WorkflowRunEvent",
 }
 HIGH_RISK_TERMS = ("auth", "credential", "secret", "security", "token")
+SECURITY_TRIAGE_TERMS = (
+    "agentic sast",
+    "findings",
+    "human review",
+    "sast",
+    "security scan",
+    "security scanning",
+    "vulnerability discovery",
+    "vulnerability research",
+)
 GOVERNANCE_CONTROL_TERMS = (
     "approval",
     "approvals",
@@ -712,6 +722,8 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
 
 def detect_risk_flags(haystack: str) -> list[str]:
     flags = {term for term in HIGH_RISK_TERMS if term in haystack}
+    if any(contains_risk_term(haystack, term) for term in SECURITY_TRIAGE_TERMS):
+        flags.add("security-triage-candidate")
     if any(contains_risk_term(haystack, term) for term in GOVERNANCE_CONTROL_TERMS):
         flags.add("governance-control")
     if is_capability_gap_signal(haystack):
@@ -737,6 +749,8 @@ def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
         return "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
     if "capability-requirement" in risk_flags:
         return "record the capability requirement and require rollback-backed validation before borrowing runner behavior"
+    if "security-triage-candidate" in risk_flags:
+        return "capture the security triage pattern as reviewable artifacts before borrowing scanner behavior"
     if risk_flags:
         return "summarize the risk pattern and require rollback-backed validation before borrowing it"
     if event.kind == "RepositoryTrend":
@@ -825,6 +839,8 @@ def validation_gate_for_signal(signal: GrowthSignal) -> str:
         return "capability-requirement-no-new-runners"
     if "remote-execution" in signal.risk_flags:
         return "remote-execution-capability-review"
+    if "security-triage-candidate" in signal.risk_flags:
+        return "human-reviewed-security-triage"
     if signal.risk_flags:
         return "rollback-backed-risk-review"
     if signal.kind == "RepositoryTrend":
@@ -847,6 +863,11 @@ def validation_task_for_signal(signal: GrowthSignal) -> str:
         return (
             "Before borrowing remote execution behavior, validate locally that the proposal records the capability "
             "requirement and does not enable new runners, sandboxes, or cluster access."
+        )
+    if "security-triage-candidate" in signal.risk_flags:
+        return (
+            "Before borrowing security-scanning behavior, validate locally that the proposal asks for structured "
+            "review artifacts and keeps LLM-generated findings as human-reviewed triage candidates."
         )
     if signal.risk_flags:
         return (

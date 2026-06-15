@@ -521,6 +521,52 @@ def test_repository_trend_direct_governance_language_stays_review_gated(tmp_path
     assert "generated Codex task names the validation gate" in plan.task
 
 
+def test_repository_trend_security_harness_stays_human_reviewed_triage(tmp_path):
+    event = trend_repository_to_event(
+        TrendingRepository(
+            full_name="visa/visa-vulnerability-agentic-harness",
+            html_url="https://github.com/visa/visa-vulnerability-agentic-harness",
+            description=(
+                "Agentic SAST pipeline for autonomous vulnerability discovery with structured findings "
+                "that require human review."
+            ),
+            language="Python",
+            stargazers_count=338,
+            forks_count=59,
+            open_issues_count=0,
+            created_at="2026-06-14T00:00:00Z",
+            updated_at="2026-06-15T00:00:00Z",
+            pushed_at="2026-06-15T00:00:00Z",
+            topics=["security", "agent"],
+        ),
+        generated_at="2026-06-15T06:32:33Z",
+    )
+
+    signals = extract_growth_signals([event], topics=["security", "agent"])
+    proposal = build_proposals(signals)[0]
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-visa-security-harness",
+            "generated_at": "2026-06-15T06:32:33Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+
+    assert signals[0].risk_flags == ["security", "security-triage-candidate"]
+    assert signals[0].recommended_action == (
+        "capture the security triage pattern as reviewable artifacts before borrowing scanner behavior"
+    )
+    assert proposal["kind"] == "follow_up_issue"
+    assert proposal["implementation_scope"] == "risk_review_before_local_change"
+    assert proposal["validation_gate"] == "human-reviewed-security-triage"
+    assert "structured review artifacts" in proposal["validation_task"]
+    assert "human-reviewed triage candidates" in proposal["validation_task"]
+    assert plan is not None
+    assert "Validation gate: human-reviewed-security-triage" in plan.task
+    assert "human-reviewed triage candidates" in plan.task
+
+
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(
         [
