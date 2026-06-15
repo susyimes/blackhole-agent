@@ -1326,6 +1326,8 @@ def run_self_evolution_codex(
     timeout_seconds: int = 3600,
     command_runner: Any = subprocess.run,
 ) -> SelfEvolutionRunResult:
+    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    monotonic_started = time.monotonic()
     config = CodexCliConfig(
         model=model,
         profile=profile,
@@ -1341,6 +1343,8 @@ def run_self_evolution_codex(
         output_dir=output_dir,
         timeout_seconds=timeout_seconds,
     )
+    finished_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    elapsed_seconds = round(time.monotonic() - monotonic_started, 3)
     run_result = SelfEvolutionRunResult(
         command=result.command,
         returncode=result.returncode,
@@ -1367,6 +1371,48 @@ def run_self_evolution_codex(
             sort_keys=True,
         )
         + "\n",
+        encoding="utf-8",
+    )
+    current_head = run_controller_command(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=Path(plan.repo_path),
+        command_runner=command_runner,
+    ).stdout.strip()
+    manifest = {
+        "schema_version": 1,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "elapsed_seconds": elapsed_seconds,
+        "source_digest_id": plan.source_digest_id,
+        "source_digest_generated_at": plan.source_digest_generated_at,
+        "repo_path": plan.repo_path,
+        "branch_name": plan.branch_name,
+        "target_head": current_head,
+        "self_model_path": plan.self_model_path,
+        "returncode": run_result.returncode,
+        "task_path": str(run_result.task_path),
+        "last_message_path": str(run_result.last_message_path),
+        "validation_gates": [
+            str(proposal.get("validation_gate"))
+            for proposal in plan.proposals
+            if str(proposal.get("validation_gate") or "").strip()
+        ],
+        "proposal_ids": [
+            str(proposal.get("proposal_id"))
+            for proposal in plan.proposals
+            if str(proposal.get("proposal_id") or "").strip()
+        ],
+        "evidence_urls": sorted(
+            {
+                str(url)
+                for proposal in plan.proposals
+                for url in proposal.get("evidence_urls", [])
+                if str(url).strip()
+            }
+        ),
+    }
+    (output_dir / "latest-self-evolution-manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     write_self_model_snapshot(

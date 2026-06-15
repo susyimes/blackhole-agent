@@ -318,6 +318,7 @@ One run can write:
 | `latest-rollback-point.json` | machine-readable recovery anchor |
 | `latest-rollback-point.md` | human-readable rollback instructions |
 | `latest-codex-run.json` | Codex kernel run metadata |
+| `latest-self-evolution-manifest.json` | replay metadata for a Codex self-evolution run, including source digest, branch, target HEAD, evidence URLs, validation gates, task path, and timing |
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
 | `latest-supervisor-heartbeat.json` | latest supervisor health heartbeat with activation branch/HEAD |
 | `latest-restart-request.json` | restart handoff written after a successful promotion |

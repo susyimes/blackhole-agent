@@ -853,6 +853,8 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
         commands.append((command, kwargs))
         if command == ["git", "status", "--porcelain"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command == ["git", "rev-parse", "--verify", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="def456abc789\n", stderr="")
         if command[:3] == ["git", "switch", "-c"]:
             return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
         last_message = command[command.index("--output-last-message") + 1]
@@ -883,3 +885,15 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert result.returncode == 0
     assert result.task_path.exists()
     assert result.last_message == "codex done"
+    assert commands[3][0] == ["git", "rev-parse", "--verify", "HEAD"]
+    manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == 1
+    assert manifest["source_digest_id"] == plan.source_digest_id
+    assert manifest["branch_name"] == plan.branch_name
+    assert manifest["target_head"] == "def456abc789"
+    assert manifest["returncode"] == 0
+    assert manifest["proposal_ids"] == ["p1"]
+    assert manifest["validation_gates"] == []
+    assert manifest["evidence_urls"] == ["https://github.com/example/repo/pull/1"]
+    assert manifest["task_path"] == str(result.task_path)
+    assert manifest["last_message_path"] == str(result.last_message_path)
