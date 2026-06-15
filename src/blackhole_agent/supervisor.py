@@ -22,6 +22,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from blackhole_agent.proposal_synthesis import PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
@@ -66,6 +67,9 @@ class SupervisorConfig:
     topics: str = ""
     lookback_hours: int = 24
     max_events_per_repo: int = 100
+    proposal_mode: str = "heuristic"
+    proposal_model: str | None = None
+    proposal_timeout_seconds: int = 180
     branch_prefix: str = "codex/blackhole-evolve"
     self_model_path: Path = DEFAULT_SELF_MODEL_PATH
     force_evolve: bool = True
@@ -229,11 +233,17 @@ def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = Non
         str(config.lookback_hours),
         "--max-events-per-repo",
         str(config.max_events_per_repo),
+        "--proposal-mode",
+        config.proposal_mode,
+        "--proposal-timeout-seconds",
+        str(config.proposal_timeout_seconds),
         "--evolution-mode",
         config.evolution_mode,
         "--repo-path",
         str(child_repo_path),
     ]
+    if config.proposal_model:
+        command.extend(["--proposal-model", config.proposal_model])
     if config.repos:
         command.extend(["--repos", config.repos])
     else:
@@ -1082,6 +1092,10 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
         raise ValueError("restart_exit_code cannot be negative")
     if config.evolution_mode not in SUPPORTED_EVOLUTION_MODES:
         raise ValueError("evolution_mode must be one of: digest, plan, codex")
+    if config.proposal_mode not in PROPOSAL_MODES:
+        raise ValueError("proposal_mode must be one of: heuristic, llm, hybrid")
+    if config.proposal_timeout_seconds < 1:
+        raise ValueError("proposal_timeout_seconds must be at least 1")
 
 
 def prepare_supervisor_output(config: SupervisorConfig) -> None:
@@ -1263,6 +1277,18 @@ def main(
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance topics."),
     lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window."),
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub events page size."),
+    proposal_mode: str = typer.Option("heuristic", "--proposal-mode", help="One of: heuristic, llm, hybrid."),
+    proposal_model: str | None = typer.Option(
+        None,
+        "--proposal-model",
+        help="Model for read-only proposal interpretation. Defaults to --model in the child command.",
+    ),
+    proposal_timeout_seconds: int = typer.Option(
+        180,
+        "--proposal-timeout-seconds",
+        min=1,
+        help="Timeout for read-only proposal interpretation.",
+    ),
     branch_prefix: str = typer.Option("codex/blackhole-evolve", "--branch-prefix", help="Evolution branch prefix."),
     self_model_path: Path = typer.Option(
         DEFAULT_SELF_MODEL_PATH,
@@ -1370,6 +1396,9 @@ def main(
         topics=topics,
         lookback_hours=lookback_hours,
         max_events_per_repo=max_events_per_repo,
+        proposal_mode=proposal_mode,
+        proposal_model=proposal_model or model,
+        proposal_timeout_seconds=proposal_timeout_seconds,
         branch_prefix=branch_prefix,
         self_model_path=self_model_path,
         force_evolve=force_evolve,

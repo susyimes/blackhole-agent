@@ -24,6 +24,16 @@ from rich.console import Console
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.persona import render_persona_layer
+from blackhole_agent.proposal_synthesis import (
+    PROPOSAL_MODES,
+    ProposalSynthesisReview,
+    build_proposal_evidence_package,
+    render_proposal_synthesis_prompt,
+    review_llm_proposal_response,
+    stable_hash,
+    validate_proposal_mode,
+    write_proposal_synthesis_artifacts,
+)
 from blackhole_agent.self_model import (
     DEFAULT_SELF_MODEL_PATH,
     SelfModelSnapshot,
@@ -776,9 +786,11 @@ def build_digest(
     generated_at: str | None = None,
     source: dict[str, Any] | None = None,
     memory: GrowthMemory | None = None,
+    proposals: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     generated_at = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     digest_id = "github-growth-" + generated_at.replace("-", "").replace(":", "").replace("+00:00", "Z")
+    digest_proposals = build_proposals(signals, memory=memory) if proposals is None else proposals
     digest = {
         "digest_id": digest_id,
         "generated_at": generated_at,
@@ -786,6 +798,7 @@ def build_digest(
         "cursor": dict(sorted(state.last_seen_at_by_repo.items())),
         "items": [
             {
+                "item_id": signal.event_id,
                 "source_url": signal.url,
                 "event_kind": signal.kind,
                 "summary": f"{signal.repo}: {signal.title}",
@@ -795,7 +808,7 @@ def build_digest(
             }
             for signal in signals
         ],
-        "proposals": build_proposals(signals, memory=memory),
+        "proposals": digest_proposals,
     }
     if source is not None:
         digest["source"] = source
@@ -814,9 +827,11 @@ def build_proposals(
         proposals.append(
             {
                 "proposal_id": f"{signal.event_id}-{index}",
+                "proposal_source": "heuristic",
                 "kind": classify_proposal_kind(signal),
                 "summary": f"Borrow cautiously from {signal.repo}: {signal.title}. {signal.recommended_action}.",
                 "evidence_urls": [signal.url] if signal.url else [],
+                "risk_flags": signal.risk_flags,
                 "implementation_scope": implementation_scope_for_signal(signal),
                 "validation_gate": validation_gate_for_signal(signal),
                 "validation_task": validation_task_for_signal(signal),
@@ -824,6 +839,182 @@ def build_proposals(
             }
         )
     return proposals
+
+
+def synthesize_digest_proposals(
+    digest: dict[str, Any],
+    signals: list[GrowthSignal],
+    heuristic_proposals: list[dict[str, Any]],
+    *,
+    mode: str,
+    output_dir: Path,
+    repo_path: Path,
+    self_model_path: Path | None = None,
+    model: str | None = None,
+    profile: str | None = None,
+    ignore_user_config: bool = True,
+    timeout_seconds: int = 180,
+    command_runner: Any = subprocess.run,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Optionally ask a read-only LLM to interpret digest items before proposals are finalized."""
+
+    normalized_mode = validate_proposal_mode(mode)
+    if normalized_mode == "heuristic":
+        return heuristic_proposals
+
+    self_model_snapshot = read_self_model_snapshot(repo_path, self_model_path)
+    evidence_package = build_proposal_evidence_package(
+        digest,
+        self_model_snapshot=self_model_snapshot.to_dict(),
+        max_items=max(20, limit * 4),
+    )
+    try:
+        raw_text = run_proposal_interpretation_kernel(
+            evidence_package,
+            output_dir=output_dir,
+            repo_path=repo_path,
+            model=model,
+            profile=profile,
+            ignore_user_config=ignore_user_config,
+            timeout_seconds=timeout_seconds,
+            command_runner=command_runner,
+        )
+        review = review_llm_proposal_response(raw_text, evidence_package, mode=normalized_mode)
+    except Exception as error:
+        review = ProposalSynthesisReview(
+            schema_version=1,
+            mode=normalized_mode,
+            status="rejected",
+            reason=f"proposal interpretation failed: {error}",
+            input_digest_id=str(evidence_package.get("digest_id") or ""),
+            input_hash=stable_hash(evidence_package),
+            output_hash="",
+            accepted_count=0,
+            rejected_count=0,
+            accepted_candidates=[],
+            rejected_candidates=[],
+            interpretation={},
+            self_model_reading={},
+        )
+    write_proposal_synthesis_artifacts(output_dir, evidence_package=evidence_package, review=review)
+    if review.status != "accepted":
+        return heuristic_proposals
+
+    llm_proposals = clamp_llm_candidates_to_proposals(review.accepted_candidates, signals, limit=limit)
+    if not llm_proposals:
+        return heuristic_proposals
+    if normalized_mode == "llm":
+        return llm_proposals
+    return combine_llm_and_heuristic_proposals(llm_proposals, heuristic_proposals, limit=limit)
+
+
+def run_proposal_interpretation_kernel(
+    evidence_package: dict[str, Any],
+    *,
+    output_dir: Path,
+    repo_path: Path,
+    model: str | None = None,
+    profile: str | None = None,
+    ignore_user_config: bool = True,
+    timeout_seconds: int = 180,
+    command_runner: Any = subprocess.run,
+) -> str:
+    """Run Codex as a read-only interpretation kernel and return its last message."""
+
+    config = CodexCliConfig(
+        model=model,
+        profile=profile,
+        sandbox="read-only",
+        approval_policy="never",
+        ignore_user_config=ignore_user_config,
+        bypass_approvals_and_sandbox=False,
+    )
+    kernel = CodexCliKernel(config, command_runner=command_runner)
+    result = kernel.run(
+        render_proposal_synthesis_prompt(evidence_package),
+        cwd=repo_path,
+        output_dir=output_dir / "proposal-synthesis",
+        timeout_seconds=timeout_seconds,
+    )
+    return result.last_message
+
+
+def clamp_llm_candidates_to_proposals(
+    candidates: list[dict[str, Any]],
+    signals: list[GrowthSignal],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    signals_by_id = {signal.event_id: signal for signal in signals}
+    proposals: list[dict[str, Any]] = []
+    for index, candidate in enumerate(candidates[:limit], start=1):
+        referenced = [signals_by_id[ref] for ref in candidate.get("evidence_refs", []) if ref in signals_by_id]
+        if not referenced:
+            continue
+        risk_flags = sorted(
+            {
+                *[flag for signal in referenced for flag in signal.risk_flags],
+                *[str(flag) for flag in candidate.get("added_risk_flags", []) if str(flag).strip()],
+            }
+        )
+        representative = GrowthSignal(
+            event_id=str(candidate.get("proposal_id") or f"llm-{index}"),
+            repo=referenced[0].repo,
+            kind=referenced[0].kind,
+            title=str(candidate.get("summary") or referenced[0].title),
+            url=referenced[0].url,
+            relevance_reason="LLM interpretation over frozen digest evidence",
+            risk_flags=risk_flags,
+            recommended_action=str(candidate.get("validation_task") or "validate the interpreted route locally"),
+            confidence=min(max(float(referenced[0].confidence), 0.0), 1.0),
+        )
+        kind = classify_proposal_kind(representative) if risk_flags else str(candidate.get("kind") or "test")
+        validation_task = (
+            validation_task_for_signal(representative)
+            if risk_flags
+            else str(candidate.get("validation_task") or validation_task_for_signal(representative))
+        )
+        proposals.append(
+            {
+                "proposal_id": str(candidate.get("proposal_id") or f"llm-{index}"),
+                "proposal_source": "llm_interpretation",
+                "kind": kind,
+                "summary": str(candidate.get("summary") or representative.title),
+                "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
+                "evidence_urls": candidate.get("evidence_urls") or [signal.url for signal in referenced if signal.url],
+                "risk_flags": risk_flags,
+                "implementation_scope": implementation_scope_for_signal(representative),
+                "validation_gate": validation_gate_for_signal(representative),
+                "validation_task": validation_task,
+                "requires_approval": False,
+                "rationale": str(candidate.get("rationale") or ""),
+                "uncertainty": str(candidate.get("uncertainty") or ""),
+                "self_effect": str(candidate.get("self_effect") or ""),
+                "action_lane": str(candidate.get("action_lane") or ""),
+            }
+        )
+    return proposals
+
+
+def combine_llm_and_heuristic_proposals(
+    llm_proposals: list[dict[str, Any]],
+    heuristic_proposals: list[dict[str, Any]],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    combined: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for proposal in [*llm_proposals, *heuristic_proposals]:
+        evidence_key = ",".join(sorted(str(url) for url in proposal.get("evidence_urls", [])))
+        key = (str(proposal.get("kind") or ""), evidence_key)
+        if key in seen:
+            continue
+        seen.add(key)
+        combined.append(proposal)
+        if len(combined) >= limit:
+            break
+    return combined
 
 
 def implementation_scope_for_signal(signal: GrowthSignal) -> str:
@@ -1522,6 +1713,14 @@ def run_intake_once(
     max_events_per_repo: int = 100,
     trend_config: GitHubTrendConfig | None = None,
     client: GitHubEventsClient | None = None,
+    repo_path: Path = Path("."),
+    self_model_path: Path | None = None,
+    proposal_mode: str = "heuristic",
+    proposal_model: str | None = None,
+    proposal_profile: str | None = None,
+    proposal_timeout_seconds: int = 180,
+    ignore_user_config: bool = True,
+    command_runner: Any = subprocess.run,
 ) -> DigestWriteResult:
     repo_specs = repos or []
     if not repo_specs and trend_config is None:
@@ -1564,6 +1763,7 @@ def run_intake_once(
     update_state(state, events)
     if trend_result is not None:
         update_trend_state(state, trend_result.repositories)
+    heuristic_proposals = build_proposals(signals, memory=memory)
     digest = build_digest(
         normalized_repos,
         signals,
@@ -1571,7 +1771,23 @@ def run_intake_once(
         generated_at=generated_at,
         source=trend_source,
         memory=memory,
+        proposals=heuristic_proposals,
     )
+    if validate_proposal_mode(proposal_mode) != "heuristic":
+        digest["proposals"] = synthesize_digest_proposals(
+            digest,
+            signals,
+            heuristic_proposals,
+            mode=proposal_mode,
+            output_dir=output_dir,
+            repo_path=repo_path,
+            self_model_path=self_model_path,
+            model=proposal_model,
+            profile=proposal_profile,
+            ignore_user_config=ignore_user_config,
+            timeout_seconds=proposal_timeout_seconds,
+            command_runner=command_runner,
+        )
     update_memory_from_digest(memory, digest)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1667,6 +1883,9 @@ def main(
     force_evolve: bool = typer.Option(False, "--force-evolve", help="Create a fallback self-evolution task even without matched signals."),
     branch_prefix: str = typer.Option("codex/blackhole-evolve", "--branch-prefix", help="Branch prefix used by codex mode."),
     self_model_path: Path = typer.Option(DEFAULT_SELF_MODEL_PATH, "--self-model-path", help="Repository-relative self-model file for revisable self-recognition."),
+    proposal_mode: str = typer.Option("heuristic", "--proposal-mode", help="One of: heuristic, llm, hybrid."),
+    proposal_model: str | None = typer.Option(None, "--proposal-model", help="Model for read-only LLM proposal interpretation. Defaults to --model when omitted."),
+    proposal_timeout_seconds: int = typer.Option(180, "--proposal-timeout-seconds", min=1, help="Timeout for read-only LLM proposal interpretation."),
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI in codex mode."),
     profile: str | None = typer.Option(None, "--profile", help="Codex config profile to pass in codex mode."),
     sandbox: str = typer.Option("workspace-write", "--sandbox", help="Codex sandbox for codex mode."),
@@ -1681,6 +1900,8 @@ def main(
     repo_list = parse_comma_separated(repos)
     if evolution_mode not in {"digest", "plan", "codex"}:
         raise typer.BadParameter("--evolution-mode must be one of: digest, plan, codex")
+    if proposal_mode not in PROPOSAL_MODES:
+        raise typer.BadParameter("--proposal-mode must be one of: heuristic, llm, hybrid")
     if trend_sort not in {"stars", "forks", "updated"}:
         raise typer.BadParameter("--trend-sort must be one of: stars, forks, updated")
     if trend_order not in {"asc", "desc"}:
@@ -1712,6 +1933,13 @@ def main(
             lookback_hours=lookback_hours,
             max_events_per_repo=max_events_per_repo,
             trend_config=trend_config,
+            repo_path=repo_path.resolve(),
+            self_model_path=self_model_path,
+            proposal_mode=proposal_mode,
+            proposal_model=proposal_model or model,
+            proposal_profile=profile,
+            proposal_timeout_seconds=proposal_timeout_seconds,
+            ignore_user_config=ignore_user_config,
         )
         source = result.digest.get("source") or {}
         if source:

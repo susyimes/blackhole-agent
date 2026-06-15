@@ -88,6 +88,7 @@
         "additionalProperties": false,
         "required": ["source_url", "event_kind", "summary", "relevance_reason", "confidence"],
         "properties": {
+          "item_id": { "type": "string" },
           "source_url": { "type": "string" },
           "event_kind": { "type": "string" },
           "summary": { "type": "string" },
@@ -112,6 +113,10 @@
         "required": ["proposal_id", "kind", "summary", "requires_approval"],
         "properties": {
           "proposal_id": { "type": "string" },
+          "proposal_source": {
+            "type": "string",
+            "enum": ["heuristic", "llm_interpretation"]
+          },
           "kind": {
             "type": "string",
             "enum": ["documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"]
@@ -121,12 +126,24 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "risk_flags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
           "implementation_scope": {
             "type": "string",
             "enum": ["local_validation_candidate", "risk_review_before_local_change", "reviewable_proposal_only"]
           },
           "validation_gate": { "type": "string" },
           "validation_task": { "type": "string" },
+          "rationale": { "type": "string" },
+          "uncertainty": { "type": "string" },
+          "self_effect": { "type": "string" },
+          "action_lane": { "type": "string" },
           "requires_approval": { "type": "boolean" }
         }
       }

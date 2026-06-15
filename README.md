@@ -239,6 +239,26 @@ See `docs/persona-layer.md`.
 
 The point is to let the agent form its own provisional self-description over repeated runs instead of filling a human-supplied checklist. Runtime policy, available tools, tests, and rollback rules still live outside the self-model.
 
+## Proposal Modes
+
+By default proposal generation remains deterministic:
+
+```text
+signals -> heuristic proposals -> Codex self-evolution task
+```
+
+For experiments, pass `--proposal-mode hybrid` or `--proposal-mode llm` to add a read-only interpretation layer before proposals are finalized:
+
+```text
+signals / digest / memory / self-model
+  -> read-only LLM interpretation
+  -> candidate growth routes
+  -> deterministic evidence and risk review
+  -> final proposals
+```
+
+The LLM cannot add evidence URLs, remove risk flags, grant permissions, or decide final validation gates. Invalid or unsafe output falls back to heuristic proposals and writes `latest-llm-proposal-review.json`.
+
 ## Memory Layer
 
 `blackhole-agent` keeps a small file-backed memory next to `state.json`.
@@ -315,6 +335,10 @@ One run can write:
 | `latest-self-model-before.json` | self-model snapshot injected into the current Codex task |
 | `latest-self-model-after.json` | self-model snapshot after a successful Codex run |
 | `latest-self-model.json` | latest post-run self-model snapshot |
+| `latest-proposal-evidence-package.json` | frozen evidence package for LLM proposal interpretation |
+| `latest-llm-proposal-review.json` | deterministic review of LLM proposal candidates |
+| `latest-growth-interpretation.json` | accepted or rejected run interpretation from the proposal layer |
+| `latest-self-model-reading.json` | how the proposal layer read the current self-model |
 | `latest-rollback-point.json` | machine-readable recovery anchor |
 | `latest-rollback-point.md` | human-readable rollback instructions |
 | `latest-codex-run.json` | Codex kernel run metadata |

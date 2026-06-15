@@ -15,6 +15,7 @@ from blackhole_agent.github_growth import (
     GrowthState,
     TrendingRepository,
     app,
+    build_digest,
     build_proposals,
     build_self_evolution_plan,
     build_trending_repository_query_for_date,
@@ -26,9 +27,11 @@ from blackhole_agent.github_growth import (
     run_intake_once,
     run_self_evolution_codex,
     select_new_events,
+    synthesize_digest_proposals,
     trend_repository_to_event,
 )
 from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
+from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
 from blackhole_agent.self_model import (
     BOOTSTRAP_SELF_MODEL,
     DEFAULT_SELF_MODEL_PATH,
@@ -442,6 +445,144 @@ def test_governance_digest_marks_reviewable_scope_as_not_directly_autonomous():
         in markdown
     )
     assert "Validation gate: `local-validation-before-governance-borrowing`" in markdown
+
+
+def test_llm_proposal_review_rejects_unknown_evidence_ref():
+    evidence_package = build_proposal_evidence_package(
+        {
+            "digest_id": "github-growth-llm-review",
+            "generated_at": "2026-06-15T08:00:00Z",
+            "items": [
+                {
+                    "item_id": "event-1",
+                    "source_url": "https://github.com/example/repo/pull/1",
+                    "event_kind": "PullRequestEvent",
+                    "summary": "example/repo: improve workflow",
+                    "relevance_reason": "matched topics: agent",
+                    "risk_flags": [],
+                    "confidence": 0.8,
+                }
+            ],
+        }
+    )
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-llm-review",
+            "run_interpretation": "A candidate route exists.",
+            "self_model_reading": {"status": "blank_but_available"},
+            "proposals": [
+                {
+                    "proposal_id": "llm-missing-ref",
+                    "kind": "test",
+                    "summary": "Improve proposal generation.",
+                    "evidence_refs": ["missing-event"],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally with focused tests.",
+                    "rationale": "The route needs tests.",
+                    "uncertainty": "",
+                    "self_effect": "Improves future proposal selection.",
+                    "action_lane": "controller_design",
+                }
+            ],
+            "rejected_items": [],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="llm")
+
+    assert review.status == "rejected"
+    assert review.accepted_count == 0
+    assert review.rejected_count == 1
+    assert "unknown item ids" in review.rejected_candidates[0]["errors"][0]
+
+
+def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
+    event = normalize_event(
+        "example/runner",
+        event_payload("remote", "PushEvent", "agent runner executes tasks in a kubernetes cluster"),
+    )
+    signals = extract_growth_signals([event], topics=["agent"])
+    heuristic = build_proposals(signals)
+    digest = build_digest(
+        ["example/runner"],
+        signals,
+        state=GrowthState(),
+        generated_at="2026-06-15T08:00:00Z",
+        proposals=heuristic,
+    )
+
+    def runner(command, **kwargs):
+        last_message = command[command.index("--output-last-message") + 1]
+        payload = {
+            "schema_version": 1,
+            "input_digest_id": digest["digest_id"],
+            "run_interpretation": "The runner signal is interesting but risky.",
+            "self_model_reading": {"status": "not_used"},
+            "proposals": [
+                {
+                    "proposal_id": "llm-runner-route",
+                    "kind": "code_patch",
+                    "summary": "Document a runner capability route without enabling cluster execution.",
+                    "evidence_refs": [signals[0].event_id],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally that remote execution stays disabled and review-only.",
+                    "rationale": "The route is useful only as a capability requirement.",
+                    "uncertainty": "No local runner is configured.",
+                    "self_effect": "Keeps future capability routes explicit.",
+                    "action_lane": "capability_review",
+                }
+            ],
+            "rejected_items": [],
+        }
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload))
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    proposals = synthesize_digest_proposals(
+        digest,
+        signals,
+        heuristic,
+        mode="llm",
+        output_dir=tmp_path / "out",
+        repo_path=tmp_path,
+        command_runner=runner,
+    )
+
+    assert proposals[0]["proposal_source"] == "llm_interpretation"
+    assert proposals[0]["kind"] == "follow_up_issue"
+    assert proposals[0]["implementation_scope"] == "risk_review_before_local_change"
+    assert proposals[0]["validation_gate"] == "remote-execution-capability-review"
+    assert "does not enable new runners" in proposals[0]["validation_task"]
+    review = json.loads((tmp_path / "out" / "latest-llm-proposal-review.json").read_text(encoding="utf-8"))
+    assert review["status"] == "accepted"
+    assert (tmp_path / "out" / "latest-growth-interpretation.json").exists()
+
+
+def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_invalid(tmp_path):
+    events = [event_payload("3", "PullRequestEvent", "Improve agent workflow tests")]
+    client = FakeEventsClient(events)
+
+    def runner(command, **kwargs):
+        last_message = command[command.index("--output-last-message") + 1]
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write("not json")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    result = run_intake_once(
+        repos=["example/repo"],
+        output_dir=tmp_path,
+        topics=["agent", "workflow"],
+        client=client,
+        repo_path=tmp_path,
+        proposal_mode="llm",
+        command_runner=runner,
+    )
+
+    assert result.digest["proposals"][0]["proposal_source"] == "heuristic"
+    review = json.loads((tmp_path / "latest-llm-proposal-review.json").read_text(encoding="utf-8"))
+    assert review["status"] == "rejected"
+    assert "not valid JSON" in review["reason"]
 
 
 def test_repository_trend_sandboxing_controls_stay_review_gated(tmp_path):

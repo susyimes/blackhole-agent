@@ -109,6 +109,13 @@ Turns high-value digest entries into candidate improvements or local application
 
 The default output is a local proposal that can be applied autonomously by the Codex kernel on an evolution branch.
 
+Proposal generation has two layers:
+
+- `heuristic`: the default deterministic path that ranks signals and renders rule-based proposals.
+- `llm` / `hybrid`: an optional read-only interpretation path that asks an LLM to turn the frozen digest, memory context, and self-model snapshot into candidate growth routes before deterministic safety checks finalize proposals.
+
+The LLM interpretation layer is not an authority. It cannot add evidence URLs, remove rule risk flags, decide final validation gates, grant permissions, or enable runners, sandboxes, push, restart, credentials, or remote execution. If its JSON output is invalid, cites unknown evidence, exceeds proposal limits, or fails safety review, the controller writes `latest-llm-proposal-review.json` and falls back to heuristic proposals.
+
 ### Local Codex CLI Kernel
 
 Runs only when explicitly selected with `--evolution-mode codex`.
