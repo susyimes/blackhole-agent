@@ -1,0 +1,14 @@
+Rollback point for blackhole-agent self-evolution run
+
+Digest: github-growth-20260615T080128.622516Z
+Created: 2026-06-15T08:01:28.622516Z
+Original branch: codex/blackhole-evolve/20260615T080143.411448-borrow-cautiously-from-omnigent-ai-omnigent-tren
+Original HEAD: 40327d563ca0e753678b8c9b5a126fe462e4f333
+Rollback ref: refs/blackhole-agent/rollback/20260615T080128.622516Z/codex_blackhole-evolve_20260615T080143.411448-borrow-cautiously-from-omnigent-ai-omnigent-tren
+
+Recovery commands, explicit and destructive if local work should be discarded:
+  git switch codex/blackhole-evolve/20260615T080143.411448-borrow-cautiously-from-omnigent-ai-omnigent-tren
+  git reset --hard refs/blackhole-agent/rollback/20260615T080128.622516Z/codex_blackhole-evolve_20260615T080143.411448-borrow-cautiously-from-omnigent-ai-omnigent-tren
+
+Notes:
+  This artifact was created before repository edits in this kernel run.

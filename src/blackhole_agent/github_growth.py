@@ -301,6 +301,7 @@ class SelfEvolutionRunResult:
     returncode: int
     task_path: Path
     last_message_path: Path
+    result_path: Path
     branch_name: str
     stdout_tail: str
     stderr_tail: str
@@ -1397,6 +1398,7 @@ def run_self_evolution_codex(
         returncode=result.returncode,
         task_path=result.task_path,
         last_message_path=result.last_message_path,
+        result_path=result.result_path,
         branch_name=plan.branch_name,
         stdout_tail=result.stdout_tail,
         stderr_tail=result.stderr_tail,
@@ -1417,6 +1419,7 @@ def run_self_evolution_codex(
                 "returncode": run_result.returncode,
                 "task_path": str(run_result.task_path),
                 "last_message_path": str(run_result.last_message_path),
+                "result_path": str(run_result.result_path),
                 "branch_name": run_result.branch_name,
                 "stdout_tail": run_result.stdout_tail,
                 "stderr_tail": run_result.stderr_tail,
@@ -1455,6 +1458,7 @@ def run_self_evolution_codex(
         },
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
+        "codex_result_path": str(run_result.result_path),
         "proposal_controls": [
             proposal_manifest_control(proposal)
             for proposal in plan.proposals

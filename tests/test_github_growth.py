@@ -965,6 +965,8 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert manifest["evidence_urls"] == ["https://github.com/example/repo/pull/1"]
     assert manifest["task_path"] == str(result.task_path)
     assert manifest["last_message_path"] == str(result.last_message_path)
+    assert manifest["codex_result_path"] == str(result.result_path)
+    assert result.result_path.exists()
 
 
 def test_self_evolution_manifest_records_reviewable_governance_controls(tmp_path):
