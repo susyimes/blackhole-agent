@@ -1,0 +1,14 @@
+Rollback point for source digest github-growth-20260615T041900.917210Z
+
+Created at: 2026-06-15T12:20:36.2364806+08:00
+Repository: C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260615T041859Z
+Original branch: codex/blackhole-evolve/20260615T042010.504886-borrow-cautiously-from-omnigent-ai-omnigent-tren
+Original HEAD: ff66057373a11c469ea27f45406bd9427297f94d
+Local rollback ref: refs/rollback/github-growth-20260615T041900.917210Z
+
+Recovery commands, if an operator chooses destructive rollback:
+  git switch codex/blackhole-evolve/20260615T042010.504886-borrow-cautiously-from-omnigent-ai-omnigent-tren
+  git reset --hard ff66057373a11c469ea27f45406bd9427297f94d
+
+Notes:
+  This artifact records the recovery path only. The kernel that created it must not execute rollback automatically.

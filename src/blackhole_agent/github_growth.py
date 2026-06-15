@@ -65,10 +65,14 @@ GOVERNANCE_CONTROL_TERMS = (
     "cost",
     "policies",
     "policy",
+    "risky actions",
+    "sandboxing",
     "spend",
     "tool access",
     "tool limit",
     "tool limits",
+    "tool restriction",
+    "tool restrictions",
 )
 REMOTE_EXECUTION_TERMS = (
     "cluster",
