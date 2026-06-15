@@ -1056,7 +1056,7 @@ def test_missing_self_model_is_blank_seed_without_creating_file(tmp_path):
     assert plan is not None
     assert plan.self_model_before.exists is False
     assert "There are no required headings below this line." in plan.task
-    assert "If no other safe repository change is available, a self-model revision can be the one conceptual improvement." in plan.task
+    assert "If no other safe repository change is available, a self-model revision can be the proportionate improvement for the run." in plan.task
     assert not (tmp_path / DEFAULT_SELF_MODEL_PATH).exists()
 
 
@@ -1075,7 +1075,7 @@ def test_persona_layer_captures_operational_self_model():
 
     assert "Persona layer: blackhole-agent" in rendered
     assert "Selection policy:" in rendered
-    assert "Make at most one conceptual improvement per kernel run." in rendered
+    assert "Make one bounded, coherent improvement per kernel run" in rendered
     assert "create a rollback point" in rendered
     assert "Autonomously apply local source changes" in rendered
 

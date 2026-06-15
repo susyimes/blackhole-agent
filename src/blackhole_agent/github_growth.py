@@ -795,7 +795,7 @@ def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
     if event.kind == "PushEvent":
         return "cluster commit messages and keep only patterns with clear test evidence"
     if event.kind in {"IssuesEvent", "IssueCommentEvent"}:
-        return "turn the issue signal into a small hypothesis and validation checklist"
+        return "turn the issue signal into a focused hypothesis and validation checklist"
     return "capture the lesson as a proposal; do not mutate the project automatically"
 
 
@@ -1096,7 +1096,7 @@ def validation_task_for_signal(signal: GrowthSignal) -> str:
         )
     if signal.kind == "RepositoryTrend":
         return "Review the evidence URL, extract one reusable pattern, and verify the local change with a focused test."
-    return "Verify the proposed lesson with the narrowest local test or documentation check that covers the changed behavior."
+    return "Verify the proposed lesson with a local test or documentation check sized to the changed behavior."
 
 
 def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
@@ -1472,7 +1472,7 @@ def render_self_evolution_task(
             "- Do not preserve any category merely because a previous run wrote it; the agent may invent or remove structure.",
             "- Ground any self-model edit in evidence from this run, including uncertainty or the possibility that the",
             "  self-model is currently ornamental rather than behavior-shaping.",
-            "- If no other safe repository change is available, a self-model revision can be the one conceptual improvement.",
+            "- If no other safe repository change is available, a self-model revision can be the proportionate improvement for the run.",
             "",
             "Self-model snapshot before this run:",
             "```markdown",
@@ -1480,8 +1480,8 @@ def render_self_evolution_task(
             "```",
             "",
             "Goal:",
-            "Implement one small, coherent self-improvement inspired by the proposals below.",
-            "Prefer changes that improve reliability, validation, observability, tests, or developer workflow.",
+            "Implement a proportionate, coherent self-improvement inspired by the proposals below.",
+            "Prefer direct behavior improvements when evidence and local validation support them; use reliability, validation, observability, tests, or documentation when that is the justified scope.",
             "",
             "Digest evidence policy:",
             "- Treat the Source digest and proposal Evidence URLs as the primary context for this run.",
@@ -1491,21 +1491,21 @@ def render_self_evolution_task(
             "Runtime policy budget:",
             "- Network: use only proposal Evidence URLs and narrowly required official documentation.",
             "- Filesystem: stay inside this repository and create a rollback point before edits.",
-            "- Shell: run only the narrowest useful local validation commands.",
-            "- Autonomy: make one conceptual improvement; do not push, restart, or provision remote sandboxes.",
+            "- Shell: run local validation commands sized to the changed behavior.",
+            "- Autonomy: make one bounded, coherent improvement; do not push, restart, or provision remote sandboxes.",
             "",
             "Proposals:",
             *proposal_lines,
             "",
             "Operating constraints:",
             "- Stay inside this repository.",
-            "- Apply local repository changes autonomously when they are small, logged, and rollback-backed.",
+            "- Apply local repository changes autonomously when they are proportionate, logged, and rollback-backed.",
             "- Use only capabilities and runtime configuration available to this run.",
             "- Record material filesystem and external actions in run artifacts.",
             "- Keep the diff focused enough to audit quickly after the fact.",
             "- Add or update tests or docs whenever behavior changes.",
             "- If you modify the self-model, edit the file at the self-model path directly and explain why it changed.",
-            "- Run the narrowest useful validation command and include the result in the final answer.",
+            "- Run validation that matches the changed behavior and include the result in the final answer.",
             "- If the proposals are unsafe or too vague, improve the growth controller's safety or tests instead.",
             "",
             "Completion criteria:",
