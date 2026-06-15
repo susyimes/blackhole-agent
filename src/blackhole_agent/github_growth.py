@@ -1133,6 +1133,54 @@ def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
     return control
 
 
+def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_controls: list[dict[str, str]]) -> dict[str, Any]:
+    """Return the report contract used to replay evidence review before behavior changes."""
+
+    evidence_urls = sorted(
+        {
+            str(url)
+            for proposal in plan.proposals
+            for url in proposal.get("evidence_urls", [])
+            if str(url).strip()
+        }
+    )
+    validation_gates = sorted(
+        {
+            str(proposal.get("validation_gate"))
+            for proposal in plan.proposals
+            if str(proposal.get("validation_gate") or "").strip()
+        }
+    )
+    return {
+        "schema_version": 1,
+        "source_digest_id": plan.source_digest_id,
+        "required_fields": [
+            "evidence_urls",
+            "local_commands",
+            "outcomes",
+            "rollback_ref",
+            "skipped_capabilities",
+            "uncertainty",
+        ],
+        "evidence_urls": evidence_urls,
+        "validation_gates": validation_gates,
+        "proposal_controls": proposal_controls,
+        "local_commands": [],
+        "outcomes": [],
+        "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
+        "skipped_capabilities": [
+            "new agent harnesses",
+            "remote execution",
+            "credentials or tokens",
+            "restart paths",
+            "push or promotion",
+        ],
+        "uncertainty": [
+            "Post-run validation commands are executed outside this manifest writer and must be recorded by run notes or supervisor artifacts.",
+        ],
+    }
+
+
 def rank_signals_with_memory(
     signals: list[GrowthSignal],
     *,
@@ -1659,6 +1707,11 @@ def run_self_evolution_codex(
         cwd=Path(plan.repo_path),
         command_runner=command_runner,
     ).stdout.strip()
+    proposal_controls = [
+        proposal_manifest_control(proposal)
+        for proposal in plan.proposals
+        if str(proposal.get("proposal_id") or "").strip()
+    ]
     manifest = {
         "schema_version": 1,
         "started_at": started_at,
@@ -1682,11 +1735,8 @@ def run_self_evolution_codex(
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
         "codex_result_path": str(run_result.result_path),
-        "proposal_controls": [
-            proposal_manifest_control(proposal)
-            for proposal in plan.proposals
-            if str(proposal.get("proposal_id") or "").strip()
-        ],
+        "proposal_controls": proposal_controls,
+        "replayable_validation_report": build_replayable_validation_report(plan, proposal_controls),
         "validation_gates": [
             str(proposal.get("validation_gate"))
             for proposal in plan.proposals

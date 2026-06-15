@@ -17,6 +17,7 @@ from blackhole_agent.github_growth import (
     app,
     build_digest,
     build_proposals,
+    build_replayable_validation_report,
     build_self_evolution_plan,
     build_trending_repository_query_for_date,
     extract_growth_signals,
@@ -1191,6 +1192,14 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert manifest["returncode"] == 0
     assert manifest["codex_cli"] == run_metadata["codex_cli"]
     assert manifest["proposal_ids"] == ["p1"]
+    assert manifest["replayable_validation_report"]["required_fields"] == [
+        "evidence_urls",
+        "local_commands",
+        "outcomes",
+        "rollback_ref",
+        "skipped_capabilities",
+        "uncertainty",
+    ]
     assert manifest["proposal_controls"] == [
         {
             "proposal_id": "p1",
@@ -1246,6 +1255,60 @@ def test_self_evolution_manifest_records_reviewable_governance_controls(tmp_path
             ),
         }
     ]
+
+
+def test_replayable_validation_report_records_harness_evidence_without_new_capabilities(tmp_path):
+    event = trend_repository_to_event(
+        TrendingRepository(
+            full_name="samarailly51-pixel/opencode-harness",
+            html_url="https://github.com/samarailly51-pixel/opencode-harness",
+            description=(
+                "Clean-room model-agnostic coding agent harness with reproducible eval suites, "
+                "report.json, report.md, traces, and permission boundaries."
+            ),
+            language="Python",
+            stargazers_count=150,
+            forks_count=12,
+            open_issues_count=0,
+            created_at="2026-06-15T00:00:00Z",
+            updated_at="2026-06-15T00:00:00Z",
+            pushed_at="2026-06-15T00:00:00Z",
+            topics=["agent", "harness"],
+        ),
+        generated_at="2026-06-15T10:37:47Z",
+    )
+    proposal = build_proposals(extract_growth_signals([event], topics=["agent", "harness"]))[0]
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-harness-validation",
+            "generated_at": "2026-06-15T10:37:47Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+    assert plan is not None
+
+    controls = [proposal_manifest_control(proposal)]
+    report = build_replayable_validation_report(plan, controls)
+
+    assert report["schema_version"] == 1
+    assert report["source_digest_id"] == "github-growth-harness-validation"
+    assert report["required_fields"] == [
+        "evidence_urls",
+        "local_commands",
+        "outcomes",
+        "rollback_ref",
+        "skipped_capabilities",
+        "uncertainty",
+    ]
+    assert report["evidence_urls"] == ["https://github.com/samarailly51-pixel/opencode-harness"]
+    assert report["local_commands"] == []
+    assert report["outcomes"] == []
+    assert "new agent harnesses" in report["skipped_capabilities"]
+    assert "remote execution" in report["skipped_capabilities"]
+    assert report["validation_gates"] == ["rollback-backed-risk-review"]
+    assert "Validation gate: rollback-backed-risk-review" in plan.task
+    assert "new runtime capabilities are enabled" in plan.task
 
 
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):
