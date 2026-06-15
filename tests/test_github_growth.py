@@ -20,6 +20,7 @@ from blackhole_agent.github_growth import (
     extract_growth_signals,
     normalize_event,
     prepare_self_evolution_branch,
+    render_markdown_digest,
     run_intake_once,
     run_self_evolution_codex,
     select_new_events,
@@ -396,10 +397,49 @@ def test_governance_controls_stay_reviewable_and_name_validation_gate_in_codex_t
     assert "only represented as reviewable proposals" in proposal["validation_task"]
     assert plan is not None
     assert "Kind: follow_up_issue" in plan.task
+    assert (
+        "Autonomous local apply: False (reviewable proposal only; local validation artifacts may still be updated)"
+        in plan.task
+    )
     assert "Implementation scope: reviewable_proposal_only" in plan.task
     assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
     assert "Validation task: " in plan.task
     assert "generated Codex task names the validation gate" in plan.task
+
+
+def test_governance_digest_marks_reviewable_scope_as_not_directly_autonomous():
+    event = normalize_event(
+        "omnigent-ai/omnigent",
+        event_payload("governance", "PushEvent", "policies pause before risky shell commands and cap spend"),
+    )
+    signals = extract_growth_signals([event], topics=["agent"])
+    proposal = build_proposals(signals)[0]
+
+    markdown = render_markdown_digest(
+        {
+            "digest_id": "github-growth-governance-control",
+            "generated_at": "2026-06-15T06:02:33Z",
+            "repositories": ["omnigent-ai/omnigent"],
+            "items": [
+                {
+                    "source_url": event.url,
+                    "event_kind": event.kind,
+                    "summary": f"{event.repo}: {event.title}",
+                    "relevance_reason": signals[0].relevance_reason,
+                    "risk_flags": signals[0].risk_flags,
+                    "confidence": signals[0].confidence,
+                }
+            ],
+            "proposals": [proposal],
+        }
+    )
+
+    assert "Implementation scope: `reviewable_proposal_only`" in markdown
+    assert (
+        "Autonomous local apply: False (reviewable proposal only; local validation artifacts may still be updated)"
+        in markdown
+    )
+    assert "Validation gate: `local-validation-before-governance-borrowing`" in markdown
 
 
 def test_repository_trend_sandboxing_controls_stay_review_gated(tmp_path):

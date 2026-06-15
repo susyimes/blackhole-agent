@@ -1,0 +1,10 @@
+Rollback point for github-growth-20260615T060233.615077Z
+
+Original branch: codex/blackhole-evolve/20260615T060237.124248-borrow-cautiously-from-omnigent-ai-omnigent-tren
+Original HEAD: 9aebbf7fadf33f7dafe5076e08a9db021876dd52
+Rollback ref: refs/blackhole-agent/rollback/20260615T060233.615077Z-codex_blackhole-evolve_20260615T060237.124248-borrow-cautiously-from-omnigent-ai-omnigent-tren
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260615T060237.124248-borrow-cautiously-from-omnigent-ai-omnigent-tren
+git reset --hard refs/blackhole-agent/rollback/20260615T060233.615077Z-codex_blackhole-evolve_20260615T060237.124248-borrow-cautiously-from-omnigent-ai-omnigent-tren
+git clean -fd

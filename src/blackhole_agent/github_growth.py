@@ -858,6 +858,17 @@ def validation_task_for_signal(signal: GrowthSignal) -> str:
     return "Verify the proposed lesson with the narrowest local test or documentation check that covers the changed behavior."
 
 
+def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
+    """Describe whether a proposal may directly change local behavior."""
+
+    if proposal.get("requires_approval", True):
+        return "False"
+    implementation_scope = str(proposal.get("implementation_scope") or "").strip()
+    if implementation_scope == "reviewable_proposal_only":
+        return "False (reviewable proposal only; local validation artifacts may still be updated)"
+    return "True"
+
+
 def rank_signals_with_memory(
     signals: list[GrowthSignal],
     *,
@@ -968,7 +979,7 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
             [
                 f"- `{proposal['kind']}`: {proposal['summary']}",
                 f"  - Evidence: {evidence}",
-                f"  - Autonomous local apply: {not proposal['requires_approval']}",
+                f"  - Autonomous local apply: {autonomous_local_apply_text(proposal)}",
             ]
         )
         implementation_scope = str(proposal.get("implementation_scope") or "").strip()
@@ -1072,7 +1083,7 @@ def render_self_evolution_task(
                 f"   Proposal ID: {proposal.get('proposal_id', '')}",
                 f"   Kind: {proposal.get('kind', 'no_action')}",
                 f"   Evidence: {evidence}",
-                f"   Autonomous local apply: {not proposal.get('requires_approval', True)}",
+                f"   Autonomous local apply: {autonomous_local_apply_text(proposal)}",
             ]
         )
         implementation_scope = str(proposal.get("implementation_scope") or "").strip()
