@@ -15,3 +15,7 @@ When public agent projects suggest new behavior, prefer evidence-backed validati
 For this run, the reusable lesson from the harness evidence is not a new runtime capability; it is a requirement
 to capture evidence URLs, local commands, outcomes, rollback refs, skipped capabilities, and uncertainty in a
 replayable validation report before changing agent behavior.
+
+The report should distinguish an incomplete template from completed adoption evidence. Blank placeholders are useful
+for planning, but behavior adoption requires explicit completion requirements, a concrete rollback reference, command
+outcomes, and a recorded adoption decision.

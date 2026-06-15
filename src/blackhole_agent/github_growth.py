@@ -1159,7 +1159,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
     return {
         "schema_version": 1,
         "source_digest_id": plan.source_digest_id,
-        "template_version": 1,
+        "template_version": 2,
         "required_fields": [
             "evidence_urls",
             "pre_adoption_risk_review",
@@ -1169,6 +1169,8 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "rollback_ref",
             "skipped_capabilities",
             "runtime_capability_changes",
+            "completion_requirements",
+            "adoption_decision",
             "uncertainty",
         ],
         "evidence_urls": evidence_urls,
@@ -1228,6 +1230,22 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "This template is evidence and validation metadata only; an empty runtime_capability_changes list "
             "means no new harnesses, remote execution, credentials, restart behavior, push, or promotion were enabled."
         ),
+        "completion_requirements": [
+            "evidence_urls must contain every external evidence URL used to justify the lesson.",
+            "pre_adoption_risk_review.decision must be filled before any behavior adoption.",
+            "local_commands and startup_health_checks must list command, purpose, cwd, and exit_code for each check run.",
+            "outcomes must name the checked behavior, result, and evidence artifact.",
+            "rollback_ref must name the concrete local rollback ref or rollback artifact for the run.",
+            "skipped_capabilities must list unavailable or intentionally skipped runtime capabilities.",
+            "runtime_capability_changes must stay empty unless a later review explicitly approves capability changes.",
+            "uncertainty must record stale, unavailable, or weak evidence instead of being silently omitted.",
+        ],
+        "adoption_decision": {
+            "status": "pending",
+            "allowed_statuses": ["pending", "adopted", "rejected", "deferred"],
+            "rationale": "",
+            "decided_at": "",
+        },
         "uncertainty": [
             "Post-run validation commands are executed outside this manifest writer and must be recorded by run notes or supervisor artifacts.",
         ],

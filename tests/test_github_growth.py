@@ -1201,6 +1201,8 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
         "rollback_ref",
         "skipped_capabilities",
         "runtime_capability_changes",
+        "completion_requirements",
+        "adoption_decision",
         "uncertainty",
     ]
     assert manifest["proposal_controls"] == [
@@ -1296,7 +1298,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
 
     assert report["schema_version"] == 1
     assert report["source_digest_id"] == "github-growth-harness-validation"
-    assert report["template_version"] == 1
+    assert report["template_version"] == 2
     assert report["required_fields"] == [
         "evidence_urls",
         "pre_adoption_risk_review",
@@ -1306,6 +1308,8 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "rollback_ref",
         "skipped_capabilities",
         "runtime_capability_changes",
+        "completion_requirements",
+        "adoption_decision",
         "uncertainty",
     ]
     assert report["evidence_urls"] == ["https://github.com/samarailly51-pixel/opencode-harness"]
@@ -1354,6 +1358,20 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
     assert "remote execution" in report["skipped_capabilities"]
     assert report["runtime_capability_changes"] == []
     assert "metadata only" in report["runtime_capability_change_policy"]
+    assert report["adoption_decision"] == {
+        "status": "pending",
+        "allowed_statuses": ["pending", "adopted", "rejected", "deferred"],
+        "rationale": "",
+        "decided_at": "",
+    }
+    assert any(
+        requirement.startswith("rollback_ref must name the concrete local rollback ref")
+        for requirement in report["completion_requirements"]
+    )
+    assert any(
+        requirement.startswith("runtime_capability_changes must stay empty")
+        for requirement in report["completion_requirements"]
+    )
     assert report["validation_gates"] == ["rollback-backed-risk-review"]
     assert "Validation gate: rollback-backed-risk-review" in plan.task
     assert "new runtime capabilities are enabled" in plan.task
