@@ -583,7 +583,7 @@ def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
                     "rationale": "The route is useful only as a capability requirement.",
                     "uncertainty": "No local runner is configured.",
                     "self_effect": "Keeps future capability routes explicit.",
-                    "action_lane": "capability_review",
+                    "action_lane": "local_validation_candidate",
                 }
             ],
             "rejected_items": [],
@@ -610,6 +610,80 @@ def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
     review = json.loads((tmp_path / "out" / "latest-llm-proposal-review.json").read_text(encoding="utf-8"))
     assert review["status"] == "accepted"
     assert (tmp_path / "out" / "latest-growth-interpretation.json").exists()
+
+
+def test_llm_controller_internal_governance_candidate_can_apply_after_risk_review(tmp_path):
+    event = normalize_event(
+        "omnigent-ai/omnigent",
+        event_payload("governance", "PushEvent", "agent policy gates for spend and tool access"),
+    )
+    signals = extract_growth_signals([event], topics=["agent"])
+    heuristic = build_proposals(signals)
+    digest = build_digest(
+        ["omnigent-ai/omnigent"],
+        signals,
+        state=GrowthState(),
+        generated_at="2026-06-15T16:21:46Z",
+        proposals=heuristic,
+    )
+
+    def runner(command, **kwargs):
+        last_message = command[command.index("--output-last-message") + 1]
+        payload = {
+            "schema_version": 1,
+            "input_digest_id": digest["digest_id"],
+            "run_interpretation": "The useful route is a local controller-internal validation test.",
+            "self_model_reading": {"status": "aligned"},
+            "proposals": [
+                {
+                    "proposal_id": "llm-controller-scope-test",
+                    "kind": "test",
+                    "summary": "Add a local controller metadata test for proposal scope classification gates.",
+                    "evidence_refs": [signals[0].event_id],
+                    "added_risk_flags": [],
+                    "validation_task": (
+                        "Create tests that confirm governance-tagged evidence can only change local proposal "
+                        "scope metadata and validation reports."
+                    ),
+                    "rationale": "This changes controller classification evidence, not runtime governance behavior.",
+                    "uncertainty": "The upstream behavior itself is not adopted.",
+                    "self_effect": "Improves controller scope mapping and keeps runtime capability changes empty.",
+                    "action_lane": "local_validation_candidate",
+                }
+            ],
+            "rejected_items": [],
+        }
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload))
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    proposals = synthesize_digest_proposals(
+        digest,
+        signals,
+        heuristic,
+        mode="llm",
+        output_dir=tmp_path / "out",
+        repo_path=tmp_path,
+        command_runner=runner,
+    )
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": digest["digest_id"],
+            "generated_at": digest["generated_at"],
+            "proposals": [proposals[0]],
+        },
+        repo_path=tmp_path,
+    )
+
+    assert proposals[0]["proposal_source"] == "llm_interpretation"
+    assert proposals[0]["kind"] == "test"
+    assert proposals[0]["risk_flags"] == ["governance-control"]
+    assert proposals[0]["implementation_scope"] == "risk_review_before_local_change"
+    assert proposals[0]["validation_gate"] == "controller-internal-local-validation"
+    assert "confined to local controller tests" in proposals[0]["validation_task"]
+    assert plan is not None
+    assert "Autonomous local apply: True" in plan.task
+    assert "Implementation scope: risk_review_before_local_change" in plan.task
 
 
 def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_invalid(tmp_path):

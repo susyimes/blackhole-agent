@@ -145,6 +145,57 @@ CAPABILITY_GAP_TERMS = (
     "web_search",
 )
 DRAFT_ROLLBACK_REF = "recorded in latest-rollback-point.json when codex mode prepares the branch"
+HARD_REVIEW_RISK_FLAGS = {
+    "capability-requirement",
+    "credential",
+    "remote-execution",
+    "secret",
+    "security",
+    "security-triage-candidate",
+    "token",
+}
+CONTROLLER_INTERNAL_ACTION_LANES = {
+    "controller_internal",
+    "controller_internal_change",
+    "controller_internal_validation",
+    "local_validation_candidate",
+    "risk_review_before_local_change",
+}
+CONTROLLER_INTERNAL_KINDS = {"code_patch", "config", "documentation", "test"}
+CONTROLLER_INTERNAL_TERMS = (
+    "adoption decision",
+    "archive",
+    "artifact",
+    "blackhole-agent",
+    "checklist",
+    "classification",
+    "controller",
+    "digest",
+    "evidence",
+    "fixture",
+    "gate",
+    "growth controller",
+    "intake",
+    "manifest",
+    "metadata",
+    "proposal",
+    "ranking",
+    "report",
+    "scope",
+    "scoring",
+    "self-model",
+    "supervisor",
+    "test",
+    "validation",
+)
+CONTROLLER_RUNTIME_ENABLEMENT_TERMS = (
+    "enable new runtime",
+    "enable remote",
+    "enable runner",
+    "execute remote",
+    "provision",
+    "restart itself",
+)
 VALIDATION_REPORT_REQUIRED_FIELDS = [
     "evidence_urls",
     "pre_adoption_risk_review",
@@ -1006,9 +1057,16 @@ def clamp_llm_candidates_to_proposals(
             recommended_action=str(candidate.get("validation_task") or "validate the interpreted route locally"),
             confidence=min(max(float(referenced[0].confidence), 0.0), 1.0),
         )
-        kind = classify_proposal_kind(representative) if risk_flags else str(candidate.get("kind") or "test")
+        is_controller_internal_route = low_risk_controller_internal_route(candidate, risk_flags)
+        kind = (
+            str(candidate.get("kind") or "test")
+            if is_controller_internal_route
+            else classify_proposal_kind(representative)
+            if risk_flags
+            else str(candidate.get("kind") or "test")
+        )
         validation_task = (
-            validation_task_for_signal(representative)
+            validation_task_for_signal(representative, route=candidate)
             if risk_flags
             else str(candidate.get("validation_task") or validation_task_for_signal(representative))
         )
@@ -1021,8 +1079,8 @@ def clamp_llm_candidates_to_proposals(
                 "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
                 "evidence_urls": candidate.get("evidence_urls") or [signal.url for signal in referenced if signal.url],
                 "risk_flags": risk_flags,
-                "implementation_scope": implementation_scope_for_signal(representative),
-                "validation_gate": validation_gate_for_signal(representative),
+                "implementation_scope": implementation_scope_for_signal(representative, route=candidate),
+                "validation_gate": validation_gate_for_signal(representative, route=candidate),
                 "validation_task": validation_task,
                 "requires_approval": False,
                 "rationale": str(candidate.get("rationale") or ""),
@@ -1054,7 +1112,9 @@ def combine_llm_and_heuristic_proposals(
     return combined
 
 
-def implementation_scope_for_signal(signal: GrowthSignal) -> str:
+def implementation_scope_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | None = None) -> str:
+    if "governance-control" in signal.risk_flags and low_risk_controller_internal_route(route, signal.risk_flags):
+        return "risk_review_before_local_change"
     if "governance-control" in signal.risk_flags:
         return "reviewable_proposal_only"
     if signal.risk_flags:
@@ -1062,7 +1122,9 @@ def implementation_scope_for_signal(signal: GrowthSignal) -> str:
     return "local_validation_candidate"
 
 
-def validation_gate_for_signal(signal: GrowthSignal) -> str:
+def validation_gate_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | None = None) -> str:
+    if "governance-control" in signal.risk_flags and low_risk_controller_internal_route(route, signal.risk_flags):
+        return "controller-internal-local-validation"
     if "governance-control" in signal.risk_flags:
         return "local-validation-before-governance-borrowing"
     if "capability-requirement" in signal.risk_flags:
@@ -1078,7 +1140,15 @@ def validation_gate_for_signal(signal: GrowthSignal) -> str:
     return "narrow-local-verification"
 
 
-def validation_task_for_signal(signal: GrowthSignal) -> str:
+def validation_task_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | None = None) -> str:
+    if "governance-control" in signal.risk_flags and low_risk_controller_internal_route(route, signal.risk_flags):
+        route_task = str((route or {}).get("validation_task") or "").strip()
+        guardrail = (
+            "Keep the implementation confined to local controller tests, metadata, scoring, reporting, or scope "
+            "classification, and verify it does not enable borrowed governance controls, remote execution, "
+            "credentials, or new runtime capabilities."
+        )
+        return f"{route_task} {guardrail}" if route_task else guardrail
     if "governance-control" in signal.risk_flags:
         return (
             "Before borrowing governance behavior, add or update a local test that proves risky agent controls are "
@@ -1113,6 +1183,31 @@ def validation_task_for_signal(signal: GrowthSignal) -> str:
     if signal.kind == "RepositoryTrend":
         return "Review the evidence URL, extract one reusable pattern, and verify the local change with a focused test."
     return "Verify the proposed lesson with a local test or documentation check sized to the changed behavior."
+
+
+def low_risk_controller_internal_route(route: dict[str, Any] | None, risk_flags: list[str]) -> bool:
+    """Return whether a risky proposal is limited to local controller internals."""
+
+    if not route:
+        return False
+    risk_set = {str(flag) for flag in risk_flags}
+    if risk_set & HARD_REVIEW_RISK_FLAGS:
+        return False
+    action_lane = normalize_route_token(route.get("action_lane"))
+    kind = normalize_route_token(route.get("kind"))
+    if action_lane not in CONTROLLER_INTERNAL_ACTION_LANES and kind not in CONTROLLER_INTERNAL_KINDS:
+        return False
+    route_text = " ".join(
+        str(route.get(key) or "")
+        for key in ("summary", "validation_task", "rationale", "self_effect", "action_lane", "kind")
+    ).lower()
+    if any(term in route_text for term in CONTROLLER_RUNTIME_ENABLEMENT_TERMS):
+        return False
+    return any(term in route_text for term in CONTROLLER_INTERNAL_TERMS)
+
+
+def normalize_route_token(value: Any) -> str:
+    return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
 
 
 def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
