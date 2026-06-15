@@ -1,0 +1,14 @@
+Rollback point for Source digest github-growth-20260615T074128.616020Z
+
+Created at UTC: 2026-06-15T07:42:23Z
+Original branch: codex/blackhole-evolve/20260615T074145.141843-borrow-cautiously-from-omnigent-ai-omnigent-tren
+Original HEAD: d1111678f613856642901a7c48a1bb28dbcdb059
+Local rollback ref: refs/blackhole-agent/rollback/20260615T074128.616020Z
+
+Recovery commands, explicit and destructive:
+  git switch codex/blackhole-evolve/20260615T074145.141843-borrow-cautiously-from-omnigent-ai-omnigent-tren
+  git reset --hard refs/blackhole-agent/rollback/20260615T074128.616020Z
+
+Notes:
+  This artifact must not be deleted during the run that created it.
+  Rollback execution is a human or supervisor decision, not an in-kernel action.

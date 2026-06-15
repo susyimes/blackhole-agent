@@ -6,6 +6,7 @@ self-improvement task to the local Codex CLI kernel, write rollback artifacts,
 and apply local evolution on a prepared branch.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -1250,7 +1251,8 @@ def create_rollback_point(
         command_runner=command_runner,
         check=True,
     ).stdout.strip()
-    rollback_ref = f"refs/blackhole-agent/rollback/{timestamp}-{head[:12]}"
+    repo_namespace = rollback_ref_repo_namespace(repo_path)
+    rollback_ref = f"refs/blackhole-agent/rollback/{repo_namespace}/{timestamp}-{head[:12]}"
     run_controller_command(
         ["git", "update-ref", rollback_ref, head],
         cwd=repo_path,
@@ -1267,6 +1269,12 @@ def create_rollback_point(
         status_porcelain=status_porcelain,
         restore_commands=restore_commands,
     )
+
+
+def rollback_ref_repo_namespace(repo_path: Path) -> str:
+    """Return a short stable namespace for rollback refs from this checkout."""
+
+    return hashlib.sha256(str(repo_path.resolve()).encode("utf-8")).hexdigest()[:8]
 
 
 def build_restore_commands(*, original_branch: str, rollback_ref: str) -> list[list[str]]:

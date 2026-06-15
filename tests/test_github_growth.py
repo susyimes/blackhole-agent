@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 from datetime import date, datetime, timedelta, timezone
@@ -879,7 +880,8 @@ def test_prepare_self_evolution_branch_writes_rollback_point(tmp_path):
     assert rollback_point is not None
     assert rollback_point.original_branch == "main"
     assert rollback_point.original_head == "abc123def4567890"
-    assert rollback_point.rollback_ref.startswith("refs/blackhole-agent/rollback/")
+    expected_namespace = hashlib.sha256(str(tmp_path.resolve()).encode("utf-8")).hexdigest()[:8]
+    assert rollback_point.rollback_ref.startswith(f"refs/blackhole-agent/rollback/{expected_namespace}/")
     assert rollback_point.restore_commands[0] == ["git", "switch", "main"]
     assert rollback_point.restore_commands[1] == ["git", "reset", "--hard", rollback_point.rollback_ref]
     assert (tmp_path / "out" / "latest-rollback-point.json").exists()
