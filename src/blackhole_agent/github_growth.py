@@ -144,6 +144,7 @@ CAPABILITY_GAP_TERMS = (
     "tool call",
     "web_search",
 )
+DRAFT_ROLLBACK_REF = "recorded in latest-rollback-point.json when codex mode prepares the branch"
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -1156,10 +1157,10 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
         for proposal in plan.proposals
         if str(proposal.get("proposal_id") or "").strip()
     ]
-    return {
+    report = {
         "schema_version": 1,
         "source_digest_id": plan.source_digest_id,
-        "template_version": 2,
+        "template_version": 3,
         "required_fields": [
             "evidence_urls",
             "pre_adoption_risk_review",
@@ -1170,6 +1171,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "skipped_capabilities",
             "runtime_capability_changes",
             "completion_requirements",
+            "completion_status",
             "adoption_decision",
             "uncertainty",
         ],
@@ -1192,7 +1194,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "proposal_ids": proposal_ids,
             "evidence_urls": evidence_urls,
             "validation_gates": validation_gates,
-            "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
+            "rollback_ref": DRAFT_ROLLBACK_REF,
         },
         "local_commands": [
             {
@@ -1217,7 +1219,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
                 "evidence_artifact": "",
             }
         ],
-        "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
+        "rollback_ref": DRAFT_ROLLBACK_REF,
         "skipped_capabilities": [
             "new agent harnesses",
             "remote execution",
@@ -1238,6 +1240,8 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "rollback_ref must name the concrete local rollback ref or rollback artifact for the run.",
             "skipped_capabilities must list unavailable or intentionally skipped runtime capabilities.",
             "runtime_capability_changes must stay empty unless a later review explicitly approves capability changes.",
+            "completion_status.is_complete must stay false while placeholders, pending decisions, or the draft rollback ref remain.",
+            "adoption_decision.status must be adopted, rejected, or deferred with rationale and decided_at before this report is complete.",
             "uncertainty must record stale, unavailable, or weak evidence instead of being silently omitted.",
         ],
         "adoption_decision": {
@@ -1250,6 +1254,95 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "Post-run validation commands are executed outside this manifest writer and must be recorded by run notes or supervisor artifacts.",
         ],
     }
+    report["completion_status"] = validation_report_completion_status(report)
+    return report
+
+
+def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any]:
+    """Classify whether a replayable validation report is still a draft template."""
+
+    blocking_reasons: list[str] = []
+    if not report.get("evidence_urls"):
+        blocking_reasons.append("evidence_urls is empty")
+
+    raw_risk_review = report.get("pre_adoption_risk_review")
+    risk_review = raw_risk_review if isinstance(raw_risk_review, dict) else {}
+    for key in ("hypothesis", "expected_local_benefit"):
+        if not str(risk_review.get(key) or "").strip():
+            blocking_reasons.append(f"pre_adoption_risk_review.{key} is blank")
+    if str(risk_review.get("decision") or "").strip().lower() in {"", "pending"}:
+        blocking_reasons.append("pre_adoption_risk_review.decision is pending")
+
+    blocking_reasons.extend(incomplete_command_reasons(report.get("local_commands"), "local_commands"))
+    blocking_reasons.extend(incomplete_command_reasons(report.get("startup_health_checks"), "startup_health_checks"))
+    blocking_reasons.extend(incomplete_outcome_reasons(report.get("outcomes")))
+
+    rollback_ref = str(report.get("rollback_ref") or "").strip()
+    if not rollback_ref or rollback_ref == DRAFT_ROLLBACK_REF:
+        blocking_reasons.append("rollback_ref does not name a concrete rollback ref or artifact")
+    if not report.get("skipped_capabilities"):
+        blocking_reasons.append("skipped_capabilities is empty")
+    if report.get("runtime_capability_changes") != []:
+        blocking_reasons.append("runtime_capability_changes is not empty")
+    if "uncertainty" not in report:
+        blocking_reasons.append("uncertainty is missing")
+
+    raw_adoption_decision = report.get("adoption_decision")
+    adoption_decision = raw_adoption_decision if isinstance(raw_adoption_decision, dict) else {}
+    adoption_status = str(adoption_decision.get("status") or "").strip().lower()
+    if adoption_status in {"", "pending"}:
+        blocking_reasons.append("adoption_decision.status is pending")
+    elif adoption_status not in {"adopted", "rejected", "deferred"}:
+        blocking_reasons.append("adoption_decision.status is not an allowed final status")
+    for key in ("rationale", "decided_at"):
+        if not str(adoption_decision.get(key) or "").strip():
+            blocking_reasons.append(f"adoption_decision.{key} is blank")
+
+    is_complete = not blocking_reasons
+    if not is_complete:
+        status = "draft_template"
+    elif adoption_status == "adopted":
+        status = "completed_adoption_evidence"
+    else:
+        status = "completed_review_evidence"
+    return {
+        "status": status,
+        "is_complete": is_complete,
+        "adoption_evidence_complete": is_complete and adoption_status == "adopted",
+        "blocking_reasons": blocking_reasons,
+    }
+
+
+def incomplete_command_reasons(commands: Any, field_name: str) -> list[str]:
+    if not isinstance(commands, list) or not commands:
+        return [f"{field_name} is empty"]
+    reasons: list[str] = []
+    for index, command in enumerate(commands):
+        if not isinstance(command, dict):
+            reasons.append(f"{field_name}[{index}] is not an object")
+            continue
+        for key in ("command", "purpose", "cwd"):
+            if not str(command.get(key) or "").strip():
+                reasons.append(f"{field_name}[{index}].{key} is blank")
+        if command.get("exit_code") is None:
+            reasons.append(f"{field_name}[{index}].exit_code is not recorded")
+    return reasons
+
+
+def incomplete_outcome_reasons(outcomes: Any) -> list[str]:
+    if not isinstance(outcomes, list) or not outcomes:
+        return ["outcomes is empty"]
+    reasons: list[str] = []
+    for index, outcome in enumerate(outcomes):
+        if not isinstance(outcome, dict):
+            reasons.append(f"outcomes[{index}] is not an object")
+            continue
+        for key in ("check", "evidence_artifact"):
+            if not str(outcome.get(key) or "").strip():
+                reasons.append(f"outcomes[{index}].{key} is blank")
+        if str(outcome.get("result") or "").strip().lower() in {"", "pending"}:
+            reasons.append(f"outcomes[{index}].result is pending")
+    return reasons
 
 
 def rank_signals_with_memory(

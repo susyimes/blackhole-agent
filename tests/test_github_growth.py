@@ -30,6 +30,7 @@ from blackhole_agent.github_growth import (
     select_new_events,
     synthesize_digest_proposals,
     trend_repository_to_event,
+    validation_report_completion_status,
 )
 from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
 from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
@@ -1202,6 +1203,7 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
         "skipped_capabilities",
         "runtime_capability_changes",
         "completion_requirements",
+        "completion_status",
         "adoption_decision",
         "uncertainty",
     ]
@@ -1298,7 +1300,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
 
     assert report["schema_version"] == 1
     assert report["source_digest_id"] == "github-growth-harness-validation"
-    assert report["template_version"] == 2
+    assert report["template_version"] == 3
     assert report["required_fields"] == [
         "evidence_urls",
         "pre_adoption_risk_review",
@@ -1309,6 +1311,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "skipped_capabilities",
         "runtime_capability_changes",
         "completion_requirements",
+        "completion_status",
         "adoption_decision",
         "uncertainty",
     ]
@@ -1372,9 +1375,70 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         requirement.startswith("runtime_capability_changes must stay empty")
         for requirement in report["completion_requirements"]
     )
+    assert any(
+        requirement.startswith("completion_status.is_complete must stay false")
+        for requirement in report["completion_requirements"]
+    )
+    assert report["completion_status"]["status"] == "draft_template"
+    assert report["completion_status"]["is_complete"] is False
+    assert report["completion_status"]["adoption_evidence_complete"] is False
+    assert "pre_adoption_risk_review.hypothesis is blank" in report["completion_status"]["blocking_reasons"]
+    assert "rollback_ref does not name a concrete rollback ref or artifact" in report["completion_status"]["blocking_reasons"]
     assert report["validation_gates"] == ["rollback-backed-risk-review"]
     assert "Validation gate: rollback-backed-risk-review" in plan.task
     assert "new runtime capabilities are enabled" in plan.task
+
+
+def test_validation_report_completion_status_separates_completed_adoption_evidence() -> None:
+    report = {
+        "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Harness evidence supports stricter validation reporting.",
+            "expected_local_benefit": "Draft reports cannot be mistaken for adoption proof.",
+            "decision": "accept validation-only improvement",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "validation report completion gate",
+                "result": "passed",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
+        "skipped_capabilities": ["remote execution"],
+        "runtime_capability_changes": [],
+        "adoption_decision": {
+            "status": "adopted",
+            "rationale": "Only report metadata changed.",
+            "decided_at": "2026-06-15T15:46:00Z",
+        },
+        "uncertainty": [],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert status == {
+        "status": "completed_adoption_evidence",
+        "is_complete": True,
+        "adoption_evidence_complete": True,
+        "blocking_reasons": [],
+    }
 
 
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):

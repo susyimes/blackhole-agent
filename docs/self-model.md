@@ -16,6 +16,10 @@ For this run, the reusable lesson from the harness evidence is not a new runtime
 to capture evidence URLs, local commands, outcomes, rollback refs, skipped capabilities, and uncertainty in a
 replayable validation report before changing agent behavior.
 
-The report should distinguish an incomplete template from completed adoption evidence. Blank placeholders are useful
-for planning, but behavior adoption requires explicit completion requirements, a concrete rollback reference, command
-outcomes, and a recorded adoption decision.
+The report should mechanically distinguish an incomplete template from completed adoption evidence. Blank placeholders
+are useful for planning, but behavior adoption requires explicit completion requirements, a concrete rollback reference,
+command outcomes, startup/import checks, skipped capabilities, uncertainty, and a recorded adoption decision.
+
+Current evidence suggests this self-model is mostly an orientation artifact; the behavior-shaping change belongs in
+tests and controller metadata. The useful self-description is therefore narrow: prefer report contracts that can label
+their own draft status and explain what evidence is still missing.
