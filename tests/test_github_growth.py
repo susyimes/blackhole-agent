@@ -1293,6 +1293,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
 
     assert report["schema_version"] == 1
     assert report["source_digest_id"] == "github-growth-harness-validation"
+    assert report["template_version"] == 1
     assert report["required_fields"] == [
         "evidence_urls",
         "local_commands",
@@ -1302,10 +1303,24 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "uncertainty",
     ]
     assert report["evidence_urls"] == ["https://github.com/samarailly51-pixel/opencode-harness"]
-    assert report["local_commands"] == []
-    assert report["outcomes"] == []
+    assert report["local_commands"] == [
+        {
+            "command": "",
+            "purpose": "",
+            "cwd": str(tmp_path),
+            "exit_code": None,
+        }
+    ]
+    assert report["outcomes"] == [
+        {
+            "check": "",
+            "result": "pending",
+            "evidence_artifact": "",
+        }
+    ]
     assert "new agent harnesses" in report["skipped_capabilities"]
     assert "remote execution" in report["skipped_capabilities"]
+    assert report["runtime_capability_changes"] == []
     assert report["validation_gates"] == ["rollback-backed-risk-review"]
     assert "Validation gate: rollback-backed-risk-review" in plan.task
     assert "new runtime capabilities are enabled" in plan.task

@@ -1154,6 +1154,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
     return {
         "schema_version": 1,
         "source_digest_id": plan.source_digest_id,
+        "template_version": 1,
         "required_fields": [
             "evidence_urls",
             "local_commands",
@@ -1165,8 +1166,21 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
         "evidence_urls": evidence_urls,
         "validation_gates": validation_gates,
         "proposal_controls": proposal_controls,
-        "local_commands": [],
-        "outcomes": [],
+        "local_commands": [
+            {
+                "command": "",
+                "purpose": "",
+                "cwd": plan.repo_path,
+                "exit_code": None,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "",
+                "result": "pending",
+                "evidence_artifact": "",
+            }
+        ],
         "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
         "skipped_capabilities": [
             "new agent harnesses",
@@ -1175,6 +1189,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "restart paths",
             "push or promotion",
         ],
+        "runtime_capability_changes": [],
         "uncertainty": [
             "Post-run validation commands are executed outside this manifest writer and must be recorded by run notes or supervisor artifacts.",
         ],
