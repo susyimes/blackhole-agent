@@ -1,0 +1,11 @@
+Rollback point for blackhole-agent self-evolution run
+
+Created at: 2026-06-15T09:37:47.722357Z
+Original branch: codex/blackhole-evolve/20260615T093837.384374-open-a-review-issue-to-compare-agent-harness-pat
+Original HEAD: 4857966397c45549478c3a054f0b9315f0b74b8d
+Rollback ref: refs/blackhole-agent/rollback/20260615T093747Z/20260615T093747.722357Z
+
+Recovery commands (explicit/destructive):
+  git switch codex/blackhole-evolve/20260615T093837.384374-open-a-review-issue-to-compare-agent-harness-pat
+  git reset --hard refs/blackhole-agent/rollback/20260615T093747Z/20260615T093747.722357Z
+  git clean -fd

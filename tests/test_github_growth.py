@@ -497,6 +497,57 @@ def test_llm_proposal_review_rejects_unknown_evidence_ref():
     assert "unknown item ids" in review.rejected_candidates[0]["errors"][0]
 
 
+def test_llm_proposal_review_rejects_candidate_supplied_evidence_urls():
+    evidence_package = build_proposal_evidence_package(
+        {
+            "digest_id": "github-growth-llm-review",
+            "generated_at": "2026-06-15T09:37:47Z",
+            "items": [
+                {
+                    "item_id": "event-1",
+                    "source_url": "https://github.com/example/repo/pull/1",
+                    "event_kind": "PullRequestEvent",
+                    "summary": "example/repo: improve workflow",
+                    "relevance_reason": "matched topics: agent",
+                    "risk_flags": [],
+                    "confidence": 0.8,
+                }
+            ],
+        }
+    )
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-llm-review",
+            "run_interpretation": "A candidate route exists.",
+            "self_model_reading": {"status": "blank_but_available"},
+            "proposals": [
+                {
+                    "proposal_id": "llm-new-url",
+                    "kind": "test",
+                    "summary": "Improve proposal generation.",
+                    "evidence_refs": ["event-1"],
+                    "evidence_urls": ["https://github.com/unfrozen/repo"],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally with focused tests.",
+                    "rationale": "The route needs tests.",
+                    "uncertainty": "The supplied URL was not in the frozen package.",
+                    "self_effect": "Improves future proposal selection.",
+                    "action_lane": "controller_design",
+                }
+            ],
+            "rejected_items": [],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="llm")
+
+    assert review.status == "rejected"
+    assert review.accepted_count == 0
+    assert review.rejected_count == 1
+    assert "evidence_urls must be derived from frozen evidence_refs" in review.rejected_candidates[0]["errors"][0]
+
+
 def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
     event = normalize_event(
         "example/runner",

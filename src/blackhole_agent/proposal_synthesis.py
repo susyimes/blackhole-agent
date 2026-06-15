@@ -273,6 +273,9 @@ def normalize_candidate(
     evidence_refs = [str(ref) for ref in candidate.get("evidence_refs", []) if str(ref).strip()]
     if not evidence_refs:
         errors.append("evidence_refs must not be empty")
+    supplied_evidence_urls = [str(url) for url in candidate.get("evidence_urls", []) if str(url).strip()]
+    if supplied_evidence_urls:
+        errors.append("evidence_urls must be derived from frozen evidence_refs, not supplied by candidates")
     missing_refs = [ref for ref in evidence_refs if ref not in items_by_id]
     if missing_refs:
         errors.append("evidence_refs contain unknown item ids: " + ", ".join(missing_refs))
