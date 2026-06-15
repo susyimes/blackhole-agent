@@ -1151,6 +1151,11 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             if str(proposal.get("validation_gate") or "").strip()
         }
     )
+    proposal_ids = [
+        str(proposal.get("proposal_id"))
+        for proposal in plan.proposals
+        if str(proposal.get("proposal_id") or "").strip()
+    ]
     return {
         "schema_version": 1,
         "source_digest_id": plan.source_digest_id,
@@ -1166,6 +1171,13 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
         "evidence_urls": evidence_urls,
         "validation_gates": validation_gates,
         "proposal_controls": proposal_controls,
+        "provenance": {
+            "source_digest_id": plan.source_digest_id,
+            "proposal_ids": proposal_ids,
+            "evidence_urls": evidence_urls,
+            "validation_gates": validation_gates,
+            "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
+        },
         "local_commands": [
             {
                 "command": "",

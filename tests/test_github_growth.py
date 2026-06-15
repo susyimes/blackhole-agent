@@ -1303,6 +1303,13 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "uncertainty",
     ]
     assert report["evidence_urls"] == ["https://github.com/samarailly51-pixel/opencode-harness"]
+    assert report["provenance"] == {
+        "source_digest_id": "github-growth-harness-validation",
+        "proposal_ids": [proposal["proposal_id"]],
+        "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
+        "validation_gates": ["rollback-backed-risk-review"],
+        "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
+    }
     assert report["local_commands"] == [
         {
             "command": "",
