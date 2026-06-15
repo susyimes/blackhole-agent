@@ -1274,6 +1274,7 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
         "startup_health_checks",
         "outcomes",
         "rollback_ref",
+        "provenance",
         "skipped_capabilities",
         "runtime_capability_changes",
         "completion_requirements",
@@ -1382,6 +1383,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "startup_health_checks",
         "outcomes",
         "rollback_ref",
+        "provenance",
         "skipped_capabilities",
         "runtime_capability_changes",
         "completion_requirements",
@@ -1458,6 +1460,10 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
     assert report["completion_status"]["adoption_evidence_complete"] is False
     assert "pre_adoption_risk_review.hypothesis is blank" in report["completion_status"]["blocking_reasons"]
     assert "rollback_ref does not name a concrete rollback ref or artifact" in report["completion_status"]["blocking_reasons"]
+    assert (
+        "provenance.rollback_ref does not name a concrete rollback ref or artifact"
+        in report["completion_status"]["blocking_reasons"]
+    )
     assert report["validation_gates"] == ["rollback-backed-risk-review"]
     assert "Validation gate: rollback-backed-risk-review" in plan.task
     assert "new runtime capabilities are enabled" in plan.task
@@ -1472,6 +1478,7 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
             "startup_health_checks",
             "outcomes",
             "rollback_ref",
+            "provenance",
             "skipped_capabilities",
             "runtime_capability_changes",
             "completion_requirements",
@@ -1509,6 +1516,9 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
             }
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
+        "provenance": {
+            "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
+        },
         "skipped_capabilities": ["remote execution"],
         "runtime_capability_changes": [],
         "completion_requirements": ["rollback_ref names the concrete rollback ref for the run."],
@@ -1594,6 +1604,7 @@ def test_validation_report_completion_status_requires_explicit_passing_outcome()
             "startup_health_checks",
             "outcomes",
             "rollback_ref",
+            "provenance",
             "skipped_capabilities",
             "runtime_capability_changes",
             "completion_requirements",
@@ -1631,6 +1642,9 @@ def test_validation_report_completion_status_requires_explicit_passing_outcome()
             }
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260615T162146Z/20260615T162600Z",
+        "provenance": {
+            "rollback_ref": "refs/blackhole-agent/rollback/20260615T162146Z/20260615T162600Z",
+        },
         "skipped_capabilities": ["remote execution"],
         "runtime_capability_changes": [],
         "completion_requirements": ["rollback_ref names the concrete rollback ref for the run."],
@@ -1648,6 +1662,75 @@ def test_validation_report_completion_status_requires_explicit_passing_outcome()
     assert status["status"] == "draft_template"
     assert status["is_complete"] is False
     assert status["adoption_evidence_complete"] is False
+
+
+def test_validation_report_completion_status_requires_matching_provenance_rollback_ref() -> None:
+    report = {
+        "required_fields": [
+            "evidence_urls",
+            "pre_adoption_risk_review",
+            "local_commands",
+            "startup_health_checks",
+            "outcomes",
+            "rollback_ref",
+            "provenance",
+            "skipped_capabilities",
+            "runtime_capability_changes",
+            "completion_requirements",
+            "completion_status",
+            "adoption_decision",
+            "uncertainty",
+        ],
+        "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Harness evidence supports stricter validation reporting.",
+            "expected_local_benefit": "Replay metadata must point at the concrete rollback anchor.",
+            "decision": "accept validation-only improvement",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "validation report completion gate",
+                "result": "passed",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260615T163717Z/20260615T163900Z",
+        "provenance": {
+            "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
+        },
+        "skipped_capabilities": ["remote execution"],
+        "runtime_capability_changes": [],
+        "completion_requirements": ["provenance.rollback_ref matches rollback_ref."],
+        "adoption_decision": {
+            "status": "adopted",
+            "rationale": "Only report metadata changed.",
+            "decided_at": "2026-06-15T16:39:00Z",
+        },
+        "uncertainty": [],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert status["status"] == "draft_template"
+    assert status["is_complete"] is False
+    assert status["adoption_evidence_complete"] is False
+    assert "provenance.rollback_ref does not name a concrete rollback ref or artifact" in status["blocking_reasons"]
 
 
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):

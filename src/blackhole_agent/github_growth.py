@@ -203,6 +203,7 @@ VALIDATION_REPORT_REQUIRED_FIELDS = [
     "startup_health_checks",
     "outcomes",
     "rollback_ref",
+    "provenance",
     "skipped_capabilities",
     "runtime_capability_changes",
     "completion_requirements",
@@ -1335,6 +1336,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "local_commands and startup_health_checks must list command, purpose, cwd, and exit_code for each check run.",
             "outcomes must name the checked behavior, a passing or reviewed result, and evidence artifact.",
             "rollback_ref must name the concrete local rollback ref or rollback artifact for the run.",
+            "provenance.rollback_ref must match rollback_ref so replay metadata points at the same recovery anchor.",
             "skipped_capabilities must list unavailable or intentionally skipped runtime capabilities.",
             "runtime_capability_changes must stay empty unless a later review explicitly approves capability changes.",
             "completion_status.is_complete must stay false while placeholders, pending decisions, or the draft rollback ref remain.",
@@ -1378,6 +1380,7 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
     rollback_ref = str(report.get("rollback_ref") or "").strip()
     if not rollback_ref or rollback_ref == DRAFT_ROLLBACK_REF:
         blocking_reasons.append("rollback_ref does not name a concrete rollback ref or artifact")
+    blocking_reasons.extend(incomplete_provenance_reasons(report.get("provenance"), rollback_ref))
     blocking_reasons.extend(nonblank_list_reasons(report.get("skipped_capabilities"), "skipped_capabilities"))
     if report.get("runtime_capability_changes") != []:
         blocking_reasons.append("runtime_capability_changes is not empty")
@@ -1409,6 +1412,18 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
         "adoption_evidence_complete": is_complete and adoption_status == "adopted",
         "blocking_reasons": blocking_reasons,
     }
+
+
+def incomplete_provenance_reasons(provenance: Any, rollback_ref: str) -> list[str]:
+    if not isinstance(provenance, dict):
+        return ["provenance is missing"]
+    reasons: list[str] = []
+    provenance_rollback_ref = str(provenance.get("rollback_ref") or "").strip()
+    if not provenance_rollback_ref or provenance_rollback_ref == DRAFT_ROLLBACK_REF:
+        reasons.append("provenance.rollback_ref does not name a concrete rollback ref or artifact")
+    elif rollback_ref and rollback_ref != DRAFT_ROLLBACK_REF and provenance_rollback_ref != rollback_ref:
+        reasons.append("provenance.rollback_ref does not match rollback_ref")
+    return reasons
 
 
 def nonblank_list_reasons(value: Any, field_name: str) -> list[str]:
