@@ -121,6 +121,10 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "implementation_scope": {
+            "type": "string",
+            "enum": ["local_validation_candidate", "risk_review_before_local_change", "reviewable_proposal_only"]
+          },
           "validation_gate": { "type": "string" },
           "validation_task": { "type": "string" },
           "requires_approval": { "type": "boolean" }
