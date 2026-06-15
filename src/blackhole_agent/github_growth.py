@@ -787,11 +787,26 @@ def build_proposals(
                 "kind": classify_proposal_kind(signal),
                 "summary": f"Borrow cautiously from {signal.repo}: {signal.title}. {signal.recommended_action}.",
                 "evidence_urls": [signal.url] if signal.url else [],
+                "validation_gate": validation_gate_for_signal(signal),
                 "validation_task": validation_task_for_signal(signal),
                 "requires_approval": False,
             }
         )
     return proposals
+
+
+def validation_gate_for_signal(signal: GrowthSignal) -> str:
+    if "governance-control" in signal.risk_flags:
+        return "local-validation-before-governance-borrowing"
+    if "capability-requirement" in signal.risk_flags:
+        return "capability-requirement-no-new-runners"
+    if "remote-execution" in signal.risk_flags:
+        return "remote-execution-capability-review"
+    if signal.risk_flags:
+        return "rollback-backed-risk-review"
+    if signal.kind == "RepositoryTrend":
+        return "focused-evidence-review"
+    return "narrow-local-verification"
 
 
 def validation_task_for_signal(signal: GrowthSignal) -> str:
@@ -933,6 +948,9 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
                 f"  - Autonomous local apply: {not proposal['requires_approval']}",
             ]
         )
+        validation_gate = str(proposal.get("validation_gate") or "").strip()
+        if validation_gate:
+            lines.append(f"  - Validation gate: `{validation_gate}`")
         validation_task = str(proposal.get("validation_task") or "").strip()
         if validation_task:
             lines.append(f"  - Validation task: {validation_task}")
@@ -1025,6 +1043,9 @@ def render_self_evolution_task(
                 f"   Autonomous local apply: {not proposal.get('requires_approval', True)}",
             ]
         )
+        validation_gate = str(proposal.get("validation_gate") or "").strip()
+        if validation_gate:
+            proposal_lines.append(f"   Validation gate: {validation_gate}")
         validation_task = str(proposal.get("validation_task") or "").strip()
         if validation_task:
             proposal_lines.append(f"   Validation task: {validation_task}")

@@ -121,6 +121,7 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "validation_gate": { "type": "string" },
           "validation_task": { "type": "string" },
           "requires_approval": { "type": "boolean" }
         }

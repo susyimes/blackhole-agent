@@ -384,9 +384,11 @@ def test_governance_controls_stay_reviewable_and_name_validation_gate_in_codex_t
     assert signals[0].risk_flags == ["governance-control"]
     assert proposal["kind"] == "follow_up_issue"
     assert proposal["requires_approval"] is False
+    assert proposal["validation_gate"] == "local-validation-before-governance-borrowing"
     assert "only represented as reviewable proposals" in proposal["validation_task"]
     assert plan is not None
     assert "Kind: follow_up_issue" in plan.task
+    assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
     assert "Validation task: " in plan.task
     assert "generated Codex task names the validation gate" in plan.task
 
