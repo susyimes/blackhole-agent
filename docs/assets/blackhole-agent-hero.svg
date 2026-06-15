@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-labelledby="title desc">
   <title id="title">blackhole-agent control loop</title>
-  <desc id="desc">A stylized black hole diagram showing GitHub trends flowing through digest, persona, rollback, Codex kernel, review, and local diff stages.</desc>
+  <desc id="desc">A stylized black hole diagram showing a supervisor wake flowing through GitHub intake, digest memory, self-model context, hybrid proposal interpretation, deterministic review, rollback, Codex kernel, health gates, and push promotion.</desc>
   <defs>
     <radialGradient id="space" cx="50%" cy="50%" r="72%">
       <stop offset="0%" stop-color="#111827"/>
@@ -68,13 +68,13 @@
 
   <g transform="translate(72 54)">
     <text class="label" x="0" y="0">blackhole-agent</text>
-    <text class="micro" x="2" y="34">GitHub trend gravity well for bounded self-improvement</text>
+    <text class="micro" x="2" y="34">20 minute hybrid proposal loop for bounded self-improvement</text>
   </g>
 
   <g transform="translate(876 50)">
     <rect width="300" height="58" rx="18" fill="#020617" stroke="#334155"/>
     <circle cx="31" cy="29" r="8" fill="#22c55e" filter="url(#glow)"/>
-    <text class="code" x="54" y="35">review-gated / rollback-first</text>
+    <text class="code" x="54" y="35">hybrid proposals / rollback-first</text>
   </g>
 
   <g transform="translate(640 296)">
@@ -85,8 +85,8 @@
     <circle r="118" class="ring"/>
     <circle r="155" class="ring"/>
     <circle r="202" class="ring"/>
-    <text class="node" x="-68" y="-8">event horizon</text>
-    <text class="micro" x="-70" y="20">one safe diff escapes</text>
+    <text class="node" x="-68" y="-8">hybrid core</text>
+    <text class="micro" x="-83" y="20">one verified diff escapes</text>
   </g>
 
   <path class="edge" d="M210 184 C312 112, 472 112, 556 206"/>
@@ -98,37 +98,37 @@
 
   <g transform="translate(100 150)">
     <rect width="224" height="78" rx="18" fill="url(#panel)" stroke="#1d4ed8"/>
-    <text class="node" x="24" y="32">01 GitHub Trends</text>
-    <text class="micro" x="24" y="56">stars, forks, releases</text>
+    <text class="node" x="24" y="32">01 Supervisor Wake</text>
+    <text class="micro" x="24" y="56">20 min production cadence</text>
   </g>
 
   <g transform="translate(114 366)">
     <rect width="224" height="78" rx="18" fill="url(#panel)" stroke="#0891b2"/>
-    <text class="node" x="24" y="32">02 Digest</text>
-    <text class="micro" x="24" y="56">evidence over noise</text>
+    <text class="node" x="24" y="32">02 GitHub Intake</text>
+    <text class="micro" x="24" y="56">trends, events, risk</text>
   </g>
 
   <g transform="translate(528 30)">
     <rect width="224" height="78" rx="18" fill="url(#panel)" stroke="#7c3aed"/>
-    <text class="node" x="24" y="32">03 Persona Layer</text>
-    <text class="micro" x="24" y="56">mission and boundaries</text>
+    <text class="node" x="24" y="32">03 Digest + Memory</text>
+    <text class="micro" x="24" y="56">self-model context</text>
   </g>
 
   <g transform="translate(932 150)">
     <rect width="250" height="78" rx="18" fill="url(#panel)" stroke="#db2777"/>
-    <text class="node" x="24" y="32">04 Rollback Point</text>
-    <text class="micro" x="24" y="56">HEAD, ref, recovery path</text>
+    <text class="node" x="24" y="32">04 Hybrid Proposals</text>
+    <text class="micro" x="24" y="56">LLM read-only + rules</text>
   </g>
 
   <g transform="translate(914 366)">
     <rect width="250" height="78" rx="18" fill="url(#panel)" stroke="#f59e0b"/>
-    <text class="node" x="24" y="32">05 Codex Kernel</text>
+    <text class="node" x="24" y="32">05 Rollback + Codex</text>
     <text class="micro" x="24" y="56">bounded local mutation</text>
   </g>
 
   <g transform="translate(508 488)">
     <rect width="264" height="48" rx="16" fill="#020617" stroke="#22c55e"/>
-    <text class="code" x="25" y="30">small inspectable local diff</text>
+    <text class="code" x="25" y="30">health gate -> promote + push</text>
   </g>
 
   <g opacity="0.94">
