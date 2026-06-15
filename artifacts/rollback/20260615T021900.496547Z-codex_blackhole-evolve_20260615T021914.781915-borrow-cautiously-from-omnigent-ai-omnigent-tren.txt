@@ -1,0 +1,9 @@
+rollback_point: 20260615T021900.496547Z
+original_branch: codex/blackhole-evolve/20260615T021914.781915-borrow-cautiously-from-omnigent-ai-omnigent-tren
+original_head: 98dd489b4b9ee4e8a8c854adbeb1247dddb48529
+local_rollback_ref: refs/blackhole-rollback/20260615T021900.496547Z
+recovery_commands:
+  git switch codex/blackhole-evolve/20260615T021914.781915-borrow-cautiously-from-omnigent-ai-omnigent-tren
+  git reset --hard 98dd489b4b9ee4e8a8c854adbeb1247dddb48529
+  git clean -fd
+notes: destructive rollback must be explicitly chosen by a human operator or external supervisor policy.

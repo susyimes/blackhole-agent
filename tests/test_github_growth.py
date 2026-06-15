@@ -364,6 +364,33 @@ def test_extract_growth_signals_flags_agent_governance_controls_for_validation()
     assert "risky agent controls" in proposal["validation_task"]
 
 
+def test_governance_controls_stay_reviewable_and_name_validation_gate_in_codex_task(tmp_path):
+    event = normalize_event(
+        "omnigent-ai/omnigent",
+        event_payload("governance", "PushEvent", "policies pause before risky shell commands and cap spend"),
+    )
+    signals = extract_growth_signals([event], topics=["agent"])
+    proposal = build_proposals(signals)[0]
+
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-governance-control",
+            "generated_at": "2026-06-15T02:19:00Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+
+    assert signals[0].risk_flags == ["governance-control"]
+    assert proposal["kind"] == "follow_up_issue"
+    assert proposal["requires_approval"] is False
+    assert "only represented as reviewable proposals" in proposal["validation_task"]
+    assert plan is not None
+    assert "Kind: follow_up_issue" in plan.task
+    assert "Validation task: " in plan.task
+    assert "generated Codex task names the validation gate" in plan.task
+
+
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(
         [
