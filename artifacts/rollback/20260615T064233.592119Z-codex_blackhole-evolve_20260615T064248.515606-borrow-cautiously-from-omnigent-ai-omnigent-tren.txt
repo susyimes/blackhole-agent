@@ -1,0 +1,12 @@
+Rollback point for blackhole-agent self-modification run
+
+Source digest: github-growth-20260615T064233.592119Z
+Original branch: codex/blackhole-evolve/20260615T064248.515606-borrow-cautiously-from-omnigent-ai-omnigent-tren
+Original HEAD: 68bcf497d2c2281f8548a0a4160525d19bc7dfe6
+Local rollback ref: refs/blackhole-agent/rollback/20260615T064233.592119Z
+
+Recovery commands:
+  git reset --hard 68bcf497d2c2281f8548a0a4160525d19bc7dfe6
+  git clean -fd
+
+Created at: 2026-06-15T14:43:14.7193717+08:00

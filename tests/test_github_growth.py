@@ -949,7 +949,56 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert manifest["returncode"] == 0
     assert manifest["codex_cli"] == run_metadata["codex_cli"]
     assert manifest["proposal_ids"] == ["p1"]
+    assert manifest["proposal_controls"] == [
+        {
+            "proposal_id": "p1",
+            "kind": "test",
+            "implementation_scope": "",
+            "validation_gate": "",
+            "autonomous_local_apply": "True",
+        }
+    ]
     assert manifest["validation_gates"] == []
     assert manifest["evidence_urls"] == ["https://github.com/example/repo/pull/1"]
     assert manifest["task_path"] == str(result.task_path)
     assert manifest["last_message_path"] == str(result.last_message_path)
+
+
+def test_self_evolution_manifest_records_reviewable_governance_controls(tmp_path):
+    event = normalize_event(
+        "omnigent-ai/omnigent",
+        event_payload("governance", "PushEvent", "policies pause before risky shell commands and cap spend"),
+    )
+    proposal = build_proposals(extract_growth_signals([event], topics=["agent"]))[0]
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-governance-control",
+            "generated_at": "2026-06-15T06:42:33Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+    assert plan is not None
+
+    def runner(command, **kwargs):
+        if command == ["git", "rev-parse", "--verify", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="governance-head\n", stderr="")
+        last_message = command[command.index("--output-last-message") + 1]
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write("codex done")
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    run_self_evolution_codex(plan, output_dir=tmp_path / "out", command_runner=runner)
+
+    manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["proposal_controls"] == [
+        {
+            "proposal_id": "governance-1",
+            "kind": "follow_up_issue",
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "local-validation-before-governance-borrowing",
+            "autonomous_local_apply": (
+                "False (reviewable proposal only; local validation artifacts may still be updated)"
+            ),
+        }
+    ]

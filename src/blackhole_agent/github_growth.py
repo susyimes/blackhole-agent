@@ -1429,6 +1429,17 @@ def run_self_evolution_codex(
         },
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
+        "proposal_controls": [
+            {
+                "proposal_id": str(proposal.get("proposal_id") or ""),
+                "kind": str(proposal.get("kind") or ""),
+                "implementation_scope": str(proposal.get("implementation_scope") or ""),
+                "validation_gate": str(proposal.get("validation_gate") or ""),
+                "autonomous_local_apply": autonomous_local_apply_text(proposal),
+            }
+            for proposal in plan.proposals
+            if str(proposal.get("proposal_id") or "").strip()
+        ],
         "validation_gates": [
             str(proposal.get("validation_gate"))
             for proposal in plan.proposals
