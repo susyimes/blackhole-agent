@@ -1196,6 +1196,7 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
         "evidence_urls",
         "pre_adoption_risk_review",
         "local_commands",
+        "startup_health_checks",
         "outcomes",
         "rollback_ref",
         "skipped_capabilities",
@@ -1300,6 +1301,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "evidence_urls",
         "pre_adoption_risk_review",
         "local_commands",
+        "startup_health_checks",
         "outcomes",
         "rollback_ref",
         "skipped_capabilities",
@@ -1313,6 +1315,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "safety_questions": [
             "What behavior would change if this lesson were adopted?",
             "Which local tests or artifacts prove the lesson before behavior changes?",
+            "Which import or startup command proves the adopted behavior does not break activation?",
             "Which runtime capabilities, if any, would be required but are intentionally skipped?",
         ],
         "decision": "pending",
@@ -1328,6 +1331,14 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         {
             "command": "",
             "purpose": "",
+            "cwd": str(tmp_path),
+            "exit_code": None,
+        }
+    ]
+    assert report["startup_health_checks"] == [
+        {
+            "command": "",
+            "purpose": "prove imports and startup paths touched by the candidate still load",
             "cwd": str(tmp_path),
             "exit_code": None,
         }

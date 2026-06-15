@@ -1164,6 +1164,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "evidence_urls",
             "pre_adoption_risk_review",
             "local_commands",
+            "startup_health_checks",
             "outcomes",
             "rollback_ref",
             "skipped_capabilities",
@@ -1179,6 +1180,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "safety_questions": [
                 "What behavior would change if this lesson were adopted?",
                 "Which local tests or artifacts prove the lesson before behavior changes?",
+                "Which import or startup command proves the adopted behavior does not break activation?",
                 "Which runtime capabilities, if any, would be required but are intentionally skipped?",
             ],
             "decision": "pending",
@@ -1194,6 +1196,14 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             {
                 "command": "",
                 "purpose": "",
+                "cwd": plan.repo_path,
+                "exit_code": None,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "",
+                "purpose": "prove imports and startup paths touched by the candidate still load",
                 "cwd": plan.repo_path,
                 "exit_code": None,
             }
