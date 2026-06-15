@@ -1391,6 +1391,20 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
 
 def test_validation_report_completion_status_separates_completed_adoption_evidence() -> None:
     report = {
+        "required_fields": [
+            "evidence_urls",
+            "pre_adoption_risk_review",
+            "local_commands",
+            "startup_health_checks",
+            "outcomes",
+            "rollback_ref",
+            "skipped_capabilities",
+            "runtime_capability_changes",
+            "completion_requirements",
+            "completion_status",
+            "adoption_decision",
+            "uncertainty",
+        ],
         "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
         "pre_adoption_risk_review": {
             "hypothesis": "Harness evidence supports stricter validation reporting.",
@@ -1423,6 +1437,7 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
         "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
         "skipped_capabilities": ["remote execution"],
         "runtime_capability_changes": [],
+        "completion_requirements": ["rollback_ref names the concrete rollback ref for the run."],
         "adoption_decision": {
             "status": "adopted",
             "rationale": "Only report metadata changed.",
@@ -1439,6 +1454,61 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
         "adoption_evidence_complete": True,
         "blocking_reasons": [],
     }
+
+
+def test_validation_report_completion_status_rejects_incomplete_contract_metadata() -> None:
+    report = {
+        "required_fields": [],
+        "evidence_urls": [""],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Harness evidence supports stricter validation reporting.",
+            "expected_local_benefit": "Draft reports cannot be mistaken for adoption proof.",
+            "decision": "accept validation-only improvement",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "validation report completion gate",
+                "result": "passed",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
+        "skipped_capabilities": [""],
+        "runtime_capability_changes": [],
+        "completion_requirements": [""],
+        "adoption_decision": {
+            "status": "adopted",
+            "rationale": "Only report metadata changed.",
+            "decided_at": "2026-06-15T15:46:00Z",
+        },
+        "uncertainty": [],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert status["status"] == "draft_template"
+    assert status["is_complete"] is False
+    assert status["adoption_evidence_complete"] is False
+    assert "required_fields does not match the validation report contract" in status["blocking_reasons"]
+    assert "evidence_urls[0] is blank" in status["blocking_reasons"]
+    assert "skipped_capabilities[0] is blank" in status["blocking_reasons"]
+    assert "completion_requirements[0] is blank" in status["blocking_reasons"]
 
 
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):

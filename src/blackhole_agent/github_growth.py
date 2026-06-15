@@ -145,6 +145,20 @@ CAPABILITY_GAP_TERMS = (
     "web_search",
 )
 DRAFT_ROLLBACK_REF = "recorded in latest-rollback-point.json when codex mode prepares the branch"
+VALIDATION_REPORT_REQUIRED_FIELDS = [
+    "evidence_urls",
+    "pre_adoption_risk_review",
+    "local_commands",
+    "startup_health_checks",
+    "outcomes",
+    "rollback_ref",
+    "skipped_capabilities",
+    "runtime_capability_changes",
+    "completion_requirements",
+    "completion_status",
+    "adoption_decision",
+    "uncertainty",
+]
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -1161,20 +1175,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
         "schema_version": 1,
         "source_digest_id": plan.source_digest_id,
         "template_version": 3,
-        "required_fields": [
-            "evidence_urls",
-            "pre_adoption_risk_review",
-            "local_commands",
-            "startup_health_checks",
-            "outcomes",
-            "rollback_ref",
-            "skipped_capabilities",
-            "runtime_capability_changes",
-            "completion_requirements",
-            "completion_status",
-            "adoption_decision",
-            "uncertainty",
-        ],
+        "required_fields": VALIDATION_REPORT_REQUIRED_FIELDS,
         "evidence_urls": evidence_urls,
         "validation_gates": validation_gates,
         "proposal_controls": proposal_controls,
@@ -1262,8 +1263,9 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
     """Classify whether a replayable validation report is still a draft template."""
 
     blocking_reasons: list[str] = []
-    if not report.get("evidence_urls"):
-        blocking_reasons.append("evidence_urls is empty")
+    if report.get("required_fields") != VALIDATION_REPORT_REQUIRED_FIELDS:
+        blocking_reasons.append("required_fields does not match the validation report contract")
+    blocking_reasons.extend(nonblank_list_reasons(report.get("evidence_urls"), "evidence_urls"))
 
     raw_risk_review = report.get("pre_adoption_risk_review")
     risk_review = raw_risk_review if isinstance(raw_risk_review, dict) else {}
@@ -1280,10 +1282,10 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
     rollback_ref = str(report.get("rollback_ref") or "").strip()
     if not rollback_ref or rollback_ref == DRAFT_ROLLBACK_REF:
         blocking_reasons.append("rollback_ref does not name a concrete rollback ref or artifact")
-    if not report.get("skipped_capabilities"):
-        blocking_reasons.append("skipped_capabilities is empty")
+    blocking_reasons.extend(nonblank_list_reasons(report.get("skipped_capabilities"), "skipped_capabilities"))
     if report.get("runtime_capability_changes") != []:
         blocking_reasons.append("runtime_capability_changes is not empty")
+    blocking_reasons.extend(nonblank_list_reasons(report.get("completion_requirements"), "completion_requirements"))
     if "uncertainty" not in report:
         blocking_reasons.append("uncertainty is missing")
 
@@ -1311,6 +1313,16 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
         "adoption_evidence_complete": is_complete and adoption_status == "adopted",
         "blocking_reasons": blocking_reasons,
     }
+
+
+def nonblank_list_reasons(value: Any, field_name: str) -> list[str]:
+    if not isinstance(value, list) or not value:
+        return [f"{field_name} is empty"]
+    reasons: list[str] = []
+    for index, item in enumerate(value):
+        if not str(item or "").strip():
+            reasons.append(f"{field_name}[{index}] is blank")
+    return reasons
 
 
 def incomplete_command_reasons(commands: Any, field_name: str) -> list[str]:
