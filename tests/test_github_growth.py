@@ -1511,6 +1511,71 @@ def test_validation_report_completion_status_rejects_incomplete_contract_metadat
     assert "completion_requirements[0] is blank" in status["blocking_reasons"]
 
 
+def test_validation_report_completion_status_requires_explicit_passing_outcome() -> None:
+    report = {
+        "required_fields": [
+            "evidence_urls",
+            "pre_adoption_risk_review",
+            "local_commands",
+            "startup_health_checks",
+            "outcomes",
+            "rollback_ref",
+            "skipped_capabilities",
+            "runtime_capability_changes",
+            "completion_requirements",
+            "completion_status",
+            "adoption_decision",
+            "uncertainty",
+        ],
+        "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Harness evidence supports stricter validation reporting.",
+            "expected_local_benefit": "Ambiguous outcomes cannot be mistaken for completed evidence.",
+            "decision": "accept validation-only improvement",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "validation report completion gate",
+                "result": "investigated",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260615T162146Z/20260615T162600Z",
+        "skipped_capabilities": ["remote execution"],
+        "runtime_capability_changes": [],
+        "completion_requirements": ["rollback_ref names the concrete rollback ref for the run."],
+        "adoption_decision": {
+            "status": "adopted",
+            "rationale": "Only report metadata changed.",
+            "decided_at": "2026-06-15T16:26:00Z",
+        },
+        "uncertainty": [],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert "outcomes[0].result must be one of: adopted, pass, passed, reviewed" in status["blocking_reasons"]
+    assert status["status"] == "draft_template"
+    assert status["is_complete"] is False
+    assert status["adoption_evidence_complete"] is False
+
+
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):
     event = trend_repository_to_event(
         TrendingRepository(

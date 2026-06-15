@@ -159,6 +159,7 @@ VALIDATION_REPORT_REQUIRED_FIELDS = [
     "adoption_decision",
     "uncertainty",
 ]
+COMPLETED_VALIDATION_OUTCOME_RESULTS = {"adopted", "pass", "passed", "reviewed"}
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -1237,7 +1238,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "evidence_urls must contain every external evidence URL used to justify the lesson.",
             "pre_adoption_risk_review.decision must be filled before any behavior adoption.",
             "local_commands and startup_health_checks must list command, purpose, cwd, and exit_code for each check run.",
-            "outcomes must name the checked behavior, result, and evidence artifact.",
+            "outcomes must name the checked behavior, a passing or reviewed result, and evidence artifact.",
             "rollback_ref must name the concrete local rollback ref or rollback artifact for the run.",
             "skipped_capabilities must list unavailable or intentionally skipped runtime capabilities.",
             "runtime_capability_changes must stay empty unless a later review explicitly approves capability changes.",
@@ -1352,8 +1353,14 @@ def incomplete_outcome_reasons(outcomes: Any) -> list[str]:
         for key in ("check", "evidence_artifact"):
             if not str(outcome.get(key) or "").strip():
                 reasons.append(f"outcomes[{index}].{key} is blank")
-        if str(outcome.get("result") or "").strip().lower() in {"", "pending"}:
+        result = str(outcome.get("result") or "").strip().lower()
+        if result in {"", "pending"}:
             reasons.append(f"outcomes[{index}].result is pending")
+        elif result not in COMPLETED_VALIDATION_OUTCOME_RESULTS:
+            reasons.append(
+                f"outcomes[{index}].result must be one of: "
+                + ", ".join(sorted(COMPLETED_VALIDATION_OUTCOME_RESULTS))
+            )
     return reasons
 
 
