@@ -63,6 +63,8 @@ GOVERNANCE_CONTROL_TERMS = (
     "approvals",
     "budget",
     "cost",
+    "govern your agents",
+    "governance",
     "policies",
     "policy",
     "risky actions",

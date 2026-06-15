@@ -431,6 +431,44 @@ def test_repository_trend_sandboxing_controls_stay_review_gated(tmp_path):
     assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
 
 
+def test_repository_trend_direct_governance_language_stays_review_gated(tmp_path):
+    event = trend_repository_to_event(
+        TrendingRepository(
+            full_name="omnigent-ai/omnigent",
+            html_url="https://github.com/omnigent-ai/omnigent",
+            description="A common layer to govern your agents across local sessions.",
+            language="Python",
+            stargazers_count=1312,
+            forks_count=135,
+            open_issues_count=12,
+            created_at="2026-06-14T00:00:00Z",
+            updated_at="2026-06-15T00:00:00Z",
+            pushed_at="2026-06-15T00:00:00Z",
+            topics=["agent"],
+        ),
+        generated_at="2026-06-15T05:19:00Z",
+    )
+
+    signals = extract_growth_signals([event], topics=["agent"])
+    proposal = build_proposals(signals)[0]
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-omnigent-governance",
+            "generated_at": "2026-06-15T05:19:00Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+
+    assert signals[0].risk_flags == ["governance-control"]
+    assert proposal["kind"] == "follow_up_issue"
+    assert proposal["validation_gate"] == "local-validation-before-governance-borrowing"
+    assert "only represented as reviewable proposals" in proposal["validation_task"]
+    assert plan is not None
+    assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
+    assert "generated Codex task names the validation gate" in plan.task
+
+
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(
         [
