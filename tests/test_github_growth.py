@@ -1194,10 +1194,12 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert manifest["proposal_ids"] == ["p1"]
     assert manifest["replayable_validation_report"]["required_fields"] == [
         "evidence_urls",
+        "pre_adoption_risk_review",
         "local_commands",
         "outcomes",
         "rollback_ref",
         "skipped_capabilities",
+        "runtime_capability_changes",
         "uncertainty",
     ]
     assert manifest["proposal_controls"] == [
@@ -1296,13 +1298,25 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
     assert report["template_version"] == 1
     assert report["required_fields"] == [
         "evidence_urls",
+        "pre_adoption_risk_review",
         "local_commands",
         "outcomes",
         "rollback_ref",
         "skipped_capabilities",
+        "runtime_capability_changes",
         "uncertainty",
     ]
     assert report["evidence_urls"] == ["https://github.com/samarailly51-pixel/opencode-harness"]
+    assert report["pre_adoption_risk_review"] == {
+        "hypothesis": "",
+        "expected_local_benefit": "",
+        "safety_questions": [
+            "What behavior would change if this lesson were adopted?",
+            "Which local tests or artifacts prove the lesson before behavior changes?",
+            "Which runtime capabilities, if any, would be required but are intentionally skipped?",
+        ],
+        "decision": "pending",
+    }
     assert report["provenance"] == {
         "source_digest_id": "github-growth-harness-validation",
         "proposal_ids": [proposal["proposal_id"]],
@@ -1328,6 +1342,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
     assert "new agent harnesses" in report["skipped_capabilities"]
     assert "remote execution" in report["skipped_capabilities"]
     assert report["runtime_capability_changes"] == []
+    assert "metadata only" in report["runtime_capability_change_policy"]
     assert report["validation_gates"] == ["rollback-backed-risk-review"]
     assert "Validation gate: rollback-backed-risk-review" in plan.task
     assert "new runtime capabilities are enabled" in plan.task

@@ -1162,15 +1162,27 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
         "template_version": 1,
         "required_fields": [
             "evidence_urls",
+            "pre_adoption_risk_review",
             "local_commands",
             "outcomes",
             "rollback_ref",
             "skipped_capabilities",
+            "runtime_capability_changes",
             "uncertainty",
         ],
         "evidence_urls": evidence_urls,
         "validation_gates": validation_gates,
         "proposal_controls": proposal_controls,
+        "pre_adoption_risk_review": {
+            "hypothesis": "",
+            "expected_local_benefit": "",
+            "safety_questions": [
+                "What behavior would change if this lesson were adopted?",
+                "Which local tests or artifacts prove the lesson before behavior changes?",
+                "Which runtime capabilities, if any, would be required but are intentionally skipped?",
+            ],
+            "decision": "pending",
+        },
         "provenance": {
             "source_digest_id": plan.source_digest_id,
             "proposal_ids": proposal_ids,
@@ -1202,6 +1214,10 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "push or promotion",
         ],
         "runtime_capability_changes": [],
+        "runtime_capability_change_policy": (
+            "This template is evidence and validation metadata only; an empty runtime_capability_changes list "
+            "means no new harnesses, remote execution, credentials, restart behavior, push, or promotion were enabled."
+        ),
         "uncertainty": [
             "Post-run validation commands are executed outside this manifest writer and must be recorded by run notes or supervisor artifacts.",
         ],
