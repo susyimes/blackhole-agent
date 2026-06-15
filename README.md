@@ -102,8 +102,14 @@ uv run blackhole-supervisor \
   --repo-path . \
   --model gpt-5.5 \
   --bypass-approvals-and-sandbox \
-  --interval-seconds 3600
+  --interval-seconds 1200
 ```
+
+This uses the default enhanced proposal mode, `hybrid`, so each wake first asks
+the read-only proposal interpretation layer to turn the frozen digest, memory,
+and self-model context into candidate growth routes before deterministic review
+finalizes the proposals. Use `--proposal-mode heuristic` only when you want the
+older deterministic proposal path.
 
 Manual repository mode remains available for focused experiments:
 
@@ -343,7 +349,7 @@ One run can write:
 | `latest-rollback-point.json` | machine-readable recovery anchor |
 | `latest-rollback-point.md` | human-readable rollback instructions |
 | `latest-codex-run.json` | Codex kernel run metadata |
-| `latest-self-evolution-manifest.json` | replay metadata for a Codex self-evolution run, including source digest, branch, target HEAD, evidence URLs, validation gates, task path, and timing |
+| `latest-self-evolution-manifest.json` | replay metadata for a Codex self-evolution run, including source digest, branch, target HEAD, evidence URLs, validation gates, task path, timing, proposal controls, and `replayable_validation_report` |
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
 | `latest-supervisor-heartbeat.json` | latest supervisor health heartbeat with activation branch/HEAD |
 | `latest-restart-request.json` | restart handoff written after a successful promotion |
