@@ -1359,6 +1359,14 @@ def run_self_evolution_codex(
         json.dumps(
             {
                 "command": run_result.command,
+                "codex_cli": {
+                    "model": config.model,
+                    "profile": config.profile,
+                    "sandbox": config.sandbox,
+                    "approval_policy": config.approval_policy,
+                    "ignore_user_config": config.ignore_user_config,
+                    "bypass_approvals_and_sandbox": config.bypass_approvals_and_sandbox,
+                },
                 "returncode": run_result.returncode,
                 "task_path": str(run_result.task_path),
                 "last_message_path": str(run_result.last_message_path),
@@ -1390,6 +1398,14 @@ def run_self_evolution_codex(
         "target_head": current_head,
         "self_model_path": plan.self_model_path,
         "returncode": run_result.returncode,
+        "codex_cli": {
+            "model": config.model,
+            "profile": config.profile,
+            "sandbox": config.sandbox,
+            "approval_policy": config.approval_policy,
+            "ignore_user_config": config.ignore_user_config,
+            "bypass_approvals_and_sandbox": config.bypass_approvals_and_sandbox,
+        },
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
         "validation_gates": [

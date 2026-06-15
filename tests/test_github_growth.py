@@ -886,12 +886,22 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert result.task_path.exists()
     assert result.last_message == "codex done"
     assert commands[3][0] == ["git", "rev-parse", "--verify", "HEAD"]
+    run_metadata = json.loads((tmp_path / "out" / "latest-self-evolution-run.json").read_text(encoding="utf-8"))
+    assert run_metadata["codex_cli"] == {
+        "model": "gpt-5",
+        "profile": "test-profile",
+        "sandbox": "workspace-write",
+        "approval_policy": "never",
+        "ignore_user_config": True,
+        "bypass_approvals_and_sandbox": False,
+    }
     manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
     assert manifest["schema_version"] == 1
     assert manifest["source_digest_id"] == plan.source_digest_id
     assert manifest["branch_name"] == plan.branch_name
     assert manifest["target_head"] == "def456abc789"
     assert manifest["returncode"] == 0
+    assert manifest["codex_cli"] == run_metadata["codex_cli"]
     assert manifest["proposal_ids"] == ["p1"]
     assert manifest["validation_gates"] == []
     assert manifest["evidence_urls"] == ["https://github.com/example/repo/pull/1"]
