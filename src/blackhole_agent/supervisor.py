@@ -22,6 +22,8 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
+
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
 
@@ -65,6 +67,7 @@ class SupervisorConfig:
     lookback_hours: int = 24
     max_events_per_repo: int = 100
     branch_prefix: str = "codex/blackhole-evolve"
+    self_model_path: Path = DEFAULT_SELF_MODEL_PATH
     force_evolve: bool = True
     allow_dirty: bool = False
     model: str | None = None
@@ -260,6 +263,8 @@ def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = Non
         command.append("--allow-dirty")
     if config.branch_prefix:
         command.extend(["--branch-prefix", config.branch_prefix])
+    if config.self_model_path:
+        command.extend(["--self-model-path", str(config.self_model_path)])
     if config.model:
         command.extend(["--model", config.model])
     if config.profile:
@@ -1177,6 +1182,7 @@ def config_to_dict(config: SupervisorConfig) -> dict[str, Any]:
     data["output_dir"] = str(config.resolved_output_dir)
     data["growth_output_dir"] = str(config.resolved_growth_output_dir)
     data["worktree_parent_dir"] = str(config.resolved_worktree_parent_dir)
+    data["self_model_path"] = str(config.self_model_path)
     data["health_commands"] = list(config.health_commands)
     return data
 
@@ -1258,6 +1264,11 @@ def main(
     lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window."),
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub events page size."),
     branch_prefix: str = typer.Option("codex/blackhole-evolve", "--branch-prefix", help="Evolution branch prefix."),
+    self_model_path: Path = typer.Option(
+        DEFAULT_SELF_MODEL_PATH,
+        "--self-model-path",
+        help="Repository-relative self-model file passed into every evolution task.",
+    ),
     force_evolve: bool = typer.Option(True, "--force-evolve/--no-force-evolve", help="Create fallback evolution tasks."),
     allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow codex mode to start from a dirty worktree."),
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI."),
@@ -1360,6 +1371,7 @@ def main(
         lookback_hours=lookback_hours,
         max_events_per_repo=max_events_per_repo,
         branch_prefix=branch_prefix,
+        self_model_path=self_model_path,
         force_evolve=force_evolve,
         allow_dirty=allow_dirty,
         model=model,

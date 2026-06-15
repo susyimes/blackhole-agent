@@ -71,6 +71,18 @@ The memory tracks:
 
 This layer is intentionally small and transparent. It biases proposal ordering toward sources and topics that have produced useful lessons before. It can be deleted without corrupting cursor state.
 
+### Self-Model Layer
+
+Stores a tracked, revisable self-description in `docs/self-model.md`. The file starts nearly blank on purpose: it gives the agent a place to write, rename, remove, contradict, or leave empty its own categories over time.
+
+The self-model is not a permissions document. It cannot authorize new tools, remote writes, sandbox bypasses, or promotion behavior. Every self-evolution task receives a before-run snapshot of the file and may edit the file directly when the edit is the smallest useful way to make future runs more self-aware.
+
+The controller writes self-model snapshots beside growth artifacts so a run can be replayed:
+
+- `latest-self-model-before.json`
+- `latest-self-model-after.json`
+- `latest-self-model.json`
+
 ### Learning Digest
 
 Writes a bounded hourly digest:

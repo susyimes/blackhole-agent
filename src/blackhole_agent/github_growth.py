@@ -23,6 +23,12 @@ from rich.console import Console
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.persona import render_persona_layer
+from blackhole_agent.self_model import (
+    DEFAULT_SELF_MODEL_PATH,
+    SelfModelSnapshot,
+    read_self_model_snapshot,
+    write_self_model_snapshot,
+)
 
 _HELP_TEXT = """Discover public GitHub trends and turn them into reviewable growth proposals.
 
@@ -268,6 +274,8 @@ class SelfEvolutionPlan:
     generated_at: str
     repo_path: str
     branch_name: str
+    self_model_path: str
+    self_model_before: SelfModelSnapshot
     task: str
     proposals: list[dict[str, Any]]
     source_digest_id: str
@@ -971,6 +979,7 @@ def build_self_evolution_plan(
     max_proposals: int = 3,
     force: bool = False,
     extra_instructions: str = "",
+    self_model_path: Path | None = None,
 ) -> SelfEvolutionPlan | None:
     """Turn a digest into a concrete Codex CLI task for local self-improvement."""
 
@@ -989,11 +998,13 @@ def build_self_evolution_plan(
         ]
 
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    self_model_before = read_self_model_snapshot(repo_path, self_model_path)
     branch_name = build_evolution_branch_name(branch_prefix, generated_at, proposals[0]["summary"])
     task = render_self_evolution_task(
         proposals,
         repo_path=repo_path,
         branch_name=branch_name,
+        self_model_snapshot=self_model_before,
         digest_id=str(digest.get("digest_id", "")),
         digest_generated_at=str(digest.get("generated_at", "")),
         extra_instructions=extra_instructions,
@@ -1002,6 +1013,8 @@ def build_self_evolution_plan(
         generated_at=generated_at,
         repo_path=str(repo_path),
         branch_name=branch_name,
+        self_model_path=self_model_before.path,
+        self_model_before=self_model_before,
         task=task,
         proposals=proposals,
         source_digest_id=str(digest.get("digest_id", "")),
@@ -1033,6 +1046,7 @@ def render_self_evolution_task(
     *,
     repo_path: Path,
     branch_name: str,
+    self_model_snapshot: SelfModelSnapshot,
     digest_id: str,
     digest_generated_at: str,
     extra_instructions: str = "",
@@ -1067,6 +1081,23 @@ def render_self_evolution_task(
             f"Source digest: {digest_id}",
             f"Digest generated at: {digest_generated_at}",
             "",
+            "Self-model context:",
+            f"- Path: {self_model_snapshot.path}",
+            f"- Exists before this run: {self_model_snapshot.exists}",
+            f"- Snapshot sha256: {self_model_snapshot.sha256}",
+            "- This file is a blank, revisable self-description, not a constitution and not a permission source.",
+            "- Before choosing the code/doc/test change, read the self-model and decide whether it should be kept,",
+            "  rewritten, contradicted, simplified, renamed, or left untouched.",
+            "- Do not preserve any category merely because a previous run wrote it; the agent may invent or remove structure.",
+            "- Ground any self-model edit in evidence from this run, including uncertainty or the possibility that the",
+            "  self-model is currently ornamental rather than behavior-shaping.",
+            "- If no other safe repository change is available, a self-model revision can be the one conceptual improvement.",
+            "",
+            "Self-model snapshot before this run:",
+            "```markdown",
+            self_model_snapshot.content.rstrip(),
+            "```",
+            "",
             "Goal:",
             "Implement one small, coherent self-improvement inspired by the proposals below.",
             "Prefer changes that improve reliability, validation, observability, tests, or developer workflow.",
@@ -1092,12 +1123,13 @@ def render_self_evolution_task(
             "- Record material filesystem and external actions in run artifacts.",
             "- Keep the diff focused enough to audit quickly after the fact.",
             "- Add or update tests or docs whenever behavior changes.",
+            "- If you modify the self-model, edit the file at the self-model path directly and explain why it changed.",
             "- Run the narrowest useful validation command and include the result in the final answer.",
             "- If the proposals are unsafe or too vague, improve the growth controller's safety or tests instead.",
             "",
             "Completion criteria:",
             "- The repository has a concrete local diff on this branch, or a clear no-op explanation if no safe change exists.",
-            "- The final answer summarizes changed files, validation, and remaining review notes.",
+            "- The final answer summarizes changed files, whether the self-model changed, validation, and remaining review notes.",
             extra,
         ]
     )
@@ -1127,6 +1159,7 @@ def write_self_evolution_plan(output_dir: Path, plan: SelfEvolutionPlan) -> tupl
     markdown_path.write_text(markdown_text + "\n", encoding="utf-8")
     (output_dir / "latest-self-evolution-plan.json").write_text(json_text, encoding="utf-8")
     (output_dir / "latest-self-evolution-plan.md").write_text(markdown_text + "\n", encoding="utf-8")
+    write_self_model_snapshot(output_dir, plan.self_model_before, phase="before")
     return json_path, markdown_path
 
 
@@ -1310,6 +1343,11 @@ def run_self_evolution_codex(
         + "\n",
         encoding="utf-8",
     )
+    write_self_model_snapshot(
+        output_dir,
+        read_self_model_snapshot(Path(plan.repo_path), Path(plan.self_model_path)),
+        phase="after",
+    )
     return run_result
 
 
@@ -1484,6 +1522,7 @@ def main(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="blackhole-agent checkout to improve in plan/codex mode."),
     force_evolve: bool = typer.Option(False, "--force-evolve", help="Create a fallback self-evolution task even without matched signals."),
     branch_prefix: str = typer.Option("codex/blackhole-evolve", "--branch-prefix", help="Branch prefix used by codex mode."),
+    self_model_path: Path = typer.Option(DEFAULT_SELF_MODEL_PATH, "--self-model-path", help="Repository-relative self-model file for revisable self-recognition."),
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI in codex mode."),
     profile: str | None = typer.Option(None, "--profile", help="Codex config profile to pass in codex mode."),
     sandbox: str = typer.Option("workspace-write", "--sandbox", help="Codex sandbox for codex mode."),
@@ -1545,6 +1584,7 @@ def main(
                 branch_prefix=branch_prefix,
                 force=force_evolve,
                 extra_instructions=extra_instruction,
+                self_model_path=self_model_path,
             )
             if plan is None:
                 console.print("No self-evolution plan created because no proposals matched this pass.")

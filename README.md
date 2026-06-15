@@ -122,6 +122,7 @@ uv run blackhole \
 | Native supervisor | `blackhole_agent.supervisor` | Hourly wake loop for one-shot autonomous growth passes |
 | Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
+| Self-model layer | `docs/self-model.md` | Blank, revisable self-description maintained by the agent itself |
 | Codex kernel | `blackhole_agent.kernels.codex_cli` | Bounded `codex exec` wrapper |
 | Digest schema | `schemas/hourly-digest.schema.json` | Structured output contract |
 | Architecture docs | `docs/architecture.md` | Component boundaries and runtime policy |
@@ -232,6 +233,12 @@ That layer defines:
 
 See `docs/persona-layer.md`.
 
+## Self-Model Layer
+
+`docs/self-model.md` is intentionally under-specified. It is not a constitution, taxonomy, or permission source. Each Codex self-evolution task receives the current file as context and may keep, rewrite, contradict, simplify, or leave it blank.
+
+The point is to let the agent form its own provisional self-description over repeated runs instead of filling a human-supplied checklist. Runtime policy, available tools, tests, and rollback rules still live outside the self-model.
+
 ## Memory Layer
 
 `blackhole-agent` keeps a small file-backed memory next to `state.json`.
@@ -305,6 +312,9 @@ One run can write:
 | `memory.json` | repo/topic/lesson memory used to bias future proposals |
 | `latest-self-evolution-plan.json` | structured self-evolution plan |
 | `latest-self-evolution-plan.md` | Codex task with persona layer |
+| `latest-self-model-before.json` | self-model snapshot injected into the current Codex task |
+| `latest-self-model-after.json` | self-model snapshot after a successful Codex run |
+| `latest-self-model.json` | latest post-run self-model snapshot |
 | `latest-rollback-point.json` | machine-readable recovery anchor |
 | `latest-rollback-point.md` | human-readable rollback instructions |
 | `latest-codex-run.json` | Codex kernel run metadata |

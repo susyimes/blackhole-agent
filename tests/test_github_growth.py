@@ -26,6 +26,11 @@ from blackhole_agent.github_growth import (
     trend_repository_to_event,
 )
 from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
+from blackhole_agent.self_model import (
+    BOOTSTRAP_SELF_MODEL,
+    DEFAULT_SELF_MODEL_PATH,
+    read_self_model_snapshot,
+)
 
 
 def event_payload(event_id: str, kind: str, title: str, *, created_at: str | None = None) -> dict:
@@ -672,10 +677,15 @@ def test_build_self_evolution_plan_requires_signal_unless_forced(tmp_path):
 
 
 def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
+    self_model_path = tmp_path / DEFAULT_SELF_MODEL_PATH
+    self_model_path.parent.mkdir(parents=True)
+    self_model_path.write_text("The current self-model suspects it is overfitting to GitHub.\n", encoding="utf-8")
     plan = build_self_evolution_plan(digest_with_proposal(), repo_path=tmp_path)
 
     assert plan is not None
     assert plan.branch_name.startswith("codex/blackhole-evolve/")
+    assert plan.self_model_path == DEFAULT_SELF_MODEL_PATH.as_posix()
+    assert plan.self_model_before.exists is True
     assert "You are Codex running as the local kernel for blackhole-agent." in plan.task
     assert f"Persona version: {PERSONA_VERSION}" in plan.task
     assert "Core mechanism:" in plan.task
@@ -690,7 +700,29 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "Runtime policy budget:" in plan.task
     assert "Network: use only proposal Evidence URLs" in plan.task
     assert "do not push, restart, or provision remote sandboxes" in plan.task
+    assert "Self-model context:" in plan.task
+    assert f"Path: {DEFAULT_SELF_MODEL_PATH.as_posix()}" in plan.task
+    assert "This file is a blank, revisable self-description" in plan.task
+    assert "Do not preserve any category merely because a previous run wrote it" in plan.task
+    assert "The current self-model suspects it is overfitting to GitHub." in plan.task
     assert "Improve agent workflow tests" in plan.task
+
+
+def test_missing_self_model_is_blank_seed_without_creating_file(tmp_path):
+    snapshot = read_self_model_snapshot(tmp_path)
+
+    assert snapshot.exists is False
+    assert snapshot.path == DEFAULT_SELF_MODEL_PATH.as_posix()
+    assert snapshot.content == BOOTSTRAP_SELF_MODEL
+    assert not (tmp_path / DEFAULT_SELF_MODEL_PATH).exists()
+
+    plan = build_self_evolution_plan(digest_with_proposal(), repo_path=tmp_path)
+
+    assert plan is not None
+    assert plan.self_model_before.exists is False
+    assert "There are no required headings below this line." in plan.task
+    assert "If no other safe repository change is available, a self-model revision can be the one conceptual improvement." in plan.task
+    assert not (tmp_path / DEFAULT_SELF_MODEL_PATH).exists()
 
 
 def test_build_self_evolution_plan_includes_proposal_validation_task(tmp_path):

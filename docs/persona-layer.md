@@ -21,6 +21,12 @@ The layer keeps the core mechanism in one place:
 
 Without this layer, self-evolution instructions would be scattered across README text, controller code, and generated prompts. The persona layer makes those instructions versioned and testable.
 
+## Self-Model Boundary
+
+The persona layer is stable operational policy. The self-model in `docs/self-model.md` is intentionally not stable: it is a blank, revisable place where the agent can describe, doubt, rename, or erase its own categories over repeated runs.
+
+The self-model may influence proposal choice and run notes, but it does not grant permissions. Runtime configuration, rollback, validation, and supervisor promotion gates remain external constraints.
+
 ## Restart Boundary
 
 The agent may prepare code that supports restart, but it does not restart itself inside the local Codex kernel. A future restart path should:
