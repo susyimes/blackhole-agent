@@ -20,6 +20,7 @@ from blackhole_agent.github_growth import (
     extract_growth_signals,
     normalize_event,
     prepare_self_evolution_branch,
+    proposal_manifest_control,
     render_markdown_digest,
     run_intake_once,
     run_self_evolution_codex,
@@ -999,6 +1000,68 @@ def test_self_evolution_manifest_records_reviewable_governance_controls(tmp_path
             "validation_gate": "local-validation-before-governance-borrowing",
             "autonomous_local_apply": (
                 "False (reviewable proposal only; local validation artifacts may still be updated)"
+            ),
+        }
+    ]
+
+
+def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):
+    event = trend_repository_to_event(
+        TrendingRepository(
+            full_name="visa/visa-vulnerability-agentic-harness",
+            html_url="https://github.com/visa/visa-vulnerability-agentic-harness",
+            description=(
+                "Agentic SAST pipeline for autonomous vulnerability discovery with structured reports and "
+                "LLM-generated findings that require human review."
+            ),
+            language="Python",
+            stargazers_count=344,
+            forks_count=59,
+            open_issues_count=0,
+            created_at="2026-06-14T00:00:00Z",
+            updated_at="2026-06-15T00:00:00Z",
+            pushed_at="2026-06-15T00:00:00Z",
+            topics=["security", "agent"],
+        ),
+        generated_at="2026-06-15T07:21:28Z",
+    )
+    proposal = build_proposals(extract_growth_signals([event], topics=["security", "agent"]))[0]
+    assert proposal_manifest_control(proposal)["review_artifact_requirement"] == (
+        "Security-scanning lessons must stay as structured review artifacts; "
+        "LLM-generated findings remain human-reviewed triage candidates."
+    )
+    plan = build_self_evolution_plan(
+        {
+            "digest_id": "github-growth-visa-security-harness",
+            "generated_at": "2026-06-15T07:21:28Z",
+            "proposals": [proposal],
+        },
+        repo_path=tmp_path,
+    )
+    assert plan is not None
+
+    def runner(command, **kwargs):
+        if command == ["git", "rev-parse", "--verify", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="security-head\n", stderr="")
+        last_message = command[command.index("--output-last-message") + 1]
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write("codex done")
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    run_self_evolution_codex(plan, output_dir=tmp_path / "out", command_runner=runner)
+
+    manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["validation_gates"] == ["human-reviewed-security-triage"]
+    assert manifest["proposal_controls"] == [
+        {
+            "proposal_id": "trend:visa/visa-vulnerability-agentic-harness-1",
+            "kind": "follow_up_issue",
+            "implementation_scope": "risk_review_before_local_change",
+            "validation_gate": "human-reviewed-security-triage",
+            "autonomous_local_apply": "True",
+            "review_artifact_requirement": (
+                "Security-scanning lessons must stay as structured review artifacts; "
+                "LLM-generated findings remain human-reviewed triage candidates."
             ),
         }
     ]

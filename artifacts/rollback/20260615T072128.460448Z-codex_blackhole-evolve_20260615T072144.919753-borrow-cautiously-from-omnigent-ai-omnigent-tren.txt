@@ -1,0 +1,18 @@
+Rollback point for source digest github-growth-20260615T072128.460448Z
+
+Original branch:
+codex/blackhole-evolve/20260615T072144.919753-borrow-cautiously-from-omnigent-ai-omnigent-tren
+
+Original HEAD:
+f163187498b9e79e56117342c8adfdc1ab97286e
+
+Local rollback ref:
+refs/rollback/20260615T072128-blackhole-self-evolution
+
+Recovery commands:
+git status --short --branch
+git reset --hard refs/rollback/20260615T072128-blackhole-self-evolution
+
+Notes:
+- Rollback execution is explicit and destructive.
+- Do not run the recovery commands unless a human operator or external supervisor policy chooses rollback.

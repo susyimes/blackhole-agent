@@ -890,6 +890,24 @@ def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
     return "True"
 
 
+def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
+    """Return replayable safety metadata for a self-evolution proposal."""
+
+    control = {
+        "proposal_id": str(proposal.get("proposal_id") or ""),
+        "kind": str(proposal.get("kind") or ""),
+        "implementation_scope": str(proposal.get("implementation_scope") or ""),
+        "validation_gate": str(proposal.get("validation_gate") or ""),
+        "autonomous_local_apply": autonomous_local_apply_text(proposal),
+    }
+    if str(proposal.get("validation_gate") or "") == "human-reviewed-security-triage":
+        control["review_artifact_requirement"] = (
+            "Security-scanning lessons must stay as structured review artifacts; "
+            "LLM-generated findings remain human-reviewed triage candidates."
+        )
+    return control
+
+
 def rank_signals_with_memory(
     signals: list[GrowthSignal],
     *,
@@ -1430,13 +1448,7 @@ def run_self_evolution_codex(
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
         "proposal_controls": [
-            {
-                "proposal_id": str(proposal.get("proposal_id") or ""),
-                "kind": str(proposal.get("kind") or ""),
-                "implementation_scope": str(proposal.get("implementation_scope") or ""),
-                "validation_gate": str(proposal.get("validation_gate") or ""),
-                "autonomous_local_apply": autonomous_local_apply_text(proposal),
-            }
+            proposal_manifest_control(proposal)
             for proposal in plan.proposals
             if str(proposal.get("proposal_id") or "").strip()
         ],
