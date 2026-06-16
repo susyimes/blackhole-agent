@@ -37,7 +37,10 @@ def test_build_wake_command_launches_one_shot_child(tmp_path):
     assert Path(command[command.index("--self-model-path") + 1]).parts == ("docs", "self-model.md")
     assert "--force-evolve" in command
     assert "--ignore-user-config" in command
-    assert "prefer tests" in command[command.index("--extra-instruction") + 1]
+    extra_instruction = command[command.index("--extra-instruction") + 1]
+    assert "size them by evidence, benefit, rollback coverage, and validation coverage rather than by smallness" in extra_instruction
+    assert "allow broad local change sets when they remain auditable" in extra_instruction
+    assert "prefer tests" in extra_instruction
 
 
 def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):

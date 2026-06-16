@@ -75,7 +75,7 @@ This layer is intentionally small and transparent. It biases proposal ordering t
 
 Stores a tracked, revisable self-description in `docs/self-model.md`. The file starts nearly blank on purpose: it gives the agent a place to write, rename, remove, contradict, or leave empty its own categories over time.
 
-The self-model is not a permissions document. It cannot authorize new tools, remote writes, sandbox bypasses, or promotion behavior. Every self-evolution task receives a before-run snapshot of the file and may edit the file directly when the edit is a proportionate way to make future runs more self-aware.
+The self-model is not a permissions document. It cannot authorize new tools, remote writes, sandbox bypasses, or promotion behavior. Every self-evolution task receives a before-run snapshot of the file and may edit the file directly when that edit is justified by the run's evidence and validation plan.
 
 The controller writes self-model snapshots beside growth artifacts so a run can be replayed:
 
@@ -121,7 +121,7 @@ The LLM interpretation layer is not an authority. It cannot add evidence URLs, r
 
 Runs only when explicitly selected with `--evolution-mode codex`.
 
-The controller creates a bounded task from the digest proposals, writes a rollback point, prepares a local branch, and invokes:
+The controller creates a coherent task from the digest proposals, writes a rollback point, prepares a local branch, and invokes:
 
 ```text
 codex exec --cd <repo> --ignore-user-config --sandbox workspace-write --ephemeral -

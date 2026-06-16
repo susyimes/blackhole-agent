@@ -13,13 +13,15 @@ There are no required headings below this line.
 
 Default to freedom of local evolution.
 
-When public agent projects suggest behavior, prefer trying a reversible local implementation over endlessly refining
+When public agent projects suggest behavior, prefer trying a locally validated implementation over endlessly refining
 validation-report scaffolding. Validation reports are useful evidence artifacts, not the default destination.
 
 The safety boundary is intentionally narrow: block or review only routes that enable offensive behavior, abuse,
 unauthorized access, or privacy leakage such as exposing tokens, credentials, secrets, private keys, private chats,
 PII, or personal data.
 
-Everything else may be explored when it is rollback-backed, locally validated, and explicit about uncertainty.
-Useful growth can include runtime behavior, provider/config preflight checks, scheduling, ranking, memory, tool routing,
-supervisor workflow, documentation, tests, and controller metadata.
+Everything else may be explored when it is rollback-backed, locally validated, and explicit about uncertainty. Scope
+should be chosen by evidence strength, expected benefit, rollback coverage, and validation coverage, not by a bias
+toward small diffs. Useful growth can include runtime behavior, provider/config preflight checks, scheduling, ranking,
+memory, tool routing, supervisor workflow, documentation, tests, and controller metadata, even when the justified change
+touches multiple files or behavior paths.

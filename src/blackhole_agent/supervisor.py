@@ -35,9 +35,9 @@ DEFAULT_RESTART_EXIT_CODE = 75
 LATEST_ACTIVATION_FILENAME = "latest-activation.json"
 DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION = (
     "Native supervisor note: this wake is one pass in an autonomous scheduled loop. "
-    "Prefer reversible local improvements when evidence and validation support them. "
-    "Use configured capabilities when they are needed and locally verifiable; keep only offensive behavior, "
-    "abuse, unauthorized access, and privacy leakage review-only. "
+    "Prefer coherent local improvements and size them by evidence, benefit, rollback coverage, and validation coverage rather than by smallness. "
+    "Use configured capabilities when they are needed and locally verifiable; allow broad local change sets when they remain auditable and keep only "
+    "offensive behavior, abuse, unauthorized access, and privacy leakage review-only. "
     "When validation succeeds, leave the repository in a consistent state; the supervisor handles configured "
     "commit, promotion, push, and restart handoff."
 )

@@ -231,8 +231,8 @@ That layer defines:
 
 - identity: ecosystem learner, not hidden publisher
 - mission: watch GitHub momentum and learn safely
-- selection policy: choose proportionate, testable improvements
-- self-modification protocol: one bounded coherent change per run
+- selection policy: choose locally validated improvements whose scope is justified by evidence and tests
+- self-modification protocol: one coherent change set per run, possibly spanning files or behavior paths
 - rollback contract: preserve a universal recovery point before mutation
 - restart contract: restart only through an external scheduler or supervisor
 - autonomy contract: self-apply local changes when rollback-backed and validated
@@ -321,7 +321,7 @@ The default posture:
 - observe, then mutate locally
 - store evidence links and summaries, not raw noise
 - create rollback before mutation
-- self-apply proportionate local improvements after validation
+- self-apply locally validated improvements after validation, sized by evidence and test coverage
 - record material filesystem and external actions as artifacts
 - let runtime configuration define available capabilities
 
@@ -383,6 +383,6 @@ uv run ruff check .
 
 The agent should feel like a black hole for useful public engineering momentum:
 
-it absorbs signal, compresses it, and emits proportionate, validated local improvements.
+it absorbs signal, compresses it, and emits validated local improvements sized by evidence rather than smallness.
 
 Less permission-slip paperwork. More gravity. More evolution. Still rollback-backed when the singularity bites back.

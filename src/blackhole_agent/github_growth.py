@@ -391,7 +391,7 @@ class DigestWriteResult:
 
 @dataclass(frozen=True)
 class SelfEvolutionPlan:
-    """A bounded task that the local Codex CLI kernel can run against this checkout."""
+    """A coherent task that the local Codex CLI kernel can run against this checkout."""
 
     generated_at: str
     repo_path: str
@@ -1870,7 +1870,7 @@ def render_self_evolution_task(
             "- Do not preserve any category merely because a previous run wrote it; the agent may invent or remove structure.",
             "- Ground any self-model edit in evidence from this run, including uncertainty or the possibility that the",
             "  self-model is currently ornamental rather than behavior-shaping.",
-            "- If no other safe repository change is available, a self-model revision can be the proportionate improvement for the run.",
+            "- If no other safe repository change is available, a self-model revision can be the justified improvement for the run.",
             "",
             "Self-model snapshot before this run:",
             "```markdown",
@@ -1878,8 +1878,9 @@ def render_self_evolution_task(
             "```",
             "",
             "Goal:",
-            "Implement a proportionate, coherent self-improvement inspired by the proposals below.",
-            "Prefer direct behavior improvements when evidence and local validation support them; use reliability, validation, observability, tests, or documentation when that is the justified scope.",
+            "Implement a coherent self-improvement inspired by the proposals below.",
+            "Choose scope by evidence strength, expected local benefit, rollback coverage, and validation coverage; the change may span files, modules, or behavior paths when that is the justified scope.",
+            "Prefer direct behavior improvements when evidence and local validation support them; use reliability, validation, observability, tests, or documentation when those are the justified outcome.",
             "",
             "Digest evidence policy:",
             "- Treat the Source digest and proposal Evidence URLs as the primary context for this run.",
@@ -1891,7 +1892,7 @@ def render_self_evolution_task(
             "- Filesystem: stay inside this repository and create a rollback point before edits.",
             "- Shell: run local validation commands sized to the changed behavior.",
             "- Capabilities: use configured local capabilities when they are needed for the proposal and validation can cover them.",
-            "- Autonomy: make one bounded, coherent improvement; review only offensive behavior, abuse, unauthorized access, or privacy leakage.",
+            "- Autonomy: make one coherent improvement or tightly connected change set; review only offensive behavior, abuse, unauthorized access, or privacy leakage.",
             "- Activation: record push, promotion, restart, runner, or remote-execution changes in artifacts and rely on configured supervisors for activation.",
             "",
             "Proposals:",
@@ -1899,10 +1900,10 @@ def render_self_evolution_task(
             "",
             "Operating constraints:",
             "- Stay inside this repository.",
-            "- Apply local repository changes autonomously when they are proportionate, logged, and rollback-backed.",
+            "- Apply local repository changes autonomously when they are logged, rollback-backed, validated, and outside the narrow safety boundary.",
             "- Use only capabilities and runtime configuration available to this run.",
             "- Record material filesystem and external actions in run artifacts.",
-            "- Keep the diff focused enough to audit quickly after the fact.",
+            "- Keep the diff legible enough to audit after the fact; do not shrink a justified behavior change merely to look conservative.",
             "- Add or update tests or docs whenever behavior changes.",
             "- If you modify the self-model, edit the file at the self-model path directly and explain why it changed.",
             "- Run validation that matches the changed behavior and include the result in the final answer.",

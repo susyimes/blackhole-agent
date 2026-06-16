@@ -47,7 +47,7 @@ class CodexCliRunResult:
 
 
 class CodexCliKernel:
-    """Run a bounded task through local `codex exec`."""
+    """Run a controller-shaped task through local `codex exec`."""
 
     def __init__(
         self,

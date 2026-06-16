@@ -2190,6 +2190,9 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "use configured local capabilities" in plan.task
     assert "review only offensive behavior, abuse, unauthorized access, or privacy leakage" in plan.task
     assert "record push, promotion, restart, runner, or remote-execution changes" in plan.task
+    assert "Choose scope by evidence strength, expected local benefit, rollback coverage, and validation coverage" in plan.task
+    assert "may span files, modules, or behavior paths" in plan.task
+    assert "do not shrink a justified behavior change merely to look conservative" in plan.task
     assert "Self-model context:" in plan.task
     assert f"Path: {DEFAULT_SELF_MODEL_PATH.as_posix()}" in plan.task
     assert "This file is a blank, revisable self-description" in plan.task
@@ -2211,7 +2214,7 @@ def test_missing_self_model_is_blank_seed_without_creating_file(tmp_path):
     assert plan is not None
     assert plan.self_model_before.exists is False
     assert "There are no required headings below this line." in plan.task
-    assert "If no other safe repository change is available, a self-model revision can be the proportionate improvement for the run." in plan.task
+    assert "If no other safe repository change is available, a self-model revision can be the justified improvement for the run." in plan.task
     assert not (tmp_path / DEFAULT_SELF_MODEL_PATH).exists()
 
 
@@ -2230,7 +2233,8 @@ def test_persona_layer_captures_operational_self_model():
 
     assert "Persona layer: blackhole-agent" in rendered
     assert "Selection policy:" in rendered
-    assert "Make one bounded, coherent improvement per kernel run" in rendered
+    assert "Make one coherent improvement or tightly connected change set per kernel run" in rendered
+    assert "Do not equate auditability with smallness" in rendered
     assert "create a rollback point" in rendered
     assert "Autonomously apply local source changes" in rendered
 
