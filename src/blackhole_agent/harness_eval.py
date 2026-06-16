@@ -1,0 +1,248 @@
+"""Privacy-preserving comparison reports for local agent harness runs."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+BODY_KEYS = {
+    "input",
+    "last_message",
+    "output",
+    "prompt",
+    "prompt_body",
+    "response",
+    "stderr_tail",
+    "stdout_tail",
+    "task",
+}
+
+
+@dataclass(frozen=True)
+class HarnessRunSummary:
+    """Comparable, body-free summary of one agent run artifact."""
+
+    run_id: str
+    harness: str
+    variant: str
+    model: str | None
+    task_hash: str | None
+    output_hash: str | None
+    quality_score: float | None
+    cost_usd: float | None
+    elapsed_seconds: float | None
+    tool_calls: int | None
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None
+    returncode: int | None
+    timed_out: bool
+    failure_mode: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "harness": self.harness,
+            "variant": self.variant,
+            "model": self.model,
+            "task_hash": self.task_hash,
+            "output_hash": self.output_hash,
+            "quality_score": self.quality_score,
+            "cost_usd": self.cost_usd,
+            "elapsed_seconds": self.elapsed_seconds,
+            "tool_calls": self.tool_calls,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_tokens": self.total_tokens,
+            "returncode": self.returncode,
+            "timed_out": self.timed_out,
+            "failure_mode": self.failure_mode,
+        }
+
+
+@dataclass(frozen=True)
+class HarnessComparisonReport:
+    """Aggregate comparison across harness/model variants for the same task set."""
+
+    suite_name: str
+    run_count: int
+    privacy: dict[str, Any]
+    summaries: list[HarnessRunSummary]
+    aggregate_by_variant: list[dict[str, Any]]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "suite_name": self.suite_name,
+            "run_count": self.run_count,
+            "privacy": self.privacy,
+            "summaries": [summary.to_dict() for summary in self.summaries],
+            "aggregate_by_variant": self.aggregate_by_variant,
+        }
+
+
+def build_harness_comparison_report(
+    artifact_paths: list[Path],
+    *,
+    suite_name: str = "local-harness-comparison",
+) -> HarnessComparisonReport:
+    """Build a body-free comparison report from local run artifact JSON files."""
+
+    summaries = [summarize_harness_run(load_json_object(path), source_path=path) for path in artifact_paths]
+    return HarnessComparisonReport(
+        suite_name=suite_name,
+        run_count=len(summaries),
+        privacy={
+            "body_fields_exported": False,
+            "body_field_policy": "prompt/output/stdout/stderr bodies are hashed when present and omitted by default",
+            "omitted_body_keys": sorted(BODY_KEYS),
+        },
+        summaries=summaries,
+        aggregate_by_variant=aggregate_harness_summaries(summaries),
+    )
+
+
+def load_json_object(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def summarize_harness_run(payload: dict[str, Any], *, source_path: Path | None = None) -> HarnessRunSummary:
+    """Summarize one run artifact without retaining private task or output bodies."""
+
+    run_id = str(payload.get("run_id") or (source_path.stem if source_path else "unknown-run"))
+    harness = str(payload.get("harness") or payload.get("kernel") or infer_harness(payload, source_path))
+    model = optional_string(payload.get("model") or payload.get("model_name"))
+    variant = str(payload.get("variant") or payload.get("variant_id") or variant_label(harness, model))
+    usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+    returncode = optional_int(payload.get("returncode") or payload.get("exit_code"))
+    timed_out = bool(payload.get("timed_out") or payload.get("timeout"))
+    failure_mode = failure_mode_from_payload(payload, returncode=returncode, timed_out=timed_out)
+
+    return HarnessRunSummary(
+        run_id=run_id,
+        harness=harness,
+        variant=variant,
+        model=model,
+        task_hash=first_hash(
+            payload,
+            ("task_hash", "prompt_hash", "input_hash"),
+            ("task", "prompt", "prompt_body", "input"),
+        ),
+        output_hash=first_hash(
+            payload,
+            ("output_hash", "last_message_hash", "response_hash"),
+            ("last_message", "output", "response", "stdout_tail", "stderr_tail"),
+        ),
+        quality_score=optional_float(payload.get("quality_score") or payload.get("score")),
+        cost_usd=optional_float(payload.get("cost_usd") or payload.get("cost") or usage.get("cost_usd")),
+        elapsed_seconds=optional_float(
+            payload.get("elapsed_seconds") or payload.get("duration_seconds") or payload.get("latency_seconds")
+        ),
+        tool_calls=optional_int(payload.get("tool_calls") or usage.get("tool_calls")),
+        input_tokens=optional_int(payload.get("input_tokens") or usage.get("input_tokens") or usage.get("prompt_tokens")),
+        output_tokens=optional_int(
+            payload.get("output_tokens") or usage.get("output_tokens") or usage.get("completion_tokens")
+        ),
+        total_tokens=optional_int(payload.get("total_tokens") or usage.get("total_tokens")),
+        returncode=returncode,
+        timed_out=timed_out,
+        failure_mode=failure_mode,
+    )
+
+
+def aggregate_harness_summaries(summaries: list[HarnessRunSummary]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[HarnessRunSummary]] = {}
+    for summary in summaries:
+        grouped.setdefault((summary.harness, summary.variant), []).append(summary)
+
+    aggregates: list[dict[str, Any]] = []
+    for (harness, variant), runs in sorted(grouped.items()):
+        aggregates.append(
+            {
+                "harness": harness,
+                "variant": variant,
+                "run_count": len(runs),
+                "success_count": sum(1 for run in runs if run.failure_mode == "none"),
+                "failure_modes": sorted({run.failure_mode for run in runs if run.failure_mode != "none"}),
+                "avg_quality_score": average(run.quality_score for run in runs),
+                "avg_cost_usd": average(run.cost_usd for run in runs),
+                "avg_elapsed_seconds": average(run.elapsed_seconds for run in runs),
+                "avg_tool_calls": average(run.tool_calls for run in runs),
+                "avg_total_tokens": average(run.total_tokens for run in runs),
+            }
+        )
+    return aggregates
+
+
+def first_hash(payload: dict[str, Any], hash_keys: tuple[str, ...], body_keys: tuple[str, ...]) -> str | None:
+    for key in hash_keys:
+        value = optional_string(payload.get(key))
+        if value:
+            return value
+    for key in body_keys:
+        value = optional_string(payload.get(key))
+        if value:
+            return stable_text_hash(value)
+    return None
+
+
+def stable_text_hash(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def failure_mode_from_payload(payload: dict[str, Any], *, returncode: int | None, timed_out: bool) -> str:
+    if timed_out:
+        return "timeout"
+    explicit_failure = optional_string(payload.get("failure_mode") or payload.get("error_type"))
+    if explicit_failure:
+        return explicit_failure
+    if returncode not in (None, 0):
+        return "nonzero_exit"
+    if payload.get("error"):
+        return "error"
+    return "none"
+
+
+def infer_harness(payload: dict[str, Any], source_path: Path | None) -> str:
+    command = payload.get("command")
+    if isinstance(command, list) and command:
+        return str(Path(str(command[0])).name or command[0])
+    if source_path:
+        return source_path.stem.split("-", 1)[0]
+    return "unknown"
+
+
+def variant_label(harness: str, model: str | None) -> str:
+    return f"{harness}:{model}" if model else harness
+
+
+def average(values: Any) -> float | None:
+    numeric = [float(value) for value in values if value is not None]
+    if not numeric:
+        return None
+    return round(sum(numeric) / len(numeric), 6)
+
+
+def optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    return text if text else None
+
+
+def optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)

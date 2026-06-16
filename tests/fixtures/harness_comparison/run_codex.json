@@ -1,0 +1,19 @@
+{
+  "run_id": "fixture-codex-1",
+  "harness": "codex",
+  "variant": "codex-gpt",
+  "model": "gpt-fixture",
+  "prompt_body": "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT",
+  "last_message": "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT",
+  "quality_score": 0.9,
+  "cost_usd": 0.12,
+  "elapsed_seconds": 18.5,
+  "tool_calls": 3,
+  "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 300,
+    "total_tokens": 1500
+  },
+  "returncode": 0,
+  "timed_out": false
+}

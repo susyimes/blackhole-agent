@@ -1,0 +1,8 @@
+Rollback point for source digest github-growth-20260616T161522.635798Z
+Original branch: codex/blackhole-evolve/20260616T161634.179639-add-a-local-evaluation-artifact-or-test-fixture-
+Original HEAD: 52d2dcf6352d0bebc8209c322cc7d54eaeb6af8a
+Rollback ref: refs/rollback/20260616T161522Z-codex_blackhole-evolve_20260616T161634.179639-add-a-local-evaluation-artifact-or-test-fixture-
+Recovery commands:
+  git switch codex/blackhole-evolve/20260616T161634.179639-add-a-local-evaluation-artifact-or-test-fixture-
+  git reset --hard refs/rollback/20260616T161522Z-codex_blackhole-evolve_20260616T161634.179639-add-a-local-evaluation-artifact-or-test-fixture-
+  git clean -fd

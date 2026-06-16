@@ -1,0 +1,19 @@
+{
+  "run_id": "fixture-other-1",
+  "harness": "other-harness",
+  "variant": "other-fast",
+  "model": "fast-fixture",
+  "prompt": "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT",
+  "output": "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT",
+  "quality_score": 0.5,
+  "cost": 0.04,
+  "latency_seconds": 7.0,
+  "usage": {
+    "tool_calls": 1,
+    "prompt_tokens": 900,
+    "completion_tokens": 120,
+    "total_tokens": 1020
+  },
+  "returncode": 124,
+  "timed_out": true
+}
