@@ -117,6 +117,8 @@ Proposal generation has two layers:
 
 The LLM interpretation layer is not an authority. It cannot add evidence URLs, remove rule risk flags, decide final validation gates, or grant permissions. Deterministic safety review is narrow: offensive behavior and privacy leakage remain review-gated, while other locally validated behavior changes may proceed when runtime configuration provides the needed capability. If the JSON output is invalid, cites unknown evidence, exceeds proposal limits, or fails safety review, the controller writes `latest-llm-proposal-review.json` and falls back to heuristic proposals.
 
+When `max_items` truncates digest evidence, the frozen package records selected item IDs, truncated item IDs, selection diagnostics, and metadata-only uncertainty counts. Interpreters may cite only selected `item_id` values present in `items`; they must not add URLs or treat truncated item IDs as evidence. If a PR-heavy stream is mostly generic, untitled, or omitted by truncation, proposal uncertainty should say that PR-specific details were not available. Duplicate proposal IDs, and duplicate proposal kind plus evidence-ref shapes, are rejected during deterministic review.
+
 ### Local Codex CLI Kernel
 
 Runs only when explicitly selected with `--evolution-mode codex`.

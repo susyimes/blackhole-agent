@@ -17,6 +17,7 @@ REVIEW_ACTIVITY_EVENT_KINDS = {
     "PullRequestReviewCommentEvent",
     "PullRequestReviewEvent",
 }
+PR_ACTIVITY_EVENT_KINDS = REVIEW_ACTIVITY_EVENT_KINDS | {"PullRequestEvent"}
 CODEX_GATEWAY_MARKER = "/ai-gateway/codex"
 SERVING_ENDPOINTS_MARKER = "/serving-endpoints"
 ALLOWED_PROPOSAL_KINDS = {"documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"}
@@ -223,6 +224,12 @@ def build_proposal_evidence_package(
                 truncated_item_ids=set(truncated_item_ids),
                 item_text_truncation=item_truncation,
             ),
+            "evidence_truncation_uncertainty": build_evidence_truncation_uncertainty(
+                all_digest_items,
+                item_ids_by_original_index=item_ids_by_original_index,
+                selected_item_ids=set(selected_item_ids),
+                truncated_item_ids=set(truncated_item_ids),
+            ),
         },
         "self_model": {
             "path": str(snapshot.get("path") or ""),
@@ -338,7 +345,7 @@ def digest_item_repo(item: dict[str, Any]) -> str:
 
 def digest_item_is_review_validation_or_test_route(item: dict[str, Any]) -> bool:
     event_kind = str(item.get("event_kind") or "")
-    if event_kind in REVIEW_ACTIVITY_EVENT_KINDS | {"PullRequestEvent"}:
+    if event_kind in PR_ACTIVITY_EVENT_KINDS:
         return True
     if event_kind != "PushEvent":
         return False
@@ -455,6 +462,77 @@ def build_item_selection_diagnostics(
     return diagnostics
 
 
+def build_evidence_truncation_uncertainty(
+    raw_items: Any,
+    *,
+    item_ids_by_original_index: dict[int, str],
+    selected_item_ids: set[str],
+    truncated_item_ids: set[str],
+) -> dict[str, Any]:
+    """Describe inference limits introduced by context truncation without copying URLs or text."""
+
+    if not isinstance(raw_items, list):
+        return {
+            "missing_detail_risk": False,
+            "reasons": ["digest_items_not_a_list"],
+            "selected_event_kind_counts": {},
+            "truncated_event_kind_counts": {},
+            "selected_generic_pr_count": 0,
+            "truncated_generic_pr_count": 0,
+            "citation_scope": "cite_selected_item_ids_only",
+            "url_policy": "do_not_add_urls",
+        }
+
+    selected_event_kind_counts: dict[str, int] = {}
+    truncated_event_kind_counts: dict[str, int] = {}
+    selected_generic_pr_count = 0
+    truncated_generic_pr_count = 0
+
+    for original_index, raw_item in enumerate(raw_items):
+        if not isinstance(raw_item, dict):
+            continue
+        item_id = item_ids_by_original_index.get(original_index, digest_item_id(raw_item, original_index))
+        event_kind = str(raw_item.get("event_kind") or "unknown")
+        if item_id in selected_item_ids:
+            selected_event_kind_counts[event_kind] = selected_event_kind_counts.get(event_kind, 0) + 1
+            if digest_item_has_generic_pull_request_detail(raw_item):
+                selected_generic_pr_count += 1
+        elif item_id in truncated_item_ids:
+            truncated_event_kind_counts[event_kind] = truncated_event_kind_counts.get(event_kind, 0) + 1
+            if digest_item_has_generic_pull_request_detail(raw_item):
+                truncated_generic_pr_count += 1
+
+    truncated_pr_activity_count = sum(
+        count for kind, count in truncated_event_kind_counts.items() if kind in PR_ACTIVITY_EVENT_KINDS
+    )
+    reasons: list[str] = []
+    if truncated_item_ids:
+        reasons.append("max_items_omitted_whole_digest_items")
+    if truncated_pr_activity_count:
+        reasons.append("truncated_pull_request_activity_may_hide_pr_specific_details")
+    if selected_generic_pr_count or truncated_generic_pr_count:
+        reasons.append("generic_or_untitled_pull_request_items_have_missing_title_context")
+
+    return {
+        "missing_detail_risk": bool(reasons),
+        "reasons": reasons,
+        "selected_event_kind_counts": dict(sorted(selected_event_kind_counts.items())),
+        "truncated_event_kind_counts": dict(sorted(truncated_event_kind_counts.items())),
+        "selected_generic_pr_count": selected_generic_pr_count,
+        "truncated_generic_pr_count": truncated_generic_pr_count,
+        "citation_scope": "cite_selected_item_ids_only",
+        "url_policy": "do_not_add_urls",
+    }
+
+
+def digest_item_has_generic_pull_request_detail(item: dict[str, Any]) -> bool:
+    event_kind = str(item.get("event_kind") or "")
+    if event_kind not in PR_ACTIVITY_EVENT_KINDS:
+        return False
+    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
+    return "untitled pull request" in text or "generic" in text or "truncated" in text or not text.strip()
+
+
 def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:
     """Summarize proposal context pressure without exposing evidence content or URLs."""
 
@@ -467,6 +545,10 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
     item_selection_diagnostics = context_budget.get("item_selection_diagnostics")
     item_selection_diagnostics = item_selection_diagnostics if isinstance(item_selection_diagnostics, list) else []
     truncated_item_ids = [str(item_id) for item_id in context_budget.get("truncated_item_ids", [])]
+    evidence_truncation_uncertainty = context_budget.get("evidence_truncation_uncertainty")
+    evidence_truncation_uncertainty = (
+        evidence_truncation_uncertainty if isinstance(evidence_truncation_uncertainty, dict) else {}
+    )
     truncated_field_count = 0
     for entry in item_text_truncation:
         if isinstance(entry, dict) and isinstance(entry.get("fields"), list):
@@ -505,6 +587,7 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
             if isinstance(item, dict) and str(item.get("decision") or "") == "excluded"
         ),
         "item_selection_diagnostics": item_selection_diagnostics,
+        "evidence_truncation_uncertainty": evidence_truncation_uncertainty,
         "self_model_truncated": bool(self_model.get("truncated")),
     }
 
@@ -577,6 +660,8 @@ def render_proposal_synthesis_prompt(evidence_package: dict[str, Any]) -> str:
             "",
             "Your job is to interpret frozen evidence and propose growth routes as strict JSON.",
             "Do not edit files. Do not run broad searches. Do not add evidence URLs.",
+            "Cite only item_id values present in items; do not cite truncated_item_ids as evidence_refs.",
+            "When context_budget.evidence_truncation_uncertainty.missing_detail_risk is true, record the missing detail risk in proposal uncertainty.",
             "Runtime permissions, final implementation scope, validation gates, and approval are recomputed by code.",
             "The safety boundary is narrow: only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only.",
             "Provider/config/token preflight, runners, tool routing, scheduling, memory, tests, and controller behavior are allowed routes when locally validated.",
@@ -663,12 +748,24 @@ def review_llm_proposal_response(
 
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    seen_proposal_ids: set[str] = set()
+    seen_proposal_shapes: set[tuple[str, tuple[str, ...]]] = set()
     for index, candidate in enumerate(candidates, start=1):
         normalized, errors = normalize_candidate(candidate, items_by_id, index=index)
+        raw_candidate = candidate if isinstance(candidate, dict) else {}
+        proposal_id = str(normalized.get("proposal_id") or raw_candidate.get("proposal_id") or f"llm-{index}")
+        evidence_shape = tuple(sorted(str(ref) for ref in normalized.get("evidence_refs", [])))
+        proposal_shape = (str(normalized.get("kind") or raw_candidate.get("kind") or ""), evidence_shape)
+        if proposal_id in seen_proposal_ids:
+            errors.append("proposal_id must be unique")
+        if evidence_shape and proposal_shape in seen_proposal_shapes:
+            errors.append("proposal kind and evidence_refs duplicate an earlier candidate")
         if errors:
             rejected.append({"candidate": candidate, "errors": errors})
         else:
             accepted.append(normalized)
+            seen_proposal_ids.add(proposal_id)
+            seen_proposal_shapes.add(proposal_shape)
     status = "accepted" if accepted else "rejected"
     reason = "accepted" if accepted else "no valid proposals"
     return ProposalSynthesisReview(

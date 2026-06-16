@@ -1165,6 +1165,120 @@ def test_proposal_evidence_package_disambiguates_duplicate_item_ids_under_contex
     assert review.accepted_candidates[0]["evidence_urls"] == ["https://github.com/omnigent-ai/omnigent/privacy"]
 
 
+def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_proposals():
+    items = []
+    for index in range(10):
+        items.append(
+            {
+                "item_id": f"pr-{index + 1}",
+                "source_url": f"https://github.com/omnigent-ai/omnigent/pull/{index + 1}",
+                "event_kind": "PullRequestEvent",
+                "summary": "opened pull request: untitled pull request",
+                "relevance_reason": "generic PullRequestEvent item with missing PR details",
+                "risk_flags": [],
+                "confidence": 0.7,
+            }
+        )
+    digest = {
+        "digest_id": "github-growth-pr-event-pressure",
+        "generated_at": "2026-06-16T08:37:05Z",
+        "items": items,
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=160)
+    uncertainty = evidence_package["context_budget"]["evidence_truncation_uncertainty"]
+    preflight = build_context_budget_preflight(evidence_package)
+
+    assert evidence_package["context_budget"]["items_truncated"] is True
+    assert evidence_package["context_budget"]["selected_item_ids"] == ["pr-1", "pr-2", "pr-3"]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == [
+        "pr-4",
+        "pr-5",
+        "pr-6",
+        "pr-7",
+        "pr-8",
+        "pr-9",
+        "pr-10",
+    ]
+    assert uncertainty == {
+        "missing_detail_risk": True,
+        "reasons": [
+            "max_items_omitted_whole_digest_items",
+            "truncated_pull_request_activity_may_hide_pr_specific_details",
+            "generic_or_untitled_pull_request_items_have_missing_title_context",
+        ],
+        "selected_event_kind_counts": {"PullRequestEvent": 3},
+        "truncated_event_kind_counts": {"PullRequestEvent": 7},
+        "selected_generic_pr_count": 3,
+        "truncated_generic_pr_count": 7,
+        "citation_scope": "cite_selected_item_ids_only",
+        "url_policy": "do_not_add_urls",
+    }
+    assert preflight["evidence_truncation_uncertainty"] == uncertainty
+    assert "github.com" not in json.dumps(uncertainty, sort_keys=True)
+
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-pr-event-pressure",
+            "run_interpretation": "Many generic PR events were truncated, so only selected refs are usable.",
+            "self_model_reading": {"status": "unchanged"},
+            "proposals": [
+                {
+                    "proposal_id": "pr-pressure-route",
+                    "kind": "code_patch",
+                    "summary": "Improve PR-event digest resilience under truncation.",
+                    "evidence_refs": ["pr-1", "pr-2"],
+                    "added_risk_flags": [],
+                    "validation_task": "Replay a synthetic high-volume PR-event digest locally.",
+                    "rationale": "The selected events show repeated generic PR activity.",
+                    "uncertainty": "Most PR items were truncated and titles were generic, so PR-specific details are unknown.",
+                    "self_effect": "Keeps proposal generation bounded under high-volume PR streams.",
+                    "action_lane": "local_validation_candidate",
+                },
+                {
+                    "proposal_id": "pr-pressure-route",
+                    "kind": "code_patch",
+                    "summary": "Duplicate route that should be rejected.",
+                    "evidence_refs": ["pr-1", "pr-2"],
+                    "added_risk_flags": [],
+                    "validation_task": "Replay the same synthetic fixture.",
+                    "rationale": "Duplicate evidence should not create a second route.",
+                    "uncertainty": "Duplicate candidate.",
+                    "self_effect": "Would duplicate proposal generation.",
+                    "action_lane": "local_validation_candidate",
+                },
+                {
+                    "proposal_id": "pr-truncated-ref",
+                    "kind": "documentation",
+                    "summary": "Invalidly cites a truncated item.",
+                    "evidence_refs": ["pr-9"],
+                    "added_risk_flags": [],
+                    "validation_task": "Document selected-item-only citation.",
+                    "rationale": "This should fail because pr-9 was outside the frozen items list.",
+                    "uncertainty": "Truncated refs cannot be used as evidence.",
+                    "self_effect": "Would weaken replayability.",
+                    "action_lane": "local_validation_candidate",
+                },
+            ],
+            "rejected_items": ["pr-4", "pr-5", "pr-6", "pr-7", "pr-8", "pr-9", "pr-10"],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="hybrid")
+
+    assert review.status == "accepted"
+    assert review.accepted_count == 1
+    assert review.rejected_count == 2
+    assert review.accepted_candidates[0]["proposal_id"] == "pr-pressure-route"
+    assert review.accepted_candidates[0]["evidence_refs"] == ["pr-1", "pr-2"]
+    assert any("proposal_id must be unique" in rejected["errors"] for rejected in review.rejected_candidates)
+    assert any(
+        "evidence_refs contain unknown item ids: pr-9" in rejected["errors"]
+        for rejected in review.rejected_candidates
+    )
+
+
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
     evidence_package = build_proposal_evidence_package(
         {
@@ -1225,6 +1339,16 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
                 "truncated_fields": [],
             }
         ],
+        "evidence_truncation_uncertainty": {
+            "missing_detail_risk": False,
+            "reasons": [],
+            "selected_event_kind_counts": {"PushEvent": 1},
+            "truncated_event_kind_counts": {},
+            "selected_generic_pr_count": 0,
+            "truncated_generic_pr_count": 0,
+            "citation_scope": "cite_selected_item_ids_only",
+            "url_policy": "do_not_add_urls",
+        },
         "self_model_truncated": False,
     }
     preflight_json = json.dumps(preflight, sort_keys=True)

@@ -1,0 +1,15 @@
+Rollback point: 20260616T083859Z
+Original branch: codex/blackhole-evolve/20260616T083821.373958-add-or-strengthen-a-local-smoke-validation-route
+Original HEAD: 533e6b66043b8b1e871b56ec49bbe3de171b0b20
+Local rollback ref: refs/blackhole/rollback/20260616T083859Z
+
+Recovery commands, for an explicit human/operator rollback only:
+  git switch codex/blackhole-evolve/20260616T083821.373958-add-or-strengthen-a-local-smoke-validation-route
+  git reset --hard refs/blackhole/rollback/20260616T083859Z
+
+Run context:
+  Source digest: github-growth-20260616T083705.136973Z
+  Selected proposal: p2-pr-event-digest-resilience
+  Evidence URL: https://github.com/omnigent-ai/omnigent
+
+No rollback command was executed during this run.
