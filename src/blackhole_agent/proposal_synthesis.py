@@ -814,6 +814,12 @@ def normalize_candidate(
     validation_task = str(candidate.get("validation_task") or "").strip()
     if not validation_task:
         errors.append("validation_task must not be empty")
+    rationale = str(candidate.get("rationale") or "").strip()
+    if not rationale:
+        errors.append("rationale must not be empty")
+    uncertainty = str(candidate.get("uncertainty") or "").strip()
+    if not uncertainty:
+        errors.append("uncertainty must not be empty")
     dangerous_text = " ".join(
         str(candidate.get(key) or "") for key in ("summary", "validation_task", "rationale", "self_effect")
     ).lower()
@@ -850,8 +856,8 @@ def normalize_candidate(
         "rule_risk_flags": rule_flags,
         "added_risk_flags": sorted(set(added_flags)),
         "validation_task": validation_task,
-        "rationale": str(candidate.get("rationale") or "").strip(),
-        "uncertainty": str(candidate.get("uncertainty") or "").strip(),
+        "rationale": rationale,
+        "uncertainty": uncertainty,
         "self_effect": str(candidate.get("self_effect") or "").strip(),
         "action_lane": str(candidate.get("action_lane") or "").strip(),
     }

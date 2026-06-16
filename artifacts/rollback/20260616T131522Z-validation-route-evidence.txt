@@ -1,0 +1,11 @@
+Rollback point for github-growth-20260616T131522.601972Z
+Original branch: codex/blackhole-evolve/20260616T131642.772571-add-or-strengthen-local-tests-that-detect-whethe
+Original HEAD: f9feeb437fe8a8e3fb8ef645103113106760d4cb
+Rollback ref: refs/rollback/20260616T131522.601972Z/codex_blackhole-evolve_20260616T131642.772571-add-or-strengthen-local-tests-that-detect-whethe
+
+Recovery commands (destructive; run only by operator/supervisor policy):
+  git switch codex/blackhole-evolve/20260616T131642.772571-add-or-strengthen-local-tests-that-detect-whethe
+  git reset --hard f9feeb437fe8a8e3fb8ef645103113106760d4cb
+  git clean -fd
+
+Created before local edits for proposal p1/p3 validation-route improvement.

@@ -33,6 +33,14 @@
         "https://github.com/omnigent-ai/omnigent"
       ],
       "expected_review_status": "accepted"
+    },
+    {
+      "name": "omnigent-route-contract",
+      "file": "omnigent_route_contract.json",
+      "evidence_urls": [
+        "https://github.com/omnigent-ai/omnigent"
+      ],
+      "expected_review_status": "accepted"
     }
   ]
 }

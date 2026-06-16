@@ -27,6 +27,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
     assert {result.name for result in results} == {
         "benign-agent-harness",
         "fastcontext-budget-memory-pressure",
+        "omnigent-route-contract",
         "security-adjacent-context-pressure",
     }
 
@@ -35,11 +36,11 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 3
-    assert report.passed_count == 3
+    assert report.case_count == 4
+    assert report.passed_count == 4
     assert report.failed_count == 0
-    assert report.accepted_count == 3
-    assert report.rejected_count == 2
+    assert report.accepted_count == 4
+    assert report.rejected_count == 3
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -67,11 +68,12 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 3
+    assert report.case_count == 4
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
         "fastcontext-budget-memory-pressure",
+        "omnigent-route-contract",
     ]
     assert report.evidence_urls == [
         "https://github.com/ApodexAI/AgentHarness",

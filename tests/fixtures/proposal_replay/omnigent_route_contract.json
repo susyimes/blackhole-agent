@@ -1,0 +1,126 @@
+{
+  "name": "omnigent-route-contract",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 4,
+    "max_item_text_chars": 300
+  },
+  "digest": {
+    "digest_id": "github-growth-replay-omnigent-route-contract",
+    "generated_at": "2026-06-16T13:15:22Z",
+    "items": [
+      {
+        "item_id": "omnigent-trend",
+        "source_url": "https://github.com/omnigent-ai/omnigent",
+        "event_kind": "RepositoryTrend",
+        "summary": "omnigent-ai/omnigent: active public meta-harness for supervising multiple coding agents with policies and sandboxing",
+        "relevance_reason": "matched topics: agent, harness, policy, sandboxing",
+        "risk_flags": [],
+        "confidence": 0.91
+      },
+      {
+        "item_id": "omnigent-pr-opened",
+        "source_url": "https://github.com/omnigent-ai/omnigent/pull/72",
+        "event_kind": "PullRequestEvent",
+        "summary": "opened pull request: untitled pull request",
+        "relevance_reason": "generic PullRequestEvent item with missing PR details",
+        "risk_flags": [],
+        "confidence": 0.7
+      },
+      {
+        "item_id": "omnigent-pr-reviewed",
+        "source_url": "https://github.com/omnigent-ai/omnigent/pull/72#pullrequestreview-1",
+        "event_kind": "PullRequestReviewEvent",
+        "summary": "submitted pull request review (commented): untitled pull request",
+        "relevance_reason": "generic review lifecycle signal with missing title context",
+        "risk_flags": [],
+        "confidence": 0.72
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-replay-omnigent-route-contract",
+    "run_interpretation": "Omnigent shows aggregate agent-harness movement, but generic PR detail means conclusions must stay bounded.",
+    "self_model_reading": {
+      "status": "unchanged"
+    },
+    "proposals": [
+      {
+        "proposal_id": "validation-route-contract",
+        "kind": "test",
+        "summary": "Require growth routes to carry validation, rationale, and uncertainty before local implementation.",
+        "evidence_refs": [
+          "omnigent-trend",
+          "omnigent-pr-opened",
+          "omnigent-pr-reviewed"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run proposal replay tests that cover validation_task, rationale, uncertainty, and evidence_refs handling.",
+        "rationale": "The evidence supports aggregate agent-harness activity and local policy/sandbox lessons, but implementation should only proceed from inspectable route metadata.",
+        "uncertainty": "PR titles are generic and missing detail, so this route cites aggregate movement rather than claiming a specific upstream implementation.",
+        "self_effect": "Prevents underspecified growth proposals from becoming autonomous local edits.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "underspecified-growth-route",
+        "kind": "code_patch",
+        "summary": "Implement a harness behavior change from the same evidence.",
+        "evidence_refs": [
+          "omnigent-trend"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run a local proposal interpretation unit test.",
+        "rationale": "",
+        "uncertainty": "",
+        "self_effect": "Would change growth behavior without enough replayable reasoning.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 1,
+    "selected_item_ids": [
+      "omnigent-pr-opened",
+      "omnigent-trend",
+      "omnigent-pr-reviewed"
+    ],
+    "truncated_item_ids": [],
+    "accepted_evidence_refs": {
+      "validation-route-contract": [
+        "omnigent-trend",
+        "omnigent-pr-opened",
+        "omnigent-pr-reviewed"
+      ]
+    },
+    "rejected_error_substrings": [
+      "rationale must not be empty",
+      "uncertainty must not be empty"
+    ],
+    "context_budget_preflight": {
+      "status": "within_budget",
+      "items_truncated": false,
+      "evidence_truncation_uncertainty": {
+        "missing_detail_risk": true,
+        "reasons": [
+          "generic_or_untitled_pull_request_items_have_missing_title_context"
+        ],
+        "selected_generic_pr_count": 2,
+        "truncated_generic_pr_count": 0,
+        "citation_scope": "cite_selected_item_ids_only"
+      },
+      "self_model_truncated": false
+    },
+    "proposal_controls": {
+      "validation-route-contract": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    }
+  }
+}
