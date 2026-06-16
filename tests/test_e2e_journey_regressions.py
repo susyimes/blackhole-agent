@@ -54,6 +54,7 @@ def test_web_research_mcp_and_cancel_recover_journey_regression(tmp_path, monkey
         output_dir=output_dir,
         client=client,
         topics=["agent", "test", "workflow"],
+        lookback_hours=24,
         repo_path=repo,
         proposal_mode="heuristic",
     )
@@ -101,8 +102,18 @@ def test_web_research_mcp_and_cancel_recover_journey_regression(tmp_path, monkey
     monkeypatch.setattr(codex_cli, "datetime", FixedDatetime)
     kernel = CodexCliKernel(CodexCliConfig(codex_bin="codex"), command_runner=interrupt_then_recover)
 
-    with pytest.raises(TimeoutError, match="Codex CLI timed out after 1 seconds"):
+    with pytest.raises(TimeoutError, match="Codex CLI timed out after 1 seconds") as timeout_info:
         kernel.run(plan.task, cwd=repo, output_dir=output_dir / "codex", timeout_seconds=1)
+
+    timeout_result_path = output_dir / "codex" / "codex-run-20260616T093703Z.json"
+    timeout_run = json.loads(timeout_result_path.read_text(encoding="utf-8"))
+    timeout_latest = json.loads((output_dir / "codex" / "latest-codex-run.json").read_text(encoding="utf-8"))
+    assert timeout_latest == timeout_run
+    assert timeout_run["timed_out"] is True
+    assert timeout_run["returncode"] == 124
+    assert timeout_run["last_message"] == "partial web research trace"
+    assert str(timeout_result_path) in str(timeout_info.value)
+
     recovered = kernel.run(plan.task, cwd=repo, output_dir=output_dir / "codex", timeout_seconds=5)
 
     latest_digest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
@@ -115,6 +126,7 @@ def test_web_research_mcp_and_cancel_recover_journey_regression(tmp_path, monkey
     assert route_key == mcp_web_research.compatibility_key()
     assert route_cache.get(mcp_web_research) == "stubbed-web-research-route"
     assert last_message_paths[0] != last_message_paths[1]
+    assert timeout_result_path.exists()
     assert recovered.last_message == "web research journey recovered"
     assert latest_run["timed_out"] is False
     assert latest_run["result_path"].endswith("codex-run-20260616T093703Z-001.json")
