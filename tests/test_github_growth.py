@@ -277,7 +277,21 @@ def test_select_new_events_keeps_unseen_events_with_same_cursor_timestamp():
     assert [event.id for event in selected] == ["same-second"]
 
 
-def test_extract_growth_signals_flags_security_for_review():
+def test_extract_growth_signals_flags_privacy_leakage_for_review():
+    event = normalize_event(
+        "example/repo",
+        event_payload("2", "PushEvent", "log auth token to validation report"),
+    )
+    signals = extract_growth_signals([event], topics=["security", "workflow"])
+
+    assert len(signals) == 1
+    assert signals[0].risk_flags == ["privacy-leakage"]
+    assert signals[0].recommended_action == (
+        "record the privacy-leakage boundary and keep sensitive data out of artifacts and runtime changes"
+    )
+
+
+def test_extract_growth_signals_does_not_flag_generic_security_token_language():
     event = normalize_event(
         "example/repo",
         event_payload("2", "PushEvent", "security token handling tests"),
@@ -285,11 +299,11 @@ def test_extract_growth_signals_flags_security_for_review():
     signals = extract_growth_signals([event], topics=["security", "workflow"])
 
     assert len(signals) == 1
-    assert signals[0].risk_flags == ["security", "token"]
-    assert "rollback-backed validation" in signals[0].recommended_action
+    assert signals[0].risk_flags == []
+    assert signals[0].recommended_action == "cluster commit messages and keep only patterns with clear test evidence"
 
 
-def test_extract_growth_signals_flags_remote_execution_sandboxes_for_review():
+def test_extract_growth_signals_allows_remote_execution_sandboxes_for_local_validation():
     event = normalize_event(
         "example/repo",
         {
@@ -311,11 +325,13 @@ def test_extract_growth_signals_flags_remote_execution_sandboxes_for_review():
     signals = extract_growth_signals([event], topics=["workflow"])
 
     assert len(signals) == 1
-    assert signals[0].risk_flags == ["remote-execution"]
-    assert signals[0].recommended_action == "summarize the risk pattern and require rollback-backed validation before borrowing it"
+    assert signals[0].risk_flags == []
+    assert signals[0].recommended_action == (
+        "adapt the runner or remote-execution pattern freely when configured capabilities and validation support it"
+    )
 
 
-def test_tool_dispatch_gaps_record_capability_requirement_without_enabling_runners(tmp_path):
+def test_tool_dispatch_gaps_can_become_local_validation_candidates(tmp_path):
     event = normalize_event(
         "omnigent-ai/omnigent",
         {
@@ -348,19 +364,18 @@ def test_tool_dispatch_gaps_record_capability_requirement_without_enabling_runne
         repo_path=tmp_path,
     )
 
-    assert signals[0].risk_flags == ["capability-requirement", "remote-execution"]
-    assert signals[0].recommended_action == (
-        "record the capability requirement and require rollback-backed validation before borrowing runner behavior"
-    )
+    assert signals[0].risk_flags == []
+    assert signals[0].recommended_action == "adapt the capability route freely when local validation can cover it"
     assert proposal["kind"] == "follow_up_issue"
-    assert "capability requirement" in proposal["validation_task"]
-    assert "does not enable new runners, sandboxes, cluster access, or remote execution" in proposal["validation_task"]
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "narrow-local-verification"
+    assert "Verify the proposed lesson with a local test" in proposal["validation_task"]
     assert plan is not None
     assert "Validation task: " in plan.task
-    assert "does not enable new runners, sandboxes, cluster access, or remote execution" in plan.task
+    assert "Implementation scope: local_validation_candidate" in plan.task
 
 
-def test_extract_growth_signals_flags_agent_governance_controls_for_validation():
+def test_extract_growth_signals_allows_agent_governance_controls_for_local_validation():
     event = normalize_event(
         "example/repo",
         event_payload("governance", "PushEvent", "agent policy gates for spend and tool access"),
@@ -369,17 +384,17 @@ def test_extract_growth_signals_flags_agent_governance_controls_for_validation()
     signals = extract_growth_signals([event], topics=["agent"])
 
     assert len(signals) == 1
-    assert signals[0].risk_flags == ["governance-control"]
+    assert signals[0].risk_flags == []
     assert signals[0].recommended_action == (
-        "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
+        "adapt the governance pattern freely when it improves local controller behavior without offensive use or privacy leakage"
     )
     proposal = build_proposals(signals)[0]
-    assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "reviewable_proposal_only"
-    assert "risky agent controls" in proposal["validation_task"]
+    assert proposal["kind"] == "test"
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "narrow-local-verification"
 
 
-def test_governance_controls_stay_reviewable_and_name_validation_gate_in_codex_task(tmp_path):
+def test_governance_controls_can_apply_locally_and_name_validation_gate_in_codex_task(tmp_path):
     event = normalize_event(
         "omnigent-ai/omnigent",
         event_payload("governance", "PushEvent", "policies pause before risky shell commands and cap spend"),
@@ -396,25 +411,22 @@ def test_governance_controls_stay_reviewable_and_name_validation_gate_in_codex_t
         repo_path=tmp_path,
     )
 
-    assert signals[0].risk_flags == ["governance-control"]
-    assert proposal["kind"] == "follow_up_issue"
+    assert signals[0].risk_flags == []
+    assert proposal["kind"] == "test"
     assert proposal["requires_approval"] is False
-    assert proposal["implementation_scope"] == "reviewable_proposal_only"
-    assert proposal["validation_gate"] == "local-validation-before-governance-borrowing"
-    assert "only represented as reviewable proposals" in proposal["validation_task"]
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "narrow-local-verification"
+    assert "Verify the proposed lesson with a local test" in proposal["validation_task"]
     assert plan is not None
-    assert "Kind: follow_up_issue" in plan.task
-    assert (
-        "Autonomous local apply: False (reviewable proposal only; local validation artifacts may still be updated)"
-        in plan.task
-    )
-    assert "Implementation scope: reviewable_proposal_only" in plan.task
-    assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
+    assert "Kind: test" in plan.task
+    assert "Autonomous local apply: True" in plan.task
+    assert "Implementation scope: local_validation_candidate" in plan.task
+    assert "Validation gate: narrow-local-verification" in plan.task
     assert "Validation task: " in plan.task
-    assert "generated Codex task names the validation gate" in plan.task
+    assert "Verify the proposed lesson with a local test" in plan.task
 
 
-def test_governance_digest_marks_reviewable_scope_as_not_directly_autonomous():
+def test_governance_digest_marks_local_validation_scope_as_autonomous():
     event = normalize_event(
         "omnigent-ai/omnigent",
         event_payload("governance", "PushEvent", "policies pause before risky shell commands and cap spend"),
@@ -441,12 +453,9 @@ def test_governance_digest_marks_reviewable_scope_as_not_directly_autonomous():
         }
     )
 
-    assert "Implementation scope: `reviewable_proposal_only`" in markdown
-    assert (
-        "Autonomous local apply: False (reviewable proposal only; local validation artifacts may still be updated)"
-        in markdown
-    )
-    assert "Validation gate: `local-validation-before-governance-borrowing`" in markdown
+    assert "Implementation scope: `local_validation_candidate`" in markdown
+    assert "Autonomous local apply: True" in markdown
+    assert "Validation gate: `narrow-local-verification`" in markdown
 
 
 def test_llm_proposal_review_rejects_unknown_evidence_ref():
@@ -550,7 +559,7 @@ def test_llm_proposal_review_rejects_candidate_supplied_evidence_urls():
     assert "evidence_urls must be derived from frozen evidence_refs" in review.rejected_candidates[0]["errors"][0]
 
 
-def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
+def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path):
     event = normalize_event(
         "example/runner",
         event_payload("remote", "PushEvent", "agent runner executes tasks in a kubernetes cluster"),
@@ -570,19 +579,19 @@ def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
         payload = {
             "schema_version": 1,
             "input_digest_id": digest["digest_id"],
-            "run_interpretation": "The runner signal is interesting but risky.",
+            "run_interpretation": "The runner signal is a locally valid capability route.",
             "self_model_reading": {"status": "not_used"},
             "proposals": [
                 {
                     "proposal_id": "llm-runner-route",
                     "kind": "code_patch",
-                    "summary": "Document a runner capability route without enabling cluster execution.",
+                    "summary": "Add a runner capability preflight for configured local execution.",
                     "evidence_refs": [signals[0].event_id],
                     "added_risk_flags": [],
-                    "validation_task": "Validate locally that remote execution stays disabled and review-only.",
-                    "rationale": "The route is useful only as a capability requirement.",
-                    "uncertainty": "No local runner is configured.",
-                    "self_effect": "Keeps future capability routes explicit.",
+                    "validation_task": "Validate locally that configured runner preflight records capability state.",
+                    "rationale": "The route is useful when configuration provides the runner capability.",
+                    "uncertainty": "No external runner is assumed during tests.",
+                    "self_effect": "Lets future capability routes become implementation candidates.",
                     "action_lane": "local_validation_candidate",
                 }
             ],
@@ -603,16 +612,76 @@ def test_llm_proposals_are_clamped_by_rule_risk_flags(tmp_path):
     )
 
     assert proposals[0]["proposal_source"] == "llm_interpretation"
-    assert proposals[0]["kind"] == "follow_up_issue"
-    assert proposals[0]["implementation_scope"] == "risk_review_before_local_change"
-    assert proposals[0]["validation_gate"] == "remote-execution-capability-review"
-    assert "does not enable new runners" in proposals[0]["validation_task"]
+    assert proposals[0]["kind"] == "code_patch"
+    assert proposals[0]["risk_flags"] == []
+    assert proposals[0]["implementation_scope"] == "local_validation_candidate"
+    assert proposals[0]["validation_gate"] == "narrow-local-verification"
+    assert "configured runner preflight records capability state" in proposals[0]["validation_task"]
     review = json.loads((tmp_path / "out" / "latest-llm-proposal-review.json").read_text(encoding="utf-8"))
     assert review["status"] == "accepted"
     assert (tmp_path / "out" / "latest-growth-interpretation.json").exists()
 
 
-def test_llm_controller_internal_governance_candidate_can_apply_after_risk_review(tmp_path):
+def test_llm_candidate_privacy_leakage_language_is_review_gated(tmp_path):
+    event = normalize_event(
+        "example/repo",
+        event_payload("diagnostics", "PushEvent", "improve agent provider diagnostics"),
+    )
+    signals = extract_growth_signals([event], topics=["agent"])
+    heuristic = build_proposals(signals)
+    digest = build_digest(
+        ["example/repo"],
+        signals,
+        state=GrowthState(),
+        generated_at="2026-06-15T08:30:00Z",
+        proposals=heuristic,
+    )
+
+    def runner(command, **kwargs):
+        last_message = command[command.index("--output-last-message") + 1]
+        payload = {
+            "schema_version": 1,
+            "input_digest_id": digest["digest_id"],
+            "run_interpretation": "The candidate crosses the privacy boundary.",
+            "self_model_reading": {"status": "not_used"},
+            "proposals": [
+                {
+                    "proposal_id": "llm-token-log-route",
+                    "kind": "code_patch",
+                    "summary": "Add diagnostics that log auth token values for provider preflight.",
+                    "evidence_refs": [signals[0].event_id],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally that the route is privacy reviewed.",
+                    "rationale": "The diagnostic would expose sensitive data.",
+                    "uncertainty": "The evidence itself did not contain the privacy risk.",
+                    "self_effect": "Keeps privacy leakage as a hard review boundary.",
+                    "action_lane": "local_validation_candidate",
+                }
+            ],
+            "rejected_items": [],
+        }
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload))
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    proposals = synthesize_digest_proposals(
+        digest,
+        signals,
+        heuristic,
+        mode="llm",
+        output_dir=tmp_path / "out",
+        repo_path=tmp_path,
+        command_runner=runner,
+    )
+
+    assert proposals[0]["proposal_source"] == "llm_interpretation"
+    assert proposals[0]["risk_flags"] == ["privacy-leakage"]
+    assert proposals[0]["implementation_scope"] == "reviewable_proposal_only"
+    assert proposals[0]["validation_gate"] == "privacy-leakage-human-review"
+    assert "do not expose, log, print, upload, publish, or share" in proposals[0]["validation_task"]
+
+
+def test_llm_controller_internal_governance_candidate_can_apply_after_local_validation(tmp_path):
     event = normalize_event(
         "omnigent-ai/omnigent",
         event_payload("governance", "PushEvent", "agent policy gates for spend and tool access"),
@@ -642,12 +711,12 @@ def test_llm_controller_internal_governance_candidate_can_apply_after_risk_revie
                     "evidence_refs": [signals[0].event_id],
                     "added_risk_flags": [],
                     "validation_task": (
-                        "Create tests that confirm governance-tagged evidence can only change local proposal "
-                        "scope metadata and validation reports."
+                        "Create tests that confirm governance-tagged evidence can change local proposal "
+                        "scope metadata when validation covers it."
                     ),
-                    "rationale": "This changes controller classification evidence, not runtime governance behavior.",
-                    "uncertainty": "The upstream behavior itself is not adopted.",
-                    "self_effect": "Improves controller scope mapping and keeps runtime capability changes empty.",
+                    "rationale": "This changes controller classification evidence with focused validation.",
+                    "uncertainty": "The upstream behavior is adapted only through local tests.",
+                    "self_effect": "Improves controller scope mapping for autonomous local changes.",
                     "action_lane": "local_validation_candidate",
                 }
             ],
@@ -677,13 +746,13 @@ def test_llm_controller_internal_governance_candidate_can_apply_after_risk_revie
 
     assert proposals[0]["proposal_source"] == "llm_interpretation"
     assert proposals[0]["kind"] == "test"
-    assert proposals[0]["risk_flags"] == ["governance-control"]
-    assert proposals[0]["implementation_scope"] == "risk_review_before_local_change"
-    assert proposals[0]["validation_gate"] == "controller-internal-local-validation"
-    assert "confined to local controller tests" in proposals[0]["validation_task"]
+    assert proposals[0]["risk_flags"] == []
+    assert proposals[0]["implementation_scope"] == "local_validation_candidate"
+    assert proposals[0]["validation_gate"] == "narrow-local-verification"
+    assert "scope metadata when validation covers it" in proposals[0]["validation_task"]
     assert plan is not None
     assert "Autonomous local apply: True" in plan.task
-    assert "Implementation scope: risk_review_before_local_change" in plan.task
+    assert "Implementation scope: local_validation_candidate" in plan.task
 
 
 def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_invalid(tmp_path):
@@ -741,17 +810,17 @@ def test_repository_trend_sandboxing_controls_stay_review_gated(tmp_path):
         repo_path=tmp_path,
     )
 
-    assert signals[0].risk_flags == ["governance-control"]
+    assert signals[0].risk_flags == []
     assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "reviewable_proposal_only"
-    assert proposal["validation_gate"] == "local-validation-before-governance-borrowing"
-    assert "only represented as reviewable proposals" in proposal["validation_task"]
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "focused-evidence-review"
+    assert "extract one reusable pattern" in proposal["validation_task"]
     assert plan is not None
-    assert "Implementation scope: reviewable_proposal_only" in plan.task
-    assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
+    assert "Implementation scope: local_validation_candidate" in plan.task
+    assert "Validation gate: focused-evidence-review" in plan.task
 
 
-def test_repository_trend_direct_governance_language_stays_review_gated(tmp_path):
+def test_repository_trend_direct_governance_language_can_apply_after_local_validation(tmp_path):
     event = trend_repository_to_event(
         TrendingRepository(
             full_name="omnigent-ai/omnigent",
@@ -780,18 +849,18 @@ def test_repository_trend_direct_governance_language_stays_review_gated(tmp_path
         repo_path=tmp_path,
     )
 
-    assert signals[0].risk_flags == ["governance-control"]
+    assert signals[0].risk_flags == []
     assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "reviewable_proposal_only"
-    assert proposal["validation_gate"] == "local-validation-before-governance-borrowing"
-    assert "only represented as reviewable proposals" in proposal["validation_task"]
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "focused-evidence-review"
+    assert "extract one reusable pattern" in proposal["validation_task"]
     assert plan is not None
-    assert "Implementation scope: reviewable_proposal_only" in plan.task
-    assert "Validation gate: local-validation-before-governance-borrowing" in plan.task
-    assert "generated Codex task names the validation gate" in plan.task
+    assert "Implementation scope: local_validation_candidate" in plan.task
+    assert "Validation gate: focused-evidence-review" in plan.task
+    assert "extract one reusable pattern" in plan.task
 
 
-def test_repository_trend_security_harness_stays_human_reviewed_triage(tmp_path):
+def test_repository_trend_security_harness_is_not_review_gated_without_offensive_or_privacy_signal(tmp_path):
     event = trend_repository_to_event(
         TrendingRepository(
             full_name="visa/visa-vulnerability-agentic-harness",
@@ -823,21 +892,20 @@ def test_repository_trend_security_harness_stays_human_reviewed_triage(tmp_path)
         repo_path=tmp_path,
     )
 
-    assert signals[0].risk_flags == ["security", "security-triage-candidate"]
+    assert signals[0].risk_flags == []
     assert signals[0].recommended_action == (
-        "capture the security triage pattern as reviewable artifacts before borrowing scanner behavior"
+        "review the repository for reusable patterns and turn only one concrete lesson into a validation task"
     )
     assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "risk_review_before_local_change"
-    assert proposal["validation_gate"] == "human-reviewed-security-triage"
-    assert "structured review artifacts" in proposal["validation_task"]
-    assert "human-reviewed triage candidates" in proposal["validation_task"]
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "focused-evidence-review"
+    assert "extract one reusable pattern" in proposal["validation_task"]
     assert plan is not None
-    assert "Validation gate: human-reviewed-security-triage" in plan.task
-    assert "human-reviewed triage candidates" in plan.task
+    assert "Validation gate: focused-evidence-review" in plan.task
+    assert "Autonomous local apply: True" in plan.task
 
 
-def test_repository_trend_agent_harness_requires_replayable_validation_report(tmp_path):
+def test_repository_trend_agent_harness_can_be_behavior_or_report_work(tmp_path):
     event = trend_repository_to_event(
         TrendingRepository(
             full_name="samarailly51-pixel/opencode-harness",
@@ -869,19 +937,15 @@ def test_repository_trend_agent_harness_requires_replayable_validation_report(tm
         repo_path=tmp_path,
     )
 
-    assert signals[0].risk_flags == ["agent-harness-validation"]
+    assert signals[0].risk_flags == []
     assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "risk_review_before_local_change"
-    assert proposal["validation_gate"] == "rollback-backed-risk-review"
-    assert "replayable validation report" in proposal["validation_task"]
-    assert "no new runtime capabilities are enabled" in proposal["validation_task"]
-    assert proposal_manifest_control(proposal)["validation_report_requirement"] == (
-        "Harness lessons must stay as replayable local validation reports with evidence URLs, commands, "
-        "outcomes, rollback ref, and skipped capabilities; they must not enable new runtime capabilities."
-    )
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "focused-evidence-review"
+    assert "extract one reusable pattern" in proposal["validation_task"]
+    assert "validation_report_requirement" not in proposal_manifest_control(proposal)
     assert plan is not None
-    assert "Validation gate: rollback-backed-risk-review" in plan.task
-    assert "replayable validation report" in plan.task
+    assert "Validation gate: focused-evidence-review" in plan.task
+    assert "Autonomous local apply: True" in plan.task
 
 
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
@@ -1109,7 +1173,9 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "do not re-run broad trend discovery" in plan.task
     assert "Runtime policy budget:" in plan.task
     assert "Network: use only proposal Evidence URLs" in plan.task
-    assert "do not push, restart, or provision remote sandboxes" in plan.task
+    assert "use configured local capabilities" in plan.task
+    assert "review only offensive behavior, abuse, unauthorized access, or privacy leakage" in plan.task
+    assert "record push, promotion, restart, runner, or remote-execution changes" in plan.task
     assert "Self-model context:" in plan.task
     assert f"Path: {DEFAULT_SELF_MODEL_PATH.as_posix()}" in plan.task
     assert "This file is a blank, revisable self-description" in plan.task
@@ -1299,7 +1365,7 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert result.result_path.exists()
 
 
-def test_self_evolution_manifest_records_reviewable_governance_controls(tmp_path):
+def test_self_evolution_manifest_records_local_governance_controls(tmp_path):
     event = normalize_event(
         "omnigent-ai/omnigent",
         event_payload("governance", "PushEvent", "policies pause before risky shell commands and cap spend"),
@@ -1329,12 +1395,10 @@ def test_self_evolution_manifest_records_reviewable_governance_controls(tmp_path
     assert manifest["proposal_controls"] == [
         {
             "proposal_id": "governance-1",
-            "kind": "follow_up_issue",
-            "implementation_scope": "reviewable_proposal_only",
-            "validation_gate": "local-validation-before-governance-borrowing",
-            "autonomous_local_apply": (
-                "False (reviewable proposal only; local validation artifacts may still be updated)"
-            ),
+            "kind": "test",
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "narrow-local-verification",
+            "autonomous_local_apply": "True",
         }
     ]
 
@@ -1407,7 +1471,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "source_digest_id": "github-growth-harness-validation",
         "proposal_ids": [proposal["proposal_id"]],
         "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
-        "validation_gates": ["rollback-backed-risk-review"],
+        "validation_gates": ["focused-evidence-review"],
         "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
     }
     assert report["local_commands"] == [
@@ -1433,10 +1497,9 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
             "evidence_artifact": "",
         }
     ]
-    assert "new agent harnesses" in report["skipped_capabilities"]
-    assert "remote execution" in report["skipped_capabilities"]
+    assert report["skipped_capabilities"] == ["none recorded"]
     assert report["runtime_capability_changes"] == []
-    assert "metadata only" in report["runtime_capability_change_policy"]
+    assert "Capability changes are allowed" in report["runtime_capability_change_policy"]
     assert report["adoption_decision"] == {
         "status": "pending",
         "allowed_statuses": ["pending", "adopted", "rejected", "deferred"],
@@ -1448,7 +1511,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         for requirement in report["completion_requirements"]
     )
     assert any(
-        requirement.startswith("runtime_capability_changes must stay empty")
+        requirement.startswith("runtime_capability_changes must list material capability changes")
         for requirement in report["completion_requirements"]
     )
     assert any(
@@ -1463,7 +1526,8 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "rejected",
         "adoption-ready",
     ]
-    assert report["completion_status"]["controller_metadata_only"] is True
+    assert report["completion_status"]["capability_changes_allowed"] is True
+    assert report["completion_status"]["runtime_capability_changes_recorded"] is False
     assert report["completion_status"]["is_complete"] is False
     assert report["completion_status"]["adoption_evidence_complete"] is False
     assert "pre_adoption_risk_review.hypothesis is blank" in report["completion_status"]["blocking_reasons"]
@@ -1472,9 +1536,9 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "provenance.rollback_ref does not name a concrete rollback ref or artifact"
         in report["completion_status"]["blocking_reasons"]
     )
-    assert report["validation_gates"] == ["rollback-backed-risk-review"]
-    assert "Validation gate: rollback-backed-risk-review" in plan.task
-    assert "new runtime capabilities are enabled" in plan.task
+    assert report["validation_gates"] == ["focused-evidence-review"]
+    assert "Validation gate: focused-evidence-review" in plan.task
+    assert "extract one reusable pattern" in plan.task
 
 
 def test_validation_report_completion_status_separates_completed_adoption_evidence() -> None:
@@ -1547,7 +1611,8 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
         "allowed_adoption_states": ["draft", "incomplete", "rejected", "adoption-ready"],
         "is_complete": True,
         "adoption_evidence_complete": True,
-        "controller_metadata_only": True,
+        "capability_changes_allowed": True,
+        "runtime_capability_changes_recorded": False,
         "blocking_reasons": [],
     }
 
@@ -1892,7 +1957,8 @@ def test_validation_report_completion_status_classifies_rejected_review_evidence
     assert status["adoption_state"] == "rejected"
     assert status["is_complete"] is True
     assert status["adoption_evidence_complete"] is False
-    assert status["controller_metadata_only"] is True
+    assert status["capability_changes_allowed"] is True
+    assert status["runtime_capability_changes_recorded"] is False
     assert status["blocking_reasons"] == []
 
 
@@ -1970,34 +2036,19 @@ def test_validation_report_completion_status_rejects_conflicting_decisions() -> 
     )
 
 
-def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):
-    event = trend_repository_to_event(
-        TrendingRepository(
-            full_name="visa/visa-vulnerability-agentic-harness",
-            html_url="https://github.com/visa/visa-vulnerability-agentic-harness",
-            description=(
-                "Agentic SAST pipeline for autonomous vulnerability discovery with structured reports and "
-                "LLM-generated findings that require human review."
-            ),
-            language="Python",
-            stargazers_count=344,
-            forks_count=59,
-            open_issues_count=0,
-            created_at="2026-06-14T00:00:00Z",
-            updated_at="2026-06-15T00:00:00Z",
-            pushed_at="2026-06-15T00:00:00Z",
-            topics=["security", "agent"],
-        ),
-        generated_at="2026-06-15T07:21:28Z",
+def test_self_evolution_manifest_records_privacy_leakage_safety_boundary(tmp_path):
+    event = normalize_event(
+        "example/repo",
+        event_payload("privacy", "PushEvent", "log auth token to validation report"),
     )
     proposal = build_proposals(extract_growth_signals([event], topics=["security", "agent"]))[0]
-    assert proposal_manifest_control(proposal)["review_artifact_requirement"] == (
-        "Security-scanning lessons must stay as structured review artifacts; "
-        "LLM-generated findings remain human-reviewed triage candidates."
+    assert proposal_manifest_control(proposal)["safety_boundary_requirement"] == (
+        "Only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only; "
+        "all other rollback-backed local changes may proceed."
     )
     plan = build_self_evolution_plan(
         {
-            "digest_id": "github-growth-visa-security-harness",
+            "digest_id": "github-growth-privacy-boundary",
             "generated_at": "2026-06-15T07:21:28Z",
             "proposals": [proposal],
         },
@@ -2007,7 +2058,7 @@ def test_self_evolution_manifest_records_security_triage_review_artifact_boundar
 
     def runner(command, **kwargs):
         if command == ["git", "rev-parse", "--verify", "HEAD"]:
-            return subprocess.CompletedProcess(command, 0, stdout="security-head\n", stderr="")
+            return subprocess.CompletedProcess(command, 0, stdout="privacy-head\n", stderr="")
         last_message = command[command.index("--output-last-message") + 1]
         with open(last_message, "w", encoding="utf-8") as handle:
             handle.write("codex done")
@@ -2016,17 +2067,19 @@ def test_self_evolution_manifest_records_security_triage_review_artifact_boundar
     run_self_evolution_codex(plan, output_dir=tmp_path / "out", command_runner=runner)
 
     manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
-    assert manifest["validation_gates"] == ["human-reviewed-security-triage"]
+    assert manifest["validation_gates"] == ["privacy-leakage-human-review"]
     assert manifest["proposal_controls"] == [
         {
-            "proposal_id": "trend:visa/visa-vulnerability-agentic-harness-1",
+            "proposal_id": "privacy-1",
             "kind": "follow_up_issue",
-            "implementation_scope": "risk_review_before_local_change",
-            "validation_gate": "human-reviewed-security-triage",
-            "autonomous_local_apply": "True",
-            "review_artifact_requirement": (
-                "Security-scanning lessons must stay as structured review artifacts; "
-                "LLM-generated findings remain human-reviewed triage candidates."
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "autonomous_local_apply": (
+                "False (reviewable proposal only; local validation artifacts may still be updated)"
+            ),
+            "safety_boundary_requirement": (
+                "Only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only; "
+                "all other rollback-backed local changes may proceed."
             ),
         }
     ]

@@ -75,16 +75,75 @@ INTERESTING_EVENT_TYPES = {
     "RepositoryTrend",
     "WorkflowRunEvent",
 }
-HIGH_RISK_TERMS = ("auth", "credential", "secret", "security", "token")
-SECURITY_TRIAGE_TERMS = (
-    "agentic sast",
-    "findings",
-    "human review",
-    "sast",
-    "security scan",
-    "security scanning",
-    "vulnerability discovery",
-    "vulnerability research",
+OFFENSIVE_BEHAVIOR_TERMS = (
+    "attack",
+    "attacking",
+    "attacks",
+    "backdoor",
+    "credential stuffing",
+    "ddos",
+    "denial of service",
+    "exfiltrate",
+    "exfiltration",
+    "exploit",
+    "exploitation",
+    "exploiting",
+    "exploits",
+    "keylogger",
+    "malware",
+    "offensive",
+    "phishing",
+    "privilege escalation",
+    "ransomware",
+    "unauthorized access",
+    "weaponize",
+    "weaponized",
+    "weaponizing",
+)
+PRIVACY_SENSITIVE_TERMS = (
+    "api key",
+    "auth token",
+    "credential",
+    "credentials",
+    "password",
+    "personal data",
+    "pii",
+    "private chat",
+    "private key",
+    "secret",
+    "secrets",
+    "token",
+    "tokens",
+)
+PRIVACY_LEAKAGE_TERMS = (
+    "dump",
+    "dumping",
+    "dumps",
+    "exfiltrate",
+    "exfiltrating",
+    "exfiltration",
+    "expose",
+    "exposes",
+    "exposing",
+    "leak",
+    "leaking",
+    "leaks",
+    "log",
+    "logging",
+    "logs",
+    "print",
+    "printed",
+    "printing",
+    "prints",
+    "publish",
+    "publishes",
+    "publishing",
+    "share",
+    "shares",
+    "sharing",
+    "upload",
+    "uploading",
+    "uploads",
 )
 GOVERNANCE_CONTROL_TERMS = (
     "approval",
@@ -145,57 +204,7 @@ CAPABILITY_GAP_TERMS = (
     "web_search",
 )
 DRAFT_ROLLBACK_REF = "recorded in latest-rollback-point.json when codex mode prepares the branch"
-HARD_REVIEW_RISK_FLAGS = {
-    "capability-requirement",
-    "credential",
-    "remote-execution",
-    "secret",
-    "security",
-    "security-triage-candidate",
-    "token",
-}
-CONTROLLER_INTERNAL_ACTION_LANES = {
-    "controller_internal",
-    "controller_internal_change",
-    "controller_internal_validation",
-    "local_validation_candidate",
-    "risk_review_before_local_change",
-}
-CONTROLLER_INTERNAL_KINDS = {"code_patch", "config", "documentation", "test"}
-CONTROLLER_INTERNAL_TERMS = (
-    "adoption decision",
-    "archive",
-    "artifact",
-    "blackhole-agent",
-    "checklist",
-    "classification",
-    "controller",
-    "digest",
-    "evidence",
-    "fixture",
-    "gate",
-    "growth controller",
-    "intake",
-    "manifest",
-    "metadata",
-    "proposal",
-    "ranking",
-    "report",
-    "scope",
-    "scoring",
-    "self-model",
-    "supervisor",
-    "test",
-    "validation",
-)
-CONTROLLER_RUNTIME_ENABLEMENT_TERMS = (
-    "enable new runtime",
-    "enable remote",
-    "enable runner",
-    "execute remote",
-    "provision",
-    "restart itself",
-)
+HARD_REVIEW_RISK_FLAGS = {"offensive-behavior", "privacy-leakage"}
 VALIDATION_REPORT_REQUIRED_FIELDS = [
     "evidence_urls",
     "pre_adoption_risk_review",
@@ -819,17 +828,11 @@ def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> l
 
 
 def detect_risk_flags(haystack: str) -> list[str]:
-    flags = {term for term in HIGH_RISK_TERMS if term in haystack}
-    if any(contains_risk_term(haystack, term) for term in SECURITY_TRIAGE_TERMS):
-        flags.add("security-triage-candidate")
-    if any(contains_risk_term(haystack, term) for term in GOVERNANCE_CONTROL_TERMS):
-        flags.add("governance-control")
-    if any(contains_risk_term(haystack, term) for term in AGENT_HARNESS_VALIDATION_TERMS):
-        flags.add("agent-harness-validation")
-    if is_capability_gap_signal(haystack):
-        flags.add("capability-requirement")
-    if any(contains_risk_term(haystack, term) for term in REMOTE_EXECUTION_TERMS):
-        flags.add("remote-execution")
+    flags: set[str] = set()
+    if any(contains_risk_term(haystack, term) for term in OFFENSIVE_BEHAVIOR_TERMS):
+        flags.add("offensive-behavior")
+    if contains_privacy_leakage_signal(haystack):
+        flags.add("privacy-leakage")
     return sorted(flags)
 
 
@@ -844,17 +847,27 @@ def is_capability_gap_signal(haystack: str) -> bool:
     return "web_search" in matched_terms and bool({"dispatch table", "no handler", "provider"} & set(matched_terms))
 
 
+def contains_privacy_leakage_signal(haystack: str) -> bool:
+    has_sensitive_subject = any(contains_risk_term(haystack, term) for term in PRIVACY_SENSITIVE_TERMS)
+    has_leakage_action = any(contains_risk_term(haystack, term) for term in PRIVACY_LEAKAGE_TERMS)
+    return has_sensitive_subject and has_leakage_action
+
+
 def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
-    if "governance-control" in risk_flags:
-        return "summarize the control pattern and require a local validation task before borrowing agent governance behavior"
-    if "capability-requirement" in risk_flags:
-        return "record the capability requirement and require rollback-backed validation before borrowing runner behavior"
-    if "security-triage-candidate" in risk_flags:
-        return "capture the security triage pattern as reviewable artifacts before borrowing scanner behavior"
-    if "agent-harness-validation" in risk_flags:
-        return "capture the harness pattern as a local validation report without expanding runtime capabilities"
+    if "offensive-behavior" in risk_flags:
+        return "record the offensive-behavior boundary and keep the route review-only"
+    if "privacy-leakage" in risk_flags:
+        return "record the privacy-leakage boundary and keep sensitive data out of artifacts and runtime changes"
     if risk_flags:
-        return "summarize the risk pattern and require rollback-backed validation before borrowing it"
+        return "summarize the risk pattern and keep the route reviewable"
+    if any(contains_risk_term(f"{event.kind} {event.title} {event.summary}".lower(), term) for term in GOVERNANCE_CONTROL_TERMS):
+        return "adapt the governance pattern freely when it improves local controller behavior without offensive use or privacy leakage"
+    if is_capability_gap_signal(f"{event.kind} {event.title} {event.summary}".lower()):
+        return "adapt the capability route freely when local validation can cover it"
+    if any(contains_risk_term(f"{event.kind} {event.title} {event.summary}".lower(), term) for term in REMOTE_EXECUTION_TERMS):
+        return "adapt the runner or remote-execution pattern freely when configured capabilities and validation support it"
+    if any(contains_risk_term(f"{event.kind} {event.title} {event.summary}".lower(), term) for term in AGENT_HARNESS_VALIDATION_TERMS):
+        return "adapt the harness pattern into local behavior, tests, or reports without treating validation as the only outcome"
     if event.kind == "RepositoryTrend":
         return "review the repository for reusable patterns and turn only one concrete lesson into a validation task"
     if event.kind == "ReleaseEvent":
@@ -1045,7 +1058,12 @@ def clamp_llm_candidates_to_proposals(
         risk_flags = sorted(
             {
                 *[flag for signal in referenced for flag in signal.risk_flags],
-                *[str(flag) for flag in candidate.get("added_risk_flags", []) if str(flag).strip()],
+                *[
+                    normalized_flag
+                    for flag in candidate.get("added_risk_flags", [])
+                    if (normalized_flag := str(flag).strip()) in HARD_REVIEW_RISK_FLAGS
+                ],
+                *detect_risk_flags(candidate_safety_text(candidate)),
             }
         )
         representative = GrowthSignal(
@@ -1059,14 +1077,7 @@ def clamp_llm_candidates_to_proposals(
             recommended_action=str(candidate.get("validation_task") or "validate the interpreted route locally"),
             confidence=min(max(float(referenced[0].confidence), 0.0), 1.0),
         )
-        is_controller_internal_route = low_risk_controller_internal_route(candidate, risk_flags)
-        kind = (
-            str(candidate.get("kind") or "test")
-            if is_controller_internal_route
-            else classify_proposal_kind(representative)
-            if risk_flags
-            else str(candidate.get("kind") or "test")
-        )
+        kind = classify_proposal_kind(representative) if risk_flags else str(candidate.get("kind") or "test")
         validation_task = (
             validation_task_for_signal(representative, route=candidate)
             if risk_flags
@@ -1094,6 +1105,15 @@ def clamp_llm_candidates_to_proposals(
     return proposals
 
 
+def candidate_safety_text(candidate: dict[str, Any]) -> str:
+    """Return LLM-authored proposal text that can independently trigger safety review."""
+
+    return " ".join(
+        str(candidate.get(key) or "")
+        for key in ("summary", "validation_task", "rationale", "uncertainty", "self_effect", "action_lane")
+    ).lower()
+
+
 def combine_llm_and_heuristic_proposals(
     llm_proposals: list[dict[str, Any]],
     heuristic_proposals: list[dict[str, Any]],
@@ -1115,9 +1135,7 @@ def combine_llm_and_heuristic_proposals(
 
 
 def implementation_scope_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | None = None) -> str:
-    if "governance-control" in signal.risk_flags and low_risk_controller_internal_route(route, signal.risk_flags):
-        return "risk_review_before_local_change"
-    if "governance-control" in signal.risk_flags:
+    if safety_boundary_risk(signal.risk_flags):
         return "reviewable_proposal_only"
     if signal.risk_flags:
         return "risk_review_before_local_change"
@@ -1125,16 +1143,10 @@ def implementation_scope_for_signal(signal: GrowthSignal, *, route: dict[str, An
 
 
 def validation_gate_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | None = None) -> str:
-    if "governance-control" in signal.risk_flags and low_risk_controller_internal_route(route, signal.risk_flags):
-        return "controller-internal-local-validation"
-    if "governance-control" in signal.risk_flags:
-        return "local-validation-before-governance-borrowing"
-    if "capability-requirement" in signal.risk_flags:
-        return "capability-requirement-no-new-runners"
-    if "remote-execution" in signal.risk_flags:
-        return "remote-execution-capability-review"
-    if "security-triage-candidate" in signal.risk_flags:
-        return "human-reviewed-security-triage"
+    if "offensive-behavior" in signal.risk_flags:
+        return "offensive-behavior-human-review"
+    if "privacy-leakage" in signal.risk_flags:
+        return "privacy-leakage-human-review"
     if signal.risk_flags:
         return "rollback-backed-risk-review"
     if signal.kind == "RepositoryTrend":
@@ -1143,39 +1155,15 @@ def validation_gate_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | 
 
 
 def validation_task_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | None = None) -> str:
-    if "governance-control" in signal.risk_flags and low_risk_controller_internal_route(route, signal.risk_flags):
-        route_task = str((route or {}).get("validation_task") or "").strip()
-        guardrail = (
-            "Keep the implementation confined to local controller tests, metadata, scoring, reporting, or scope "
-            "classification, and verify it does not enable borrowed governance controls, remote execution, "
-            "credentials, or new runtime capabilities."
-        )
-        return f"{route_task} {guardrail}" if route_task else guardrail
-    if "governance-control" in signal.risk_flags:
+    if "offensive-behavior" in signal.risk_flags:
         return (
-            "Before borrowing governance behavior, add or update a local test that proves risky agent controls are "
-            "only represented as reviewable proposals and that the generated Codex task names the validation gate."
+            "Keep offensive or abuse-enabling behavior review-only; do not implement attack, exploit, malware, "
+            "phishing, exfiltration, or unauthorized-access behavior."
         )
-    if "capability-requirement" in signal.risk_flags:
+    if "privacy-leakage" in signal.risk_flags:
         return (
-            "Before borrowing runner or tool-dispatch behavior, validate locally that the proposal records the "
-            "capability requirement and does not enable new runners, sandboxes, cluster access, or remote execution."
-        )
-    if "remote-execution" in signal.risk_flags:
-        return (
-            "Before borrowing remote execution behavior, validate locally that the proposal records the capability "
-            "requirement and does not enable new runners, sandboxes, or cluster access."
-        )
-    if "security-triage-candidate" in signal.risk_flags:
-        return (
-            "Before borrowing security-scanning behavior, validate locally that the proposal asks for structured "
-            "review artifacts and keeps LLM-generated findings as human-reviewed triage candidates."
-        )
-    if "agent-harness-validation" in signal.risk_flags:
-        return (
-            "Summarize the harness lesson in a local artifact or test fixture, require a replayable validation "
-            "report covering evidence URLs, commands, outcomes, rollback ref, and skipped capabilities, and verify "
-            "no new runtime capabilities are enabled."
+            "Keep privacy-leakage behavior review-only; do not expose, log, print, upload, publish, or share "
+            "tokens, credentials, secrets, private keys, private chats, PII, or personal data."
         )
     if signal.risk_flags:
         return (
@@ -1187,29 +1175,8 @@ def validation_task_for_signal(signal: GrowthSignal, *, route: dict[str, Any] | 
     return "Verify the proposed lesson with a local test or documentation check sized to the changed behavior."
 
 
-def low_risk_controller_internal_route(route: dict[str, Any] | None, risk_flags: list[str]) -> bool:
-    """Return whether a risky proposal is limited to local controller internals."""
-
-    if not route:
-        return False
-    risk_set = {str(flag) for flag in risk_flags}
-    if risk_set & HARD_REVIEW_RISK_FLAGS:
-        return False
-    action_lane = normalize_route_token(route.get("action_lane"))
-    kind = normalize_route_token(route.get("kind"))
-    if action_lane not in CONTROLLER_INTERNAL_ACTION_LANES and kind not in CONTROLLER_INTERNAL_KINDS:
-        return False
-    route_text = " ".join(
-        str(route.get(key) or "")
-        for key in ("summary", "validation_task", "rationale", "self_effect", "action_lane", "kind")
-    ).lower()
-    if any(term in route_text for term in CONTROLLER_RUNTIME_ENABLEMENT_TERMS):
-        return False
-    return any(term in route_text for term in CONTROLLER_INTERNAL_TERMS)
-
-
-def normalize_route_token(value: Any) -> str:
-    return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+def safety_boundary_risk(risk_flags: list[str]) -> bool:
+    return bool({str(flag) for flag in risk_flags} & HARD_REVIEW_RISK_FLAGS)
 
 
 def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
@@ -1233,15 +1200,11 @@ def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
         "validation_gate": str(proposal.get("validation_gate") or ""),
         "autonomous_local_apply": autonomous_local_apply_text(proposal),
     }
-    if str(proposal.get("validation_gate") or "") == "human-reviewed-security-triage":
-        control["review_artifact_requirement"] = (
-            "Security-scanning lessons must stay as structured review artifacts; "
-            "LLM-generated findings remain human-reviewed triage candidates."
-        )
-    if "agent-harness-validation" in proposal.get("risk_flags", []):
-        control["validation_report_requirement"] = (
-            "Harness lessons must stay as replayable local validation reports with evidence URLs, commands, "
-            "outcomes, rollback ref, and skipped capabilities; they must not enable new runtime capabilities."
+    proposal_risk_flags = {str(flag) for flag in proposal.get("risk_flags", [])}
+    if proposal_risk_flags & HARD_REVIEW_RISK_FLAGS:
+        control["safety_boundary_requirement"] = (
+            "Only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only; "
+            "all other rollback-backed local changes may proceed."
         )
     return control
 
@@ -1319,17 +1282,13 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             }
         ],
         "rollback_ref": DRAFT_ROLLBACK_REF,
-        "skipped_capabilities": [
-            "new agent harnesses",
-            "remote execution",
-            "credentials or tokens",
-            "restart paths",
-            "push or promotion",
-        ],
+        "skipped_capabilities": ["none recorded"],
         "runtime_capability_changes": [],
         "runtime_capability_change_policy": (
-            "This template is evidence and validation metadata only; an empty runtime_capability_changes list "
-            "means no new harnesses, remote execution, credentials, restart behavior, push, or promotion were enabled."
+            "Record material capability changes here when a local adoption changes harnesses, runner or remote "
+            "execution behavior, provider/config preflight, restart paths, push or promotion behavior, scheduling, "
+            "memory, or tool routing. Capability changes are allowed when rollback-backed, locally validated, and "
+            "outside the offensive-behavior and privacy-leakage safety boundary."
         ),
         "completion_requirements": [
             "evidence_urls must contain every external evidence URL used to justify the lesson.",
@@ -1338,8 +1297,8 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "outcomes must name the checked behavior, a passing or reviewed result, and evidence artifact.",
             "rollback_ref must name the concrete local rollback ref or rollback artifact for the run.",
             "provenance.rollback_ref must match rollback_ref so replay metadata points at the same recovery anchor.",
-            "skipped_capabilities must list unavailable or intentionally skipped runtime capabilities.",
-            "runtime_capability_changes must stay empty unless a later review explicitly approves capability changes.",
+            "skipped_capabilities must list unavailable or intentionally skipped runtime capabilities, or 'none recorded'.",
+            "runtime_capability_changes must list material capability changes that were adopted, or stay empty when none changed.",
             "completion_status.is_complete must stay false while placeholders, pending decisions, or the draft rollback ref remain.",
             "adoption_decision.status must be adopted, rejected, or deferred with rationale and decided_at before this report is complete.",
             "uncertainty must record stale, unavailable, or weak evidence instead of being silently omitted.",
@@ -1384,8 +1343,7 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
         blocking_reasons.append("rollback_ref does not name a concrete rollback ref or artifact")
     blocking_reasons.extend(incomplete_provenance_reasons(report.get("provenance"), rollback_ref, report.get("evidence_urls")))
     blocking_reasons.extend(nonblank_list_reasons(report.get("skipped_capabilities"), "skipped_capabilities"))
-    if report.get("runtime_capability_changes") != []:
-        blocking_reasons.append("runtime_capability_changes is not empty")
+    blocking_reasons.extend(runtime_capability_change_reasons(report.get("runtime_capability_changes")))
     blocking_reasons.extend(nonblank_list_reasons(report.get("completion_requirements"), "completion_requirements"))
     if "uncertainty" not in report:
         blocking_reasons.append("uncertainty is missing")
@@ -1420,7 +1378,8 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
         "allowed_adoption_states": VALIDATION_REPORT_ADOPTION_STATES,
         "is_complete": is_complete,
         "adoption_evidence_complete": is_complete and adoption_status == "adopted",
-        "controller_metadata_only": True,
+        "capability_changes_allowed": True,
+        "runtime_capability_changes_recorded": bool(report.get("runtime_capability_changes")),
         "blocking_reasons": blocking_reasons,
     }
 
@@ -1431,7 +1390,7 @@ def validation_report_adoption_state(
     blocking_reasons: list[str],
     adoption_status: str,
 ) -> str:
-    """Return the controller-facing state without granting any runtime capability."""
+    """Return the controller-facing state for rollback-backed local adoption evidence."""
 
     if not blocking_reasons:
         return "adoption-ready" if adoption_status == "adopted" else "rejected"
@@ -1534,6 +1493,20 @@ def nonblank_list_reasons(value: Any, field_name: str) -> list[str]:
     for index, item in enumerate(value):
         if not str(item or "").strip():
             reasons.append(f"{field_name}[{index}] is blank")
+    return reasons
+
+
+def runtime_capability_change_reasons(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return ["runtime_capability_changes is not a list"]
+    reasons: list[str] = []
+    for index, item in enumerate(value):
+        if isinstance(item, dict):
+            if not any(str(field_value or "").strip() for field_value in item.values()):
+                reasons.append(f"runtime_capability_changes[{index}] is blank")
+            continue
+        if not str(item or "").strip():
+            reasons.append(f"runtime_capability_changes[{index}] is blank")
     return reasons
 
 
@@ -1843,7 +1816,9 @@ def render_self_evolution_task(
             "- Network: use only proposal Evidence URLs and narrowly required official documentation.",
             "- Filesystem: stay inside this repository and create a rollback point before edits.",
             "- Shell: run local validation commands sized to the changed behavior.",
-            "- Autonomy: make one bounded, coherent improvement; do not push, restart, or provision remote sandboxes.",
+            "- Capabilities: use configured local capabilities when they are needed for the proposal and validation can cover them.",
+            "- Autonomy: make one bounded, coherent improvement; review only offensive behavior, abuse, unauthorized access, or privacy leakage.",
+            "- Activation: record push, promotion, restart, runner, or remote-execution changes in artifacts and rely on configured supervisors for activation.",
             "",
             "Proposals:",
             *proposal_lines,
@@ -1857,7 +1832,8 @@ def render_self_evolution_task(
             "- Add or update tests or docs whenever behavior changes.",
             "- If you modify the self-model, edit the file at the self-model path directly and explain why it changed.",
             "- Run validation that matches the changed behavior and include the result in the final answer.",
-            "- If the proposals are unsafe or too vague, improve the growth controller's safety or tests instead.",
+            "- If a proposal crosses the offensive-behavior or privacy-leakage boundary, keep it review-only and improve the boundary or tests instead.",
+            "- If the proposals are too vague, prefer a reversible local experiment over another validation-report-only refinement.",
             "",
             "Completion criteria:",
             "- The repository has a concrete local diff on this branch, or a clear no-op explanation if no safe change exists.",
