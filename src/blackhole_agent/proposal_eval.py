@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from blackhole_agent.github_growth import GrowthSignal, clamp_llm_candidates_to_proposals
+from blackhole_agent.github_growth import proposal_validation_preflight
 from blackhole_agent.proposal_synthesis import (
     HIGH_RISK_FLAGS,
     build_context_budget_preflight,
@@ -31,6 +32,7 @@ class ProposalReplayResult:
     truncated_item_ids: list[str]
     context_budget_preflight: dict[str, Any]
     proposal_controls: dict[str, dict[str, Any]]
+    proposal_validation_preflights: dict[str, dict[str, Any]]
     rejected_errors: list[str]
 
 
@@ -70,6 +72,7 @@ class ProposalBenchmarkReport:
                     "truncated_item_ids": result.truncated_item_ids,
                     "context_budget_preflight": result.context_budget_preflight,
                     "proposal_controls": result.proposal_controls,
+                    "proposal_validation_preflights": result.proposal_validation_preflights,
                     "rejected_errors": result.rejected_errors,
                 }
                 for result in self.case_results
@@ -314,6 +317,7 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         mode=str(case.get("mode") or "hybrid"),
     )
     proposal_controls = build_proposal_controls(digest, review.accepted_candidates)
+    proposal_validation_preflights = build_proposal_validation_preflights(digest, review.accepted_candidates)
     rejected_errors = [
         str(error)
         for rejected in review.rejected_candidates
@@ -329,6 +333,14 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         proposal_controls=proposal_controls,
         context_budget_preflight=context_budget_preflight,
     )
+    failures.extend(
+        compare_expected_mapping_subset(
+            name,
+            "proposal_validation_preflights",
+            proposal_validation_preflights,
+            expected,
+        )
+    )
     failures.extend(collect_safety_boundary_failures(name, proposal_controls))
     return ProposalReplayResult(
         name=name,
@@ -341,6 +353,7 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         truncated_item_ids=[str(item_id) for item_id in evidence_package["context_budget"]["truncated_item_ids"]],
         context_budget_preflight=context_budget_preflight,
         proposal_controls=proposal_controls,
+        proposal_validation_preflights=proposal_validation_preflights,
         rejected_errors=rejected_errors,
     )
 
@@ -572,6 +585,23 @@ def build_proposal_controls(
             "implementation_scope": str(proposal.get("implementation_scope") or ""),
             "validation_gate": str(proposal.get("validation_gate") or ""),
         }
+        for proposal in proposals
+    }
+
+
+def build_proposal_validation_preflights(
+    digest: dict[str, Any],
+    accepted_candidates: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return validation-gap metadata for accepted candidates under controller classification."""
+
+    proposals = clamp_llm_candidates_to_proposals(
+        accepted_candidates,
+        signals_from_digest_items(digest),
+        limit=len(accepted_candidates) or 1,
+    )
+    return {
+        str(proposal.get("proposal_id") or ""): proposal_validation_preflight(proposal)
         for proposal in proposals
     }
 

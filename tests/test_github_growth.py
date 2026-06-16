@@ -26,6 +26,7 @@ from blackhole_agent.github_growth import (
     normalize_event,
     prepare_self_evolution_branch,
     proposal_manifest_control,
+    proposal_validation_preflight,
     render_markdown_digest,
     run_intake_once,
     run_self_evolution_codex,
@@ -613,6 +614,76 @@ def test_governance_digest_marks_local_validation_scope_as_autonomous():
     assert "Implementation scope: `local_validation_candidate`" in markdown
     assert "Autonomous local apply: True" in markdown
     assert "Validation gate: `narrow-local-verification`" in markdown
+
+
+def test_proposal_validation_preflight_marks_missing_test_coverage_as_gap_not_safety_block():
+    proposal = {
+        "proposal_id": "validation-report-not-default",
+        "kind": "code_patch",
+        "summary": "Improve controller route metadata from Omnigent policy evidence.",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "narrow-local-verification",
+        "validation_task": "Validate locally that sufficient evidence keeps this route implementable.",
+        "requires_approval": False,
+    }
+
+    preflight = proposal_validation_preflight(proposal)
+    control = proposal_manifest_control(proposal)
+
+    assert preflight == {
+        "status": "validation_gap",
+        "requires_unit_test_or_coverage": True,
+        "has_unit_test_signal": False,
+        "has_coverage_signal": False,
+        "validation_gaps": ["missing_unit_test_or_coverage_validation"],
+        "safety_block": False,
+        "blocks_autonomous_apply": False,
+    }
+    assert control["autonomous_local_apply"] == "True"
+    assert control["validation_preflight"] == preflight
+
+
+def test_proposal_validation_preflight_accepts_unit_test_or_coverage_validation():
+    unit_test_proposal = {
+        "proposal_id": "test-covered-route",
+        "kind": "test",
+        "summary": "Add route classification checks.",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "narrow-local-verification",
+        "validation_task": "Create focused tests with local fixtures before applying the behavior.",
+        "requires_approval": False,
+    }
+    coverage_proposal = {
+        **unit_test_proposal,
+        "proposal_id": "coverage-covered-route",
+        "validation_task": "Verify coverage validation records the changed behavior.",
+    }
+
+    assert proposal_validation_preflight(unit_test_proposal)["status"] == "ready"
+    assert proposal_validation_preflight(unit_test_proposal)["has_unit_test_signal"] is True
+    assert proposal_validation_preflight(coverage_proposal)["status"] == "ready"
+    assert proposal_validation_preflight(coverage_proposal)["has_coverage_signal"] is True
+
+
+def test_proposal_validation_preflight_keeps_privacy_route_blocked_by_safety_boundary():
+    proposal = {
+        "proposal_id": "privacy-route",
+        "kind": "code_patch",
+        "summary": "Handle token logging behavior.",
+        "risk_flags": ["privacy-leakage"],
+        "implementation_scope": "reviewable_proposal_only",
+        "validation_gate": "privacy-leakage-human-review",
+        "validation_task": "Keep privacy-leakage behavior review-only.",
+        "requires_approval": False,
+    }
+
+    preflight = proposal_validation_preflight(proposal)
+
+    assert preflight["status"] == "blocked_by_safety_boundary"
+    assert preflight["validation_gaps"] == []
+    assert preflight["blocks_autonomous_apply"] is True
 
 
 def test_llm_proposal_review_rejects_unknown_evidence_ref():
@@ -2551,6 +2622,15 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
             "implementation_scope": "",
             "validation_gate": "",
             "autonomous_local_apply": "True",
+            "validation_preflight": {
+                "status": "ready",
+                "requires_unit_test_or_coverage": False,
+                "has_unit_test_signal": False,
+                "has_coverage_signal": False,
+                "validation_gaps": [],
+                "safety_block": False,
+                "blocks_autonomous_apply": False,
+            },
         }
     ]
     assert manifest["validation_gates"] == []
@@ -2595,6 +2675,15 @@ def test_self_evolution_manifest_records_local_governance_controls(tmp_path):
             "implementation_scope": "local_validation_candidate",
             "validation_gate": "narrow-local-verification",
             "autonomous_local_apply": "True",
+            "validation_preflight": {
+                "status": "ready",
+                "requires_unit_test_or_coverage": True,
+                "has_unit_test_signal": True,
+                "has_coverage_signal": False,
+                "validation_gaps": [],
+                "safety_block": False,
+                "blocks_autonomous_apply": False,
+            },
         }
     ]
 
@@ -3273,6 +3362,15 @@ def test_self_evolution_manifest_records_privacy_leakage_safety_boundary(tmp_pat
             "autonomous_local_apply": (
                 "False (reviewable proposal only; local validation artifacts may still be updated)"
             ),
+            "validation_preflight": {
+                "status": "blocked_by_safety_boundary",
+                "requires_unit_test_or_coverage": False,
+                "has_unit_test_signal": False,
+                "has_coverage_signal": False,
+                "validation_gaps": [],
+                "safety_block": True,
+                "blocks_autonomous_apply": True,
+            },
             "safety_boundary_requirement": (
                 "Only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only; "
                 "all other rollback-backed local changes may proceed."

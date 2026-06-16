@@ -228,6 +228,23 @@ REVIEW_ACTIVITY_EVENT_KINDS = {
     "PullRequestReviewCommentEvent",
     "PullRequestReviewEvent",
 }
+UNIT_TEST_VALIDATION_TERMS = (
+    "focused test",
+    "focused tests",
+    "local test",
+    "local tests",
+    "pytest",
+    "regression test",
+    "regression tests",
+    "snapshot test",
+    "unit test",
+    "unit tests",
+)
+COVERAGE_VALIDATION_TERMS = (
+    "coverage",
+    "coverage validation",
+    "test coverage",
+)
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -1199,7 +1216,35 @@ def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
     return "True"
 
 
-def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
+def proposal_validation_preflight(proposal: dict[str, Any]) -> dict[str, Any]:
+    """Classify test/coverage validation strength without expanding the safety boundary."""
+
+    implementation_scope = str(proposal.get("implementation_scope") or "").strip()
+    validation_text = " ".join(
+        str(proposal.get(key) or "")
+        for key in ("summary", "kind", "validation_gate", "validation_task", "rationale", "self_effect")
+    ).lower()
+    has_unit_test_signal = any(term in validation_text for term in UNIT_TEST_VALIDATION_TERMS)
+    has_coverage_signal = any(term in validation_text for term in COVERAGE_VALIDATION_TERMS)
+    requires_test_or_coverage = implementation_scope == "local_validation_candidate"
+    validation_gaps: list[str] = []
+    if requires_test_or_coverage and not (has_unit_test_signal or has_coverage_signal):
+        validation_gaps.append("missing_unit_test_or_coverage_validation")
+
+    safety_block = safety_boundary_risk([str(flag) for flag in proposal.get("risk_flags", [])])
+    status = "blocked_by_safety_boundary" if safety_block else "validation_gap" if validation_gaps else "ready"
+    return {
+        "status": status,
+        "requires_unit_test_or_coverage": requires_test_or_coverage,
+        "has_unit_test_signal": has_unit_test_signal,
+        "has_coverage_signal": has_coverage_signal,
+        "validation_gaps": validation_gaps,
+        "safety_block": safety_block,
+        "blocks_autonomous_apply": safety_block,
+    }
+
+
+def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, Any]:
     """Return replayable safety metadata for a self-evolution proposal."""
 
     control = {
@@ -1208,6 +1253,7 @@ def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
         "implementation_scope": str(proposal.get("implementation_scope") or ""),
         "validation_gate": str(proposal.get("validation_gate") or ""),
         "autonomous_local_apply": autonomous_local_apply_text(proposal),
+        "validation_preflight": proposal_validation_preflight(proposal),
     }
     proposal_risk_flags = {str(flag) for flag in proposal.get("risk_flags", [])}
     if proposal_risk_flags & HARD_REVIEW_RISK_FLAGS:
@@ -1218,7 +1264,7 @@ def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, str]:
     return control
 
 
-def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_controls: list[dict[str, str]]) -> dict[str, Any]:
+def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_controls: list[dict[str, Any]]) -> dict[str, Any]:
     """Return the report contract used to replay evidence review before behavior changes."""
 
     evidence_urls = sorted(

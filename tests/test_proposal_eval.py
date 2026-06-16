@@ -161,3 +161,29 @@ def test_proposal_benchmark_report_classifies_action_lane_and_safety_boundary_dr
     assert report.passed is False
     assert report.failure_counts["action_lane_classification"] == 1
     assert report.failure_counts["safety_boundary_handling"] == 1
+
+
+def test_omnigent_replay_marks_missing_test_coverage_validation_as_gap_not_safety_block():
+    case = load_proposal_replay_case(FIXTURE_DIR / "omnigent_route_contract.json")
+    case["raw_response"]["proposals"][0]["validation_task"] = (
+        "Validate locally that the metadata remains replayable before implementation."
+    )
+    case["expected"]["proposal_validation_preflights"] = {
+        "validation-route-contract": {
+            "status": "validation_gap",
+            "requires_unit_test_or_coverage": True,
+            "has_unit_test_signal": False,
+            "has_coverage_signal": False,
+            "validation_gaps": ["missing_unit_test_or_coverage_validation"],
+            "safety_block": False,
+            "blocks_autonomous_apply": False,
+        }
+    }
+
+    result = run_proposal_replay_case(case)
+
+    assert result.passed is True
+    assert result.proposal_controls["validation-route-contract"]["implementation_scope"] == (
+        "local_validation_candidate"
+    )
+    assert result.proposal_validation_preflights["validation-route-contract"]["status"] == "validation_gap"

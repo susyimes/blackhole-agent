@@ -1,0 +1,13 @@
+# Rollback Point
+
+Run: github-growth-20260616T143522.683747Z
+Original branch: codex/blackhole-evolve/20260616T143645.441653-add-or-strengthen-a-local-preflight-that-detects
+HEAD: 07aa79706e06e0e4b344cc58f953bafd4041d383
+Rollback ref: refs/rollback/blackhole-agent/20260616T143522Z-test-coverage-preflight
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260616T143645.441653-add-or-strengthen-a-local-preflight-that-detects
+git reset --hard refs/rollback/blackhole-agent/20260616T143522Z-test-coverage-preflight
+git clean -fd
+
+Note: destructive rollback must be chosen explicitly by a human operator or external supervisor policy.
