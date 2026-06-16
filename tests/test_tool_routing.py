@@ -1,10 +1,13 @@
 from pathlib import Path
 
 from blackhole_agent.tool_routing import (
+    ProviderHarness,
     ToolCompatibilityCache,
     ToolDescriptor,
+    discover_provider_harnesses,
     executable_tool_registry,
     load_single_file_agent_tool_descriptors,
+    select_provider_harness,
 )
 
 
@@ -125,3 +128,106 @@ def test_single_file_yaml_function_tool_reaches_executable_registry():
             },
         }
     }
+
+
+def test_provider_harness_selection_uses_deterministic_fallback_order():
+    harnesses = [
+        ProviderHarness(name="cursor-sdk", provider="cursor", priority=30, optional_extra_modules=("cursor_agent",)),
+        ProviderHarness(name="function-agent", provider="function", priority=90),
+        ProviderHarness(name="copilot-sdk", provider="copilot", priority=20, optional_extra_modules=("github_copilot",)),
+    ]
+
+    selection = select_provider_harness(
+        harnesses,
+        installed_modules={"cursor_agent", "github_copilot"},
+        available_commands=set(),
+        environ={},
+        platform="linux",
+    )
+
+    assert selection.selected.name == "copilot-sdk"
+    assert [status.harness.name for status in selection.statuses] == [
+        "copilot-sdk",
+        "cursor-sdk",
+        "function-agent",
+    ]
+
+
+def test_provider_harness_skips_missing_optional_extra_with_clear_reason():
+    harnesses = [
+        ProviderHarness(name="cursor-sdk", provider="cursor", priority=10, optional_extra_modules=("cursor_agent",)),
+        ProviderHarness(name="function-agent", provider="function", priority=20),
+    ]
+
+    selection = select_provider_harness(
+        harnesses,
+        installed_modules=set(),
+        available_commands=set(),
+        environ={},
+        platform="linux",
+    )
+
+    assert selection.selected.name == "function-agent"
+    assert selection.statuses[0].available is False
+    assert selection.statuses[0].skip_reasons == ("missing_optional_extra:cursor_agent",)
+
+
+def test_provider_harness_discovery_reports_disabled_runner_missing_dependency_env_and_platform():
+    harness = ProviderHarness(
+        name="copilot-sdk",
+        provider="copilot",
+        priority=10,
+        enabled=False,
+        required_modules=("copilot_core",),
+        required_commands=("node",),
+        required_env=("COPILOT_TOKEN",),
+        supported_platforms=("darwin",),
+    )
+
+    (status,) = discover_provider_harnesses(
+        [harness],
+        installed_modules=set(),
+        available_commands=set(),
+        environ={},
+        platform="linux",
+    )
+
+    assert status.available is False
+    assert status.skip_reasons == (
+        "disabled_runner",
+        "unsupported_platform:linux",
+        "missing_dependency:copilot_core",
+        "missing_dependency:node",
+        "missing_env:COPILOT_TOKEN",
+    )
+
+
+def test_provider_harness_selection_exports_body_free_diagnostics_without_env_values():
+    selection = select_provider_harness(
+        [
+            ProviderHarness(
+                name="private-provider",
+                provider="private",
+                priority=10,
+                required_env=("PRIVATE_PROVIDER_TOKEN",),
+            )
+        ],
+        installed_modules=set(),
+        available_commands=set(),
+        environ={"PRIVATE_PROVIDER_TOKEN": "secret-token-value"},
+        platform="linux",
+    )
+
+    payload = selection.to_dict()
+
+    assert payload["selected"] == "private-provider"
+    assert "secret-token-value" not in str(payload)
+    assert payload["statuses"] == [
+        {
+            "available": True,
+            "name": "private-provider",
+            "priority": 10,
+            "provider": "private",
+            "skip_reasons": [],
+        }
+    ]

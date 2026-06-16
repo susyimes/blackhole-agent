@@ -1,0 +1,12 @@
+Rollback point for github-growth-20260616T163522.799130Z
+
+Original branch: codex/blackhole-evolve/20260616T163626.248975-add-or-improve-local-preflight-checks-for-sandbo
+Original HEAD: 040e6351b83de698cbd5781259558be0ba07a26d
+Local rollback ref: refs/rollback/blackhole-agent/20260616T163522Z
+
+Recovery commands, for an explicit supervisor or human rollback only:
+
+git switch codex/blackhole-evolve/20260616T163626.248975-add-or-improve-local-preflight-checks-for-sandbo
+git reset --hard refs/rollback/blackhole-agent/20260616T163522Z
+
+Do not run these commands automatically from inside the kernel.

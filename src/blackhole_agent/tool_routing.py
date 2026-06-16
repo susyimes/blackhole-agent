@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import sys
 from dataclasses import dataclass
+from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 def canonical_tool_schema(value: Mapping[str, Any] | None) -> str:
@@ -77,6 +81,169 @@ class ToolCompatibilityCache:
 
     def __len__(self) -> int:
         return len(self._entries)
+
+
+@dataclass(frozen=True)
+class ProviderHarness:
+    """Provider or SDK harness candidate with locally checkable capability requirements."""
+
+    name: str
+    provider: str
+    priority: int = 100
+    enabled: bool = True
+    required_modules: tuple[str, ...] = ()
+    optional_extra_modules: tuple[str, ...] = ()
+    required_commands: tuple[str, ...] = ()
+    required_env: tuple[str, ...] = ()
+    supported_platforms: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ProviderHarnessStatus:
+    """Discovery result for one provider harness candidate."""
+
+    harness: ProviderHarness
+    available: bool
+    skip_reasons: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "available": self.available,
+            "name": self.harness.name,
+            "priority": self.harness.priority,
+            "provider": self.harness.provider,
+            "skip_reasons": list(self.skip_reasons),
+        }
+
+
+@dataclass(frozen=True)
+class ProviderHarnessSelection:
+    """Deterministic provider harness routing decision with all skipped candidates retained."""
+
+    selected: ProviderHarness | None
+    statuses: tuple[ProviderHarnessStatus, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "selected": self.selected.name if self.selected else None,
+            "statuses": [status.to_dict() for status in self.statuses],
+        }
+
+
+def default_provider_harnesses() -> tuple[ProviderHarness, ...]:
+    """Return the built-in fallback order for locally supported agent providers."""
+
+    return (
+        ProviderHarness(
+            name="codex-cli",
+            provider="codex",
+            priority=10,
+            required_commands=("codex",),
+        ),
+        ProviderHarness(
+            name="copilot-sdk",
+            provider="copilot",
+            priority=20,
+            optional_extra_modules=("github_copilot",),
+        ),
+        ProviderHarness(
+            name="cursor-sdk",
+            provider="cursor",
+            priority=30,
+            optional_extra_modules=("cursor_agent",),
+        ),
+        ProviderHarness(
+            name="single-file-function-agent",
+            provider="function",
+            priority=90,
+        ),
+    )
+
+
+def select_provider_harness(
+    harnesses: Sequence[ProviderHarness] | None = None,
+    *,
+    installed_modules: set[str] | None = None,
+    available_commands: set[str] | None = None,
+    environ: Mapping[str, str] | None = None,
+    platform: str | None = None,
+) -> ProviderHarnessSelection:
+    """Select the first available provider harness and retain deterministic skip diagnostics."""
+
+    statuses = discover_provider_harnesses(
+        harnesses or default_provider_harnesses(),
+        installed_modules=installed_modules,
+        available_commands=available_commands,
+        environ=environ,
+        platform=platform,
+    )
+    selected = next((status.harness for status in statuses if status.available), None)
+    return ProviderHarnessSelection(selected=selected, statuses=tuple(statuses))
+
+
+def discover_provider_harnesses(
+    harnesses: Sequence[ProviderHarness],
+    *,
+    installed_modules: set[str] | None = None,
+    available_commands: set[str] | None = None,
+    environ: Mapping[str, str] | None = None,
+    platform: str | None = None,
+) -> tuple[ProviderHarnessStatus, ...]:
+    """Discover provider harness availability without importing optional SDKs."""
+
+    env = os.environ if environ is None else environ
+    current_platform = sys.platform if platform is None else platform
+    ordered = sorted(harnesses, key=lambda harness: (harness.priority, harness.name))
+    return tuple(
+        _provider_harness_status(
+            harness,
+            installed_modules=installed_modules,
+            available_commands=available_commands,
+            environ=env,
+            platform=current_platform,
+        )
+        for harness in ordered
+    )
+
+
+def _provider_harness_status(
+    harness: ProviderHarness,
+    *,
+    installed_modules: set[str] | None,
+    available_commands: set[str] | None,
+    environ: Mapping[str, str],
+    platform: str,
+) -> ProviderHarnessStatus:
+    reasons: list[str] = []
+    if not harness.enabled:
+        reasons.append("disabled_runner")
+    if harness.supported_platforms and platform not in harness.supported_platforms:
+        reasons.append(f"unsupported_platform:{platform}")
+    for module in harness.required_modules:
+        if not _module_available(module, installed_modules):
+            reasons.append(f"missing_dependency:{module}")
+    for module in harness.optional_extra_modules:
+        if not _module_available(module, installed_modules):
+            reasons.append(f"missing_optional_extra:{module}")
+    for command in harness.required_commands:
+        if not _command_available(command, available_commands):
+            reasons.append(f"missing_dependency:{command}")
+    for name in harness.required_env:
+        if not str(environ.get(name) or "").strip():
+            reasons.append(f"missing_env:{name}")
+    return ProviderHarnessStatus(harness=harness, available=not reasons, skip_reasons=tuple(reasons))
+
+
+def _module_available(module: str, installed_modules: set[str] | None) -> bool:
+    if installed_modules is not None:
+        return module in installed_modules
+    return find_spec(module) is not None
+
+
+def _command_available(command: str, available_commands: set[str] | None) -> bool:
+    if available_commands is not None:
+        return command in available_commands
+    return shutil.which(command) is not None
 
 
 def local_memory_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
