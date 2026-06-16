@@ -209,6 +209,40 @@ def build_proposal_evidence_package(
     }
 
 
+def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:
+    """Summarize proposal context pressure without exposing evidence content or URLs."""
+
+    context_budget = evidence_package.get("context_budget") if isinstance(evidence_package, dict) else {}
+    context_budget = context_budget if isinstance(context_budget, dict) else {}
+    items = evidence_package.get("items") if isinstance(evidence_package, dict) else []
+    items = items if isinstance(items, list) else []
+    item_text_truncation = context_budget.get("item_text_truncation")
+    item_text_truncation = item_text_truncation if isinstance(item_text_truncation, list) else []
+    truncated_field_count = 0
+    for entry in item_text_truncation:
+        if isinstance(entry, dict) and isinstance(entry.get("fields"), list):
+            truncated_field_count += len(entry["fields"])
+    self_model = evidence_package.get("self_model") if isinstance(evidence_package, dict) else {}
+    self_model = self_model if isinstance(self_model, dict) else {}
+    items_truncated = bool(context_budget.get("items_truncated"))
+    text_truncated = bool(item_text_truncation)
+    return {
+        "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
+        "digest_id": str(evidence_package.get("digest_id") or "") if isinstance(evidence_package, dict) else "",
+        "status": "pressure_detected" if items_truncated or text_truncated else "within_budget",
+        "local_metadata_only": True,
+        "external_fetch_performed": False,
+        "max_items": int(context_budget.get("max_items") or 0),
+        "input_item_count": int(context_budget.get("input_item_count") or 0),
+        "kept_item_count": len(items),
+        "items_truncated": items_truncated,
+        "max_item_text_chars": int(context_budget.get("max_item_text_chars") or 0),
+        "truncated_item_count": len(item_text_truncation),
+        "truncated_field_count": truncated_field_count,
+        "self_model_truncated": bool(self_model.get("truncated")),
+    }
+
+
 def truncate_text(value: str, limit: int) -> tuple[str, dict[str, int | bool]]:
     """Return a deterministic character-bounded copy plus replay metadata."""
 
@@ -471,6 +505,18 @@ def write_proposal_synthesis_artifacts(
     self_model_text = json.dumps(review.self_model_reading, indent=2, sort_keys=True) + "\n"
     (output_dir / "latest-growth-interpretation.json").write_text(interpretation_text, encoding="utf-8")
     (output_dir / "latest-self-model-reading.json").write_text(self_model_text, encoding="utf-8")
+
+
+def write_context_budget_preflight_artifact(output_dir: Path, *, evidence_package: dict[str, Any]) -> dict[str, Any]:
+    """Persist the local context-budget preflight before proposal interpretation runs."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    preflight = build_context_budget_preflight(evidence_package)
+    preflight_text = json.dumps(preflight, indent=2, sort_keys=True) + "\n"
+    (output_dir / f"context-budget-preflight-{timestamp}.json").write_text(preflight_text, encoding="utf-8")
+    (output_dir / "latest-context-budget-preflight.json").write_text(preflight_text, encoding="utf-8")
+    return preflight
 
 
 def stable_hash(payload: dict[str, Any]) -> str:

@@ -35,7 +35,11 @@ from blackhole_agent.github_growth import (
     validation_report_completion_status,
 )
 from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
-from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
+from blackhole_agent.proposal_synthesis import (
+    build_context_budget_preflight,
+    build_proposal_evidence_package,
+    review_llm_proposal_response,
+)
 from blackhole_agent.self_model import (
     BOOTSTRAP_SELF_MODEL,
     DEFAULT_SELF_MODEL_PATH,
@@ -782,6 +786,96 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     ]
 
 
+def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
+    evidence_package = build_proposal_evidence_package(
+        {
+            "digest_id": "github-growth-context-preflight",
+            "generated_at": "2026-06-16T05:06:01Z",
+            "items": [
+                {
+                    "item_id": "event-1",
+                    "source_url": "https://github.com/microsoft/fastcontext",
+                    "event_kind": "PushEvent",
+                    "summary": "compact context",
+                    "relevance_reason": "fits within budget",
+                    "risk_flags": [],
+                    "confidence": 0.8,
+                }
+            ],
+        },
+        max_items=3,
+        max_item_text_chars=100,
+    )
+
+    preflight = build_context_budget_preflight(evidence_package)
+
+    assert preflight == {
+        "schema_version": 1,
+        "digest_id": "github-growth-context-preflight",
+        "status": "within_budget",
+        "local_metadata_only": True,
+        "external_fetch_performed": False,
+        "max_items": 3,
+        "input_item_count": 1,
+        "kept_item_count": 1,
+        "items_truncated": False,
+        "max_item_text_chars": 100,
+        "truncated_item_count": 0,
+        "truncated_field_count": 0,
+        "self_model_truncated": False,
+    }
+    preflight_json = json.dumps(preflight, sort_keys=True)
+    assert "allowed_evidence_urls" not in preflight
+    assert "https://github.com/microsoft/fastcontext" not in preflight_json
+
+
+def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
+    evidence_package = build_proposal_evidence_package(
+        {
+            "digest_id": "github-growth-context-preflight",
+            "generated_at": "2026-06-16T05:06:01Z",
+            "items": [
+                {
+                    "item_id": "event-1",
+                    "source_url": "https://github.com/microsoft/fastcontext/one",
+                    "event_kind": "PushEvent",
+                    "summary": "x" * 30,
+                    "relevance_reason": "y" * 40,
+                    "risk_flags": [],
+                    "confidence": 0.8,
+                },
+                {
+                    "item_id": "event-2",
+                    "source_url": "https://github.com/microsoft/fastcontext/two",
+                    "event_kind": "PushEvent",
+                    "summary": "overflow",
+                    "relevance_reason": "overflow",
+                    "risk_flags": [],
+                    "confidence": 0.7,
+                },
+            ],
+        },
+        self_model_snapshot={"content": "z" * 25},
+        max_items=1,
+        max_item_text_chars=10,
+        max_self_model_chars=5,
+    )
+
+    preflight = build_context_budget_preflight(evidence_package)
+
+    assert preflight["status"] == "pressure_detected"
+    assert preflight["input_item_count"] == 2
+    assert preflight["kept_item_count"] == 1
+    assert preflight["max_items"] == 1
+    assert preflight["items_truncated"] is True
+    assert preflight["truncated_item_count"] == 1
+    assert preflight["truncated_field_count"] == 2
+    assert preflight["self_model_truncated"] is True
+    assert preflight["local_metadata_only"] is True
+    assert preflight["external_fetch_performed"] is False
+    assert "fastcontext" not in json.dumps(preflight, sort_keys=True)
+
+
 def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path):
     event = normalize_event(
         "example/runner",
@@ -796,8 +890,15 @@ def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path)
         generated_at="2026-06-15T08:00:00Z",
         proposals=heuristic,
     )
+    output_dir = tmp_path / "out"
 
     def runner(command, **kwargs):
+        preflight_path = output_dir / "latest-context-budget-preflight.json"
+        assert preflight_path.exists()
+        preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+        assert preflight["local_metadata_only"] is True
+        assert preflight["external_fetch_performed"] is False
+        assert "https://github.com" not in json.dumps(preflight, sort_keys=True)
         last_message = command[command.index("--output-last-message") + 1]
         payload = {
             "schema_version": 1,
@@ -829,7 +930,7 @@ def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path)
         signals,
         heuristic,
         mode="llm",
-        output_dir=tmp_path / "out",
+        output_dir=output_dir,
         repo_path=tmp_path,
         command_runner=runner,
     )
@@ -840,9 +941,9 @@ def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path)
     assert proposals[0]["implementation_scope"] == "local_validation_candidate"
     assert proposals[0]["validation_gate"] == "narrow-local-verification"
     assert "configured runner preflight records capability state" in proposals[0]["validation_task"]
-    review = json.loads((tmp_path / "out" / "latest-llm-proposal-review.json").read_text(encoding="utf-8"))
+    review = json.loads((output_dir / "latest-llm-proposal-review.json").read_text(encoding="utf-8"))
     assert review["status"] == "accepted"
-    assert (tmp_path / "out" / "latest-growth-interpretation.json").exists()
+    assert (output_dir / "latest-growth-interpretation.json").exists()
 
 
 def test_llm_candidate_privacy_leakage_language_is_review_gated(tmp_path):

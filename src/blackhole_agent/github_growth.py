@@ -33,6 +33,7 @@ from blackhole_agent.proposal_synthesis import (
     review_llm_proposal_response,
     stable_hash,
     validate_proposal_mode,
+    write_context_budget_preflight_artifact,
     write_proposal_synthesis_artifacts,
 )
 from blackhole_agent.self_model import (
@@ -972,6 +973,7 @@ def synthesize_digest_proposals(
         self_model_snapshot=self_model_snapshot.to_dict(),
         max_items=max(20, limit * 4),
     )
+    write_context_budget_preflight_artifact(output_dir, evidence_package=evidence_package)
     try:
         raw_text = run_proposal_interpretation_kernel(
             evidence_package,
