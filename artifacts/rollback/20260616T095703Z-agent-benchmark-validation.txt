@@ -1,0 +1,17 @@
+Rollback point for github-growth-20260616T095703.974538Z
+
+Original branch:
+codex/blackhole-evolve/20260616T095756.563634-add-or-extend-a-local-benchmark-style-validation
+
+Original HEAD:
+875dcc97e5984eb8e59694de603312a0bfc3d047
+
+Local rollback ref:
+refs/rollback/20260616T095703Z-agent-benchmark-validation
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260616T095756.563634-add-or-extend-a-local-benchmark-style-validation
+git reset --hard refs/rollback/20260616T095703Z-agent-benchmark-validation
+
+Notes:
+Created before local source/test edits for the proposal replay benchmark validation run.

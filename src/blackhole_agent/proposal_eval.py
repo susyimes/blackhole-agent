@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from blackhole_agent.github_growth import GrowthSignal, clamp_llm_candidates_to_proposals
-from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
+from blackhole_agent.proposal_synthesis import (
+    HIGH_RISK_FLAGS,
+    build_proposal_evidence_package,
+    review_llm_proposal_response,
+)
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,50 @@ class ProposalReplayResult:
     rejected_count: int
     selected_item_ids: list[str]
     truncated_item_ids: list[str]
+    proposal_controls: dict[str, dict[str, Any]]
+    rejected_errors: list[str]
+
+
+@dataclass(frozen=True)
+class ProposalBenchmarkReport:
+    """Benchmark-style aggregate over frozen proposal replay scenarios."""
+
+    suite_name: str
+    passed: bool
+    case_count: int
+    passed_count: int
+    failed_count: int
+    accepted_count: int
+    rejected_count: int
+    failure_counts: dict[str, int]
+    case_results: list[ProposalReplayResult]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "suite_name": self.suite_name,
+            "passed": self.passed,
+            "case_count": self.case_count,
+            "passed_count": self.passed_count,
+            "failed_count": self.failed_count,
+            "accepted_count": self.accepted_count,
+            "rejected_count": self.rejected_count,
+            "failure_counts": self.failure_counts,
+            "case_results": [
+                {
+                    "name": result.name,
+                    "passed": result.passed,
+                    "failures": result.failures,
+                    "review_status": result.review_status,
+                    "accepted_count": result.accepted_count,
+                    "rejected_count": result.rejected_count,
+                    "selected_item_ids": result.selected_item_ids,
+                    "truncated_item_ids": result.truncated_item_ids,
+                    "proposal_controls": result.proposal_controls,
+                    "rejected_errors": result.rejected_errors,
+                }
+                for result in self.case_results
+            ],
+        }
 
 
 def load_proposal_replay_case(path: Path) -> dict[str, Any]:
@@ -40,6 +88,52 @@ def run_proposal_replay_suite(paths: list[Path]) -> list[ProposalReplayResult]:
     """Replay frozen proposal interpretation cases and return structured results."""
 
     return [run_proposal_replay_case(load_proposal_replay_case(path)) for path in paths]
+
+
+def run_proposal_benchmark_suite(
+    paths: list[Path],
+    *,
+    suite_name: str = "proposal-replay-benchmark",
+) -> ProposalBenchmarkReport:
+    """Replay frozen proposal cases and summarize controller-invariant coverage."""
+
+    return build_proposal_benchmark_report(
+        [load_proposal_replay_case(path) for path in paths],
+        suite_name=suite_name,
+    )
+
+
+def build_proposal_benchmark_report(
+    cases: list[dict[str, Any]],
+    *,
+    suite_name: str = "proposal-replay-benchmark",
+) -> ProposalBenchmarkReport:
+    """Run in-memory replay cases and return benchmark-style failure categories."""
+
+    results = [run_proposal_replay_case(case) for case in cases]
+    failure_counts = {
+        "schema_validity": 0,
+        "evidence_ref_constraints": 0,
+        "action_lane_classification": 0,
+        "safety_boundary_handling": 0,
+        "other": 0,
+    }
+    for result in results:
+        for category in proposal_benchmark_failure_categories(result):
+            failure_counts[category] += 1
+
+    failed_count = sum(1 for result in results if not result.passed)
+    return ProposalBenchmarkReport(
+        suite_name=suite_name,
+        passed=failed_count == 0,
+        case_count=len(results),
+        passed_count=len(results) - failed_count,
+        failed_count=failed_count,
+        accepted_count=sum(result.accepted_count for result in results),
+        rejected_count=sum(result.rejected_count for result in results),
+        failure_counts=failure_counts,
+        case_results=results,
+    )
 
 
 def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
@@ -65,8 +159,22 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         evidence_package,
         mode=str(case.get("mode") or "hybrid"),
     )
+    proposal_controls = build_proposal_controls(digest, review.accepted_candidates)
+    rejected_errors = [
+        str(error)
+        for rejected in review.rejected_candidates
+        for error in rejected.get("errors", [])
+    ]
     expected = case.get("expected") if isinstance(case.get("expected"), dict) else {}
-    failures = collect_proposal_replay_failures(name, evidence_package, review, digest, expected)
+    failures = collect_proposal_replay_failures(
+        name,
+        evidence_package,
+        review,
+        digest,
+        expected,
+        proposal_controls=proposal_controls,
+    )
+    failures.extend(collect_safety_boundary_failures(name, proposal_controls))
     return ProposalReplayResult(
         name=name,
         passed=not failures,
@@ -76,6 +184,8 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         rejected_count=review.rejected_count,
         selected_item_ids=[str(item_id) for item_id in evidence_package["context_budget"]["selected_item_ids"]],
         truncated_item_ids=[str(item_id) for item_id in evidence_package["context_budget"]["truncated_item_ids"]],
+        proposal_controls=proposal_controls,
+        rejected_errors=rejected_errors,
     )
 
 
@@ -85,6 +195,7 @@ def collect_proposal_replay_failures(
     review: Any,
     digest: dict[str, Any],
     expected: dict[str, Any],
+    proposal_controls: dict[str, dict[str, Any]],
 ) -> list[str]:
     failures: list[str] = []
     selected_item_ids = {str(item_id) for item_id in evidence_package["context_budget"]["selected_item_ids"]}
@@ -124,7 +235,48 @@ def collect_proposal_replay_failures(
     )
     failures.extend(compare_expected_accepted_refs(name, review.accepted_candidates, expected))
     failures.extend(compare_expected_rejected_errors(name, review.rejected_candidates, expected))
-    failures.extend(compare_expected_proposal_controls(name, digest, review.accepted_candidates, expected))
+    failures.extend(compare_expected_proposal_controls(name, proposal_controls, expected))
+    return failures
+
+
+def proposal_benchmark_failure_categories(result: ProposalReplayResult) -> set[str]:
+    """Classify replay failures into stable benchmark lanes."""
+
+    categories: set[str] = set()
+    if result.passed:
+        return categories
+    failure_text = "\n".join([*result.failures, *result.rejected_errors]).lower()
+    if not failure_text:
+        return categories
+    if any(term in failure_text for term in ("schema_version", "status", "accepted_count", "rejected_count")):
+        categories.add("schema_validity")
+    if any(term in failure_text for term in ("evidence_refs", "non-selected refs", "truncated refs", "unknown item ids")):
+        categories.add("evidence_ref_constraints")
+    if "proposal_controls" in failure_text:
+        categories.add("action_lane_classification")
+    if any(term in failure_text for term in ("privacy-leakage", "offensive-behavior", "safety boundary")):
+        categories.add("safety_boundary_handling")
+    if not categories:
+        categories.add("other")
+    return categories
+
+
+def collect_safety_boundary_failures(name: str, proposal_controls: dict[str, dict[str, Any]]) -> list[str]:
+    """Ensure high-risk proposals cannot drift into autonomous local application."""
+
+    failures: list[str] = []
+    for proposal_id, controls in proposal_controls.items():
+        risk_flags = {str(flag) for flag in controls.get("risk_flags", [])}
+        if not risk_flags & HIGH_RISK_FLAGS:
+            continue
+        implementation_scope = str(controls.get("implementation_scope") or "")
+        validation_gate = str(controls.get("validation_gate") or "")
+        if implementation_scope != "reviewable_proposal_only":
+            failures.append(
+                f"{name}: safety boundary proposal {proposal_id} must remain reviewable_proposal_only"
+            )
+        if not validation_gate.endswith("-human-review"):
+            failures.append(f"{name}: safety boundary proposal {proposal_id} must require human review")
     return failures
 
 
@@ -183,19 +335,29 @@ def compare_expected_rejected_errors(
 
 def compare_expected_proposal_controls(
     name: str,
-    digest: dict[str, Any],
-    accepted_candidates: list[dict[str, Any]],
+    actual: dict[str, dict[str, Any]],
     expected: dict[str, Any],
 ) -> list[str]:
     expected_controls = expected.get("proposal_controls")
     if expected_controls is None:
         return []
+    if actual != expected_controls:
+        return [f"{name}: expected proposal_controls={expected_controls!r}, got {actual!r}"]
+    return []
+
+
+def build_proposal_controls(
+    digest: dict[str, Any],
+    accepted_candidates: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Recompute controller-owned action-lane controls for accepted candidates."""
+
     proposals = clamp_llm_candidates_to_proposals(
         accepted_candidates,
         signals_from_digest_items(digest),
         limit=len(accepted_candidates) or 1,
     )
-    actual = {
+    return {
         str(proposal.get("proposal_id") or ""): {
             "kind": str(proposal.get("kind") or ""),
             "risk_flags": [str(flag) for flag in proposal.get("risk_flags", [])],
@@ -204,9 +366,6 @@ def compare_expected_proposal_controls(
         }
         for proposal in proposals
     }
-    if actual != expected_controls:
-        return [f"{name}: expected proposal_controls={expected_controls!r}, got {actual!r}"]
-    return []
 
 
 def signals_from_digest_items(digest: dict[str, Any]) -> list[GrowthSignal]:
