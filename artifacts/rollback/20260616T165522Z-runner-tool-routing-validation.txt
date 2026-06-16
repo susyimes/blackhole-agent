@@ -1,0 +1,8 @@
+Rollback point for 20260616T165522Z runner/tool routing validation
+Original branch: codex/blackhole-evolve/20260616T165626.096596-add-focused-tests-for-runner-and-tool-routing-de
+Original HEAD: e53d61dbc08614a6366803c1eefba69501775c0e
+Local rollback ref: refs/rollback/20260616T165522Z-runner-tool-routing-validation
+Recovery commands:
+  git switch codex/blackhole-evolve/20260616T165626.096596-add-focused-tests-for-runner-and-tool-routing-de
+  git reset --hard refs/rollback/20260616T165522Z-runner-tool-routing-validation
+  git clean -fd

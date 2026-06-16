@@ -1,12 +1,18 @@
 from pathlib import Path
 
 from blackhole_agent.tool_routing import (
+    EXECUTABLE_TOOL_ROUTE,
     ProviderHarness,
+    REVIEW_ONLY_TOOL_ROUTE,
+    UNSUPPORTED_TOOL_ROUTE,
     ToolCompatibilityCache,
     ToolDescriptor,
     discover_provider_harnesses,
     executable_tool_registry,
     load_single_file_agent_tool_descriptors,
+    local_memory_tool_descriptor,
+    route_tool_descriptor,
+    route_tool_descriptors,
     select_provider_harness,
 )
 
@@ -89,6 +95,59 @@ def test_tool_call_metadata_retains_json_schema_parameters():
     assert metadata["parameters"] == parameters
     assert metadata["parameters"]["properties"]["limit"]["minimum"] == 1
     assert metadata["session_id"] == "run-1"
+
+
+def test_local_memory_tool_route_is_executable_local_route():
+    descriptor = local_memory_tool_descriptor(session_id="digest-1")
+
+    decision = route_tool_descriptor(descriptor)
+    registry = executable_tool_registry([descriptor])
+
+    assert decision.route == EXECUTABLE_TOOL_ROUTE
+    assert decision.executable is True
+    assert decision.to_dict() == {
+        "name": "local_memory",
+        "provider": "local",
+        "route": "executable",
+        "reasons": [],
+        "risk_flags": [],
+        "type": None,
+    }
+    assert "local_memory" in registry
+    assert registry["local_memory"]["provider"] == "local"
+
+
+def test_review_only_risk_flags_keep_tool_out_of_executable_registry():
+    descriptor = ToolDescriptor(
+        name="security_probe_review",
+        description="Review-only security-adjacent route metadata.",
+        provider="local",
+        risk_flags=("offensive-behavior",),
+    )
+
+    decision = route_tool_descriptor(descriptor)
+    registry = executable_tool_registry([descriptor])
+
+    assert decision.route == REVIEW_ONLY_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("review_only_risk:offensive-behavior",)
+    assert decision.to_dict()["risk_flags"] == ["offensive-behavior"]
+    assert registry == {}
+
+
+def test_unsupported_provider_and_tool_type_are_inspectable_and_not_executable():
+    descriptors = [
+        ToolDescriptor(name="remote_browser", provider="mcp"),
+        ToolDescriptor(name="stream_terminal", provider="local", tool_type="terminal"),
+    ]
+
+    decisions = route_tool_descriptors(descriptors)
+    registry = executable_tool_registry(descriptors)
+
+    assert [decision.route for decision in decisions] == [UNSUPPORTED_TOOL_ROUTE, UNSUPPORTED_TOOL_ROUTE]
+    assert decisions[0].reasons == ("unsupported_provider:mcp",)
+    assert decisions[1].reasons == ("unsupported_tool_type:terminal",)
+    assert registry == {}
 
 
 def test_single_file_yaml_function_tool_reaches_executable_registry():

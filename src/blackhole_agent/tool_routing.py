@@ -31,6 +31,7 @@ class ToolDescriptor:
     session_id: str | None = None
     tool_type: str | None = None
     callable_path: str | None = None
+    risk_flags: tuple[str, ...] = ()
 
     def compatibility_key(self) -> str:
         """Key cache entries by every field that changes call compatibility."""
@@ -41,6 +42,7 @@ class ToolDescriptor:
             "name": self.name,
             "parameters": self.parameters,
             "provider": self.provider,
+            "risk_flags": self.risk_flags,
             "session_id": self.session_id,
             "tool_type": self.tool_type,
         }
@@ -63,6 +65,80 @@ class ToolDescriptor:
         if self.parameters is not None:
             metadata["parameters"] = dict(self.parameters)
         return metadata
+
+
+EXECUTABLE_TOOL_ROUTE = "executable"
+REVIEW_ONLY_TOOL_ROUTE = "review_only"
+UNSUPPORTED_TOOL_ROUTE = "unsupported"
+DEFAULT_EXECUTABLE_TOOL_PROVIDERS = ("local", "function")
+DEFAULT_EXECUTABLE_TOOL_TYPES = (None, "function")
+TOOL_REVIEW_RISK_FLAGS = frozenset(
+    {
+        "abuse",
+        "offensive-behavior",
+        "privacy-leakage",
+        "unauthorized-access",
+    }
+)
+
+
+@dataclass(frozen=True)
+class ToolRouteDecision:
+    """Controller-owned decision for exposing or withholding a tool descriptor."""
+
+    descriptor: ToolDescriptor
+    route: str
+    reasons: tuple[str, ...] = ()
+
+    @property
+    def executable(self) -> bool:
+        return self.route == EXECUTABLE_TOOL_ROUTE
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.descriptor.name,
+            "provider": self.descriptor.provider,
+            "route": self.route,
+            "reasons": list(self.reasons),
+            "risk_flags": list(self.descriptor.risk_flags),
+            "type": self.descriptor.tool_type,
+        }
+
+
+def route_tool_descriptor(
+    descriptor: ToolDescriptor,
+    *,
+    executable_providers: Sequence[str] = DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
+    executable_tool_types: Sequence[str | None] = DEFAULT_EXECUTABLE_TOOL_TYPES,
+    review_risk_flags: frozenset[str] = TOOL_REVIEW_RISK_FLAGS,
+) -> ToolRouteDecision:
+    """Classify a tool descriptor before it can enter the executable registry."""
+
+    reasons: list[str] = []
+    risky_flags = sorted(set(descriptor.risk_flags) & set(review_risk_flags))
+    if risky_flags:
+        return ToolRouteDecision(
+            descriptor=descriptor,
+            route=REVIEW_ONLY_TOOL_ROUTE,
+            reasons=tuple(f"review_only_risk:{flag}" for flag in risky_flags),
+        )
+
+    if descriptor.provider not in set(executable_providers):
+        reasons.append(f"unsupported_provider:{descriptor.provider}")
+    if descriptor.tool_type not in set(executable_tool_types):
+        reasons.append(f"unsupported_tool_type:{descriptor.tool_type}")
+    if descriptor.provider == "function" and descriptor.tool_type == "function" and not descriptor.callable_path:
+        reasons.append("missing_callable:function")
+
+    if reasons:
+        return ToolRouteDecision(descriptor=descriptor, route=UNSUPPORTED_TOOL_ROUTE, reasons=tuple(reasons))
+    return ToolRouteDecision(descriptor=descriptor, route=EXECUTABLE_TOOL_ROUTE)
+
+
+def route_tool_descriptors(descriptors: Sequence[ToolDescriptor]) -> tuple[ToolRouteDecision, ...]:
+    """Return inspectable routing decisions for a batch of descriptors."""
+
+    return tuple(route_tool_descriptor(descriptor) for descriptor in descriptors)
 
 
 class ToolCompatibilityCache:
@@ -343,10 +419,14 @@ def tool_descriptors_from_agent_config(
     return descriptors
 
 
-def executable_tool_registry(descriptors: list[ToolDescriptor]) -> dict[str, dict[str, Any]]:
+def executable_tool_registry(descriptors: Sequence[ToolDescriptor]) -> dict[str, dict[str, Any]]:
     """Build stable model-facing metadata for executable local tools."""
 
-    return {descriptor.name: descriptor.to_call_metadata() for descriptor in descriptors}
+    return {
+        descriptor.name: descriptor.to_call_metadata()
+        for descriptor in descriptors
+        if route_tool_descriptor(descriptor).executable
+    }
 
 
 def _parse_simple_agent_yaml(text: str) -> dict[str, Any]:
