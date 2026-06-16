@@ -229,6 +229,8 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
     return {
         "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
         "digest_id": str(evidence_package.get("digest_id") or "") if isinstance(evidence_package, dict) else "",
+        "generated_at": str(evidence_package.get("generated_at") or "") if isinstance(evidence_package, dict) else "",
+        "input_hash": stable_hash(evidence_package) if isinstance(evidence_package, dict) else "",
         "status": "pressure_detected" if items_truncated or text_truncated else "within_budget",
         "local_metadata_only": True,
         "external_fetch_performed": False,

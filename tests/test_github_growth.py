@@ -39,6 +39,7 @@ from blackhole_agent.proposal_synthesis import (
     build_context_budget_preflight,
     build_proposal_evidence_package,
     review_llm_proposal_response,
+    stable_hash,
 )
 from blackhole_agent.self_model import (
     BOOTSTRAP_SELF_MODEL,
@@ -812,6 +813,8 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
     assert preflight == {
         "schema_version": 1,
         "digest_id": "github-growth-context-preflight",
+        "generated_at": "2026-06-16T05:06:01Z",
+        "input_hash": stable_hash(evidence_package),
         "status": "within_budget",
         "local_metadata_only": True,
         "external_fetch_performed": False,
@@ -864,6 +867,8 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     preflight = build_context_budget_preflight(evidence_package)
 
     assert preflight["status"] == "pressure_detected"
+    assert preflight["generated_at"] == "2026-06-16T05:06:01Z"
+    assert preflight["input_hash"] == stable_hash(evidence_package)
     assert preflight["input_item_count"] == 2
     assert preflight["kept_item_count"] == 1
     assert preflight["max_items"] == 1
