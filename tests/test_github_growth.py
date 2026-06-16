@@ -2,10 +2,12 @@ import hashlib
 import json
 import subprocess
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
+import blackhole_agent.github_growth as github_growth
 from blackhole_agent.github_growth import (
     GitHubEventsClient,
     GitHubTrendConfig,
@@ -130,6 +132,31 @@ class FakeTrendClient:
         return []
 
 
+class JourneyFakeGitHubClient:
+    def __init__(self, *args, **kwargs) -> None:
+        self.requests: list[tuple[str, int]] = []
+
+    def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
+        self.requests.append((repo, per_page))
+        return [
+            {
+                "id": "terminal-e2e",
+                "type": "PushEvent",
+                "actor": {"login": "octocat"},
+                "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "payload": {
+                    "ref": "refs/heads/main",
+                    "commits": [
+                        {
+                            "sha": "abc123",
+                            "message": "terminal-driven end-to-end journey tests for local agent runner",
+                        }
+                    ],
+                },
+            }
+        ]
+
+
 def trend_repository(*, stars: int = 125) -> TrendingRepository:
     return TrendingRepository(
         full_name="example/trend-agent",
@@ -162,6 +189,94 @@ def digest_with_proposal() -> dict:
             }
         ],
     }
+
+
+def test_cli_codex_mode_runs_terminal_driven_controller_journey(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    output_dir = tmp_path / "out"
+    calls: list[list[str]] = []
+    codex_commands: list[list[str]] = []
+
+    monkeypatch.setattr(github_growth, "GitHubEventsClient", JourneyFakeGitHubClient)
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command == ["git", "status", "--porcelain"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command == ["git", "rev-parse", "--verify", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="base123\n", stderr="")
+        if command == ["git", "rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="candidate123\n", stderr="")
+        if command == ["git", "branch", "--show-current"]:
+            return subprocess.CompletedProcess(command, 0, stdout="main\n", stderr="")
+        if command[:2] == ["git", "update-ref"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "switch", "-c"]:
+            return subprocess.CompletedProcess(command, 0, stdout="switched\n", stderr="")
+        if command[1:4] == ["exec", "--cd", str(repo)]:
+            codex_commands.append(command)
+            last_message = command[command.index("--output-last-message") + 1]
+            Path(last_message).write_text("journey complete", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, stdout="codex ok\n", stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr(github_growth.subprocess, "run", fake_run)
+    original_prepare_self_evolution_branch = github_growth.prepare_self_evolution_branch
+    original_run_self_evolution_codex = github_growth.run_self_evolution_codex
+
+    def fake_prepare_self_evolution_branch(*args, **kwargs):
+        kwargs["command_runner"] = fake_run
+        return original_prepare_self_evolution_branch(*args, **kwargs)
+
+    def fake_run_self_evolution_codex(*args, **kwargs):
+        kwargs["command_runner"] = fake_run
+        return original_run_self_evolution_codex(*args, **kwargs)
+
+    monkeypatch.setattr(github_growth, "prepare_self_evolution_branch", fake_prepare_self_evolution_branch)
+    monkeypatch.setattr(github_growth, "run_self_evolution_codex", fake_run_self_evolution_codex)
+    result = CliRunner().invoke(
+        app,
+        [
+            "--repos",
+            "omnigent-ai/omnigent",
+            "--output-dir",
+            str(output_dir),
+            "--repo-path",
+            str(repo),
+            "--evolution-mode",
+            "codex",
+            "--proposal-mode",
+            "heuristic",
+            "--codex-timeout-seconds",
+            "12",
+            "--extra-instruction",
+            "Keep this journey terminal-driven.",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Wrote self-evolution plan" in result.output
+    assert "Wrote rollback point" in result.output
+    assert "Codex kernel exited with 0" in result.output
+    assert codex_commands, "expected the controller to launch the Codex CLI kernel"
+    assert "--sandbox" in codex_commands[0]
+    assert "--ask-for-approval" not in codex_commands[0]
+    assert any(call[:3] == ["git", "switch", "-c"] for call in calls)
+
+    digest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
+    plan = json.loads((output_dir / "latest-self-evolution-plan.json").read_text(encoding="utf-8"))
+    run = json.loads((output_dir / "latest-self-evolution-run.json").read_text(encoding="utf-8"))
+    manifest = json.loads((output_dir / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
+    rollback = json.loads((output_dir / "latest-rollback-point.json").read_text(encoding="utf-8"))
+
+    assert digest["proposals"][0]["proposal_id"] == "terminal-e2e-1"
+    assert digest["proposals"][0]["validation_gate"] == "narrow-local-verification"
+    assert "terminal-driven end-to-end journey" in plan["task"]
+    assert run["last_message"] == "journey complete"
+    assert manifest["proposal_ids"] == ["terminal-e2e-1"]
+    assert manifest["validation_gates"] == ["narrow-local-verification"]
+    assert rollback["original_head"] == "base123"
 
 
 def test_normalize_pull_request_event_extracts_reviewable_text():
