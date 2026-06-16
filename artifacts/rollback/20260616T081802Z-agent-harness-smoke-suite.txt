@@ -1,0 +1,16 @@
+Rollback point for blackhole-agent self-evolution run
+
+Source digest: github-growth-20260616T081704.019825Z
+Selected proposal: p1-agent-harness-smoke-suite
+Created at: 2026-06-16T08:18:02Z
+Original branch: codex/blackhole-evolve/20260616T081802.875292-add-or-extend-a-local-agent-harness-smoke-suite-
+Original HEAD: ec181be70d248a4201f9aa21de1679c0f477f4c7
+Local rollback ref: refs/rollback/blackhole-evolve-20260616T081802Z
+
+Recovery commands (explicit/destructive; run only by a human operator or supervisor policy):
+  git switch codex/blackhole-evolve/20260616T081802.875292-add-or-extend-a-local-agent-harness-smoke-suite-
+  git reset --hard refs/rollback/blackhole-evolve-20260616T081802Z
+  git clean -fd
+
+Notes:
+  This rollback point was created before local source edits for the agent harness smoke suite.

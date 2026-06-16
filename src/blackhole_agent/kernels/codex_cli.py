@@ -38,6 +38,7 @@ class CodexCliRunResult:
 
     command: list[str]
     returncode: int
+    timed_out: bool
     task_path: Path
     last_message_path: Path
     result_path: Path
@@ -78,23 +79,34 @@ class CodexCliKernel:
             cwd=cwd,
             output_last_message=last_message_path,
         )
-        completed = self._command_runner(
-            command,
-            cwd=cwd,
-            input=task,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-        )
+        timed_out = False
+        try:
+            completed = self._command_runner(
+                command,
+                cwd=cwd,
+                input=task,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+            returncode = int(completed.returncode)
+            stdout = completed.stdout or ""
+            stderr = completed.stderr or ""
+        except subprocess.TimeoutExpired as error:
+            timed_out = True
+            returncode = 124
+            stdout = timeout_text(error.stdout)
+            stderr = timeout_text(error.stderr) or f"Timed out after {timeout_seconds} seconds."
         last_message = last_message_path.read_text(encoding="utf-8") if last_message_path.exists() else ""
         result = CodexCliRunResult(
             command=command,
-            returncode=completed.returncode,
+            returncode=returncode,
+            timed_out=timed_out,
             task_path=task_path,
             last_message_path=last_message_path,
             result_path=result_path,
-            stdout_tail=tail_text(completed.stdout or ""),
-            stderr_tail=tail_text(completed.stderr or ""),
+            stdout_tail=tail_text(stdout),
+            stderr_tail=tail_text(stderr),
             last_message=last_message,
         )
         payload = serialize_run_result(result, cwd=cwd)
@@ -103,6 +115,11 @@ class CodexCliKernel:
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        if result.timed_out:
+            raise TimeoutError(
+                f"Codex CLI timed out after {timeout_seconds} seconds; "
+                f"result details were written to {result_path}."
+            )
         if result.returncode != 0:
             raise RuntimeError(
                 f"Codex CLI failed with exit code {result.returncode}; "
@@ -164,3 +181,11 @@ def tail_text(value: str, *, limit: int = 4000) -> str:
     if len(value) <= limit:
         return value
     return value[-limit:]
+
+
+def timeout_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+    return str(value)
