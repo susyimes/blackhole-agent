@@ -1,0 +1,10 @@
+name: memory_agent
+prompt: You are a helpful assistant with long-term memory.
+executor:
+  harness: claude-sdk
+tools:
+  hindsight_retain:
+    type: function
+    description: Store information in long-term memory.
+    callable: hindsight_omnigent.tools.retain
+    parameters: {"type": "object", "properties": {"content": {"type": "string"}}, "required": ["content"], "additionalProperties": false}
