@@ -1,0 +1,17 @@
+Rollback point for source digest github-growth-20260616T093703.959612Z
+
+Original branch:
+codex/blackhole-evolve/20260616T093816.572015-add-or-strengthen-local-end-to-end-journey-tests
+
+Original HEAD:
+62e46f01c8536d4ffed68d043aa17b5ae547a6b1
+
+Local rollback ref:
+refs/rollback/github-growth-20260616T093703.959612Z
+
+Recovery commands, if an external supervisor or human operator chooses destructive rollback:
+git switch codex/blackhole-evolve/20260616T093816.572015-add-or-strengthen-local-end-to-end-journey-tests
+git reset --hard refs/rollback/github-growth-20260616T093703.959612Z
+
+Notes:
+This run targets proposal p1-e2e-journey-regression-suite. Provider/token preflight and MCP/tool capability gates remain review-only for this run because their proposal metadata marks autonomous local apply false.
