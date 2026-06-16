@@ -1384,6 +1384,13 @@ def test_provider_routing_preflight_detects_codex_gateway_misroute_without_url_l
         "provider_family": provider_family,
         "model_family": model_family,
         "route_shape": "codex_gateway",
+        "config_status": "ok",
+        "missing_config_fields": [],
+        "token_env_names": [],
+        "token_env_present": {},
+        "token_required": False,
+        "token_value_recorded": False,
+        "inline_token_present": False,
         "base_url_recorded": False,
         "host_recorded": False,
         "reason": "chat_completions_provider_points_at_codex_responses_gateway",
@@ -1411,6 +1418,53 @@ def test_provider_routing_preflight_accepts_gemini_serving_endpoint_route():
     assert preflight["local_metadata_only"] is True
     assert preflight["external_fetch_performed"] is False
     assert "workspace.example.test" not in json.dumps(preflight, sort_keys=True)
+
+
+def test_provider_routing_preflight_reports_missing_token_without_secret_leakage():
+    preflight = build_provider_routing_preflight(
+        {
+            "provider": "openai",
+            "model": "databricks-gpt-5",
+            "base_url": "https://workspace.example.test/serving-endpoints/chat",
+            "token_env": "PROVIDER_API_KEY",
+            "requires_api_key": True,
+        },
+        env={},
+    )
+
+    assert preflight["status"] == "missing_required_config"
+    assert preflight["config_status"] == "missing_required_config"
+    assert preflight["missing_config_fields"] == ["token"]
+    assert preflight["token_env_names"] == ["PROVIDER_API_KEY"]
+    assert preflight["token_env_present"] == {"PROVIDER_API_KEY": False}
+    assert preflight["token_required"] is True
+    assert preflight["token_value_recorded"] is False
+    assert preflight["inline_token_present"] is False
+    preflight_json = json.dumps(preflight, sort_keys=True)
+    assert "workspace.example.test" not in preflight_json
+    assert "serving-endpoints/chat" not in preflight_json
+
+
+def test_provider_routing_preflight_records_token_presence_without_token_value():
+    preflight = build_provider_routing_preflight(
+        {
+            "provider": "openai",
+            "model": "databricks-gpt-5",
+            "base_url": "https://workspace.example.test/serving-endpoints/chat",
+            "token_env": "PROVIDER_API_KEY",
+            "requires_api_key": True,
+        },
+        env={"PROVIDER_API_KEY": "sk-live-secret-token"},
+    )
+
+    assert preflight["status"] == "route_ok"
+    assert preflight["config_status"] == "ok"
+    assert preflight["missing_config_fields"] == []
+    assert preflight["token_env_present"] == {"PROVIDER_API_KEY": True}
+    assert preflight["token_value_recorded"] is False
+    preflight_json = json.dumps(preflight, sort_keys=True)
+    assert "sk-live-secret-token" not in preflight_json
+    assert "workspace.example.test" not in preflight_json
 
 
 def test_context_budget_preflight_reports_item_truncation_and_text_pressure():

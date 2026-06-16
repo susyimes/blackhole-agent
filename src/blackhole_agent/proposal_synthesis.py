@@ -2,11 +2,12 @@
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
 PROPOSAL_SYNTHESIS_SCHEMA_VERSION = 1
@@ -605,12 +606,35 @@ def classify_provider_base_url(base_url: str) -> str:
     return "generic_chat_compatible"
 
 
-def build_provider_routing_preflight(config: dict[str, Any]) -> dict[str, Any]:
-    """Detect GPT/Gemini chat providers routed to a Codex Responses gateway."""
+def build_provider_routing_preflight(
+    config: dict[str, Any],
+    *,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Detect provider route/config issues without preserving URLs or secret values."""
 
     provider = str(config.get("provider") or "openai").strip().lower()
     model = str(config.get("model") or "").strip()
     base_url = str(config.get("base_url") or "").strip()
+    token_env_names = provider_token_env_names(config)
+    environment = os.environ if env is None else env
+    token_env_present = {name: bool(str(environment.get(name) or "").strip()) for name in token_env_names}
+    requires_token = bool(config.get("requires_api_key")) or bool(token_env_names)
+    inline_token_present = any(
+        bool(str(config.get(key) or "").strip())
+        for key in ("api_key", "api_token", "token", "access_token")
+    )
+    missing_config_fields = [
+        field
+        for field, value in (
+            ("model", model),
+            ("base_url", base_url),
+        )
+        if not value
+    ]
+    if requires_token and not inline_token_present and not any(token_env_present.values()):
+        missing_config_fields.append("token")
+
     route_shape = classify_provider_base_url(base_url)
     provider_family = provider
     if "gemini" in model.lower():
@@ -620,23 +644,48 @@ def build_provider_routing_preflight(config: dict[str, Any]) -> dict[str, Any]:
 
     applies_to_chat_provider = provider_family in {"gpt", "gemini", "openai"}
     misrouted = applies_to_chat_provider and route_shape == "codex_gateway"
+    config_ok = not missing_config_fields
+    status = "misrouted_codex_gateway" if misrouted else "missing_required_config" if not config_ok else "route_ok"
     return {
         "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
-        "status": "misrouted_codex_gateway" if misrouted else "route_ok",
+        "status": status,
         "local_metadata_only": True,
         "external_fetch_performed": False,
         "provider_family": provider_family,
         "model_family": "gemini" if "gemini" in model.lower() else "gpt" if "gpt" in model.lower() else "unknown",
         "route_shape": route_shape,
+        "config_status": "ok" if config_ok else "missing_required_config",
+        "missing_config_fields": missing_config_fields,
+        "token_env_names": token_env_names,
+        "token_env_present": token_env_present,
+        "token_required": requires_token,
+        "token_value_recorded": False,
+        "inline_token_present": inline_token_present,
         "base_url_recorded": False,
         "host_recorded": False,
         "reason": (
             "chat_completions_provider_points_at_codex_responses_gateway"
             if misrouted
+            else "provider_required_config_missing"
+            if not config_ok
             else "provider_route_shape_is_chat_compatible_or_not_applicable"
         ),
         "expected_route_shape": "serving_endpoint" if misrouted else route_shape,
     }
+
+
+def provider_token_env_names(config: dict[str, Any]) -> list[str]:
+    """Return configured token environment variable names without reading values."""
+
+    raw_names: list[Any] = []
+    for key in ("token_env", "api_key_env", "required_token_env"):
+        value = config.get(key)
+        if isinstance(value, (list, tuple, set)):
+            raw_names.extend(value)
+        elif value is not None:
+            raw_names.append(value)
+    names = sorted({str(name).strip() for name in raw_names if str(name).strip()})
+    return names
 
 
 def truncate_text(value: str, limit: int) -> tuple[str, dict[str, int | bool]]:
