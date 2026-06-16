@@ -129,7 +129,8 @@ def build_proposal_evidence_package(
     items: list[dict[str, Any]] = []
     allowed_urls: list[str] = []
     all_digest_items = digest.get("items", [])
-    digest_items = all_digest_items[:max_items] if isinstance(all_digest_items, list) else []
+    ranked_digest_items = rank_digest_items_for_context_budget(all_digest_items)
+    digest_items = ranked_digest_items[:max_items]
     item_truncation: list[dict[str, Any]] = []
     for index, item in enumerate(digest_items, start=1):
         item_id = str(item.get("item_id") or f"item-{index}")
@@ -173,7 +174,15 @@ def build_proposal_evidence_package(
         "context_budget": {
             "max_items": max_items,
             "input_item_count": len(all_digest_items) if isinstance(all_digest_items, list) else 0,
-            "items_truncated": isinstance(all_digest_items, list) and len(all_digest_items) > max_items,
+            "items_truncated": len(ranked_digest_items) > max_items,
+            "item_selection_strategy": "risk_flags_then_confidence_then_original_order",
+            "selected_item_ids": [
+                str(item.get("item_id") or f"item-{index}") for index, item in enumerate(digest_items, start=1)
+            ],
+            "truncated_item_ids": [
+                str(item.get("item_id") or f"item-{index}")
+                for index, item in enumerate(ranked_digest_items[max_items:], start=max_items + 1)
+            ],
             "max_item_text_chars": max_item_text_chars,
             "item_text_truncation": item_truncation,
         },
@@ -207,6 +216,26 @@ def build_proposal_evidence_package(
             },
         },
     }
+
+
+def rank_digest_items_for_context_budget(items: Any) -> list[dict[str, Any]]:
+    """Prioritize evidence before context truncation while preserving deterministic tie order."""
+
+    if not isinstance(items, list):
+        return []
+
+    ranked: list[tuple[tuple[int, float, int], dict[str, Any]]] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        risk_flags = item.get("risk_flags")
+        has_risk_flags = isinstance(risk_flags, list) and any(str(flag).strip() for flag in risk_flags)
+        try:
+            confidence = float(item.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        ranked.append(((0 if has_risk_flags else 1, -confidence, index), item))
+    return [item for _, item in sorted(ranked, key=lambda entry: entry[0])]
 
 
 def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:

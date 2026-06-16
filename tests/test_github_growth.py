@@ -737,6 +737,9 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     assert first["allowed_evidence_urls"] == ["https://github.com/microsoft/fastcontext/issues/123?query=preserve"]
     assert first["context_budget"]["items_truncated"] is True
     assert first["context_budget"]["input_item_count"] == 2
+    assert first["context_budget"]["item_selection_strategy"] == "risk_flags_then_confidence_then_original_order"
+    assert first["context_budget"]["selected_item_ids"] == ["event-1"]
+    assert first["context_budget"]["truncated_item_ids"] == ["event-2"]
     assert first["context_budget"]["item_text_truncation"] == [
         {
             "item_id": "event-1",
@@ -785,6 +788,115 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     assert review.accepted_candidates[0]["evidence_urls"] == [
         "https://github.com/microsoft/fastcontext/issues/123?query=preserve"
     ]
+
+
+def test_proposal_evidence_package_prioritizes_items_before_truncation():
+    digest = {
+        "digest_id": "github-growth-context-priority",
+        "generated_at": "2026-06-16T05:46:01Z",
+        "items": [
+            {
+                "item_id": "low-earliest",
+                "source_url": "https://github.com/example/low",
+                "event_kind": "PushEvent",
+                "summary": "low confidence item appeared first",
+                "relevance_reason": "first input order should not dominate context budget",
+                "risk_flags": [],
+                "confidence": 0.1,
+            },
+            {
+                "item_id": "top-confidence",
+                "source_url": "https://github.com/microsoft/fastcontext/high",
+                "event_kind": "IssuesEvent",
+                "summary": "high confidence context-budget lesson",
+                "relevance_reason": "strong fastcontext relevance",
+                "risk_flags": [],
+                "confidence": 0.95,
+            },
+            {
+                "item_id": "middle-confidence",
+                "source_url": "https://github.com/microsoft/fastcontext/middle",
+                "event_kind": "IssueCommentEvent",
+                "summary": "medium confidence context-budget lesson",
+                "relevance_reason": "useful supporting signal",
+                "risk_flags": [],
+                "confidence": 0.7,
+            },
+            {
+                "item_id": "review-boundary",
+                "source_url": "https://github.com/omnigent-ai/omnigent/privacy",
+                "event_kind": "PushEvent",
+                "summary": "privacy boundary signal",
+                "relevance_reason": "risk-gated evidence must survive budget pressure",
+                "risk_flags": ["privacy-leakage"],
+                "confidence": 0.4,
+            },
+        ],
+    }
+
+    first = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=200)
+    second = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=200)
+
+    assert first == second
+    assert [item["item_id"] for item in first["items"]] == [
+        "review-boundary",
+        "top-confidence",
+        "middle-confidence",
+    ]
+    assert first["context_budget"]["selected_item_ids"] == [
+        "review-boundary",
+        "top-confidence",
+        "middle-confidence",
+    ]
+    assert first["context_budget"]["truncated_item_ids"] == ["low-earliest"]
+    assert first["allowed_evidence_urls"] == [
+        "https://github.com/microsoft/fastcontext/high",
+        "https://github.com/microsoft/fastcontext/middle",
+        "https://github.com/omnigent-ai/omnigent/privacy",
+    ]
+
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-context-priority",
+            "run_interpretation": "Prioritize risk and confidence under context pressure.",
+            "self_model_reading": {"status": "bounded"},
+            "proposals": [
+                {
+                    "proposal_id": "risk-review-preserved",
+                    "kind": "follow_up_issue",
+                    "summary": "Keep privacy-boundary routes reviewable.",
+                    "evidence_refs": ["review-boundary"],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally that privacy-boundary routes remain review-gated.",
+                    "rationale": "Risk evidence should not be lost when item counts grow.",
+                    "uncertainty": "Synthetic digest only covers ranking behavior.",
+                    "self_effect": "Improves safety review under context pressure.",
+                    "action_lane": "risk_review_before_local_change",
+                },
+                {
+                    "proposal_id": "confidence-route",
+                    "kind": "code_patch",
+                    "summary": "Add context-budget routing checks.",
+                    "evidence_refs": ["top-confidence", "middle-confidence"],
+                    "added_risk_flags": [],
+                    "validation_task": "Replay oversized synthetic context locally.",
+                    "rationale": "High-confidence evidence should remain available for proposal generation.",
+                    "uncertainty": "Does not call an external model.",
+                    "self_effect": "Keeps proposal count stable under truncation.",
+                    "action_lane": "local_validation_candidate",
+                },
+            ],
+            "rejected_items": ["low-earliest"],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, first, mode="hybrid")
+
+    assert review.status == "accepted"
+    assert review.accepted_count == 2
+    assert review.accepted_candidates[0]["evidence_refs"] == ["review-boundary"]
+    assert review.accepted_candidates[1]["evidence_refs"] == ["top-confidence", "middle-confidence"]
 
 
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():

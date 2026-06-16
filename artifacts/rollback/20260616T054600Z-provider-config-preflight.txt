@@ -1,0 +1,10 @@
+run_id: 20260616T054600Z
+source_digest: github-growth-20260616T054601.077662Z
+original_branch: codex/blackhole-evolve/20260616T054711.788139-add-or-strengthen-provider-config-token-prefligh
+head: 27f205f32b2c5de12b169d3294d0c81034a08bab
+rollback_ref: refs/blackhole-rollback/20260616T054600Z
+recovery_commands:
+  - git reset --hard 27f205f32b2c5de12b169d3294d0c81034a08bab
+  - git clean -fd
+  - git switch codex/blackhole-evolve/20260616T054711.788139-add-or-strengthen-provider-config-token-prefligh
+notes: Rollback execution is explicit and destructive; supervisor or human policy must choose it.
