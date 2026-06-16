@@ -3,6 +3,8 @@
   "suite_name": "agent-harness-proposal-replay",
   "evidence_urls": [
     "https://github.com/ApodexAI/AgentHarness",
+    "https://github.com/microsoft/fastcontext",
+    "https://github.com/omnigent-ai/omnigent",
     "https://github.com/visa/visa-vulnerability-agentic-harness"
   ],
   "cases": [
@@ -20,6 +22,15 @@
       "evidence_urls": [
         "https://github.com/ApodexAI/AgentHarness",
         "https://github.com/visa/visa-vulnerability-agentic-harness"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "fastcontext-budget-memory-pressure",
+      "file": "fastcontext_budget_memory_pressure.json",
+      "evidence_urls": [
+        "https://github.com/microsoft/fastcontext",
+        "https://github.com/omnigent-ai/omnigent"
       ],
       "expected_review_status": "accepted"
     }

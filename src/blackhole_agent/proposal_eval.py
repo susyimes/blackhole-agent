@@ -11,6 +11,7 @@ from typing import Any
 from blackhole_agent.github_growth import GrowthSignal, clamp_llm_candidates_to_proposals
 from blackhole_agent.proposal_synthesis import (
     HIGH_RISK_FLAGS,
+    build_context_budget_preflight,
     build_proposal_evidence_package,
     review_llm_proposal_response,
 )
@@ -28,6 +29,7 @@ class ProposalReplayResult:
     rejected_count: int
     selected_item_ids: list[str]
     truncated_item_ids: list[str]
+    context_budget_preflight: dict[str, Any]
     proposal_controls: dict[str, dict[str, Any]]
     rejected_errors: list[str]
 
@@ -66,6 +68,7 @@ class ProposalBenchmarkReport:
                     "rejected_count": result.rejected_count,
                     "selected_item_ids": result.selected_item_ids,
                     "truncated_item_ids": result.truncated_item_ids,
+                    "context_budget_preflight": result.context_budget_preflight,
                     "proposal_controls": result.proposal_controls,
                     "rejected_errors": result.rejected_errors,
                 }
@@ -297,9 +300,14 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
     options = case.get("options") if isinstance(case.get("options"), dict) else {}
     evidence_package = build_proposal_evidence_package(
         digest,
+        self_model_snapshot=options.get("self_model_snapshot")
+        if isinstance(options.get("self_model_snapshot"), dict)
+        else None,
         max_items=int(options.get("max_items") or 20),
         max_item_text_chars=int(options.get("max_item_text_chars") or 1200),
+        max_self_model_chars=int(options.get("max_self_model_chars") or 4000),
     )
+    context_budget_preflight = build_context_budget_preflight(evidence_package)
     review = review_llm_proposal_response(
         raw_text,
         evidence_package,
@@ -319,6 +327,7 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         digest,
         expected,
         proposal_controls=proposal_controls,
+        context_budget_preflight=context_budget_preflight,
     )
     failures.extend(collect_safety_boundary_failures(name, proposal_controls))
     return ProposalReplayResult(
@@ -330,6 +339,7 @@ def run_proposal_replay_case(case: dict[str, Any]) -> ProposalReplayResult:
         rejected_count=review.rejected_count,
         selected_item_ids=[str(item_id) for item_id in evidence_package["context_budget"]["selected_item_ids"]],
         truncated_item_ids=[str(item_id) for item_id in evidence_package["context_budget"]["truncated_item_ids"]],
+        context_budget_preflight=context_budget_preflight,
         proposal_controls=proposal_controls,
         rejected_errors=rejected_errors,
     )
@@ -342,6 +352,7 @@ def collect_proposal_replay_failures(
     digest: dict[str, Any],
     expected: dict[str, Any],
     proposal_controls: dict[str, dict[str, Any]],
+    context_budget_preflight: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
     selected_item_ids = {str(item_id) for item_id in evidence_package["context_budget"]["selected_item_ids"]}
@@ -382,6 +393,14 @@ def collect_proposal_replay_failures(
     failures.extend(compare_expected_accepted_refs(name, review.accepted_candidates, expected))
     failures.extend(compare_expected_rejected_errors(name, review.rejected_candidates, expected))
     failures.extend(compare_expected_proposal_controls(name, proposal_controls, expected))
+    failures.extend(
+        compare_expected_mapping_subset(
+            name,
+            "context_budget_preflight",
+            context_budget_preflight,
+            expected,
+        )
+    )
     return failures
 
 
@@ -490,6 +509,49 @@ def compare_expected_proposal_controls(
     if actual != expected_controls:
         return [f"{name}: expected proposal_controls={expected_controls!r}, got {actual!r}"]
     return []
+
+
+def compare_expected_mapping_subset(
+    name: str,
+    key: str,
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> list[str]:
+    expected_subset = expected.get(key)
+    if expected_subset is None:
+        return []
+    if not isinstance(expected_subset, dict):
+        return [f"{name}: expected {key} must be an object"]
+    mismatches = collect_mapping_subset_mismatches(actual, expected_subset, path=key)
+    return [f"{name}: {mismatch}" for mismatch in mismatches]
+
+
+def collect_mapping_subset_mismatches(
+    actual: Any,
+    expected: dict[str, Any],
+    *,
+    path: str,
+) -> list[str]:
+    if not isinstance(actual, dict):
+        return [f"expected {path} to be an object, got {actual!r}"]
+    mismatches: list[str] = []
+    for key, expected_value in expected.items():
+        child_path = f"{path}.{key}"
+        if key not in actual:
+            mismatches.append(f"missing {child_path}")
+            continue
+        actual_value = actual[key]
+        if isinstance(expected_value, dict):
+            mismatches.extend(
+                collect_mapping_subset_mismatches(
+                    actual_value,
+                    expected_value,
+                    path=child_path,
+                )
+            )
+        elif actual_value != expected_value:
+            mismatches.append(f"expected {child_path}={expected_value!r}, got {actual_value!r}")
+    return mismatches
 
 
 def build_proposal_controls(

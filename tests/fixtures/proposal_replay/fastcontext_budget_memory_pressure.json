@@ -1,0 +1,158 @@
+{
+  "name": "fastcontext-budget-memory-pressure",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 2,
+    "max_item_text_chars": 48,
+    "max_self_model_chars": 16,
+    "self_model_snapshot": {
+      "path": "docs/self-model.md",
+      "sha256": "synthetic-self-model",
+      "content": "prefer compact evidence packages that preserve selected item ids under pressure"
+    }
+  },
+  "digest": {
+    "digest_id": "github-growth-replay-fastcontext-budget",
+    "generated_at": "2026-06-16T10:57:04Z",
+    "items": [
+      {
+        "item_id": "low-context",
+        "source_url": "https://github.com/example/low-context",
+        "event_kind": "IssuesEvent",
+        "summary": "low-confidence context note",
+        "relevance_reason": "weak supporting evidence that should be truncated first",
+        "risk_flags": [],
+        "confidence": 0.1
+      },
+      {
+        "item_id": "fastcontext-context",
+        "source_url": "https://github.com/microsoft/fastcontext",
+        "event_kind": "PushEvent",
+        "summary": "microsoft/fastcontext: validation workflow should keep compact selected evidence ids stable",
+        "relevance_reason": "FastContext separates broad exploration from compact evidence so local replay should preserve selected item ids under constrained packages",
+        "risk_flags": [],
+        "confidence": 0.93
+      },
+      {
+        "item_id": "pr-overflow",
+        "source_url": "https://github.com/example/agent/pull/9",
+        "event_kind": "PullRequestEvent",
+        "summary": "opened pull request: untitled pull request",
+        "relevance_reason": "generic pull request activity with missing details that should be recorded as truncated uncertainty",
+        "risk_flags": [],
+        "confidence": 0.41
+      },
+      {
+        "item_id": "privacy-boundary",
+        "source_url": "https://github.com/omnigent-ai/omnigent",
+        "event_kind": "IssueCommentEvent",
+        "summary": "omnigent-ai/omnigent: privacy boundary remains review-only",
+        "relevance_reason": "privacy-leakage boundary evidence must stay selected even when context is constrained",
+        "risk_flags": [
+          "privacy-leakage"
+        ],
+        "confidence": 0.2
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-replay-fastcontext-budget",
+    "run_interpretation": "Constrained evidence should preserve only selected refs and record uncertainty about truncated PR detail.",
+    "self_model_reading": {
+      "status": "truncated_but_available"
+    },
+    "proposals": [
+      {
+        "proposal_id": "fastcontext-budget-regression",
+        "kind": "test",
+        "summary": "Expand context-budget replay tests for constrained evidence packages.",
+        "evidence_refs": [
+          "fastcontext-context"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Replay selected items, truncated items, field truncation, missing-detail risk, and self-model truncation locally.",
+        "rationale": "The selected FastContext evidence supports compact replayable proposal evidence.",
+        "uncertainty": "The truncated PR item may hide details, so proposals must cite only selected refs.",
+        "self_effect": "Improves future proposal generation stability under constrained evidence packages.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "invalid-truncated-pr-ref",
+        "kind": "test",
+        "summary": "Invalidly cite truncated PR context.",
+        "evidence_refs": [
+          "pr-overflow"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Replay selected-item-only citation checks.",
+        "rationale": "This should fail because the PR detail was outside the selected evidence package.",
+        "uncertainty": "Truncated refs cannot be used as evidence.",
+        "self_effect": "Would weaken replayability.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": [
+      "pr-overflow",
+      "low-context"
+    ]
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 1,
+    "selected_item_ids": [
+      "privacy-boundary",
+      "fastcontext-context"
+    ],
+    "truncated_item_ids": [
+      "pr-overflow",
+      "low-context"
+    ],
+    "accepted_evidence_refs": {
+      "fastcontext-budget-regression": [
+        "fastcontext-context"
+      ]
+    },
+    "rejected_error_substrings": [
+      "evidence_refs contain unknown item ids: pr-overflow"
+    ],
+    "context_budget_preflight": {
+      "status": "pressure_detected",
+      "items_truncated": true,
+      "truncated_item_count": 2,
+      "text_truncated_item_count": 2,
+      "truncated_field_count": 4,
+      "selected_item_ids": [
+        "privacy-boundary",
+        "fastcontext-context"
+      ],
+      "truncated_item_ids": [
+        "pr-overflow",
+        "low-context"
+      ],
+      "evidence_truncation_uncertainty": {
+        "missing_detail_risk": true,
+        "citation_scope": "cite_selected_item_ids_only",
+        "selected_event_kind_counts": {
+          "IssueCommentEvent": 1,
+          "PushEvent": 1
+        },
+        "truncated_event_kind_counts": {
+          "IssuesEvent": 1,
+          "PullRequestEvent": 1
+        },
+        "truncated_generic_pr_count": 1
+      },
+      "self_model_truncated": true
+    },
+    "proposal_controls": {
+      "fastcontext-budget-regression": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "narrow-local-verification"
+      }
+    }
+  }
+}

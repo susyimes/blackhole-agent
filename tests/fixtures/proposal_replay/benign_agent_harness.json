@@ -80,6 +80,15 @@
         "local-runner-test"
       ]
     },
+    "context_budget_preflight": {
+      "status": "within_budget",
+      "items_truncated": false,
+      "evidence_truncation_uncertainty": {
+        "missing_detail_risk": false,
+        "citation_scope": "cite_selected_item_ids_only"
+      },
+      "self_model_truncated": false
+    },
     "proposal_controls": {
       "local-replay-harness": {
         "kind": "test",
