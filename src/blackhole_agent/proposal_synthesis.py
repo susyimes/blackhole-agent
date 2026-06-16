@@ -137,6 +137,7 @@ def build_proposal_evidence_package(
         for item in valid_digest_items
     )
     ranked_digest_item_entries = rank_digest_item_entries_for_context_budget(all_digest_items)
+    item_ids_by_original_index = build_context_budget_item_ids(ranked_digest_item_entries)
     ranked_digest_items = [item for _, item in ranked_digest_item_entries]
     selected_digest_item_entries = ranked_digest_item_entries[:max_items]
     item_truncation: list[dict[str, Any]] = []
@@ -145,7 +146,7 @@ def build_proposal_evidence_package(
     selected_text_original_chars = 0
     field_truncated_text_chars = 0
     for ranked_index, item in selected_digest_item_entries:
-        item_id = digest_item_id(item, ranked_index)
+        item_id = item_ids_by_original_index[ranked_index]
         selected_item_ids.append(item_id)
         source_url = str(item.get("source_url") or "")
         if source_url:
@@ -182,7 +183,7 @@ def build_proposal_evidence_package(
             }
         )
     truncated_item_ids = [
-        digest_item_id(item, ranked_index) for ranked_index, item in ranked_digest_item_entries[max_items:]
+        item_ids_by_original_index[ranked_index] for ranked_index, _ in ranked_digest_item_entries[max_items:]
     ]
     snapshot = self_model_snapshot or {}
     self_model_content, self_model_truncation = truncate_text(
@@ -213,6 +214,7 @@ def build_proposal_evidence_package(
             "item_selection_diagnostics": build_item_selection_diagnostics(
                 all_digest_items,
                 ranked_digest_item_entries,
+                item_ids_by_original_index=item_ids_by_original_index,
                 selected_item_ids=set(selected_item_ids),
                 truncated_item_ids=set(truncated_item_ids),
                 item_text_truncation=item_truncation,
@@ -282,10 +284,35 @@ def digest_item_id(item: dict[str, Any], original_index: int) -> str:
     return str(item.get("item_id") or f"item-{original_index + 1}")
 
 
+def build_context_budget_item_ids(ranked_item_entries: list[tuple[int, dict[str, Any]]]) -> dict[int, str]:
+    """Return deterministic, unique item ids for context-budget evidence references."""
+
+    base_ids_by_index = {
+        original_index: digest_item_id(item, original_index) for original_index, item in ranked_item_entries
+    }
+    base_id_counts: dict[str, int] = {}
+    for base_id in base_ids_by_index.values():
+        base_id_counts[base_id] = base_id_counts.get(base_id, 0) + 1
+
+    used_ids: set[str] = set()
+    item_ids_by_index: dict[int, str] = {}
+    for original_index, _ in sorted(ranked_item_entries, key=lambda entry: entry[0]):
+        base_id = base_ids_by_index[original_index]
+        candidate = base_id if base_id_counts[base_id] == 1 else f"{base_id}__item_{original_index + 1}"
+        suffix = 2
+        while candidate in used_ids:
+            candidate = f"{base_id}__item_{original_index + 1}_{suffix}"
+            suffix += 1
+        used_ids.add(candidate)
+        item_ids_by_index[original_index] = candidate
+    return item_ids_by_index
+
+
 def build_item_selection_diagnostics(
     raw_items: Any,
     ranked_item_entries: list[tuple[int, dict[str, Any]]],
     *,
+    item_ids_by_original_index: dict[int, str],
     selected_item_ids: set[str],
     truncated_item_ids: set[str],
     item_text_truncation: list[dict[str, Any]],
@@ -318,7 +345,7 @@ def build_item_selection_diagnostics(
             )
             continue
 
-        item_id = digest_item_id(raw_item, original_index)
+        item_id = item_ids_by_original_index.get(original_index, digest_item_id(raw_item, original_index))
         risk_flags = [str(flag) for flag in raw_item.get("risk_flags", []) if str(flag).strip()]
         try:
             confidence = float(raw_item.get("confidence") or 0.0)

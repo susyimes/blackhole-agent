@@ -931,6 +931,92 @@ def test_proposal_evidence_package_prioritizes_items_before_truncation():
     assert review.accepted_candidates[1]["evidence_refs"] == ["top-confidence", "middle-confidence"]
 
 
+def test_proposal_evidence_package_disambiguates_duplicate_item_ids_under_context_pressure():
+    digest = {
+        "digest_id": "github-growth-duplicate-context-ids",
+        "generated_at": "2026-06-16T07:06:01Z",
+        "items": [
+            {
+                "item_id": "duplicate-signal",
+                "source_url": "https://github.com/microsoft/fastcontext/first",
+                "event_kind": "PushEvent",
+                "summary": "lower confidence duplicate",
+                "relevance_reason": "should be truncated by max_items",
+                "risk_flags": [],
+                "confidence": 0.2,
+            },
+            {
+                "item_id": "duplicate-signal",
+                "source_url": "https://github.com/microsoft/fastcontext/second",
+                "event_kind": "IssueCommentEvent",
+                "summary": "higher confidence duplicate",
+                "relevance_reason": "should stay selectable by unique evidence ref",
+                "risk_flags": [],
+                "confidence": 0.9,
+            },
+            {
+                "item_id": "duplicate-signal",
+                "source_url": "https://github.com/omnigent-ai/omnigent/privacy",
+                "event_kind": "IssuesEvent",
+                "summary": "risk duplicate",
+                "relevance_reason": "risk evidence should remain first and unambiguous",
+                "risk_flags": ["privacy-leakage"],
+                "confidence": 0.1,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=200)
+
+    assert [item["item_id"] for item in evidence_package["items"]] == [
+        "duplicate-signal__item_3",
+        "duplicate-signal__item_2",
+    ]
+    assert evidence_package["context_budget"]["selected_item_ids"] == [
+        "duplicate-signal__item_3",
+        "duplicate-signal__item_2",
+    ]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == ["duplicate-signal__item_1"]
+    assert [
+        (item["original_index"], item["item_id"], item["decision"], item["rank"])
+        for item in evidence_package["context_budget"]["item_selection_diagnostics"]
+    ] == [
+        (0, "duplicate-signal__item_1", "truncated", 3),
+        (1, "duplicate-signal__item_2", "selected", 2),
+        (2, "duplicate-signal__item_3", "selected", 1),
+    ]
+
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-duplicate-context-ids",
+            "run_interpretation": "Use the risk duplicate as the review boundary.",
+            "self_model_reading": {"status": "unchanged"},
+            "proposals": [
+                {
+                    "proposal_id": "duplicate-ref-route",
+                    "kind": "follow_up_issue",
+                    "summary": "Keep privacy-boundary duplicate evidence reviewable.",
+                    "evidence_refs": ["duplicate-signal__item_3"],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally that duplicate context ids remain unambiguous.",
+                    "rationale": "Duplicate upstream ids should not collapse proposal evidence.",
+                    "uncertainty": "Synthetic duplicate ids only cover local evidence packaging.",
+                    "self_effect": "Improves replayability of future trend-derived proposals.",
+                    "action_lane": "risk_review_before_local_change",
+                }
+            ],
+            "rejected_items": ["duplicate-signal__item_1"],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="hybrid")
+
+    assert review.status == "accepted"
+    assert review.accepted_candidates[0]["evidence_refs"] == ["duplicate-signal__item_3"]
+    assert review.accepted_candidates[0]["evidence_urls"] == ["https://github.com/omnigent-ai/omnigent/privacy"]
+
+
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
     evidence_package = build_proposal_evidence_package(
         {

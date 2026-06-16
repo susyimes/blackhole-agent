@@ -1,0 +1,8 @@
+rollback_point=20260616T070601.401617Z
+original_branch=codex/blackhole-evolve/20260616T070704.739375-introduce-a-local-benchmark-or-test-around-evide
+head=9ad8033957afc2d279b91f736ae5eefdbd5dde8c
+rollback_ref=refs/rollback/20260616T070601.401617Z
+recovery_commands:
+  git switch codex/blackhole-evolve/20260616T070704.739375-introduce-a-local-benchmark-or-test-around-evide
+  git reset --hard refs/rollback/20260616T070601.401617Z
+  git clean -fd
