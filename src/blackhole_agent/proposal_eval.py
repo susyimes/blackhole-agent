@@ -74,6 +74,28 @@ class ProposalBenchmarkReport:
         }
 
 
+@dataclass(frozen=True)
+class ProposalReplayManifestReport:
+    """Manifest-level checks over a frozen proposal replay suite."""
+
+    suite_name: str
+    passed: bool
+    case_count: int
+    fixture_names: list[str]
+    evidence_urls: list[str]
+    failures: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "suite_name": self.suite_name,
+            "passed": self.passed,
+            "case_count": self.case_count,
+            "fixture_names": self.fixture_names,
+            "evidence_urls": self.evidence_urls,
+            "failures": self.failures,
+        }
+
+
 def load_proposal_replay_case(path: Path) -> dict[str, Any]:
     """Load a replay case from JSON."""
 
@@ -82,6 +104,130 @@ def load_proposal_replay_case(path: Path) -> dict[str, Any]:
         raise ValueError(f"{path} must contain a JSON object")
     payload.setdefault("name", path.stem)
     return payload
+
+
+def load_proposal_replay_manifest(path: Path) -> dict[str, Any]:
+    """Load a replay-suite manifest from JSON."""
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def validate_proposal_replay_manifest(path: Path) -> ProposalReplayManifestReport:
+    """Validate frozen replay fixtures and their declared evidence sources."""
+
+    manifest = load_proposal_replay_manifest(path)
+    fixture_dir = path.parent
+    failures: list[str] = []
+    suite_name = str(manifest.get("suite_name") or path.stem)
+    evidence_urls = sorted({str(url) for url in manifest.get("evidence_urls", []) if str(url).strip()})
+    case_entries = manifest.get("cases")
+    if int(manifest.get("schema_version") or 0) != 1:
+        failures.append(f"{suite_name}: schema_version must be 1")
+    if not evidence_urls:
+        failures.append(f"{suite_name}: evidence_urls must not be empty")
+    if not isinstance(case_entries, list) or not case_entries:
+        failures.append(f"{suite_name}: cases must be a non-empty list")
+        case_entries = []
+
+    fixture_names: list[str] = []
+    for index, entry in enumerate(case_entries, start=1):
+        if not isinstance(entry, dict):
+            failures.append(f"{suite_name}: case entry {index} must be an object")
+            continue
+        failures.extend(validate_proposal_replay_manifest_case(fixture_dir, entry, suite_name, evidence_urls))
+        fixture_name = str(entry.get("name") or entry.get("file") or f"case-{index}")
+        fixture_names.append(fixture_name)
+
+    return ProposalReplayManifestReport(
+        suite_name=suite_name,
+        passed=not failures,
+        case_count=len(case_entries),
+        fixture_names=fixture_names,
+        evidence_urls=evidence_urls,
+        failures=failures,
+    )
+
+
+def validate_proposal_replay_manifest_case(
+    fixture_dir: Path,
+    entry: dict[str, Any],
+    suite_name: str,
+    manifest_evidence_urls: list[str],
+) -> list[str]:
+    """Validate one manifest-declared replay case without network access."""
+
+    failures: list[str] = []
+    fixture_name = str(entry.get("name") or "")
+    fixture_file = str(entry.get("file") or "")
+    if not fixture_file:
+        return [f"{suite_name}: case {fixture_name or '<unnamed>'} missing file"]
+    path = fixture_dir / fixture_file
+    if not path.exists():
+        return [f"{suite_name}: case {fixture_name or fixture_file} fixture does not exist: {fixture_file}"]
+
+    case = load_proposal_replay_case(path)
+    actual_name = str(case.get("name") or path.stem)
+    if fixture_name and actual_name != fixture_name:
+        failures.append(f"{suite_name}: manifest name {fixture_name!r} does not match fixture name {actual_name!r}")
+
+    result = run_proposal_replay_case(case)
+    if not result.passed:
+        failures.extend(f"{suite_name}: {failure}" for failure in result.failures)
+
+    expected_status = str(entry.get("expected_review_status") or "")
+    if expected_status and result.review_status != expected_status:
+        failures.append(
+            f"{suite_name}: {actual_name} expected review_status={expected_status!r}, got {result.review_status!r}"
+        )
+
+    digest_urls = sorted(source_urls_from_digest(case.get("digest")))
+    declared_case_urls = sorted({str(url) for url in entry.get("evidence_urls", []) if str(url).strip()})
+    manifest_url_set = set(manifest_evidence_urls)
+    digest_url_set = set(digest_urls)
+    if not declared_case_urls:
+        failures.append(f"{suite_name}: {actual_name} evidence_urls must not be empty")
+    unknown_manifest_urls = sorted(set(declared_case_urls) - manifest_url_set)
+    if unknown_manifest_urls:
+        failures.append(f"{suite_name}: {actual_name} declares URLs outside suite evidence {unknown_manifest_urls}")
+    missing_digest_urls = sorted(set(declared_case_urls) - digest_url_set)
+    if missing_digest_urls:
+        failures.append(f"{suite_name}: {actual_name} declares URLs absent from fixture digest {missing_digest_urls}")
+
+    supplied_candidate_urls = candidate_supplied_evidence_urls(case.get("raw_response"))
+    if supplied_candidate_urls:
+        failures.append(
+            f"{suite_name}: {actual_name} candidates supplied evidence_urls instead of evidence_refs "
+            f"{supplied_candidate_urls}"
+        )
+    return failures
+
+
+def source_urls_from_digest(digest: Any) -> set[str]:
+    """Return source URLs present in a frozen digest object."""
+
+    if not isinstance(digest, dict) or not isinstance(digest.get("items"), list):
+        return set()
+    return {
+        str(item.get("source_url") or "")
+        for item in digest["items"]
+        if isinstance(item, dict) and str(item.get("source_url") or "").strip()
+    }
+
+
+def candidate_supplied_evidence_urls(raw_response: Any) -> list[str]:
+    """Return candidate-supplied URLs, which are forbidden in replay fixtures."""
+
+    if not isinstance(raw_response, dict) or not isinstance(raw_response.get("proposals"), list):
+        return []
+    supplied: list[str] = []
+    for candidate in raw_response["proposals"]:
+        if not isinstance(candidate, dict) or not candidate.get("evidence_urls"):
+            continue
+        supplied.extend(str(url) for url in candidate.get("evidence_urls", []) if str(url).strip())
+    return sorted(set(supplied))
 
 
 def run_proposal_replay_suite(paths: list[Path]) -> list[ProposalReplayResult]:

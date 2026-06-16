@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "suite_name": "agent-harness-proposal-replay",
+  "evidence_urls": [
+    "https://github.com/ApodexAI/AgentHarness",
+    "https://github.com/visa/visa-vulnerability-agentic-harness"
+  ],
+  "cases": [
+    {
+      "name": "benign-agent-harness",
+      "file": "benign_agent_harness.json",
+      "evidence_urls": [
+        "https://github.com/ApodexAI/AgentHarness"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "security-adjacent-context-pressure",
+      "file": "security_adjacent_context_pressure.json",
+      "evidence_urls": [
+        "https://github.com/ApodexAI/AgentHarness",
+        "https://github.com/visa/visa-vulnerability-agentic-harness"
+      ],
+      "expected_review_status": "accepted"
+    }
+  ]
+}

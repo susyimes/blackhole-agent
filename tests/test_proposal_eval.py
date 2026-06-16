@@ -1,3 +1,5 @@
+import json
+import shutil
 from pathlib import Path
 
 from blackhole_agent.proposal_eval import (
@@ -6,14 +8,17 @@ from blackhole_agent.proposal_eval import (
     run_proposal_benchmark_suite,
     run_proposal_replay_case,
     run_proposal_replay_suite,
+    validate_proposal_replay_manifest,
 )
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "proposal_replay"
+MANIFEST_PATH = FIXTURE_DIR / "manifest.json"
+CASE_PATHS = sorted(path for path in FIXTURE_DIR.glob("*.json") if path.name != "manifest.json")
 
 
 def test_proposal_replay_suite_accepts_frozen_harness_cases():
-    results = run_proposal_replay_suite(sorted(FIXTURE_DIR.glob("*.json")))
+    results = run_proposal_replay_suite(CASE_PATHS)
 
     assert results
     assert all(result.passed for result in results), {
@@ -26,7 +31,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
 
 
 def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
-    report = run_proposal_benchmark_suite(sorted(FIXTURE_DIR.glob("*.json")))
+    report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
     assert report.case_count == 2
@@ -48,6 +53,40 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
         "validation_gate": "privacy-leakage-human-review",
     }
     assert report.to_dict()["suite_name"] == "proposal-replay-benchmark"
+
+
+def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
+    report = validate_proposal_replay_manifest(MANIFEST_PATH)
+
+    assert report.passed is True
+    assert report.case_count == 2
+    assert report.fixture_names == [
+        "benign-agent-harness",
+        "security-adjacent-context-pressure",
+    ]
+    assert report.evidence_urls == [
+        "https://github.com/ApodexAI/AgentHarness",
+        "https://github.com/visa/visa-vulnerability-agentic-harness",
+    ]
+    assert report.to_dict()["failures"] == []
+
+
+def test_proposal_replay_manifest_detects_evidence_source_drift(tmp_path):
+    manifest = load_proposal_replay_case(MANIFEST_PATH)
+    manifest["cases"][0]["evidence_urls"] = ["https://github.com/example/not-in-fixture"]
+    shutil.copy(FIXTURE_DIR / "benign_agent_harness.json", tmp_path / "benign_agent_harness.json")
+    shutil.copy(
+        FIXTURE_DIR / "security_adjacent_context_pressure.json",
+        tmp_path / "security_adjacent_context_pressure.json",
+    )
+    drifted_manifest = tmp_path / "manifest.json"
+    drifted_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_proposal_replay_manifest(drifted_manifest)
+
+    assert report.passed is False
+    assert any("outside suite evidence" in failure for failure in report.failures)
+    assert any("absent from fixture digest" in failure for failure in report.failures)
 
 
 def test_proposal_replay_case_rejects_url_refs_even_when_url_is_allowed_evidence():

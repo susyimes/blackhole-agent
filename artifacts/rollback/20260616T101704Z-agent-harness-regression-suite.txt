@@ -1,0 +1,5 @@
+rollback_point=refs/rollback/blackhole-agent/20260616T101704Z
+original_branch=codex/blackhole-evolve/20260616T101913.542064-add-or-extend-a-local-agent-harness-style-regres
+head=3d4071efc6eb8288ef0e87fb65b7b35f95e746b9
+recover_branch=codex/blackhole-evolve/20260616T101913.542064-add-or-extend-a-local-agent-harness-style-regres
+recovery_commands=git reset --hard 3d4071efc6eb8288ef0e87fb65b7b35f95e746b9 ; git clean -fd
