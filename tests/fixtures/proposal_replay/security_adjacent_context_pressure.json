@@ -1,0 +1,114 @@
+{
+  "name": "security-adjacent-context-pressure",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 2,
+    "max_item_text_chars": 180
+  },
+  "digest": {
+    "digest_id": "github-growth-replay-security-harness",
+    "generated_at": "2026-06-16T08:57:03Z",
+    "items": [
+      {
+        "item_id": "security-harness-boundary",
+        "source_url": "https://github.com/visa/visa-vulnerability-agentic-harness",
+        "event_kind": "RepositoryTrend",
+        "summary": "visa/visa-vulnerability-agentic-harness: security-adjacent agent harness evidence",
+        "relevance_reason": "security harness evidence is useful as review metadata without enabling scanner behavior",
+        "risk_flags": [
+          "privacy-leakage"
+        ],
+        "confidence": 0.7
+      },
+      {
+        "item_id": "benign-eval-pattern",
+        "source_url": "https://github.com/ApodexAI/AgentHarness",
+        "event_kind": "PushEvent",
+        "summary": "ApodexAI/AgentHarness: validation workflow for reproducible benchmark case runner",
+        "relevance_reason": "matched topics: benchmark, harness, validation",
+        "risk_flags": [],
+        "confidence": 0.9
+      },
+      {
+        "item_id": "truncated-security-detail",
+        "source_url": "https://github.com/example/security-agent/pull/9",
+        "event_kind": "IssuesEvent",
+        "summary": "opened pull request: untitled pull request",
+        "relevance_reason": "generic security-adjacent item with missing details",
+        "risk_flags": [],
+        "confidence": 0.2
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-replay-security-harness",
+    "run_interpretation": "Security harness evidence can improve review boundaries, while truncated refs cannot be cited.",
+    "self_model_reading": {
+      "status": "unchanged"
+    },
+    "proposals": [
+      {
+        "proposal_id": "security-boundary-review",
+        "kind": "test",
+        "summary": "Keep security-adjacent harness lessons in review-only safety metadata.",
+        "evidence_refs": [
+          "security-harness-boundary"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Keep privacy-leakage behavior review-only; do not expose, log, print, upload, publish, or share tokens, credentials, secrets, private keys, private chats, PII, or personal data.",
+        "rationale": "The selected evidence carries a privacy boundary and should not become runtime behavior.",
+        "uncertainty": "Security harness evidence is reviewed only as local boundary metadata.",
+        "self_effect": "Improves safety-boundary classification replay coverage.",
+        "action_lane": "risk_review_before_local_change"
+      },
+      {
+        "proposal_id": "bad-truncated-ref",
+        "kind": "documentation",
+        "summary": "Invalidly cite a truncated pull request detail.",
+        "evidence_refs": [
+          "truncated-security-detail"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Document the truncated detail.",
+        "rationale": "This should fail because the item was outside the selected evidence package.",
+        "uncertainty": "Truncated refs cannot be evidence.",
+        "self_effect": "Would weaken replayability.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": [
+      "truncated-security-detail"
+    ]
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 1,
+    "selected_item_ids": [
+      "security-harness-boundary",
+      "benign-eval-pattern"
+    ],
+    "truncated_item_ids": [
+      "truncated-security-detail"
+    ],
+    "accepted_evidence_refs": {
+      "security-boundary-review": [
+        "security-harness-boundary"
+      ]
+    },
+    "rejected_error_substrings": [
+      "evidence_refs contain unknown item ids: truncated-security-detail"
+    ],
+    "proposal_controls": {
+      "security-boundary-review": {
+        "kind": "follow_up_issue",
+        "risk_flags": [
+          "privacy-leakage"
+        ],
+        "implementation_scope": "reviewable_proposal_only",
+        "validation_gate": "privacy-leakage-human-review"
+      }
+    }
+  }
+}

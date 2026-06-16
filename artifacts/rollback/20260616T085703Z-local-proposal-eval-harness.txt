@@ -1,0 +1,9 @@
+rollback_point: local-proposal-eval-harness
+created_at: 2026-06-16T08:57:03Z
+original_branch: codex/blackhole-evolve/20260616T085808.064689-add-or-extend-a-local-benchmark-style-harness-th
+original_head: c63513b91cce1bd20f229406610dc2199535f274
+rollback_ref: refs/blackhole-agent/rollback/20260616T085703Z/c63513b91cce
+recovery_commands:
+  git switch codex/blackhole-evolve/20260616T085808.064689-add-or-extend-a-local-benchmark-style-harness-th
+  git reset --hard refs/blackhole-agent/rollback/20260616T085703Z/c63513b91cce
+notes: Explicit rollback point before adding replay-style proposal evidence validation harness.

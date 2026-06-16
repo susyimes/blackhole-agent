@@ -1,0 +1,92 @@
+{
+  "name": "benign-agent-harness",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 3,
+    "max_item_text_chars": 240
+  },
+  "digest": {
+    "digest_id": "github-growth-replay-benign-harness",
+    "generated_at": "2026-06-16T08:57:03Z",
+    "items": [
+      {
+        "item_id": "agent-harness-trend",
+        "source_url": "https://github.com/ApodexAI/AgentHarness",
+        "event_kind": "RepositoryTrend",
+        "summary": "ApodexAI/AgentHarness: public benchmark harness with reproducible smoke and full runs",
+        "relevance_reason": "matched topics: agent, harness, validation",
+        "risk_flags": [],
+        "confidence": 0.92
+      },
+      {
+        "item_id": "local-runner-test",
+        "source_url": "https://github.com/example/local-agent/pull/7",
+        "event_kind": "PullRequestEvent",
+        "summary": "example/local-agent: add local runner replay tests",
+        "relevance_reason": "matched topics: test, agent",
+        "risk_flags": [],
+        "confidence": 0.72
+      },
+      {
+        "item_id": "low-confidence-note",
+        "source_url": "https://github.com/example/local-agent/issues/2",
+        "event_kind": "IssuesEvent",
+        "summary": "example/local-agent: vague feature request",
+        "relevance_reason": "weak local relevance",
+        "risk_flags": [],
+        "confidence": 0.18
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-replay-benign-harness",
+    "run_interpretation": "A local replay harness is a safe test improvement.",
+    "self_model_reading": {
+      "status": "unchanged"
+    },
+    "proposals": [
+      {
+        "proposal_id": "local-replay-harness",
+        "kind": "test",
+        "summary": "Add a replay-style local proposal evaluation harness.",
+        "evidence_refs": [
+          "agent-harness-trend",
+          "local-runner-test"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run frozen benign proposal replay fixtures through local tests.",
+        "rationale": "Public harness projects emphasize reproducible local benchmark runs.",
+        "uncertainty": "The fixture is synthetic and checks controller invariants rather than model quality.",
+        "self_effect": "Improves future proposal validation replayability.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 0,
+    "selected_item_ids": [
+      "local-runner-test",
+      "agent-harness-trend",
+      "low-confidence-note"
+    ],
+    "truncated_item_ids": [],
+    "accepted_evidence_refs": {
+      "local-replay-harness": [
+        "agent-harness-trend",
+        "local-runner-test"
+      ]
+    },
+    "proposal_controls": {
+      "local-replay-harness": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    }
+  }
+}
