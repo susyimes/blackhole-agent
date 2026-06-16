@@ -1,0 +1,13 @@
+# Rollback Point
+
+Digest: github-growth-20260616T091703.988745Z
+Created: 2026-06-16T09:17:03Z
+Original branch: codex/blackhole-evolve/20260616T091805.845302-add-or-strengthen-a-local-e2e-regression-around-
+Original HEAD: c65896ab91f39eee97ae7a78c3c4811c28c2c720
+Rollback ref: refs/rollback/blackhole-agent/20260616T091703Z
+
+Recovery commands:
+```powershell
+git switch codex/blackhole-evolve/20260616T091805.845302-add-or-strengthen-a-local-e2e-regression-around-
+git reset --hard refs/rollback/blackhole-agent/20260616T091703Z
+```

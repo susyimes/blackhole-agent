@@ -69,9 +69,7 @@ class CodexCliKernel:
     ) -> CodexCliRunResult:
         output_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        task_path = output_dir / f"codex-task-{timestamp}.md"
-        last_message_path = output_dir / f"codex-last-message-{timestamp}.md"
-        result_path = output_dir / f"codex-run-{timestamp}.json"
+        task_path, last_message_path, result_path = allocate_run_artifact_paths(output_dir, timestamp)
         task_path.write_text(task, encoding="utf-8")
 
         command = build_codex_exec_command(
@@ -126,6 +124,19 @@ class CodexCliKernel:
                 f"result details were written to {result_path}."
             )
         return result
+
+
+def allocate_run_artifact_paths(output_dir: Path, timestamp: str) -> tuple[Path, Path, Path]:
+    """Return fresh per-run artifact paths, even for multiple runs in one second."""
+
+    for index in range(1000):
+        suffix = timestamp if index == 0 else f"{timestamp}-{index:03d}"
+        task_path = output_dir / f"codex-task-{suffix}.md"
+        last_message_path = output_dir / f"codex-last-message-{suffix}.md"
+        result_path = output_dir / f"codex-run-{suffix}.json"
+        if not task_path.exists() and not last_message_path.exists() and not result_path.exists():
+            return task_path, last_message_path, result_path
+    raise RuntimeError(f"Could not allocate unique Codex run artifact paths for timestamp {timestamp}")
 
 
 def build_codex_exec_command(

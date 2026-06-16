@@ -1,8 +1,11 @@
 import json
 import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
+import blackhole_agent.kernels.codex_cli as codex_cli
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, build_codex_exec_command
 
 
@@ -74,3 +77,45 @@ def test_codex_kernel_raises_on_nonzero_exit_after_writing_result(tmp_path):
     assert latest["returncode"] == 7
     assert latest["last_message"] == "partial failure details"
     assert latest["stderr_tail"] == "boom"
+
+
+def test_codex_kernel_cancel_recover_uses_fresh_artifacts_for_same_second(tmp_path, monkeypatch):
+    class FixedDatetime:
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 6, 16, 9, 17, 3, tzinfo=timezone.utc)
+
+    attempts = 0
+    last_message_paths = []
+
+    def fake_runner(command, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        last_message = command[command.index("--output-last-message") + 1]
+        last_message_paths.append(last_message)
+        if attempts == 1:
+            with open(last_message, "w", encoding="utf-8") as handle:
+                handle.write("partial state from interrupted run")
+            raise subprocess.TimeoutExpired(command, timeout=1, output="started", stderr="")
+        assert not Path(last_message).exists()
+        with open(last_message, "w", encoding="utf-8") as handle:
+            handle.write("recovered cleanly")
+        return subprocess.CompletedProcess(command, 0, stdout="finished", stderr="")
+
+    monkeypatch.setattr(codex_cli, "datetime", FixedDatetime)
+    kernel = CodexCliKernel(CodexCliConfig(codex_bin="codex"), command_runner=fake_runner)
+
+    with pytest.raises(TimeoutError, match="Codex CLI timed out after 1 seconds"):
+        kernel.run("Interruptible task", cwd=tmp_path, output_dir=tmp_path / "out", timeout_seconds=1)
+    result = kernel.run("Recover task", cwd=tmp_path, output_dir=tmp_path / "out", timeout_seconds=5)
+
+    assert last_message_paths[0] != last_message_paths[1]
+    assert Path(last_message_paths[0]).read_text(encoding="utf-8") == "partial state from interrupted run"
+    assert result.last_message == "recovered cleanly"
+    assert result.returncode == 0
+    assert result.timed_out is False
+
+    latest = json.loads((tmp_path / "out" / "latest-codex-run.json").read_text(encoding="utf-8"))
+    assert latest["last_message"] == "recovered cleanly"
+    assert latest["timed_out"] is False
+    assert latest["result_path"].endswith("codex-run-20260616T091703Z-001.json")
