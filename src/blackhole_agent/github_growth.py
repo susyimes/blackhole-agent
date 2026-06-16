@@ -1371,7 +1371,8 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
     for key in ("hypothesis", "expected_local_benefit"):
         if not str(risk_review.get(key) or "").strip():
             blocking_reasons.append(f"pre_adoption_risk_review.{key} is blank")
-    if str(risk_review.get("decision") or "").strip().lower() in {"", "pending"}:
+    risk_review_decision = str(risk_review.get("decision") or "").strip().lower()
+    if risk_review_decision in {"", "pending"}:
         blocking_reasons.append("pre_adoption_risk_review.decision is pending")
 
     blocking_reasons.extend(incomplete_command_reasons(report.get("local_commands"), "local_commands"))
@@ -1396,6 +1397,7 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
         blocking_reasons.append("adoption_decision.status is pending")
     elif adoption_status not in {"adopted", "rejected", "deferred"}:
         blocking_reasons.append("adoption_decision.status is not an allowed final status")
+    blocking_reasons.extend(risk_review_decision_conflict_reasons(risk_review_decision, adoption_status))
     for key in ("rationale", "decided_at"):
         if not str(adoption_decision.get(key) or "").strip():
             blocking_reasons.append(f"adoption_decision.{key} is blank")
@@ -1459,6 +1461,23 @@ def validation_report_has_completion_attempt(report: dict[str, Any], *, adoption
     raw_adoption_decision = report.get("adoption_decision")
     adoption_decision = raw_adoption_decision if isinstance(raw_adoption_decision, dict) else {}
     return any(str(adoption_decision.get(key) or "").strip() for key in ("rationale", "decided_at"))
+
+
+def risk_review_decision_conflict_reasons(risk_review_decision: str, adoption_status: str) -> list[str]:
+    if adoption_status not in {"adopted", "rejected", "deferred"}:
+        return []
+    if "reject" in risk_review_decision and adoption_status != "rejected":
+        return ["pre_adoption_risk_review.decision conflicts with adoption_decision.status"]
+    if "defer" in risk_review_decision and adoption_status != "deferred":
+        return ["pre_adoption_risk_review.decision conflicts with adoption_decision.status"]
+    if (
+        ("accept" in risk_review_decision or "adopt" in risk_review_decision)
+        and "reject" not in risk_review_decision
+        and "defer" not in risk_review_decision
+        and adoption_status != "adopted"
+    ):
+        return ["pre_adoption_risk_review.decision conflicts with adoption_decision.status"]
+    return []
 
 
 def command_list_has_completion_attempt(commands: Any) -> bool:

@@ -1818,6 +1818,79 @@ def test_validation_report_completion_status_classifies_rejected_review_evidence
     assert status["blocking_reasons"] == []
 
 
+def test_validation_report_completion_status_rejects_conflicting_decisions() -> None:
+    report = {
+        "required_fields": [
+            "evidence_urls",
+            "pre_adoption_risk_review",
+            "local_commands",
+            "startup_health_checks",
+            "outcomes",
+            "rollback_ref",
+            "provenance",
+            "skipped_capabilities",
+            "runtime_capability_changes",
+            "completion_requirements",
+            "completion_status",
+            "adoption_decision",
+            "uncertainty",
+        ],
+        "evidence_urls": ["https://github.com/omnigent-ai/omnigent"],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Harness evidence supports stricter validation reporting.",
+            "expected_local_benefit": "Contradictory decisions cannot be mistaken for completed evidence.",
+            "decision": "defer behavior adoption until controller validation is explicit",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "validation report decision consistency",
+                "result": "passed",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260616T032148Z/8bb216ec66cf",
+        "provenance": {
+            "rollback_ref": "refs/blackhole-agent/rollback/20260616T032148Z/8bb216ec66cf",
+        },
+        "skipped_capabilities": ["model selection", "remote execution"],
+        "runtime_capability_changes": [],
+        "completion_requirements": ["pre_adoption_risk_review.decision aligns with adoption_decision.status."],
+        "adoption_decision": {
+            "status": "adopted",
+            "rationale": "Only report metadata changed.",
+            "decided_at": "2026-06-16T03:21:48Z",
+        },
+        "uncertainty": ["External harness capabilities remain review evidence only."],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert status["status"] == "draft_template"
+    assert status["adoption_state"] == "incomplete"
+    assert status["is_complete"] is False
+    assert status["adoption_evidence_complete"] is False
+    assert (
+        "pre_adoption_risk_review.decision conflicts with adoption_decision.status"
+        in status["blocking_reasons"]
+    )
+
+
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):
     event = trend_repository_to_event(
         TrendingRepository(
