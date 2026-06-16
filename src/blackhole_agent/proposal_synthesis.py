@@ -13,6 +13,10 @@ PROPOSAL_SYNTHESIS_SCHEMA_VERSION = 1
 PROPOSAL_MODES = {"heuristic", "llm", "hybrid"}
 DEFAULT_PROPOSAL_MODE = "hybrid"
 DEFAULT_MAX_ITEM_TEXT_CHARS = 1200
+REVIEW_ACTIVITY_EVENT_KINDS = {
+    "PullRequestReviewCommentEvent",
+    "PullRequestReviewEvent",
+}
 CODEX_GATEWAY_MARKER = "/ai-gateway/codex"
 SERVING_ENDPOINTS_MARKER = "/serving-endpoints"
 ALLOWED_PROPOSAL_KINDS = {"documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"}
@@ -200,7 +204,7 @@ def build_proposal_evidence_package(
             "max_items": max_items,
             "input_item_count": len(all_digest_items) if isinstance(all_digest_items, list) else 0,
             "items_truncated": len(ranked_digest_items) > max_items,
-            "item_selection_strategy": "risk_flags_then_confidence_then_original_order",
+            "item_selection_strategy": "risk_flags_then_confidence_with_review_activity_then_original_order",
             "selected_item_ids": selected_item_ids,
             "truncated_item_ids": truncated_item_ids,
             "max_item_text_chars": max_item_text_chars,
@@ -264,7 +268,8 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
     if not isinstance(items, list):
         return []
 
-    ranked: list[tuple[tuple[int, float, int], int, dict[str, Any]]] = []
+    review_activity_by_repo = digest_review_activity_counts(items)
+    ranked: list[tuple[tuple[int, int, float, int], int, dict[str, Any]]] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
             continue
@@ -274,8 +279,83 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
             confidence = float(item.get("confidence") or 0.0)
         except (TypeError, ValueError):
             confidence = 0.0
-        ranked.append(((0 if has_risk_flags else 1, -confidence, index), index, item))
+        adjusted_confidence = confidence + digest_review_activity_confidence_bonus(
+            item,
+            review_activity_by_repo=review_activity_by_repo,
+        )
+        ranked.append(
+            (
+                (
+                    0 if has_risk_flags else 1,
+                    -digest_item_direct_action_priority(item),
+                    -adjusted_confidence,
+                    index,
+                ),
+                index,
+                item,
+            )
+        )
     return [(index, item) for _, index, item in sorted(ranked, key=lambda entry: entry[0])]
+
+
+def digest_review_activity_counts(items: list[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("event_kind") or "") not in REVIEW_ACTIVITY_EVENT_KINDS:
+            continue
+        repo = digest_item_repo(item)
+        if repo:
+            counts[repo] = counts.get(repo, 0) + 1
+    return counts
+
+
+def digest_review_activity_confidence_bonus(
+    item: dict[str, Any],
+    *,
+    review_activity_by_repo: dict[str, int],
+) -> float:
+    repo = digest_item_repo(item)
+    review_activity_count = review_activity_by_repo.get(repo, 0)
+    if review_activity_count < 2:
+        return 0.0
+    if not digest_item_is_review_validation_or_test_route(item):
+        return 0.0
+    return min(0.24, 0.08 * (review_activity_count - 1))
+
+
+def digest_item_repo(item: dict[str, Any]) -> str:
+    source_url = str(item.get("source_url") or "")
+    match = re.match(r"https://github\.com/([^/\s]+/[^/\s#?]+)", source_url)
+    if match:
+        return match.group(1)
+    summary = str(item.get("summary") or "")
+    if ": " in summary:
+        return summary.split(": ", 1)[0].strip()
+    return ""
+
+
+def digest_item_is_review_validation_or_test_route(item: dict[str, Any]) -> bool:
+    event_kind = str(item.get("event_kind") or "")
+    if event_kind in REVIEW_ACTIVITY_EVENT_KINDS | {"PullRequestEvent"}:
+        return True
+    if event_kind != "PushEvent":
+        return False
+    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
+    return any(term in text for term in ("review", "validation", "validate", "test", "harness"))
+
+
+def digest_item_direct_action_priority(item: dict[str, Any]) -> int:
+    event_kind = str(item.get("event_kind") or "")
+    if event_kind == "PullRequestEvent":
+        return 1
+    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
+    if event_kind == "PushEvent" and any(term in text for term in ("validation", "validate", "test", "workflow")):
+        return 1
+    if event_kind == "ReleaseEvent":
+        return 1
+    return 0
 
 
 def digest_item_id(item: dict[str, Any], original_index: int) -> str:

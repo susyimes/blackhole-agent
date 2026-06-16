@@ -1,0 +1,13 @@
+Rollback point for github-growth-20260616T074601.315093Z
+
+Original branch: codex/blackhole-evolve/20260616T074714.487496-add-a-local-provider-config-token-preflight-that
+Original HEAD: a49b2640221fcea801bdbfbbe735f7fbad307c08
+Local rollback ref: refs/rollback/blackhole-evolve-20260616T074600Z
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260616T074714.487496-add-a-local-provider-config-token-preflight-that
+  git reset --hard refs/rollback/blackhole-evolve-20260616T074600Z
+
+Run notes:
+  Selected local proposal: p3-github-review-signal-ranking.
+  Provider/config/token preflight and offensive/security harness proposals remain review-only for this run.

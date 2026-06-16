@@ -70,6 +70,7 @@ INTERESTING_EVENT_TYPES = {
     "IssuesEvent",
     "IssueCommentEvent",
     "PullRequestEvent",
+    "PullRequestReviewCommentEvent",
     "PullRequestReviewEvent",
     "PushEvent",
     "ReleaseEvent",
@@ -223,6 +224,10 @@ VALIDATION_REPORT_REQUIRED_FIELDS = [
 ]
 COMPLETED_VALIDATION_OUTCOME_RESULTS = {"adopted", "pass", "passed", "reviewed"}
 VALIDATION_REPORT_ADOPTION_STATES = ["draft", "incomplete", "rejected", "adoption-ready"]
+REVIEW_ACTIVITY_EVENT_KINDS = {
+    "PullRequestReviewCommentEvent",
+    "PullRequestReviewEvent",
+}
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -875,6 +880,8 @@ def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
         return "review release notes for reusable implementation or workflow changes"
     if event.kind == "PullRequestEvent":
         return "compare the pull request approach with local agent behavior before drafting a change"
+    if event.kind in REVIEW_ACTIVITY_EVENT_KINDS:
+        return "treat repeated pull request review activity as supporting evidence for local validation or test changes"
     if event.kind == "PushEvent":
         return "cluster commit messages and keep only patterns with clear test evidence"
     if event.kind in {"IssuesEvent", "IssueCommentEvent"}:
@@ -1555,14 +1562,77 @@ def rank_signals_with_memory(
     *,
     memory: GrowthMemory | None = None,
 ) -> list[GrowthSignal]:
-    if memory is None:
-        return signals
+    review_activity_by_repo = signal_review_activity_counts(signals)
     indexed = list(enumerate(signals))
-    indexed.sort(key=lambda item: (-memory_bias_for_signal(item[1], memory), item[0]))
+    indexed.sort(
+        key=lambda item: (
+            -signal_safety_review_priority(item[1]),
+            -signal_direct_action_priority(item[1]),
+            -memory_bias_for_signal(item[1], memory),
+            -signal_adjusted_confidence(item[1], review_activity_by_repo=review_activity_by_repo),
+            item[0],
+        )
+    )
     return [signal for _, signal in indexed]
 
 
-def memory_bias_for_signal(signal: GrowthSignal, memory: GrowthMemory) -> float:
+def signal_safety_review_priority(signal: GrowthSignal) -> int:
+    return 1 if signal.risk_flags else 0
+
+
+def signal_direct_action_priority(signal: GrowthSignal) -> int:
+    if signal.kind == "PullRequestEvent":
+        return 1
+    text = f"{signal.title} {signal.relevance_reason} {signal.recommended_action}".lower()
+    if signal.kind == "PushEvent" and any(term in text for term in ("validation", "validate", "test", "workflow")):
+        return 1
+    if signal.kind == "ReleaseEvent":
+        return 1
+    return 0
+
+
+def signal_review_activity_counts(signals: list[GrowthSignal]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for signal in signals:
+        if signal.kind not in REVIEW_ACTIVITY_EVENT_KINDS:
+            continue
+        counts[signal.repo] = counts.get(signal.repo, 0) + 1
+    return counts
+
+
+def signal_review_activity_bias(
+    signal: GrowthSignal,
+    *,
+    review_activity_by_repo: dict[str, int],
+) -> float:
+    review_activity_count = review_activity_by_repo.get(signal.repo, 0)
+    if review_activity_count < 2:
+        return 0.0
+    if not signal_is_review_validation_or_test_route(signal):
+        return 0.0
+    return min(0.4, 0.25 * (review_activity_count - 1))
+
+
+def signal_adjusted_confidence(
+    signal: GrowthSignal,
+    *,
+    review_activity_by_repo: dict[str, int],
+) -> float:
+    return signal.confidence + signal_review_activity_bias(signal, review_activity_by_repo=review_activity_by_repo)
+
+
+def signal_is_review_validation_or_test_route(signal: GrowthSignal) -> bool:
+    if signal.kind in REVIEW_ACTIVITY_EVENT_KINDS | {"PullRequestEvent"}:
+        return True
+    if signal.kind != "PushEvent":
+        return False
+    text = f"{signal.title} {signal.relevance_reason} {signal.recommended_action}".lower()
+    return any(term in text for term in ("review", "validation", "validate", "test", "harness"))
+
+
+def memory_bias_for_signal(signal: GrowthSignal, memory: GrowthMemory | None) -> float:
+    if memory is None:
+        return 0.0
     repo_stats = memory.repositories.get(signal.repo, {})
     repo_bias = memory_stats_bias(repo_stats)
     topic_bias = sum(memory_stats_bias(memory.topics.get(topic, {})) for topic in topics_from_relevance(signal.relevance_reason))
@@ -1587,6 +1657,8 @@ def classify_proposal_kind(signal: GrowthSignal) -> str:
         return "test"
     if signal.kind == "PullRequestEvent":
         return "code_patch"
+    if signal.kind in REVIEW_ACTIVITY_EVENT_KINDS:
+        return "test"
     if signal.kind in {"IssuesEvent", "IssueCommentEvent"}:
         return "follow_up_issue"
     return "no_action"
@@ -2271,6 +2343,27 @@ def _event_text(repo: str, kind: str, payload: dict[str, Any]) -> tuple[str, str
         title = _compact(pr.get("title") or "untitled pull request")
         action = payload.get("action") or "updated"
         return f"{action} pull request: {title}", pr.get("html_url") or _repo_url(repo), _compact(pr.get("body") or "")
+    if kind == "PullRequestReviewEvent":
+        pr = payload.get("pull_request") or {}
+        review = payload.get("review") or {}
+        title = _compact(pr.get("title") or "untitled pull request")
+        action = payload.get("action") or "reviewed"
+        state = _compact(review.get("state") or "review")
+        return (
+            f"{action} pull request review ({state}): {title}",
+            review.get("html_url") or pr.get("html_url") or _repo_url(repo),
+            _compact(review.get("body") or ""),
+        )
+    if kind == "PullRequestReviewCommentEvent":
+        pr = payload.get("pull_request") or {}
+        comment = payload.get("comment") or {}
+        title = _compact(pr.get("title") or "untitled pull request")
+        action = payload.get("action") or "commented"
+        return (
+            f"{action} pull request review comment: {title}",
+            comment.get("html_url") or pr.get("html_url") or _repo_url(repo),
+            _compact(comment.get("body") or ""),
+        )
     if kind in {"IssuesEvent", "IssueCommentEvent"}:
         issue = payload.get("issue") or {}
         title = _compact(issue.get("title") or "untitled issue")

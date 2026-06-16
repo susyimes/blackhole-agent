@@ -60,6 +60,31 @@ def event_payload(event_id: str, kind: str, title: str, *, created_at: str | Non
                 "html_url": "https://github.com/example/repo/pull/1",
             },
         }
+    elif kind == "PullRequestReviewEvent":
+        payload = {
+            "action": "submitted",
+            "pull_request": {
+                "title": title,
+                "html_url": "https://github.com/example/repo/pull/1",
+            },
+            "review": {
+                "state": "commented",
+                "body": "Please add validation coverage.",
+                "html_url": "https://github.com/example/repo/pull/1#pullrequestreview-1",
+            },
+        }
+    elif kind == "PullRequestReviewCommentEvent":
+        payload = {
+            "action": "created",
+            "pull_request": {
+                "title": title,
+                "html_url": "https://github.com/example/repo/pull/1",
+            },
+            "comment": {
+                "body": "This needs a focused smoke test.",
+                "html_url": "https://github.com/example/repo/pull/1#discussion_r1",
+            },
+        }
     elif kind == "PushEvent":
         payload = {
             "ref": "refs/heads/main",
@@ -294,6 +319,17 @@ def test_normalize_pull_request_event_extracts_reviewable_text():
     assert event.title == "opened pull request: Add agent workflow benchmark"
     assert event.url == "https://github.com/example/repo/pull/1"
     assert event.actor == "octocat"
+
+
+def test_normalize_pull_request_review_comment_event_extracts_review_text():
+    event = normalize_event(
+        "example/repo",
+        event_payload("review-comment-1", "PullRequestReviewCommentEvent", "Add agent workflow benchmark"),
+    )
+
+    assert event.title == "created pull request review comment: Add agent workflow benchmark"
+    assert event.url == "https://github.com/example/repo/pull/1#discussion_r1"
+    assert event.summary == "This needs a focused smoke test."
 
 
 def test_github_events_client_follows_paginated_event_links():
@@ -738,7 +774,10 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     assert first["allowed_evidence_urls"] == ["https://github.com/microsoft/fastcontext/issues/123?query=preserve"]
     assert first["context_budget"]["items_truncated"] is True
     assert first["context_budget"]["input_item_count"] == 2
-    assert first["context_budget"]["item_selection_strategy"] == "risk_flags_then_confidence_then_original_order"
+    assert (
+        first["context_budget"]["item_selection_strategy"]
+        == "risk_flags_then_confidence_with_review_activity_then_original_order"
+    )
     assert first["context_budget"]["selected_item_ids"] == ["event-1"]
     assert first["context_budget"]["truncated_item_ids"] == ["event-2"]
     assert first["context_budget"]["item_selection_diagnostics"] == [
@@ -931,6 +970,115 @@ def test_proposal_evidence_package_prioritizes_items_before_truncation():
     assert review.accepted_candidates[1]["evidence_refs"] == ["top-confidence", "middle-confidence"]
 
 
+def test_proposal_evidence_package_boosts_repeated_review_activity_without_overwhelming_risk_or_direct_evidence():
+    digest = {
+        "digest_id": "github-growth-review-signal-ranking",
+        "generated_at": "2026-06-16T07:46:01Z",
+        "items": [
+            {
+                "item_id": "repo-trend",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "omnigent-ai/omnigent: trending multi-agent harness",
+                "relevance_reason": "repository trend has broad harness relevance",
+                "risk_flags": [],
+                "confidence": 0.61,
+            },
+            {
+                "item_id": "direct-pr",
+                "source_url": "https://github.com/omnigent-ai/omnigent/pull/77",
+                "event_kind": "PullRequestEvent",
+                "summary": "omnigent-ai/omnigent: add validation harness checks",
+                "relevance_reason": "direct code patch candidate",
+                "risk_flags": [],
+                "confidence": 0.7,
+            },
+            {
+                "item_id": "review-event",
+                "source_url": "https://github.com/omnigent-ai/omnigent/pull/77#pullrequestreview-1",
+                "event_kind": "PullRequestReviewEvent",
+                "summary": "omnigent-ai/omnigent: reviewed validation harness checks",
+                "relevance_reason": "review activity supports confidence for validation route",
+                "risk_flags": [],
+                "confidence": 0.62,
+            },
+            {
+                "item_id": "review-comment",
+                "source_url": "https://github.com/omnigent-ai/omnigent/pull/77#discussion_r1",
+                "event_kind": "PullRequestReviewCommentEvent",
+                "summary": "omnigent-ai/omnigent: review comment requests focused tests",
+                "relevance_reason": "review comment supports test-harness route",
+                "risk_flags": [],
+                "confidence": 0.63,
+            },
+            {
+                "item_id": "generic-push",
+                "source_url": "https://github.com/omnigent-ai/omnigent/commit/abc123",
+                "event_kind": "PushEvent",
+                "summary": "omnigent-ai/omnigent: generic dependency cleanup",
+                "relevance_reason": "generic push event",
+                "risk_flags": [],
+                "confidence": 0.58,
+            },
+            {
+                "item_id": "privacy-boundary",
+                "source_url": "https://github.com/omnigent-ai/omnigent/issues/5",
+                "event_kind": "IssueCommentEvent",
+                "summary": "omnigent-ai/omnigent: privacy token boundary",
+                "relevance_reason": "risk-gated evidence must stay selected",
+                "risk_flags": ["privacy-leakage"],
+                "confidence": 0.2,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=200)
+
+    assert evidence_package["policy"]["max_proposals"] == 5
+    assert len(evidence_package["items"]) <= evidence_package["policy"]["max_proposals"]
+    assert [item["item_id"] for item in evidence_package["items"]] == [
+        "privacy-boundary",
+        "direct-pr",
+        "review-comment",
+        "review-event",
+    ]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == ["repo-trend", "generic-push"]
+
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-review-signal-ranking",
+            "run_interpretation": "Use repeated upstream review activity as bounded confidence evidence.",
+            "self_model_reading": {"status": "unchanged"},
+            "proposals": [
+                {
+                    "proposal_id": "review-signal-test-route",
+                    "kind": "test",
+                    "summary": "Add ranking coverage for repeated review activity.",
+                    "evidence_refs": ["review-comment", "review-event"],
+                    "added_risk_flags": [],
+                    "validation_task": "Replay synthetic review activity ranking locally.",
+                    "rationale": "Repeated PR review comments are useful confidence signals for validation routes.",
+                    "uncertainty": "Synthetic fixture only covers bounded ranking behavior.",
+                    "self_effect": "Improves trend intelligence proposal selection.",
+                    "action_lane": "local_validation_candidate",
+                }
+            ],
+            "rejected_items": ["repo-trend", "generic-push"],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="hybrid")
+
+    assert review.status == "accepted"
+    assert review.accepted_count <= evidence_package["policy"]["max_proposals"]
+    assert review.accepted_candidates[0]["evidence_refs"] == ["review-comment", "review-event"]
+    assert review.accepted_candidates[0]["evidence_urls"] == [
+        "https://github.com/omnigent-ai/omnigent/pull/77#discussion_r1",
+        "https://github.com/omnigent-ai/omnigent/pull/77#pullrequestreview-1",
+    ]
+
+
 def test_proposal_evidence_package_disambiguates_duplicate_item_ids_under_context_pressure():
     digest = {
         "digest_id": "github-growth-duplicate-context-ids",
@@ -1061,7 +1209,7 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
         "selected_text_original_chars": len("compact context") + len("fits within budget"),
         "selected_text_chars": len("compact context") + len("fits within budget"),
         "field_truncated_text_chars": 0,
-        "item_selection_strategy": "risk_flags_then_confidence_then_original_order",
+        "item_selection_strategy": "risk_flags_then_confidence_with_review_activity_then_original_order",
         "selected_item_ids": ["event-1"],
         "truncated_item_ids": [],
         "excluded_item_count": 0,
@@ -1190,7 +1338,7 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     assert preflight["selected_text_original_chars"] == 70
     assert preflight["selected_text_chars"] == 20
     assert preflight["field_truncated_text_chars"] == 50
-    assert preflight["item_selection_strategy"] == "risk_flags_then_confidence_then_original_order"
+    assert preflight["item_selection_strategy"] == "risk_flags_then_confidence_with_review_activity_then_original_order"
     assert preflight["selected_item_ids"] == ["event-1"]
     assert preflight["truncated_item_ids"] == ["event-2"]
     assert preflight["excluded_item_count"] == 0
@@ -1920,6 +2068,75 @@ def test_memory_bias_prioritizes_previously_useful_sources():
 
     assert proposals[0]["proposal_id"] == "b-1"
     assert "example/hot" in proposals[0]["summary"]
+
+
+def test_heuristic_ranking_boosts_repeated_review_activity_after_safety_and_direct_routes():
+    signals = [
+        GrowthSignal(
+            event_id="trend",
+            repo="omnigent-ai/omnigent",
+            kind="RepositoryTrend",
+            title="trending repository: omnigent-ai/omnigent",
+            url="https://github.com/omnigent-ai/omnigent",
+            relevance_reason="repository trend has broad harness relevance",
+            risk_flags=[],
+            recommended_action="review repository trend",
+            confidence=0.82,
+        ),
+        GrowthSignal(
+            event_id="direct-pr",
+            repo="omnigent-ai/omnigent",
+            kind="PullRequestEvent",
+            title="opened pull request: add validation harness checks",
+            url="https://github.com/omnigent-ai/omnigent/pull/77",
+            relevance_reason="direct code patch candidate",
+            risk_flags=[],
+            recommended_action="compare the pull request approach with local agent behavior before drafting a change",
+            confidence=0.62,
+        ),
+        GrowthSignal(
+            event_id="review-event",
+            repo="omnigent-ai/omnigent",
+            kind="PullRequestReviewEvent",
+            title="submitted pull request review: add validation harness checks",
+            url="https://github.com/omnigent-ai/omnigent/pull/77#pullrequestreview-1",
+            relevance_reason="review activity supports validation route",
+            risk_flags=[],
+            recommended_action="capture review signal",
+            confidence=0.62,
+        ),
+        GrowthSignal(
+            event_id="review-comment",
+            repo="omnigent-ai/omnigent",
+            kind="PullRequestReviewCommentEvent",
+            title="created pull request review comment: add validation harness checks",
+            url="https://github.com/omnigent-ai/omnigent/pull/77#discussion_r1",
+            relevance_reason="review comment supports test route",
+            risk_flags=[],
+            recommended_action="capture review signal",
+            confidence=0.61,
+        ),
+        GrowthSignal(
+            event_id="risk",
+            repo="omnigent-ai/omnigent",
+            kind="IssueCommentEvent",
+            title="token boundary review",
+            url="https://github.com/omnigent-ai/omnigent/issues/5",
+            relevance_reason="risk-gated evidence must stay selected",
+            risk_flags=["privacy-leakage"],
+            recommended_action="record the privacy-leakage boundary",
+            confidence=0.1,
+        ),
+    ]
+
+    proposals = build_proposals(signals, limit=4)
+
+    assert [proposal["proposal_id"] for proposal in proposals] == [
+        "risk-1",
+        "direct-pr-2",
+        "review-event-3",
+        "review-comment-4",
+    ]
 
 
 def test_github_growth_help():
