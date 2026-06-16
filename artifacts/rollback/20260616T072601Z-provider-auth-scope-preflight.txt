@@ -1,0 +1,18 @@
+Rollback point for digest github-growth-20260616T072601.228828Z
+
+Original branch:
+codex/blackhole-evolve/20260616T072712.586521-add-or-strengthen-provider-auth-preflight-checks
+
+Original HEAD:
+bcc0b2b9fd921c28a4e76354961788f575f311b4
+
+Local rollback ref:
+refs/rollback/20260616T072601-provider-auth-scope-preflight
+
+Recovery commands, if a human operator or supervisor policy chooses destructive rollback:
+git reset --hard refs/rollback/20260616T072601-provider-auth-scope-preflight
+git clean -fd
+
+Scope note:
+This run reviewed the provider/auth proposal as privacy-sensitive and kept it review-only.
+The local implementation target is the autonomous tool-schema/cache-integrity proposal.
