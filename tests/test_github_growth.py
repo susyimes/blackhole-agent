@@ -1525,6 +1525,7 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
         "provenance": {
+            "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
             "rollback_ref": "refs/blackhole-agent/rollback/20260615T154146Z/20260615T154600Z",
         },
         "skipped_capabilities": ["remote execution"],
@@ -1655,6 +1656,7 @@ def test_validation_report_completion_status_requires_explicit_passing_outcome()
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260615T162146Z/20260615T162600Z",
         "provenance": {
+            "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
             "rollback_ref": "refs/blackhole-agent/rollback/20260615T162146Z/20260615T162600Z",
         },
         "skipped_capabilities": ["remote execution"],
@@ -1725,6 +1727,7 @@ def test_validation_report_completion_status_requires_matching_provenance_rollba
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260615T163717Z/20260615T163900Z",
         "provenance": {
+            "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
             "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
         },
         "skipped_capabilities": ["remote execution"],
@@ -1745,6 +1748,80 @@ def test_validation_report_completion_status_requires_matching_provenance_rollba
     assert status["is_complete"] is False
     assert status["adoption_evidence_complete"] is False
     assert "provenance.rollback_ref does not name a concrete rollback ref or artifact" in status["blocking_reasons"]
+
+
+def test_validation_report_completion_status_requires_matching_provenance_evidence_urls() -> None:
+    report = {
+        "required_fields": [
+            "evidence_urls",
+            "pre_adoption_risk_review",
+            "local_commands",
+            "startup_health_checks",
+            "outcomes",
+            "rollback_ref",
+            "provenance",
+            "skipped_capabilities",
+            "runtime_capability_changes",
+            "completion_requirements",
+            "completion_status",
+            "adoption_decision",
+            "uncertainty",
+        ],
+        "evidence_urls": [
+            "https://github.com/omnigent-ai/omnigent/issues/241",
+            "https://github.com/samarailly51-pixel/opencode-harness",
+        ],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Harness evidence supports replayable validation reporting.",
+            "expected_local_benefit": "Completed reports can be replayed from provenance metadata.",
+            "decision": "accept validation-only improvement",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "validation report provenance evidence gate",
+                "result": "passed",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260616T034147Z/d93f771ac5c3",
+        "provenance": {
+            "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
+            "rollback_ref": "refs/blackhole-agent/rollback/20260616T034147Z/d93f771ac5c3",
+        },
+        "skipped_capabilities": ["new agent harnesses", "remote execution"],
+        "runtime_capability_changes": [],
+        "completion_requirements": ["provenance.evidence_urls matches evidence_urls."],
+        "adoption_decision": {
+            "status": "adopted",
+            "rationale": "Only report metadata changed.",
+            "decided_at": "2026-06-16T03:41:47Z",
+        },
+        "uncertainty": ["External harness behavior was reviewed as evidence only."],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert status["status"] == "draft_template"
+    assert status["adoption_state"] == "incomplete"
+    assert status["is_complete"] is False
+    assert status["adoption_evidence_complete"] is False
+    assert "provenance.evidence_urls does not match evidence_urls" in status["blocking_reasons"]
 
 
 def test_validation_report_completion_status_classifies_rejected_review_evidence() -> None:
@@ -1795,6 +1872,7 @@ def test_validation_report_completion_status_classifies_rejected_review_evidence
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260616T030148Z/64a05c39cf2e",
         "provenance": {
+            "evidence_urls": ["https://github.com/visa/visa-vulnerability-agentic-harness"],
             "rollback_ref": "refs/blackhole-agent/rollback/20260616T030148Z/64a05c39cf2e",
         },
         "skipped_capabilities": ["remote execution", "security scanning"],
@@ -1866,6 +1944,7 @@ def test_validation_report_completion_status_rejects_conflicting_decisions() -> 
         ],
         "rollback_ref": "refs/blackhole-agent/rollback/20260616T032148Z/8bb216ec66cf",
         "provenance": {
+            "evidence_urls": ["https://github.com/omnigent-ai/omnigent"],
             "rollback_ref": "refs/blackhole-agent/rollback/20260616T032148Z/8bb216ec66cf",
         },
         "skipped_capabilities": ["model selection", "remote execution"],

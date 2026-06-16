@@ -1382,7 +1382,7 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
     rollback_ref = str(report.get("rollback_ref") or "").strip()
     if not rollback_ref or rollback_ref == DRAFT_ROLLBACK_REF:
         blocking_reasons.append("rollback_ref does not name a concrete rollback ref or artifact")
-    blocking_reasons.extend(incomplete_provenance_reasons(report.get("provenance"), rollback_ref))
+    blocking_reasons.extend(incomplete_provenance_reasons(report.get("provenance"), rollback_ref, report.get("evidence_urls")))
     blocking_reasons.extend(nonblank_list_reasons(report.get("skipped_capabilities"), "skipped_capabilities"))
     if report.get("runtime_capability_changes") != []:
         blocking_reasons.append("runtime_capability_changes is not empty")
@@ -1507,10 +1507,18 @@ def outcome_list_has_completion_attempt(outcomes: Any) -> bool:
     return False
 
 
-def incomplete_provenance_reasons(provenance: Any, rollback_ref: str) -> list[str]:
+def incomplete_provenance_reasons(provenance: Any, rollback_ref: str, evidence_urls: Any) -> list[str]:
     if not isinstance(provenance, dict):
         return ["provenance is missing"]
     reasons: list[str] = []
+    expected_evidence_urls = sorted(str(url).strip() for url in evidence_urls if str(url).strip()) if isinstance(evidence_urls, list) else []
+    provenance_evidence_urls = (
+        sorted(str(url).strip() for url in provenance.get("evidence_urls") if str(url).strip())
+        if isinstance(provenance.get("evidence_urls"), list)
+        else []
+    )
+    if provenance_evidence_urls != expected_evidence_urls:
+        reasons.append("provenance.evidence_urls does not match evidence_urls")
     provenance_rollback_ref = str(provenance.get("rollback_ref") or "").strip()
     if not provenance_rollback_ref or provenance_rollback_ref == DRAFT_ROLLBACK_REF:
         reasons.append("provenance.rollback_ref does not name a concrete rollback ref or artifact")

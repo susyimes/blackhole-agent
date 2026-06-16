@@ -1,0 +1,9 @@
+rollback_point: 20260616T034147Z
+original_branch: codex/blackhole-evolve/20260616T034254.962597-add-or-strengthen-tests-for-validation-reports-s
+original_head: d93f771ac5c39450d6f9fda15a0711db0ef00ade
+local_rollback_ref: refs/blackhole-agent/rollback/20260616T034147Z-validation-report-contract
+recovery_commands:
+  git switch codex/blackhole-evolve/20260616T034254.962597-add-or-strengthen-tests-for-validation-reports-s
+  git reset --hard refs/blackhole-agent/rollback/20260616T034147Z-validation-report-contract
+  git clean -fd
+notes: destructive rollback must be explicitly chosen by a human operator or external supervisor policy; this kernel did not execute rollback.
