@@ -967,7 +967,13 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
         "items_truncated": False,
         "max_item_text_chars": 100,
         "truncated_item_count": 0,
+        "whole_item_truncated_count": 0,
+        "text_truncated_item_count": 0,
         "truncated_field_count": 0,
+        "input_text_chars": len("compact context") + len("fits within budget"),
+        "selected_text_original_chars": len("compact context") + len("fits within budget"),
+        "selected_text_chars": len("compact context") + len("fits within budget"),
+        "field_truncated_text_chars": 0,
         "item_selection_strategy": "risk_flags_then_confidence_then_original_order",
         "selected_item_ids": ["event-1"],
         "truncated_item_ids": [],
@@ -1033,7 +1039,13 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     assert preflight["max_items"] == 1
     assert preflight["items_truncated"] is True
     assert preflight["truncated_item_count"] == 1
+    assert preflight["whole_item_truncated_count"] == 1
+    assert preflight["text_truncated_item_count"] == 1
     assert preflight["truncated_field_count"] == 2
+    assert preflight["input_text_chars"] == 86
+    assert preflight["selected_text_original_chars"] == 70
+    assert preflight["selected_text_chars"] == 20
+    assert preflight["field_truncated_text_chars"] == 50
     assert preflight["item_selection_strategy"] == "risk_flags_then_confidence_then_original_order"
     assert preflight["selected_item_ids"] == ["event-1"]
     assert preflight["truncated_item_ids"] == ["event-2"]
@@ -1064,6 +1076,68 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     assert preflight["local_metadata_only"] is True
     assert preflight["external_fetch_performed"] is False
     assert "fastcontext" not in json.dumps(preflight, sort_keys=True)
+
+
+def test_context_budget_preflight_reports_cumulative_text_accounting_under_pressure():
+    digest = {
+        "digest_id": "github-growth-cumulative-context",
+        "generated_at": "2026-06-16T06:26:01Z",
+        "items": [
+            {
+                "item_id": "tie-first",
+                "source_url": "https://github.com/microsoft/fastcontext/tie-first",
+                "event_kind": "IssueCommentEvent",
+                "summary": "a" * 9,
+                "relevance_reason": "b" * 11,
+                "risk_flags": [],
+                "confidence": 0.6,
+            },
+            {
+                "item_id": "risk-kept",
+                "source_url": "https://github.com/omnigent-ai/omnigent/risk-kept",
+                "event_kind": "PullRequestEvent",
+                "summary": "c" * 15,
+                "relevance_reason": "d" * 7,
+                "risk_flags": ["privacy-leakage"],
+                "confidence": 0.2,
+            },
+            {
+                "item_id": "tie-second",
+                "source_url": "https://github.com/microsoft/fastcontext/tie-second",
+                "event_kind": "PushEvent",
+                "summary": "e" * 8,
+                "relevance_reason": "f" * 12,
+                "risk_flags": [],
+                "confidence": 0.6,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=10)
+    preflight = build_context_budget_preflight(evidence_package)
+
+    assert evidence_package["context_budget"]["selected_item_ids"] == ["risk-kept", "tie-first"]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == ["tie-second"]
+    assert preflight["status"] == "pressure_detected"
+    assert preflight["input_item_count"] == 3
+    assert preflight["kept_item_count"] == 2
+    assert preflight["truncated_item_count"] == 1
+    assert preflight["whole_item_truncated_count"] == 1
+    assert preflight["text_truncated_item_count"] == 2
+    assert preflight["truncated_field_count"] == 2
+    assert preflight["input_text_chars"] == 62
+    assert preflight["selected_text_original_chars"] == 42
+    assert preflight["selected_text_chars"] == 36
+    assert preflight["field_truncated_text_chars"] == 6
+    assert [
+        (item["item_id"], item["decision"], item["rank"], item["truncated_fields"])
+        for item in preflight["item_selection_diagnostics"]
+    ] == [
+        ("tie-first", "selected", 2, ["relevance_reason"]),
+        ("risk-kept", "selected", 1, ["summary"]),
+        ("tie-second", "truncated", 3, []),
+    ]
+    assert "github.com" not in json.dumps(preflight, sort_keys=True)
 
 
 def test_context_budget_preflight_reports_empty_and_excluded_selection_cases():

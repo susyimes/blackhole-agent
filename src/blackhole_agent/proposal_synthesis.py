@@ -129,11 +129,19 @@ def build_proposal_evidence_package(
     items: list[dict[str, Any]] = []
     allowed_urls: list[str] = []
     all_digest_items = digest.get("items", [])
+    valid_digest_items = [item for item in all_digest_items if isinstance(item, dict)] if isinstance(all_digest_items, list) else []
+    input_text_chars = sum(
+        len(str(item.get("summary") or "")) + len(str(item.get("relevance_reason") or ""))
+        for item in valid_digest_items
+    )
     ranked_digest_item_entries = rank_digest_item_entries_for_context_budget(all_digest_items)
     ranked_digest_items = [item for _, item in ranked_digest_item_entries]
     selected_digest_item_entries = ranked_digest_item_entries[:max_items]
     item_truncation: list[dict[str, Any]] = []
     selected_item_ids: list[str] = []
+    selected_text_chars = 0
+    selected_text_original_chars = 0
+    field_truncated_text_chars = 0
     for ranked_index, item in selected_digest_item_entries:
         item_id = digest_item_id(item, ranked_index)
         selected_item_ids.append(item_id)
@@ -150,6 +158,14 @@ def build_proposal_evidence_package(
             truncated_fields.append({"field": "summary", **summary_meta})
         if relevance_meta["truncated"]:
             truncated_fields.append({"field": "relevance_reason", **relevance_meta})
+        selected_text_chars += int(summary_meta["kept_chars"]) + int(relevance_meta["kept_chars"])
+        selected_text_original_chars += int(summary_meta["original_chars"]) + int(relevance_meta["original_chars"])
+        field_truncated_text_chars += (
+            int(summary_meta["original_chars"])
+            - int(summary_meta["kept_chars"])
+            + int(relevance_meta["original_chars"])
+            - int(relevance_meta["kept_chars"])
+        )
         if truncated_fields:
             item_truncation.append({"item_id": item_id, "fields": truncated_fields})
         items.append(
@@ -185,6 +201,12 @@ def build_proposal_evidence_package(
             "selected_item_ids": selected_item_ids,
             "truncated_item_ids": truncated_item_ids,
             "max_item_text_chars": max_item_text_chars,
+            "input_text_chars": input_text_chars,
+            "selected_text_original_chars": selected_text_original_chars,
+            "selected_text_chars": selected_text_chars,
+            "field_truncated_text_chars": field_truncated_text_chars,
+            "whole_item_truncated_count": len(truncated_item_ids),
+            "text_truncated_item_count": len(item_truncation),
             "item_text_truncation": item_truncation,
             "item_selection_diagnostics": build_item_selection_diagnostics(
                 all_digest_items,
@@ -335,6 +357,7 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
     item_text_truncation = item_text_truncation if isinstance(item_text_truncation, list) else []
     item_selection_diagnostics = context_budget.get("item_selection_diagnostics")
     item_selection_diagnostics = item_selection_diagnostics if isinstance(item_selection_diagnostics, list) else []
+    truncated_item_ids = [str(item_id) for item_id in context_budget.get("truncated_item_ids", [])]
     truncated_field_count = 0
     for entry in item_text_truncation:
         if isinstance(entry, dict) and isinstance(entry.get("fields"), list):
@@ -356,11 +379,17 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
         "kept_item_count": len(items),
         "items_truncated": items_truncated,
         "max_item_text_chars": int(context_budget.get("max_item_text_chars") or 0),
-        "truncated_item_count": len(item_text_truncation),
+        "truncated_item_count": len(truncated_item_ids),
+        "whole_item_truncated_count": int(context_budget.get("whole_item_truncated_count") or len(truncated_item_ids)),
+        "text_truncated_item_count": int(context_budget.get("text_truncated_item_count") or len(item_text_truncation)),
         "truncated_field_count": truncated_field_count,
+        "input_text_chars": int(context_budget.get("input_text_chars") or 0),
+        "selected_text_original_chars": int(context_budget.get("selected_text_original_chars") or 0),
+        "selected_text_chars": int(context_budget.get("selected_text_chars") or 0),
+        "field_truncated_text_chars": int(context_budget.get("field_truncated_text_chars") or 0),
         "item_selection_strategy": str(context_budget.get("item_selection_strategy") or ""),
         "selected_item_ids": [str(item_id) for item_id in context_budget.get("selected_item_ids", [])],
-        "truncated_item_ids": [str(item_id) for item_id in context_budget.get("truncated_item_ids", [])],
+        "truncated_item_ids": truncated_item_ids,
         "excluded_item_count": sum(
             1
             for item in item_selection_diagnostics

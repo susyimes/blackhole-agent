@@ -1,0 +1,17 @@
+Rollback point for Source digest github-growth-20260616T062601.229245Z
+
+Original branch:
+codex/blackhole-evolve/20260616T062729.728197-add-or-tighten-local-validation-around-cumulativ
+
+Original HEAD:
+c68e0d14220025cbe85b25740c88e22d49647396
+
+Local rollback ref:
+refs/rollback/blackhole-agent/20260616T062601-context-ring-token-accounting
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260616T062729.728197-add-or-tighten-local-validation-around-cumulativ
+git reset --hard refs/rollback/blackhole-agent/20260616T062601-context-ring-token-accounting
+
+Notes:
+Rollback execution is explicit and destructive. A human operator or external supervisor policy must choose it before reset or clean commands run.
