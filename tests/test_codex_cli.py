@@ -50,6 +50,41 @@ def test_codex_kernel_writes_task_and_result_files(tmp_path):
     assert latest["last_message"] == "done"
 
 
+def test_codex_kernel_preserves_long_nested_local_paths_in_command_and_artifacts(tmp_path):
+    workspace = (
+        tmp_path
+        / ".bh-worktrees"
+        / "20260616T133522Z"
+        / "nested-local-workspace"
+    )
+    output_dir = workspace / ".blackhole-agent" / "codex"
+    calls = []
+
+    def fake_runner(command, **kwargs):
+        calls.append((command, kwargs))
+        last_message = command[command.index("--output-last-message") + 1]
+        Path(last_message).write_text("done from nested workspace", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    kernel = CodexCliKernel(CodexCliConfig(codex_bin="codex"), command_runner=fake_runner)
+    result = kernel.run("Exercise nested path handling", cwd=workspace, output_dir=output_dir, timeout_seconds=12)
+
+    command = calls[0][0]
+    assert command[command.index("--cd") + 1] == str(workspace)
+    assert command[command.index("--output-last-message") + 1] == str(result.last_message_path)
+    assert result.last_message_path.is_absolute()
+    assert str(result.last_message_path).startswith(str(output_dir))
+
+    latest = json.loads((output_dir / "latest-codex-run.json").read_text(encoding="utf-8"))
+    assert latest["cwd"] == str(workspace)
+    assert latest["task_path"] == str(result.task_path)
+    assert latest["last_message_path"] == str(result.last_message_path)
+    assert latest["result_path"] == str(result.result_path)
+    serialized_cwd = latest["cwd"].replace("\\", "/")
+    assert serialized_cwd.startswith(str(tmp_path).replace("\\", "/"))
+    assert not serialized_cwd.startswith(f"/{workspace.name}/")
+
+
 def test_build_codex_exec_command_can_bypass_sandbox(tmp_path):
     command = build_codex_exec_command(
         CodexCliConfig(bypass_approvals_and_sandbox=True),

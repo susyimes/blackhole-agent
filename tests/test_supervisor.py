@@ -6,6 +6,7 @@ from pathlib import Path
 from blackhole_agent.supervisor import (
     SupervisorConfig,
     build_wake_command,
+    create_candidate_worktree,
     run_health_checks,
     promote_candidate,
     run_startup_health_check,
@@ -41,6 +42,43 @@ def test_build_wake_command_launches_one_shot_child(tmp_path):
     assert "size them by evidence, benefit, rollback coverage, and validation coverage rather than by smallness" in extra_instruction
     assert "allow broad local change sets when they remain auditable" in extra_instruction
     assert "prefer tests" in extra_instruction
+
+
+def test_supervisor_preserves_long_nested_candidate_paths_in_worktree_and_child_command(tmp_path):
+    repo = tmp_path / "repo-with-local-agent-controller"
+    repo.mkdir()
+    worktree_parent = (
+        tmp_path
+        / ".blackhole-agent-blackhole-worktrees"
+        / "local-filesystem-regression"
+        / "deeply-nested-candidate-parent"
+    )
+    pass_id = "20260616T133522Z-path-truncation-regression"
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        candidate_path = Path(command[4])
+        candidate_path.mkdir(parents=True)
+        return subprocess.CompletedProcess(command, 0, stdout="prepared\n", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=repo / ".blackhole-agent" / "supervisor",
+        worktree_parent_dir=worktree_parent,
+    )
+    worktree_path, completed = create_candidate_worktree(config, pass_id, command_runner=runner)
+    child_command = build_wake_command(config, repo_path=worktree_path)
+
+    assert completed.returncode == 0
+    assert worktree_path == worktree_parent / pass_id
+    assert calls[0][0] == ["git", "worktree", "add", "--detach", str(worktree_path), "main"]
+    assert calls[0][1]["cwd"] == repo
+    assert child_command[child_command.index("--repo-path") + 1] == str(worktree_path)
+    assert child_command[child_command.index("--output-dir") + 1] == str(repo / ".blackhole-agent" / "supervisor" / "growth")
+    child_repo_path = child_command[child_command.index("--repo-path") + 1].replace("\\", "/")
+    assert child_repo_path.startswith(str(tmp_path).replace("\\", "/"))
+    assert not child_repo_path.startswith(f"/{worktree_path.name}/")
 
 
 def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):

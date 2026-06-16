@@ -1,0 +1,5 @@
+source_digest=github-growth-20260616T133522.555788Z
+original_branch=codex/blackhole-evolve/20260616T133627.358702-add-regression-coverage-for-local-path-handling-
+original_head=594557962ebb39ed4a6e7f9106791efec6c97a27
+rollback_ref=refs/rollback/20260616T133522.555788Z/codex_blackhole-evolve_20260616T133627.358702-add-regression-coverage-for-local-path-handling-
+recover_commands=git reset --hard 594557962ebb39ed4a6e7f9106791efec6c97a27 ; git clean -fd
