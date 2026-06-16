@@ -1456,6 +1456,14 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         for requirement in report["completion_requirements"]
     )
     assert report["completion_status"]["status"] == "draft_template"
+    assert report["completion_status"]["adoption_state"] == "draft"
+    assert report["completion_status"]["allowed_adoption_states"] == [
+        "draft",
+        "incomplete",
+        "rejected",
+        "adoption-ready",
+    ]
+    assert report["completion_status"]["controller_metadata_only"] is True
     assert report["completion_status"]["is_complete"] is False
     assert report["completion_status"]["adoption_evidence_complete"] is False
     assert "pre_adoption_risk_review.hypothesis is blank" in report["completion_status"]["blocking_reasons"]
@@ -1534,8 +1542,11 @@ def test_validation_report_completion_status_separates_completed_adoption_eviden
 
     assert status == {
         "status": "completed_adoption_evidence",
+        "adoption_state": "adoption-ready",
+        "allowed_adoption_states": ["draft", "incomplete", "rejected", "adoption-ready"],
         "is_complete": True,
         "adoption_evidence_complete": True,
+        "controller_metadata_only": True,
         "blocking_reasons": [],
     }
 
@@ -1587,6 +1598,7 @@ def test_validation_report_completion_status_rejects_incomplete_contract_metadat
     status = validation_report_completion_status(report)
 
     assert status["status"] == "draft_template"
+    assert status["adoption_state"] == "incomplete"
     assert status["is_complete"] is False
     assert status["adoption_evidence_complete"] is False
     assert "required_fields does not match the validation report contract" in status["blocking_reasons"]
@@ -1660,6 +1672,7 @@ def test_validation_report_completion_status_requires_explicit_passing_outcome()
 
     assert "outcomes[0].result must be one of: adopted, pass, passed, reviewed" in status["blocking_reasons"]
     assert status["status"] == "draft_template"
+    assert status["adoption_state"] == "incomplete"
     assert status["is_complete"] is False
     assert status["adoption_evidence_complete"] is False
 
@@ -1728,9 +1741,81 @@ def test_validation_report_completion_status_requires_matching_provenance_rollba
     status = validation_report_completion_status(report)
 
     assert status["status"] == "draft_template"
+    assert status["adoption_state"] == "incomplete"
     assert status["is_complete"] is False
     assert status["adoption_evidence_complete"] is False
     assert "provenance.rollback_ref does not name a concrete rollback ref or artifact" in status["blocking_reasons"]
+
+
+def test_validation_report_completion_status_classifies_rejected_review_evidence() -> None:
+    report = {
+        "required_fields": [
+            "evidence_urls",
+            "pre_adoption_risk_review",
+            "local_commands",
+            "startup_health_checks",
+            "outcomes",
+            "rollback_ref",
+            "provenance",
+            "skipped_capabilities",
+            "runtime_capability_changes",
+            "completion_requirements",
+            "completion_status",
+            "adoption_decision",
+            "uncertainty",
+        ],
+        "evidence_urls": ["https://github.com/visa/visa-vulnerability-agentic-harness"],
+        "pre_adoption_risk_review": {
+            "hypothesis": "Security harness evidence is useful only as review metadata here.",
+            "expected_local_benefit": "Unsafe adoption can be recorded without enabling scanner behavior.",
+            "decision": "reject direct behavior adoption",
+        },
+        "local_commands": [
+            {
+                "command": "uv run pytest tests/test_github_growth.py -q",
+                "purpose": "verify report contract",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "startup_health_checks": [
+            {
+                "command": "uv run python -c \"import blackhole_agent.github_growth\"",
+                "purpose": "prove imports",
+                "cwd": "C:/repo",
+                "exit_code": 0,
+            }
+        ],
+        "outcomes": [
+            {
+                "check": "security harness lesson recorded as rejected local adoption",
+                "result": "reviewed",
+                "evidence_artifact": "artifacts/self-evolution/run-notes.md",
+            }
+        ],
+        "rollback_ref": "refs/blackhole-agent/rollback/20260616T030148Z/64a05c39cf2e",
+        "provenance": {
+            "rollback_ref": "refs/blackhole-agent/rollback/20260616T030148Z/64a05c39cf2e",
+        },
+        "skipped_capabilities": ["remote execution", "security scanning"],
+        "runtime_capability_changes": [],
+        "completion_requirements": ["runtime_capability_changes stays empty."],
+        "adoption_decision": {
+            "status": "rejected",
+            "rationale": "The lesson is restricted to validation metadata.",
+            "decided_at": "2026-06-16T03:01:48Z",
+        },
+        "uncertainty": ["External findings remain human-reviewed triage candidates."],
+    }
+
+    status = validation_report_completion_status(report)
+
+    assert status["status"] == "completed_review_evidence"
+    assert status["adoption_state"] == "rejected"
+    assert status["is_complete"] is True
+    assert status["adoption_evidence_complete"] is False
+    assert status["controller_metadata_only"] is True
+    assert status["blocking_reasons"] == []
 
 
 def test_self_evolution_manifest_records_security_triage_review_artifact_boundary(tmp_path):

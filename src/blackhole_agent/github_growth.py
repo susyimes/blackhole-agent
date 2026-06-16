@@ -212,6 +212,7 @@ VALIDATION_REPORT_REQUIRED_FIELDS = [
     "uncertainty",
 ]
 COMPLETED_VALIDATION_OUTCOME_RESULTS = {"adopted", "pass", "passed", "reviewed"}
+VALIDATION_REPORT_ADOPTION_STATES = ["draft", "incomplete", "rejected", "adoption-ready"]
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -1358,7 +1359,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
 
 
 def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any]:
-    """Classify whether a replayable validation report is still a draft template."""
+    """Classify whether a replayable validation report is adoption-ready controller evidence."""
 
     blocking_reasons: list[str] = []
     if report.get("required_fields") != VALIDATION_REPORT_REQUIRED_FIELDS:
@@ -1400,6 +1401,11 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
             blocking_reasons.append(f"adoption_decision.{key} is blank")
 
     is_complete = not blocking_reasons
+    adoption_state = validation_report_adoption_state(
+        report,
+        blocking_reasons=blocking_reasons,
+        adoption_status=adoption_status,
+    )
     if not is_complete:
         status = "draft_template"
     elif adoption_status == "adopted":
@@ -1408,10 +1414,78 @@ def validation_report_completion_status(report: dict[str, Any]) -> dict[str, Any
         status = "completed_review_evidence"
     return {
         "status": status,
+        "adoption_state": adoption_state,
+        "allowed_adoption_states": VALIDATION_REPORT_ADOPTION_STATES,
         "is_complete": is_complete,
         "adoption_evidence_complete": is_complete and adoption_status == "adopted",
+        "controller_metadata_only": True,
         "blocking_reasons": blocking_reasons,
     }
+
+
+def validation_report_adoption_state(
+    report: dict[str, Any],
+    *,
+    blocking_reasons: list[str],
+    adoption_status: str,
+) -> str:
+    """Return the controller-facing state without granting any runtime capability."""
+
+    if not blocking_reasons:
+        return "adoption-ready" if adoption_status == "adopted" else "rejected"
+    if validation_report_has_completion_attempt(report, adoption_status=adoption_status):
+        return "incomplete"
+    return "draft"
+
+
+def validation_report_has_completion_attempt(report: dict[str, Any], *, adoption_status: str) -> bool:
+    raw_risk_review = report.get("pre_adoption_risk_review")
+    risk_review = raw_risk_review if isinstance(raw_risk_review, dict) else {}
+    if any(str(risk_review.get(key) or "").strip() for key in ("hypothesis", "expected_local_benefit")):
+        return True
+    if str(risk_review.get("decision") or "").strip().lower() not in {"", "pending"}:
+        return True
+    if command_list_has_completion_attempt(report.get("local_commands")):
+        return True
+    if command_list_has_completion_attempt(report.get("startup_health_checks")):
+        return True
+    if outcome_list_has_completion_attempt(report.get("outcomes")):
+        return True
+    rollback_ref = str(report.get("rollback_ref") or "").strip()
+    if rollback_ref and rollback_ref != DRAFT_ROLLBACK_REF:
+        return True
+    if adoption_status not in {"", "pending"}:
+        return True
+    raw_adoption_decision = report.get("adoption_decision")
+    adoption_decision = raw_adoption_decision if isinstance(raw_adoption_decision, dict) else {}
+    return any(str(adoption_decision.get(key) or "").strip() for key in ("rationale", "decided_at"))
+
+
+def command_list_has_completion_attempt(commands: Any) -> bool:
+    if not isinstance(commands, list):
+        return False
+    for command in commands:
+        if not isinstance(command, dict):
+            continue
+        if str(command.get("command") or "").strip():
+            return True
+        if command.get("exit_code") is not None:
+            return True
+    return False
+
+
+def outcome_list_has_completion_attempt(outcomes: Any) -> bool:
+    if not isinstance(outcomes, list):
+        return False
+    for outcome in outcomes:
+        if not isinstance(outcome, dict):
+            continue
+        result = str(outcome.get("result") or "").strip().lower()
+        if any(str(outcome.get(key) or "").strip() for key in ("check", "evidence_artifact")):
+            return True
+        if result not in {"", "pending"}:
+            return True
+    return False
 
 
 def incomplete_provenance_reasons(provenance: Any, rollback_ref: str) -> list[str]:

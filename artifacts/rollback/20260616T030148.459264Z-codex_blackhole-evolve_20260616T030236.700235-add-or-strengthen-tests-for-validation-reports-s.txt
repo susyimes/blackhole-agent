@@ -1,0 +1,8 @@
+Rollback point for source digest github-growth-20260616T030148.459264Z
+Original branch: codex/blackhole-evolve/20260616T030236.700235-add-or-strengthen-tests-for-validation-reports-s
+Original HEAD: 64a05c39cf2e55e45844455d1d7fb51d412c2db0
+Rollback ref: refs/blackhole-rollback/20260616T030148.459264Z
+Recovery commands:
+  git switch codex/blackhole-evolve/20260616T030236.700235-add-or-strengthen-tests-for-validation-reports-s
+  git reset --hard refs/blackhole-rollback/20260616T030148.459264Z
+  git clean -fd
