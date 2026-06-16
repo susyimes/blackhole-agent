@@ -10,6 +10,7 @@ from blackhole_agent.proposal_eval import (
     run_proposal_replay_suite,
     validate_proposal_replay_manifest,
 )
+from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "proposal_replay"
@@ -213,3 +214,82 @@ def test_omnigent_replay_marks_missing_test_coverage_validation_as_gap_not_safet
         "local_validation_candidate"
     )
     assert result.proposal_validation_preflights["validation-route-contract"]["status"] == "validation_gap"
+
+
+def test_omnigent_growth_interpretation_review_has_stable_json_contract():
+    case = load_proposal_replay_case(FIXTURE_DIR / "omnigent_route_contract.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+
+    review = review_llm_proposal_response(
+        json.dumps(case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    payload = review.to_dict()
+
+    assert list(payload) == [
+        "schema_version",
+        "mode",
+        "status",
+        "reason",
+        "input_digest_id",
+        "input_hash",
+        "output_hash",
+        "accepted_count",
+        "rejected_count",
+        "accepted_candidates",
+        "rejected_candidates",
+        "interpretation",
+        "self_model_reading",
+    ]
+    assert payload["schema_version"] == 1
+    assert payload["mode"] == "hybrid"
+    assert payload["status"] == "accepted"
+    assert payload["accepted_count"] == 1
+    assert payload["rejected_count"] == 1
+    assert payload["interpretation"] == {
+        "run_interpretation": case["raw_response"]["run_interpretation"],
+        "rejected_items": [],
+    }
+    assert payload["self_model_reading"] == {"status": "unchanged"}
+
+    accepted = payload["accepted_candidates"][0]
+    assert list(accepted) == [
+        "proposal_id",
+        "kind",
+        "summary",
+        "evidence_refs",
+        "evidence_urls",
+        "rule_risk_flags",
+        "added_risk_flags",
+        "validation_task",
+        "rationale",
+        "uncertainty",
+        "self_effect",
+        "action_lane",
+    ]
+    assert accepted["proposal_id"] == "validation-route-contract"
+    assert accepted["evidence_refs"] == case["expected"]["accepted_evidence_refs"]["validation-route-contract"]
+
+    selected_items_by_id = {str(item["item_id"]): item for item in evidence_package["items"]}
+    assert set(accepted["evidence_refs"]) <= set(selected_items_by_id)
+    assert accepted["evidence_urls"] == sorted(
+        {
+            selected_items_by_id[item_id]["source_url"]
+            for item_id in accepted["evidence_refs"]
+        }
+    )
+
+    missing_detail = evidence_package["context_budget"]["evidence_truncation_uncertainty"]
+    assert missing_detail["missing_detail_risk"] is True
+    assert "generic" in accepted["uncertainty"].lower()
+    assert "specific upstream implementation" in accepted["uncertainty"].lower()
+
+    rejected = payload["rejected_candidates"][0]
+    assert rejected["candidate"]["proposal_id"] == "underspecified-growth-route"
+    assert "rationale must not be empty" in rejected["errors"]
+    assert "uncertainty must not be empty" in rejected["errors"]
