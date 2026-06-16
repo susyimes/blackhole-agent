@@ -66,6 +66,7 @@ class SupervisorConfig:
     trend_order: str = "desc"
     include_forks: bool = False
     token_env: str = "GITHUB_TOKEN"
+    require_token_env: bool = False
     topics: str = ""
     lookback_hours: int = 24
     max_events_per_repo: int = 100
@@ -1098,6 +1099,50 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
         raise ValueError("proposal_mode must be one of: heuristic, llm, hybrid")
     if config.proposal_timeout_seconds < 1:
         raise ValueError("proposal_timeout_seconds must be at least 1")
+    preflight = build_provider_config_preflight(config)
+    if not preflight["ok"]:
+        diagnostics = "; ".join(str(item) for item in preflight["diagnostics"])
+        raise ValueError(f"provider/config/token preflight failed: {diagnostics}")
+
+
+def build_provider_config_preflight(
+    config: SupervisorConfig,
+    *,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return metadata-only diagnostics for provider token environment setup."""
+
+    environment = os.environ if env is None else env
+    token_env_name = str(config.token_env or "").strip()
+    diagnostics: list[str] = []
+    token_env_valid = is_valid_env_var_name(token_env_name)
+    token_env_present = bool(token_env_valid and str(environment.get(token_env_name) or "").strip())
+    if not token_env_name:
+        diagnostics.append("token_env must name an environment variable")
+    elif not token_env_valid:
+        diagnostics.append(f"token_env must be a valid environment variable name: {token_env_name!r}")
+    elif config.require_token_env and not token_env_present:
+        diagnostics.append(f"required token environment variable is not set or empty: {token_env_name}")
+    return {
+        "schema_version": 1,
+        "ok": not diagnostics,
+        "diagnostics": diagnostics,
+        "provider": "github",
+        "token_env_name": token_env_name,
+        "token_env_valid": token_env_valid,
+        "token_env_required": config.require_token_env,
+        "token_env_present": token_env_present,
+        "token_value_recorded": False,
+    }
+
+
+def is_valid_env_var_name(name: str) -> bool:
+    if not name:
+        return False
+    first = name[0]
+    if not (first.isalpha() or first == "_"):
+        return False
+    return all(character.isalnum() or character == "_" for character in name[1:])
 
 
 def prepare_supervisor_output(config: SupervisorConfig) -> None:
@@ -1276,6 +1321,11 @@ def main(
     trend_order: str = typer.Option("desc", "--trend-order", help="Trend search order."),
     include_forks: bool = typer.Option(False, "--include-forks", help="Include forked trend repositories."),
     token_env: str = typer.Option("GITHUB_TOKEN", "--token-env", help="Environment variable with a GitHub token."),
+    require_token_env: bool = typer.Option(
+        False,
+        "--require-token-env/--allow-missing-token-env",
+        help="Fail supervisor startup when --token-env is unset or empty.",
+    ),
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance topics."),
     lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window."),
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub events page size."),
@@ -1395,6 +1445,7 @@ def main(
         trend_order=trend_order,
         include_forks=include_forks,
         token_env=token_env,
+        require_token_env=require_token_env,
         topics=topics,
         lookback_hours=lookback_hours,
         max_events_per_repo=max_events_per_repo,

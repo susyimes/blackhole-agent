@@ -189,6 +189,16 @@ After a promotion the supervisor writes a stable activation record and a restart
 
 On process start, the supervisor runs the same health commands against the active checkout. If startup health passes, the current HEAD is recorded as `latest-activation.json`, so manual hotfixes can become the new stable baseline after verification. If startup health fails, the supervisor first rolls back through that activation baseline, then falls back to the previous promotion record when no activation record exists.
 
+Provider/token setup is checked before a wake schedules child work. The default `--token-env GITHUB_TOKEN` may be absent for unauthenticated public GitHub reads, but malformed env var names fail immediately. For scheduled runners that must use authenticated GitHub API access, add:
+
+```bash
+uv run blackhole-supervisor \
+  --repo-path . \
+  --require-token-env
+```
+
+The preflight records only env var names and boolean presence; token values are not written to diagnostics or artifacts.
+
 For a half-hour local experiment:
 
 ```bash

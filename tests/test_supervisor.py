@@ -3,14 +3,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from blackhole_agent.supervisor import (
     SupervisorConfig,
+    build_provider_config_preflight,
     build_wake_command,
     create_candidate_worktree,
     run_health_checks,
     promote_candidate,
     run_startup_health_check,
     run_wake_once,
+    validate_supervisor_config,
 )
 
 
@@ -269,6 +273,49 @@ def test_run_health_checks_isolates_candidate_import_environment(tmp_path, monke
     assert seen["cwd"] == repo
     assert "VIRTUAL_ENV" not in seen["env"]
     assert seen["env"]["PYTHONPATH"] == str(repo / "src")
+
+
+def test_provider_config_preflight_reports_missing_required_token_without_value(tmp_path, monkeypatch):
+    monkeypatch.delenv("BLACKHOLE_TEST_TOKEN", raising=False)
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        token_env="BLACKHOLE_TEST_TOKEN",
+        require_token_env=True,
+    )
+
+    preflight = build_provider_config_preflight(config)
+
+    assert preflight["ok"] is False
+    assert preflight["token_env_name"] == "BLACKHOLE_TEST_TOKEN"
+    assert preflight["token_env_present"] is False
+    assert preflight["token_value_recorded"] is False
+    assert preflight["diagnostics"] == [
+        "required token environment variable is not set or empty: BLACKHOLE_TEST_TOKEN"
+    ]
+
+
+def test_provider_config_preflight_never_records_token_value(tmp_path, monkeypatch):
+    monkeypatch.setenv("BLACKHOLE_TEST_TOKEN", "secret-token-value")
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        token_env="BLACKHOLE_TEST_TOKEN",
+        require_token_env=True,
+    )
+
+    preflight = build_provider_config_preflight(config)
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is True
+    assert preflight["token_env_present"] is True
+    assert preflight["token_value_recorded"] is False
+    assert "secret-token-value" not in rendered
+
+
+def test_validate_supervisor_config_rejects_malformed_token_env_before_scheduling(tmp_path):
+    config = SupervisorConfig(repo_path=tmp_path, token_env="GITHUB TOKEN")
+
+    with pytest.raises(ValueError, match="provider/config/token preflight failed"):
+        validate_supervisor_config(config)
 
 
 def test_startup_health_success_records_manual_activation_baseline(tmp_path):

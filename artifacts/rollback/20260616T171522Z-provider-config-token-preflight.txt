@@ -1,0 +1,11 @@
+Rollback point for github-growth-20260616T171522.631356Z
+
+Original branch: codex/blackhole-evolve/20260616T171624.192455-add-or-strengthen-provider-config-token-prefligh
+Original HEAD: d9c982c2a56c52e9d0ee0816f6833ff13744506d
+Rollback ref: refs/blackhole-agent/rollback/20260616T171522Z/d9c982c2a56c
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260616T171624.192455-add-or-strengthen-provider-config-token-prefligh
+  git reset --hard refs/blackhole-agent/rollback/20260616T171522Z/d9c982c2a56c
+
+Created before local source edits for supervisor provider/config/token startup preflight diagnostics.
