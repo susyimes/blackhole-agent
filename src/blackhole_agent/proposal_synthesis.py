@@ -129,11 +129,14 @@ def build_proposal_evidence_package(
     items: list[dict[str, Any]] = []
     allowed_urls: list[str] = []
     all_digest_items = digest.get("items", [])
-    ranked_digest_items = rank_digest_items_for_context_budget(all_digest_items)
-    digest_items = ranked_digest_items[:max_items]
+    ranked_digest_item_entries = rank_digest_item_entries_for_context_budget(all_digest_items)
+    ranked_digest_items = [item for _, item in ranked_digest_item_entries]
+    selected_digest_item_entries = ranked_digest_item_entries[:max_items]
     item_truncation: list[dict[str, Any]] = []
-    for index, item in enumerate(digest_items, start=1):
-        item_id = str(item.get("item_id") or f"item-{index}")
+    selected_item_ids: list[str] = []
+    for ranked_index, item in selected_digest_item_entries:
+        item_id = digest_item_id(item, ranked_index)
+        selected_item_ids.append(item_id)
         source_url = str(item.get("source_url") or "")
         if source_url:
             allowed_urls.append(source_url)
@@ -160,6 +163,9 @@ def build_proposal_evidence_package(
                 "rule_confidence": float(item.get("confidence") or 0.0),
             }
         )
+    truncated_item_ids = [
+        digest_item_id(item, ranked_index) for ranked_index, item in ranked_digest_item_entries[max_items:]
+    ]
     snapshot = self_model_snapshot or {}
     self_model_content, self_model_truncation = truncate_text(
         str(snapshot.get("content") or ""),
@@ -176,15 +182,17 @@ def build_proposal_evidence_package(
             "input_item_count": len(all_digest_items) if isinstance(all_digest_items, list) else 0,
             "items_truncated": len(ranked_digest_items) > max_items,
             "item_selection_strategy": "risk_flags_then_confidence_then_original_order",
-            "selected_item_ids": [
-                str(item.get("item_id") or f"item-{index}") for index, item in enumerate(digest_items, start=1)
-            ],
-            "truncated_item_ids": [
-                str(item.get("item_id") or f"item-{index}")
-                for index, item in enumerate(ranked_digest_items[max_items:], start=max_items + 1)
-            ],
+            "selected_item_ids": selected_item_ids,
+            "truncated_item_ids": truncated_item_ids,
             "max_item_text_chars": max_item_text_chars,
             "item_text_truncation": item_truncation,
+            "item_selection_diagnostics": build_item_selection_diagnostics(
+                all_digest_items,
+                ranked_digest_item_entries,
+                selected_item_ids=set(selected_item_ids),
+                truncated_item_ids=set(truncated_item_ids),
+                item_text_truncation=item_truncation,
+            ),
         },
         "self_model": {
             "path": str(snapshot.get("path") or ""),
@@ -221,10 +229,16 @@ def build_proposal_evidence_package(
 def rank_digest_items_for_context_budget(items: Any) -> list[dict[str, Any]]:
     """Prioritize evidence before context truncation while preserving deterministic tie order."""
 
+    return [item for _, item in rank_digest_item_entries_for_context_budget(items)]
+
+
+def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, dict[str, Any]]]:
+    """Return ranked digest items with their original zero-based index."""
+
     if not isinstance(items, list):
         return []
 
-    ranked: list[tuple[tuple[int, float, int], dict[str, Any]]] = []
+    ranked: list[tuple[tuple[int, float, int], int, dict[str, Any]]] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
             continue
@@ -234,8 +248,80 @@ def rank_digest_items_for_context_budget(items: Any) -> list[dict[str, Any]]:
             confidence = float(item.get("confidence") or 0.0)
         except (TypeError, ValueError):
             confidence = 0.0
-        ranked.append(((0 if has_risk_flags else 1, -confidence, index), item))
-    return [item for _, item in sorted(ranked, key=lambda entry: entry[0])]
+        ranked.append(((0 if has_risk_flags else 1, -confidence, index), index, item))
+    return [(index, item) for _, index, item in sorted(ranked, key=lambda entry: entry[0])]
+
+
+def digest_item_id(item: dict[str, Any], original_index: int) -> str:
+    """Return the stable item id used in proposal evidence packages."""
+
+    return str(item.get("item_id") or f"item-{original_index + 1}")
+
+
+def build_item_selection_diagnostics(
+    raw_items: Any,
+    ranked_item_entries: list[tuple[int, dict[str, Any]]],
+    *,
+    selected_item_ids: set[str],
+    truncated_item_ids: set[str],
+    item_text_truncation: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Explain context-budget item decisions without copying evidence text or URLs."""
+
+    if not isinstance(raw_items, list):
+        return []
+
+    truncated_fields_by_id = {
+        str(entry.get("item_id") or ""): [
+            str(field.get("field") or "")
+            for field in entry.get("fields", [])
+            if isinstance(field, dict) and str(field.get("field") or "").strip()
+        ]
+        for entry in item_text_truncation
+        if isinstance(entry, dict) and isinstance(entry.get("fields"), list)
+    }
+    rank_by_index = {original_index: rank for rank, (original_index, _) in enumerate(ranked_item_entries, start=1)}
+    diagnostics: list[dict[str, Any]] = []
+    for original_index, raw_item in enumerate(raw_items):
+        if not isinstance(raw_item, dict):
+            diagnostics.append(
+                {
+                    "original_index": original_index,
+                    "item_id": "",
+                    "decision": "excluded",
+                    "reason": "non_object_item",
+                }
+            )
+            continue
+
+        item_id = digest_item_id(raw_item, original_index)
+        risk_flags = [str(flag) for flag in raw_item.get("risk_flags", []) if str(flag).strip()]
+        try:
+            confidence = float(raw_item.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        if item_id in selected_item_ids:
+            decision = "selected"
+            reason = "risk_flags" if risk_flags else "confidence"
+        elif item_id in truncated_item_ids:
+            decision = "truncated"
+            reason = "max_items_exceeded"
+        else:
+            decision = "excluded"
+            reason = "not_ranked"
+        diagnostics.append(
+            {
+                "original_index": original_index,
+                "rank": rank_by_index.get(original_index),
+                "item_id": item_id,
+                "decision": decision,
+                "reason": reason,
+                "risk_flag_count": len(risk_flags),
+                "confidence": confidence,
+                "truncated_fields": truncated_fields_by_id.get(item_id, []),
+            }
+        )
+    return diagnostics
 
 
 def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:
@@ -247,6 +333,8 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
     items = items if isinstance(items, list) else []
     item_text_truncation = context_budget.get("item_text_truncation")
     item_text_truncation = item_text_truncation if isinstance(item_text_truncation, list) else []
+    item_selection_diagnostics = context_budget.get("item_selection_diagnostics")
+    item_selection_diagnostics = item_selection_diagnostics if isinstance(item_selection_diagnostics, list) else []
     truncated_field_count = 0
     for entry in item_text_truncation:
         if isinstance(entry, dict) and isinstance(entry.get("fields"), list):
@@ -270,6 +358,15 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
         "max_item_text_chars": int(context_budget.get("max_item_text_chars") or 0),
         "truncated_item_count": len(item_text_truncation),
         "truncated_field_count": truncated_field_count,
+        "item_selection_strategy": str(context_budget.get("item_selection_strategy") or ""),
+        "selected_item_ids": [str(item_id) for item_id in context_budget.get("selected_item_ids", [])],
+        "truncated_item_ids": [str(item_id) for item_id in context_budget.get("truncated_item_ids", [])],
+        "excluded_item_count": sum(
+            1
+            for item in item_selection_diagnostics
+            if isinstance(item, dict) and str(item.get("decision") or "") == "excluded"
+        ),
+        "item_selection_diagnostics": item_selection_diagnostics,
         "self_model_truncated": bool(self_model.get("truncated")),
     }
 

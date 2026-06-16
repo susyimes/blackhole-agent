@@ -740,6 +740,28 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     assert first["context_budget"]["item_selection_strategy"] == "risk_flags_then_confidence_then_original_order"
     assert first["context_budget"]["selected_item_ids"] == ["event-1"]
     assert first["context_budget"]["truncated_item_ids"] == ["event-2"]
+    assert first["context_budget"]["item_selection_diagnostics"] == [
+        {
+            "original_index": 0,
+            "rank": 1,
+            "item_id": "event-1",
+            "decision": "selected",
+            "reason": "confidence",
+            "risk_flag_count": 0,
+            "confidence": 0.91,
+            "truncated_fields": ["summary", "relevance_reason"],
+        },
+        {
+            "original_index": 1,
+            "rank": 2,
+            "item_id": "event-2",
+            "decision": "truncated",
+            "reason": "max_items_exceeded",
+            "risk_flag_count": 0,
+            "confidence": 0.5,
+            "truncated_fields": [],
+        },
+    ]
     assert first["context_budget"]["item_text_truncation"] == [
         {
             "item_id": "event-1",
@@ -849,6 +871,15 @@ def test_proposal_evidence_package_prioritizes_items_before_truncation():
         "middle-confidence",
     ]
     assert first["context_budget"]["truncated_item_ids"] == ["low-earliest"]
+    assert [
+        (item["item_id"], item["decision"], item["reason"], item["rank"])
+        for item in first["context_budget"]["item_selection_diagnostics"]
+    ] == [
+        ("low-earliest", "truncated", "max_items_exceeded", 4),
+        ("top-confidence", "selected", "confidence", 2),
+        ("middle-confidence", "selected", "confidence", 3),
+        ("review-boundary", "selected", "risk_flags", 1),
+    ]
     assert first["allowed_evidence_urls"] == [
         "https://github.com/microsoft/fastcontext/high",
         "https://github.com/microsoft/fastcontext/middle",
@@ -937,6 +968,22 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
         "max_item_text_chars": 100,
         "truncated_item_count": 0,
         "truncated_field_count": 0,
+        "item_selection_strategy": "risk_flags_then_confidence_then_original_order",
+        "selected_item_ids": ["event-1"],
+        "truncated_item_ids": [],
+        "excluded_item_count": 0,
+        "item_selection_diagnostics": [
+            {
+                "original_index": 0,
+                "rank": 1,
+                "item_id": "event-1",
+                "decision": "selected",
+                "reason": "confidence",
+                "risk_flag_count": 0,
+                "confidence": 0.8,
+                "truncated_fields": [],
+            }
+        ],
         "self_model_truncated": False,
     }
     preflight_json = json.dumps(preflight, sort_keys=True)
@@ -987,10 +1034,101 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     assert preflight["items_truncated"] is True
     assert preflight["truncated_item_count"] == 1
     assert preflight["truncated_field_count"] == 2
+    assert preflight["item_selection_strategy"] == "risk_flags_then_confidence_then_original_order"
+    assert preflight["selected_item_ids"] == ["event-1"]
+    assert preflight["truncated_item_ids"] == ["event-2"]
+    assert preflight["excluded_item_count"] == 0
+    assert preflight["item_selection_diagnostics"] == [
+        {
+            "original_index": 0,
+            "rank": 1,
+            "item_id": "event-1",
+            "decision": "selected",
+            "reason": "confidence",
+            "risk_flag_count": 0,
+            "confidence": 0.8,
+            "truncated_fields": ["summary", "relevance_reason"],
+        },
+        {
+            "original_index": 1,
+            "rank": 2,
+            "item_id": "event-2",
+            "decision": "truncated",
+            "reason": "max_items_exceeded",
+            "risk_flag_count": 0,
+            "confidence": 0.7,
+            "truncated_fields": [],
+        },
+    ]
     assert preflight["self_model_truncated"] is True
     assert preflight["local_metadata_only"] is True
     assert preflight["external_fetch_performed"] is False
     assert "fastcontext" not in json.dumps(preflight, sort_keys=True)
+
+
+def test_context_budget_preflight_reports_empty_and_excluded_selection_cases():
+    empty_package = build_proposal_evidence_package(
+        {
+            "digest_id": "github-growth-empty-context",
+            "generated_at": "2026-06-16T06:06:01Z",
+            "items": [],
+        }
+    )
+
+    empty_preflight = build_context_budget_preflight(empty_package)
+
+    assert empty_preflight["status"] == "within_budget"
+    assert empty_preflight["input_item_count"] == 0
+    assert empty_preflight["kept_item_count"] == 0
+    assert empty_preflight["selected_item_ids"] == []
+    assert empty_preflight["truncated_item_ids"] == []
+    assert empty_preflight["excluded_item_count"] == 0
+    assert empty_preflight["item_selection_diagnostics"] == []
+
+    mixed_package = build_proposal_evidence_package(
+        {
+            "digest_id": "github-growth-mixed-context",
+            "generated_at": "2026-06-16T06:06:01Z",
+            "items": [
+                "not an object",
+                {
+                    "item_id": "safe-evidence",
+                    "source_url": "https://github.com/microsoft/fastcontext/safe",
+                    "event_kind": "PushEvent",
+                    "summary": "usable signal",
+                    "relevance_reason": "ranked signal",
+                    "risk_flags": [],
+                    "confidence": 0.6,
+                },
+            ],
+        },
+        max_items=2,
+    )
+
+    mixed_preflight = build_context_budget_preflight(mixed_package)
+
+    assert mixed_preflight["kept_item_count"] == 1
+    assert mixed_preflight["selected_item_ids"] == ["safe-evidence"]
+    assert mixed_preflight["excluded_item_count"] == 1
+    assert mixed_preflight["item_selection_diagnostics"] == [
+        {
+            "original_index": 0,
+            "item_id": "",
+            "decision": "excluded",
+            "reason": "non_object_item",
+        },
+        {
+            "original_index": 1,
+            "rank": 1,
+            "item_id": "safe-evidence",
+            "decision": "selected",
+            "reason": "confidence",
+            "risk_flag_count": 0,
+            "confidence": 0.6,
+            "truncated_fields": [],
+        },
+    ]
+    assert "fastcontext" not in json.dumps(mixed_preflight, sort_keys=True)
 
 
 def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path):

@@ -1,0 +1,11 @@
+rollback_point: 20260616T060738Z
+original_branch: codex/blackhole-evolve/20260616T060652.143885-add-or-extend-a-local-harness-style-validation-p
+original_head: a40367f7eedc4588c0b35585f0ea23a0707c5f21
+rollback_ref: refs/blackhole-rollback/20260616T060738Z/codex_blackhole-evolve_20260616T060652.143885-add-or-extend-a-local-harness-style-validation-p
+recovery_commands:
+  git switch codex/blackhole-evolve/20260616T060652.143885-add-or-extend-a-local-harness-style-validation-p
+  git reset --hard a40367f7eedc4588c0b35585f0ea23a0707c5f21
+  git clean -fd
+notes:
+  Created before local self-modification for source digest github-growth-20260616T060601.112044Z.
+  Rollback execution is explicit and destructive; do not run without operator approval.
