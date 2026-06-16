@@ -1,0 +1,19 @@
+# Rollback Point
+
+Run: github-growth-20260616T145522.579250Z
+Created: 2026-06-16T14:55:22Z
+Original branch: codex/blackhole-evolve/20260616T145656.236372-add-a-local-validation-harness-that-turns-trendi
+Original HEAD: 014df0644d85a2661a46284047613b8b6552b09e
+Rollback ref: refs/rollback/20260616T145522Z-local-trend-validation-harness
+
+Recovery commands (destructive, operator-approved only):
+
+```powershell
+git switch codex/blackhole-evolve/20260616T145656.236372-add-a-local-validation-harness-that-turns-trendi
+git reset --hard refs/rollback/20260616T145522Z-local-trend-validation-harness
+git clean -fd
+```
+
+Notes:
+- Created before local self-modification for proposal p1-local-agent-repo-trend-validation-harness.
+- Do not delete this artifact during the creating run.

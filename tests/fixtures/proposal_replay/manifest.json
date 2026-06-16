@@ -3,6 +3,7 @@
   "suite_name": "agent-harness-proposal-replay",
   "evidence_urls": [
     "https://github.com/ApodexAI/AgentHarness",
+    "https://github.com/NotPBShaw/burner-agents",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
     "https://github.com/visa/visa-vulnerability-agentic-harness"
@@ -38,6 +39,16 @@
       "name": "omnigent-route-contract",
       "file": "omnigent_route_contract.json",
       "evidence_urls": [
+        "https://github.com/omnigent-ai/omnigent"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "public-agent-trend-validation-harness",
+      "file": "public_agent_trend_validation_harness.json",
+      "evidence_urls": [
+        "https://github.com/NotPBShaw/burner-agents",
+        "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent"
       ],
       "expected_review_status": "accepted"

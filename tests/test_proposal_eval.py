@@ -28,6 +28,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
         "benign-agent-harness",
         "fastcontext-budget-memory-pressure",
         "omnigent-route-contract",
+        "public-agent-trend-validation-harness",
         "security-adjacent-context-pressure",
     }
 
@@ -36,11 +37,11 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 4
-    assert report.passed_count == 4
+    assert report.case_count == 5
+    assert report.passed_count == 5
     assert report.failed_count == 0
-    assert report.accepted_count == 4
-    assert report.rejected_count == 3
+    assert report.accepted_count == 6
+    assert report.rejected_count == 4
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -68,15 +69,17 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 4
+    assert report.case_count == 5
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
         "fastcontext-budget-memory-pressure",
         "omnigent-route-contract",
+        "public-agent-trend-validation-harness",
     ]
     assert report.evidence_urls == [
         "https://github.com/ApodexAI/AgentHarness",
+        "https://github.com/NotPBShaw/burner-agents",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent",
         "https://github.com/visa/visa-vulnerability-agentic-harness",
@@ -115,6 +118,29 @@ def test_proposal_replay_case_rejects_url_refs_even_when_url_is_allowed_evidence
 
     assert result.passed is True
     assert result.accepted_count == 0
+
+
+def test_proposal_replay_case_rejects_candidate_supplied_evidence_urls():
+    case = load_proposal_replay_case(FIXTURE_DIR / "public_agent_trend_validation_harness.json")
+    case["raw_response"]["proposals"][0]["evidence_urls"] = ["https://github.com/example/extra"]
+    case["expected"] = {
+        "status": "accepted",
+        "accepted_count": 1,
+        "rejected_count": 2,
+        "rejected_error_substrings": [
+            "evidence_urls must be derived from frozen evidence_refs",
+            "uncertainty must record context_budget missing_detail_risk",
+        ],
+    }
+
+    result = run_proposal_replay_case(case)
+
+    assert result.passed is True
+    assert "https://github.com/example/extra" not in {
+        url
+        for controls in result.proposal_controls.values()
+        for url in controls.get("evidence_urls", [])
+    }
 
 
 def test_proposal_benchmark_report_classifies_schema_and_evidence_ref_drift():

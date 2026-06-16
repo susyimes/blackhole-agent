@@ -58,7 +58,7 @@
         "added_risk_flags": [],
         "validation_task": "Keep privacy-leakage behavior review-only; do not expose, log, print, upload, publish, or share tokens, credentials, secrets, private keys, private chats, PII, or personal data.",
         "rationale": "The selected evidence carries a privacy boundary and should not become runtime behavior.",
-        "uncertainty": "Security harness evidence is reviewed only as local boundary metadata.",
+        "uncertainty": "Security harness evidence is reviewed only as local boundary metadata, and truncated details outside the selected evidence are not claimed.",
         "self_effect": "Improves safety-boundary classification replay coverage.",
         "action_lane": "risk_review_before_local_change"
       },

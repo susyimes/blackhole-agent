@@ -776,6 +776,12 @@ def review_llm_proposal_response(
         )
 
     items_by_id = {str(item.get("item_id")): item for item in evidence_package.get("items", [])}
+    context_budget = evidence_package.get("context_budget")
+    context_budget = context_budget if isinstance(context_budget, dict) else {}
+    evidence_truncation_uncertainty = context_budget.get("evidence_truncation_uncertainty")
+    evidence_truncation_uncertainty = (
+        evidence_truncation_uncertainty if isinstance(evidence_truncation_uncertainty, dict) else {}
+    )
     max_proposals = int(evidence_package.get("policy", {}).get("max_proposals") or 5)
     candidates = payload.get("proposals")
     if not isinstance(candidates, list):
@@ -800,7 +806,12 @@ def review_llm_proposal_response(
     seen_proposal_ids: set[str] = set()
     seen_proposal_shapes: set[tuple[str, tuple[str, ...]]] = set()
     for index, candidate in enumerate(candidates, start=1):
-        normalized, errors = normalize_candidate(candidate, items_by_id, index=index)
+        normalized, errors = normalize_candidate(
+            candidate,
+            items_by_id,
+            index=index,
+            evidence_truncation_uncertainty=evidence_truncation_uncertainty,
+        )
         raw_candidate = candidate if isinstance(candidate, dict) else {}
         proposal_id = str(normalized.get("proposal_id") or raw_candidate.get("proposal_id") or f"llm-{index}")
         evidence_shape = tuple(sorted(str(ref) for ref in normalized.get("evidence_refs", [])))
@@ -844,6 +855,7 @@ def normalize_candidate(
     items_by_id: dict[str, dict[str, Any]],
     *,
     index: int,
+    evidence_truncation_uncertainty: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     if not isinstance(candidate, dict):
         return {}, ["candidate must be an object"]
@@ -869,6 +881,10 @@ def normalize_candidate(
     uncertainty = str(candidate.get("uncertainty") or "").strip()
     if not uncertainty:
         errors.append("uncertainty must not be empty")
+    elif candidate_requires_missing_detail_uncertainty(kind, evidence_truncation_uncertainty) and not (
+        uncertainty_mentions_missing_detail_risk(uncertainty)
+    ):
+        errors.append("uncertainty must record context_budget missing_detail_risk")
     dangerous_text = " ".join(
         str(candidate.get(key) or "") for key in ("summary", "validation_task", "rationale", "self_effect")
     ).lower()
@@ -911,6 +927,40 @@ def normalize_candidate(
         "action_lane": str(candidate.get("action_lane") or "").strip(),
     }
     return normalized, errors
+
+
+def candidate_requires_missing_detail_uncertainty(
+    kind: str,
+    evidence_truncation_uncertainty: dict[str, Any] | None,
+) -> bool:
+    """Return whether a proposal must explicitly carry context-budget inference limits."""
+
+    if kind == "no_action":
+        return False
+    if not isinstance(evidence_truncation_uncertainty, dict):
+        return False
+    return bool(evidence_truncation_uncertainty.get("missing_detail_risk"))
+
+
+def uncertainty_mentions_missing_detail_risk(uncertainty: str) -> bool:
+    """Detect bounded uncertainty language without requiring one exact phrase."""
+
+    text = uncertainty.lower()
+    indicators = (
+        "missing detail",
+        "missing title",
+        "generic",
+        "untitled",
+        "truncated",
+        "unknown",
+        "not inspect",
+        "not claim",
+        "unsupported",
+        "incomplete",
+        "omitted",
+        "outside the selected",
+    )
+    return any(indicator in text for indicator in indicators)
 
 
 def rejected_review(
