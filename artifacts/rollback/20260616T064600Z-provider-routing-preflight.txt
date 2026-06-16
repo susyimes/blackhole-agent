@@ -1,0 +1,7 @@
+original_branch: codex/blackhole-evolve/20260616T064708.478141-add-or-improve-provider-config-preflight-checks-
+original_head: edc3c21b71b27bc9200b74393442f2180a3fadee
+rollback_ref: refs/blackhole-rollback/20260616T064600Z/codex_blackhole-evolve_20260616T064708.478141-add-or-improve-provider-config-preflight-checks-
+recovery_commands:
+  git switch codex/blackhole-evolve/20260616T064708.478141-add-or-improve-provider-config-preflight-checks-
+  git reset --hard refs/blackhole-rollback/20260616T064600Z/codex_blackhole-evolve_20260616T064708.478141-add-or-improve-provider-config-preflight-checks-
+  git clean -fd

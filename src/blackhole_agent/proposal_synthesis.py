@@ -13,6 +13,8 @@ PROPOSAL_SYNTHESIS_SCHEMA_VERSION = 1
 PROPOSAL_MODES = {"heuristic", "llm", "hybrid"}
 DEFAULT_PROPOSAL_MODE = "hybrid"
 DEFAULT_MAX_ITEM_TEXT_CHARS = 1200
+CODEX_GATEWAY_MARKER = "/ai-gateway/codex"
+SERVING_ENDPOINTS_MARKER = "/serving-endpoints"
 ALLOWED_PROPOSAL_KINDS = {"documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"}
 ALLOWED_IMPLEMENTATION_SCOPES = {
     "local_validation_candidate",
@@ -397,6 +399,53 @@ def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str
         ),
         "item_selection_diagnostics": item_selection_diagnostics,
         "self_model_truncated": bool(self_model.get("truncated")),
+    }
+
+
+def classify_provider_base_url(base_url: str) -> str:
+    """Classify a provider base URL by route shape without preserving host or credentials."""
+
+    normalized = base_url.strip().lower()
+    if not normalized:
+        return "missing"
+    if CODEX_GATEWAY_MARKER in normalized:
+        return "codex_gateway"
+    if SERVING_ENDPOINTS_MARKER in normalized:
+        return "serving_endpoint"
+    return "generic_chat_compatible"
+
+
+def build_provider_routing_preflight(config: dict[str, Any]) -> dict[str, Any]:
+    """Detect GPT/Gemini chat providers routed to a Codex Responses gateway."""
+
+    provider = str(config.get("provider") or "openai").strip().lower()
+    model = str(config.get("model") or "").strip()
+    base_url = str(config.get("base_url") or "").strip()
+    route_shape = classify_provider_base_url(base_url)
+    provider_family = provider
+    if "gemini" in model.lower():
+        provider_family = "gemini"
+    elif "gpt" in model.lower() or provider == "openai":
+        provider_family = "gpt"
+
+    applies_to_chat_provider = provider_family in {"gpt", "gemini", "openai"}
+    misrouted = applies_to_chat_provider and route_shape == "codex_gateway"
+    return {
+        "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
+        "status": "misrouted_codex_gateway" if misrouted else "route_ok",
+        "local_metadata_only": True,
+        "external_fetch_performed": False,
+        "provider_family": provider_family,
+        "model_family": "gemini" if "gemini" in model.lower() else "gpt" if "gpt" in model.lower() else "unknown",
+        "route_shape": route_shape,
+        "base_url_recorded": False,
+        "host_recorded": False,
+        "reason": (
+            "chat_completions_provider_points_at_codex_responses_gateway"
+            if misrouted
+            else "provider_route_shape_is_chat_compatible_or_not_applicable"
+        ),
+        "expected_route_shape": "serving_endpoint" if misrouted else route_shape,
     }
 
 

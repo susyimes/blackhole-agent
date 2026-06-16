@@ -37,6 +37,7 @@ from blackhole_agent.github_growth import (
 from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
 from blackhole_agent.proposal_synthesis import (
     build_context_budget_preflight,
+    build_provider_routing_preflight,
     build_proposal_evidence_package,
     review_llm_proposal_response,
     stable_hash,
@@ -995,6 +996,63 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
     preflight_json = json.dumps(preflight, sort_keys=True)
     assert "allowed_evidence_urls" not in preflight
     assert "https://github.com/microsoft/fastcontext" not in preflight_json
+
+
+@pytest.mark.parametrize(
+    ("model", "provider_family", "model_family"),
+    [
+        ("databricks-gpt-5", "gpt", "gpt"),
+        ("databricks-gemini-2-5-pro", "gemini", "gemini"),
+    ],
+)
+def test_provider_routing_preflight_detects_codex_gateway_misroute_without_url_leakage(
+    model: str,
+    provider_family: str,
+    model_family: str,
+):
+    preflight = build_provider_routing_preflight(
+        {
+            "provider": "openai",
+            "model": model,
+            "base_url": "https://workspace.example.test/ai-gateway/codex/v1",
+        }
+    )
+
+    assert preflight == {
+        "schema_version": 1,
+        "status": "misrouted_codex_gateway",
+        "local_metadata_only": True,
+        "external_fetch_performed": False,
+        "provider_family": provider_family,
+        "model_family": model_family,
+        "route_shape": "codex_gateway",
+        "base_url_recorded": False,
+        "host_recorded": False,
+        "reason": "chat_completions_provider_points_at_codex_responses_gateway",
+        "expected_route_shape": "serving_endpoint",
+    }
+    preflight_json = json.dumps(preflight, sort_keys=True)
+    assert "workspace.example.test" not in preflight_json
+    assert "/ai-gateway/codex" not in preflight_json
+
+
+def test_provider_routing_preflight_accepts_gemini_serving_endpoint_route():
+    preflight = build_provider_routing_preflight(
+        {
+            "provider": "openai",
+            "model": "databricks-gemini-2-5-pro",
+            "base_url": "https://workspace.example.test/serving-endpoints",
+        }
+    )
+
+    assert preflight["status"] == "route_ok"
+    assert preflight["provider_family"] == "gemini"
+    assert preflight["model_family"] == "gemini"
+    assert preflight["route_shape"] == "serving_endpoint"
+    assert preflight["expected_route_shape"] == "serving_endpoint"
+    assert preflight["local_metadata_only"] is True
+    assert preflight["external_fetch_performed"] is False
+    assert "workspace.example.test" not in json.dumps(preflight, sort_keys=True)
 
 
 def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
