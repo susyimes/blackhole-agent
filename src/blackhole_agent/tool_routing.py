@@ -68,3 +68,38 @@ class ToolCompatibilityCache:
 
     def __len__(self) -> int:
         return len(self._entries)
+
+
+def local_memory_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the local first-party memory route."""
+
+    return ToolDescriptor(
+        name="local_memory",
+        description=(
+            "Store and retrieve non-secret local agent memory in an isolated namespace. "
+            "Writes are rejected when they look like secrets, credentials, private keys, or personal data."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["write", "read", "list", "delete"]},
+                "namespace": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+                    "default": "agent",
+                },
+                "key": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+                "value": {"type": "string"},
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+                    "default": [],
+                },
+                "tag": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider="local",
+        session_id=session_id,
+    )

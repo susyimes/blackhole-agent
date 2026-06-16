@@ -1,0 +1,15 @@
+# Rollback Point
+
+Source digest: github-growth-20260616T151522.630596Z
+Improvement: local first-party memory tool route
+Original branch: codex/blackhole-evolve/20260616T151646.590106-add-a-locally-scoped-first-party-memory-tool-rou
+Original HEAD: 2e03a9ec2523c0abb1b00682981b4660795b9b25
+Rollback ref: refs/rollback/blackhole-agent/20260616T151522Z-memory-tool-local-design
+
+Recovery commands:
+```powershell
+git switch codex/blackhole-evolve/20260616T151646.590106-add-a-locally-scoped-first-party-memory-tool-rou
+git reset --hard refs/rollback/blackhole-agent/20260616T151522Z-memory-tool-local-design
+```
+
+Rollback is explicit and destructive; run only under operator/supervisor instruction.

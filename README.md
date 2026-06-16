@@ -129,6 +129,7 @@ uv run blackhole \
 | Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
 | Self-model layer | `docs/self-model.md` | Blank, revisable self-description maintained by the agent itself |
+| Local memory tool | `blackhole_agent.local_memory` | First-party non-secret memory store for local tool routes |
 | Codex kernel | `blackhole_agent.kernels.codex_cli` | Bounded `codex exec` wrapper |
 | Digest schema | `schemas/hourly-digest.schema.json` | Structured output contract |
 | Architecture docs | `docs/architecture.md` | Component boundaries and runtime policy |
@@ -286,6 +287,18 @@ By default the memory file lives at:
 ```
 
 Use `--memory <path>` to point the agent at a different durable memory file.
+
+## Local Memory Tool
+
+The first-party `local_memory` tool route is separate from trend-selection
+memory. It stores operator-reviewable, non-secret notes in namespace-scoped JSON
+files under a caller-provided local root.
+
+Supported actions are `write`, `read`, `list`, and `delete`. Writes are rejected
+before persistence when the payload resembles credentials, private keys, email
+addresses, SSNs, or common token assignments. Namespaces, keys, and tags accept
+only compact identifier characters so one namespace cannot escape its configured
+storage root.
 
 ## Rollback First
 
