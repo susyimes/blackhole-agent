@@ -559,6 +559,114 @@ def test_llm_proposal_review_rejects_candidate_supplied_evidence_urls():
     assert "evidence_urls must be derived from frozen evidence_refs" in review.rejected_candidates[0]["errors"][0]
 
 
+def test_proposal_evidence_package_truncates_context_without_mutating_evidence_refs():
+    long_summary = "summary-" + ("x" * 200)
+    long_reason = "reason-" + ("y" * 200)
+    digest = {
+        "digest_id": "github-growth-context-budget",
+        "generated_at": "2026-06-16T04:26:01Z",
+        "items": [
+            {
+                "item_id": "event-1",
+                "source_url": "https://github.com/microsoft/fastcontext/issues/123?query=preserve",
+                "event_kind": "IssueCommentEvent",
+                "summary": long_summary,
+                "relevance_reason": long_reason,
+                "risk_flags": [],
+                "confidence": 0.91,
+            },
+            {
+                "item_id": "event-2",
+                "source_url": "https://github.com/example/overflow",
+                "event_kind": "PushEvent",
+                "summary": "overflow",
+                "relevance_reason": "should be item-count truncated",
+                "risk_flags": [],
+                "confidence": 0.5,
+            },
+        ],
+    }
+
+    first = build_proposal_evidence_package(
+        digest,
+        self_model_snapshot={"path": "docs/self-model.md", "sha256": "abc", "content": "z" * 50},
+        max_items=1,
+        max_item_text_chars=32,
+        max_self_model_chars=10,
+    )
+    second = build_proposal_evidence_package(
+        digest,
+        self_model_snapshot={"path": "docs/self-model.md", "sha256": "abc", "content": "z" * 50},
+        max_items=1,
+        max_item_text_chars=32,
+        max_self_model_chars=10,
+    )
+
+    assert first == second
+    assert first["items"] == [
+        {
+            "item_id": "event-1",
+            "source_url": "https://github.com/microsoft/fastcontext/issues/123?query=preserve",
+            "event_kind": "IssueCommentEvent",
+            "summary": long_summary[:32],
+            "relevance_reason": long_reason[:32],
+            "rule_risk_flags": [],
+            "rule_confidence": 0.91,
+        }
+    ]
+    assert first["allowed_evidence_urls"] == ["https://github.com/microsoft/fastcontext/issues/123?query=preserve"]
+    assert first["context_budget"]["items_truncated"] is True
+    assert first["context_budget"]["input_item_count"] == 2
+    assert first["context_budget"]["item_text_truncation"] == [
+        {
+            "item_id": "event-1",
+            "fields": [
+                {"field": "summary", "truncated": True, "original_chars": len(long_summary), "kept_chars": 32},
+                {
+                    "field": "relevance_reason",
+                    "truncated": True,
+                    "original_chars": len(long_reason),
+                    "kept_chars": 32,
+                },
+            ],
+        }
+    ]
+    assert first["self_model"]["content"] == "z" * 10
+    assert first["self_model"]["truncated"] is True
+
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-context-budget",
+            "run_interpretation": "Use the preserved citation.",
+            "self_model_reading": {"status": "bounded"},
+            "proposals": [
+                {
+                    "proposal_id": "preserved-ref",
+                    "kind": "test",
+                    "summary": "Add context budget tests.",
+                    "evidence_refs": ["event-1"],
+                    "added_risk_flags": [],
+                    "validation_task": "Validate locally with oversized synthetic context.",
+                    "rationale": "The evidence package must preserve citation identity.",
+                    "uncertainty": "Only synthetic size pressure is covered.",
+                    "self_effect": "Improves evidence preservation.",
+                    "action_lane": "local_validation_candidate",
+                }
+            ],
+            "rejected_items": [],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, first, mode="hybrid")
+
+    assert review.status == "accepted"
+    assert review.accepted_candidates[0]["evidence_refs"] == ["event-1"]
+    assert review.accepted_candidates[0]["evidence_urls"] == [
+        "https://github.com/microsoft/fastcontext/issues/123?query=preserve"
+    ]
+
+
 def test_llm_proposals_preserve_non_safety_routes_for_local_validation(tmp_path):
     event = normalize_event(
         "example/runner",

@@ -12,6 +12,7 @@ from typing import Any
 PROPOSAL_SYNTHESIS_SCHEMA_VERSION = 1
 PROPOSAL_MODES = {"heuristic", "llm", "hybrid"}
 DEFAULT_PROPOSAL_MODE = "hybrid"
+DEFAULT_MAX_ITEM_TEXT_CHARS = 1200
 ALLOWED_PROPOSAL_KINDS = {"documentation", "test", "code_patch", "config", "follow_up_issue", "no_action"}
 ALLOWED_IMPLEMENTATION_SCOPES = {
     "local_validation_candidate",
@@ -120,40 +121,69 @@ def build_proposal_evidence_package(
     *,
     self_model_snapshot: dict[str, Any] | None = None,
     max_items: int = 20,
+    max_item_text_chars: int = DEFAULT_MAX_ITEM_TEXT_CHARS,
     max_self_model_chars: int = 4000,
 ) -> dict[str, Any]:
     """Build the frozen input package an LLM may interpret."""
 
     items: list[dict[str, Any]] = []
     allowed_urls: list[str] = []
-    for index, item in enumerate(digest.get("items", [])[:max_items], start=1):
+    all_digest_items = digest.get("items", [])
+    digest_items = all_digest_items[:max_items] if isinstance(all_digest_items, list) else []
+    item_truncation: list[dict[str, Any]] = []
+    for index, item in enumerate(digest_items, start=1):
         item_id = str(item.get("item_id") or f"item-{index}")
         source_url = str(item.get("source_url") or "")
         if source_url:
             allowed_urls.append(source_url)
+        summary, summary_meta = truncate_text(str(item.get("summary") or ""), max_item_text_chars)
+        relevance_reason, relevance_meta = truncate_text(
+            str(item.get("relevance_reason") or ""),
+            max_item_text_chars,
+        )
+        truncated_fields = []
+        if summary_meta["truncated"]:
+            truncated_fields.append({"field": "summary", **summary_meta})
+        if relevance_meta["truncated"]:
+            truncated_fields.append({"field": "relevance_reason", **relevance_meta})
+        if truncated_fields:
+            item_truncation.append({"item_id": item_id, "fields": truncated_fields})
         items.append(
             {
                 "item_id": item_id,
                 "source_url": source_url,
                 "event_kind": str(item.get("event_kind") or ""),
-                "summary": str(item.get("summary") or ""),
-                "relevance_reason": str(item.get("relevance_reason") or ""),
+                "summary": summary,
+                "relevance_reason": relevance_reason,
                 "rule_risk_flags": [str(flag) for flag in item.get("risk_flags", [])],
                 "rule_confidence": float(item.get("confidence") or 0.0),
             }
         )
     snapshot = self_model_snapshot or {}
+    self_model_content, self_model_truncation = truncate_text(
+        str(snapshot.get("content") or ""),
+        max_self_model_chars,
+    )
     return {
         "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
         "digest_id": str(digest.get("digest_id") or ""),
         "generated_at": str(digest.get("generated_at") or ""),
         "allowed_evidence_urls": sorted(set(allowed_urls)),
         "items": items,
+        "context_budget": {
+            "max_items": max_items,
+            "input_item_count": len(all_digest_items) if isinstance(all_digest_items, list) else 0,
+            "items_truncated": isinstance(all_digest_items, list) and len(all_digest_items) > max_items,
+            "max_item_text_chars": max_item_text_chars,
+            "item_text_truncation": item_truncation,
+        },
         "self_model": {
             "path": str(snapshot.get("path") or ""),
             "sha256": str(snapshot.get("sha256") or ""),
-            "content": str(snapshot.get("content") or "")[:max_self_model_chars],
-            "truncated": bool(snapshot.get("truncated") or False),
+            "content": self_model_content,
+            "truncated": bool(snapshot.get("truncated") or False) or self_model_truncation["truncated"],
+            "content_original_chars": self_model_truncation["original_chars"],
+            "content_kept_chars": self_model_truncation["kept_chars"],
         },
         "policy": {
             "allowed_kinds": sorted(ALLOWED_PROPOSAL_KINDS),
@@ -176,6 +206,18 @@ def build_proposal_evidence_package(
                 ],
             },
         },
+    }
+
+
+def truncate_text(value: str, limit: int) -> tuple[str, dict[str, int | bool]]:
+    """Return a deterministic character-bounded copy plus replay metadata."""
+
+    normalized_limit = max(0, int(limit))
+    truncated = len(value) > normalized_limit
+    return value[:normalized_limit], {
+        "truncated": truncated,
+        "original_chars": len(value),
+        "kept_chars": min(len(value), normalized_limit),
     }
 
 
