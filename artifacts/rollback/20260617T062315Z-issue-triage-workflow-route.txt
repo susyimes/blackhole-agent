@@ -1,0 +1,12 @@
+rollback point: 20260617T062315Z-issue-triage-workflow-route
+original branch: codex/blackhole-evolve/20260617T062456.214431-add-or-improve-a-locally-gated-issue-triage-work
+original head: 128df83e150baf20fbcce8342a48d6b01ea243d6
+rollback ref: refs/rollback/20260617T062315Z-issue-triage-workflow-route
+
+Recovery commands (explicit destructive operation; run only by human/supervisor decision):
+  git reset --hard 128df83e150baf20fbcce8342a48d6b01ea243d6
+  git clean -fd
+
+Alternative ref-based recovery:
+  git reset --hard refs/rollback/20260617T062315Z-issue-triage-workflow-route
+  git clean -fd
