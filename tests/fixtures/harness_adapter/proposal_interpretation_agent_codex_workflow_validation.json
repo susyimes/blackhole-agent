@@ -1,0 +1,152 @@
+{
+  "name": "proposal-interpretation-agent-codex-workflow-validation",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-agent-codex-workflow-validation",
+    "mode": "hybrid",
+    "options": {
+      "max_items": 2,
+      "max_item_text_chars": 320
+    },
+    "digest": {
+      "digest_id": "fixture-agent-codex-workflow-validation",
+      "generated_at": "2026-06-17T09:03:15Z",
+      "items": [
+        {
+          "item_id": "fablecodex-workflow-gates",
+          "source_url": "https://github.com/baskduf/FableCodex",
+          "event_kind": "RepositoryTrend",
+          "summary": "baskduf/FableCodex: Codex workflow guidance around inspecting first, recording evidence, and verifying before completion",
+          "relevance_reason": "Supports local proposal-interpretation validation for evidence-gated Codex workflow lessons.",
+          "risk_flags": [],
+          "confidence": 0.86
+        },
+        {
+          "item_id": "omnigent-policy-harness",
+          "source_url": "https://github.com/omnigent-ai/omnigent",
+          "event_kind": "RepositoryTrend",
+          "summary": "omnigent-ai/omnigent: agent meta-harness with policy controls, sandboxing, and multiple coding-agent runtimes",
+          "relevance_reason": "Supports validating that external agent workflow signals become local, policy-aware validation candidates.",
+          "risk_flags": [],
+          "confidence": 0.9
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-codex-workflow-validation",
+      "run_interpretation": "Codex workflow and agent harness evidence should produce a local validation candidate with strict item-id evidence refs.",
+      "self_model_reading": {
+        "status": "left_unchanged"
+      },
+      "proposals": [
+        {
+          "proposal_id": "p1-agent-codex-workflow-local-validation",
+          "kind": "test",
+          "summary": "Add local validation coverage for turning agent and Codex workflow trend evidence into actionable proposals.",
+          "evidence_refs": [
+            "fablecodex-workflow-gates",
+            "omnigent-policy-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Run unit tests and local fixture coverage for proposal interpretation, item-id evidence refs, and local-validation candidate classification.",
+          "rationale": "The selected public evidence emphasizes evidence-gated Codex workflow and policy-aware agent harness routing, which maps to local replay validation.",
+          "uncertainty": "The evidence was reviewed only at repository README level, so this validates the local interpretation contract rather than copying upstream runtime behavior.",
+          "self_effect": "Improves future trend intelligence by making agent/codex workflow proposal routing replayable.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p2-url-ref-rejected",
+          "kind": "test",
+          "summary": "Incorrectly cite an external URL instead of an item_id.",
+          "evidence_refs": [
+            "https://github.com/baskduf/FableCodex"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add unit tests for evidence_ref URL rejection.",
+          "rationale": "Negative fixture for citation discipline.",
+          "uncertainty": "This candidate is intentionally malformed.",
+          "self_effect": "Would weaken evidence scoping if accepted.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p3-non-item-ref-rejected",
+          "kind": "test",
+          "summary": "Incorrectly cite a repository label that is not a supplied item_id.",
+          "evidence_refs": [
+            "FableCodex"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add unit tests for non-item evidence_ref rejection.",
+          "rationale": "Negative fixture for non-item identifier rejection.",
+          "uncertainty": "This candidate is intentionally malformed.",
+          "self_effect": "Would make proposal evidence less replayable if accepted.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "accepted",
+      "accepted_count": 1,
+      "rejected_count": 2,
+      "accepted_evidence_refs": {
+        "p1-agent-codex-workflow-local-validation": [
+          "fablecodex-workflow-gates",
+          "omnigent-policy-harness"
+        ]
+      },
+      "rejected_error_substrings": [
+        "evidence_refs contain unknown item ids: https://github.com/baskduf/FableCodex",
+        "evidence_refs contain unknown item ids: FableCodex"
+      ],
+      "proposal_controls": {
+        "p1-agent-codex-workflow-local-validation": {
+          "kind": "test",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        }
+      },
+      "proposal_validation_preflights": {
+        "p1-agent-codex-workflow-local-validation": {
+          "status": "ready",
+          "requires_unit_test_or_coverage": true,
+          "has_unit_test_signal": true,
+          "safety_block": false,
+          "blocks_autonomous_apply": false
+        }
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "accepted"
+    },
+    {
+      "path": "accepted_count",
+      "equals": 1
+    },
+    {
+      "path": "rejected_count",
+      "equals": 2
+    },
+    {
+      "path": "evidence_ref_violations",
+      "equals": []
+    },
+    {
+      "path": "proposal_controls.p1-agent-codex-workflow-local-validation.implementation_scope",
+      "equals": "local_validation_candidate"
+    },
+    {
+      "path": "proposal_validation_preflights.p1-agent-codex-workflow-local-validation.status",
+      "equals": "ready"
+    }
+  ]
+}

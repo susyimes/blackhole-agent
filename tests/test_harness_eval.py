@@ -158,14 +158,15 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     assert reparsed == payload
     assert payload["suite_name"] == "fixture-harness-adapter"
-    assert payload["fixture_count"] == 6
-    assert payload["pass_count"] == 6
+    assert payload["fixture_count"] == 7
+    assert payload["pass_count"] == 7
     assert payload["fail_count"] == 0
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert "fixture-agent-harness-adapter" not in serialized
     assert "https://github.com/ApodexAI/AgentHarness" not in serialized
 
     results = {result["name"]: result for result in payload["results"]}
+    agent_codex = results["proposal-interpretation-agent-codex-workflow-validation"]
     accepted = results["proposal-interpretation-accepts-item-refs"]
     malformed_json = results["proposal-interpretation-rejects-malformed-json"]
     rejected = results["proposal-interpretation-rejects-url-refs"]
@@ -173,12 +174,14 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     boundary = results["proposal-interpretation-policy-boundary"]
     max_proposals = results["proposal-interpretation-rejects-too-many-proposals"]
 
+    assert agent_codex["passed"] is True
     assert accepted["passed"] is True
     assert malformed_json["passed"] is True
     assert rejected["passed"] is True
     assert truncated["passed"] is True
     assert boundary["passed"] is True
     assert max_proposals["passed"] is True
+    assert all(assertion["passed"] for assertion in agent_codex["assertions"])
     assert all(assertion["passed"] for assertion in accepted["assertions"])
     assert all(assertion["passed"] for assertion in malformed_json["assertions"])
     assert all(assertion["passed"] for assertion in rejected["assertions"])

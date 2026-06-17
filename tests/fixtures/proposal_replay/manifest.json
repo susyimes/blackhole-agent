@@ -4,6 +4,7 @@
   "evidence_urls": [
     "https://github.com/ApodexAI/AgentHarness",
     "https://github.com/NotPBShaw/burner-agents",
+    "https://github.com/baskduf/FableCodex",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
     "https://github.com/samarailly51-pixel/opencode-harness",
@@ -62,6 +63,15 @@
         "https://github.com/omnigent-ai/omnigent",
         "https://github.com/samarailly51-pixel/opencode-harness",
         "https://github.com/visa/visa-vulnerability-agentic-harness"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "agent-codex-workflow-local-validation",
+      "file": "agent_codex_workflow_local_validation.json",
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/omnigent-ai/omnigent"
       ],
       "expected_review_status": "accepted"
     }

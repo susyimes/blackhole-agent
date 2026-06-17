@@ -1,0 +1,9 @@
+Rollback point for agent-codex-trend-validation-fixture
+
+Original branch: codex/blackhole-evolve/20260617T090429.642738-add-or-improve-local-validation-cases-for-agent-
+Original HEAD: fcfd19b3b4631b046f57de2abb63cb82a8ac6c6c
+Rollback ref: refs/rollback/20260617T090315Z-agent-codex-trend-validation-fixture
+
+Recovery commands (explicit/destructive; operator-supervised only):
+git reset --hard refs/rollback/20260617T090315Z-agent-codex-trend-validation-fixture
+git clean -fd
