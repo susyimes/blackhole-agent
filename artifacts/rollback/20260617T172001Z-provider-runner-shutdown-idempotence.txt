@@ -1,0 +1,18 @@
+Rollback point for source digest github-growth-20260617T172001.278838Z
+
+Original branch:
+codex/blackhole-evolve/20260617T172105.827958-add-or-strengthen-local-tests-for-provider-confi
+
+Original HEAD:
+4a60021981bf2a057eae864c42f656854eb0c5a8
+
+Local rollback ref:
+refs/blackhole-rollback/20260617T172001-provider-runner-shutdown-idempotence
+
+Recovery commands, if an operator chooses destructive rollback:
+git reset --hard refs/blackhole-rollback/20260617T172001-provider-runner-shutdown-idempotence
+git clean -fd
+
+Planned change:
+Adapt the Omnigent shutdown-idempotence lesson to blackhole-agent's local Codex CLI runner by adding a defensive
+subprocess transport cleanup helper and regression tests for missing or already-cleared stderr task-group state.

@@ -7,12 +7,16 @@ selection outside the model process.
 """
 
 import json
+import logging
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -249,3 +253,54 @@ def timeout_text(value: Any) -> str:
     if isinstance(value, bytes):
         return value.decode(errors="replace")
     return str(value)
+
+
+def shutdown_subprocess_cli_transport_stderr(
+    transport: Any,
+    *,
+    logger: logging.Logger | None = None,
+) -> bool:
+    """Best-effort stderr task-group shutdown for SDK subprocess transports.
+
+    Some Claude SDK transport versions expose ``_stderr_task_group`` during
+    teardown and some do not. Treat missing or already-cleared state as an
+    idempotent shutdown outcome so provider cleanup cannot fail with
+    ``AttributeError`` while the controller is already exiting.
+    """
+
+    log = logger or LOGGER
+    missing = object()
+    stderr_task_group = getattr(transport, "_stderr_task_group", missing)
+    if stderr_task_group is missing:
+        log.debug(
+            "subprocess CLI transport shutdown skipped stderr task-group cleanup: "
+            "_stderr_task_group is absent"
+        )
+        return False
+    if stderr_task_group is None:
+        log.debug(
+            "subprocess CLI transport shutdown skipped stderr task-group cleanup: "
+            "_stderr_task_group is already cleared"
+        )
+        return False
+
+    cancel_scope = getattr(stderr_task_group, "cancel_scope", None)
+    cancel = getattr(cancel_scope, "cancel", None)
+    if callable(cancel):
+        cancel()
+        setattr(transport, "_stderr_task_group", None)
+        log.debug("subprocess CLI transport stderr task-group cancel scope was cancelled")
+        return True
+
+    close = getattr(stderr_task_group, "close", None)
+    if callable(close):
+        close()
+        setattr(transport, "_stderr_task_group", None)
+        log.debug("subprocess CLI transport stderr task-group was closed")
+        return True
+
+    log.debug(
+        "subprocess CLI transport shutdown left stderr task-group untouched: "
+        "no cancel scope or close method is available"
+    )
+    return False

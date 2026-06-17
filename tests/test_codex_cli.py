@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from blackhole_agent.kernels.codex_cli import (
     CodexCliKernel,
     build_codex_exec_command,
     build_codex_provider_preflight,
+    shutdown_subprocess_cli_transport_stderr,
 )
 
 
@@ -207,3 +209,45 @@ def test_codex_kernel_cancel_recover_uses_fresh_artifacts_for_same_second(tmp_pa
     assert latest["last_message"] == "recovered cleanly"
     assert latest["timed_out"] is False
     assert latest["result_path"].endswith("codex-run-20260616T091703Z-001.json")
+
+
+def test_shutdown_subprocess_cli_transport_stderr_treats_absent_task_group_as_already_closed(caplog):
+    class TransportWithoutStderrTaskGroup:
+        pass
+
+    caplog.set_level(logging.DEBUG, logger=codex_cli.__name__)
+
+    cleaned = shutdown_subprocess_cli_transport_stderr(TransportWithoutStderrTaskGroup())
+
+    assert cleaned is False
+    assert "_stderr_task_group is absent" in caplog.text
+
+
+def test_shutdown_subprocess_cli_transport_stderr_is_idempotent_after_cancel_scope(caplog):
+    class CancelScope:
+        def __init__(self):
+            self.cancelled = False
+
+        def cancel(self):
+            self.cancelled = True
+
+    class TaskGroup:
+        def __init__(self):
+            self.cancel_scope = CancelScope()
+
+    class Transport:
+        def __init__(self):
+            self._stderr_task_group = TaskGroup()
+
+    transport = Transport()
+    task_group = transport._stderr_task_group
+    caplog.set_level(logging.DEBUG, logger=codex_cli.__name__)
+
+    first_cleaned = shutdown_subprocess_cli_transport_stderr(transport)
+    second_cleaned = shutdown_subprocess_cli_transport_stderr(transport)
+
+    assert first_cleaned is True
+    assert task_group.cancel_scope.cancelled is True
+    assert transport._stderr_task_group is None
+    assert second_cleaned is False
+    assert "_stderr_task_group is already cleared" in caplog.text
