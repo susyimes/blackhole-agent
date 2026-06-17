@@ -21,6 +21,15 @@ Treat each public signal as a bounded local validation candidate:
 - do not copy upstream behavior directly when the local repository has a
   narrower policy, different runtime capability, or no matching validation lane
 
+Low-detail upstream movement is a prompt for bounded validation, not direct
+implementation evidence. Untitled pull requests, repeated generic PR lifecycle
+events, generic push events, or push clusters whose commit messages do not show
+clear test or CI evidence may justify documentation, tests, config preflight, or
+follow-up review. They should not justify `code_patch` work until the local run
+records a confirming detail such as an inspected PR body, commit diff, release
+note, failing local test, or repository file that maps the upstream movement to
+a specific local behavior.
+
 The proposal interpreter may summarize and rank candidate lessons, but it must
 not add evidence URLs, remove risk flags, grant permissions, or decide final
 validation gates. Deterministic review and local validation keep ownership of
@@ -49,3 +58,11 @@ and scoped governance for server, agent, or chat contexts. The reusable lesson
 for this repository is not to adopt that implementation directly, but to keep
 public agent-project movement behind explicit local policy, citation, and
 validation boundaries.
+
+The same digest stream included low-detail movement around Omnigent PRs and
+pushes. Those signals are evidence that the project is active, but their titles
+and generic event summaries do not reveal enough implementation shape to support
+copying a behavior. In this repository they should narrow the route toward
+local confirmation first: inspect the bounded evidence, record uncertainty, and
+only draft a `code_patch` after a concrete upstream detail or local failing test
+supports the proposed behavior.

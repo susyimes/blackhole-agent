@@ -122,7 +122,7 @@ When `max_items` truncates digest evidence, the frozen package records selected 
 Public agent-project movement follows the same rule: it is a source of bounded
 local validation candidates, not permission or implementation authority. See
 `docs/upstream-evidence-interpretation.md` for the evidence citation, missing
-detail, and validation-lane contract.
+detail, low-detail PR/push interpretation rule, and validation-lane contract.
 
 ### Local Codex CLI Kernel
 

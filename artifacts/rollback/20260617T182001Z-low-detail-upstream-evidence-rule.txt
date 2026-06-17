@@ -1,0 +1,11 @@
+# Rollback Point
+
+Source digest: github-growth-20260617T182001.506081Z
+Original branch: codex/blackhole-evolve/20260617T182100.263575-document-a-local-interpretation-rule-for-low-det
+Original HEAD: f7053e140a6e4dd9fd347b501d2076f9e4a6143b
+Rollback ref: refs/blackhole-rollback/20260617T182001Z-low-detail-upstream-evidence-rule
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260617T182100.263575-document-a-local-interpretation-rule-for-low-det
+git reset --hard refs/blackhole-rollback/20260617T182001Z-low-detail-upstream-evidence-rule
+git clean -fd
