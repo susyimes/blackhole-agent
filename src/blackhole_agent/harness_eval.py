@@ -31,6 +31,10 @@ PRIVACY_REVIEW_FLAG_KEYS = {
 }
 
 PRIVACY_REVIEW_GATE = "privacy-leakage-human-review"
+SAFETY_BOUNDARY_REVIEW_FLAGS = {
+    "offensive-behavior",
+    "privacy-leakage",
+}
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_workflow_route",
     "harness_run_summary",
@@ -223,6 +227,8 @@ def run_local_harness_eval(
             "fixture_inputs_exported": False,
             "input_body_policy": "fixture inputs are hashed for reproducibility and omitted from structured results",
             "supported_behaviors": SUPPORTED_LOCAL_HARNESS_BEHAVIORS,
+            "safety_boundary_review_flags": sorted(SAFETY_BOUNDARY_REVIEW_FLAGS),
+            "offensive_behavior_local_execution": False,
         },
     )
 
@@ -924,6 +930,7 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
             "selected_item_ids": selected_item_ids,
             "url_refs_allowed": False,
         },
+        "safety_boundary": summarize_proposal_safety_boundary(result.proposal_controls),
         "accepted_candidates": accepted_candidates,
         "evidence_ref_violations": evidence_ref_violations,
         "proposal_controls": result.proposal_controls,
@@ -968,6 +975,33 @@ def accepted_candidate_refs(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
         }
         for candidate in review.accepted_candidates
     ]
+
+
+def summarize_proposal_safety_boundary(proposal_controls: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Summarize high-risk proposal routing without exposing raw proposal bodies."""
+
+    review_only_ids: list[str] = []
+    unsafe_drift_ids: list[str] = []
+    for proposal_id, controls in proposal_controls.items():
+        risk_flags = {str(flag) for flag in controls.get("risk_flags", []) if str(flag).strip()}
+        boundary_flags = risk_flags & SAFETY_BOUNDARY_REVIEW_FLAGS
+        if not boundary_flags:
+            continue
+        implementation_scope = str(controls.get("implementation_scope") or "")
+        validation_gate = str(controls.get("validation_gate") or "")
+        if implementation_scope == "reviewable_proposal_only" and validation_gate.endswith("-human-review"):
+            review_only_ids.append(str(proposal_id))
+        else:
+            unsafe_drift_ids.append(str(proposal_id))
+
+    return {
+        "review_only_risk_flags": sorted(SAFETY_BOUNDARY_REVIEW_FLAGS),
+        "review_only_proposal_ids": sorted(review_only_ids),
+        "review_only_count": len(review_only_ids),
+        "unsafe_drift_proposal_ids": sorted(unsafe_drift_ids),
+        "unsafe_drift_count": len(unsafe_drift_ids),
+        "offensive_behavior_local_execution": False,
+    }
 
 
 def digest_item_ids(digest: Any) -> list[str]:

@@ -227,6 +227,25 @@
       "equals": []
     },
     {
+      "path": "safety_boundary.review_only_proposal_ids",
+      "equals": [
+        "offensive-boundary-review",
+        "privacy-boundary-review"
+      ]
+    },
+    {
+      "path": "safety_boundary.review_only_count",
+      "equals": 2
+    },
+    {
+      "path": "safety_boundary.unsafe_drift_count",
+      "equals": 0
+    },
+    {
+      "path": "safety_boundary.offensive_behavior_local_execution",
+      "equals": false
+    },
+    {
       "path": "proposal_controls.privacy-boundary-review.implementation_scope",
       "equals": "reviewable_proposal_only"
     },

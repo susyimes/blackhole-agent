@@ -638,6 +638,7 @@ def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_i
         "selected_item_ids",
         "truncated_item_ids",
         "evidence_ref_policy",
+        "safety_boundary",
         "accepted_candidates",
         "evidence_ref_violations",
         "proposal_controls",
@@ -648,6 +649,14 @@ def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_i
     assert output["schema_version"] == 1
     assert output["behavior"] == "proposal_interpretation"
     assert output["passed"] is True
+    assert output["safety_boundary"] == {
+        "review_only_risk_flags": ["offensive-behavior", "privacy-leakage"],
+        "review_only_proposal_ids": [],
+        "review_only_count": 0,
+        "unsafe_drift_proposal_ids": [],
+        "unsafe_drift_count": 0,
+        "offensive_behavior_local_execution": False,
+    }
     assert output["evidence_ref_violations"] == []
     supplied_item_ids = set(output["evidence_ref_policy"]["supplied_item_ids"])
     assert supplied_item_ids == {"agent-harness", "opencode-harness"}
