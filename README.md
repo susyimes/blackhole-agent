@@ -198,7 +198,8 @@ uv run blackhole-supervisor \
   --require-token-env
 ```
 
-The preflight records only env var names and boolean presence; token values are not written to diagnostics or artifacts.
+The preflight records valid env var names and boolean presence; token values are not written to diagnostics or artifacts.
+Malformed `--token-env` input is rejected without echoing the raw input into startup diagnostics.
 
 Codex mutation routes are also checked before execution. By default, `codex` mode requires either `--model` or `--profile` so a wake cannot silently use an unintended CLI default provider. Operators who intentionally want the Codex CLI default route can pass `--allow-default-codex-route`; the preflight artifact still records that the route was implicit without recording secrets or profile values.
 

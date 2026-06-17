@@ -1153,9 +1153,9 @@ def build_provider_config_preflight(
     if not token_env_name:
         diagnostics.append("token_env must name an environment variable")
     elif not token_env_valid:
-        diagnostics.append(f"token_env must be a valid environment variable name: {token_env_name!r}")
+        diagnostics.append("token_env must be a valid environment variable name")
     elif config.require_token_env and not token_env_present:
-        diagnostics.append(f"required token environment variable is not set or empty: {token_env_name}")
+        diagnostics.append("required token environment variable is not set or empty")
     codex_preflight = build_codex_provider_preflight(
         CodexCliConfig(
             model=config.model,
@@ -1170,7 +1170,8 @@ def build_provider_config_preflight(
         "ok": not diagnostics,
         "diagnostics": diagnostics,
         "provider": "github",
-        "token_env_name": token_env_name,
+        "token_env_name": token_env_name if token_env_valid else None,
+        "token_env_name_recorded": token_env_valid,
         "token_env_valid": token_env_valid,
         "token_env_required": config.require_token_env,
         "token_env_present": token_env_present,

@@ -494,10 +494,11 @@ def test_provider_config_preflight_reports_missing_required_token_without_value(
 
     assert preflight["ok"] is False
     assert preflight["token_env_name"] == "BLACKHOLE_TEST_TOKEN"
+    assert preflight["token_env_name_recorded"] is True
     assert preflight["token_env_present"] is False
     assert preflight["token_value_recorded"] is False
     assert preflight["diagnostics"] == [
-        "required token environment variable is not set or empty: BLACKHOLE_TEST_TOKEN",
+        "required token environment variable is not set or empty",
         "codex mode requires an explicit --model or --profile to avoid implicit provider fallback",
     ]
 
@@ -540,6 +541,32 @@ def test_validate_supervisor_config_rejects_malformed_token_env_before_schedulin
 
     with pytest.raises(ValueError, match="runtime startup preflight failed"):
         validate_supervisor_config(config)
+
+
+def test_provider_config_preflight_does_not_echo_malformed_token_env_text(tmp_path):
+    secret_shaped_input = "sk-live-secret-token"
+    config = SupervisorConfig(repo_path=tmp_path, token_env=secret_shaped_input, model="gpt-5.5")
+
+    preflight = build_provider_config_preflight(config)
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["token_env_name"] is None
+    assert preflight["token_env_name_recorded"] is False
+    assert preflight["token_env_valid"] is False
+    assert preflight["diagnostics"] == ["token_env must be a valid environment variable name"]
+    assert secret_shaped_input not in rendered
+
+
+def test_validate_supervisor_config_does_not_echo_malformed_token_env_text(tmp_path):
+    secret_shaped_input = "sk-live-secret-token"
+    config = SupervisorConfig(repo_path=tmp_path, token_env=secret_shaped_input, model="gpt-5.5")
+
+    with pytest.raises(ValueError) as error:
+        validate_supervisor_config(config)
+
+    assert "token_env must be a valid environment variable name" in str(error.value)
+    assert secret_shaped_input not in str(error.value)
 
 
 def test_runtime_startup_preflight_combines_provider_and_tool_gaps_without_token_leakage(tmp_path, monkeypatch):

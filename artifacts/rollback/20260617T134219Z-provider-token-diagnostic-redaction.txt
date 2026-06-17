@@ -1,0 +1,15 @@
+Rollback point for source digest github-growth-20260617T134001.604933Z
+
+Original branch: codex/blackhole-evolve/20260617T134128.118808-introduce-or-strengthen-provider-config-token-pr
+Original HEAD: a083a8fc571d51d792f6f6672a04138483fb8f9d
+Local rollback ref: refs/rollback/20260617T134219Z-provider-token-diagnostic-redaction
+
+Create rollback ref:
+  git update-ref refs/rollback/20260617T134219Z-provider-token-diagnostic-redaction a083a8fc571d51d792f6f6672a04138483fb8f9d
+
+Recovery commands, explicit and destructive:
+  git reset --hard refs/rollback/20260617T134219Z-provider-token-diagnostic-redaction
+  git clean -fd
+
+Notes:
+  This run evaluates provider/config/token preflight lessons from omnigent-ai/omnigent while keeping privacy-leakage behavior review-only. Tokens, credentials, secrets, private keys, private chats, PII, and personal data must not be exposed in diagnostics or artifacts.
