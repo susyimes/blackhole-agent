@@ -1112,6 +1112,15 @@ def candidate_route_hint_lane_errors(
 ) -> list[str]:
     """Reject candidates that escape deterministic route-hint lane constraints."""
 
+    rule_risk_flags = {
+        str(flag)
+        for ref in evidence_refs
+        for flag in items_by_id.get(ref, {}).get("rule_risk_flags", [])
+        if str(flag).strip()
+    }
+    if rule_risk_flags & HIGH_RISK_FLAGS:
+        return []
+
     route_hints = sorted(
         {
             str(route_hint)
@@ -1121,9 +1130,14 @@ def candidate_route_hint_lane_errors(
         }
     )
     errors: list[str] = []
-    if "skill_route_discovery" in route_hints and kind not in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]:
-        allowed = ", ".join(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
-        errors.append(f"skill_route_discovery proposals must use one of: {allowed}")
+    enforced_route_hints = {"agent_harness_eval", "skill_route_discovery"}
+    for route_hint in route_hints:
+        if route_hint not in enforced_route_hints:
+            continue
+        allowed_lanes = ROUTE_HINT_VALIDATION_LANES.get(route_hint)
+        if allowed_lanes is None or kind in allowed_lanes:
+            continue
+        errors.append(f"{route_hint} proposals must use one of: {', '.join(allowed_lanes)}")
     return errors
 
 

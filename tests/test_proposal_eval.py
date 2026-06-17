@@ -160,6 +160,105 @@ def test_proposal_replay_case_rejects_candidate_supplied_evidence_urls():
     }
 
 
+def test_agent_harness_eval_fixture_enforces_json_refs_max_count_and_route_lanes():
+    case = load_proposal_replay_case(FIXTURE_DIR / "current_wake_agent_harness_validation.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+
+    review = review_llm_proposal_response(
+        json.dumps(case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    payload = review.to_dict()
+    selected_items_by_id = {str(item["item_id"]): item for item in evidence_package["items"]}
+    agent_harness_policy = evidence_package["policy"]["route_hint_validation_lanes"]["agent_harness_eval"]
+    p1 = next(
+        candidate
+        for candidate in payload["accepted_candidates"]
+        if candidate["proposal_id"] == "p1-local-agent-harness-validation"
+    )
+
+    assert payload["schema_version"] == 1
+    assert payload["status"] == "accepted"
+    assert payload["accepted_count"] <= evidence_package["policy"]["max_proposals"]
+    assert agent_harness_policy == ["documentation", "test", "code_patch"]
+    assert p1["kind"] == "test"
+    assert set(p1["evidence_refs"]) <= set(selected_items_by_id)
+    assert all(
+        "agent_harness_eval" in selected_items_by_id[item_id]["route_hints"]
+        for item_id in p1["evidence_refs"]
+    )
+    assert p1["evidence_urls"] == sorted(
+        selected_items_by_id[item_id]["source_url"] for item_id in p1["evidence_refs"]
+    )
+
+    wrong_lane_case = load_proposal_replay_case(FIXTURE_DIR / "current_wake_agent_harness_validation.json")
+    wrong_lane_case["raw_response"]["proposals"] = [
+        {
+            **wrong_lane_case["raw_response"]["proposals"][0],
+            "kind": "config",
+            "proposal_id": "bad-agent-harness-config-lane",
+        }
+    ]
+    wrong_lane_review = review_llm_proposal_response(
+        json.dumps(wrong_lane_case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert wrong_lane_review.status == "rejected"
+    assert wrong_lane_review.rejected_candidates[0]["errors"] == [
+        "agent_harness_eval proposals must use one of: documentation, test, code_patch"
+    ]
+
+    url_ref_case = load_proposal_replay_case(FIXTURE_DIR / "current_wake_agent_harness_validation.json")
+    url_ref_case["raw_response"]["proposals"] = [
+        {
+            **url_ref_case["raw_response"]["proposals"][0],
+            "proposal_id": "bad-agent-harness-url-ref",
+            "evidence_refs": ["https://github.com/ApodexAI/AgentHarness"],
+        }
+    ]
+    url_ref_review = review_llm_proposal_response(
+        json.dumps(url_ref_case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert url_ref_review.status == "rejected"
+    assert "evidence_refs contain unknown item ids: https://github.com/ApodexAI/AgentHarness" in (
+        url_ref_review.rejected_candidates[0]["errors"]
+    )
+
+    schema_case = load_proposal_replay_case(FIXTURE_DIR / "current_wake_agent_harness_validation.json")
+    schema_case["raw_response"]["schema_version"] = 2
+    schema_review = review_llm_proposal_response(
+        json.dumps(schema_case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert schema_review.status == "rejected"
+    assert schema_review.reason == "schema_version must be 1"
+
+    too_many_case = load_proposal_replay_case(FIXTURE_DIR / "current_wake_agent_harness_validation.json")
+    too_many_case["raw_response"]["proposals"] = [
+        {
+            **too_many_case["raw_response"]["proposals"][0],
+            "proposal_id": f"agent-harness-overflow-{index}",
+        }
+        for index in range(evidence_package["policy"]["max_proposals"] + 1)
+    ]
+    too_many_review = review_llm_proposal_response(
+        json.dumps(too_many_case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert too_many_review.status == "rejected"
+    assert too_many_review.reason == "proposal count exceeds max_proposals=5"
+
+
 def test_proposal_benchmark_report_classifies_schema_and_evidence_ref_drift():
     schema_case = load_proposal_replay_case(FIXTURE_DIR / "benign_agent_harness.json")
     schema_case["raw_response"]["schema_version"] = 2

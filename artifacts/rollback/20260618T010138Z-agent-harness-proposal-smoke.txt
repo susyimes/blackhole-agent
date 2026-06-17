@@ -1,0 +1,17 @@
+Rollback point for github-growth-20260617T170001.498496Z
+
+Original branch: codex/blackhole-evolve/20260617T170050.729710-add-or-extend-a-local-agent-harness-evaluation-s
+Original HEAD: 0e3e4aef506a9a8687fe28e2aa233fe0af28206d
+Local rollback ref: refs/rollback/20260618T010138Z-agent-harness-proposal-smoke
+
+Recovery commands, explicit and destructive:
+
+git reset --hard 0e3e4aef506a9a8687fe28e2aa233fe0af28206d
+git clean -fd
+
+Run notes:
+
+- Source digest: github-growth-20260617T170001.498496Z
+- Selected proposal: p1-agent-harness-eval-local-smoke
+- Evidence reviewed: https://github.com/visa/visa-vulnerability-agentic-harness
+- Intended local change: strengthen frozen proposal interpretation tests for agent_harness_eval route constraints, strict JSON schema_version 1, item_id-only evidence refs, and max_proposals enforcement.
