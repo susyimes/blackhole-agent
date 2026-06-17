@@ -34,6 +34,7 @@ PRIVACY_REVIEW_GATE = "privacy-leakage-human-review"
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_workflow_route",
     "harness_run_summary",
+    "mock_llm_workflow_route",
     "proposal_interpretation",
 ]
 
@@ -257,9 +258,122 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_agent_workflow_route(raw_input, source_path=source_path)
     if behavior == "harness_run_summary":
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
+    if behavior == "mock_llm_workflow_route":
+        return evaluate_mock_llm_workflow_route(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Evaluate a provider-dependent workflow against deterministic mock LLM responses."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
+    mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
+    workflow = raw_input.get("workflow") if isinstance(raw_input.get("workflow"), dict) else {}
+    steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
+    responses = mock_llm.get("responses") if isinstance(mock_llm.get("responses"), list) else []
+
+    provider_enabled = truthy(provider.get("enabled"))
+    mock_enabled = truthy(mock_llm.get("enabled"))
+    external_calls_attempted = provider_enabled and not mock_enabled
+    response_results = build_mock_llm_response_results(steps, responses) if mock_enabled else []
+    enough_responses = len(responses) >= len(steps)
+    expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
+    usage = aggregate_mock_llm_usage(response_results)
+    failure_mode = mock_llm_workflow_failure_mode(
+        step_count=len(steps),
+        external_calls_attempted=external_calls_attempted,
+        mock_enabled=mock_enabled,
+        enough_responses=enough_responses,
+        expectations_passed=expectations_passed,
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "mock_llm_workflow_route",
+        "task_id": task_id,
+        "route_status": "passed" if failure_mode == "none" else "failed",
+        "provider": {
+            "name": optional_string(provider.get("name")) or "external-llm",
+            "enabled": provider_enabled,
+            "disabled_handled": not provider_enabled and mock_enabled,
+            "external_calls_attempted": external_calls_attempted,
+        },
+        "mock_llm": {
+            "enabled": mock_enabled,
+            "model": optional_string(mock_llm.get("model")) or "mock-llm",
+            "call_count": len(response_results),
+            "response_count": len(responses),
+            "exhausted": mock_enabled and not enough_responses,
+            "usage": usage,
+        },
+        "workflow": {
+            "step_count": len(steps),
+            "steps_executed": len(response_results),
+            "all_expectations_passed": expectations_passed,
+            "response_hashes": [result["response_hash"] for result in response_results],
+        },
+        "failure_mode": failure_mode,
+    }
+
+
+def build_mock_llm_response_results(steps: list[Any], responses: list[Any]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for index, step in enumerate(steps):
+        if index >= len(responses):
+            break
+        step_data = step if isinstance(step, dict) else {}
+        response_data = responses[index] if isinstance(responses[index], dict) else {}
+        content = optional_string(response_data.get("content")) or ""
+        expect_contains = optional_string(step_data.get("expect_contains"))
+        usage = response_data.get("usage") if isinstance(response_data.get("usage"), dict) else {}
+        results.append(
+            {
+                "step_id": optional_string(step_data.get("id")) or f"step-{index + 1}",
+                "response_hash": stable_text_hash(content),
+                "expectation_passed": expect_contains is None or expect_contains in content,
+                "tool_call_count": len(response_data.get("tool_calls"))
+                if isinstance(response_data.get("tool_calls"), list)
+                else 0,
+                "input_tokens": optional_int(usage.get("input_tokens") or usage.get("prompt_tokens")) or 0,
+                "output_tokens": optional_int(usage.get("output_tokens") or usage.get("completion_tokens")) or 0,
+            }
+        )
+    return results
+
+
+def aggregate_mock_llm_usage(response_results: list[dict[str, Any]]) -> dict[str, int]:
+    input_tokens = sum(int(result["input_tokens"]) for result in response_results)
+    output_tokens = sum(int(result["output_tokens"]) for result in response_results)
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "tool_calls": sum(int(result["tool_call_count"]) for result in response_results),
+    }
+
+
+def mock_llm_workflow_failure_mode(
+    *,
+    step_count: int,
+    external_calls_attempted: bool,
+    mock_enabled: bool,
+    enough_responses: bool,
+    expectations_passed: bool,
+) -> str:
+    if step_count < 1:
+        return "no_workflow_steps"
+    if external_calls_attempted:
+        return "external_provider_required"
+    if not mock_enabled:
+        return "mock_llm_disabled"
+    if not enough_responses:
+        return "mock_llm_exhausted"
+    if not expectations_passed:
+        return "expectation_failed"
+    return "none"
 
 
 def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

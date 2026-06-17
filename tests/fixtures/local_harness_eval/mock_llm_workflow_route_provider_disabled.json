@@ -1,0 +1,82 @@
+{
+  "name": "mock-llm-workflow-route-provider-disabled",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-provider-disabled",
+    "provider": {
+      "name": "external-chat-provider",
+      "enabled": false
+    },
+    "mock_llm": {
+      "enabled": true,
+      "model": "mock-local-llm",
+      "responses": [
+        {
+          "content": "Proposal accepted for local validation.",
+          "usage": {
+            "input_tokens": 11,
+            "output_tokens": 6
+          },
+          "tool_calls": [
+            {
+              "name": "record_validation"
+            }
+          ]
+        },
+        {
+          "content": "Validation passed with provider disabled.",
+          "usage": {
+            "input_tokens": 9,
+            "output_tokens": 7
+          }
+        }
+      ]
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "interpret",
+          "expect_contains": "accepted"
+        },
+        {
+          "id": "validate",
+          "expect_contains": "provider disabled"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "provider.disabled_handled",
+      "equals": true
+    },
+    {
+      "path": "provider.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "mock_llm.call_count",
+      "equals": 2
+    },
+    {
+      "path": "mock_llm.usage.total_tokens",
+      "equals": 33
+    },
+    {
+      "path": "mock_llm.usage.tool_calls",
+      "equals": 1
+    },
+    {
+      "path": "workflow.all_expectations_passed",
+      "equals": true
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

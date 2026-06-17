@@ -76,13 +76,14 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 4
-    assert payload["pass_count"] == 3
+    assert payload["fixture_count"] == 5
+    assert payload["pass_count"] == 4
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
         "agent_workflow_route",
         "harness_run_summary",
+        "mock_llm_workflow_route",
         "proposal_interpretation",
     ]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -93,6 +94,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
+    assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
@@ -144,6 +146,51 @@ def test_agent_workflow_route_fixture_records_state_validation_and_recovery():
         "completed",
     ]
     assert output["state_transitions"][-1] == {"state": "completed", "outcome": "failed"}
+
+
+def test_mock_llm_workflow_route_exercises_provider_disabled_path_without_external_calls():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_workflow_route_provider_disabled.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["provider"] == {
+        "name": "external-chat-provider",
+        "enabled": False,
+        "disabled_handled": True,
+        "external_calls_attempted": False,
+    }
+    assert output["mock_llm"]["enabled"] is True
+    assert output["mock_llm"]["call_count"] == 2
+    assert output["mock_llm"]["usage"] == {
+        "input_tokens": 20,
+        "output_tokens": 13,
+        "total_tokens": 33,
+        "tool_calls": 1,
+    }
+    assert output["workflow"]["all_expectations_passed"] is True
+    assert output["workflow"]["response_hashes"][0].startswith("sha256:")
+    assert output["failure_mode"] == "none"
+
+
+def test_mock_llm_workflow_route_fails_instead_of_calling_external_provider():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_workflow_route_provider_disabled.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    raw_input = dict(fixture["input"])
+    raw_input["provider"] = {"name": "external-chat-provider", "enabled": True}
+    raw_input["mock_llm"] = {"enabled": False, "responses": []}
+
+    output = evaluate_harness_behavior("mock_llm_workflow_route", raw_input, source_path=fixture_path)
+
+    assert output["route_status"] == "failed"
+    assert output["provider"]["external_calls_attempted"] is True
+    assert output["mock_llm"]["call_count"] == 0
+    assert output["failure_mode"] == "external_provider_required"
 
 
 def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_json():

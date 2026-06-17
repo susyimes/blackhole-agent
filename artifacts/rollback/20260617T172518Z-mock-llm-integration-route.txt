@@ -1,0 +1,16 @@
+Rollback point for mock LLM integration route self-evolution
+
+Created: 2026-06-17T17:25:18+08:00
+Source digest: github-growth-20260617T092315.728515Z
+Original branch: codex/blackhole-evolve/20260617T092434.823163-add-or-improve-a-local-mock-llm-backed-integrati
+Original HEAD: f8a4576ce9d10716498b1ba8f6b3e5d3f533e312
+Local rollback ref: not-created-by-kernel; use Original HEAD above if explicit operator rollback is required
+
+Recovery commands, for an operator or supervisor that chooses destructive rollback:
+
+1. git switch codex/blackhole-evolve/20260617T092434.823163-add-or-improve-a-local-mock-llm-backed-integrati
+2. git reset --hard f8a4576ce9d10716498b1ba8f6b3e5d3f533e312
+
+Notes:
+- This rollback artifact must not be deleted by the run that created it.
+- Rollback is explicit and destructive; the kernel does not execute it automatically.
