@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -195,6 +195,27 @@ class StartupHealthRecord:
     rollback_target: str
     stdout_tail: str
     stderr_tail: str
+
+
+@dataclass(frozen=True)
+class SupervisorRunnerStatus:
+    """Derived liveness for the one-shot child runner behind a supervisor."""
+
+    schema_version: int
+    status: str
+    controller_visible_status: str
+    user_visible_message: str
+    reason: str
+    heartbeat_path: str
+    heartbeat_present: bool
+    last_pass_id: str
+    last_finished_at: str
+    last_effective_returncode: int | None
+    seconds_since_last_finish: float | None
+    next_wake_due_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -404,7 +425,7 @@ def run_wake_once(
                 promotion_result=None,
                 command_runner=command_runner,
             )
-            write_pass_record(config.resolved_output_dir, record)
+            write_pass_record(config.resolved_output_dir, record, interval_seconds=config.interval_seconds)
             append_supervisor_log(config.resolved_output_dir, record)
             return record
 
@@ -490,7 +511,7 @@ def run_wake_once(
         commit_result=commit_result,
         promotion_result=promotion_result,
     )
-    write_pass_record(config.resolved_output_dir, record)
+    write_pass_record(config.resolved_output_dir, record, interval_seconds=config.interval_seconds)
     append_supervisor_log(config.resolved_output_dir, record)
     return record
 
@@ -1152,29 +1173,150 @@ def prepare_supervisor_output(config: SupervisorConfig) -> None:
         config.resolved_worktree_parent_dir.mkdir(parents=True, exist_ok=True)
 
 
-def write_pass_record(output_dir: Path, record: SupervisorPassRecord) -> None:
+def write_pass_record(output_dir: Path, record: SupervisorPassRecord, *, interval_seconds: int = 3600) -> None:
     payload = pass_record_to_dict(record)
     pass_path = output_dir / f"supervisor-pass-{record.pass_id}.json"
     write_json(pass_path, payload)
     write_json(output_dir / "latest-supervisor-pass.json", payload)
-    write_json(
+    heartbeat = {
+        "last_pass_id": record.pass_id,
+        "last_started_at": record.started_at,
+        "last_finished_at": record.finished_at,
+        "last_returncode": record.returncode,
+        "last_effective_returncode": supervisor_effective_returncode(record),
+        "last_timed_out": record.timed_out,
+        "last_start_branch": record.start_branch,
+        "last_start_head": record.start_head,
+        "last_finish_branch": record.finish_branch,
+        "last_finish_head": record.finish_head,
+        "last_promoted": bool(record.promotion_result and record.promotion_result.promoted),
+        "last_pushed": bool(record.promotion_result and record.promotion_result.pushed),
+        "last_restart_requested": bool(record.promotion_result and record.promotion_result.restart_requested),
+    }
+    heartbeat["runner_liveness"] = supervisor_runner_status_from_heartbeat(
         output_dir / "latest-supervisor-heartbeat.json",
-        {
-            "last_pass_id": record.pass_id,
-            "last_started_at": record.started_at,
-            "last_finished_at": record.finished_at,
-            "last_returncode": record.returncode,
-            "last_effective_returncode": supervisor_effective_returncode(record),
-            "last_timed_out": record.timed_out,
-            "last_start_branch": record.start_branch,
-            "last_start_head": record.start_head,
-            "last_finish_branch": record.finish_branch,
-            "last_finish_head": record.finish_head,
-            "last_promoted": bool(record.promotion_result and record.promotion_result.promoted),
-            "last_pushed": bool(record.promotion_result and record.promotion_result.pushed),
-            "last_restart_requested": bool(record.promotion_result and record.promotion_result.restart_requested),
-        },
+        heartbeat=heartbeat,
+        interval_seconds=interval_seconds,
+    ).to_dict()
+    write_json(output_dir / "latest-supervisor-heartbeat.json", heartbeat)
+
+
+def supervisor_runner_status_from_heartbeat(
+    heartbeat_path: Path,
+    *,
+    heartbeat: dict[str, Any] | None = None,
+    interval_seconds: int = 3600,
+    now: datetime | None = None,
+    controller_connected: bool = True,
+    stale_after_intervals: float = 2.0,
+) -> SupervisorRunnerStatus:
+    """Derive reconnect-safe supervisor runner liveness from durable heartbeat metadata."""
+
+    current_time = now or datetime.now(timezone.utc)
+    payload = heartbeat if heartbeat is not None else read_json_if_exists(heartbeat_path)
+    if not payload:
+        return SupervisorRunnerStatus(
+            schema_version=1,
+            status="runner_unavailable",
+            controller_visible_status="unavailable",
+            user_visible_message="No supervisor heartbeat has been recorded yet.",
+            reason="missing_heartbeat",
+            heartbeat_path=str(heartbeat_path),
+            heartbeat_present=False,
+            last_pass_id="",
+            last_finished_at="",
+            last_effective_returncode=None,
+            seconds_since_last_finish=None,
+            next_wake_due_at="",
+        )
+    last_pass_id = str(payload.get("last_pass_id") or "")
+    last_finished_at = str(payload.get("last_finished_at") or "")
+    last_effective_returncode = int(payload.get("last_effective_returncode") or 0)
+    finished_at = parse_utc_datetime(last_finished_at)
+    seconds_since_finish: float | None = None
+    next_wake_due_at = ""
+    if finished_at is not None:
+        seconds_since_finish = max(0.0, (current_time - finished_at).total_seconds())
+        next_wake_due_at = (finished_at + timedelta(seconds=interval_seconds)).isoformat().replace("+00:00", "Z")
+    if not controller_connected:
+        return SupervisorRunnerStatus(
+            schema_version=1,
+            status="controller_disconnected",
+            controller_visible_status="disconnected",
+            user_visible_message="Supervisor connection is unavailable; reconnect before scheduling the next wake.",
+            reason="controller_not_connected",
+            heartbeat_path=str(heartbeat_path),
+            heartbeat_present=True,
+            last_pass_id=last_pass_id,
+            last_finished_at=last_finished_at,
+            last_effective_returncode=last_effective_returncode,
+            seconds_since_last_finish=seconds_since_finish,
+            next_wake_due_at=next_wake_due_at,
+        )
+    if last_effective_returncode != 0:
+        return SupervisorRunnerStatus(
+            schema_version=1,
+            status="runner_failed",
+            controller_visible_status="failed",
+            user_visible_message="The last supervisor wake failed; inspect the latest pass artifact before relying on the next wake.",
+            reason="last_pass_failed",
+            heartbeat_path=str(heartbeat_path),
+            heartbeat_present=True,
+            last_pass_id=last_pass_id,
+            last_finished_at=last_finished_at,
+            last_effective_returncode=last_effective_returncode,
+            seconds_since_last_finish=seconds_since_finish,
+            next_wake_due_at=next_wake_due_at,
+        )
+    stale_after_seconds = interval_seconds * stale_after_intervals
+    if seconds_since_finish is None or seconds_since_finish > stale_after_seconds:
+        return SupervisorRunnerStatus(
+            schema_version=1,
+            status="runner_unavailable",
+            controller_visible_status="unavailable",
+            user_visible_message="Supervisor heartbeat is stale; confirm the scheduler is running before waiting for more work.",
+            reason="stale_or_invalid_heartbeat",
+            heartbeat_path=str(heartbeat_path),
+            heartbeat_present=True,
+            last_pass_id=last_pass_id,
+            last_finished_at=last_finished_at,
+            last_effective_returncode=last_effective_returncode,
+            seconds_since_last_finish=seconds_since_finish,
+            next_wake_due_at=next_wake_due_at,
+        )
+    return SupervisorRunnerStatus(
+        schema_version=1,
+        status="runner_asleep",
+        controller_visible_status="asleep",
+        user_visible_message="The one-shot runner is asleep between supervisor wakes; the scheduler will start a fresh runner on the next wake.",
+        reason="between_scheduled_wakes",
+        heartbeat_path=str(heartbeat_path),
+        heartbeat_present=True,
+        last_pass_id=last_pass_id,
+        last_finished_at=last_finished_at,
+        last_effective_returncode=last_effective_returncode,
+        seconds_since_last_finish=seconds_since_finish,
+        next_wake_due_at=next_wake_due_at,
     )
+
+
+def read_json_if_exists(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def parse_utc_datetime(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def write_startup_health_record(output_dir: Path, record: StartupHealthRecord) -> None:

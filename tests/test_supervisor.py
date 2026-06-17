@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from blackhole_agent.supervisor import (
     promote_candidate,
     run_startup_health_check,
     run_wake_once,
+    supervisor_runner_status_from_heartbeat,
     validate_supervisor_config,
 )
 
@@ -180,10 +182,95 @@ def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):
     assert heartbeat["last_promoted"] is True
     assert heartbeat["last_pushed"] is True
     assert heartbeat["last_restart_requested"] is True
+    assert heartbeat["runner_liveness"]["status"] == "runner_asleep"
+    assert heartbeat["runner_liveness"]["controller_visible_status"] == "asleep"
     assert restart_request["target_head"] == "cand123"
     assert activation["reason"] == "promotion_applied"
     assert activation["current_head"] == "cand123"
     assert activation["previous_head"] == "base123"
+
+
+def test_supervisor_runner_liveness_marks_reconnected_idle_runner_as_asleep(tmp_path):
+    heartbeat_path = tmp_path / "latest-supervisor-heartbeat.json"
+    heartbeat = {
+        "last_pass_id": "20260617T040000Z",
+        "last_finished_at": "2026-06-17T04:00:00Z",
+        "last_effective_returncode": 0,
+    }
+
+    status = supervisor_runner_status_from_heartbeat(
+        heartbeat_path,
+        heartbeat=heartbeat,
+        interval_seconds=3600,
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+        controller_connected=True,
+    )
+
+    assert status.status == "runner_asleep"
+    assert status.controller_visible_status == "asleep"
+    assert status.reason == "between_scheduled_wakes"
+    assert status.next_wake_due_at == "2026-06-17T05:00:00Z"
+    assert "asleep" in status.user_visible_message
+
+
+def test_supervisor_runner_liveness_distinguishes_disconnect_from_asleep(tmp_path):
+    heartbeat_path = tmp_path / "latest-supervisor-heartbeat.json"
+    heartbeat = {
+        "last_pass_id": "20260617T040000Z",
+        "last_finished_at": "2026-06-17T04:00:00Z",
+        "last_effective_returncode": 0,
+    }
+
+    status = supervisor_runner_status_from_heartbeat(
+        heartbeat_path,
+        heartbeat=heartbeat,
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+        controller_connected=False,
+    )
+
+    assert status.status == "controller_disconnected"
+    assert status.controller_visible_status == "disconnected"
+    assert status.reason == "controller_not_connected"
+
+
+def test_supervisor_runner_liveness_marks_missing_or_stale_heartbeat_unavailable(tmp_path):
+    heartbeat_path = tmp_path / "latest-supervisor-heartbeat.json"
+
+    missing = supervisor_runner_status_from_heartbeat(
+        heartbeat_path,
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+    )
+    stale = supervisor_runner_status_from_heartbeat(
+        heartbeat_path,
+        heartbeat={
+            "last_pass_id": "20260617T010000Z",
+            "last_finished_at": "2026-06-17T01:00:00Z",
+            "last_effective_returncode": 0,
+        },
+        interval_seconds=3600,
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+    )
+
+    assert missing.status == "runner_unavailable"
+    assert missing.reason == "missing_heartbeat"
+    assert stale.status == "runner_unavailable"
+    assert stale.reason == "stale_or_invalid_heartbeat"
+
+
+def test_supervisor_runner_liveness_surfaces_failed_last_pass(tmp_path):
+    status = supervisor_runner_status_from_heartbeat(
+        tmp_path / "latest-supervisor-heartbeat.json",
+        heartbeat={
+            "last_pass_id": "20260617T040000Z",
+            "last_finished_at": "2026-06-17T04:00:00Z",
+            "last_effective_returncode": 7,
+        },
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+    )
+
+    assert status.status == "runner_failed"
+    assert status.controller_visible_status == "failed"
+    assert status.last_effective_returncode == 7
 
 
 def test_promote_candidate_rolls_back_when_post_merge_health_fails(tmp_path):

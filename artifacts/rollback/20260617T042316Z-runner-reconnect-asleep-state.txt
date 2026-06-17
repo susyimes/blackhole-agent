@@ -1,0 +1,7 @@
+rollback point: 20260617T042316Z-runner-reconnect-asleep-state
+original branch: codex/blackhole-evolve/20260617T042438.866515-add-or-expand-local-model-gateway-compatibility-
+head: 022a353d68f7b4d67c3d3eccfa8142ff3433f211
+rollback ref: refs/rollback/20260617T042316Z-runner-reconnect-asleep-state
+recovery commands:
+  git reset --hard 022a353d68f7b4d67c3d3eccfa8142ff3433f211
+  git clean -fd
