@@ -1,0 +1,104 @@
+{
+  "name": "skill-workflow-route-discovery",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 2,
+    "max_item_text_chars": 360
+  },
+  "digest": {
+    "digest_id": "github-growth-20260617T150001-skill-workflow-route-discovery",
+    "generated_at": "2026-06-17T15:00:01Z",
+    "items": [
+      {
+        "item_id": "fablecodex-codex-skill-workflow",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "event_kind": "RepositoryTrend",
+        "summary": "baskduf/FableCodex: Codex skill and workflow guidance for inspecting evidence, tracking goals, and verifying before completion",
+        "relevance_reason": "Supports a local skill-route discovery lane that proposes bounded validation for workflow and plugin-style trend evidence.",
+        "risk_flags": [],
+        "confidence": 0.88
+      },
+      {
+        "item_id": "compass-skills-task-routing",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "dongshuyan/compass-skills: personal alignment skills system for AI agents and task routing",
+        "relevance_reason": "Supports recognizing skills, workflows, and tool integrations as proposal lanes without expanding the safety boundary.",
+        "risk_flags": [],
+        "confidence": 0.84
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-20260617T150001-skill-workflow-route-discovery",
+    "run_interpretation": "Skills and workflow trend evidence should route to bounded local validation tasks.",
+    "self_model_reading": {
+      "status": "left_unchanged",
+      "reason": "The current self-model already favors rollback-backed local behavior changes outside the narrow safety boundary."
+    },
+    "proposals": [
+      {
+        "proposal_id": "p1-skill-route-discovery",
+        "kind": "code_patch",
+        "summary": "Recognize skills, workflows, and tool integrations as local proposal-discovery lanes.",
+        "evidence_refs": [
+          "fablecodex-codex-skill-workflow",
+          "compass-skills-task-routing"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run proposal-generation unit tests plus a local fixture for skills and workflow trend items.",
+        "rationale": "The evidence points to skills and workflow gates as reusable agent-control units, which maps to local route discovery and replay validation rather than remote capability expansion.",
+        "uncertainty": "The evidence was reviewed at public repository-summary level, so the fixture validates local routing behavior rather than claiming upstream implementation parity.",
+        "self_effect": "Improves future trend intelligence by making skill and workflow evidence produce bounded local validation proposals.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p2-url-ref-rejected",
+        "kind": "test",
+        "summary": "Incorrectly cite a repository URL instead of a frozen item id.",
+        "evidence_refs": [
+          "https://github.com/dongshuyan/compass-skills"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Add fixture coverage for URL evidence-ref rejection.",
+        "rationale": "Negative fixture for evidence reference discipline.",
+        "uncertainty": "This candidate is intentionally malformed.",
+        "self_effect": "Would weaken replayability if accepted.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 1,
+    "accepted_evidence_refs": {
+      "p1-skill-route-discovery": [
+        "fablecodex-codex-skill-workflow",
+        "compass-skills-task-routing"
+      ]
+    },
+    "rejected_error_substrings": [
+      "evidence_refs contain unknown item ids: https://github.com/dongshuyan/compass-skills"
+    ],
+    "proposal_controls": {
+      "p1-skill-route-discovery": {
+        "kind": "code_patch",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    },
+    "proposal_validation_preflights": {
+      "p1-skill-route-discovery": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      }
+    }
+  }
+}

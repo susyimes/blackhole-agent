@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260617T150001.476944Z
+
+Original branch: codex/blackhole-evolve/20260617T150109.823033-add-or-extend-a-local-agent-behavior-harness-tha
+Original HEAD: a196ec7f57df70bd5639a9e9a438e8d25a0c968c
+Local rollback ref: refs/rollback/20260617T150000Z-skill-route-discovery
+
+Recovery commands, destructive and for explicit operator use only:
+
+    git switch codex/blackhole-evolve/20260617T150109.823033-add-or-extend-a-local-agent-behavior-harness-tha
+    git reset --hard refs/rollback/20260617T150000Z-skill-route-discovery
+
+Run hypothesis:
+
+    Evidence from FableCodex and compass-skills points toward reusable skills,
+    workflow lanes, and tool integrations as trend signals. A safe local
+    improvement is to recognize those signals during proposal synthesis and
+    route them toward bounded local validation tasks without broadening the
+    offensive-behavior or privacy-leakage review boundary.

@@ -582,6 +582,38 @@ def test_tool_dispatch_gaps_can_become_local_validation_candidates(tmp_path):
     assert "Implementation scope: local_validation_candidate" in plan.task
 
 
+def test_skill_and_tool_integration_signals_get_bounded_validation_route():
+    event = normalize_event(
+        "baskduf/FableCodex",
+        {
+            "id": "skill-route",
+            "type": "IssuesEvent",
+            "actor": {"login": "octocat"},
+            "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "payload": {
+                "action": "opened",
+                "issue": {
+                    "title": "Codex skills should route workflow gates to plugins",
+                    "html_url": "https://github.com/baskduf/FableCodex/issues/12",
+                    "body": "Skill routing should recognize workflow gates and tool integrations.",
+                },
+            },
+        },
+    )
+
+    signals = extract_growth_signals([event], topics=["skill"])
+
+    assert len(signals) == 1
+    assert signals[0].risk_flags == []
+    assert signals[0].recommended_action == (
+        "map skill, workflow, or tool-integration signals to bounded local validation lanes such as "
+        "documentation, config, tests, or code patches"
+    )
+    proposal = build_proposals(signals)[0]
+    assert proposal["implementation_scope"] == "local_validation_candidate"
+    assert proposal["validation_gate"] == "narrow-local-verification"
+
+
 def test_extract_growth_signals_allows_agent_governance_controls_for_local_validation():
     event = normalize_event(
         "example/repo",
@@ -962,6 +994,7 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
             "relevance_reason": long_reason[:32],
             "rule_risk_flags": [],
             "rule_confidence": 0.91,
+            "route_hints": [],
         }
     ]
     assert first["allowed_evidence_urls"] == ["https://github.com/microsoft/fastcontext/issues/123?query=preserve"]
@@ -1269,6 +1302,46 @@ def test_proposal_evidence_package_boosts_repeated_review_activity_without_overw
     assert review.accepted_candidates[0]["evidence_urls"] == [
         "https://github.com/omnigent-ai/omnigent/pull/77#discussion_r1",
         "https://github.com/omnigent-ai/omnigent/pull/77#pullrequestreview-1",
+    ]
+
+
+def test_proposal_evidence_package_marks_skill_workflow_route_hints():
+    digest = {
+        "digest_id": "github-growth-skill-route-discovery",
+        "generated_at": "2026-06-17T15:00:01Z",
+        "items": [
+            {
+                "item_id": "fablecodex-skill-workflow",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": "baskduf/FableCodex: Codex skills and workflow gates for local agent work",
+                "relevance_reason": "Skill and workflow evidence should propose bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.87,
+            },
+            {
+                "item_id": "compass-skills-system",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "dongshuyan/compass-skills: personalized AI task skills system",
+                "relevance_reason": "Tool integration and skill routing evidence can improve proposal discovery.",
+                "risk_flags": [],
+                "confidence": 0.82,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=240)
+
+    assert evidence_package["policy"]["route_hint_validation_lanes"]["skill_route_discovery"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert [item["route_hints"] for item in evidence_package["items"]] == [
+        ["skill_route_discovery"],
+        ["skill_route_discovery"],
     ]
 
 

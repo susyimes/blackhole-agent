@@ -63,7 +63,10 @@ DEFAULT_TOPICS = (
     "github",
     "release",
     "security",
+    "skill",
+    "skills",
     "test",
+    "tool integration",
     "workflow",
 )
 INTERESTING_EVENT_TYPES = {
@@ -204,6 +207,21 @@ CAPABILITY_GAP_TERMS = (
     "search_provider",
     "tool call",
     "web_search",
+)
+SKILL_ROUTE_TERMS = (
+    "agent skill",
+    "agent skills",
+    "codex skill",
+    "codex skills",
+    "plugin",
+    "plugins",
+    "skill",
+    "skills",
+    "tool integration",
+    "tool integrations",
+    "workflow gate",
+    "workflow gates",
+    "workflow routing",
 )
 DRAFT_ROLLBACK_REF = "recorded in latest-rollback-point.json when codex mode prepares the branch"
 HARD_REVIEW_RISK_FLAGS = {"offensive-behavior", "privacy-leakage"}
@@ -934,6 +952,11 @@ def recommend_action(event: GitHubEvent, risk_flags: list[str]) -> str:
         return "adapt the governance pattern freely when it improves local controller behavior without offensive use or privacy leakage"
     if is_capability_gap_signal(f"{event.kind} {event.title} {event.summary}".lower()):
         return "adapt the capability route freely when local validation can cover it"
+    if any(
+        contains_risk_term(f"{event.kind} {event.title} {event.summary}".lower(), term)
+        for term in SKILL_ROUTE_TERMS
+    ):
+        return "map skill, workflow, or tool-integration signals to bounded local validation lanes such as documentation, config, tests, or code patches"
     if any(contains_risk_term(f"{event.kind} {event.title} {event.summary}".lower(), term) for term in REMOTE_EXECUTION_TERMS):
         return "adapt the runner or remote-execution pattern freely when configured capabilities and validation support it"
     if any(contains_risk_term(f"{event.kind} {event.title} {event.summary}".lower(), term) for term in AGENT_HARNESS_VALIDATION_TERMS):

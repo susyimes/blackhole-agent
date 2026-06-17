@@ -27,6 +27,46 @@ ALLOWED_IMPLEMENTATION_SCOPES = {
     "risk_review_before_local_change",
     "reviewable_proposal_only",
 }
+SKILL_WORKFLOW_ROUTE_TERMS = (
+    "agent skill",
+    "agent skills",
+    "codex skill",
+    "codex skills",
+    "mcp",
+    "plugin",
+    "plugins",
+    "skill",
+    "skill-route",
+    "skill routing",
+    "skills",
+    "tool integration",
+    "tool integrations",
+    "workflow",
+    "workflow gate",
+    "workflow gates",
+    "workflow routing",
+)
+PROVIDER_CONFIG_ROUTE_TERMS = (
+    "api key",
+    "api keys",
+    "config",
+    "configuration",
+    "provider",
+    "providers",
+    "token",
+    "tokens",
+)
+HARNESS_EVAL_ROUTE_TERMS = (
+    "agent harness",
+    "benchmark",
+    "eval",
+    "eval suite",
+    "evaluation",
+    "harness",
+    "replay",
+    "replayable",
+    "validation harness",
+)
 HIGH_RISK_FLAGS = {
     "offensive-behavior",
     "privacy-leakage",
@@ -186,6 +226,13 @@ def build_proposal_evidence_package(
                 "relevance_reason": relevance_reason,
                 "rule_risk_flags": [str(flag) for flag in item.get("risk_flags", [])],
                 "rule_confidence": float(item.get("confidence") or 0.0),
+                "route_hints": route_hints_for_digest_item(
+                    {
+                        **item,
+                        "summary": summary,
+                        "relevance_reason": relevance_reason,
+                    }
+                ),
             }
         )
     truncated_item_ids = [
@@ -248,6 +295,16 @@ def build_proposal_evidence_package(
             "max_proposals": 5,
             "evidence_refs_must_point_to_items": True,
             "final_scope_and_gate_are_recomputed_by_controller": True,
+            "allowed_route_hints": [
+                "agent_harness_eval",
+                "provider_config_preflight",
+                "skill_route_discovery",
+            ],
+            "route_hint_validation_lanes": {
+                "skill_route_discovery": ["documentation", "config", "test", "code_patch"],
+                "provider_config_preflight": ["documentation", "config", "test"],
+                "agent_harness_eval": ["documentation", "test", "code_patch"],
+            },
             "safety_boundary": {
                 "review_only": ["offensive-behavior", "privacy-leakage"],
                 "allowed_when_locally_validated": [
@@ -258,12 +315,30 @@ def build_proposal_evidence_package(
                     "tool routing",
                     "scheduling",
                     "memory",
+                    "skill/workflow routing",
                     "tests",
                     "documentation",
                 ],
             },
         },
     }
+
+
+def route_hints_for_digest_item(item: dict[str, Any]) -> list[str]:
+    """Return deterministic proposal lanes suggested by non-sensitive item text."""
+
+    text = " ".join(
+        str(item.get(key) or "")
+        for key in ("event_kind", "summary", "relevance_reason", "recommended_action")
+    ).lower()
+    hints: list[str] = []
+    if any(term in text for term in SKILL_WORKFLOW_ROUTE_TERMS):
+        hints.append("skill_route_discovery")
+    if any(term in text for term in PROVIDER_CONFIG_ROUTE_TERMS):
+        hints.append("provider_config_preflight")
+    if any(term in text for term in HARNESS_EVAL_ROUTE_TERMS):
+        hints.append("agent_harness_eval")
+    return hints
 
 
 def rank_digest_items_for_context_budget(items: Any) -> list[dict[str, Any]]:
@@ -810,6 +885,7 @@ def render_proposal_synthesis_prompt(evidence_package: dict[str, Any]) -> str:
             "Runtime permissions, final implementation scope, validation gates, and approval are recomputed by code.",
             "The safety boundary is narrow: only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only.",
             "Provider/config/token preflight, runners, tool routing, scheduling, memory, tests, and controller behavior are allowed routes when locally validated.",
+            "Use item.route_hints when present to propose bounded local validation lanes; skill_route_discovery may map only to documentation, config, test, or code_patch work.",
             "",
             "Return only a JSON object with:",
             "- schema_version: 1",

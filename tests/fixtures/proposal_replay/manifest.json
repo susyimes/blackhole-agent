@@ -5,6 +5,7 @@
     "https://github.com/ApodexAI/AgentHarness",
     "https://github.com/NotPBShaw/burner-agents",
     "https://github.com/baskduf/FableCodex",
+    "https://github.com/dongshuyan/compass-skills",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
     "https://github.com/samarailly51-pixel/opencode-harness",
@@ -72,6 +73,15 @@
       "evidence_urls": [
         "https://github.com/baskduf/FableCodex",
         "https://github.com/omnigent-ai/omnigent"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "skill-workflow-route-discovery",
+      "file": "skill_workflow_route_discovery.json",
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/dongshuyan/compass-skills"
       ],
       "expected_review_status": "accepted"
     }
