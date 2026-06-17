@@ -273,13 +273,14 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
     workflow = raw_input.get("workflow") if isinstance(raw_input.get("workflow"), dict) else {}
     steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
-    responses = mock_llm.get("responses") if isinstance(mock_llm.get("responses"), list) else []
+    response_queues = build_mock_llm_response_queues(mock_llm)
 
     provider_enabled = truthy(provider.get("enabled"))
     mock_enabled = truthy(mock_llm.get("enabled"))
     external_calls_attempted = provider_enabled and not mock_enabled
-    response_results = build_mock_llm_response_results(steps, responses) if mock_enabled else []
-    enough_responses = len(responses) >= len(steps)
+    response_count = sum(len(queue) for queue in response_queues.values())
+    response_results = build_mock_llm_response_results(steps, response_queues, mock_llm=mock_llm) if mock_enabled else []
+    enough_responses = len(response_results) >= len(steps)
     expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
     usage = aggregate_mock_llm_usage(response_results)
     failure_mode = mock_llm_workflow_failure_mode(
@@ -305,7 +306,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "enabled": mock_enabled,
             "model": optional_string(mock_llm.get("model")) or "mock-llm",
             "call_count": len(response_results),
-            "response_count": len(responses),
+            "response_count": response_count,
+            "queue_keys": sorted(response_queues),
             "exhausted": mock_enabled and not enough_responses,
             "usage": usage,
         },
@@ -314,24 +316,50 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "steps_executed": len(response_results),
             "all_expectations_passed": expectations_passed,
             "response_hashes": [result["response_hash"] for result in response_results],
+            "response_keys": [result["response_key"] for result in response_results],
+            "fallback_count": sum(1 for result in response_results if result["fallback_used"]),
         },
         "failure_mode": failure_mode,
     }
 
 
-def build_mock_llm_response_results(steps: list[Any], responses: list[Any]) -> list[dict[str, Any]]:
+def build_mock_llm_response_queues(mock_llm: dict[str, Any]) -> dict[str, list[Any]]:
+    queues: dict[str, list[Any]] = {}
+    raw_queues = mock_llm.get("response_queues") if isinstance(mock_llm.get("response_queues"), dict) else {}
+    for raw_key, raw_responses in raw_queues.items():
+        key = optional_string(raw_key)
+        if key and isinstance(raw_responses, list):
+            queues[key] = list(raw_responses)
+
+    responses = mock_llm.get("responses") if isinstance(mock_llm.get("responses"), list) else []
+    if responses and "default" not in queues:
+        queues["default"] = list(responses)
+    return queues
+
+
+def build_mock_llm_response_results(
+    steps: list[Any],
+    response_queues: dict[str, list[Any]],
+    *,
+    mock_llm: dict[str, Any],
+) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for index, step in enumerate(steps):
-        if index >= len(responses):
-            break
         step_data = step if isinstance(step, dict) else {}
-        response_data = responses[index] if isinstance(responses[index], dict) else {}
+        queue_key, fallback_used = resolve_mock_llm_response_key(step_data, response_queues, mock_llm=mock_llm)
+        if queue_key is None:
+            break
+        response = response_queues[queue_key].pop(0)
+        response_data = response if isinstance(response, dict) else {}
         content = optional_string(response_data.get("content")) or ""
         expect_contains = optional_string(step_data.get("expect_contains"))
         usage = response_data.get("usage") if isinstance(response_data.get("usage"), dict) else {}
         results.append(
             {
                 "step_id": optional_string(step_data.get("id")) or f"step-{index + 1}",
+                "request_key": mock_llm_request_key(step_data, mock_llm=mock_llm),
+                "response_key": queue_key,
+                "fallback_used": fallback_used,
                 "response_hash": stable_text_hash(content),
                 "expectation_passed": expect_contains is None or expect_contains in content,
                 "tool_call_count": len(response_data.get("tool_calls"))
@@ -342,6 +370,29 @@ def build_mock_llm_response_results(steps: list[Any], responses: list[Any]) -> l
             }
         )
     return results
+
+
+def resolve_mock_llm_response_key(
+    step_data: dict[str, Any],
+    response_queues: dict[str, list[Any]],
+    *,
+    mock_llm: dict[str, Any],
+) -> tuple[str | None, bool]:
+    request_key = mock_llm_request_key(step_data, mock_llm=mock_llm)
+    if request_key in response_queues and response_queues[request_key]:
+        return request_key, False
+    if "default" in response_queues and response_queues["default"]:
+        return "default", request_key != "default"
+    return None, False
+
+
+def mock_llm_request_key(step_data: dict[str, Any], *, mock_llm: dict[str, Any]) -> str:
+    return (
+        optional_string(step_data.get("model"))
+        or optional_string(step_data.get("response_key"))
+        or optional_string(mock_llm.get("model"))
+        or "default"
+    )
 
 
 def aggregate_mock_llm_usage(response_results: list[dict[str, Any]]) -> dict[str, int]:

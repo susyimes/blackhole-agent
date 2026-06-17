@@ -1,0 +1,24 @@
+Rollback point for source digest github-growth-20260617T104315.629229Z
+
+Original branch:
+codex/blackhole-evolve/20260617T104422.433524-add-or-strengthen-local-tests-for-mock-llm-keyed
+
+Original HEAD:
+61cf360eac8b4561c94fea7b15565da839bca99c
+
+Local rollback ref:
+refs/heads/codex/blackhole-evolve/20260617T104422.433524-add-or-strengthen-local-tests-for-mock-llm-keyed
+
+Recovery commands, to be run only by an operator or supervisor policy that has chosen destructive rollback:
+git switch codex/blackhole-evolve/20260617T104422.433524-add-or-strengthen-local-tests-for-mock-llm-keyed
+git reset --hard 61cf360eac8b4561c94fea7b15565da839bca99c
+git clean -fd
+
+Evidence reviewed:
+- https://github.com/omnigent-ai/omnigent
+- https://github.com/omnigent-ai/omnigent/pull/486
+
+Hypothesis:
+Tests that explicitly exercise per-key mock LLM response queues will prevent future multi-agent or concurrent harness
+validation from accidentally consuming a shared FIFO and becoming nondeterministic. The local scope should cover multiple
+keys and fallback or missing-key behavior, matching the digest validation task and the Omnigent PR review risk notes.

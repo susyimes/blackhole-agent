@@ -193,6 +193,114 @@ def test_mock_llm_workflow_route_fails_instead_of_calling_external_provider():
     assert output["failure_mode"] == "external_provider_required"
 
 
+def test_mock_llm_workflow_route_uses_deterministic_keyed_response_queues():
+    raw_input = {
+        "task_id": "fixture-mock-llm-keyed-queues",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "mock-parent": [
+                    {"content": "parent first response"},
+                    {"content": "parent second response"},
+                ],
+                "mock-reviewer": [
+                    {"content": "reviewer first response"},
+                    {"content": "reviewer second response"},
+                ],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {"id": "reviewer-1", "model": "mock-reviewer", "expect_contains": "reviewer first"},
+                {"id": "parent-1", "model": "mock-parent", "expect_contains": "parent first"},
+                {"id": "reviewer-2", "model": "mock-reviewer", "expect_contains": "reviewer second"},
+                {"id": "parent-2", "model": "mock-parent", "expect_contains": "parent second"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_keyed_queues_inline.json",
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["mock_llm"]["call_count"] == 4
+    assert output["mock_llm"]["response_count"] == 4
+    assert output["mock_llm"]["queue_keys"] == ["mock-parent", "mock-reviewer"]
+    assert output["workflow"]["response_keys"] == [
+        "mock-reviewer",
+        "mock-parent",
+        "mock-reviewer",
+        "mock-parent",
+    ]
+    assert output["workflow"]["fallback_count"] == 0
+    assert output["failure_mode"] == "none"
+
+
+def test_mock_llm_workflow_route_falls_back_to_default_queue_for_missing_key():
+    raw_input = {
+        "task_id": "fixture-mock-llm-default-fallback",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "default": [{"content": "default fallback response"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {"id": "unknown-model", "model": "mock-missing", "expect_contains": "fallback"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_default_fallback_inline.json",
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["mock_llm"]["call_count"] == 1
+    assert output["mock_llm"]["queue_keys"] == ["default"]
+    assert output["workflow"]["response_keys"] == ["default"]
+    assert output["workflow"]["fallback_count"] == 1
+    assert output["failure_mode"] == "none"
+
+
+def test_mock_llm_workflow_route_reports_exhausted_when_key_and_default_are_missing():
+    raw_input = {
+        "task_id": "fixture-mock-llm-missing-key",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "mock-parent": [{"content": "parent response"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {"id": "unknown-model", "model": "mock-missing", "expect_contains": "unused"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_missing_key_inline.json",
+    )
+
+    assert output["route_status"] == "failed"
+    assert output["mock_llm"]["call_count"] == 0
+    assert output["mock_llm"]["exhausted"] is True
+    assert output["workflow"]["response_keys"] == []
+    assert output["failure_mode"] == "mock_llm_exhausted"
+
+
 def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_json():
     report = run_local_harness_eval(
         sorted(HARNESS_ADAPTER_FIXTURE_DIR.glob("*.json")),
