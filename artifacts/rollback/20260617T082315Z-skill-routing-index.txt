@@ -1,0 +1,5 @@
+rollback_ref=refs/rollback/20260617T082315Z-skill-routing-index
+branch=codex/blackhole-evolve/20260617T082441.002015-add-or-extend-a-local-provider-runtime-preflight
+head=30d7c0d35f7b172a48136884fc735502461a94ff
+recover_branch=git switch codex/blackhole-evolve/20260617T082441.002015-add-or-extend-a-local-provider-runtime-preflight
+recover_reset=git reset --hard 30d7c0d35f7b172a48136884fc735502461a94ff
