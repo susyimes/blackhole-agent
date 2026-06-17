@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
 
-from blackhole_agent.harness_eval import build_harness_comparison_report
+from blackhole_agent.harness_eval import build_harness_comparison_report, run_local_harness_eval
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "harness_comparison"
+LOCAL_EVAL_FIXTURE_DIR = Path(__file__).parent / "fixtures" / "local_harness_eval"
 
 
 def test_harness_comparison_report_omits_private_bodies_by_default():
@@ -62,3 +63,41 @@ def test_harness_comparison_report_aggregates_quality_cost_elapsed_and_failures(
     assert aggregates["other-fast"]["avg_cost_usd"] == 0.04
     assert aggregates["codex-private-review"]["success_count"] == 0
     assert aggregates["codex-private-review"]["failure_modes"] == ["privacy_review_required"]
+
+
+def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs():
+    report = run_local_harness_eval(
+        sorted(LOCAL_EVAL_FIXTURE_DIR.glob("*.json")),
+        suite_name="fixture-local-harness-eval",
+    )
+
+    payload = report.to_dict()
+    serialized = json.dumps(payload, sort_keys=True)
+
+    assert payload["suite_name"] == "fixture-local-harness-eval"
+    assert payload["fixture_count"] == 2
+    assert payload["pass_count"] == 1
+    assert payload["fail_count"] == 1
+    assert payload["privacy"]["fixture_inputs_exported"] is False
+    assert payload["privacy"]["supported_behaviors"] == ["harness_run_summary"]
+    assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_FAIL_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_FAIL_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
+
+    results = {result["name"]: result for result in payload["results"]}
+    assert results["pass-harness-summary"]["passed"] is True
+    assert results["pass-harness-summary"]["failure_mode"] == "none"
+    assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
+    assert results["fail-harness-summary"]["passed"] is False
+    assert results["fail-harness-summary"]["failure_mode"] == "assertion_failed"
+
+    failing_assertions = results["fail-harness-summary"]["assertions"]
+    assert failing_assertions[0]["passed"] is True
+    assert failing_assertions[1] == {
+        "path": "failure_mode",
+        "expected": "none",
+        "actual": "nonzero_exit",
+        "passed": False,
+        "failure_mode": "equals_mismatch",
+    }

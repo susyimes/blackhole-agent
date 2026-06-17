@@ -1,0 +1,12 @@
+Rollback point for github-growth-20260617T032315.639550Z
+
+Original branch: codex/blackhole-evolve/20260617T032411.582605-add-or-extend-a-local-evaluation-harness-adapter
+Original HEAD: eaad08044c9d2c023514fe597a4e78d4d583518a
+Local rollback ref: refs/rollback/20260617T032315Z-local-eval-adapter
+
+Recovery commands (destructive; operator/supervisor only):
+  git switch codex/blackhole-evolve/20260617T032411.582605-add-or-extend-a-local-evaluation-harness-adapter
+  git reset --hard refs/rollback/20260617T032315Z-local-eval-adapter
+  git clean -fd
+
+Created before local-eval-adapter edits.

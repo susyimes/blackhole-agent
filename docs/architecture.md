@@ -159,6 +159,8 @@ Runs local checks for any generated patch or config change. A failed verificatio
 
 Local agent-harness comparison reports use a body-free adapter: prompt, output, stdout, and stderr bodies are omitted from exported summaries, and ordinary comparable bodies are represented only by stable hashes. If a fixture declares `privacy-leakage-human-review` or an equivalent privacy flag, the adapter records a review-only outcome and omits body hashes too. That keeps privacy-leakage validation cases useful for local regression tests without turning sensitive task content into report material.
 
+The same module also provides a small local eval adapter for deterministic JSON fixtures. Each fixture names a supported behavior such as `harness_run_summary`, supplies an input object, and declares exact field assertions. The resulting report is controller-readable, includes pass/fail counts plus assertion failures, and exports only a stable input hash rather than the raw task or output body. This keeps offline harness lessons reproducible without requiring network access, model credentials, or remote execution.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:

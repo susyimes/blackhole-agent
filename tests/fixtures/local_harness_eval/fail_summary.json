@@ -1,0 +1,24 @@
+{
+  "name": "fail-harness-summary",
+  "behavior": "harness_run_summary",
+  "input": {
+    "run_id": "fixture-fail-1",
+    "harness": "codex",
+    "variant": "codex-local",
+    "model": "gpt-fixture",
+    "prompt": "PRIVATE_FAIL_PROMPT_BODY_DO_NOT_EXPORT",
+    "output": "PRIVATE_FAIL_OUTPUT_BODY_DO_NOT_EXPORT",
+    "returncode": 2,
+    "timed_out": false
+  },
+  "assertions": [
+    {
+      "path": "run_id",
+      "equals": "fixture-fail-1"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Privacy-preserving comparison reports for local agent harness runs."""
+"""Privacy-preserving comparison reports and local eval fixtures for agent harness runs."""
 
 from __future__ import annotations
 
@@ -99,6 +99,72 @@ class HarnessComparisonReport:
         }
 
 
+@dataclass(frozen=True)
+class HarnessEvalAssertionResult:
+    """One deterministic fixture assertion outcome."""
+
+    path: str
+    expected: Any
+    actual: Any
+    passed: bool
+    failure_mode: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "expected": self.expected,
+            "actual": self.actual,
+            "passed": self.passed,
+            "failure_mode": self.failure_mode,
+        }
+
+
+@dataclass(frozen=True)
+class HarnessEvalFixtureResult:
+    """Structured result for one local behavior fixture."""
+
+    name: str
+    source_path: str
+    behavior: str
+    input_hash: str
+    passed: bool
+    failure_mode: str
+    assertions: list[HarnessEvalAssertionResult]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "source_path": self.source_path,
+            "behavior": self.behavior,
+            "input_hash": self.input_hash,
+            "passed": self.passed,
+            "failure_mode": self.failure_mode,
+            "assertions": [assertion.to_dict() for assertion in self.assertions],
+        }
+
+
+@dataclass(frozen=True)
+class HarnessEvalReport:
+    """Controller-readable local eval report for reproducible harness fixtures."""
+
+    suite_name: str
+    fixture_count: int
+    pass_count: int
+    fail_count: int
+    results: list[HarnessEvalFixtureResult]
+    privacy: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "suite_name": self.suite_name,
+            "fixture_count": self.fixture_count,
+            "pass_count": self.pass_count,
+            "fail_count": self.fail_count,
+            "results": [result.to_dict() for result in self.results],
+            "privacy": self.privacy,
+        }
+
+
 def build_harness_comparison_report(
     artifact_paths: list[Path],
     *,
@@ -119,6 +185,97 @@ def build_harness_comparison_report(
         },
         summaries=summaries,
         aggregate_by_variant=aggregate_harness_summaries(summaries),
+    )
+
+
+def run_local_harness_eval(
+    fixture_paths: list[Path],
+    *,
+    suite_name: str = "local-harness-eval",
+) -> HarnessEvalReport:
+    """Run local behavior fixtures and emit deterministic pass/fail results.
+
+    Fixtures are JSON objects with:
+    - name: stable fixture name
+    - behavior: currently "harness_run_summary"
+    - input: behavior input object
+    - assertions: list of {"path": "field.or.nested.field", "equals": value}
+
+    The report includes hashes of fixture inputs, but never exports raw inputs.
+    """
+
+    results = [run_local_harness_fixture(path) for path in sorted(fixture_paths)]
+    pass_count = sum(1 for result in results if result.passed)
+    return HarnessEvalReport(
+        suite_name=suite_name,
+        fixture_count=len(results),
+        pass_count=pass_count,
+        fail_count=len(results) - pass_count,
+        results=results,
+        privacy={
+            "fixture_inputs_exported": False,
+            "input_body_policy": "fixture inputs are hashed for reproducibility and omitted from structured results",
+            "supported_behaviors": ["harness_run_summary"],
+        },
+    )
+
+
+def run_local_harness_fixture(path: Path) -> HarnessEvalFixtureResult:
+    fixture = load_json_object(path)
+    name = optional_string(fixture.get("name")) or path.stem
+    behavior = optional_string(fixture.get("behavior")) or ""
+    raw_input = fixture.get("input")
+    if not isinstance(raw_input, dict):
+        raise ValueError(f"{path} input must be a JSON object")
+    assertions = fixture.get("assertions")
+    if not isinstance(assertions, list):
+        raise ValueError(f"{path} assertions must be a JSON list")
+
+    output = evaluate_harness_behavior(behavior, raw_input, source_path=path)
+    assertion_results = [evaluate_fixture_assertion(assertion, output, source_path=path) for assertion in assertions]
+    passed = bool(assertion_results) and all(assertion.passed for assertion in assertion_results)
+    failure_mode = "none" if passed else "assertion_failed"
+
+    return HarnessEvalFixtureResult(
+        name=name,
+        source_path=path.as_posix(),
+        behavior=behavior,
+        input_hash=stable_json_hash(raw_input),
+        passed=passed,
+        failure_mode=failure_mode,
+        assertions=assertion_results,
+    )
+
+
+def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    if behavior == "harness_run_summary":
+        return summarize_harness_run(raw_input, source_path=source_path).to_dict()
+    raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_fixture_assertion(
+    assertion: Any,
+    output: dict[str, Any],
+    *,
+    source_path: Path,
+) -> HarnessEvalAssertionResult:
+    if not isinstance(assertion, dict):
+        raise ValueError(f"{source_path} assertion must be a JSON object")
+    path = optional_string(assertion.get("path"))
+    if not path:
+        raise ValueError(f"{source_path} assertion path is required")
+    if "equals" not in assertion:
+        raise ValueError(f"{source_path} assertion for {path} must declare equals")
+
+    expected = assertion["equals"]
+    actual = value_at_path(output, path)
+    passed = actual == expected
+    return HarnessEvalAssertionResult(
+        path=path,
+        expected=expected,
+        actual=actual,
+        passed=passed,
+        failure_mode="none" if passed else "equals_mismatch",
     )
 
 
@@ -230,6 +387,20 @@ def first_hash(payload: dict[str, Any], hash_keys: tuple[str, ...], body_keys: t
 
 def stable_text_hash(value: str) -> str:
     return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def stable_json_hash(value: Any) -> str:
+    return stable_text_hash(json.dumps(value, sort_keys=True, separators=(",", ":")))
+
+
+def value_at_path(payload: dict[str, Any], path: str) -> Any:
+    current: Any = payload
+    for part in path.split("."):
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+            continue
+        return None
+    return current
 
 
 def failure_mode_from_payload(payload: dict[str, Any], *, returncode: int | None, timed_out: bool) -> str:
