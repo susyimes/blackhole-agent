@@ -267,6 +267,7 @@ def build_proposal_benchmark_report(
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
         "action_lane_classification": 0,
+        "validation_gate_metadata": 0,
         "safety_boundary_handling": 0,
         "other": 0,
     }
@@ -432,6 +433,8 @@ def proposal_benchmark_failure_categories(result: ProposalReplayResult) -> set[s
         categories.add("evidence_ref_constraints")
     if "proposal_controls" in failure_text:
         categories.add("action_lane_classification")
+    if "proposal_validation_preflights" in failure_text:
+        categories.add("validation_gate_metadata")
     if any(term in failure_text for term in ("privacy-leakage", "offensive-behavior", "safety boundary")):
         categories.add("safety_boundary_handling")
     if not categories:

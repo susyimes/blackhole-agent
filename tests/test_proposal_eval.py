@@ -27,6 +27,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
     }
     assert {result.name for result in results} == {
         "benign-agent-harness",
+        "current-wake-agent-harness-validation",
         "fastcontext-budget-memory-pressure",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
@@ -38,15 +39,16 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 5
-    assert report.passed_count == 5
+    assert report.case_count == 6
+    assert report.passed_count == 6
     assert report.failed_count == 0
-    assert report.accepted_count == 6
+    assert report.accepted_count == 9
     assert report.rejected_count == 4
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
         "action_lane_classification": 0,
+        "validation_gate_metadata": 0,
         "safety_boundary_handling": 0,
         "other": 0,
     }
@@ -63,6 +65,12 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
         .context_budget_preflight["evidence_truncation_uncertainty"]["missing_detail_risk"]
         is True
     )
+    current = results_by_name["current-wake-agent-harness-validation"]
+    assert current.proposal_validation_preflights["p1-local-agent-harness-validation"]["status"] == "ready"
+    assert (
+        current.proposal_validation_preflights["p3-benchmark-style-regression-suite"]["status"]
+        == "blocked_by_safety_boundary"
+    )
     assert report.to_dict()["suite_name"] == "proposal-replay-benchmark"
 
 
@@ -70,19 +78,21 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 5
+    assert report.case_count == 6
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
         "fastcontext-budget-memory-pressure",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
+        "current-wake-agent-harness-validation",
     ]
     assert report.evidence_urls == [
         "https://github.com/ApodexAI/AgentHarness",
         "https://github.com/NotPBShaw/burner-agents",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent",
+        "https://github.com/samarailly51-pixel/opencode-harness",
         "https://github.com/visa/visa-vulnerability-agentic-harness",
     ]
     assert report.to_dict()["failures"] == []
@@ -188,6 +198,18 @@ def test_proposal_benchmark_report_classifies_action_lane_and_safety_boundary_dr
     assert report.passed is False
     assert report.failure_counts["action_lane_classification"] == 1
     assert report.failure_counts["safety_boundary_handling"] == 1
+
+
+def test_proposal_benchmark_report_classifies_validation_gate_metadata_drift():
+    case = load_proposal_replay_case(FIXTURE_DIR / "current_wake_agent_harness_validation.json")
+    case["expected"]["proposal_validation_preflights"]["p1-local-agent-harness-validation"]["status"] = (
+        "validation_gap"
+    )
+
+    report = build_proposal_benchmark_report([case])
+
+    assert report.passed is False
+    assert report.failure_counts["validation_gate_metadata"] == 1
 
 
 def test_omnigent_replay_marks_missing_test_coverage_validation_as_gap_not_safety_block():

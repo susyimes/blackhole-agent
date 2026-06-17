@@ -1,0 +1,208 @@
+{
+  "name": "current-wake-agent-harness-validation",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 4,
+    "max_item_text_chars": 220
+  },
+  "digest": {
+    "digest_id": "github-growth-20260617T022315-agent-harness-validation",
+    "generated_at": "2026-06-17T02:23:15Z",
+    "items": [
+      {
+        "item_id": "apodex-agent-harness",
+        "source_url": "https://github.com/ApodexAI/AgentHarness",
+        "event_kind": "RepositoryTrend",
+        "summary": "ApodexAI/AgentHarness: evaluation harness with smoke and full benchmark runs for public deep-research benchmarks",
+        "relevance_reason": "Supports local replay validation of proposal interpretation without remote execution.",
+        "risk_flags": [],
+        "confidence": 0.9
+      },
+      {
+        "item_id": "opencode-harness",
+        "source_url": "https://github.com/samarailly51-pixel/opencode-harness",
+        "event_kind": "RepositoryTrend",
+        "summary": "samarailly51-pixel/opencode-harness: clean-room coding-agent harness with traces, eval reports, permission policy, and failure taxonomy",
+        "relevance_reason": "Supports structured local reports that expose routing decisions and validation metadata.",
+        "risk_flags": [],
+        "confidence": 0.91
+      },
+      {
+        "item_id": "omnigent-provider-preflight",
+        "source_url": "https://github.com/omnigent-ai/omnigent",
+        "event_kind": "RepositoryTrend",
+        "summary": "omnigent-ai/omnigent: provider and runner coordination evidence for detecting missing model configuration early",
+        "relevance_reason": "Useful as a safe local candidate when covered by token-safe preflight tests.",
+        "risk_flags": [],
+        "confidence": 0.82
+      },
+      {
+        "item_id": "visa-vulnerability-harness",
+        "source_url": "https://github.com/visa/visa-vulnerability-agentic-harness",
+        "event_kind": "RepositoryTrend",
+        "summary": "visa/visa-vulnerability-agentic-harness: security-adjacent agent harness evidence",
+        "relevance_reason": "Boundary evidence only; offensive or unauthorized-access behavior remains review-only.",
+        "risk_flags": [
+          "offensive-behavior"
+        ],
+        "confidence": 0.7
+      },
+      {
+        "item_id": "low-confidence-extra",
+        "source_url": "https://github.com/example/extra-agent-harness-note",
+        "event_kind": "IssuesEvent",
+        "summary": "example/extra-agent-harness-note: vague local harness idea",
+        "relevance_reason": "Weak extra evidence that should be omitted under context pressure.",
+        "risk_flags": [],
+        "confidence": 0.12
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-20260617T022315-agent-harness-validation",
+    "run_interpretation": "The safe reusable lesson is to harden local replay validation for proposal interpretation, routing, and validation metadata.",
+    "self_model_reading": {
+      "status": "left_unchanged",
+      "reason": "Current preference already favors rollback-backed local validation over report-only work."
+    },
+    "proposals": [
+      {
+        "proposal_id": "p1-local-agent-harness-validation",
+        "kind": "test",
+        "summary": "Add frozen local harness validation for proposal interpretation, routing decisions, and validation-gate metadata.",
+        "evidence_refs": [
+          "apodex-agent-harness",
+          "opencode-harness"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Create focused local tests that replay frozen evidence packages and verify schema validity, evidence_ref restrictions, action_lane assignment, validation-gate metadata, and safety-boundary classification.",
+        "rationale": "The public harnesses emphasize reproducible benchmark or eval reports, traces, and failure taxonomies; those patterns map to local replay tests.",
+        "uncertainty": "The low-confidence extra item is truncated, so this does not claim complete coverage of every public harness feature.",
+        "self_effect": "Improves future trend intelligence by making interpretation and controller metadata drift locally visible.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p2-provider-config-preflight",
+        "kind": "code_patch",
+        "summary": "Tighten provider/config/token preflight checks so missing model configuration is caught before runner execution.",
+        "evidence_refs": [
+          "omnigent-provider-preflight"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Add unit tests for missing provider, missing token, malformed provider config, and valid local stub configuration; verify no token values are logged or exposed.",
+        "rationale": "The provider coordination evidence supports local preflight validation when it remains token-safe and unit covered.",
+        "uncertainty": "The low-confidence extra item is truncated, and the upstream implementation was not copied.",
+        "self_effect": "Would improve startup health and runner failure reporting.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p3-benchmark-style-regression-suite",
+        "kind": "follow_up_issue",
+        "summary": "Keep offensive or abuse-enabling benchmark behavior review-only while allowing benign local fixtures.",
+        "evidence_refs": [
+          "visa-vulnerability-harness"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Keep offensive or abuse-enabling behavior review-only; do not implement attack, exploit, malware, phishing, exfiltration, or unauthorized-access behavior.",
+        "rationale": "The selected security-adjacent harness evidence crosses the offensive-behavior boundary and should only inform review metadata.",
+        "uncertainty": "The low-confidence extra item is truncated, and no offensive benchmark behavior is implemented locally.",
+        "self_effect": "Preserves the safety boundary while still testing that the controller routes such proposals to review.",
+        "action_lane": "reviewable_proposal_only"
+      }
+    ],
+    "rejected_items": [
+      "low-confidence-extra"
+    ]
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 3,
+    "rejected_count": 0,
+    "selected_item_ids": [
+      "visa-vulnerability-harness",
+      "opencode-harness",
+      "apodex-agent-harness",
+      "omnigent-provider-preflight"
+    ],
+    "truncated_item_ids": [
+      "low-confidence-extra"
+    ],
+    "accepted_evidence_refs": {
+      "p1-local-agent-harness-validation": [
+        "apodex-agent-harness",
+        "opencode-harness"
+      ],
+      "p2-provider-config-preflight": [
+        "omnigent-provider-preflight"
+      ],
+      "p3-benchmark-style-regression-suite": [
+        "visa-vulnerability-harness"
+      ]
+    },
+    "context_budget_preflight": {
+      "status": "pressure_detected",
+      "items_truncated": true,
+      "truncated_item_count": 1,
+      "selected_item_ids": [
+        "visa-vulnerability-harness",
+        "opencode-harness",
+        "apodex-agent-harness",
+        "omnigent-provider-preflight"
+      ],
+      "truncated_item_ids": [
+        "low-confidence-extra"
+      ],
+      "evidence_truncation_uncertainty": {
+        "missing_detail_risk": true,
+        "citation_scope": "cite_selected_item_ids_only",
+        "url_policy": "do_not_add_urls"
+      },
+      "self_model_truncated": false
+    },
+    "proposal_controls": {
+      "p1-local-agent-harness-validation": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p2-provider-config-preflight": {
+        "kind": "code_patch",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p3-benchmark-style-regression-suite": {
+        "kind": "follow_up_issue",
+        "risk_flags": [
+          "offensive-behavior"
+        ],
+        "implementation_scope": "reviewable_proposal_only",
+        "validation_gate": "offensive-behavior-human-review"
+      }
+    },
+    "proposal_validation_preflights": {
+      "p1-local-agent-harness-validation": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p2-provider-config-preflight": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p3-benchmark-style-regression-suite": {
+        "status": "blocked_by_safety_boundary",
+        "requires_unit_test_or_coverage": false,
+        "safety_block": true,
+        "blocks_autonomous_apply": true
+      }
+    }
+  }
+}

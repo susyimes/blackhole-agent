@@ -1,0 +1,7 @@
+rollback_point: 20260617T022315Z-local-agent-harness-validation
+original_branch: codex/blackhole-evolve/20260617T022401.944947-add-or-improve-a-local-agent-harness-validation-
+original_head: af208b5214e57008f1862d201143bc39e8b50711
+rollback_ref: refs/rollback/20260617T022315Z-local-agent-harness-validation
+recovery_commands:
+  git reset --hard af208b5214e57008f1862d201143bc39e8b50711
+  git clean -fd

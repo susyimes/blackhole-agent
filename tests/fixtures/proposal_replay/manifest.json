@@ -6,6 +6,7 @@
     "https://github.com/NotPBShaw/burner-agents",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
+    "https://github.com/samarailly51-pixel/opencode-harness",
     "https://github.com/visa/visa-vulnerability-agentic-harness"
   ],
   "cases": [
@@ -50,6 +51,17 @@
         "https://github.com/NotPBShaw/burner-agents",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "current-wake-agent-harness-validation",
+      "file": "current_wake_agent_harness_validation.json",
+      "evidence_urls": [
+        "https://github.com/ApodexAI/AgentHarness",
+        "https://github.com/omnigent-ai/omnigent",
+        "https://github.com/samarailly51-pixel/opencode-harness",
+        "https://github.com/visa/visa-vulnerability-agentic-harness"
       ],
       "expected_review_status": "accepted"
     }
