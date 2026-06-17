@@ -1,0 +1,9 @@
+Rollback point: provider multimodal preflight
+Created: 20260617T142001Z
+Original branch: codex/blackhole-evolve/20260617T142132.317394-add-or-strengthen-local-provider-model-configura
+Original HEAD: 4af5108e493c3fe1252ec7ce07bb84150d11f518
+Local rollback ref: refs/rollback/20260617T142001Z-provider-multimodal-preflight
+Recovery commands:
+  git switch codex/blackhole-evolve/20260617T142132.317394-add-or-strengthen-local-provider-model-configura
+  git reset --hard 4af5108e493c3fe1252ec7ce07bb84150d11f518
+  git clean -fd

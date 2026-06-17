@@ -280,13 +280,18 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     session = raw_input.get("session") if isinstance(raw_input.get("session"), dict) else {}
     file_tools = raw_input.get("file_tools") if isinstance(raw_input.get("file_tools"), dict) else {}
     steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
+    multimodal_preflight = evaluate_mock_multimodal_preflight(provider, steps)
     response_queues = build_mock_llm_response_queues(mock_llm)
 
     provider_enabled = truthy(provider.get("enabled"))
     mock_enabled = truthy(mock_llm.get("enabled"))
     external_calls_attempted = provider_enabled and not mock_enabled
     response_count = sum(len(queue) for queue in response_queues.values())
-    response_results = build_mock_llm_response_results(steps, response_queues, mock_llm=mock_llm) if mock_enabled else []
+    response_results = (
+        build_mock_llm_response_results(steps, response_queues, mock_llm=mock_llm)
+        if mock_enabled and multimodal_preflight["ok"]
+        else []
+    )
     enough_responses = len(response_results) >= len(steps)
     expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
     session_result = evaluate_mock_session_route(session)
@@ -295,6 +300,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     failure_mode = mock_llm_workflow_failure_mode(
         step_count=len(steps),
         external_calls_attempted=external_calls_attempted,
+        multimodal_preflight_ok=multimodal_preflight["ok"],
+        multimodal_failure_mode=optional_string(multimodal_preflight["failure_mode"]) or "multimodal_preflight_failed",
         mock_enabled=mock_enabled,
         enough_responses=enough_responses,
         expectations_passed=expectations_passed,
@@ -331,10 +338,77 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "response_keys": [result["response_key"] for result in response_results],
             "fallback_count": sum(1 for result in response_results if result["fallback_used"]),
         },
+        "multimodal_preflight": multimodal_preflight,
         "session": session_result,
         "file_tools": file_tool_result,
         "failure_mode": failure_mode,
     }
+
+
+def evaluate_mock_multimodal_preflight(provider: dict[str, Any], steps: list[Any]) -> dict[str, Any]:
+    """Fail before execution when image blocks would be silently dropped or text-flattened."""
+
+    image_block_count = 0
+    text_encoded_multimodal_block_count = 0
+    malformed_image_block_count = 0
+    for step in steps:
+        step_data = step if isinstance(step, dict) else {}
+        prompt = step_data.get("prompt")
+        blocks: list[Any] = prompt if isinstance(prompt, list) else []
+        if isinstance(prompt, str) and looks_like_text_encoded_multimodal_blocks(prompt):
+            text_encoded_multimodal_block_count += 1
+        for block in blocks:
+            block_data = block if isinstance(block, dict) else {}
+            if str(block_data.get("type") or "") != "input_image":
+                continue
+            image_block_count += 1
+            image_url = optional_string(block_data.get("image_url"))
+            if not image_url or not image_url.startswith("data:") or "," not in image_url:
+                malformed_image_block_count += 1
+
+    model_input = provider.get("model_input") or provider.get("input")
+    model_input_modes = tuple(str(item) for item in model_input) if isinstance(model_input, list) else ()
+    declares_image_input = "image" in model_input_modes
+    diagnostics: list[str] = []
+    if image_block_count and not declares_image_input:
+        diagnostics.append("model input capabilities must include image before executing image prompts")
+    if text_encoded_multimodal_block_count:
+        diagnostics.append("multimodal content blocks must be native blocks, not JSON-encoded text")
+    if malformed_image_block_count:
+        diagnostics.append("input_image blocks must include a resolved data URI image_url")
+
+    failure_mode = "none"
+    if image_block_count and not declares_image_input:
+        failure_mode = "missing_model_image_input"
+    elif text_encoded_multimodal_block_count:
+        failure_mode = "text_encoded_multimodal_blocks"
+    elif malformed_image_block_count:
+        failure_mode = "malformed_input_image_block"
+
+    return {
+        "ok": not diagnostics,
+        "failure_mode": failure_mode,
+        "diagnostics": diagnostics,
+        "image_block_count": image_block_count,
+        "text_encoded_multimodal_block_count": text_encoded_multimodal_block_count,
+        "malformed_image_block_count": malformed_image_block_count,
+        "model_input_modes": list(model_input_modes),
+        "model_image_input_declared": declares_image_input,
+        "prompt_bodies_exported": False,
+    }
+
+
+def looks_like_text_encoded_multimodal_blocks(value: str) -> bool:
+    text = value.strip()
+    if not (text.startswith("[") and text.endswith("]")):
+        return False
+    try:
+        decoded = json.loads(text)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(decoded, list):
+        return False
+    return any(isinstance(item, dict) and item.get("type") == "input_image" for item in decoded)
 
 
 def build_mock_llm_response_queues(mock_llm: dict[str, Any]) -> dict[str, list[Any]]:
@@ -472,6 +546,8 @@ def mock_llm_workflow_failure_mode(
     *,
     step_count: int,
     external_calls_attempted: bool,
+    multimodal_preflight_ok: bool,
+    multimodal_failure_mode: str,
     mock_enabled: bool,
     enough_responses: bool,
     expectations_passed: bool,
@@ -482,6 +558,8 @@ def mock_llm_workflow_failure_mode(
         return "no_workflow_steps"
     if external_calls_attempted:
         return "external_provider_required"
+    if not multimodal_preflight_ok:
+        return multimodal_failure_mode
     if not mock_enabled:
         return "mock_llm_disabled"
     if not enough_responses:

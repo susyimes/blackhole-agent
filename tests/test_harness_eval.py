@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 6
-    assert payload["pass_count"] == 5
+    assert payload["fixture_count"] == 8
+    assert payload["pass_count"] == 7
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -95,6 +95,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
+    assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
+    assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -192,6 +194,96 @@ def test_mock_llm_workflow_route_fails_instead_of_calling_external_provider():
     assert output["provider"]["external_calls_attempted"] is True
     assert output["mock_llm"]["call_count"] == 0
     assert output["failure_mode"] == "external_provider_required"
+
+
+def test_mock_llm_workflow_route_hard_fails_missing_model_image_input_before_execution():
+    raw_input = {
+        "task_id": "fixture-mock-llm-multimodal-missing-image-input",
+        "provider": {
+            "name": "gateway-provider",
+            "enabled": False,
+            "model": "vision-model",
+            "model_input": ["text"],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "should not execute"}],
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "describe-image",
+                    "prompt": [
+                        {"type": "input_text", "text": "Describe this image."},
+                        {"type": "input_image", "image_url": "data:image/png;base64,ZmFrZQ=="},
+                    ],
+                    "expect_contains": "should not execute",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_multimodal_missing_image_input_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "missing_model_image_input"
+    assert output["mock_llm"]["call_count"] == 0
+    assert output["workflow"]["steps_executed"] == 0
+    assert output["multimodal_preflight"]["ok"] is False
+    assert output["multimodal_preflight"]["image_block_count"] == 1
+    assert output["multimodal_preflight"]["model_image_input_declared"] is False
+    assert output["multimodal_preflight"]["prompt_bodies_exported"] is False
+    assert "ZmFrZQ==" not in serialized
+
+
+def test_mock_llm_workflow_route_hard_fails_text_encoded_multimodal_blocks_before_execution():
+    raw_input = {
+        "task_id": "fixture-mock-llm-multimodal-text-encoded-blocks",
+        "provider": {
+            "name": "gateway-provider",
+            "enabled": False,
+            "model": "vision-model",
+            "model_input": ["text", "image"],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "should not execute"}],
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "describe-image",
+                    "prompt": (
+                        '[{"type":"input_text","text":"Describe this image."},'
+                        '{"type":"input_image","image_url":"data:image/png;base64,ZmFrZQ=="}]'
+                    ),
+                    "expect_contains": "should not execute",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_multimodal_text_encoded_blocks_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "text_encoded_multimodal_blocks"
+    assert output["mock_llm"]["call_count"] == 0
+    assert output["workflow"]["steps_executed"] == 0
+    assert output["multimodal_preflight"]["ok"] is False
+    assert output["multimodal_preflight"]["text_encoded_multimodal_block_count"] == 1
+    assert output["multimodal_preflight"]["model_image_input_declared"] is True
+    assert output["multimodal_preflight"]["prompt_bodies_exported"] is False
+    assert "ZmFrZQ==" not in serialized
 
 
 def test_mock_llm_workflow_route_uses_deterministic_keyed_response_queues():

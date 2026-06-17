@@ -1,0 +1,75 @@
+{
+  "name": "mock-llm-multimodal-missing-image-input",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-multimodal-missing-image-input",
+    "provider": {
+      "name": "gateway-provider",
+      "enabled": false,
+      "model": "vision-model",
+      "model_input": [
+        "text"
+      ]
+    },
+    "mock_llm": {
+      "enabled": true,
+      "responses": [
+        {
+          "content": "should not execute"
+        }
+      ]
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "describe-image",
+          "prompt": [
+            {
+              "type": "input_text",
+              "text": "Describe this image."
+            },
+            {
+              "type": "input_image",
+              "image_url": "data:image/png;base64,ZmFrZQ=="
+            }
+          ],
+          "expect_contains": "should not execute"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "failed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "missing_model_image_input"
+    },
+    {
+      "path": "mock_llm.call_count",
+      "equals": 0
+    },
+    {
+      "path": "workflow.steps_executed",
+      "equals": 0
+    },
+    {
+      "path": "multimodal_preflight.ok",
+      "equals": false
+    },
+    {
+      "path": "multimodal_preflight.image_block_count",
+      "equals": 1
+    },
+    {
+      "path": "multimodal_preflight.model_image_input_declared",
+      "equals": false
+    },
+    {
+      "path": "multimodal_preflight.prompt_bodies_exported",
+      "equals": false
+    }
+  ]
+}
