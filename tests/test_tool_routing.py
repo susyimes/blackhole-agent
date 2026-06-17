@@ -1,11 +1,13 @@
 from pathlib import Path
 
 from blackhole_agent.tool_routing import (
+    DENIED_TOOL_ROUTE,
     EXECUTABLE_TOOL_ROUTE,
     ProviderHarness,
     REVIEW_ONLY_TOOL_ROUTE,
     UNSUPPORTED_TOOL_ROUTE,
     ToolCompatibilityCache,
+    ToolCallPolicyResult,
     ToolDescriptor,
     build_tool_routing_preflight,
     discover_provider_harnesses,
@@ -136,6 +138,65 @@ def test_review_only_risk_flags_keep_tool_out_of_executable_registry():
     assert registry == {}
 
 
+def test_tool_call_policy_evaluator_allows_executable_descriptor():
+    descriptor = ToolDescriptor(name="summarize", provider="local")
+
+    decision = route_tool_descriptor(descriptor, tool_call_policy_evaluator=lambda _descriptor: True)
+    registry = executable_tool_registry([descriptor], tool_call_policy_evaluator=lambda _descriptor: True)
+
+    assert decision.route == EXECUTABLE_TOOL_ROUTE
+    assert decision.executable is True
+    assert registry["summarize"]["provider"] == "local"
+
+
+def test_tool_call_policy_evaluator_denies_before_executable_registry():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    decision = route_tool_descriptor(
+        descriptor,
+        tool_call_policy_evaluator=lambda _descriptor: ToolCallPolicyResult(False, "tenant_policy"),
+    )
+    registry = executable_tool_registry(
+        [descriptor],
+        tool_call_policy_evaluator=lambda _descriptor: ToolCallPolicyResult(False, "tenant_policy"),
+    )
+
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_denied:tenant_policy",)
+    assert registry == {}
+
+
+def test_tool_call_policy_evaluator_errors_fail_closed():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    def broken_policy(_descriptor):
+        raise RuntimeError("policy backend unavailable")
+
+    decision = route_tool_descriptor(descriptor, tool_call_policy_evaluator=broken_policy)
+    registry = executable_tool_registry([descriptor], tool_call_policy_evaluator=broken_policy)
+
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_evaluation_error:RuntimeError",)
+    assert registry == {}
+
+
+def test_tool_call_policy_evaluator_timeouts_fail_closed():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    def timeout_policy(_descriptor):
+        raise TimeoutError("policy backend timed out")
+
+    decision = route_tool_descriptor(descriptor, tool_call_policy_evaluator=timeout_policy)
+    registry = executable_tool_registry([descriptor], tool_call_policy_evaluator=timeout_policy)
+
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_evaluation_timeout",)
+    assert registry == {}
+
+
 def test_unsupported_provider_and_tool_type_are_inspectable_and_not_executable():
     descriptors = [
         ToolDescriptor(name="remote_browser", provider="mcp"),
@@ -175,6 +236,34 @@ def test_tool_routing_preflight_reports_missing_required_tools_and_route_counts(
     assert preflight["diagnostics"] == [
         "required tool is not executable or is unavailable: browser",
     ]
+
+
+def test_tool_routing_preflight_counts_policy_denials_and_missing_required_tools():
+    descriptors = [
+        ToolDescriptor(name="allowed_local", provider="local"),
+        ToolDescriptor(name="denied_local", provider="local"),
+    ]
+
+    def policy(descriptor):
+        if descriptor.name == "denied_local":
+            raise TimeoutError("policy backend timed out")
+        return True
+
+    preflight = build_tool_routing_preflight(
+        descriptors,
+        required_tool_names=("allowed_local", "denied_local"),
+        tool_call_policy_evaluator=policy,
+    )
+
+    assert preflight["ok"] is False
+    assert preflight["executable_tool_names"] == ["allowed_local"]
+    assert preflight["missing_required_tool_names"] == ["denied_local"]
+    assert preflight["route_counts"] == {
+        DENIED_TOOL_ROUTE: 1,
+        EXECUTABLE_TOOL_ROUTE: 1,
+    }
+    assert preflight["decisions"][1]["route"] == DENIED_TOOL_ROUTE
+    assert preflight["decisions"][1]["reasons"] == ["policy_evaluation_timeout"]
 
 
 def test_single_file_yaml_function_tool_reaches_executable_registry():

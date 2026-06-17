@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 
 def canonical_tool_schema(value: Mapping[str, Any] | None) -> str:
@@ -68,6 +68,7 @@ class ToolDescriptor:
 
 
 EXECUTABLE_TOOL_ROUTE = "executable"
+DENIED_TOOL_ROUTE = "denied"
 REVIEW_ONLY_TOOL_ROUTE = "review_only"
 UNSUPPORTED_TOOL_ROUTE = "unsupported"
 DEFAULT_EXECUTABLE_TOOL_PROVIDERS = ("local", "function")
@@ -105,12 +106,24 @@ class ToolRouteDecision:
         }
 
 
+@dataclass(frozen=True)
+class ToolCallPolicyResult:
+    """Result returned by connector-native policy evaluation for a tool call route."""
+
+    allowed: bool
+    reason: str = ""
+
+
+ToolCallPolicyEvaluator = Callable[[ToolDescriptor], bool | ToolCallPolicyResult]
+
+
 def route_tool_descriptor(
     descriptor: ToolDescriptor,
     *,
     executable_providers: Sequence[str] = DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     executable_tool_types: Sequence[str | None] = DEFAULT_EXECUTABLE_TOOL_TYPES,
     review_risk_flags: frozenset[str] = TOOL_REVIEW_RISK_FLAGS,
+    tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
 ) -> ToolRouteDecision:
     """Classify a tool descriptor before it can enter the executable registry."""
 
@@ -121,6 +134,14 @@ def route_tool_descriptor(
             descriptor=descriptor,
             route=REVIEW_ONLY_TOOL_ROUTE,
             reasons=tuple(f"review_only_risk:{flag}" for flag in risky_flags),
+        )
+
+    policy_denial_reason = evaluate_tool_call_policy(descriptor, tool_call_policy_evaluator)
+    if policy_denial_reason is not None:
+        return ToolRouteDecision(
+            descriptor=descriptor,
+            route=DENIED_TOOL_ROUTE,
+            reasons=(policy_denial_reason,),
         )
 
     if descriptor.provider not in set(executable_providers):
@@ -135,20 +156,52 @@ def route_tool_descriptor(
     return ToolRouteDecision(descriptor=descriptor, route=EXECUTABLE_TOOL_ROUTE)
 
 
-def route_tool_descriptors(descriptors: Sequence[ToolDescriptor]) -> tuple[ToolRouteDecision, ...]:
+def evaluate_tool_call_policy(
+    descriptor: ToolDescriptor,
+    evaluator: ToolCallPolicyEvaluator | None,
+) -> str | None:
+    """Return a fail-closed denial reason when a connector policy gate does not allow a tool."""
+
+    if evaluator is None:
+        return None
+    try:
+        result = evaluator(descriptor)
+    except TimeoutError:
+        return "policy_evaluation_timeout"
+    except Exception as error:
+        return f"policy_evaluation_error:{type(error).__name__}"
+
+    if isinstance(result, ToolCallPolicyResult):
+        if result.allowed:
+            return None
+        return f"policy_denied:{result.reason or 'unspecified'}"
+    if result is True:
+        return None
+    return "policy_denied:unspecified"
+
+
+def route_tool_descriptors(
+    descriptors: Sequence[ToolDescriptor],
+    *,
+    tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
+) -> tuple[ToolRouteDecision, ...]:
     """Return inspectable routing decisions for a batch of descriptors."""
 
-    return tuple(route_tool_descriptor(descriptor) for descriptor in descriptors)
+    return tuple(
+        route_tool_descriptor(descriptor, tool_call_policy_evaluator=tool_call_policy_evaluator)
+        for descriptor in descriptors
+    )
 
 
 def build_tool_routing_preflight(
     descriptors: Sequence[ToolDescriptor],
     *,
     required_tool_names: Sequence[str] = (),
+    tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
 ) -> dict[str, Any]:
     """Return startup-safe diagnostics for local tool routing capabilities."""
 
-    decisions = route_tool_descriptors(descriptors)
+    decisions = route_tool_descriptors(descriptors, tool_call_policy_evaluator=tool_call_policy_evaluator)
     executable_names = sorted(decision.descriptor.name for decision in decisions if decision.executable)
     executable_name_set = set(executable_names)
     required_names = tuple(dict.fromkeys(name for name in required_tool_names if name))
@@ -448,13 +501,17 @@ def tool_descriptors_from_agent_config(
     return descriptors
 
 
-def executable_tool_registry(descriptors: Sequence[ToolDescriptor]) -> dict[str, dict[str, Any]]:
+def executable_tool_registry(
+    descriptors: Sequence[ToolDescriptor],
+    *,
+    tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
+) -> dict[str, dict[str, Any]]:
     """Build stable model-facing metadata for executable local tools."""
 
     return {
         descriptor.name: descriptor.to_call_metadata()
         for descriptor in descriptors
-        if route_tool_descriptor(descriptor).executable
+        if route_tool_descriptor(descriptor, tool_call_policy_evaluator=tool_call_policy_evaluator).executable
     }
 
 
