@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import blackhole_agent.github_growth as github_growth
 import blackhole_agent.kernels.codex_cli as codex_cli
 from blackhole_agent.github_growth import build_self_evolution_plan, run_intake_once
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
@@ -49,6 +50,13 @@ def test_web_research_mcp_and_cancel_recover_journey_regression(tmp_path, monkey
     output_dir = tmp_path / "out"
     client = WebResearchJourneyClient()
 
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 6, 16, 9, 37, 3, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(github_growth, "datetime", FixedDatetime)
+
     digest_result = run_intake_once(
         repos=["omnigent-ai/omnigent"],
         output_dir=output_dir,
@@ -78,11 +86,6 @@ def test_web_research_mcp_and_cancel_recover_journey_regression(tmp_path, monkey
     )
     route_cache = ToolCompatibilityCache()
     route_key = route_cache.set(mcp_web_research, "stubbed-web-research-route")
-
-    class FixedDatetime:
-        @classmethod
-        def now(cls, tz=None):
-            return datetime(2026, 6, 16, 9, 37, 3, tzinfo=timezone.utc)
 
     attempts = 0
     last_message_paths: list[Path] = []

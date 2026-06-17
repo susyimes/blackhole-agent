@@ -31,6 +31,41 @@ def test_exact_trigger_match_dominates_validated_topical_match():
     assert ranked[1].route == TOPICAL_MATCH
 
 
+def test_explicit_skill_name_match_dominates_generic_workflow_domain():
+    skills = [
+        SkillDescriptor(
+            name="task-forest",
+            domains=("task graph", "workflow"),
+            validation_status="experimental",
+        ),
+        SkillDescriptor(
+            name="workflow-router",
+            domains=("workflow",),
+            validation_status="validated",
+        ),
+    ]
+
+    ranked = rank_skills_for_task("Use task-forest to preserve this workflow history.", skills)
+
+    assert [decision.descriptor.name for decision in ranked] == ["task-forest", "workflow-router"]
+    assert ranked[0].route == EXACT_TRIGGER_MATCH
+    assert ranked[0].reasons == ("skill_name:task-forest", "validation:experimental")
+    assert ranked[1].route == TOPICAL_MATCH
+
+
+def test_at_prefixed_skill_name_counts_as_explicit_invocation():
+    skills = [
+        SkillDescriptor(name="codex-fable5", domains=("workflow",), validation_status="experimental"),
+        SkillDescriptor(name="workflow-router", domains=("workflow",), validation_status="validated"),
+    ]
+
+    ranked = rank_skills_for_task("@codex-fable5 run the strict workflow gate.", skills)
+
+    assert [decision.descriptor.name for decision in ranked] == ["codex-fable5", "workflow-router"]
+    assert ranked[0].route == EXACT_TRIGGER_MATCH
+    assert ranked[0].reasons == ("skill_name:codex-fable5", "validation:experimental")
+
+
 def test_topical_matches_are_ranked_by_validation_status_then_name():
     skills = [
         SkillDescriptor(name="workflow-beta", domains=("workflow",), validation_status="experimental"),

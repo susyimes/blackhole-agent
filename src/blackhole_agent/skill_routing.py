@@ -79,9 +79,9 @@ def rank_skills_for_task(
 ) -> tuple[SkillRouteDecision, ...]:
     """Rank skill metadata by explicit triggers, task domains, and validation status.
 
-    Exact trigger matches intentionally dominate topical matches. Validation status is
-    a tie-breaker within a match class so an unvalidated topical skill cannot outrank
-    an explicitly requested skill.
+    Explicit trigger or skill-name matches intentionally dominate topical matches.
+    Validation status is a tie-breaker within a match class so an unvalidated topical
+    skill cannot outrank an explicitly requested skill.
     """
 
     descriptors = tuple(_coerce_skill_descriptor(skill) for skill in skills)
@@ -144,6 +144,15 @@ def _rank_skill_for_task(task: str, descriptor: SkillDescriptor) -> SkillRouteDe
             + (f"validation:{descriptor.validation_status}",),
         )
 
+    if _contains_explicit_skill_name(task_text, descriptor.name):
+        score = 100 + validation_bonus + 1
+        return SkillRouteDecision(
+            descriptor=descriptor,
+            route=EXACT_TRIGGER_MATCH,
+            score=score,
+            reasons=(f"skill_name:{descriptor.name}", f"validation:{descriptor.validation_status}"),
+        )
+
     domain_matches = tuple(domain for domain in descriptor.domains if _contains_term(task_text, domain))
     if domain_matches:
         score = 30 + validation_bonus + min(len(domain_matches), 5)
@@ -176,6 +185,13 @@ def _contains_term(text: str, term: str) -> bool:
     if re.search(r"\s", normalized):
         return normalized in text
     return re.search(rf"(?<![\w-]){re.escape(normalized)}(?![\w-])", text) is not None
+
+
+def _contains_explicit_skill_name(text: str, name: str) -> bool:
+    normalized = name.strip().casefold()
+    if not normalized:
+        return False
+    return any(_contains_term(text, marker + normalized) for marker in ("", "$", "@"))
 
 
 def _route_weight(route: str) -> int:

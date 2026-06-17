@@ -1,0 +1,8 @@
+rollback_point: 20260617T100315Z
+original_branch: codex/blackhole-evolve/20260617T100409.044010-add-or-strengthen-local-provider-config-token-an
+head: c5010cc65ec5d9fb4a60ff857325e78f66508e0c
+rollback_ref: refs/rollback/blackhole-agent/20260617T100315Z
+recover_branch: git switch codex/blackhole-evolve/20260617T100409.044010-add-or-strengthen-local-provider-config-token-an
+recover_head: git reset --hard c5010cc65ec5d9fb4a60ff857325e78f66508e0c
+recover_ref: git reset --hard refs/rollback/blackhole-agent/20260617T100315Z
+note: Created before self-modification for proposal_skill_routing_002.
