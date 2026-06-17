@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 5
-    assert payload["pass_count"] == 4
+    assert payload["fixture_count"] == 6
+    assert payload["pass_count"] == 5
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -95,6 +95,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
+    assert results["mock-llm-session-file-tool-route"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
@@ -299,6 +300,103 @@ def test_mock_llm_workflow_route_reports_exhausted_when_key_and_default_are_miss
     assert output["mock_llm"]["exhausted"] is True
     assert output["workflow"]["response_keys"] == []
     assert output["failure_mode"] == "mock_llm_exhausted"
+
+
+def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting_bodies():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_session_file_tool_route.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["session"]["id_present"] is True
+    assert output["session"]["id_hash"].startswith("sha256:")
+    assert output["session"]["previous_id_hash"].startswith("sha256:")
+    assert output["session"]["isolation_passed"] is True
+    assert output["file_tools"]["operation_count"] == 2
+    assert output["file_tools"]["mocked_count"] == 2
+    assert output["file_tools"]["unmocked_external_count"] == 0
+    assert output["file_tools"]["all_expectations_passed"] is True
+    assert all(operation["path_hash"].startswith("sha256:") for operation in output["file_tools"]["operations"])
+    assert all(operation["content_hash"].startswith("sha256:") for operation in output["file_tools"]["operations"])
+    assert "session-current-fixture" not in serialized
+    assert "session-previous-fixture" not in serialized
+    assert "fixtures/private-note.md" not in serialized
+    assert "mock attachment summary" not in serialized
+    assert output["failure_mode"] == "none"
+
+
+def test_mock_llm_workflow_route_fails_when_session_reuses_previous_id():
+    raw_input = {
+        "task_id": "fixture-mock-llm-session-reuse",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "session": {
+            "id": "same-session-fixture",
+            "previous_id": "same-session-fixture",
+            "isolation_required": True,
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "mock response"}],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "open-session", "expect_contains": "mock response"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_session_reuse_inline.json",
+    )
+
+    assert output["route_status"] == "failed"
+    assert output["session"]["reused_previous_session"] is True
+    assert output["session"]["isolation_passed"] is False
+    assert output["failure_mode"] == "session_isolation_failed"
+
+
+def test_mock_llm_workflow_route_fails_when_file_tool_is_not_mocked():
+    raw_input = {
+        "task_id": "fixture-mock-llm-unmocked-file-tool",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "file_tools": {
+            "enabled": True,
+            "operations": [
+                {
+                    "name": "download_file",
+                    "path": "fixtures/real-download.bin",
+                    "mocked": False,
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "mock response"}],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "download-file", "expect_contains": "mock response"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_unmocked_file_tool_inline.json",
+    )
+
+    assert output["route_status"] == "failed"
+    assert output["file_tools"]["unmocked_external_count"] == 1
+    assert output["failure_mode"] == "file_tool_mock_failed"
 
 
 def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_json():

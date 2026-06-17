@@ -1,0 +1,119 @@
+{
+  "name": "mock-llm-session-file-tool-route",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-session-file-tool-route",
+    "provider": {
+      "name": "external-chat-provider",
+      "enabled": false
+    },
+    "session": {
+      "id": "session-current-fixture",
+      "previous_id": "session-previous-fixture",
+      "isolation_required": true
+    },
+    "file_tools": {
+      "enabled": true,
+      "operations": [
+        {
+          "name": "read_file",
+          "path": "fixtures/private-note.md",
+          "mocked": true,
+          "mock_content": "mock attachment summary with deterministic content",
+          "expect_content_contains": "attachment summary"
+        },
+        {
+          "name": "write_file",
+          "path": "fixtures/generated-summary.md",
+          "mocked": true,
+          "mock_content": "mock write completed",
+          "expect_content_contains": "write completed"
+        }
+      ]
+    },
+    "mock_llm": {
+      "enabled": true,
+      "model": "mock-local-llm",
+      "response_queues": {
+        "mock-local-llm": [
+          {
+            "content": "Session opened with isolated mock state.",
+            "usage": {
+              "input_tokens": 8,
+              "output_tokens": 6
+            }
+          },
+          {
+            "content": "File tool attachment summary accepted by mock LLM.",
+            "usage": {
+              "input_tokens": 12,
+              "output_tokens": 9
+            },
+            "tool_calls": [
+              {
+                "name": "read_file"
+              },
+              {
+                "name": "write_file"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "open-session",
+          "expect_contains": "isolated mock state"
+        },
+        {
+          "id": "file-tool-roundtrip",
+          "expect_contains": "attachment summary"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "provider.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "session.isolation_passed",
+      "equals": true
+    },
+    {
+      "path": "session.reused_previous_session",
+      "equals": false
+    },
+    {
+      "path": "file_tools.operation_count",
+      "equals": 2
+    },
+    {
+      "path": "file_tools.mocked_count",
+      "equals": 2
+    },
+    {
+      "path": "file_tools.unmocked_external_count",
+      "equals": 0
+    },
+    {
+      "path": "file_tools.all_expectations_passed",
+      "equals": true
+    },
+    {
+      "path": "mock_llm.usage.tool_calls",
+      "equals": 2
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

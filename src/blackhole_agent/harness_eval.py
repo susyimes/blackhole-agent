@@ -266,12 +266,19 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
 
 
 def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
-    """Evaluate a provider-dependent workflow against deterministic mock LLM responses."""
+    """Evaluate a provider-dependent workflow against deterministic mock LLM responses.
+
+    Optional session and file-tool blocks model e2e smoke paths that otherwise
+    require live provider credentials or filesystem side effects. Output keeps
+    route-level evidence while hashing session IDs and omitting paths/content.
+    """
 
     task_id = optional_string(raw_input.get("task_id")) or source_path.stem
     provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
     mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
     workflow = raw_input.get("workflow") if isinstance(raw_input.get("workflow"), dict) else {}
+    session = raw_input.get("session") if isinstance(raw_input.get("session"), dict) else {}
+    file_tools = raw_input.get("file_tools") if isinstance(raw_input.get("file_tools"), dict) else {}
     steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
     response_queues = build_mock_llm_response_queues(mock_llm)
 
@@ -282,6 +289,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     response_results = build_mock_llm_response_results(steps, response_queues, mock_llm=mock_llm) if mock_enabled else []
     enough_responses = len(response_results) >= len(steps)
     expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
+    session_result = evaluate_mock_session_route(session)
+    file_tool_result = evaluate_mock_file_tools_route(file_tools)
     usage = aggregate_mock_llm_usage(response_results)
     failure_mode = mock_llm_workflow_failure_mode(
         step_count=len(steps),
@@ -289,6 +298,9 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         mock_enabled=mock_enabled,
         enough_responses=enough_responses,
         expectations_passed=expectations_passed,
+        session_passed=session_result["isolation_passed"],
+        file_tools_passed=file_tool_result["all_operations_mocked"]
+        and file_tool_result["all_expectations_passed"],
     )
 
     return {
@@ -319,6 +331,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "response_keys": [result["response_key"] for result in response_results],
             "fallback_count": sum(1 for result in response_results if result["fallback_used"]),
         },
+        "session": session_result,
+        "file_tools": file_tool_result,
         "failure_mode": failure_mode,
     }
 
@@ -406,6 +420,54 @@ def aggregate_mock_llm_usage(response_results: list[dict[str, Any]]) -> dict[str
     }
 
 
+def evaluate_mock_session_route(session: dict[str, Any]) -> dict[str, Any]:
+    session_id = optional_string(session.get("id"))
+    previous_session_id = optional_string(session.get("previous_id"))
+    isolation_required = truthy(session.get("isolation_required")) or bool(session_id or previous_session_id)
+    reused_previous_session = bool(session_id and previous_session_id and session_id == previous_session_id)
+    isolation_passed = not isolation_required or (bool(session_id) and not reused_previous_session)
+    return {
+        "declared": bool(session),
+        "id_present": bool(session_id),
+        "id_hash": stable_text_hash(session_id) if session_id else None,
+        "previous_id_hash": stable_text_hash(previous_session_id) if previous_session_id else None,
+        "isolation_required": isolation_required,
+        "reused_previous_session": reused_previous_session,
+        "isolation_passed": isolation_passed,
+    }
+
+
+def evaluate_mock_file_tools_route(file_tools: dict[str, Any]) -> dict[str, Any]:
+    operations = file_tools.get("operations") if isinstance(file_tools.get("operations"), list) else []
+    operation_results = [evaluate_mock_file_tool_operation(operation) for operation in operations]
+    all_operations_mocked = all(result["mocked"] for result in operation_results)
+    all_expectations_passed = all(result["expectation_passed"] for result in operation_results)
+    return {
+        "declared": bool(file_tools),
+        "enabled": truthy(file_tools.get("enabled")) or bool(operation_results),
+        "operation_count": len(operation_results),
+        "mocked_count": sum(1 for result in operation_results if result["mocked"]),
+        "unmocked_external_count": sum(1 for result in operation_results if not result["mocked"]),
+        "all_operations_mocked": all_operations_mocked,
+        "all_expectations_passed": all_expectations_passed,
+        "operations": operation_results,
+    }
+
+
+def evaluate_mock_file_tool_operation(operation: Any) -> dict[str, Any]:
+    operation_data = operation if isinstance(operation, dict) else {}
+    content = optional_string(operation_data.get("mock_content")) or ""
+    expect_contains = optional_string(operation_data.get("expect_content_contains"))
+    path = optional_string(operation_data.get("path"))
+    return {
+        "name": optional_string(operation_data.get("name")) or "file_tool",
+        "mocked": truthy(operation_data.get("mocked")),
+        "path_hash": stable_text_hash(path) if path else None,
+        "content_hash": stable_text_hash(content) if content else None,
+        "expectation_passed": expect_contains is None or expect_contains in content,
+    }
+
+
 def mock_llm_workflow_failure_mode(
     *,
     step_count: int,
@@ -413,6 +475,8 @@ def mock_llm_workflow_failure_mode(
     mock_enabled: bool,
     enough_responses: bool,
     expectations_passed: bool,
+    session_passed: bool,
+    file_tools_passed: bool,
 ) -> str:
     if step_count < 1:
         return "no_workflow_steps"
@@ -424,6 +488,10 @@ def mock_llm_workflow_failure_mode(
         return "mock_llm_exhausted"
     if not expectations_passed:
         return "expectation_failed"
+    if not session_passed:
+        return "session_isolation_failed"
+    if not file_tools_passed:
+        return "file_tool_mock_failed"
     return "none"
 
 

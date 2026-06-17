@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260617T132001.426764Z
+
+Original branch: codex/blackhole-evolve/20260617T132149.709695-add-or-extend-local-mock-llm-smoke-coverage-for-
+Original HEAD: 39e0811fac4fd018aaa3e1559688fed097009c37
+Local rollback ref: refs/rollback/20260617T132001Z-mock-llm-session-file-smoke
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260617T132149.709695-add-or-extend-local-mock-llm-smoke-coverage-for-
+git reset --hard refs/rollback/20260617T132001Z-mock-llm-session-file-smoke
+
+Notes:
+- Created before source or test edits in this run.
+- Rollback execution is explicit and destructive; this run does not execute it.
