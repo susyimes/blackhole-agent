@@ -471,6 +471,87 @@ def test_provider_runtime_preflight_blocks_before_launch_when_override_is_stripp
     assert "~/.local/bin/claude" not in serialized
 
 
+def test_provider_runtime_preflight_skips_browser_configure_without_masking_url_safety():
+    raw_input = {
+        "task_id": "fixture-provider-runtime-preflight-missing-playwright-local-url",
+        "provider": {
+            "name": "browser-provider",
+            "harness": "playwright-e2e",
+            "base_url": "http://127.0.0.1:3000",
+        },
+        "browser_tooling": {
+            "configure_checks_required": True,
+            "playwright_available": False,
+        },
+        "url_safety": {
+            "refuse_local_targets": True,
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_missing_playwright_local_url_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "url_safety_preflight_failed"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["browser_tooling"] == {
+        "playwright_available": False,
+        "configure_checks_required": True,
+        "configure_checks_skipped": True,
+        "configure_status": "skipped_missing_optional_dependency",
+        "diagnostics": ["Playwright is unavailable; browser configure checks were skipped"],
+        "optional_dependency_values_recorded": False,
+    }
+    assert output["url_safety"] == {
+        "checked": True,
+        "ok": False,
+        "base_url_present": True,
+        "base_url_recorded": False,
+        "refuse_local_targets": True,
+        "diagnostics": ["base URL must not target localhost, loopback, private, or link-local networks"],
+    }
+    assert "127.0.0.1" not in serialized
+
+
+def test_provider_runtime_preflight_degrades_for_missing_playwright_when_url_is_safe():
+    raw_input = {
+        "task_id": "fixture-provider-runtime-preflight-missing-playwright-safe-url",
+        "provider": {
+            "name": "browser-provider",
+            "harness": "playwright-e2e",
+            "base_url": "https://example.com/app",
+        },
+        "browser_tooling": {
+            "configure_checks_required": True,
+            "playwright_available": False,
+        },
+        "url_safety": {
+            "refuse_local_targets": True,
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_missing_playwright_safe_url_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "degraded"
+    assert output["failure_mode"] == "none"
+    assert output["runtime"]["runner_invoked"] is True
+    assert output["preflight"]["ok"] is True
+    assert output["preflight"]["degraded"] is True
+    assert output["browser_tooling"]["configure_checks_skipped"] is True
+    assert output["url_safety"]["ok"] is True
+    assert output["url_safety"]["base_url_recorded"] is False
+    assert "https://example.com/app" not in serialized
+
+
 def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting_bodies():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_session_file_tool_route.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

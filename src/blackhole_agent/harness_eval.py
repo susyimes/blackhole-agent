@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 BODY_KEYS = {
@@ -595,6 +597,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     sandbox = raw_input.get("sandbox") if isinstance(raw_input.get("sandbox"), dict) else {}
     runtime = raw_input.get("runtime") if isinstance(raw_input.get("runtime"), dict) else {}
     runner_env = raw_input.get("runner_env") if isinstance(raw_input.get("runner_env"), dict) else {}
+    browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -620,22 +623,27 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         and not install_tree_readable
     )
     degraded = incompatible_sandbox and (override_propagated or auto_degrade)
-    blocked = incompatible_sandbox and not degraded
+    blocked = (incompatible_sandbox and not degraded) or not browser_preflight["url_safety"]["ok"]
     runner_invoked = not blocked
     diagnostics = build_provider_runtime_diagnostics(
         incompatible_sandbox=incompatible_sandbox,
         degraded=degraded,
-        blocked=blocked,
+        blocked=incompatible_sandbox and not degraded,
         override_flag=override_flag,
         override_requested=override_requested,
         override_propagated=override_propagated,
         auto_degrade=auto_degrade,
     )
+    diagnostics.extend(browser_preflight["preflight"]["diagnostics"])
 
     if blocked:
         route_status = "blocked"
-        failure_mode = "sandbox_runtime_preflight_failed"
-    elif degraded:
+        failure_mode = (
+            "url_safety_preflight_failed"
+            if not browser_preflight["url_safety"]["ok"]
+            else "sandbox_runtime_preflight_failed"
+        )
+    elif degraded or browser_preflight["browser_tooling"]["configure_checks_skipped"]:
         route_status = "degraded"
         failure_mode = "none"
     else:
@@ -676,12 +684,93 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         },
         "preflight": {
             "ok": not blocked,
-            "degraded": degraded,
+            "degraded": degraded or browser_preflight["browser_tooling"]["configure_checks_skipped"],
             "blocked_before_launch": blocked,
             "diagnostics": diagnostics,
             "diagnostic_count": len(diagnostics),
         },
+        "browser_tooling": browser_preflight["browser_tooling"],
+        "url_safety": browser_preflight["url_safety"],
     }
+
+
+def evaluate_provider_browser_preflight(raw_input: dict[str, Any], *, provider: dict[str, Any]) -> dict[str, Any]:
+    """Check URL safety even when optional browser tooling is unavailable."""
+
+    browser_tooling = raw_input.get("browser_tooling") if isinstance(raw_input.get("browser_tooling"), dict) else {}
+    url_policy = raw_input.get("url_safety") if isinstance(raw_input.get("url_safety"), dict) else {}
+    base_url = optional_string(url_policy.get("base_url")) or optional_string(provider.get("base_url"))
+    playwright_available = truthy(browser_tooling.get("playwright_available"))
+    configure_checks_required = truthy(browser_tooling.get("configure_checks_required"))
+    browser_configure_status = "not_required"
+    browser_diagnostics: list[str] = []
+    if configure_checks_required and playwright_available:
+        browser_configure_status = "ready"
+    elif configure_checks_required:
+        browser_configure_status = "skipped_missing_optional_dependency"
+        browser_diagnostics.append("Playwright is unavailable; browser configure checks were skipped")
+
+    url_diagnostics = build_url_safety_diagnostics(
+        base_url,
+        require_base_url=truthy(url_policy.get("require_base_url")),
+        refuse_local_targets=url_policy.get("refuse_local_targets") is not False,
+    )
+    url_ok = not url_diagnostics
+
+    return {
+        "browser_tooling": {
+            "playwright_available": playwright_available,
+            "configure_checks_required": configure_checks_required,
+            "configure_checks_skipped": configure_checks_required and not playwright_available,
+            "configure_status": browser_configure_status,
+            "diagnostics": browser_diagnostics,
+            "optional_dependency_values_recorded": False,
+        },
+        "url_safety": {
+            "checked": bool(base_url) or truthy(url_policy.get("require_base_url")),
+            "ok": url_ok,
+            "base_url_present": bool(base_url),
+            "base_url_recorded": False,
+            "refuse_local_targets": url_policy.get("refuse_local_targets") is not False,
+            "diagnostics": url_diagnostics,
+        },
+        "preflight": {
+            "diagnostics": browser_diagnostics + url_diagnostics,
+        },
+    }
+
+
+def build_url_safety_diagnostics(
+    base_url: str | None,
+    *,
+    require_base_url: bool,
+    refuse_local_targets: bool,
+) -> list[str]:
+    diagnostics: list[str] = []
+    if not base_url:
+        if require_base_url:
+            diagnostics.append("base URL is required before provider browser preflight")
+        return diagnostics
+
+    parsed = urlparse(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        diagnostics.append("base URL must be an absolute http(s) URL")
+        return diagnostics
+
+    host = (parsed.hostname or "").lower()
+    if refuse_local_targets and is_local_url_host(host):
+        diagnostics.append("base URL must not target localhost, loopback, private, or link-local networks")
+    return diagnostics
+
+
+def is_local_url_host(host: str) -> bool:
+    if host in {"localhost", "0.0.0.0"} or host.endswith(".localhost"):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return address.is_loopback or address.is_private or address.is_link_local or address.is_unspecified
 
 
 def build_provider_runtime_diagnostics(

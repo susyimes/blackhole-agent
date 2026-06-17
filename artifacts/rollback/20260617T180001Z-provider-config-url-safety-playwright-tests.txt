@@ -1,0 +1,8 @@
+Rollback point for self-evolution run github-growth-20260617T180001.539628Z
+Original branch: codex/blackhole-evolve/20260617T180109.294803-add-or-tighten-local-tests-for-provider-config-p
+Original HEAD: ac78137a872201842d589753d314e9e45c44d365
+Rollback ref: refs/blackhole-rollback/20260617T180001Z-provider-config-url-safety-playwright-tests
+Recovery commands:
+  git switch codex/blackhole-evolve/20260617T180109.294803-add-or-tighten-local-tests-for-provider-config-p
+  git reset --hard refs/blackhole-rollback/20260617T180001Z-provider-config-url-safety-playwright-tests
+  git clean -fd
