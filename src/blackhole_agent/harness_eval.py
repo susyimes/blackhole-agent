@@ -35,6 +35,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_workflow_route",
     "harness_run_summary",
     "mock_llm_workflow_route",
+    "provider_runtime_preflight",
     "proposal_interpretation",
 ]
 
@@ -260,6 +261,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
     if behavior == "mock_llm_workflow_route":
         return evaluate_mock_llm_workflow_route(raw_input, source_path=source_path)
+    if behavior == "provider_runtime_preflight":
+        return evaluate_provider_runtime_preflight(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
@@ -571,6 +574,141 @@ def mock_llm_workflow_failure_mode(
     if not file_tools_passed:
         return "file_tool_mock_failed"
     return "none"
+
+
+def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Model provider startup checks before a sandbox-incompatible SDK harness runs.
+
+    This is a metadata-only fixture path for cases where a provider's supervisor
+    process may need to run degraded while file and shell tools remain governed
+    by the outer harness sandbox. It never records environment values.
+    """
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
+    sandbox = raw_input.get("sandbox") if isinstance(raw_input.get("sandbox"), dict) else {}
+    runtime = raw_input.get("runtime") if isinstance(raw_input.get("runtime"), dict) else {}
+    runner_env = raw_input.get("runner_env") if isinstance(raw_input.get("runner_env"), dict) else {}
+
+    provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
+    harness = optional_string(provider.get("harness")) or provider_name
+    platform_system = (optional_string(runtime.get("platform")) or "").lower()
+    cli_path = optional_string(runtime.get("cli_path")) or ""
+    sandbox_active = truthy(sandbox.get("active"))
+    install_tree_readable = truthy(runtime.get("install_tree_readable"))
+    auto_degrade = truthy(provider.get("degrade_on_incompatible_sandbox"))
+
+    override_flag = optional_string(provider.get("sandbox_override_flag")) or "NO_SANDBOX"
+    parent_env_keys = string_list(runner_env.get("parent_env_keys"))
+    allowlist = string_list(runner_env.get("allowlist"))
+    passthrough = string_list(runner_env.get("passthrough"))
+    harness_env_keys = sorted(set(allowlist) | set(passthrough))
+    override_requested = override_flag in parent_env_keys
+    override_propagated = override_requested and override_flag in harness_env_keys
+
+    incompatible_sandbox = (
+        sandbox_active
+        and platform_system == "darwin"
+        and "claude" in provider_name.lower()
+        and cli_path.startswith("~/")
+        and not install_tree_readable
+    )
+    degraded = incompatible_sandbox and (override_propagated or auto_degrade)
+    blocked = incompatible_sandbox and not degraded
+    runner_invoked = not blocked
+    diagnostics = build_provider_runtime_diagnostics(
+        incompatible_sandbox=incompatible_sandbox,
+        degraded=degraded,
+        blocked=blocked,
+        override_flag=override_flag,
+        override_requested=override_requested,
+        override_propagated=override_propagated,
+        auto_degrade=auto_degrade,
+    )
+
+    if blocked:
+        route_status = "blocked"
+        failure_mode = "sandbox_runtime_preflight_failed"
+    elif degraded:
+        route_status = "degraded"
+        failure_mode = "none"
+    else:
+        route_status = "passed"
+        failure_mode = "none"
+
+    return {
+        "schema_version": 1,
+        "behavior": "provider_runtime_preflight",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "provider": {
+            "name": provider_name,
+            "harness": harness,
+            "sandbox_override_flag": override_flag,
+            "degrade_on_incompatible_sandbox": auto_degrade,
+        },
+        "sandbox": {
+            "active": sandbox_active,
+            "type": optional_string(sandbox.get("type")) or "unknown",
+            "incompatible_with_provider_runtime": incompatible_sandbox,
+        },
+        "runner_env": {
+            "override_requested_in_parent": override_requested,
+            "override_propagated_to_harness": override_propagated,
+            "allowlist_count": len(allowlist),
+            "passthrough_count": len(passthrough),
+            "env_values_recorded": False,
+        },
+        "runtime": {
+            "platform": platform_system or "unknown",
+            "cli_path_recorded": False,
+            "install_tree_readable": install_tree_readable,
+            "supervisor_unwrapped": degraded,
+            "native_file_shell_tools_disabled": degraded,
+            "runner_invoked": runner_invoked,
+        },
+        "preflight": {
+            "ok": not blocked,
+            "degraded": degraded,
+            "blocked_before_launch": blocked,
+            "diagnostics": diagnostics,
+            "diagnostic_count": len(diagnostics),
+        },
+    }
+
+
+def build_provider_runtime_diagnostics(
+    *,
+    incompatible_sandbox: bool,
+    degraded: bool,
+    blocked: bool,
+    override_flag: str,
+    override_requested: bool,
+    override_propagated: bool,
+    auto_degrade: bool,
+) -> list[str]:
+    diagnostics: list[str] = []
+    if override_requested and not override_propagated:
+        diagnostics.append(f"{override_flag} was set before runner launch but did not reach the provider harness")
+    if degraded:
+        if override_propagated:
+            diagnostics.append(f"{override_flag} reached the provider harness; using degraded unwrapped supervisor mode")
+        elif auto_degrade:
+            diagnostics.append("provider runtime sandbox is incompatible; using degraded unwrapped supervisor mode")
+        diagnostics.append("native provider file and shell tools must remain disabled while outer sandbox tools stay active")
+    if blocked:
+        diagnostics.append("provider runtime sandbox is incompatible and no degraded startup path was available")
+        diagnostics.append(f"add {override_flag} to the runner environment allowlist or enable provider auto-degrade")
+    if incompatible_sandbox and not degraded and not blocked:
+        diagnostics.append("provider runtime sandbox compatibility could not be classified")
+    return diagnostics
+
+
+def string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [text for item in value if (text := optional_string(item))]
 
 
 def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

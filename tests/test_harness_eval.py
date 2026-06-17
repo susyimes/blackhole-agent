@@ -76,14 +76,15 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 8
-    assert payload["pass_count"] == 7
+    assert payload["fixture_count"] == 9
+    assert payload["pass_count"] == 8
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
         "agent_workflow_route",
         "harness_run_summary",
         "mock_llm_workflow_route",
+        "provider_runtime_preflight",
         "proposal_interpretation",
     ]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -98,6 +99,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
+    assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
@@ -392,6 +394,81 @@ def test_mock_llm_workflow_route_reports_exhausted_when_key_and_default_are_miss
     assert output["mock_llm"]["exhausted"] is True
     assert output["workflow"]["response_keys"] == []
     assert output["failure_mode"] == "mock_llm_exhausted"
+
+
+def test_provider_runtime_preflight_degrades_when_sandbox_override_reaches_harness():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_claude_sandbox_override.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "degraded"
+    assert output["failure_mode"] == "none"
+    assert output["sandbox"]["incompatible_with_provider_runtime"] is True
+    assert output["runner_env"] == {
+        "override_requested_in_parent": True,
+        "override_propagated_to_harness": True,
+        "allowlist_count": 2,
+        "passthrough_count": 0,
+        "env_values_recorded": False,
+    }
+    assert output["runtime"]["runner_invoked"] is True
+    assert output["runtime"]["supervisor_unwrapped"] is True
+    assert output["runtime"]["native_file_shell_tools_disabled"] is True
+    assert output["runtime"]["cli_path_recorded"] is False
+    assert output["preflight"]["ok"] is True
+    assert output["preflight"]["blocked_before_launch"] is False
+    assert "CLAUDE_SDK_NO_SANDBOX reached the provider harness" in output["preflight"]["diagnostics"][0]
+    assert "~/.local/bin/claude" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_before_launch_when_override_is_stripped():
+    raw_input = {
+        "task_id": "fixture-provider-runtime-preflight-stripped-override",
+        "provider": {
+            "name": "claude-sdk",
+            "harness": "claude-sdk",
+            "sandbox_override_flag": "CLAUDE_SDK_NO_SANDBOX",
+            "degrade_on_incompatible_sandbox": False,
+        },
+        "sandbox": {"active": True, "type": "macos-sandbox-exec"},
+        "runtime": {
+            "platform": "darwin",
+            "cli_path": "~/.local/bin/claude",
+            "install_tree_readable": False,
+        },
+        "runner_env": {
+            "parent_env_keys": ["CLAUDE_SDK_NO_SANDBOX"],
+            "allowlist": ["PATH"],
+            "passthrough": [],
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_stripped_override_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "sandbox_runtime_preflight_failed"
+    assert output["runner_env"]["override_requested_in_parent"] is True
+    assert output["runner_env"]["override_propagated_to_harness"] is False
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["preflight"]["ok"] is False
+    assert output["preflight"]["blocked_before_launch"] is True
+    assert output["preflight"]["diagnostics"] == [
+        "CLAUDE_SDK_NO_SANDBOX was set before runner launch but did not reach the provider harness",
+        "provider runtime sandbox is incompatible and no degraded startup path was available",
+        "add CLAUDE_SDK_NO_SANDBOX to the runner environment allowlist or enable provider auto-degrade",
+    ]
+    assert "~/.local/bin/claude" not in serialized
 
 
 def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting_bodies():

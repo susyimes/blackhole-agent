@@ -1,0 +1,9 @@
+rollback_artifact: artifacts/rollback/20260617T144001Z-provider-runtime-preflight.txt
+source_digest: github-growth-20260617T144001.462447Z
+original_branch: codex/blackhole-evolve/20260617T144115.754450-add-or-improve-provider-runtime-preflight-so-san
+original_head: d2537b9329c3b9288444f1607f0237ed99a2a83c
+rollback_ref: refs/rollback/20260617T144001Z-provider-runtime-preflight
+recovery_commands:
+  git reset --hard d2537b9329c3b9288444f1607f0237ed99a2a83c
+  git clean -fd
+  git switch codex/blackhole-evolve/20260617T144115.754450-add-or-improve-provider-runtime-preflight-so-san

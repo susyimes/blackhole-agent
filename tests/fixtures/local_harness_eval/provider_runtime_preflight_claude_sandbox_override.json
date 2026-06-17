@@ -1,0 +1,58 @@
+{
+  "name": "provider-runtime-preflight-claude-sandbox-override",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-claude-sandbox-override",
+    "provider": {
+      "name": "claude-sdk",
+      "harness": "claude-sdk",
+      "sandbox_override_flag": "CLAUDE_SDK_NO_SANDBOX",
+      "degrade_on_incompatible_sandbox": false
+    },
+    "sandbox": {
+      "active": true,
+      "type": "macos-sandbox-exec"
+    },
+    "runtime": {
+      "platform": "darwin",
+      "cli_path": "~/.local/bin/claude",
+      "install_tree_readable": false
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "CLAUDE_SDK_NO_SANDBOX"
+      ],
+      "allowlist": [
+        "PATH",
+        "CLAUDE_SDK_NO_SANDBOX"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "degraded"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "runner_env.override_propagated_to_harness",
+      "equals": true
+    },
+    {
+      "path": "runtime.supervisor_unwrapped",
+      "equals": true
+    },
+    {
+      "path": "runtime.native_file_shell_tools_disabled",
+      "equals": true
+    },
+    {
+      "path": "preflight.ok",
+      "equals": true
+    }
+  ]
+}
