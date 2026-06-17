@@ -1,0 +1,7 @@
+rollback point: 20260617T140001Z
+original_branch: codex/blackhole-evolve/20260617T140054.767537-add-or-expand-local-validation-around-provider-c
+head: fd10075c528470e25a47b6be4fd50300f4ae4041
+rollback_ref: refs/rollback/20260617T140001Z-skill-routing-compass
+recovery_commands:
+  git reset --hard fd10075c528470e25a47b6be4fd50300f4ae4041
+  git clean -fd

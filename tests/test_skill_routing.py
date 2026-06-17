@@ -1,10 +1,12 @@
 from blackhole_agent.skill_routing import (
+    AMBIGUOUS_SKILL_MATCH,
     EXACT_TRIGGER_MATCH,
     NO_SKILL_MATCH,
     TOPICAL_MATCH,
     SkillDescriptor,
     build_skill_routing_index,
     rank_skills_for_task,
+    select_skill_for_task,
 )
 
 
@@ -137,3 +139,49 @@ def test_skill_routing_index_is_stable_and_body_free():
             },
         ],
     }
+
+
+def test_select_skill_returns_top_deterministic_match_with_ranked_context():
+    skills = [
+        SkillDescriptor(name="task-clarifier", trigger_terms=("$task-clarifier",), validation_status="tested"),
+        SkillDescriptor(name="workflow-router", domains=("workflow",), validation_status="validated"),
+    ]
+
+    selection = select_skill_for_task("Use $task-clarifier before changing this workflow.", skills)
+
+    assert selection.route == EXACT_TRIGGER_MATCH
+    assert selection.selected is not None
+    assert selection.selected.descriptor.name == "task-clarifier"
+    assert [decision.descriptor.name for decision in selection.ranked] == ["task-clarifier", "workflow-router"]
+    assert selection.diagnostics == ()
+
+
+def test_select_skill_falls_back_when_no_skill_matches():
+    skills = [
+        SkillDescriptor(name="task-clarifier", trigger_terms=("$task-clarifier",), domains=("scope",)),
+        SkillDescriptor(name="task-forest", trigger_terms=("$task-forest",), domains=("task graph",)),
+    ]
+
+    selection = select_skill_for_task("Summarize repository files.", skills)
+
+    assert selection.route == NO_SKILL_MATCH
+    assert selection.selected is None
+    assert selection.ranked == ()
+    assert selection.diagnostics == ("no_skills_matched",)
+
+
+def test_select_skill_marks_tied_top_matches_as_ambiguous():
+    skills = [
+        SkillDescriptor(name="alpha-skill", trigger_terms=("$alpha-skill",), validation_status="tested"),
+        SkillDescriptor(name="beta-skill", trigger_terms=("$beta-skill",), validation_status="tested"),
+    ]
+
+    selection = select_skill_for_task("Use $alpha-skill and $beta-skill to plan this task.", skills)
+
+    assert selection.route == AMBIGUOUS_SKILL_MATCH
+    assert selection.selected is None
+    assert [decision.descriptor.name for decision in selection.ambiguous_candidates] == [
+        "alpha-skill",
+        "beta-skill",
+    ]
+    assert selection.diagnostics == ("ambiguous_top_skill_match:alpha-skill,beta-skill",)

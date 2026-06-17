@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 EXACT_TRIGGER_MATCH = "exact_trigger"
 TOPICAL_MATCH = "topical_match"
 NO_SKILL_MATCH = "no_match"
+AMBIGUOUS_SKILL_MATCH = "ambiguous_match"
 
 VALIDATION_WEIGHTS: Mapping[str, int] = {
     "validated": 12,
@@ -71,6 +72,26 @@ class SkillRouteDecision:
         }
 
 
+@dataclass(frozen=True)
+class SkillRouteSelection:
+    """Controller-facing skill choice that keeps ambiguity inspectable."""
+
+    selected: SkillRouteDecision | None
+    route: str
+    ranked: tuple[SkillRouteDecision, ...] = ()
+    ambiguous_candidates: tuple[SkillRouteDecision, ...] = ()
+    diagnostics: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ambiguous_candidates": [decision.to_dict() for decision in self.ambiguous_candidates],
+            "diagnostics": list(self.diagnostics),
+            "ranked": [decision.to_dict() for decision in self.ranked],
+            "route": self.route,
+            "selected": self.selected.to_dict() if self.selected else None,
+        }
+
+
 def rank_skills_for_task(
     task: str,
     skills: Sequence[SkillDescriptor | Mapping[str, Any]],
@@ -97,6 +118,48 @@ def rank_skills_for_task(
                 decision.descriptor.name.casefold(),
             ),
         )
+    )
+
+
+def select_skill_for_task(
+    task: str,
+    skills: Sequence[SkillDescriptor | Mapping[str, Any]],
+) -> SkillRouteSelection:
+    """Select one clear skill route, or return an explicit no-match/ambiguous result.
+
+    The ranked list remains available for audit, but tied top matches are not
+    silently resolved by alphabetical order because that would hide an invocation
+    that should be reviewed or clarified by the caller.
+    """
+
+    ranked = rank_skills_for_task(task, skills, include_no_match=False)
+    if not ranked:
+        return SkillRouteSelection(
+            selected=None,
+            route=NO_SKILL_MATCH,
+            diagnostics=("no_skills_matched",),
+        )
+
+    top = ranked[0]
+    ambiguous_candidates = tuple(
+        decision
+        for decision in ranked
+        if _route_weight(decision.route) == _route_weight(top.route) and decision.score == top.score
+    )
+    if len(ambiguous_candidates) > 1:
+        names = ",".join(decision.descriptor.name for decision in ambiguous_candidates)
+        return SkillRouteSelection(
+            selected=None,
+            route=AMBIGUOUS_SKILL_MATCH,
+            ranked=ranked,
+            ambiguous_candidates=ambiguous_candidates,
+            diagnostics=(f"ambiguous_top_skill_match:{names}",),
+        )
+
+    return SkillRouteSelection(
+        selected=top,
+        route=top.route,
+        ranked=ranked,
     )
 
 
