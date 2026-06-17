@@ -27,6 +27,11 @@ ALLOWED_IMPLEMENTATION_SCOPES = {
     "risk_review_before_local_change",
     "reviewable_proposal_only",
 }
+ROUTE_HINT_VALIDATION_LANES = {
+    "skill_route_discovery": ["documentation", "config", "test", "code_patch"],
+    "provider_config_preflight": ["documentation", "config", "test"],
+    "agent_harness_eval": ["documentation", "test", "code_patch"],
+}
 SKILL_WORKFLOW_ROUTE_TERMS = (
     "agent skill",
     "agent skills",
@@ -301,9 +306,7 @@ def build_proposal_evidence_package(
                 "skill_route_discovery",
             ],
             "route_hint_validation_lanes": {
-                "skill_route_discovery": ["documentation", "config", "test", "code_patch"],
-                "provider_config_preflight": ["documentation", "config", "test"],
-                "agent_harness_eval": ["documentation", "test", "code_patch"],
+                key: list(value) for key, value in ROUTE_HINT_VALIDATION_LANES.items()
             },
             "safety_boundary": {
                 "review_only": ["offensive-behavior", "privacy-leakage"],
@@ -1044,6 +1047,7 @@ def normalize_candidate(
     missing_refs = [ref for ref in evidence_refs if ref not in items_by_id]
     if missing_refs:
         errors.append("evidence_refs contain unknown item ids: " + ", ".join(missing_refs))
+    errors.extend(candidate_route_hint_lane_errors(kind, evidence_refs, items_by_id))
     validation_task = str(candidate.get("validation_task") or "").strip()
     if not validation_task:
         errors.append("validation_task must not be empty")
@@ -1099,6 +1103,28 @@ def normalize_candidate(
         "action_lane": str(candidate.get("action_lane") or "").strip(),
     }
     return normalized, errors
+
+
+def candidate_route_hint_lane_errors(
+    kind: str,
+    evidence_refs: list[str],
+    items_by_id: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Reject candidates that escape deterministic route-hint lane constraints."""
+
+    route_hints = sorted(
+        {
+            str(route_hint)
+            for ref in evidence_refs
+            for route_hint in items_by_id.get(ref, {}).get("route_hints", [])
+            if str(route_hint).strip()
+        }
+    )
+    errors: list[str] = []
+    if "skill_route_discovery" in route_hints and kind not in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]:
+        allowed = ", ".join(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+        errors.append(f"skill_route_discovery proposals must use one of: {allowed}")
+    return errors
 
 
 def candidate_requires_missing_detail_uncertainty(

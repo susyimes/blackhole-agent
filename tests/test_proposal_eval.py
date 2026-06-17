@@ -45,7 +45,7 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     assert report.passed_count == 8
     assert report.failed_count == 0
     assert report.accepted_count == 11
-    assert report.rejected_count == 7
+    assert report.rejected_count == 8
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,

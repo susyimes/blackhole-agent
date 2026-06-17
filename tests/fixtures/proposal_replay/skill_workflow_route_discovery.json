@@ -66,6 +66,20 @@
         "uncertainty": "This candidate is intentionally malformed.",
         "self_effect": "Would weaken replayability if accepted.",
         "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p3-skill-route-escaped-lane",
+        "kind": "follow_up_issue",
+        "summary": "Route skill discovery evidence into an unbounded follow-up lane.",
+        "evidence_refs": [
+          "fablecodex-codex-skill-workflow"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Add unit coverage that proves skill_route_discovery evidence cannot leave documentation, config, test, or code_patch lanes.",
+        "rationale": "Negative fixture for deterministic route-hint lane enforcement.",
+        "uncertainty": "This candidate is intentionally malformed.",
+        "self_effect": "Would weaken bounded route discovery if accepted.",
+        "action_lane": "local_validation_candidate"
       }
     ],
     "rejected_items": []
@@ -73,7 +87,7 @@
   "expected": {
     "status": "accepted",
     "accepted_count": 1,
-    "rejected_count": 1,
+    "rejected_count": 2,
     "accepted_evidence_refs": {
       "p1-skill-route-discovery": [
         "fablecodex-codex-skill-workflow",
@@ -81,7 +95,8 @@
       ]
     },
     "rejected_error_substrings": [
-      "evidence_refs contain unknown item ids: https://github.com/dongshuyan/compass-skills"
+      "evidence_refs contain unknown item ids: https://github.com/dongshuyan/compass-skills",
+      "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
     ],
     "proposal_controls": {
       "p1-skill-route-discovery": {

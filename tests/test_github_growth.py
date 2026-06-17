@@ -1345,6 +1345,56 @@ def test_proposal_evidence_package_marks_skill_workflow_route_hints():
     ]
 
 
+def test_skill_workflow_route_hints_reject_unbounded_candidate_kind():
+    digest = {
+        "digest_id": "github-growth-skill-route-lane",
+        "generated_at": "2026-06-17T15:40:01Z",
+        "items": [
+            {
+                "item_id": "fablecodex-skill-workflow",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": "baskduf/FableCodex: Codex skills and workflow gates for local agent work",
+                "relevance_reason": "Skill route discovery should stay in bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.87,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=1, max_item_text_chars=240)
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-skill-route-lane",
+            "run_interpretation": "Skill-route evidence should not escape its lane constraints.",
+            "self_model_reading": {"status": "unchanged"},
+            "proposals": [
+                {
+                    "proposal_id": "unbounded-skill-follow-up",
+                    "kind": "follow_up_issue",
+                    "summary": "Send skill route discovery into an unbounded follow-up lane.",
+                    "evidence_refs": ["fablecodex-skill-workflow"],
+                    "added_risk_flags": [],
+                    "validation_task": "Add unit coverage for skill route lane enforcement.",
+                    "rationale": "This negative case verifies deterministic route-hint policy.",
+                    "uncertainty": "Synthetic fixture only covers the route-hint lane boundary.",
+                    "self_effect": "Would weaken bounded skill route discovery if accepted.",
+                    "action_lane": "local_validation_candidate",
+                }
+            ],
+            "rejected_items": [],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="hybrid")
+
+    assert review.status == "rejected"
+    assert review.accepted_count == 0
+    assert review.rejected_candidates[0]["errors"] == [
+        "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
+    ]
+
+
 def test_proposal_evidence_package_disambiguates_duplicate_item_ids_under_context_pressure():
     digest = {
         "digest_id": "github-growth-duplicate-context-ids",

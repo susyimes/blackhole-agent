@@ -1,0 +1,17 @@
+Rollback point for source digest github-growth-20260617T154001.235308Z
+
+Original branch:
+codex/blackhole-evolve/20260617T154107.164399-create-a-bounded-local-validation-lane-for-agent
+
+Original HEAD:
+47765e3dac4c414cd222653306910aa2a122e31d
+
+Local rollback ref:
+refs/rollback/20260617T154000Z-skill-route-lane
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260617T154107.164399-create-a-bounded-local-validation-lane-for-agent
+git reset --hard refs/rollback/20260617T154000Z-skill-route-lane
+
+Notes:
+Rollback execution is explicit and destructive. A human operator or external supervisor policy must choose it before reset or clean commands run.
