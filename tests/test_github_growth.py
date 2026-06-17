@@ -464,6 +464,52 @@ def test_extract_growth_signals_does_not_flag_generic_security_token_language():
     assert signals[0].recommended_action == "cluster commit messages and keep only patterns with clear test evidence"
 
 
+def test_push_commit_patterns_keep_clusters_with_clear_test_evidence():
+    event = normalize_event(
+        "omnigent-ai/omnigent",
+        event_payload("test-cluster", "PushEvent", "test(e2e): add comments REST API integration tests"),
+    )
+
+    signals = extract_growth_signals([event], topics=["agent"])
+    proposal = build_proposals(signals)[0]
+    preflight = proposal_validation_preflight(proposal)
+
+    assert proposal["push_pattern_evidence"] == {
+        "status": "ready",
+        "clusters": ["test-coverage"],
+        "has_clear_test_evidence": True,
+        "source": "push_commit_message_cluster",
+        "policy": "keep_push_patterns_only_when_commit_messages_include_clear_test_or_ci_evidence",
+        "matched_text_hash": github_growth.stable_push_message_hash(github_growth.push_message_text(signals[0])),
+    }
+    assert preflight["status"] == "ready"
+    assert preflight["validation_gaps"] == []
+
+
+def test_push_commit_patterns_mark_generic_workflow_clusters_as_validation_gap():
+    events = [
+        normalize_event(
+            "omnigent-ai/omnigent",
+            event_payload("generic-workflow", "PushEvent", "workflow polish for session labels"),
+        ),
+        normalize_event(
+            "omnigent-ai/omnigent",
+            event_payload("covered-test", "PushEvent", "test(server/routes): add unit tests for route modules"),
+        ),
+    ]
+
+    signals = extract_growth_signals(events, topics=["workflow", "test"])
+    proposals = build_proposals(signals, limit=2)
+    proposals_by_id = {proposal["proposal_id"]: proposal for proposal in proposals}
+    generic = proposals_by_id["generic-workflow-2"]
+    covered = proposals_by_id["covered-test-1"]
+
+    assert generic["push_pattern_evidence"]["status"] == "evidence_gap"
+    assert generic["push_pattern_evidence"]["has_clear_test_evidence"] is False
+    assert proposal_validation_preflight(generic)["validation_gaps"] == ["missing_push_pattern_test_evidence"]
+    assert covered["push_pattern_evidence"]["status"] == "ready"
+
+
 def test_extract_growth_signals_allows_remote_execution_sandboxes_for_local_validation():
     event = normalize_event(
         "example/repo",

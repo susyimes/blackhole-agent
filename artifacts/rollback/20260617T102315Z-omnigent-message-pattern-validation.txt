@@ -1,0 +1,17 @@
+# Rollback Point
+
+Digest: github-growth-20260617T102315.641432Z
+Created: 2026-06-17T10:23:15Z
+Original branch: codex/blackhole-evolve/20260617T102425.816903-borrow-cautiously-from-omnigent-ai-omnigent-push
+Original HEAD: fd89ab91715bf8c1c97a700b2d14ce712bdfdb5e
+Rollback ref: refs/rollback/20260617T102315Z-codex-blackhole-evolve-omnigent-push
+
+Recovery commands:
+
+```powershell
+git reset --hard fd89ab91715bf8c1c97a700b2d14ce712bdfdb5e
+git clean -fd
+git switch codex/blackhole-evolve/20260617T102425.816903-borrow-cautiously-from-omnigent-ai-omnigent-push
+```
+
+Notes: Rollback execution is explicit and destructive; do not run these commands unless chosen by a human operator or external supervisor policy.

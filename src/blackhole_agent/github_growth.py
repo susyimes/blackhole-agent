@@ -257,6 +257,32 @@ COVERAGE_VALIDATION_TERMS = (
     "coverage validation",
     "test coverage",
 )
+PUSH_PATTERN_TEST_EVIDENCE_TERMS = (
+    "ci",
+    "coverage",
+    "e2e",
+    "focused test",
+    "focused tests",
+    "integration test",
+    "integration tests",
+    "pytest",
+    "regression test",
+    "regression tests",
+    "rerun flaky",
+    "smoke test",
+    "smoke tests",
+    "test",
+    "tests",
+    "unit test",
+    "unit tests",
+)
+PUSH_PATTERN_CLUSTERS = (
+    ("test-coverage", ("coverage", "e2e", "integration test", "pytest", "regression test", "smoke test", "test")),
+    ("ci-guardrail", ("ci", "workflow", "security scan", "gate", "hook")),
+    ("flaky-test-hardening", ("flaky", "rerun", "overflow-render")),
+    ("dependency-release-guardrail", ("cooldown", "lockfile", "package-lock", "twine check", "release")),
+    ("harness-runtime-reliability", ("harness", "pty", "subprocess", "daemon", "tty")),
+)
 BYPASS_STYLE_LABELS = {
     "bypass-ci",
     "bypass-validation",
@@ -973,20 +999,22 @@ def build_proposals(
     proposals: list[dict[str, Any]] = []
     ranked_signals = rank_signals_with_memory(signals, memory=memory)
     for index, signal in enumerate(ranked_signals[:limit], start=1):
-        proposals.append(
-            {
-                "proposal_id": f"{signal.event_id}-{index}",
-                "proposal_source": "heuristic",
-                "kind": classify_proposal_kind(signal),
-                "summary": f"Borrow cautiously from {signal.repo}: {signal.title}. {signal.recommended_action}.",
-                "evidence_urls": [signal.url] if signal.url else [],
-                "risk_flags": signal.risk_flags,
-                "implementation_scope": implementation_scope_for_signal(signal),
-                "validation_gate": validation_gate_for_signal(signal),
-                "validation_task": validation_task_for_signal(signal),
-                "requires_approval": False,
-            }
-        )
+        proposal = {
+            "proposal_id": f"{signal.event_id}-{index}",
+            "proposal_source": "heuristic",
+            "kind": classify_proposal_kind(signal),
+            "summary": f"Borrow cautiously from {signal.repo}: {signal.title}. {signal.recommended_action}.",
+            "evidence_urls": [signal.url] if signal.url else [],
+            "risk_flags": signal.risk_flags,
+            "implementation_scope": implementation_scope_for_signal(signal),
+            "validation_gate": validation_gate_for_signal(signal),
+            "validation_task": validation_task_for_signal(signal),
+            "requires_approval": False,
+        }
+        pattern_evidence = push_pattern_evidence_for_signal(signal)
+        if pattern_evidence is not None:
+            proposal["push_pattern_evidence"] = pattern_evidence
+        proposals.append(proposal)
     return proposals
 
 
@@ -1255,6 +1283,13 @@ def proposal_validation_preflight(proposal: dict[str, Any]) -> dict[str, Any]:
     validation_gaps: list[str] = []
     if requires_test_or_coverage and not (has_unit_test_signal or has_coverage_signal):
         validation_gaps.append("missing_unit_test_or_coverage_validation")
+    push_pattern_evidence = proposal.get("push_pattern_evidence")
+    if (
+        requires_test_or_coverage
+        and isinstance(push_pattern_evidence, dict)
+        and not push_pattern_evidence.get("has_clear_test_evidence")
+    ):
+        validation_gaps.append("missing_push_pattern_test_evidence")
 
     safety_block = safety_boundary_risk([str(flag) for flag in proposal.get("risk_flags", [])])
     status = "blocked_by_safety_boundary" if safety_block else "validation_gap" if validation_gaps else "ready"
@@ -1752,6 +1787,9 @@ def signal_direct_action_priority(signal: GrowthSignal) -> int:
         return 1
     text = f"{signal.title} {signal.relevance_reason} {signal.recommended_action}".lower()
     if signal.kind == "PushEvent" and any(term in text for term in ("validation", "validate", "test", "workflow")):
+        pattern_evidence = push_pattern_evidence_for_signal(signal)
+        if pattern_evidence is not None and not pattern_evidence["has_clear_test_evidence"]:
+            return 0
         return 1
     if signal.kind == "ReleaseEvent":
         return 1
@@ -1829,6 +1867,40 @@ def classify_proposal_kind(signal: GrowthSignal) -> str:
     if signal.kind in {"IssuesEvent", "IssueCommentEvent"}:
         return "follow_up_issue"
     return "no_action"
+
+
+def push_pattern_evidence_for_signal(signal: GrowthSignal) -> dict[str, Any] | None:
+    """Return commit-message cluster evidence for default push-derived lessons."""
+
+    if signal.kind != "PushEvent":
+        return None
+    if signal.recommended_action != "cluster commit messages and keep only patterns with clear test evidence":
+        return None
+    text = f"{signal.title} {signal.relevance_reason}".lower()
+    message_text = push_message_text(signal)
+    clusters = [
+        cluster_name
+        for cluster_name, terms in PUSH_PATTERN_CLUSTERS
+        if any(contains_risk_term(message_text, term) for term in terms)
+    ]
+    has_clear_test_evidence = any(contains_risk_term(message_text, term) for term in PUSH_PATTERN_TEST_EVIDENCE_TERMS)
+    status = "ready" if clusters and has_clear_test_evidence else "evidence_gap"
+    return {
+        "status": status,
+        "clusters": clusters,
+        "has_clear_test_evidence": has_clear_test_evidence,
+        "source": "push_commit_message_cluster",
+        "policy": "keep_push_patterns_only_when_commit_messages_include_clear_test_or_ci_evidence",
+        "matched_text_hash": stable_push_message_hash(text),
+    }
+
+
+def push_message_text(signal: GrowthSignal) -> str:
+    return " ".join(f"{signal.title} {signal.relevance_reason}".lower().split())
+
+
+def stable_push_message_hash(text: str) -> str:
+    return hashlib.sha256(" ".join(text.split()).encode("utf-8")).hexdigest()[:16]
 
 
 def render_markdown_digest(digest: dict[str, Any]) -> str:
