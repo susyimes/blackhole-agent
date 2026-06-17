@@ -1,0 +1,17 @@
+# Rollback Point: github-growth-20260617T034315.664305Z
+
+Created: 2026-06-17T03:43:15.664305Z
+Original branch: codex/blackhole-evolve/20260617T034401.111964-add-a-local-harness-adapter-route-that-can-inges
+Original HEAD: 7f4b9c5547ec8efd1c8426a5f8c63230311e9f21
+Rollback ref: refs/blackhole-rollback/github-growth-20260617T034315.664305Z
+Source digest: github-growth-20260617T034315.664305Z
+
+Recovery commands:
+
+``powershell
+git switch codex/blackhole-evolve/20260617T034401.111964-add-a-local-harness-adapter-route-that-can-inges
+git reset --hard refs/blackhole-rollback/github-growth-20260617T034315.664305Z
+git clean -fd
+``
+
+Rollback execution is explicit and destructive; only a human operator or supervisor policy should run it.

@@ -6,6 +6,7 @@ from blackhole_agent.harness_eval import build_harness_comparison_report, run_lo
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "harness_comparison"
 LOCAL_EVAL_FIXTURE_DIR = Path(__file__).parent / "fixtures" / "local_harness_eval"
+HARNESS_ADAPTER_FIXTURE_DIR = Path(__file__).parent / "fixtures" / "harness_adapter"
 
 
 def test_harness_comparison_report_omits_private_bodies_by_default():
@@ -79,7 +80,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert payload["pass_count"] == 1
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
-    assert payload["privacy"]["supported_behaviors"] == ["harness_run_summary"]
+    assert payload["privacy"]["supported_behaviors"] == ["harness_run_summary", "proposal_interpretation"]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -101,3 +102,54 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_json():
+    report = run_local_harness_eval(
+        sorted(HARNESS_ADAPTER_FIXTURE_DIR.glob("*.json")),
+        suite_name="fixture-harness-adapter",
+    )
+
+    payload = report.to_dict()
+    serialized = json.dumps(payload, sort_keys=True)
+    reparsed = json.loads(serialized)
+
+    assert reparsed == payload
+    assert payload["suite_name"] == "fixture-harness-adapter"
+    assert payload["fixture_count"] == 2
+    assert payload["pass_count"] == 2
+    assert payload["fail_count"] == 0
+    assert payload["privacy"]["fixture_inputs_exported"] is False
+    assert "fixture-agent-harness-adapter" not in serialized
+    assert "https://github.com/ApodexAI/AgentHarness" not in serialized
+
+    results = {result["name"]: result for result in payload["results"]}
+    accepted = results["proposal-interpretation-accepts-item-refs"]
+    rejected = results["proposal-interpretation-rejects-url-refs"]
+
+    assert accepted["passed"] is True
+    assert rejected["passed"] is True
+    assert all(assertion["passed"] for assertion in accepted["assertions"])
+    assert all(assertion["passed"] for assertion in rejected["assertions"])
+
+
+def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_ids():
+    from blackhole_agent.harness_eval import evaluate_harness_behavior, load_json_object
+
+    fixture_path = HARNESS_ADAPTER_FIXTURE_DIR / "proposal_interpretation_accepts_item_refs.json"
+    fixture = load_json_object(fixture_path)
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+
+    assert output["schema_version"] == 1
+    assert output["behavior"] == "proposal_interpretation"
+    assert output["passed"] is True
+    assert output["evidence_ref_violations"] == []
+    supplied_item_ids = set(output["evidence_ref_policy"]["supplied_item_ids"])
+    assert supplied_item_ids == {"agent-harness", "opencode-harness"}
+    for candidate in output["accepted_candidates"]:
+        assert set(candidate["evidence_refs"]) <= supplied_item_ids

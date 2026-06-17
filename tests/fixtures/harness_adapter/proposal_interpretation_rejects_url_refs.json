@@ -1,0 +1,74 @@
+{
+  "name": "proposal-interpretation-rejects-url-refs",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-rejects-url-refs",
+    "mode": "hybrid",
+    "digest": {
+      "digest_id": "fixture-agent-harness-adapter-url-ref",
+      "generated_at": "2026-06-17T03:43:15Z",
+      "items": [
+        {
+          "item_id": "agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: benchmark harness with smoke and full runs.",
+          "relevance_reason": "Supports repeatable local fixture evaluation.",
+          "risk_flags": [],
+          "confidence": 0.9
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-harness-adapter-url-ref",
+      "run_interpretation": "Evidence refs must stay tied to supplied item IDs.",
+      "self_model_reading": {
+        "status": "left_unchanged"
+      },
+      "proposals": [
+        {
+          "proposal_id": "bad-url-ref",
+          "kind": "test",
+          "summary": "This candidate incorrectly cites a URL as an evidence ref.",
+          "evidence_refs": [
+            "https://github.com/ApodexAI/AgentHarness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add unit tests for local harness fixtures and evidence_ref constraints.",
+          "rationale": "The adapter should reject refs that are not supplied item IDs.",
+          "uncertainty": "This is a negative contract fixture.",
+          "self_effect": "Protects proposal interpretation evidence scoping.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "rejected",
+      "accepted_count": 0,
+      "rejected_count": 1,
+      "rejected_error_substrings": [
+        "evidence_refs contain unknown item ids: https://github.com/ApodexAI/AgentHarness"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "rejected"
+    },
+    {
+      "path": "accepted_count",
+      "equals": 0
+    },
+    {
+      "path": "evidence_ref_violations",
+      "equals": []
+    }
+  ]
+}

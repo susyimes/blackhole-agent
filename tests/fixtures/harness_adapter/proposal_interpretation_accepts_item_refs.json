@@ -1,0 +1,91 @@
+{
+  "name": "proposal-interpretation-accepts-item-refs",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-accepts-item-refs",
+    "mode": "hybrid",
+    "options": {
+      "max_items": 2,
+      "max_item_text_chars": 240
+    },
+    "digest": {
+      "digest_id": "fixture-agent-harness-adapter",
+      "generated_at": "2026-06-17T03:43:15Z",
+      "items": [
+        {
+          "item_id": "agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: benchmark harness with smoke and full runs.",
+          "relevance_reason": "Supports repeatable local fixture evaluation.",
+          "risk_flags": [],
+          "confidence": 0.9
+        },
+        {
+          "item_id": "opencode-harness",
+          "source_url": "https://github.com/samarailly51-pixel/opencode-harness",
+          "event_kind": "RepositoryTrend",
+          "summary": "opencode-harness: structured reports, traces, and eval suites.",
+          "relevance_reason": "Supports JSON harness output and failure diagnostics.",
+          "risk_flags": [],
+          "confidence": 0.88
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-harness-adapter",
+      "run_interpretation": "Small harness fixtures should replay proposal interpretation with strict evidence refs.",
+      "self_model_reading": {
+        "status": "left_unchanged"
+      },
+      "proposals": [
+        {
+          "proposal_id": "local-harness-adapter",
+          "kind": "test",
+          "summary": "Run proposal interpretation through local harness fixtures.",
+          "evidence_refs": [
+            "agent-harness",
+            "opencode-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add unit tests for local harness fixtures and evidence_ref constraints.",
+          "rationale": "Both evidence items emphasize repeatable harness evaluation and structured reports.",
+          "uncertainty": "The fixture is minimal and only covers the local interpreter contract.",
+          "self_effect": "Makes future proposal interpretation drift visible in a repeatable local route.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "accepted",
+      "accepted_count": 1,
+      "rejected_count": 0,
+      "accepted_evidence_refs": {
+        "local-harness-adapter": [
+          "agent-harness",
+          "opencode-harness"
+        ]
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "schema_version",
+      "equals": 1
+    },
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "accepted"
+    },
+    {
+      "path": "evidence_ref_violations",
+      "equals": []
+    }
+  ]
+}

@@ -31,6 +31,7 @@ PRIVACY_REVIEW_FLAG_KEYS = {
 }
 
 PRIVACY_REVIEW_GATE = "privacy-leakage-human-review"
+SUPPORTED_LOCAL_HARNESS_BEHAVIORS = ["harness_run_summary", "proposal_interpretation"]
 
 
 @dataclass(frozen=True)
@@ -215,7 +216,7 @@ def run_local_harness_eval(
         privacy={
             "fixture_inputs_exported": False,
             "input_body_policy": "fixture inputs are hashed for reproducibility and omitted from structured results",
-            "supported_behaviors": ["harness_run_summary"],
+            "supported_behaviors": SUPPORTED_LOCAL_HARNESS_BEHAVIORS,
         },
     )
 
@@ -250,7 +251,122 @@ def run_local_harness_fixture(path: Path) -> HarnessEvalFixtureResult:
 def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
     if behavior == "harness_run_summary":
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
+    if behavior == "proposal_interpretation":
+        return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Run proposal interpretation from a local harness fixture and emit strict JSON."""
+
+    from blackhole_agent.proposal_eval import run_proposal_replay_case
+
+    case = dict(raw_input)
+    case.setdefault("name", source_path.stem)
+    result = run_proposal_replay_case(case)
+    accepted_candidates = accepted_candidate_refs(raw_input)
+    supplied_item_ids = digest_item_ids(raw_input.get("digest"))
+    selected_item_ids = [str(item_id) for item_id in result.selected_item_ids]
+    evidence_ref_violations = collect_evidence_ref_violations(
+        accepted_candidates,
+        supplied_item_ids=supplied_item_ids,
+        selected_item_ids=selected_item_ids,
+    )
+    passed = result.passed and not evidence_ref_violations
+
+    return {
+        "schema_version": 1,
+        "behavior": "proposal_interpretation",
+        "name": result.name,
+        "passed": passed,
+        "failure_mode": "none" if passed else "proposal_interpretation_failed",
+        "review_status": result.review_status,
+        "accepted_count": result.accepted_count,
+        "rejected_count": result.rejected_count,
+        "selected_item_ids": selected_item_ids,
+        "truncated_item_ids": [str(item_id) for item_id in result.truncated_item_ids],
+        "evidence_ref_policy": {
+            "citation_scope": "selected_item_ids_only",
+            "supplied_item_ids": supplied_item_ids,
+            "selected_item_ids": selected_item_ids,
+            "url_refs_allowed": False,
+        },
+        "accepted_candidates": accepted_candidates,
+        "evidence_ref_violations": evidence_ref_violations,
+        "proposal_controls": result.proposal_controls,
+        "proposal_validation_preflights": result.proposal_validation_preflights,
+        "rejected_errors": result.rejected_errors,
+        "failures": result.failures,
+    }
+
+
+def accepted_candidate_refs(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return accepted proposal IDs and evidence refs after deterministic review."""
+
+    from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
+
+    digest = raw_input.get("digest")
+    if not isinstance(digest, dict):
+        return []
+    raw_response = raw_input.get("raw_response")
+    raw_text = json.dumps(raw_response) if isinstance(raw_response, dict) else str(raw_response or "")
+    options = raw_input.get("options") if isinstance(raw_input.get("options"), dict) else {}
+    evidence_package = build_proposal_evidence_package(
+        digest,
+        self_model_snapshot=options.get("self_model_snapshot")
+        if isinstance(options.get("self_model_snapshot"), dict)
+        else None,
+        max_items=int(options.get("max_items") or 20),
+        max_item_text_chars=int(options.get("max_item_text_chars") or 1200),
+        max_self_model_chars=int(options.get("max_self_model_chars") or 4000),
+    )
+    review = review_llm_proposal_response(
+        raw_text,
+        evidence_package,
+        mode=str(raw_input.get("mode") or "hybrid"),
+    )
+    return [
+        {
+            "proposal_id": str(candidate.get("proposal_id") or ""),
+            "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
+        }
+        for candidate in review.accepted_candidates
+    ]
+
+
+def digest_item_ids(digest: Any) -> list[str]:
+    if not isinstance(digest, dict) or not isinstance(digest.get("items"), list):
+        return []
+    return [
+        str(item.get("item_id"))
+        for item in digest["items"]
+        if isinstance(item, dict) and str(item.get("item_id") or "").strip()
+    ]
+
+
+def collect_evidence_ref_violations(
+    accepted_candidates: list[dict[str, Any]],
+    *,
+    supplied_item_ids: list[str],
+    selected_item_ids: list[str],
+) -> list[dict[str, Any]]:
+    supplied = set(supplied_item_ids)
+    selected = set(selected_item_ids)
+    violations: list[dict[str, Any]] = []
+    for candidate in accepted_candidates:
+        proposal_id = str(candidate.get("proposal_id") or "")
+        refs = [str(ref) for ref in candidate.get("evidence_refs", [])]
+        unknown_refs = sorted(set(refs) - supplied)
+        non_selected_refs = sorted(set(refs) - selected)
+        if unknown_refs or non_selected_refs:
+            violations.append(
+                {
+                    "proposal_id": proposal_id,
+                    "unknown_refs": unknown_refs,
+                    "non_selected_refs": non_selected_refs,
+                }
+            )
+    return violations
 
 
 def evaluate_fixture_assertion(
