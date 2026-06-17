@@ -1,0 +1,10 @@
+Rollback point for github-growth-20260617T060315.771096Z
+
+Original branch: codex/blackhole-evolve/20260617T060429.649006-add-or-improve-a-local-issue-triage-workflow-pat
+Original HEAD: 9d5473e9d6a5f6530abbbd73b000c5621229984d
+Rollback ref: refs/rollback/20260617T060315Z-codex_blackhole-evolve_20260617T060429.649006-add-or-improve-a-local-issue-triage-workflow-pat
+
+Recovery commands (explicit/destructive):
+  git reset --hard 9d5473e9d6a5f6530abbbd73b000c5621229984d
+  git clean -fd
+  git switch codex/blackhole-evolve/20260617T060429.649006-add-or-improve-a-local-issue-triage-workflow-pat
