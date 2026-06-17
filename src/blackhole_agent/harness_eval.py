@@ -260,12 +260,37 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
     """Run proposal interpretation from a local harness fixture and emit strict JSON."""
 
     from blackhole_agent.proposal_eval import run_proposal_replay_case
+    from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
 
     case = dict(raw_input)
     case.setdefault("name", source_path.stem)
+    digest = raw_input.get("digest") if isinstance(raw_input.get("digest"), dict) else {}
+    raw_response = raw_input.get("raw_response")
+    raw_text = json.dumps(raw_response) if isinstance(raw_response, dict) else str(raw_response or "")
+    options = raw_input.get("options") if isinstance(raw_input.get("options"), dict) else {}
+    evidence_package = build_proposal_evidence_package(
+        digest,
+        self_model_snapshot=options.get("self_model_snapshot")
+        if isinstance(options.get("self_model_snapshot"), dict)
+        else None,
+        max_items=int(options.get("max_items") or 20),
+        max_item_text_chars=int(options.get("max_item_text_chars") or 1200),
+        max_self_model_chars=int(options.get("max_self_model_chars") or 4000),
+    )
+    review = review_llm_proposal_response(
+        raw_text,
+        evidence_package,
+        mode=str(raw_input.get("mode") or "hybrid"),
+    )
     result = run_proposal_replay_case(case)
-    accepted_candidates = accepted_candidate_refs(raw_input)
-    supplied_item_ids = digest_item_ids(raw_input.get("digest"))
+    accepted_candidates = [
+        {
+            "proposal_id": str(candidate.get("proposal_id") or ""),
+            "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
+        }
+        for candidate in review.accepted_candidates
+    ]
+    supplied_item_ids = digest_item_ids(digest)
     selected_item_ids = [str(item_id) for item_id in result.selected_item_ids]
     evidence_ref_violations = collect_evidence_ref_violations(
         accepted_candidates,
@@ -273,6 +298,9 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
         selected_item_ids=selected_item_ids,
     )
     passed = result.passed and not evidence_ref_violations
+    proposals = raw_response.get("proposals") if isinstance(raw_response, dict) else []
+    proposal_count = len(proposals) if isinstance(proposals, list) else 0
+    max_proposals = int(evidence_package.get("policy", {}).get("max_proposals") or 5)
 
     return {
         "schema_version": 1,
@@ -281,8 +309,14 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
         "passed": passed,
         "failure_mode": "none" if passed else "proposal_interpretation_failed",
         "review_status": result.review_status,
+        "review_reason": review.reason,
         "accepted_count": result.accepted_count,
         "rejected_count": result.rejected_count,
+        "proposal_policy": {
+            "max_proposals": max_proposals,
+            "supplied_proposal_count": proposal_count,
+            "within_max_proposals": proposal_count <= max_proposals,
+        },
         "selected_item_ids": selected_item_ids,
         "truncated_item_ids": [str(item_id) for item_id in result.truncated_item_ids],
         "evidence_ref_policy": {

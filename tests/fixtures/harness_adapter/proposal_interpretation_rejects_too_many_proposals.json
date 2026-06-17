@@ -1,0 +1,149 @@
+{
+  "name": "proposal-interpretation-rejects-too-many-proposals",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-rejects-too-many-proposals",
+    "mode": "hybrid",
+    "digest": {
+      "digest_id": "fixture-agent-harness-max-proposals",
+      "generated_at": "2026-06-17T04:43:15Z",
+      "items": [
+        {
+          "item_id": "agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: repeatable benchmark harness with smoke and full runs.",
+          "relevance_reason": "Supports frozen local proposal evaluation fixtures.",
+          "risk_flags": [],
+          "confidence": 0.92
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-harness-max-proposals",
+      "run_interpretation": "The adapter should expose max_proposals enforcement as body-free metadata.",
+      "self_model_reading": {
+        "status": "left_unchanged"
+      },
+      "proposals": [
+        {
+          "proposal_id": "proposal-1",
+          "kind": "test",
+          "summary": "Proposal one.",
+          "evidence_refs": [
+            "agent-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Validate proposal count handling with a local test.",
+          "rationale": "Frozen fixtures should enforce policy limits.",
+          "uncertainty": "This is a count-boundary fixture.",
+          "self_effect": "Exercises the proposal limit.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "proposal-2",
+          "kind": "test",
+          "summary": "Proposal two.",
+          "evidence_refs": [
+            "agent-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Validate proposal count handling with a local test.",
+          "rationale": "Frozen fixtures should enforce policy limits.",
+          "uncertainty": "This is a count-boundary fixture.",
+          "self_effect": "Exercises the proposal limit.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "proposal-3",
+          "kind": "test",
+          "summary": "Proposal three.",
+          "evidence_refs": [
+            "agent-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Validate proposal count handling with a local test.",
+          "rationale": "Frozen fixtures should enforce policy limits.",
+          "uncertainty": "This is a count-boundary fixture.",
+          "self_effect": "Exercises the proposal limit.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "proposal-4",
+          "kind": "test",
+          "summary": "Proposal four.",
+          "evidence_refs": [
+            "agent-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Validate proposal count handling with a local test.",
+          "rationale": "Frozen fixtures should enforce policy limits.",
+          "uncertainty": "This is a count-boundary fixture.",
+          "self_effect": "Exercises the proposal limit.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "proposal-5",
+          "kind": "test",
+          "summary": "Proposal five.",
+          "evidence_refs": [
+            "agent-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Validate proposal count handling with a local test.",
+          "rationale": "Frozen fixtures should enforce policy limits.",
+          "uncertainty": "This is a count-boundary fixture.",
+          "self_effect": "Exercises the proposal limit.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "proposal-6",
+          "kind": "test",
+          "summary": "Proposal six.",
+          "evidence_refs": [
+            "agent-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Validate proposal count handling with a local test.",
+          "rationale": "Frozen fixtures should enforce policy limits.",
+          "uncertainty": "This is a count-boundary fixture.",
+          "self_effect": "Exercises the proposal limit.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "rejected",
+      "accepted_count": 0,
+      "rejected_count": 0
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "rejected"
+    },
+    {
+      "path": "review_reason",
+      "equals": "proposal count exceeds max_proposals=5"
+    },
+    {
+      "path": "proposal_policy.max_proposals",
+      "equals": 5
+    },
+    {
+      "path": "proposal_policy.supplied_proposal_count",
+      "equals": 6
+    },
+    {
+      "path": "proposal_policy.within_max_proposals",
+      "equals": false
+    }
+  ]
+}

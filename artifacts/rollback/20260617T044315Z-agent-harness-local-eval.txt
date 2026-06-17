@@ -1,0 +1,11 @@
+Rollback point for blackhole-agent self-evolution run
+
+Original branch: codex/blackhole-evolve/20260617T044405.681018-add-or-extend-a-local-agent-harness-evaluation-p
+Original HEAD: cabf57b50b775c4dcdc979fa8d8fc28ed8691dae
+Local rollback ref: refs/rollback/blackhole-agent/20260617T044315Z
+
+Recovery commands (destructive; operator/supervisor only):
+  git reset --hard cabf57b50b775c4dcdc979fa8d8fc28ed8691dae
+  git clean -fd
+
+Created before edits for Source digest github-growth-20260617T044315.776051Z.

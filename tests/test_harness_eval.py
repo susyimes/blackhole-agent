@@ -116,8 +116,8 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     assert reparsed == payload
     assert payload["suite_name"] == "fixture-harness-adapter"
-    assert payload["fixture_count"] == 2
-    assert payload["pass_count"] == 2
+    assert payload["fixture_count"] == 4
+    assert payload["pass_count"] == 4
     assert payload["fail_count"] == 0
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert "fixture-agent-harness-adapter" not in serialized
@@ -126,11 +126,17 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     results = {result["name"]: result for result in payload["results"]}
     accepted = results["proposal-interpretation-accepts-item-refs"]
     rejected = results["proposal-interpretation-rejects-url-refs"]
+    boundary = results["proposal-interpretation-policy-boundary"]
+    max_proposals = results["proposal-interpretation-rejects-too-many-proposals"]
 
     assert accepted["passed"] is True
     assert rejected["passed"] is True
+    assert boundary["passed"] is True
+    assert max_proposals["passed"] is True
     assert all(assertion["passed"] for assertion in accepted["assertions"])
     assert all(assertion["passed"] for assertion in rejected["assertions"])
+    assert all(assertion["passed"] for assertion in boundary["assertions"])
+    assert all(assertion["passed"] for assertion in max_proposals["assertions"])
 
 
 def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_ids():

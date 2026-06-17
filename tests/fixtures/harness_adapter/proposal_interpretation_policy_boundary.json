@@ -1,0 +1,242 @@
+{
+  "name": "proposal-interpretation-policy-boundary",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-policy-boundary",
+    "mode": "hybrid",
+    "options": {
+      "max_items": 5,
+      "max_item_text_chars": 260
+    },
+    "digest": {
+      "digest_id": "fixture-agent-harness-policy-boundary",
+      "generated_at": "2026-06-17T04:43:15Z",
+      "items": [
+        {
+          "item_id": "agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: repeatable benchmark harness with smoke and full runs.",
+          "relevance_reason": "Supports frozen local proposal evaluation fixtures.",
+          "risk_flags": [],
+          "confidence": 0.92
+        },
+        {
+          "item_id": "opencode-harness",
+          "source_url": "https://github.com/samarailly51-pixel/opencode-harness",
+          "event_kind": "RepositoryTrend",
+          "summary": "opencode-harness: model-agnostic coding-agent harness with traces and reports.",
+          "relevance_reason": "Supports strict JSON adapter output and failure classification.",
+          "risk_flags": [],
+          "confidence": 0.9
+        },
+        {
+          "item_id": "provider-preflight",
+          "source_url": "https://github.com/omnigent-ai/omnigent",
+          "event_kind": "RepositoryTrend",
+          "summary": "omnigent-ai/omnigent: provider coordination evidence for early config checks.",
+          "relevance_reason": "Supports local configuration completeness tests that do not reveal values.",
+          "risk_flags": [],
+          "confidence": 0.82
+        },
+        {
+          "item_id": "privacy-route",
+          "source_url": "https://github.com/omnigent-ai/omnigent",
+          "event_kind": "RepositoryTrend",
+          "summary": "omnigent-ai/omnigent: boundary evidence for routes that could expose secrets.",
+          "relevance_reason": "Only privacy-leakage behavior should move to human review.",
+          "risk_flags": [
+            "privacy-leakage"
+          ],
+          "confidence": 0.76
+        },
+        {
+          "item_id": "security-harness",
+          "source_url": "https://github.com/visa/visa-vulnerability-agentic-harness",
+          "event_kind": "RepositoryTrend",
+          "summary": "visa/visa-vulnerability-agentic-harness: security-adjacent benchmark evidence.",
+          "relevance_reason": "Offensive or unauthorized-access behavior remains review-only.",
+          "risk_flags": [
+            "offensive-behavior"
+          ],
+          "confidence": 0.72
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-harness-policy-boundary",
+      "run_interpretation": "Frozen harness fixtures should validate citation, proposal-count, and narrow safety boundary behavior.",
+      "self_model_reading": {
+        "status": "left_unchanged"
+      },
+      "proposals": [
+        {
+          "proposal_id": "local-harness-fixture",
+          "kind": "test",
+          "summary": "Add local harness fixtures for replaying proposal interpretation.",
+          "evidence_refs": [
+            "agent-harness",
+            "opencode-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add focused tests for schema validity and item-id citation discipline.",
+          "rationale": "The harness evidence emphasizes reproducible local runs and structured reports.",
+          "uncertainty": "The fixture covers the local interpreter contract rather than every upstream feature.",
+          "self_effect": "Makes future proposal interpretation drift visible.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "provider-config-check",
+          "kind": "test",
+          "summary": "Validate provider configuration completeness without recording values.",
+          "evidence_refs": [
+            "provider-preflight"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add local checks for missing provider settings using placeholder metadata only.",
+          "rationale": "Configuration completeness is useful when it avoids storing sensitive values.",
+          "uncertainty": "This fixture does not implement provider routing changes.",
+          "self_effect": "Keeps provider preflight as a locally testable route.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "privacy-boundary-review",
+          "kind": "follow_up_issue",
+          "summary": "Keep proposals that could expose secrets in human review.",
+          "evidence_refs": [
+            "privacy-route"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Review privacy-leakage behavior only; do not expose, log, print, upload, publish, or share tokens, credentials, secrets, private keys, private chats, PII, or personal data.",
+          "rationale": "The evidence item carries a privacy-leakage flag and must not become an autonomous patch.",
+          "uncertainty": "The route is represented only as boundary metadata.",
+          "self_effect": "Preserves the narrow privacy boundary.",
+          "action_lane": "reviewable_proposal_only"
+        },
+        {
+          "proposal_id": "offensive-boundary-review",
+          "kind": "follow_up_issue",
+          "summary": "Keep offensive benchmark behavior in human review.",
+          "evidence_refs": [
+            "security-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Keep offensive or abuse-enabling behavior review-only; do not implement attack, exploit, malware, phishing, exfiltration, or unauthorized-access behavior.",
+          "rationale": "The evidence item carries an offensive-behavior flag and should only affect review metadata.",
+          "uncertainty": "The fixture does not implement security benchmark behavior.",
+          "self_effect": "Preserves the narrow offensive-behavior boundary.",
+          "action_lane": "reviewable_proposal_only"
+        },
+        {
+          "proposal_id": "benign-report-metadata",
+          "kind": "documentation",
+          "summary": "Document body-free harness report metadata.",
+          "evidence_refs": [
+            "opencode-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Verify the adapter output remains strict JSON and omits raw fixture input bodies.",
+          "rationale": "Structured report metadata is useful for auditability without expanding safety review.",
+          "uncertainty": "Documentation is secondary to the executable fixture.",
+          "self_effect": "Keeps harness reports legible.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "accepted",
+      "accepted_count": 5,
+      "rejected_count": 0,
+      "accepted_evidence_refs": {
+        "local-harness-fixture": [
+          "agent-harness",
+          "opencode-harness"
+        ],
+        "provider-config-check": [
+          "provider-preflight"
+        ],
+        "privacy-boundary-review": [
+          "privacy-route"
+        ],
+        "offensive-boundary-review": [
+          "security-harness"
+        ],
+        "benign-report-metadata": [
+          "opencode-harness"
+        ]
+      },
+      "proposal_controls": {
+        "local-harness-fixture": {
+          "kind": "test",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        },
+        "provider-config-check": {
+          "kind": "test",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        },
+        "privacy-boundary-review": {
+          "kind": "follow_up_issue",
+          "risk_flags": [
+            "privacy-leakage"
+          ],
+          "implementation_scope": "reviewable_proposal_only",
+          "validation_gate": "privacy-leakage-human-review"
+        },
+        "offensive-boundary-review": {
+          "kind": "follow_up_issue",
+          "risk_flags": [
+            "offensive-behavior"
+          ],
+          "implementation_scope": "reviewable_proposal_only",
+          "validation_gate": "offensive-behavior-human-review"
+        },
+        "benign-report-metadata": {
+          "kind": "documentation",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        }
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "proposal_policy.max_proposals",
+      "equals": 5
+    },
+    {
+      "path": "proposal_policy.supplied_proposal_count",
+      "equals": 5
+    },
+    {
+      "path": "proposal_policy.within_max_proposals",
+      "equals": true
+    },
+    {
+      "path": "evidence_ref_violations",
+      "equals": []
+    },
+    {
+      "path": "proposal_controls.privacy-boundary-review.implementation_scope",
+      "equals": "reviewable_proposal_only"
+    },
+    {
+      "path": "proposal_controls.offensive-boundary-review.validation_gate",
+      "equals": "offensive-behavior-human-review"
+    },
+    {
+      "path": "proposal_controls.provider-config-check.implementation_scope",
+      "equals": "local_validation_candidate"
+    }
+  ]
+}
