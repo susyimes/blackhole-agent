@@ -1,0 +1,107 @@
+{
+  "name": "proposal-interpretation-rejects-truncated-refs",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-rejects-truncated-refs",
+    "mode": "hybrid",
+    "options": {
+      "max_items": 1,
+      "max_item_text_chars": 240
+    },
+    "digest": {
+      "digest_id": "fixture-agent-harness-truncated-ref",
+      "generated_at": "2026-06-17T07:03:15Z",
+      "items": [
+        {
+          "item_id": "agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: repeatable benchmark harness with smoke and full runs.",
+          "relevance_reason": "Supports selected repository-trend evidence in local replay fixtures.",
+          "risk_flags": [],
+          "confidence": 0.95
+        },
+        {
+          "item_id": "truncated-extra",
+          "source_url": "https://github.com/example/truncated-extra",
+          "event_kind": "IssuesEvent",
+          "summary": "example/truncated-extra: low-confidence follow-up note omitted by context budget.",
+          "relevance_reason": "This item must not be citable when it is outside selected_item_ids.",
+          "risk_flags": [],
+          "confidence": 0.1
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-harness-truncated-ref",
+      "run_interpretation": "The adapter should reject citations outside the selected context budget.",
+      "self_model_reading": {
+        "status": "left_unchanged"
+      },
+      "proposals": [
+        {
+          "proposal_id": "bad-truncated-ref",
+          "kind": "test",
+          "summary": "This candidate incorrectly cites an item omitted by the context budget.",
+          "evidence_refs": [
+            "truncated-extra"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Add unit tests for selected item-id citation discipline.",
+          "rationale": "Frozen fixtures should make context-budget citation drift visible.",
+          "uncertainty": "This is a negative contract fixture for omitted evidence.",
+          "self_effect": "Protects proposal interpretation evidence scoping.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "rejected",
+      "accepted_count": 0,
+      "rejected_count": 1,
+      "selected_item_ids": [
+        "agent-harness"
+      ],
+      "truncated_item_ids": [
+        "truncated-extra"
+      ],
+      "rejected_error_substrings": [
+        "evidence_refs contain unknown item ids: truncated-extra"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "rejected"
+    },
+    {
+      "path": "selected_item_ids",
+      "equals": [
+        "agent-harness"
+      ]
+    },
+    {
+      "path": "truncated_item_ids",
+      "equals": [
+        "truncated-extra"
+      ]
+    },
+    {
+      "path": "rejected_errors",
+      "equals": [
+        "evidence_refs contain unknown item ids: truncated-extra"
+      ]
+    },
+    {
+      "path": "evidence_ref_policy.citation_scope",
+      "equals": "selected_item_ids_only"
+    }
+  ]
+}

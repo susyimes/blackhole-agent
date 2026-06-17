@@ -1,0 +1,51 @@
+{
+  "name": "proposal-interpretation-rejects-malformed-json",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-rejects-malformed-json",
+    "mode": "hybrid",
+    "digest": {
+      "digest_id": "fixture-agent-harness-malformed-json",
+      "generated_at": "2026-06-17T07:03:15Z",
+      "items": [
+        {
+          "item_id": "agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: repeatable benchmark harness with smoke and full runs.",
+          "relevance_reason": "Supports frozen local proposal evaluation fixtures.",
+          "risk_flags": [],
+          "confidence": 0.92
+        }
+      ]
+    },
+    "raw_response": "{not valid json",
+    "expected": {
+      "status": "rejected",
+      "accepted_count": 0,
+      "rejected_count": 0
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "rejected"
+    },
+    {
+      "path": "accepted_count",
+      "equals": 0
+    },
+    {
+      "path": "rejected_count",
+      "equals": 0
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

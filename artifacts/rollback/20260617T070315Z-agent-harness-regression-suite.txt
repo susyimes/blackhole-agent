@@ -1,0 +1,18 @@
+Rollback point for Source digest github-growth-20260617T070315.672951Z
+
+Original branch:
+codex/blackhole-evolve/20260617T070424.098146-add-or-extend-a-local-agent-harness-style-regres
+
+Original HEAD:
+8a21eac28e57506160c1ffd580847267dbf603a2
+
+Local rollback ref:
+refs/rollback/blackhole-agent/20260617T070315Z
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260617T070424.098146-add-or-extend-a-local-agent-harness-style-regres
+git reset --hard refs/rollback/blackhole-agent/20260617T070315Z
+
+Notes:
+- Rollback execution is destructive and must be chosen by a human operator or supervisor policy.
+- Do not delete this artifact during the run that created it.

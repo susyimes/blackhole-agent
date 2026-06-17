@@ -116,8 +116,8 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     assert reparsed == payload
     assert payload["suite_name"] == "fixture-harness-adapter"
-    assert payload["fixture_count"] == 4
-    assert payload["pass_count"] == 4
+    assert payload["fixture_count"] == 6
+    assert payload["pass_count"] == 6
     assert payload["fail_count"] == 0
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert "fixture-agent-harness-adapter" not in serialized
@@ -125,16 +125,22 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     results = {result["name"]: result for result in payload["results"]}
     accepted = results["proposal-interpretation-accepts-item-refs"]
+    malformed_json = results["proposal-interpretation-rejects-malformed-json"]
     rejected = results["proposal-interpretation-rejects-url-refs"]
+    truncated = results["proposal-interpretation-rejects-truncated-refs"]
     boundary = results["proposal-interpretation-policy-boundary"]
     max_proposals = results["proposal-interpretation-rejects-too-many-proposals"]
 
     assert accepted["passed"] is True
+    assert malformed_json["passed"] is True
     assert rejected["passed"] is True
+    assert truncated["passed"] is True
     assert boundary["passed"] is True
     assert max_proposals["passed"] is True
     assert all(assertion["passed"] for assertion in accepted["assertions"])
+    assert all(assertion["passed"] for assertion in malformed_json["assertions"])
     assert all(assertion["passed"] for assertion in rejected["assertions"])
+    assert all(assertion["passed"] for assertion in truncated["assertions"])
     assert all(assertion["passed"] for assertion in boundary["assertions"])
     assert all(assertion["passed"] for assertion in max_proposals["assertions"])
 
@@ -151,6 +157,27 @@ def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_i
         source_path=fixture_path,
     )
 
+    assert list(output) == [
+        "schema_version",
+        "behavior",
+        "name",
+        "passed",
+        "failure_mode",
+        "review_status",
+        "review_reason",
+        "accepted_count",
+        "rejected_count",
+        "proposal_policy",
+        "selected_item_ids",
+        "truncated_item_ids",
+        "evidence_ref_policy",
+        "accepted_candidates",
+        "evidence_ref_violations",
+        "proposal_controls",
+        "proposal_validation_preflights",
+        "rejected_errors",
+        "failures",
+    ]
     assert output["schema_version"] == 1
     assert output["behavior"] == "proposal_interpretation"
     assert output["passed"] is True
