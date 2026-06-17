@@ -134,6 +134,7 @@ class ToolCallPolicyResult:
 
     allowed: bool
     reason: str = ""
+    review_required: bool = False
 
 
 ToolCallPolicyEvaluator = Callable[[ToolDescriptor], bool | ToolCallPolicyResult]
@@ -158,12 +159,12 @@ def route_tool_descriptor(
             reasons=tuple(f"review_only_risk:{flag}" for flag in risky_flags),
         )
 
-    policy_denial_reason = evaluate_tool_call_policy(descriptor, tool_call_policy_evaluator)
-    if policy_denial_reason is not None:
+    policy_route, policy_reason = evaluate_tool_call_policy_route(descriptor, tool_call_policy_evaluator)
+    if policy_route is not None:
         return ToolRouteDecision(
             descriptor=descriptor,
-            route=DENIED_TOOL_ROUTE,
-            reasons=(policy_denial_reason,),
+            route=policy_route,
+            reasons=(policy_reason,),
         )
 
     if descriptor.provider not in set(executable_providers):
@@ -184,22 +185,42 @@ def evaluate_tool_call_policy(
 ) -> str | None:
     """Return a fail-closed denial reason when a connector policy gate does not allow a tool."""
 
+    route, reason = evaluate_tool_call_policy_route(descriptor, evaluator)
+    if route == DENIED_TOOL_ROUTE:
+        return reason
+    return None
+
+
+def evaluate_tool_call_policy_route(
+    descriptor: ToolDescriptor,
+    evaluator: ToolCallPolicyEvaluator | None,
+) -> tuple[str | None, str]:
+    """Return a fail-closed route and reason for connector policy evaluation."""
+
     if evaluator is None:
-        return None
+        return None, ""
     try:
         result = evaluator(descriptor.for_policy_evaluation())
     except TimeoutError:
-        return "policy_evaluation_timeout"
+        return DENIED_TOOL_ROUTE, "policy_evaluation_timeout"
     except Exception as error:
-        return f"policy_evaluation_error:{type(error).__name__}"
+        return DENIED_TOOL_ROUTE, f"policy_evaluation_error:{type(error).__name__}"
 
     if isinstance(result, ToolCallPolicyResult):
-        if result.allowed:
-            return None
-        return f"policy_denied:{result.reason or 'unspecified'}"
+        if not isinstance(result.allowed, bool):
+            return DENIED_TOOL_ROUTE, "policy_evaluation_malformed:allowed"
+        if not isinstance(result.review_required, bool):
+            return DENIED_TOOL_ROUTE, "policy_evaluation_malformed:review_required"
+        if not result.allowed:
+            return DENIED_TOOL_ROUTE, f"policy_denied:{result.reason or 'unspecified'}"
+        if result.review_required:
+            return REVIEW_ONLY_TOOL_ROUTE, f"policy_review_required:{result.reason or 'unspecified'}"
+        return None, ""
     if result is True:
-        return None
-    return "policy_denied:unspecified"
+        return None, ""
+    if result is False:
+        return DENIED_TOOL_ROUTE, "policy_denied:unspecified"
+    return DENIED_TOOL_ROUTE, f"policy_evaluation_malformed:{type(result).__name__}"
 
 
 def route_tool_descriptors(

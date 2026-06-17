@@ -167,6 +167,28 @@ def test_tool_call_policy_evaluator_denies_before_executable_registry():
     assert registry == {}
 
 
+def test_tool_call_policy_evaluator_can_request_review_before_registry():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    decision = route_tool_descriptor(
+        descriptor,
+        tool_call_policy_evaluator=lambda _descriptor: ToolCallPolicyResult(True, "operator_ask", review_required=True),
+    )
+    registry = executable_tool_registry(
+        [descriptor],
+        tool_call_policy_evaluator=lambda _descriptor: ToolCallPolicyResult(
+            True,
+            "operator_ask",
+            review_required=True,
+        ),
+    )
+
+    assert decision.route == REVIEW_ONLY_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_review_required:operator_ask",)
+    assert registry == {}
+
+
 def test_tool_call_policy_evaluator_denies_wrapped_tool_by_declared_policy_name():
     descriptor = ToolDescriptor(
         name="sys_session_send",
@@ -239,6 +261,21 @@ def test_tool_call_policy_evaluator_errors_fail_closed():
     assert registry == {}
 
 
+def test_tool_call_policy_evaluator_connection_failures_fail_closed():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    def unavailable_policy(_descriptor):
+        raise ConnectionError("policy server unreachable")
+
+    decision = route_tool_descriptor(descriptor, tool_call_policy_evaluator=unavailable_policy)
+    registry = executable_tool_registry([descriptor], tool_call_policy_evaluator=unavailable_policy)
+
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_evaluation_error:ConnectionError",)
+    assert registry == {}
+
+
 def test_tool_call_policy_evaluator_timeouts_fail_closed():
     descriptor = ToolDescriptor(name="connector_tool", provider="local")
 
@@ -251,6 +288,42 @@ def test_tool_call_policy_evaluator_timeouts_fail_closed():
     assert decision.route == DENIED_TOOL_ROUTE
     assert decision.executable is False
     assert decision.reasons == ("policy_evaluation_timeout",)
+    assert registry == {}
+
+
+def test_tool_call_policy_evaluator_malformed_results_fail_closed():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    decision = route_tool_descriptor(
+        descriptor,
+        tool_call_policy_evaluator=lambda _descriptor: {"allowed": True},
+    )
+    registry = executable_tool_registry(
+        [descriptor],
+        tool_call_policy_evaluator=lambda _descriptor: {"allowed": True},
+    )
+
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_evaluation_malformed:dict",)
+    assert registry == {}
+
+
+def test_tool_call_policy_evaluator_malformed_allowed_field_fails_closed():
+    descriptor = ToolDescriptor(name="connector_tool", provider="local")
+
+    decision = route_tool_descriptor(
+        descriptor,
+        tool_call_policy_evaluator=lambda _descriptor: ToolCallPolicyResult("false", "malformed"),  # type: ignore[arg-type]
+    )
+    registry = executable_tool_registry(
+        [descriptor],
+        tool_call_policy_evaluator=lambda _descriptor: ToolCallPolicyResult("false", "malformed"),  # type: ignore[arg-type]
+    )
+
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_evaluation_malformed:allowed",)
     assert registry == {}
 
 

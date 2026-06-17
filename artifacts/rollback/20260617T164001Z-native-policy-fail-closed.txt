@@ -1,0 +1,19 @@
+Rollback point for native policy fail-closed self-evolution
+
+Source digest: github-growth-20260617T164001.625529Z
+Proposal: p1-native-harness-policy-fail-closed
+Original branch: codex/blackhole-evolve/20260617T164143.987138-add-or-strengthen-native-harness-policy-hook-beh
+Original HEAD: f75f1ec735d079c17c48fd9387f33cc0b5902c8f
+Rollback ref: refs/rollback/20260617T164001-native-policy-fail-closed
+
+Recovery commands, to run only after an explicit rollback decision:
+
+git switch codex/blackhole-evolve/20260617T164143.987138-add-or-strengthen-native-harness-policy-hook-beh
+git reset --hard refs/rollback/20260617T164001-native-policy-fail-closed
+git clean -fd
+
+Evidence reviewed:
+- https://github.com/omnigent-ai/omnigent/issues/536
+
+Hypothesis:
+Native or connector policy hooks must fail closed when evaluation is unavailable, slow, invalid, or ambiguous. A governed tool route should deny or require review instead of silently continuing when policy evaluation cannot produce a trustworthy allow verdict.

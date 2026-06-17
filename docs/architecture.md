@@ -170,6 +170,8 @@ The same module also provides a small local eval adapter for deterministic JSON 
 
 Codex mutation uses a separate provider/config preflight before `codex exec` starts. Controller and supervisor Codex mode require an explicit `--model` or `--profile` by default, write `latest-codex-provider-preflight.json`, and include the route selector in run manifests. This prevents an unpinned agent head from silently falling through to an unintended CLI default provider; `--allow-default-codex-route` keeps the old implicit route available when an operator chooses it deliberately.
 
+Connector-native tool policy evaluation is fail-closed. A timeout, exception, unreachable policy service, malformed result object, or malformed `ToolCallPolicyResult` field keeps the tool out of the executable registry. DENY verdicts route to `denied`; ASK-style verdicts set `review_required` and route to `review_only` rather than executing silently.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:
