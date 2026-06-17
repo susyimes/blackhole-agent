@@ -83,6 +83,7 @@ Run the local Codex CLI kernel on a prepared branch:
 uv run blackhole \
   --trend-query "agent language:Python" \
   --evolution-mode codex \
+  --model gpt-5.5 \
   --repo-path . \
   --branch-prefix codex/blackhole-evolve
 ```
@@ -198,6 +199,8 @@ uv run blackhole-supervisor \
 ```
 
 The preflight records only env var names and boolean presence; token values are not written to diagnostics or artifacts.
+
+Codex mutation routes are also checked before execution. By default, `codex` mode requires either `--model` or `--profile` so a wake cannot silently use an unintended CLI default provider. Operators who intentionally want the Codex CLI default route can pass `--allow-default-codex-route`; the preflight artifact still records that the route was implicit without recording secrets or profile values.
 
 For a half-hour local experiment:
 

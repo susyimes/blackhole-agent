@@ -25,6 +25,7 @@ def test_build_wake_command_launches_one_shot_child(tmp_path):
         repo_path=tmp_path,
         output_dir=tmp_path / "supervisor",
         evolution_mode="codex",
+        model="gpt-5.5",
         extra_instruction="prefer tests",
     )
 
@@ -42,6 +43,8 @@ def test_build_wake_command_launches_one_shot_child(tmp_path):
     assert command[command.index("--proposal-mode") + 1] == "hybrid"
     assert command[command.index("--proposal-timeout-seconds") + 1] == "180"
     assert Path(command[command.index("--self-model-path") + 1]).parts == ("docs", "self-model.md")
+    assert command[command.index("--model") + 1] == "gpt-5.5"
+    assert "--require-codex-route" in command
     assert "--force-evolve" in command
     assert "--ignore-user-config" in command
     extra_instruction = command[command.index("--extra-instruction") + 1]
@@ -456,7 +459,8 @@ def test_provider_config_preflight_reports_missing_required_token_without_value(
     assert preflight["token_env_present"] is False
     assert preflight["token_value_recorded"] is False
     assert preflight["diagnostics"] == [
-        "required token environment variable is not set or empty: BLACKHOLE_TEST_TOKEN"
+        "required token environment variable is not set or empty: BLACKHOLE_TEST_TOKEN",
+        "codex mode requires an explicit --model or --profile to avoid implicit provider fallback",
     ]
 
 
@@ -466,6 +470,7 @@ def test_provider_config_preflight_never_records_token_value(tmp_path, monkeypat
         repo_path=tmp_path,
         token_env="BLACKHOLE_TEST_TOKEN",
         require_token_env=True,
+        model="gpt-5.5",
     )
 
     preflight = build_provider_config_preflight(config)
@@ -474,11 +479,26 @@ def test_provider_config_preflight_never_records_token_value(tmp_path, monkeypat
     assert preflight["ok"] is True
     assert preflight["token_env_present"] is True
     assert preflight["token_value_recorded"] is False
+    assert preflight["codex"]["route_selector"] == "model"
     assert "secret-token-value" not in rendered
 
 
+def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling(tmp_path):
+    config = SupervisorConfig(repo_path=tmp_path)
+
+    preflight = build_provider_config_preflight(config)
+
+    assert preflight["ok"] is False
+    assert preflight["codex"]["selected_provider"] == "codex_cli"
+    assert preflight["codex"]["route_selector"] == "implicit_default"
+    assert preflight["codex"]["profile_value_recorded"] is False
+    assert preflight["diagnostics"] == [
+        "codex mode requires an explicit --model or --profile to avoid implicit provider fallback"
+    ]
+
+
 def test_validate_supervisor_config_rejects_malformed_token_env_before_scheduling(tmp_path):
-    config = SupervisorConfig(repo_path=tmp_path, token_env="GITHUB TOKEN")
+    config = SupervisorConfig(repo_path=tmp_path, token_env="GITHUB TOKEN", model="gpt-5.5")
 
     with pytest.raises(ValueError, match="provider/config/token preflight failed"):
         validate_supervisor_config(config)
@@ -663,7 +683,7 @@ def test_run_wake_once_does_not_commit_or_promote_failed_pass(tmp_path):
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    config = SupervisorConfig(repo_path=repo, output_dir=repo / ".blackhole-agent" / "supervisor")
+    config = SupervisorConfig(repo_path=repo, output_dir=repo / ".blackhole-agent" / "supervisor", model="gpt-5.5")
     record = run_wake_once(config, command_runner=runner)
 
     assert record.returncode == 3

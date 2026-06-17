@@ -163,6 +163,8 @@ The same module also provides a small local eval adapter for deterministic JSON 
 
 `proposal_interpretation` fixtures adapt small agent task cases into the frozen proposal interpreter. Their JSON output records review status, selected item IDs, accepted proposal IDs, validation preflight metadata, and evidence-ref policy without exporting the raw digest or model response. Accepted `evidence_refs` are checked against the supplied digest `item_id` values and the selected context item IDs, so URL citations or invented references remain rejected by local regression cases.
 
+Codex mutation uses a separate provider/config preflight before `codex exec` starts. Controller and supervisor Codex mode require an explicit `--model` or `--profile` by default, write `latest-codex-provider-preflight.json`, and include the route selector in run manifests. This prevents an unpinned agent head from silently falling through to an unintended CLI default provider; `--allow-default-codex-route` keeps the old implicit route available when an operator chooses it deliberately.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:

@@ -22,6 +22,7 @@ class CodexCliConfig:
     codex_bin: str = "codex"
     model: str | None = None
     profile: str | None = None
+    require_explicit_route: bool = False
     sandbox: str = "workspace-write"
     approval_policy: str = "never"
     ephemeral: bool = True
@@ -37,6 +38,7 @@ class CodexCliRunResult:
     """Result of one Codex CLI kernel invocation."""
 
     command: list[str]
+    provider_preflight: dict[str, Any]
     returncode: int
     timed_out: bool
     task_path: Path
@@ -71,6 +73,17 @@ class CodexCliKernel:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         task_path, last_message_path, result_path = allocate_run_artifact_paths(output_dir, timestamp)
         task_path.write_text(task, encoding="utf-8")
+        provider_preflight = build_codex_provider_preflight(self.config)
+        provider_preflight_path = output_dir / f"codex-provider-preflight-{timestamp}.json"
+        provider_preflight_text = json.dumps(provider_preflight, indent=2, sort_keys=True) + "\n"
+        provider_preflight_path.write_text(provider_preflight_text, encoding="utf-8")
+        (output_dir / "latest-codex-provider-preflight.json").write_text(
+            provider_preflight_text,
+            encoding="utf-8",
+        )
+        if not provider_preflight["ok"]:
+            diagnostics = "; ".join(str(item) for item in provider_preflight["diagnostics"])
+            raise ValueError(f"Codex provider/config preflight failed: {diagnostics}")
 
         command = build_codex_exec_command(
             self.config,
@@ -98,6 +111,7 @@ class CodexCliKernel:
         last_message = last_message_path.read_text(encoding="utf-8") if last_message_path.exists() else ""
         result = CodexCliRunResult(
             command=command,
+            provider_preflight=provider_preflight,
             returncode=returncode,
             timed_out=timed_out,
             task_path=task_path,
@@ -178,6 +192,41 @@ def build_codex_exec_command(
     command.extend(config.extra_args)
     command.append("-")
     return command
+
+
+def build_codex_provider_preflight(config: CodexCliConfig) -> dict[str, Any]:
+    """Return metadata-only diagnostics for the selected Codex execution route."""
+
+    model = str(config.model or "").strip()
+    profile = str(config.profile or "").strip()
+    has_model = bool(model)
+    has_profile = bool(profile)
+    if has_model and has_profile:
+        route_selector = "model_and_profile"
+    elif has_model:
+        route_selector = "model"
+    elif has_profile:
+        route_selector = "profile"
+    else:
+        route_selector = "implicit_default"
+    diagnostics: list[str] = []
+    if config.require_explicit_route and route_selector == "implicit_default":
+        diagnostics.append("codex mode requires an explicit --model or --profile to avoid implicit provider fallback")
+    return {
+        "schema_version": 1,
+        "ok": not diagnostics,
+        "diagnostics": diagnostics,
+        "provider": "codex",
+        "selected_provider": "codex_cli",
+        "route_selector": route_selector,
+        "model": model if has_model else None,
+        "model_present": has_model,
+        "profile_present": has_profile,
+        "profile_value_recorded": False,
+        "requires_explicit_route": config.require_explicit_route,
+        "implicit_default_route_allowed": not config.require_explicit_route,
+        "token_value_recorded": False,
+    }
 
 
 def serialize_run_result(result: CodexCliRunResult, *, cwd: Path) -> dict[str, Any]:

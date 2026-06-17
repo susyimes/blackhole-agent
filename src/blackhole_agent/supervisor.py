@@ -22,6 +22,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 
@@ -79,6 +80,7 @@ class SupervisorConfig:
     allow_dirty: bool = False
     model: str | None = None
     profile: str | None = None
+    require_codex_route: bool = True
     sandbox: str = "workspace-write"
     approval_policy: str = "never"
     ignore_user_config: bool = True
@@ -306,6 +308,7 @@ def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = Non
         command.extend(["--model", config.model])
     if config.profile:
         command.extend(["--profile", config.profile])
+    command.append("--require-codex-route" if config.require_codex_route else "--allow-default-codex-route")
     if config.sandbox:
         command.extend(["--sandbox", config.sandbox])
     if config.approval_policy:
@@ -1147,6 +1150,15 @@ def build_provider_config_preflight(
         diagnostics.append(f"token_env must be a valid environment variable name: {token_env_name!r}")
     elif config.require_token_env and not token_env_present:
         diagnostics.append(f"required token environment variable is not set or empty: {token_env_name}")
+    codex_preflight = build_codex_provider_preflight(
+        CodexCliConfig(
+            model=config.model,
+            profile=config.profile,
+            require_explicit_route=config.require_codex_route and config.evolution_mode == "codex",
+        )
+    )
+    if config.evolution_mode == "codex" and not codex_preflight["ok"]:
+        diagnostics.extend(str(item) for item in codex_preflight["diagnostics"])
     return {
         "schema_version": 1,
         "ok": not diagnostics,
@@ -1157,6 +1169,7 @@ def build_provider_config_preflight(
         "token_env_required": config.require_token_env,
         "token_env_present": token_env_present,
         "token_value_recorded": False,
+        "codex": codex_preflight,
     }
 
 
@@ -1608,6 +1621,7 @@ def main(
     allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow codex mode to start from a dirty worktree."),
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI."),
     profile: str | None = typer.Option(None, "--profile", help="Codex config profile."),
+    require_codex_route: bool = typer.Option(True, "--require-codex-route/--allow-default-codex-route", help="Require codex mode to pass an explicit --model or --profile instead of relying on the CLI default route."),
     sandbox: str = typer.Option("workspace-write", "--sandbox", help="Codex sandbox mode."),
     approval_policy: str = typer.Option("never", "--approval-policy", help="Legacy compatibility option."),
     ignore_user_config: bool = typer.Option(
@@ -1715,6 +1729,7 @@ def main(
         allow_dirty=allow_dirty,
         model=model,
         profile=profile,
+        require_codex_route=require_codex_route,
         sandbox=sandbox,
         approval_policy=approval_policy,
         ignore_user_config=ignore_user_config,

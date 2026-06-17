@@ -282,6 +282,8 @@ def test_cli_codex_mode_runs_terminal_driven_controller_journey(tmp_path, monkey
             "heuristic",
             "--codex-timeout-seconds",
             "12",
+            "--model",
+            "gpt-5.5",
             "--extra-instruction",
             "Keep this journey terminal-driven.",
         ],
@@ -293,6 +295,7 @@ def test_cli_codex_mode_runs_terminal_driven_controller_journey(tmp_path, monkey
     assert "Codex kernel exited with 0" in result.output
     assert codex_commands, "expected the controller to launch the Codex CLI kernel"
     assert "--sandbox" in codex_commands[0]
+    assert codex_commands[0][codex_commands[0].index("--model") + 1] == "gpt-5.5"
     assert "--ask-for-approval" not in codex_commands[0]
     assert any(call[:3] == ["git", "switch", "-c"] for call in calls)
 
@@ -2699,6 +2702,7 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert run_metadata["codex_cli"] == {
         "model": "gpt-5",
         "profile": "test-profile",
+        "require_explicit_route": True,
         "sandbox": "workspace-write",
         "approval_policy": "never",
         "ignore_user_config": True,
@@ -2711,6 +2715,7 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert manifest["target_head"] == "def456abc789"
     assert manifest["returncode"] == 0
     assert manifest["codex_cli"] == run_metadata["codex_cli"]
+    assert manifest["provider_preflight"]["route_selector"] == "model_and_profile"
     assert manifest["proposal_ids"] == ["p1"]
     assert manifest["replayable_validation_report"]["required_fields"] == [
         "evidence_urls",
@@ -2777,7 +2782,7 @@ def test_self_evolution_manifest_records_local_governance_controls(tmp_path):
             handle.write("codex done")
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
-    run_self_evolution_codex(plan, output_dir=tmp_path / "out", command_runner=runner)
+    run_self_evolution_codex(plan, output_dir=tmp_path / "out", model="gpt-5", command_runner=runner)
 
     manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
     assert manifest["proposal_controls"] == [
@@ -3461,7 +3466,7 @@ def test_self_evolution_manifest_records_privacy_leakage_safety_boundary(tmp_pat
             handle.write("codex done")
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
-    run_self_evolution_codex(plan, output_dir=tmp_path / "out", command_runner=runner)
+    run_self_evolution_codex(plan, output_dir=tmp_path / "out", model="gpt-5", command_runner=runner)
 
     manifest = json.loads((tmp_path / "out" / "latest-self-evolution-manifest.json").read_text(encoding="utf-8"))
     assert manifest["validation_gates"] == ["privacy-leakage-human-review"]
