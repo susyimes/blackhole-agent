@@ -1,0 +1,8 @@
+rollback_timestamp_utc=20260617T080551Z
+original_branch=codex/blackhole-evolve/20260617T080423.099793-improve-local-and-ci-validation-metadata-with-re
+original_head=6f26005fe97f634e0ac4077bd1fd2d8cdc1ebda6
+rollback_ref=refs/blackhole-rollback/20260617T080551Z
+recovery_commands=git switch codex/blackhole-evolve/20260617T080423.099793-improve-local-and-ci-validation-metadata-with-re; git reset --hard refs/blackhole-rollback/20260617T080551Z
+clean_command_optional=git clean -fd
+source_digest=github-growth-20260617T080315.706324Z
+proposal=p4-ci-validation-gates

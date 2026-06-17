@@ -645,6 +645,16 @@ def test_proposal_validation_preflight_marks_missing_test_coverage_as_gap_not_sa
     }
     assert control["autonomous_local_apply"] == "True"
     assert control["validation_preflight"] == preflight
+    assert control["review_metadata"]["reviewer_routes"] == [
+        "runtime-change-review",
+        "validation-maintainer-review",
+    ]
+    assert control["review_metadata"]["coverage_drop_signal"] == {
+        "applies": False,
+        "status_on_drop": "not-applicable",
+        "blocking": False,
+    }
+    assert control["review_metadata"]["bypass_label_guard"]["status"] == "passed"
 
 
 def test_proposal_validation_preflight_accepts_unit_test_or_coverage_validation():
@@ -715,6 +725,41 @@ def test_proposal_validation_preflight_keeps_privacy_route_blocked_by_safety_bou
     assert preflight["status"] == "blocked_by_safety_boundary"
     assert preflight["validation_gaps"] == []
     assert preflight["blocks_autonomous_apply"] is True
+
+
+def test_proposal_manifest_control_blocks_bypass_style_labels_and_routes_coverage_review():
+    proposal = {
+        "proposal_id": "coverage-drop-route",
+        "kind": "config",
+        "summary": "Improve local CI coverage metadata.",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "narrow-local-verification",
+        "validation_task": "Run coverage validation and signal coverage drop without blocking merge.",
+        "requires_approval": False,
+        "labels": ["force-merge", "ci-bypass", "enhancement"],
+    }
+
+    control = proposal_manifest_control(proposal)
+
+    assert control["autonomous_local_apply"] == "False (bypass-style labels are ignored and require review)"
+    assert control["review_metadata"] == {
+        "reviewer_routes": [
+            "coverage-review",
+            "runtime-change-review",
+            "validation-maintainer-review",
+        ],
+        "coverage_drop_signal": {
+            "applies": True,
+            "status_on_drop": "red-non-blocking",
+            "blocking": False,
+        },
+        "bypass_label_guard": {
+            "status": "blocked",
+            "blocked_labels": ["ci-bypass", "force-merge"],
+            "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+        },
+    }
 
 
 def test_llm_proposal_review_rejects_unknown_evidence_ref():
@@ -2748,6 +2793,19 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
                 "safety_block": False,
                 "blocks_autonomous_apply": False,
             },
+            "review_metadata": {
+                "reviewer_routes": ["general-maintainer-review"],
+                "coverage_drop_signal": {
+                    "applies": False,
+                    "status_on_drop": "not-applicable",
+                    "blocking": False,
+                },
+                "bypass_label_guard": {
+                    "status": "passed",
+                    "blocked_labels": [],
+                    "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+                },
+            },
         }
     ]
     assert manifest["validation_gates"] == []
@@ -2801,6 +2859,19 @@ def test_self_evolution_manifest_records_local_governance_controls(tmp_path):
                 "safety_block": False,
                 "blocks_autonomous_apply": False,
             },
+            "review_metadata": {
+                "reviewer_routes": ["validation-maintainer-review"],
+                "coverage_drop_signal": {
+                    "applies": False,
+                    "status_on_drop": "not-applicable",
+                    "blocking": False,
+                },
+                "bypass_label_guard": {
+                    "status": "passed",
+                    "blocked_labels": [],
+                    "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+                },
+            },
         }
     ]
 
@@ -2841,7 +2912,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
 
     assert report["schema_version"] == 1
     assert report["source_digest_id"] == "github-growth-harness-validation"
-    assert report["template_version"] == 3
+    assert report["template_version"] == 4
     assert report["required_fields"] == [
         "evidence_urls",
         "pre_adoption_risk_review",
@@ -2858,6 +2929,20 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "uncertainty",
     ]
     assert report["evidence_urls"] == ["https://github.com/samarailly51-pixel/opencode-harness"]
+    assert report["reviewer_routes"] == ["validation-maintainer-review"]
+    assert report["coverage_drop_signals"] == [
+        {
+            "proposal_id": proposal["proposal_id"],
+            "applies": False,
+            "status_on_drop": "not-applicable",
+            "blocking": False,
+        }
+    ]
+    assert report["bypass_label_guard"] == {
+        "status": "passed",
+        "blocked_labels": [],
+        "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+    }
     assert report["pre_adoption_risk_review"] == {
         "hypothesis": "",
         "expected_local_benefit": "",
@@ -3487,6 +3572,19 @@ def test_self_evolution_manifest_records_privacy_leakage_safety_boundary(tmp_pat
                 "validation_gaps": [],
                 "safety_block": True,
                 "blocks_autonomous_apply": True,
+            },
+            "review_metadata": {
+                "reviewer_routes": ["safety-boundary-review"],
+                "coverage_drop_signal": {
+                    "applies": False,
+                    "status_on_drop": "not-applicable",
+                    "blocking": False,
+                },
+                "bypass_label_guard": {
+                    "status": "passed",
+                    "blocked_labels": [],
+                    "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+                },
             },
             "safety_boundary_requirement": (
                 "Only offensive behavior, abuse, unauthorized access, or privacy leakage is review-only; "

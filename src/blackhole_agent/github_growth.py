@@ -257,6 +257,15 @@ COVERAGE_VALIDATION_TERMS = (
     "coverage validation",
     "test coverage",
 )
+BYPASS_STYLE_LABELS = {
+    "bypass-ci",
+    "bypass-validation",
+    "ci-bypass",
+    "force-merge",
+    "no-verify",
+    "skip-ci",
+    "skip-validation",
+}
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -1222,6 +1231,8 @@ def autonomous_local_apply_text(proposal: dict[str, Any]) -> str:
 
     if proposal.get("requires_approval", True):
         return "False"
+    if bypass_style_labels(proposal):
+        return "False (bypass-style labels are ignored and require review)"
     implementation_scope = str(proposal.get("implementation_scope") or "").strip()
     if implementation_scope == "reviewable_proposal_only":
         return "False (reviewable proposal only; local validation artifacts may still be updated)"
@@ -1261,13 +1272,15 @@ def proposal_validation_preflight(proposal: dict[str, Any]) -> dict[str, Any]:
 def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, Any]:
     """Return replayable safety metadata for a self-evolution proposal."""
 
+    validation_preflight = proposal_validation_preflight(proposal)
     control = {
         "proposal_id": str(proposal.get("proposal_id") or ""),
         "kind": str(proposal.get("kind") or ""),
         "implementation_scope": str(proposal.get("implementation_scope") or ""),
         "validation_gate": str(proposal.get("validation_gate") or ""),
         "autonomous_local_apply": autonomous_local_apply_text(proposal),
-        "validation_preflight": proposal_validation_preflight(proposal),
+        "validation_preflight": validation_preflight,
+        "review_metadata": proposal_review_metadata(proposal, validation_preflight),
     }
     proposal_risk_flags = {str(flag) for flag in proposal.get("risk_flags", [])}
     if proposal_risk_flags & HARD_REVIEW_RISK_FLAGS:
@@ -1276,6 +1289,67 @@ def proposal_manifest_control(proposal: dict[str, Any]) -> dict[str, Any]:
             "all other rollback-backed local changes may proceed."
         )
     return control
+
+
+def proposal_review_metadata(proposal: dict[str, Any], validation_preflight: dict[str, Any]) -> dict[str, Any]:
+    """Return local reviewer-routing and bypass metadata for controller manifests."""
+
+    labels = bypass_style_labels(proposal)
+    return {
+        "reviewer_routes": proposal_reviewer_routes(proposal, validation_preflight),
+        "coverage_drop_signal": coverage_drop_signal(proposal, validation_preflight),
+        "bypass_label_guard": {
+            "status": "blocked" if labels else "passed",
+            "blocked_labels": labels,
+            "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+        },
+    }
+
+
+def proposal_reviewer_routes(proposal: dict[str, Any], validation_preflight: dict[str, Any]) -> list[str]:
+    """Infer stable local review routes from controller-owned proposal metadata."""
+
+    routes: list[str] = []
+    risk_flags = {str(flag) for flag in proposal.get("risk_flags", [])}
+    kind = str(proposal.get("kind") or "")
+    validation_gate = str(proposal.get("validation_gate") or "")
+    if risk_flags & HARD_REVIEW_RISK_FLAGS or validation_gate.endswith("-human-review"):
+        routes.append("safety-boundary-review")
+    if kind in {"code_patch", "config"}:
+        routes.append("runtime-change-review")
+    if validation_preflight.get("requires_unit_test_or_coverage"):
+        routes.append("validation-maintainer-review")
+    if validation_preflight.get("has_coverage_signal"):
+        routes.append("coverage-review")
+    if not routes:
+        routes.append("general-maintainer-review")
+    return sorted(dict.fromkeys(routes))
+
+
+def coverage_drop_signal(proposal: dict[str, Any], validation_preflight: dict[str, Any]) -> dict[str, Any]:
+    """Expose when coverage-related local candidates should turn red on drops."""
+
+    applies = (
+        str(proposal.get("implementation_scope") or "") == "local_validation_candidate"
+        and bool(validation_preflight.get("has_coverage_signal"))
+    )
+    return {
+        "applies": applies,
+        "status_on_drop": "red-non-blocking" if applies else "not-applicable",
+        "blocking": False,
+    }
+
+
+def bypass_style_labels(proposal: dict[str, Any]) -> list[str]:
+    """Return bypass-like labels that must not influence autonomous apply."""
+
+    raw_labels: list[Any] = []
+    for key in ("labels", "github_labels", "apply_labels"):
+        value = proposal.get(key)
+        if isinstance(value, list):
+            raw_labels.extend(value)
+    labels = {str(label).strip().lower() for label in raw_labels if str(label).strip()}
+    return sorted(labels & BYPASS_STYLE_LABELS)
 
 
 def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_controls: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1301,14 +1375,47 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
         for proposal in plan.proposals
         if str(proposal.get("proposal_id") or "").strip()
     ]
+    review_metadata = [dict(control.get("review_metadata") or {}) for control in proposal_controls]
     report = {
         "schema_version": 1,
         "source_digest_id": plan.source_digest_id,
-        "template_version": 3,
+        "template_version": 4,
         "required_fields": VALIDATION_REPORT_REQUIRED_FIELDS,
         "evidence_urls": evidence_urls,
         "validation_gates": validation_gates,
         "proposal_controls": proposal_controls,
+        "reviewer_routes": sorted(
+            {
+                str(route)
+                for metadata in review_metadata
+                for route in metadata.get("reviewer_routes", [])
+                if str(route).strip()
+            }
+        ),
+        "coverage_drop_signals": [
+            {
+                "proposal_id": str(control.get("proposal_id") or ""),
+                **dict((control.get("review_metadata") or {}).get("coverage_drop_signal") or {}),
+            }
+            for control in proposal_controls
+        ],
+        "bypass_label_guard": {
+            "status": "blocked"
+            if any(
+                (metadata.get("bypass_label_guard") or {}).get("status") == "blocked"
+                for metadata in review_metadata
+            )
+            else "passed",
+            "blocked_labels": sorted(
+                {
+                    str(label)
+                    for metadata in review_metadata
+                    for label in (metadata.get("bypass_label_guard") or {}).get("blocked_labels", [])
+                    if str(label).strip()
+                }
+            ),
+            "policy": "bypass-style labels are metadata only and cannot grant autonomous local apply",
+        },
         "pre_adoption_risk_review": {
             "hypothesis": "",
             "expected_local_benefit": "",
