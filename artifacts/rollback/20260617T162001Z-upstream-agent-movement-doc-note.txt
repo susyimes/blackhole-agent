@@ -1,0 +1,18 @@
+Rollback point for source digest github-growth-20260617T162001.270358Z
+
+Original branch:
+codex/blackhole-evolve/20260617T162105.990222-document-how-public-agent-project-movement-shoul
+
+Original HEAD:
+ab11112d6d10b4ad151b10dd95fb280ea80133c5
+
+Local rollback ref:
+refs/rollback/blackhole-agent/20260617T162001Z
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260617T162105.990222-document-how-public-agent-project-movement-shoul
+git reset --hard refs/rollback/blackhole-agent/20260617T162001Z
+git clean -fd
+
+Rollback execution is explicit and destructive. A human operator or external
+supervisor policy must choose it before reset or clean commands run.

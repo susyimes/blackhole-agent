@@ -119,6 +119,11 @@ The LLM interpretation layer is not an authority. It cannot add evidence URLs, r
 
 When `max_items` truncates digest evidence, the frozen package records selected item IDs, truncated item IDs, selection diagnostics, and metadata-only uncertainty counts. Interpreters may cite only selected `item_id` values present in `items`; they must not add URLs or treat truncated item IDs as evidence. If a PR-heavy stream is mostly generic, untitled, or omitted by truncation, proposal uncertainty should say that PR-specific details were not available. Duplicate proposal IDs, and duplicate proposal kind plus evidence-ref shapes, are rejected during deterministic review.
 
+Public agent-project movement follows the same rule: it is a source of bounded
+local validation candidates, not permission or implementation authority. See
+`docs/upstream-evidence-interpretation.md` for the evidence citation, missing
+detail, and validation-lane contract.
+
 ### Local Codex CLI Kernel
 
 Runs only when explicitly selected with `--evolution-mode codex`.
