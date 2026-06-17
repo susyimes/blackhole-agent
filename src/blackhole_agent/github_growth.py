@@ -240,6 +240,18 @@ UNIT_TEST_VALIDATION_TERMS = (
     "unit test",
     "unit tests",
 )
+LOCAL_FIXTURE_VALIDATION_TERMS = (
+    "local fixture",
+    "local fixtures",
+    "small fixture",
+    "small local fixture",
+    "smoke fixture",
+    "smoke fixtures",
+    "smoke test",
+    "smoke tests",
+    "validation fixture",
+    "validation fixtures",
+)
 COVERAGE_VALIDATION_TERMS = (
     "coverage",
     "coverage validation",
@@ -1224,7 +1236,9 @@ def proposal_validation_preflight(proposal: dict[str, Any]) -> dict[str, Any]:
         str(proposal.get(key) or "")
         for key in ("summary", "kind", "validation_gate", "validation_task", "rationale", "self_effect")
     ).lower()
-    has_unit_test_signal = any(term in validation_text for term in UNIT_TEST_VALIDATION_TERMS)
+    has_unit_test_signal = any(
+        term in validation_text for term in (*UNIT_TEST_VALIDATION_TERMS, *LOCAL_FIXTURE_VALIDATION_TERMS)
+    )
     has_coverage_signal = any(term in validation_text for term in COVERAGE_VALIDATION_TERMS)
     requires_test_or_coverage = implementation_scope == "local_validation_candidate"
     validation_gaps: list[str] = []

@@ -667,6 +667,34 @@ def test_proposal_validation_preflight_accepts_unit_test_or_coverage_validation(
     assert proposal_validation_preflight(coverage_proposal)["has_coverage_signal"] is True
 
 
+def test_proposal_validation_preflight_accepts_smoke_fixture_validation_not_generic_validation():
+    proposal = {
+        "proposal_id": "fixture-covered-route",
+        "kind": "test",
+        "summary": "Strengthen coverage-gate behavior.",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "narrow-local-verification",
+        "validation_task": "Exercise the coverage gate with a small local validation fixture.",
+        "requires_approval": False,
+    }
+    generic_proposal = {
+        **proposal,
+        "proposal_id": "generic-local-validation",
+        "summary": "Improve route behavior.",
+        "validation_task": "Validate locally before applying the behavior.",
+    }
+
+    preflight = proposal_validation_preflight(proposal)
+    generic_preflight = proposal_validation_preflight(generic_proposal)
+
+    assert preflight["status"] == "ready"
+    assert preflight["has_unit_test_signal"] is True
+    assert preflight["has_coverage_signal"] is True
+    assert generic_preflight["status"] == "validation_gap"
+    assert generic_preflight["validation_gaps"] == ["missing_unit_test_or_coverage_validation"]
+
+
 def test_proposal_validation_preflight_keeps_privacy_route_blocked_by_safety_boundary():
     proposal = {
         "proposal_id": "privacy-route",

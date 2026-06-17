@@ -1,0 +1,17 @@
+# Rollback Point: github-growth-20260617T040315.883606Z
+
+Created: 2026-06-17T04:03:15.883606Z
+Original branch: codex/blackhole-evolve/20260617T040408.165839-add-or-refine-a-local-preflight-for-ai-review-wo
+Original HEAD: dc9504c287f8975d284450a8091044970f9e693c
+Rollback ref: refs/blackhole-rollback/github-growth-20260617T040315.883606Z
+Source digest: github-growth-20260617T040315.883606Z
+
+Recovery commands:
+
+```powershell
+git switch codex/blackhole-evolve/20260617T040408.165839-add-or-refine-a-local-preflight-for-ai-review-wo
+git reset --hard refs/blackhole-rollback/github-growth-20260617T040315.883606Z
+git clean -fd
+```
+
+Rollback execution is explicit and destructive; only a human operator or supervisor policy should run it.
