@@ -1,0 +1,72 @@
+{
+  "name": "agent-workflow-route-recoverable-failure",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-recoverable-failure",
+    "plan": {
+      "steps": [
+        {
+          "id": "inspect",
+          "status": "completed"
+        },
+        {
+          "id": "run",
+          "status": "failed"
+        },
+        {
+          "id": "recover",
+          "status": "pending"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 7,
+      "timed_out": false
+    },
+    "validation": {
+      "gate": "focused-evidence-review",
+      "checks": [
+        {
+          "name": "pytest-local-harness",
+          "returncode": 1
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-recoverable-failure",
+      "artifact_path": "artifacts/rollback/fixture-route-recoverable-failure.txt"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "failed_recoverable"
+    },
+    {
+      "path": "runner.returncode",
+      "equals": 7
+    },
+    {
+      "path": "validation.gate_recorded",
+      "equals": true
+    },
+    {
+      "path": "validation.gate_outcome",
+      "equals": "failed"
+    },
+    {
+      "path": "rollback.available",
+      "equals": true
+    },
+    {
+      "path": "rollback.recovery_mode",
+      "equals": "explicit_operator_reset"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "nonzero_exit"
+    }
+  ]
+}

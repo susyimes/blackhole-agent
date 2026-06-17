@@ -1,0 +1,72 @@
+{
+  "name": "agent-workflow-route-success",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-success",
+    "plan": {
+      "steps": [
+        {
+          "id": "inspect",
+          "status": "completed"
+        },
+        {
+          "id": "modify",
+          "status": "completed"
+        },
+        {
+          "id": "verify",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "validation": {
+      "gate": "focused-evidence-review",
+      "checks": [
+        {
+          "name": "pytest-local-harness",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-success",
+      "artifact_path": "artifacts/rollback/fixture-route-success.txt"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "planning.step_count",
+      "equals": 3
+    },
+    {
+      "path": "runner.invoked",
+      "equals": true
+    },
+    {
+      "path": "validation.gate",
+      "equals": "focused-evidence-review"
+    },
+    {
+      "path": "validation.gate_outcome",
+      "equals": "passed"
+    },
+    {
+      "path": "rollback.recovery_mode",
+      "equals": "explicit_operator_reset"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

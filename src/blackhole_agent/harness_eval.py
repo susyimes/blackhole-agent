@@ -31,7 +31,11 @@ PRIVACY_REVIEW_FLAG_KEYS = {
 }
 
 PRIVACY_REVIEW_GATE = "privacy-leakage-human-review"
-SUPPORTED_LOCAL_HARNESS_BEHAVIORS = ["harness_run_summary", "proposal_interpretation"]
+SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
+    "agent_workflow_route",
+    "harness_run_summary",
+    "proposal_interpretation",
+]
 
 
 @dataclass(frozen=True)
@@ -249,11 +253,154 @@ def run_local_harness_fixture(path: Path) -> HarnessEvalFixtureResult:
 
 
 def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    if behavior == "agent_workflow_route":
+        return evaluate_agent_workflow_route(raw_input, source_path=source_path)
     if behavior == "harness_run_summary":
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
     if behavior == "proposal_interpretation":
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Evaluate a body-free local agent workflow route fixture.
+
+    The fixture models the controller-visible route around an agent run:
+    planning metadata, runner invocation, validation gate recording, failure
+    classification, and whether rollback information exists for recovery.
+    """
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    plan = raw_input.get("plan") if isinstance(raw_input.get("plan"), dict) else {}
+    plan_steps = plan.get("steps") if isinstance(plan.get("steps"), list) else []
+    runner = raw_input.get("runner") if isinstance(raw_input.get("runner"), dict) else {}
+    validation = raw_input.get("validation") if isinstance(raw_input.get("validation"), dict) else {}
+    checks = validation.get("checks") if isinstance(validation.get("checks"), list) else []
+    rollback = raw_input.get("rollback") if isinstance(raw_input.get("rollback"), dict) else {}
+
+    runner_invoked = truthy(runner.get("invoked"))
+    runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
+    runner_timed_out = truthy(runner.get("timed_out"))
+    validation_gate = optional_string(validation.get("gate")) or "local-agent-workflow-route"
+    validation_checks = [
+        {
+            "name": optional_string(check.get("name")) or f"check-{index + 1}",
+            "returncode": optional_int(check.get("returncode")),
+            "passed": optional_int(check.get("returncode")) == 0,
+        }
+        for index, check in enumerate(checks)
+        if isinstance(check, dict)
+    ]
+    validation_passed = bool(validation_checks) and all(check["passed"] for check in validation_checks)
+    rollback_ref = optional_string(rollback.get("ref"))
+    rollback_artifact = optional_string(rollback.get("artifact_path"))
+    rollback_available = truthy(rollback.get("created")) and bool(rollback_ref or rollback_artifact)
+
+    failure_mode = agent_workflow_failure_mode(
+        runner_invoked=runner_invoked,
+        runner_returncode=runner_returncode,
+        runner_timed_out=runner_timed_out,
+        validation_passed=validation_passed,
+    )
+    route_status = "passed" if failure_mode == "none" else "failed_recoverable" if rollback_available else "failed_unrecoverable"
+    state_transitions = build_agent_workflow_state_transitions(
+        plan_steps=plan_steps,
+        runner_invoked=runner_invoked,
+        validation_checks=validation_checks,
+        failure_mode=failure_mode,
+        rollback_available=rollback_available,
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "agent_workflow_route",
+        "task_id": task_id,
+        "route_status": route_status,
+        "state_transitions": state_transitions,
+        "planning": {
+            "step_count": len(plan_steps),
+            "planned": bool(plan_steps),
+            "all_steps_have_ids": all(
+                isinstance(step, dict) and bool(optional_string(step.get("id"))) for step in plan_steps
+            ),
+        },
+        "runner": {
+            "invoked": runner_invoked,
+            "returncode": runner_returncode,
+            "timed_out": runner_timed_out,
+        },
+        "validation": {
+            "gate": validation_gate,
+            "gate_recorded": bool(validation_gate),
+            "gate_outcome": "passed" if validation_passed else "failed",
+            "checks": validation_checks,
+        },
+        "rollback": {
+            "available": rollback_available,
+            "ref_recorded": bool(rollback_ref),
+            "artifact_recorded": bool(rollback_artifact),
+            "recovery_mode": "explicit_operator_reset" if rollback_available else "manual_investigation",
+        },
+        "failure_mode": failure_mode,
+    }
+
+
+def agent_workflow_failure_mode(
+    *,
+    runner_invoked: bool,
+    runner_returncode: int | None,
+    runner_timed_out: bool,
+    validation_passed: bool,
+) -> str:
+    if not runner_invoked:
+        return "runner_not_invoked"
+    if runner_timed_out:
+        return "timeout"
+    if runner_returncode not in (None, 0):
+        return "nonzero_exit"
+    if not validation_passed:
+        return "validation_failed"
+    return "none"
+
+
+def build_agent_workflow_state_transitions(
+    *,
+    plan_steps: list[Any],
+    runner_invoked: bool,
+    validation_checks: list[dict[str, Any]],
+    failure_mode: str,
+    rollback_available: bool,
+) -> list[dict[str, Any]]:
+    transitions = [
+        {"state": "planned", "outcome": "passed" if plan_steps else "failed"},
+        {"state": "runner_invoked", "outcome": "passed" if runner_invoked else "failed"},
+    ]
+    if runner_invoked:
+        transitions.append(
+            {
+                "state": "runner_completed",
+                "outcome": "passed" if failure_mode not in {"timeout", "nonzero_exit"} else "failed",
+            }
+        )
+    transitions.append(
+        {
+            "state": "validation_recorded",
+            "outcome": "passed" if validation_checks and failure_mode in {"none", "timeout", "nonzero_exit"} else "failed",
+        }
+    )
+    transitions.append(
+        {
+            "state": "rollback_checked",
+            "outcome": "passed" if rollback_available else "failed",
+        }
+    )
+    transitions.append(
+        {
+            "state": "completed",
+            "outcome": "passed" if failure_mode == "none" else "failed",
+        }
+    )
+    return transitions
 
 
 def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

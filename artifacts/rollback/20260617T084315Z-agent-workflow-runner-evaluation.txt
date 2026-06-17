@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260617T084315.723709Z
+
+Original branch: codex/blackhole-evolve/20260617T084423.689172-add-a-local-evaluation-harness-for-agent-workflo
+Original HEAD: d3aee4e126edd66a585466a77f6fa85b9061f30a
+Local rollback ref: refs/rollback/20260617T084315Z-agent-workflow-runner-evaluation
+
+Create/update rollback ref command:
+  git update-ref refs/rollback/20260617T084315Z-agent-workflow-runner-evaluation d3aee4e126edd66a585466a77f6fa85b9061f30a
+
+Recovery commands, if an external supervisor or human operator chooses destructive rollback:
+  git switch codex/blackhole-evolve/20260617T084423.689172-add-a-local-evaluation-harness-for-agent-workflo
+  git reset --hard refs/rollback/20260617T084315Z-agent-workflow-runner-evaluation
+
+Do not delete this artifact during the run that created it.

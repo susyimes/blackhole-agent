@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from blackhole_agent.harness_eval import build_harness_comparison_report, run_local_harness_eval
+from blackhole_agent.harness_eval import build_harness_comparison_report, evaluate_harness_behavior, run_local_harness_eval
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "harness_comparison"
@@ -76,17 +76,23 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 2
-    assert payload["pass_count"] == 1
+    assert payload["fixture_count"] == 4
+    assert payload["pass_count"] == 3
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
-    assert payload["privacy"]["supported_behaviors"] == ["harness_run_summary", "proposal_interpretation"]
+    assert payload["privacy"]["supported_behaviors"] == [
+        "agent_workflow_route",
+        "harness_run_summary",
+        "proposal_interpretation",
+    ]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
 
     results = {result["name"]: result for result in payload["results"]}
+    assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
@@ -102,6 +108,42 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_agent_workflow_route_fixture_records_state_validation_and_recovery():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_recoverable_failure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+
+    assert output["route_status"] == "failed_recoverable"
+    assert output["failure_mode"] == "nonzero_exit"
+    assert output["runner"] == {
+        "invoked": True,
+        "returncode": 7,
+        "timed_out": False,
+    }
+    assert output["validation"]["gate"] == "focused-evidence-review"
+    assert output["validation"]["gate_outcome"] == "failed"
+    assert output["rollback"] == {
+        "available": True,
+        "ref_recorded": True,
+        "artifact_recorded": True,
+        "recovery_mode": "explicit_operator_reset",
+    }
+    assert [transition["state"] for transition in output["state_transitions"]] == [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed",
+    ]
+    assert output["state_transitions"][-1] == {"state": "completed", "outcome": "failed"}
 
 
 def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_json():
