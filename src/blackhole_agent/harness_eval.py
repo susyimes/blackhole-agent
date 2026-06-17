@@ -286,7 +286,10 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
     accepted_candidates = [
         {
             "proposal_id": str(candidate.get("proposal_id") or ""),
+            "kind": str(candidate.get("kind") or ""),
             "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
+            "validation_task": str(candidate.get("validation_task") or ""),
+            "uncertainty": str(candidate.get("uncertainty") or ""),
         }
         for candidate in review.accepted_candidates
     ]
@@ -362,7 +365,10 @@ def accepted_candidate_refs(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
             "proposal_id": str(candidate.get("proposal_id") or ""),
+            "kind": str(candidate.get("kind") or ""),
             "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
+            "validation_task": str(candidate.get("validation_task") or ""),
+            "uncertainty": str(candidate.get("uncertainty") or ""),
         }
         for candidate in review.accepted_candidates
     ]

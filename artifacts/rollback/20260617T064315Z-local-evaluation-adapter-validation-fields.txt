@@ -1,0 +1,16 @@
+Rollback point for github-growth-20260617T064315.834559Z
+
+Original branch: codex/blackhole-evolve/20260617T064415.193880-add-a-local-evaluation-adapter-or-fixture-set-th
+Original HEAD: dd59ca76ec5d706e13afc4cedd36b26786aace9c
+Local rollback ref: refs/rollback/blackhole-agent/20260617T064315Z
+
+Recovery commands, if an external supervisor or human operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260617T064415.193880-add-a-local-evaluation-adapter-or-fixture-set-th
+git reset --hard refs/rollback/blackhole-agent/20260617T064315Z
+
+Run evidence:
+- Source digest: github-growth-20260617T064315.834559Z
+- Primary proposal: p1-agent-harness-evaluation-adapter
+- Hypothesis: local harness-style proposal replay is more useful when its structured pass/fail output also exposes
+  accepted proposal validation_task and uncertainty fields for deterministic assertions.

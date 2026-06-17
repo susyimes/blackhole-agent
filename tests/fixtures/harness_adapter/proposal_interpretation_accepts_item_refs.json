@@ -86,6 +86,21 @@
     {
       "path": "evidence_ref_violations",
       "equals": []
+    },
+    {
+      "path": "accepted_candidates",
+      "equals": [
+        {
+          "proposal_id": "local-harness-adapter",
+          "kind": "test",
+          "evidence_refs": [
+            "agent-harness",
+            "opencode-harness"
+          ],
+          "validation_task": "Add unit tests for local harness fixtures and evidence_ref constraints.",
+          "uncertainty": "The fixture is minimal and only covers the local interpreter contract."
+        }
+      ]
     }
   ]
 }
