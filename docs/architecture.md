@@ -157,6 +157,8 @@ Rollback execution is intentionally explicit because it uses destructive command
 
 Runs local checks for any generated patch or config change. A failed verification produces a digest entry and stops the write path.
 
+Local agent-harness comparison reports use a body-free adapter: prompt, output, stdout, and stderr bodies are omitted from exported summaries, and ordinary comparable bodies are represented only by stable hashes. If a fixture declares `privacy-leakage-human-review` or an equivalent privacy flag, the adapter records a review-only outcome and omits body hashes too. That keeps privacy-leakage validation cases useful for local regression tests without turning sensitive task content into report material.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:

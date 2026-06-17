@@ -17,18 +17,28 @@ def test_harness_comparison_report_omits_private_bodies_by_default():
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-harness-comparison"
-    assert payload["run_count"] == 2
+    assert payload["run_count"] == 3
     assert payload["privacy"]["body_fields_exported"] is False
+    assert payload["privacy"]["privacy_review_gate"] == "privacy-leakage-human-review"
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_TOKEN_BODY_DO_NOT_HASH_OR_EXPORT" not in serialized
+    assert "PRIVATE_CHAT_BODY_DO_NOT_HASH_OR_EXPORT" not in serialized
 
     summaries = {summary["run_id"]: summary for summary in payload["summaries"]}
     assert summaries["fixture-codex-1"]["task_hash"].startswith("sha256:")
     assert summaries["fixture-codex-1"]["output_hash"].startswith("sha256:")
     assert summaries["fixture-codex-1"]["failure_mode"] == "none"
+    assert summaries["fixture-codex-1"]["validation_gate"] == "local-harness-summary"
+    assert summaries["fixture-codex-1"]["gate_outcome"] == "passed"
     assert summaries["fixture-other-1"]["failure_mode"] == "timeout"
     assert summaries["fixture-other-1"]["tool_calls"] == 1
     assert summaries["fixture-other-1"]["total_tokens"] == 1020
+    assert summaries["fixture-private-1"]["task_hash"] is None
+    assert summaries["fixture-private-1"]["output_hash"] is None
+    assert summaries["fixture-private-1"]["failure_mode"] == "privacy_review_required"
+    assert summaries["fixture-private-1"]["validation_gate"] == "privacy-leakage-human-review"
+    assert summaries["fixture-private-1"]["gate_outcome"] == "review_required"
 
 
 def test_harness_comparison_report_aggregates_quality_cost_elapsed_and_failures():
@@ -50,3 +60,5 @@ def test_harness_comparison_report_aggregates_quality_cost_elapsed_and_failures(
     assert aggregates["other-fast"]["success_count"] == 0
     assert aggregates["other-fast"]["failure_modes"] == ["timeout"]
     assert aggregates["other-fast"]["avg_cost_usd"] == 0.04
+    assert aggregates["codex-private-review"]["success_count"] == 0
+    assert aggregates["codex-private-review"]["failure_modes"] == ["privacy_review_required"]

@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260617T024315.645354Z
+
+Original branch: codex/blackhole-evolve/20260617T024408.471222-add-or-extend-a-local-validation-adapter-that-ca
+Original HEAD: 5d222b5fcbcb71b6a0d2e11f86f635f43c588c13
+Local rollback ref: refs/rollback/blackhole-agent/20260617T024315Z
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+  git switch codex/blackhole-evolve/20260617T024408.471222-add-or-extend-a-local-validation-adapter-that-ca
+  git reset --hard refs/rollback/blackhole-agent/20260617T024315Z
+
+Notes:
+- This rollback artifact must not be deleted by the run that created it.
+- Rollback execution is explicit and destructive; this kernel run only records the recovery path.

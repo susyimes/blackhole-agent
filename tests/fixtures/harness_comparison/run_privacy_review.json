@@ -1,0 +1,16 @@
+{
+  "run_id": "fixture-private-1",
+  "harness": "codex",
+  "variant": "codex-private-review",
+  "model": "gpt-fixture",
+  "validation_gate": "privacy-leakage-human-review",
+  "validation_task": "Keep privacy-leakage behavior review-only; do not expose, log, print, upload, publish, or share tokens, credentials, secrets, private keys, private chats, PII, or personal data.",
+  "prompt_body": "PRIVATE_TOKEN_BODY_DO_NOT_HASH_OR_EXPORT",
+  "last_message": "PRIVATE_CHAT_BODY_DO_NOT_HASH_OR_EXPORT",
+  "quality_score": 0.1,
+  "cost_usd": 0.01,
+  "elapsed_seconds": 3.0,
+  "tool_calls": 0,
+  "returncode": 0,
+  "timed_out": false
+}

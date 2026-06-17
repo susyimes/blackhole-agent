@@ -21,6 +21,17 @@ BODY_KEYS = {
     "task",
 }
 
+PRIVACY_REVIEW_FLAG_KEYS = {
+    "contains_personal_data",
+    "contains_pii",
+    "contains_private_content",
+    "contains_secrets",
+    "contains_sensitive_content",
+    "privacy_review_required",
+}
+
+PRIVACY_REVIEW_GATE = "privacy-leakage-human-review"
+
 
 @dataclass(frozen=True)
 class HarnessRunSummary:
@@ -42,6 +53,8 @@ class HarnessRunSummary:
     returncode: int | None
     timed_out: bool
     failure_mode: str
+    validation_gate: str
+    gate_outcome: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -61,6 +74,8 @@ class HarnessRunSummary:
             "returncode": self.returncode,
             "timed_out": self.timed_out,
             "failure_mode": self.failure_mode,
+            "validation_gate": self.validation_gate,
+            "gate_outcome": self.gate_outcome,
         }
 
 
@@ -99,6 +114,8 @@ def build_harness_comparison_report(
             "body_fields_exported": False,
             "body_field_policy": "prompt/output/stdout/stderr bodies are hashed when present and omitted by default",
             "omitted_body_keys": sorted(BODY_KEYS),
+            "privacy_review_gate": PRIVACY_REVIEW_GATE,
+            "privacy_review_behavior": "privacy-flagged harness artifacts are summarized without body hashes",
         },
         summaries=summaries,
         aggregate_by_variant=aggregate_harness_summaries(summaries),
@@ -122,19 +139,36 @@ def summarize_harness_run(payload: dict[str, Any], *, source_path: Path | None =
     usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
     returncode = optional_int(payload.get("returncode") or payload.get("exit_code"))
     timed_out = bool(payload.get("timed_out") or payload.get("timeout"))
-    failure_mode = failure_mode_from_payload(payload, returncode=returncode, timed_out=timed_out)
+    privacy_review_required = requires_privacy_review(payload)
+    failure_mode = (
+        "privacy_review_required"
+        if privacy_review_required
+        else failure_mode_from_payload(payload, returncode=returncode, timed_out=timed_out)
+    )
+    validation_gate = (
+        PRIVACY_REVIEW_GATE
+        if privacy_review_required
+        else optional_string(payload.get("validation_gate")) or "local-harness-summary"
+    )
+    gate_outcome = (
+        "review_required" if privacy_review_required else optional_string(payload.get("gate_outcome")) or "passed"
+    )
 
     return HarnessRunSummary(
         run_id=run_id,
         harness=harness,
         variant=variant,
         model=model,
-        task_hash=first_hash(
+        task_hash=None
+        if privacy_review_required
+        else first_hash(
             payload,
             ("task_hash", "prompt_hash", "input_hash"),
             ("task", "prompt", "prompt_body", "input"),
         ),
-        output_hash=first_hash(
+        output_hash=None
+        if privacy_review_required
+        else first_hash(
             payload,
             ("output_hash", "last_message_hash", "response_hash"),
             ("last_message", "output", "response", "stdout_tail", "stderr_tail"),
@@ -153,6 +187,8 @@ def summarize_harness_run(payload: dict[str, Any], *, source_path: Path | None =
         returncode=returncode,
         timed_out=timed_out,
         failure_mode=failure_mode,
+        validation_gate=validation_gate,
+        gate_outcome=gate_outcome,
     )
 
 
@@ -209,6 +245,25 @@ def failure_mode_from_payload(payload: dict[str, Any], *, returncode: int | None
     return "none"
 
 
+def requires_privacy_review(payload: dict[str, Any]) -> bool:
+    """Detect fixtures that must stay review-only without hashing private bodies."""
+
+    for key in PRIVACY_REVIEW_FLAG_KEYS:
+        if truthy(payload.get(key)):
+            return True
+    validation_gate = optional_string(payload.get("validation_gate"))
+    if validation_gate == PRIVACY_REVIEW_GATE:
+        return True
+    validation_task = optional_string(payload.get("validation_task"))
+    if validation_task:
+        lowered = validation_task.lower()
+        return any(
+            term in lowered
+            for term in ("privacy leakage", "privacy-leakage", "private key", "credential", "pii", "secret")
+        )
+    return False
+
+
 def infer_harness(payload: dict[str, Any], source_path: Path | None) -> str:
     command = payload.get("command")
     if isinstance(command, list) and command:
@@ -246,3 +301,9 @@ def optional_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def truthy(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
