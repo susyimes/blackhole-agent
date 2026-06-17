@@ -1,0 +1,14 @@
+Rollback point for self-modification run github-growth-20260617T030316.461504Z
+
+Original branch: codex/blackhole-evolve/20260617T030439.258513-add-or-improve-a-local-validation-route-that-che
+Original HEAD: 54c26e98a5c0d610083780e2e89c682a271d576a
+Local rollback ref: refs/blackhole/rollback/20260617T030315Z-generic-pr-metadata-normalization
+
+Recovery commands, if an external supervisor or human chooses destructive rollback:
+  git switch codex/blackhole-evolve/20260617T030439.258513-add-or-improve-a-local-validation-route-that-che
+  git reset --hard 54c26e98a5c0d610083780e2e89c682a271d576a
+  git clean -fd
+
+Notes:
+  Created before source edits for a run choosing proposal p3-generic-pr-metadata-normalization.
+  This artifact must not be deleted by the run that created it.

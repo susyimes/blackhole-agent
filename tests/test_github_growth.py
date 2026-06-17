@@ -847,7 +847,7 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     assert first["context_budget"]["input_item_count"] == 2
     assert (
         first["context_budget"]["item_selection_strategy"]
-        == "risk_flags_then_confidence_with_review_activity_then_original_order"
+        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
     )
     assert first["context_budget"]["selected_item_ids"] == ["event-1"]
     assert first["context_budget"]["truncated_item_ids"] == ["event-2"]
@@ -1277,11 +1277,16 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
             "max_items_omitted_whole_digest_items",
             "truncated_pull_request_activity_may_hide_pr_specific_details",
             "generic_or_untitled_pull_request_items_have_missing_title_context",
+            "repeated_generic_pull_request_metadata_clustered_and_downweighted",
         ],
         "selected_event_kind_counts": {"PullRequestEvent": 3},
         "truncated_event_kind_counts": {"PullRequestEvent": 7},
         "selected_generic_pr_count": 3,
         "truncated_generic_pr_count": 7,
+        "selected_generic_pr_cluster_count": 1,
+        "truncated_generic_pr_cluster_count": 1,
+        "repeated_generic_pr_cluster_count": 1,
+        "max_generic_pr_cluster_size": 10,
         "citation_scope": "cite_selected_item_ids_only",
         "url_policy": "do_not_add_urls",
     }
@@ -1350,6 +1355,76 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
     )
 
 
+def test_generic_pr_opened_and_labeled_metadata_is_clustered_and_downweighted():
+    items = [
+        {
+            "item_id": "detailed-validation-push",
+            "source_url": "https://github.com/omnigent-ai/omnigent/commit/validation123",
+            "event_kind": "PushEvent",
+            "summary": "add validation coverage for local proposal routing",
+            "relevance_reason": "detailed validation signal with test coverage",
+            "risk_flags": [],
+            "confidence": 0.64,
+        },
+        {
+            "item_id": "detailed-issue",
+            "source_url": "https://github.com/omnigent-ai/omnigent/issues/82",
+            "event_kind": "IssuesEvent",
+            "summary": "controller should explain generic PR uncertainty",
+            "relevance_reason": "specific issue text names local validation behavior",
+            "risk_flags": [],
+            "confidence": 0.83,
+        },
+    ]
+    for index, action in enumerate(["opened", "opened", "opened", "labeled", "labeled"], start=1):
+        items.append(
+            {
+                "item_id": f"generic-pr-{index}",
+                "source_url": f"https://github.com/omnigent-ai/omnigent/pull/{index}",
+                "event_kind": "PullRequestEvent",
+                "summary": f"{action} pull request: untitled pull request",
+                "relevance_reason": "generic PullRequestEvent item with missing PR details",
+                "risk_flags": [],
+                "confidence": 0.9,
+            }
+        )
+    digest = {
+        "digest_id": "github-growth-generic-pr-metadata-normalization",
+        "generated_at": "2026-06-17T03:03:16Z",
+        "items": items,
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=160)
+    preflight = build_context_budget_preflight(evidence_package)
+    uncertainty = preflight["evidence_truncation_uncertainty"]
+
+    assert evidence_package["context_budget"]["selected_item_ids"] == [
+        "detailed-validation-push",
+        "detailed-issue",
+        "generic-pr-4",
+        "generic-pr-1",
+    ]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == [
+        "generic-pr-5",
+        "generic-pr-2",
+        "generic-pr-3",
+    ]
+    assert uncertainty["repeated_generic_pr_cluster_count"] == 2
+    assert uncertainty["max_generic_pr_cluster_size"] == 3
+    assert uncertainty["selected_generic_pr_count"] == 2
+    assert uncertainty["truncated_generic_pr_count"] == 3
+    assert "repeated_generic_pull_request_metadata_clustered_and_downweighted" in uncertainty["reasons"]
+    generic_diagnostics = [
+        diagnostic
+        for diagnostic in preflight["item_selection_diagnostics"]
+        if diagnostic.get("low_detail_duplicate_pr")
+    ]
+    assert len(generic_diagnostics) == 5
+    assert {diagnostic["generic_pr_cluster_count"] for diagnostic in generic_diagnostics} == {2, 3}
+    assert "github.com" not in json.dumps(preflight, sort_keys=True)
+    assert "untitled pull request" not in json.dumps(preflight, sort_keys=True)
+
+
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
     evidence_package = build_proposal_evidence_package(
         {
@@ -1394,7 +1469,9 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
         "selected_text_original_chars": len("compact context") + len("fits within budget"),
         "selected_text_chars": len("compact context") + len("fits within budget"),
         "field_truncated_text_chars": 0,
-        "item_selection_strategy": "risk_flags_then_confidence_with_review_activity_then_original_order",
+        "item_selection_strategy": (
+            "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+        ),
         "selected_item_ids": ["event-1"],
         "truncated_item_ids": [],
         "excluded_item_count": 0,
@@ -1417,6 +1494,10 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
             "truncated_event_kind_counts": {},
             "selected_generic_pr_count": 0,
             "truncated_generic_pr_count": 0,
+            "selected_generic_pr_cluster_count": 0,
+            "truncated_generic_pr_cluster_count": 0,
+            "repeated_generic_pr_cluster_count": 0,
+            "max_generic_pr_cluster_size": 0,
             "citation_scope": "cite_selected_item_ids_only",
             "url_policy": "do_not_add_urls",
         },
@@ -1587,7 +1668,10 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     assert preflight["selected_text_original_chars"] == 70
     assert preflight["selected_text_chars"] == 20
     assert preflight["field_truncated_text_chars"] == 50
-    assert preflight["item_selection_strategy"] == "risk_flags_then_confidence_with_review_activity_then_original_order"
+    assert (
+        preflight["item_selection_strategy"]
+        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+    )
     assert preflight["selected_item_ids"] == ["event-1"]
     assert preflight["truncated_item_ids"] == ["event-2"]
     assert preflight["excluded_item_count"] == 0

@@ -206,7 +206,9 @@ def build_proposal_evidence_package(
             "max_items": max_items,
             "input_item_count": len(all_digest_items) if isinstance(all_digest_items, list) else 0,
             "items_truncated": len(ranked_digest_items) > max_items,
-            "item_selection_strategy": "risk_flags_then_confidence_with_review_activity_then_original_order",
+            "item_selection_strategy": (
+                "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+            ),
             "selected_item_ids": selected_item_ids,
             "truncated_item_ids": truncated_item_ids,
             "max_item_text_chars": max_item_text_chars,
@@ -277,6 +279,8 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
         return []
 
     review_activity_by_repo = digest_review_activity_counts(items)
+    generic_pr_cluster_counts = digest_generic_pr_cluster_counts(items)
+    generic_pr_cluster_seen: dict[str, int] = {}
     ranked: list[tuple[tuple[int, int, float, int], int, dict[str, Any]]] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
@@ -287,15 +291,25 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
             confidence = float(item.get("confidence") or 0.0)
         except (TypeError, ValueError):
             confidence = 0.0
+        generic_pr_cluster_key = digest_generic_pr_cluster_key(item)
+        generic_pr_cluster_seen[generic_pr_cluster_key] = generic_pr_cluster_seen.get(generic_pr_cluster_key, 0) + 1
+        generic_pr_duplicate_ordinal = generic_pr_cluster_seen[generic_pr_cluster_key]
         adjusted_confidence = confidence + digest_review_activity_confidence_bonus(
             item,
             review_activity_by_repo=review_activity_by_repo,
+        ) - digest_generic_pr_duplicate_penalty(
+            item,
+            generic_pr_cluster_counts=generic_pr_cluster_counts,
+            duplicate_ordinal=generic_pr_duplicate_ordinal,
         )
         ranked.append(
             (
                 (
                     0 if has_risk_flags else 1,
-                    -digest_item_direct_action_priority(item),
+                    -digest_item_direct_action_priority(
+                        item,
+                        generic_pr_cluster_counts=generic_pr_cluster_counts,
+                    ),
                     -adjusted_confidence,
                     index,
                 ),
@@ -333,6 +347,32 @@ def digest_review_activity_confidence_bonus(
     return min(0.24, 0.08 * (review_activity_count - 1))
 
 
+def digest_generic_pr_cluster_counts(items: list[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        cluster_key = digest_generic_pr_cluster_key(item)
+        if cluster_key:
+            counts[cluster_key] = counts.get(cluster_key, 0) + 1
+    return counts
+
+
+def digest_generic_pr_duplicate_penalty(
+    item: dict[str, Any],
+    *,
+    generic_pr_cluster_counts: dict[str, int],
+    duplicate_ordinal: int = 1,
+) -> float:
+    cluster_key = digest_generic_pr_cluster_key(item)
+    duplicate_count = generic_pr_cluster_counts.get(cluster_key, 0) if cluster_key else 0
+    if duplicate_count < 2:
+        return 0.0
+    cluster_penalty = min(0.36, 0.12 * (duplicate_count - 1))
+    ordinal_penalty = max(0, duplicate_ordinal - 1) * 0.18
+    return min(0.72, cluster_penalty + ordinal_penalty)
+
+
 def digest_item_repo(item: dict[str, Any]) -> str:
     source_url = str(item.get("source_url") or "")
     match = re.match(r"https://github\.com/([^/\s]+/[^/\s#?]+)", source_url)
@@ -354,9 +394,16 @@ def digest_item_is_review_validation_or_test_route(item: dict[str, Any]) -> bool
     return any(term in text for term in ("review", "validation", "validate", "test", "harness"))
 
 
-def digest_item_direct_action_priority(item: dict[str, Any]) -> int:
+def digest_item_direct_action_priority(
+    item: dict[str, Any],
+    *,
+    generic_pr_cluster_counts: dict[str, int] | None = None,
+) -> int:
     event_kind = str(item.get("event_kind") or "")
     if event_kind == "PullRequestEvent":
+        cluster_key = digest_generic_pr_cluster_key(item)
+        if cluster_key and (generic_pr_cluster_counts or {}).get(cluster_key, 0) > 1:
+            return 0
         return 1
     text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
     if event_kind == "PushEvent" and any(term in text for term in ("validation", "validate", "test", "workflow")):
@@ -364,6 +411,25 @@ def digest_item_direct_action_priority(item: dict[str, Any]) -> int:
     if event_kind == "ReleaseEvent":
         return 1
     return 0
+
+
+def digest_generic_pr_cluster_key(item: dict[str, Any]) -> str:
+    if not digest_item_has_generic_pull_request_detail(item):
+        return ""
+    repo = digest_item_repo(item)
+    summary = str(item.get("summary") or "").lower()
+    action = "updated"
+    action_match = re.search(
+        r"\b(opened|labeled|unlabeled|closed|reopened|synchronize|synchronized|edited)\b",
+        summary,
+    )
+    if action_match:
+        action = action_match.group(1)
+    return stable_digest_metadata_key({"repo": repo, "event_kind": str(item.get("event_kind") or ""), "action": action})
+
+
+def stable_digest_metadata_key(payload: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
 
 
 def digest_item_id(item: dict[str, Any], original_index: int) -> str:
@@ -420,6 +486,11 @@ def build_item_selection_diagnostics(
         if isinstance(entry, dict) and isinstance(entry.get("fields"), list)
     }
     rank_by_index = {original_index: rank for rank, (original_index, _) in enumerate(ranked_item_entries, start=1)}
+    generic_pr_cluster_counts = digest_generic_pr_cluster_counts(raw_items)
+    generic_pr_cluster_ids = {
+        cluster_key: f"generic-pr-cluster-{index}"
+        for index, cluster_key in enumerate(sorted(generic_pr_cluster_counts), start=1)
+    }
     diagnostics: list[dict[str, Any]] = []
     for original_index, raw_item in enumerate(raw_items):
         if not isinstance(raw_item, dict):
@@ -448,18 +519,23 @@ def build_item_selection_diagnostics(
         else:
             decision = "excluded"
             reason = "not_ranked"
-        diagnostics.append(
-            {
-                "original_index": original_index,
-                "rank": rank_by_index.get(original_index),
-                "item_id": item_id,
-                "decision": decision,
-                "reason": reason,
-                "risk_flag_count": len(risk_flags),
-                "confidence": confidence,
-                "truncated_fields": truncated_fields_by_id.get(item_id, []),
-            }
-        )
+        diagnostic = {
+            "original_index": original_index,
+            "rank": rank_by_index.get(original_index),
+            "item_id": item_id,
+            "decision": decision,
+            "reason": reason,
+            "risk_flag_count": len(risk_flags),
+            "confidence": confidence,
+            "truncated_fields": truncated_fields_by_id.get(item_id, []),
+        }
+        cluster_key = digest_generic_pr_cluster_key(raw_item)
+        if cluster_key:
+            cluster_count = generic_pr_cluster_counts.get(cluster_key, 0)
+            diagnostic["generic_pr_cluster_id"] = generic_pr_cluster_ids.get(cluster_key, "")
+            diagnostic["generic_pr_cluster_count"] = cluster_count
+            diagnostic["low_detail_duplicate_pr"] = cluster_count > 1
+        diagnostics.append(diagnostic)
     return diagnostics
 
 
@@ -480,6 +556,10 @@ def build_evidence_truncation_uncertainty(
             "truncated_event_kind_counts": {},
             "selected_generic_pr_count": 0,
             "truncated_generic_pr_count": 0,
+            "selected_generic_pr_cluster_count": 0,
+            "truncated_generic_pr_cluster_count": 0,
+            "repeated_generic_pr_cluster_count": 0,
+            "max_generic_pr_cluster_size": 0,
             "citation_scope": "cite_selected_item_ids_only",
             "url_policy": "do_not_add_urls",
         }
@@ -488,6 +568,9 @@ def build_evidence_truncation_uncertainty(
     truncated_event_kind_counts: dict[str, int] = {}
     selected_generic_pr_count = 0
     truncated_generic_pr_count = 0
+    selected_generic_pr_cluster_keys: set[str] = set()
+    truncated_generic_pr_cluster_keys: set[str] = set()
+    generic_pr_cluster_counts = digest_generic_pr_cluster_counts(raw_items)
 
     for original_index, raw_item in enumerate(raw_items):
         if not isinstance(raw_item, dict):
@@ -498,10 +581,16 @@ def build_evidence_truncation_uncertainty(
             selected_event_kind_counts[event_kind] = selected_event_kind_counts.get(event_kind, 0) + 1
             if digest_item_has_generic_pull_request_detail(raw_item):
                 selected_generic_pr_count += 1
+                cluster_key = digest_generic_pr_cluster_key(raw_item)
+                if cluster_key:
+                    selected_generic_pr_cluster_keys.add(cluster_key)
         elif item_id in truncated_item_ids:
             truncated_event_kind_counts[event_kind] = truncated_event_kind_counts.get(event_kind, 0) + 1
             if digest_item_has_generic_pull_request_detail(raw_item):
                 truncated_generic_pr_count += 1
+                cluster_key = digest_generic_pr_cluster_key(raw_item)
+                if cluster_key:
+                    truncated_generic_pr_cluster_keys.add(cluster_key)
 
     truncated_pr_activity_count = sum(
         count for kind, count in truncated_event_kind_counts.items() if kind in PR_ACTIVITY_EVENT_KINDS
@@ -513,6 +602,9 @@ def build_evidence_truncation_uncertainty(
         reasons.append("truncated_pull_request_activity_may_hide_pr_specific_details")
     if selected_generic_pr_count or truncated_generic_pr_count:
         reasons.append("generic_or_untitled_pull_request_items_have_missing_title_context")
+    repeated_generic_pr_cluster_count = sum(1 for count in generic_pr_cluster_counts.values() if count > 1)
+    if repeated_generic_pr_cluster_count:
+        reasons.append("repeated_generic_pull_request_metadata_clustered_and_downweighted")
 
     return {
         "missing_detail_risk": bool(reasons),
@@ -521,6 +613,10 @@ def build_evidence_truncation_uncertainty(
         "truncated_event_kind_counts": dict(sorted(truncated_event_kind_counts.items())),
         "selected_generic_pr_count": selected_generic_pr_count,
         "truncated_generic_pr_count": truncated_generic_pr_count,
+        "selected_generic_pr_cluster_count": len(selected_generic_pr_cluster_keys),
+        "truncated_generic_pr_cluster_count": len(truncated_generic_pr_cluster_keys),
+        "repeated_generic_pr_cluster_count": repeated_generic_pr_cluster_count,
+        "max_generic_pr_cluster_size": max(generic_pr_cluster_counts.values(), default=0),
         "citation_scope": "cite_selected_item_ids_only",
         "url_policy": "do_not_add_urls",
     }
