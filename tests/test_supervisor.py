@@ -209,8 +209,87 @@ def test_supervisor_runner_liveness_marks_reconnected_idle_runner_as_asleep(tmp_
     assert status.status == "runner_asleep"
     assert status.controller_visible_status == "asleep"
     assert status.reason == "between_scheduled_wakes"
+    assert status.active_child_count == 0
+    assert status.active_child_sessions == []
     assert status.next_wake_due_at == "2026-06-17T05:00:00Z"
     assert "asleep" in status.user_visible_message
+
+
+def test_supervisor_runner_liveness_surfaces_active_children_instead_of_sleeping(tmp_path):
+    heartbeat_path = tmp_path / "latest-supervisor-heartbeat.json"
+    heartbeat = {
+        "last_pass_id": "20260617T040000Z",
+        "last_finished_at": "2026-06-17T04:00:00Z",
+        "last_effective_returncode": 0,
+        "child_sessions": [
+            {
+                "id": "child-a",
+                "state": "running",
+                "busy": True,
+                "current_task_status": "searching",
+                "pending_elicitations_count": 0,
+            },
+            {
+                "id": "child-b",
+                "state": "sleeping",
+                "busy": False,
+                "current_task_status": "idle",
+                "pending_elicitations_count": 0,
+            },
+            {
+                "id": "child-c",
+                "state": "sleeping",
+                "busy": False,
+                "pending_elicitations_count": 1,
+            },
+        ],
+    }
+
+    status = supervisor_runner_status_from_heartbeat(
+        heartbeat_path,
+        heartbeat=heartbeat,
+        interval_seconds=3600,
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+        controller_connected=True,
+    )
+
+    assert status.status == "child_agents_active"
+    assert status.controller_visible_status == "children_active"
+    assert status.reason == "active_child_sessions"
+    assert status.active_child_count == 2
+    assert status.child_status_counts == {"running": 1, "sleeping": 2}
+    assert [session["id"] for session in status.active_child_sessions] == ["child-a", "child-c"]
+    assert "2 child agents active" in status.user_visible_message
+
+
+def test_supervisor_runner_liveness_counts_nested_child_sessions(tmp_path):
+    heartbeat = {
+        "last_pass_id": "20260617T040000Z",
+        "last_finished_at": "2026-06-17T04:00:00Z",
+        "last_effective_returncode": 0,
+        "child_sessions": {
+            "child-a": {
+                "status": "sleeping",
+                "children": {
+                    "grandchild-a": {
+                        "status": "busy",
+                        "current_task_status": "validating",
+                    }
+                },
+            }
+        },
+    }
+
+    status = supervisor_runner_status_from_heartbeat(
+        tmp_path / "latest-supervisor-heartbeat.json",
+        heartbeat=heartbeat,
+        now=datetime(2026, 6, 17, 4, 10, tzinfo=timezone.utc),
+    )
+
+    assert status.status == "child_agents_active"
+    assert status.active_child_count == 1
+    assert status.child_status_counts == {"sleeping": 1, "busy": 1}
+    assert status.active_child_sessions[0]["id"] == "grandchild-a"
 
 
 def test_supervisor_runner_liveness_distinguishes_disconnect_from_asleep(tmp_path):

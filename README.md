@@ -374,7 +374,7 @@ One run can write:
 | `latest-codex-run.json` | Codex kernel run metadata |
 | `latest-self-evolution-manifest.json` | replay metadata for a Codex self-evolution run, including source digest, branch, target HEAD, evidence URLs, validation gates, task path, timing, proposal controls, and `replayable_validation_report` with pre-adoption risk review, startup/import health checks, runtime capability-change fields, completion requirements, completion status, and a pending adoption decision |
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
-| `latest-supervisor-heartbeat.json` | latest supervisor heartbeat with pass metadata and derived `runner_liveness` for asleep, disconnected, failed, or unavailable runner states |
+| `latest-supervisor-heartbeat.json` | latest supervisor heartbeat with pass metadata and derived `runner_liveness` for asleep, active child sessions, disconnected, failed, or unavailable runner states |
 | `latest-restart-request.json` | restart handoff written after a successful promotion |
 | `latest-activation.json` | latest health-verified activation and its previous rollback head |
 | `latest-startup-health.json` | startup health record and rollback status |

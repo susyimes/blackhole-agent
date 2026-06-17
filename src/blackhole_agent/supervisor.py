@@ -213,6 +213,9 @@ class SupervisorRunnerStatus:
     last_effective_returncode: int | None
     seconds_since_last_finish: float | None
     next_wake_due_at: str
+    active_child_count: int
+    child_status_counts: dict[str, int]
+    active_child_sessions: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1214,9 +1217,10 @@ def supervisor_runner_status_from_heartbeat(
 
     current_time = now or datetime.now(timezone.utc)
     payload = heartbeat if heartbeat is not None else read_json_if_exists(heartbeat_path)
+    empty_child_summary = empty_supervisor_child_summary()
     if not payload:
         return SupervisorRunnerStatus(
-            schema_version=1,
+            schema_version=2,
             status="runner_unavailable",
             controller_visible_status="unavailable",
             user_visible_message="No supervisor heartbeat has been recorded yet.",
@@ -1228,7 +1232,9 @@ def supervisor_runner_status_from_heartbeat(
             last_effective_returncode=None,
             seconds_since_last_finish=None,
             next_wake_due_at="",
+            **empty_child_summary,
         )
+    child_summary = supervisor_child_summary_from_heartbeat(payload)
     last_pass_id = str(payload.get("last_pass_id") or "")
     last_finished_at = str(payload.get("last_finished_at") or "")
     last_effective_returncode = int(payload.get("last_effective_returncode") or 0)
@@ -1240,7 +1246,7 @@ def supervisor_runner_status_from_heartbeat(
         next_wake_due_at = (finished_at + timedelta(seconds=interval_seconds)).isoformat().replace("+00:00", "Z")
     if not controller_connected:
         return SupervisorRunnerStatus(
-            schema_version=1,
+            schema_version=2,
             status="controller_disconnected",
             controller_visible_status="disconnected",
             user_visible_message="Supervisor connection is unavailable; reconnect before scheduling the next wake.",
@@ -1252,10 +1258,11 @@ def supervisor_runner_status_from_heartbeat(
             last_effective_returncode=last_effective_returncode,
             seconds_since_last_finish=seconds_since_finish,
             next_wake_due_at=next_wake_due_at,
+            **child_summary,
         )
     if last_effective_returncode != 0:
         return SupervisorRunnerStatus(
-            schema_version=1,
+            schema_version=2,
             status="runner_failed",
             controller_visible_status="failed",
             user_visible_message="The last supervisor wake failed; inspect the latest pass artifact before relying on the next wake.",
@@ -1267,11 +1274,12 @@ def supervisor_runner_status_from_heartbeat(
             last_effective_returncode=last_effective_returncode,
             seconds_since_last_finish=seconds_since_finish,
             next_wake_due_at=next_wake_due_at,
+            **child_summary,
         )
     stale_after_seconds = interval_seconds * stale_after_intervals
     if seconds_since_finish is None or seconds_since_finish > stale_after_seconds:
         return SupervisorRunnerStatus(
-            schema_version=1,
+            schema_version=2,
             status="runner_unavailable",
             controller_visible_status="unavailable",
             user_visible_message="Supervisor heartbeat is stale; confirm the scheduler is running before waiting for more work.",
@@ -1283,9 +1291,30 @@ def supervisor_runner_status_from_heartbeat(
             last_effective_returncode=last_effective_returncode,
             seconds_since_last_finish=seconds_since_finish,
             next_wake_due_at=next_wake_due_at,
+            **child_summary,
+        )
+    if child_summary["active_child_count"] > 0:
+        count = child_summary["active_child_count"]
+        agent_word = "agent" if count == 1 else "agents"
+        return SupervisorRunnerStatus(
+            schema_version=2,
+            status="child_agents_active",
+            controller_visible_status="children_active",
+            user_visible_message=(
+                f"{count} child {agent_word} active while the parent runner is otherwise between supervisor wakes."
+            ),
+            reason="active_child_sessions",
+            heartbeat_path=str(heartbeat_path),
+            heartbeat_present=True,
+            last_pass_id=last_pass_id,
+            last_finished_at=last_finished_at,
+            last_effective_returncode=last_effective_returncode,
+            seconds_since_last_finish=seconds_since_finish,
+            next_wake_due_at=next_wake_due_at,
+            **child_summary,
         )
     return SupervisorRunnerStatus(
-        schema_version=1,
+        schema_version=2,
         status="runner_asleep",
         controller_visible_status="asleep",
         user_visible_message="The one-shot runner is asleep between supervisor wakes; the scheduler will start a fresh runner on the next wake.",
@@ -1297,7 +1326,93 @@ def supervisor_runner_status_from_heartbeat(
         last_effective_returncode=last_effective_returncode,
         seconds_since_last_finish=seconds_since_finish,
         next_wake_due_at=next_wake_due_at,
+        **child_summary,
     )
+
+
+def empty_supervisor_child_summary() -> dict[str, Any]:
+    return {
+        "active_child_count": 0,
+        "child_status_counts": {},
+        "active_child_sessions": [],
+    }
+
+
+def supervisor_child_summary_from_heartbeat(payload: dict[str, Any]) -> dict[str, Any]:
+    """Summarize child-session metadata carried by a supervisor heartbeat."""
+
+    sessions = list(iter_supervisor_child_sessions(payload))
+    status_counts: dict[str, int] = {}
+    active_sessions: list[dict[str, Any]] = []
+    for session in sessions:
+        status = supervisor_child_session_status(session)
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if supervisor_child_session_is_active(session, status):
+            active_sessions.append(
+                {
+                    "id": str(session.get("id") or session.get("session_id") or ""),
+                    "status": status,
+                    "busy": bool(session.get("busy")),
+                    "current_task_status": str(session.get("current_task_status") or ""),
+                    "pending_elicitations_count": safe_int(session.get("pending_elicitations_count")),
+                }
+            )
+    explicit_active_count = payload.get("active_child_count")
+    active_count = len(active_sessions)
+    if isinstance(explicit_active_count, int) and explicit_active_count > active_count:
+        active_count = explicit_active_count
+    return {
+        "active_child_count": active_count,
+        "child_status_counts": status_counts,
+        "active_child_sessions": active_sessions,
+    }
+
+
+def iter_supervisor_child_sessions(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates = payload.get("child_sessions") or payload.get("children") or payload.get("active_child_sessions") or []
+    if isinstance(candidates, dict):
+        iterable = [
+            {"id": key, **value} if isinstance(value, dict) else {"id": key, "status": value}
+            for key, value in candidates.items()
+        ]
+    elif isinstance(candidates, list):
+        iterable = candidates
+    else:
+        iterable = []
+
+    sessions: list[dict[str, Any]] = []
+    for candidate in iterable:
+        if not isinstance(candidate, dict):
+            continue
+        sessions.append(candidate)
+        for child_key in ("child_sessions", "children"):
+            child_value = candidate.get(child_key)
+            if isinstance(child_value, (dict, list)):
+                sessions.extend(iter_supervisor_child_sessions({child_key: child_value}))
+    return sessions
+
+
+def supervisor_child_session_status(session: dict[str, Any]) -> str:
+    status = session.get("status") or session.get("state") or session.get("current_task_status") or "unknown"
+    return str(status).strip().lower() or "unknown"
+
+
+def supervisor_child_session_is_active(session: dict[str, Any], status: str) -> bool:
+    if bool(session.get("busy")):
+        return True
+    if safe_int(session.get("pending_elicitations_count")) > 0:
+        return True
+    if status in {"active", "busy", "running", "working", "queued", "pending", "awaiting_user"}:
+        return True
+    current_task_status = str(session.get("current_task_status") or "").strip().lower()
+    return bool(current_task_status and current_task_status not in {"idle", "done", "complete", "completed", "sleeping"})
+
+
+def safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def read_json_if_exists(path: Path) -> dict[str, Any]:

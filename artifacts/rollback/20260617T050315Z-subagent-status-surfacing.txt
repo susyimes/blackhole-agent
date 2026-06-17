@@ -1,0 +1,10 @@
+rollback point: 20260617T050315Z-subagent-status-surfacing
+original branch: codex/blackhole-evolve/20260617T050424.729028-add-or-improve-live-sub-agent-status-surfacing-i
+original HEAD: 9538b3257447f3451707ea537d5d66c55cbcebe7
+rollback ref: refs/rollback/20260617T050315Z-subagent-status-surfacing
+repo: C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260617T050315Z
+
+Recovery commands (explicit/destructive):
+git switch codex/blackhole-evolve/20260617T050424.729028-add-or-improve-live-sub-agent-status-surfacing-i
+git reset --hard refs/rollback/20260617T050315Z-subagent-status-surfacing
+git status --short --branch
