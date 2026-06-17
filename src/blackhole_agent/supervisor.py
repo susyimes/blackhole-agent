@@ -1354,7 +1354,13 @@ def empty_supervisor_child_summary() -> dict[str, Any]:
 def supervisor_child_summary_from_heartbeat(payload: dict[str, Any]) -> dict[str, Any]:
     """Summarize child-session metadata carried by a supervisor heartbeat."""
 
-    sessions = list(iter_supervisor_child_sessions(payload))
+    current_pass_id = str(payload.get("last_pass_id") or "")
+    raw_sessions = iter_supervisor_child_sessions(payload)
+    sessions = [
+        session
+        for session in raw_sessions
+        if supervisor_child_session_belongs_to_pass(session, current_pass_id)
+    ]
     status_counts: dict[str, int] = {}
     active_sessions: list[dict[str, Any]] = []
     for session in sessions:
@@ -1372,13 +1378,31 @@ def supervisor_child_summary_from_heartbeat(payload: dict[str, Any]) -> dict[str
             )
     explicit_active_count = payload.get("active_child_count")
     active_count = len(active_sessions)
-    if isinstance(explicit_active_count, int) and explicit_active_count > active_count:
+    if (
+        not any(supervisor_child_session_has_pass_owner(session) for session in raw_sessions)
+        and isinstance(explicit_active_count, int)
+        and explicit_active_count > active_count
+    ):
         active_count = explicit_active_count
     return {
         "active_child_count": active_count,
         "child_status_counts": status_counts,
         "active_child_sessions": active_sessions,
     }
+
+
+def supervisor_child_session_belongs_to_pass(session: dict[str, Any], current_pass_id: str) -> bool:
+    """Return false for child-session metadata explicitly tied to another wake pass."""
+
+    for key in ("pass_id", "parent_pass_id", "wake_pass_id", "run_id"):
+        value = str(session.get(key) or "").strip()
+        if value:
+            return not current_pass_id or value == current_pass_id
+    return True
+
+
+def supervisor_child_session_has_pass_owner(session: dict[str, Any]) -> bool:
+    return any(str(session.get(key) or "").strip() for key in ("pass_id", "parent_pass_id", "wake_pass_id", "run_id"))
 
 
 def iter_supervisor_child_sessions(payload: dict[str, Any]) -> list[dict[str, Any]]:

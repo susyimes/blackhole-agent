@@ -265,6 +265,42 @@ def test_supervisor_runner_liveness_surfaces_active_children_instead_of_sleeping
     assert "2 child agents active" in status.user_visible_message
 
 
+def test_supervisor_runner_liveness_ignores_pending_children_from_other_pass(tmp_path):
+    heartbeat = {
+        "last_pass_id": "20260617T054315Z",
+        "last_finished_at": "2026-06-17T05:43:15Z",
+        "last_effective_returncode": 0,
+        "active_child_count": 1,
+        "child_sessions": [
+            {
+                "id": "stale-pending-card",
+                "pass_id": "20260617T044315Z",
+                "state": "awaiting_user",
+                "pending_elicitations_count": 1,
+            },
+            {
+                "id": "current-idle-child",
+                "pass_id": "20260617T054315Z",
+                "state": "sleeping",
+                "current_task_status": "idle",
+                "pending_elicitations_count": 0,
+            },
+        ],
+    }
+
+    status = supervisor_runner_status_from_heartbeat(
+        tmp_path / "latest-supervisor-heartbeat.json",
+        heartbeat=heartbeat,
+        now=datetime(2026, 6, 17, 5, 50, tzinfo=timezone.utc),
+    )
+
+    assert status.status == "runner_asleep"
+    assert status.reason == "between_scheduled_wakes"
+    assert status.active_child_count == 0
+    assert status.child_status_counts == {"sleeping": 1}
+    assert status.active_child_sessions == []
+
+
 def test_supervisor_runner_liveness_counts_nested_child_sessions(tmp_path):
     heartbeat = {
         "last_pass_id": "20260617T040000Z",
