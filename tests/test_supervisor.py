@@ -9,6 +9,7 @@ import pytest
 from blackhole_agent.supervisor import (
     SupervisorConfig,
     build_provider_config_preflight,
+    build_runtime_startup_preflight,
     build_wake_command,
     create_candidate_worktree,
     run_health_checks,
@@ -18,6 +19,7 @@ from blackhole_agent.supervisor import (
     supervisor_runner_status_from_heartbeat,
     validate_supervisor_config,
 )
+from blackhole_agent.tool_routing import ToolDescriptor
 
 
 def test_build_wake_command_launches_one_shot_child(tmp_path):
@@ -536,8 +538,39 @@ def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling
 def test_validate_supervisor_config_rejects_malformed_token_env_before_scheduling(tmp_path):
     config = SupervisorConfig(repo_path=tmp_path, token_env="GITHUB TOKEN", model="gpt-5.5")
 
-    with pytest.raises(ValueError, match="provider/config/token preflight failed"):
+    with pytest.raises(ValueError, match="runtime startup preflight failed"):
         validate_supervisor_config(config)
+
+
+def test_runtime_startup_preflight_combines_provider_and_tool_gaps_without_token_leakage(tmp_path, monkeypatch):
+    monkeypatch.setenv("BLACKHOLE_TEST_TOKEN", "secret-token-value")
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        token_env="BLACKHOLE_TEST_TOKEN",
+        require_token_env=True,
+        model="gpt-5.5",
+        required_tool_names=("local_memory", "browser"),
+    )
+
+    preflight = build_runtime_startup_preflight(
+        config,
+        tool_descriptors=(
+            ToolDescriptor(name="local_memory", provider="local"),
+            ToolDescriptor(name="security_review", provider="local", risk_flags=("offensive-behavior",)),
+            ToolDescriptor(name="remote_browser", provider="mcp"),
+        ),
+    )
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["provider_config"]["ok"] is True
+    assert preflight["provider_config"]["token_env_present"] is True
+    assert preflight["tool_routing"]["missing_required_tool_names"] == ["browser"]
+    assert preflight["diagnostics"] == [
+        "required tool is not executable or is unavailable: browser",
+    ]
+    assert preflight["token_value_recorded"] is False
+    assert "secret-token-value" not in rendered
 
 
 def test_startup_health_success_records_manual_activation_baseline(tmp_path):

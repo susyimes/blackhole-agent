@@ -141,6 +141,35 @@ def route_tool_descriptors(descriptors: Sequence[ToolDescriptor]) -> tuple[ToolR
     return tuple(route_tool_descriptor(descriptor) for descriptor in descriptors)
 
 
+def build_tool_routing_preflight(
+    descriptors: Sequence[ToolDescriptor],
+    *,
+    required_tool_names: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Return startup-safe diagnostics for local tool routing capabilities."""
+
+    decisions = route_tool_descriptors(descriptors)
+    executable_names = sorted(decision.descriptor.name for decision in decisions if decision.executable)
+    executable_name_set = set(executable_names)
+    required_names = tuple(dict.fromkeys(name for name in required_tool_names if name))
+    missing_required = [name for name in required_names if name not in executable_name_set]
+    diagnostics = [f"required tool is not executable or is unavailable: {name}" for name in missing_required]
+    route_counts: dict[str, int] = {}
+    for decision in decisions:
+        route_counts[decision.route] = route_counts.get(decision.route, 0) + 1
+    return {
+        "schema_version": 1,
+        "ok": not diagnostics,
+        "diagnostics": diagnostics,
+        "tool_count": len(decisions),
+        "required_tool_names": list(required_names),
+        "missing_required_tool_names": missing_required,
+        "executable_tool_names": executable_names,
+        "route_counts": route_counts,
+        "decisions": [decision.to_dict() for decision in decisions],
+    }
+
+
 class ToolCompatibilityCache:
     """Small cache keyed by full tool compatibility descriptors."""
 

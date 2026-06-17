@@ -7,6 +7,7 @@ from blackhole_agent.tool_routing import (
     UNSUPPORTED_TOOL_ROUTE,
     ToolCompatibilityCache,
     ToolDescriptor,
+    build_tool_routing_preflight,
     discover_provider_harnesses,
     executable_tool_registry,
     load_single_file_agent_tool_descriptors,
@@ -148,6 +149,32 @@ def test_unsupported_provider_and_tool_type_are_inspectable_and_not_executable()
     assert decisions[0].reasons == ("unsupported_provider:mcp",)
     assert decisions[1].reasons == ("unsupported_tool_type:terminal",)
     assert registry == {}
+
+
+def test_tool_routing_preflight_reports_missing_required_tools_and_route_counts():
+    descriptors = [
+        local_memory_tool_descriptor(),
+        ToolDescriptor(name="review_probe", provider="local", risk_flags=("privacy-leakage",)),
+        ToolDescriptor(name="remote_browser", provider="mcp"),
+    ]
+
+    preflight = build_tool_routing_preflight(
+        descriptors,
+        required_tool_names=("local_memory", "browser", "browser"),
+    )
+
+    assert preflight["ok"] is False
+    assert preflight["required_tool_names"] == ["local_memory", "browser"]
+    assert preflight["missing_required_tool_names"] == ["browser"]
+    assert preflight["executable_tool_names"] == ["local_memory"]
+    assert preflight["route_counts"] == {
+        EXECUTABLE_TOOL_ROUTE: 1,
+        REVIEW_ONLY_TOOL_ROUTE: 1,
+        UNSUPPORTED_TOOL_ROUTE: 1,
+    }
+    assert preflight["diagnostics"] == [
+        "required tool is not executable or is unavailable: browser",
+    ]
 
 
 def test_single_file_yaml_function_tool_reaches_executable_registry():

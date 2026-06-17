@@ -1,0 +1,13 @@
+Rollback point for github-growth-20260617T072315.624519Z
+
+Original branch: codex/blackhole-evolve/20260617T072420.752962-add-a-local-provider-and-tool-routing-preflight-
+Original HEAD: 921c26ca7aa00c9b4456c261db35cda3db4e5f68
+Local rollback ref: refs/rollback/blackhole-agent/20260617T072315Z
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260617T072420.752962-add-a-local-provider-and-tool-routing-preflight-
+  git reset --hard refs/rollback/blackhole-agent/20260617T072315Z
+
+Notes:
+  Rollback execution is explicit and destructive; do not run it unless a human
+  operator or external supervisor policy chooses recovery.

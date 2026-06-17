@@ -25,6 +25,11 @@ from rich.console import Console
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
+from blackhole_agent.tool_routing import (
+    ToolDescriptor,
+    build_tool_routing_preflight,
+    local_memory_tool_descriptor,
+)
 
 app = typer.Typer(rich_markup_mode="rich", add_completion=False)
 console = Console(highlight=False)
@@ -101,6 +106,7 @@ class SupervisorConfig:
     rollback_on_startup_health_failure: bool = True
     exit_after_promotion: bool = False
     restart_exit_code: int = DEFAULT_RESTART_EXIT_CODE
+    required_tool_names: tuple[str, ...] = ()
 
     @property
     def resolved_output_dir(self) -> Path:
@@ -1126,10 +1132,10 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
         raise ValueError("proposal_mode must be one of: heuristic, llm, hybrid")
     if config.proposal_timeout_seconds < 1:
         raise ValueError("proposal_timeout_seconds must be at least 1")
-    preflight = build_provider_config_preflight(config)
+    preflight = build_runtime_startup_preflight(config)
     if not preflight["ok"]:
         diagnostics = "; ".join(str(item) for item in preflight["diagnostics"])
-        raise ValueError(f"provider/config/token preflight failed: {diagnostics}")
+        raise ValueError(f"runtime startup preflight failed: {diagnostics}")
 
 
 def build_provider_config_preflight(
@@ -1170,6 +1176,39 @@ def build_provider_config_preflight(
         "token_env_present": token_env_present,
         "token_value_recorded": False,
         "codex": codex_preflight,
+    }
+
+
+def default_supervisor_tool_descriptors() -> tuple[ToolDescriptor, ...]:
+    """Return built-in local tools that the supervisor may expose to child agents."""
+
+    return (local_memory_tool_descriptor(),)
+
+
+def build_runtime_startup_preflight(
+    config: SupervisorConfig,
+    *,
+    env: dict[str, str] | None = None,
+    tool_descriptors: tuple[ToolDescriptor, ...] | None = None,
+) -> dict[str, Any]:
+    """Return provider and tool-routing diagnostics checked before a wake pass starts."""
+
+    provider_preflight = build_provider_config_preflight(config, env=env)
+    tool_preflight = build_tool_routing_preflight(
+        tool_descriptors if tool_descriptors is not None else default_supervisor_tool_descriptors(),
+        required_tool_names=config.required_tool_names,
+    )
+    diagnostics = [
+        *[str(item) for item in provider_preflight["diagnostics"]],
+        *[str(item) for item in tool_preflight["diagnostics"]],
+    ]
+    return {
+        "schema_version": 1,
+        "ok": provider_preflight["ok"] and tool_preflight["ok"],
+        "diagnostics": diagnostics,
+        "provider_config": provider_preflight,
+        "tool_routing": tool_preflight,
+        "token_value_recorded": False,
     }
 
 
