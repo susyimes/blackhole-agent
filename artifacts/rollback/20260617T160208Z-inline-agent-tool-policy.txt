@@ -1,0 +1,12 @@
+Rollback point for inline agent tool policy identity hardening.
+
+Original branch: codex/blackhole-evolve/20260617T160125.243678-investigate-and-harden-repl-pexpect-e2e-startup-
+Original HEAD: 054f700ae63db9218700cc1b2effa1614cd15007
+Rollback ref: refs/rollback/20260617T160208Z-inline-agent-tool-policy
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260617T160125.243678-investigate-and-harden-repl-pexpect-e2e-startup-
+  git reset --hard refs/rollback/20260617T160208Z-inline-agent-tool-policy
+
+Rollback execution is explicit and destructive. Do not run these commands unless a human operator
+or external supervisor policy chooses rollback.

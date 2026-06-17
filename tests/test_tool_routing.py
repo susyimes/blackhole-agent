@@ -167,6 +167,63 @@ def test_tool_call_policy_evaluator_denies_before_executable_registry():
     assert registry == {}
 
 
+def test_tool_call_policy_evaluator_denies_wrapped_tool_by_declared_policy_name():
+    descriptor = ToolDescriptor(
+        name="sys_session_send",
+        description="Transport wrapper for inline agent dispatch.",
+        provider="local",
+        policy_name="worker",
+        parameters={
+            "type": "object",
+            "properties": {"agent": {"type": "string"}},
+            "required": ["agent"],
+        },
+    )
+    observed_policy_names = []
+
+    def policy(policy_descriptor):
+        observed_policy_names.append(policy_descriptor.name)
+        if policy_descriptor.name == "worker":
+            return ToolCallPolicyResult(False, "sub_agent_denied")
+        return True
+
+    decision = route_tool_descriptor(descriptor, tool_call_policy_evaluator=policy)
+    registry = executable_tool_registry([descriptor], tool_call_policy_evaluator=policy)
+
+    assert observed_policy_names == ["worker", "worker"]
+    assert decision.route == DENIED_TOOL_ROUTE
+    assert decision.executable is False
+    assert decision.reasons == ("policy_denied:sub_agent_denied",)
+    assert decision.to_dict()["name"] == "sys_session_send"
+    assert decision.to_dict()["policy_name"] == "worker"
+    assert registry == {}
+
+
+def test_wrapped_tool_policy_name_keeps_model_facing_transport_name():
+    descriptor = ToolDescriptor(
+        name="sys_session_send",
+        description="Transport wrapper for inline agent dispatch.",
+        provider="local",
+        policy_name="worker",
+    )
+
+    decision = route_tool_descriptor(descriptor, tool_call_policy_evaluator=lambda policy_descriptor: True)
+    registry = executable_tool_registry([descriptor], tool_call_policy_evaluator=lambda policy_descriptor: True)
+
+    assert decision.route == EXECUTABLE_TOOL_ROUTE
+    assert decision.to_dict() == {
+        "name": "sys_session_send",
+        "policy_name": "worker",
+        "provider": "local",
+        "route": "executable",
+        "reasons": [],
+        "risk_flags": [],
+        "type": None,
+    }
+    assert registry["sys_session_send"]["name"] == "sys_session_send"
+    assert registry["sys_session_send"]["policy_name"] == "worker"
+
+
 def test_tool_call_policy_evaluator_errors_fail_closed():
     descriptor = ToolDescriptor(name="connector_tool", provider="local")
 

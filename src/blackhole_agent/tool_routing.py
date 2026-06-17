@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -31,6 +31,7 @@ class ToolDescriptor:
     session_id: str | None = None
     tool_type: str | None = None
     callable_path: str | None = None
+    policy_name: str | None = None
     risk_flags: tuple[str, ...] = ()
 
     def compatibility_key(self) -> str:
@@ -41,12 +42,26 @@ class ToolDescriptor:
             "description": self.description,
             "name": self.name,
             "parameters": self.parameters,
+            "policy_name": self.policy_name,
             "provider": self.provider,
             "risk_flags": self.risk_flags,
             "session_id": self.session_id,
             "tool_type": self.tool_type,
         }
         return canonical_tool_schema(payload)
+
+    @property
+    def policy_identity(self) -> str:
+        """Declared tool identity used by policy gates."""
+
+        return self.policy_name or self.name
+
+    def for_policy_evaluation(self) -> ToolDescriptor:
+        """Return the descriptor identity a policy evaluator should match."""
+
+        if self.policy_name is None or self.policy_name == self.name:
+            return self
+        return replace(self, name=self.policy_name)
 
     def to_call_metadata(self) -> dict[str, Any]:
         """Emit model-facing metadata without dropping the parameter schema."""
@@ -62,6 +77,8 @@ class ToolDescriptor:
             metadata["type"] = self.tool_type
         if self.callable_path is not None:
             metadata["callable"] = self.callable_path
+        if self.policy_name is not None and self.policy_name != self.name:
+            metadata["policy_name"] = self.policy_name
         if self.parameters is not None:
             metadata["parameters"] = dict(self.parameters)
         return metadata
@@ -98,6 +115,11 @@ class ToolRouteDecision:
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.descriptor.name,
+            **(
+                {"policy_name": self.descriptor.policy_identity}
+                if self.descriptor.policy_identity != self.descriptor.name
+                else {}
+            ),
             "provider": self.descriptor.provider,
             "route": self.route,
             "reasons": list(self.reasons),
@@ -165,7 +187,7 @@ def evaluate_tool_call_policy(
     if evaluator is None:
         return None
     try:
-        result = evaluator(descriptor)
+        result = evaluator(descriptor.for_policy_evaluation())
     except TimeoutError:
         return "policy_evaluation_timeout"
     except Exception as error:
