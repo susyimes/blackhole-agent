@@ -306,6 +306,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
     workflow = raw_input.get("workflow") if isinstance(raw_input.get("workflow"), dict) else {}
     session = raw_input.get("session") if isinstance(raw_input.get("session"), dict) else {}
+    interrupt = raw_input.get("interrupt") if isinstance(raw_input.get("interrupt"), dict) else {}
     file_tools = raw_input.get("file_tools") if isinstance(raw_input.get("file_tools"), dict) else {}
     sub_agents = raw_input.get("sub_agents") if isinstance(raw_input.get("sub_agents"), dict) else {}
     native_tool_policy = raw_input.get("native_tool_policy") if isinstance(raw_input.get("native_tool_policy"), dict) else {}
@@ -330,6 +331,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     enough_responses = len(response_results) >= len(steps)
     expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
     session_result = evaluate_mock_session_route(session)
+    interrupt_result = evaluate_mock_interrupt_replay(interrupt)
     file_tool_result = evaluate_mock_file_tools_route(file_tools)
     sub_agent_result = evaluate_mock_named_sub_agents_route(sub_agents, response_results=response_results)
     native_policy_result = evaluate_embedded_native_tool_policy(native_tool_policy, source_path=source_path)
@@ -350,6 +352,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         expectations_passed=expectations_passed,
         anthropic_messages_ok=anthropic_messages["ok"],
         session_passed=session_result["isolation_passed"],
+        interrupt_passed=interrupt_result["passed"],
         file_tools_passed=file_tool_result["all_operations_mocked"]
         and file_tool_result["all_expectations_passed"],
         sub_agents_passed=sub_agent_result["persistence_passed"] and not sub_agent_result["queue_desync_detected"],
@@ -391,6 +394,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         },
         "multimodal_preflight": multimodal_preflight,
         "session": session_result,
+        "interrupt": interrupt_result,
         "file_tools": file_tool_result,
         "sub_agents": sub_agent_result,
         "native_tool_policy": native_policy_result,
@@ -660,6 +664,77 @@ def evaluate_mock_session_route(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def evaluate_mock_interrupt_replay(interrupt: dict[str, Any]) -> dict[str, Any]:
+    """Validate interrupt rebuild and idle replay metadata without exporting IDs."""
+
+    previous_session_id = optional_string(interrupt.get("previous_session_id"))
+    rebuilt_session_id = optional_string(interrupt.get("rebuilt_session_id"))
+    previous_agent_id = optional_string(interrupt.get("previous_agent_id"))
+    rebuilt_agent_id = optional_string(interrupt.get("rebuilt_agent_id"))
+    previous_conversation_id = optional_string(interrupt.get("previous_conversation_id"))
+    rebuilt_conversation_id = optional_string(interrupt.get("rebuilt_conversation_id"))
+    pending_idle_message_ids = string_list(interrupt.get("pending_idle_message_ids"))
+    replayed_idle_message_ids = string_list(interrupt.get("replayed_idle_message_ids"))
+    declared = bool(interrupt)
+    required = truthy(interrupt.get("required")) or declared
+
+    session_rebuilt = bool(previous_session_id and rebuilt_session_id and previous_session_id != rebuilt_session_id)
+    agent_rebuilt = bool(previous_agent_id and rebuilt_agent_id and previous_agent_id != rebuilt_agent_id)
+    conversation_rebuilt = bool(
+        previous_conversation_id
+        and rebuilt_conversation_id
+        and previous_conversation_id != rebuilt_conversation_id
+    )
+    replay_counts_match = count_strings(pending_idle_message_ids) == count_strings(replayed_idle_message_ids)
+    lost_idle_message_count = count_missing_strings(pending_idle_message_ids, replayed_idle_message_ids)
+    duplicated_idle_message_count = count_missing_strings(replayed_idle_message_ids, pending_idle_message_ids)
+    passed = (
+        not required
+        or session_rebuilt
+        and agent_rebuilt
+        and conversation_rebuilt
+        and replay_counts_match
+    )
+
+    return {
+        "declared": declared,
+        "required": required,
+        "session_rebuilt": session_rebuilt,
+        "agent_rebuilt": agent_rebuilt,
+        "conversation_rebuilt": conversation_rebuilt,
+        "pending_idle_message_count": len(pending_idle_message_ids),
+        "replayed_idle_message_count": len(replayed_idle_message_ids),
+        "idle_replay_counts_match": replay_counts_match,
+        "lost_idle_message_count": lost_idle_message_count,
+        "duplicated_idle_message_count": duplicated_idle_message_count,
+        "previous_session_hash": stable_text_hash(previous_session_id) if previous_session_id else None,
+        "rebuilt_session_hash": stable_text_hash(rebuilt_session_id) if rebuilt_session_id else None,
+        "previous_agent_hash": stable_text_hash(previous_agent_id) if previous_agent_id else None,
+        "rebuilt_agent_hash": stable_text_hash(rebuilt_agent_id) if rebuilt_agent_id else None,
+        "previous_conversation_hash": stable_text_hash(previous_conversation_id) if previous_conversation_id else None,
+        "rebuilt_conversation_hash": stable_text_hash(rebuilt_conversation_id) if rebuilt_conversation_id else None,
+        "pending_idle_message_hashes": [stable_text_hash(message_id) for message_id in pending_idle_message_ids],
+        "replayed_idle_message_hashes": [stable_text_hash(message_id) for message_id in replayed_idle_message_ids],
+        "raw_ids_exported": False,
+        "passed": passed,
+    }
+
+
+def count_strings(values: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def count_missing_strings(expected: list[str], observed: list[str]) -> int:
+    observed_counts = count_strings(observed)
+    missing_count = 0
+    for value, expected_count in count_strings(expected).items():
+        missing_count += max(0, expected_count - observed_counts.get(value, 0))
+    return missing_count
+
+
 def evaluate_mock_file_tools_route(file_tools: dict[str, Any]) -> dict[str, Any]:
     operations = file_tools.get("operations") if isinstance(file_tools.get("operations"), list) else []
     operation_results = [evaluate_mock_file_tool_operation(operation) for operation in operations]
@@ -862,6 +937,7 @@ def mock_llm_workflow_failure_mode(
     expectations_passed: bool,
     anthropic_messages_ok: bool,
     session_passed: bool,
+    interrupt_passed: bool,
     file_tools_passed: bool,
     sub_agents_passed: bool,
     native_policy_passed: bool,
@@ -886,6 +962,8 @@ def mock_llm_workflow_failure_mode(
         return "mock_llm_queue_not_consumed"
     if not session_passed:
         return "session_isolation_failed"
+    if not interrupt_passed:
+        return "interrupt_replay_failed"
     if not file_tools_passed:
         return "file_tool_mock_failed"
     if not sub_agents_passed:

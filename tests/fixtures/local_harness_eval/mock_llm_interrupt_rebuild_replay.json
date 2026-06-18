@@ -1,0 +1,117 @@
+{
+  "name": "mock-llm-interrupt-rebuild-replay",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-interrupt-rebuild-replay",
+    "provider": {
+      "name": "external-chat-provider",
+      "enabled": false
+    },
+    "session": {
+      "id": "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT",
+      "previous_id": "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT",
+      "isolation_required": true
+    },
+    "interrupt": {
+      "required": true,
+      "previous_session_id": "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT",
+      "rebuilt_session_id": "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT",
+      "previous_agent_id": "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT",
+      "rebuilt_agent_id": "PRIVATE_AGENT_AFTER_INTERRUPT_DO_NOT_EXPORT",
+      "previous_conversation_id": "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT",
+      "rebuilt_conversation_id": "PRIVATE_CONVERSATION_AFTER_INTERRUPT_DO_NOT_EXPORT",
+      "pending_idle_message_ids": [
+        "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT",
+        "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT"
+      ],
+      "replayed_idle_message_ids": [
+        "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT",
+        "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT"
+      ]
+    },
+    "mock_llm": {
+      "enabled": true,
+      "model": "mock-local-llm",
+      "response_queues": {
+        "mock-local-llm": [
+          {
+            "content": "interrupted session rebuilt"
+          },
+          {
+            "content": "idle replay delivered once"
+          }
+        ]
+      }
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "rebuild-session",
+          "expect_contains": "rebuilt"
+        },
+        {
+          "id": "replay-idle",
+          "expect_contains": "delivered once"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "provider.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "session.isolation_passed",
+      "equals": true
+    },
+    {
+      "path": "interrupt.session_rebuilt",
+      "equals": true
+    },
+    {
+      "path": "interrupt.agent_rebuilt",
+      "equals": true
+    },
+    {
+      "path": "interrupt.conversation_rebuilt",
+      "equals": true
+    },
+    {
+      "path": "interrupt.pending_idle_message_count",
+      "equals": 2
+    },
+    {
+      "path": "interrupt.replayed_idle_message_count",
+      "equals": 2
+    },
+    {
+      "path": "interrupt.idle_replay_counts_match",
+      "equals": true
+    },
+    {
+      "path": "interrupt.lost_idle_message_count",
+      "equals": 0
+    },
+    {
+      "path": "interrupt.duplicated_idle_message_count",
+      "equals": 0
+    },
+    {
+      "path": "interrupt.raw_ids_exported",
+      "equals": false
+    },
+    {
+      "path": "mock_llm.remaining_response_count",
+      "equals": 0
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

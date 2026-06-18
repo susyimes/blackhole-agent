@@ -1,0 +1,12 @@
+# Rollback Point
+
+Created: 20260619T051206Z
+Original branch: codex/blackhole-evolve/20260618T211304.132185-add-a-local-provider-config-preflight-validation
+HEAD: 16424c2b18f753d428d9fc0bf11ef0064e469acd
+Rollback ref: refs/rollback/20260619T051206Z-interrupt-session-replay
+
+Recovery commands:
+```powershell
+git switch codex/blackhole-evolve/20260618T211304.132185-add-a-local-provider-config-preflight-validation
+git reset --hard refs/rollback/20260619T051206Z-interrupt-session-replay
+```

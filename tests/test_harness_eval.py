@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 15
-    assert payload["pass_count"] == 14
+    assert payload["fixture_count"] == 16
+    assert payload["pass_count"] == 15
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -100,6 +100,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
+    assert results["mock-llm-interrupt-rebuild-replay"]["passed"] is True
     assert results["mock-llm-named-subagent-policy-route"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
@@ -116,6 +117,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "native-session-fixture-do-not-export" not in serialized
     assert "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "native-ask-session-fixture-do-not-export" not in serialized
     assert "PRIVATE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
@@ -916,6 +920,40 @@ def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting
     assert output["failure_mode"] == "none"
 
 
+def test_mock_llm_workflow_route_covers_interrupt_rebuild_and_idle_replay_without_exporting_ids():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_interrupt_rebuild_replay.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["interrupt"]["session_rebuilt"] is True
+    assert output["interrupt"]["agent_rebuilt"] is True
+    assert output["interrupt"]["conversation_rebuilt"] is True
+    assert output["interrupt"]["pending_idle_message_count"] == 2
+    assert output["interrupt"]["replayed_idle_message_count"] == 2
+    assert output["interrupt"]["idle_replay_counts_match"] is True
+    assert output["interrupt"]["lost_idle_message_count"] == 0
+    assert output["interrupt"]["duplicated_idle_message_count"] == 0
+    assert output["interrupt"]["previous_session_hash"].startswith("sha256:")
+    assert output["interrupt"]["rebuilt_session_hash"].startswith("sha256:")
+    assert all(hash_value.startswith("sha256:") for hash_value in output["interrupt"]["pending_idle_message_hashes"])
+    assert all(hash_value.startswith("sha256:") for hash_value in output["interrupt"]["replayed_idle_message_hashes"])
+    assert output["interrupt"]["raw_ids_exported"] is False
+    assert output["failure_mode"] == "none"
+    assert "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT" not in serialized
+
+
 def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_bodies():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_named_subagent_policy_route.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -1300,6 +1338,58 @@ def test_mock_llm_workflow_route_fails_when_session_reuses_previous_id():
     assert output["session"]["reused_previous_session"] is True
     assert output["session"]["isolation_passed"] is False
     assert output["failure_mode"] == "session_isolation_failed"
+
+
+def test_mock_llm_workflow_route_fails_when_interrupt_idle_replay_loses_or_duplicates_messages():
+    raw_input = {
+        "task_id": "fixture-mock-llm-interrupt-replay-drift",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "interrupt": {
+            "required": True,
+            "previous_session_id": "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT",
+            "rebuilt_session_id": "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT",
+            "previous_agent_id": "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT",
+            "rebuilt_agent_id": "PRIVATE_AGENT_AFTER_INTERRUPT_DO_NOT_EXPORT",
+            "previous_conversation_id": "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT",
+            "rebuilt_conversation_id": "PRIVATE_CONVERSATION_AFTER_INTERRUPT_DO_NOT_EXPORT",
+            "pending_idle_message_ids": [
+                "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT",
+                "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT",
+            ],
+            "replayed_idle_message_ids": [
+                "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT",
+                "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT",
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "mock response"}],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "open-session", "expect_contains": "mock response"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_interrupt_replay_drift_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["interrupt"]["session_rebuilt"] is True
+    assert output["interrupt"]["agent_rebuilt"] is True
+    assert output["interrupt"]["conversation_rebuilt"] is True
+    assert output["interrupt"]["idle_replay_counts_match"] is False
+    assert output["interrupt"]["lost_idle_message_count"] == 1
+    assert output["interrupt"]["duplicated_idle_message_count"] == 1
+    assert output["interrupt"]["raw_ids_exported"] is False
+    assert output["failure_mode"] == "interrupt_replay_failed"
+    assert "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT" not in serialized
 
 
 def test_mock_llm_workflow_route_fails_when_file_tool_is_not_mocked():
