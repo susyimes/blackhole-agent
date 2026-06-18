@@ -10,6 +10,7 @@ import blackhole_agent.kernels.codex_cli as codex_cli
 from blackhole_agent.kernels.codex_cli import (
     CodexCliConfig,
     CodexCliKernel,
+    build_ambient_google_preflight,
     build_ambient_openai_preflight,
     build_codex_exec_command,
     build_codex_provider_preflight,
@@ -166,6 +167,103 @@ def test_ambient_openai_preflight_treats_blank_env_values_as_absent():
     assert ambient_openai["base_url_present"] is False
     assert ambient_openai["api_key_value_recorded"] is False
     assert ambient_openai["base_url_value_recorded"] is False
+
+
+def test_codex_provider_preflight_records_ambient_google_warnings_without_values():
+    private_key = "GOOGLE-PRIVATE-KEY-DO-NOT-EXPORT"
+    private_credentials_path = "C:/private/google/application-default-credentials.json"
+
+    cases = [
+        (
+            {},
+            {
+                "provider_family": None,
+                "route_hint": "not_configured",
+                "api_key_present": False,
+                "api_key_present_envs": [],
+                "application_credentials_present": False,
+                "diagnostics": [],
+            },
+        ),
+        (
+            {"GOOGLE_API_KEY": private_key},
+            {
+                "provider_family": "google",
+                "route_hint": "google_api_key",
+                "api_key_present": True,
+                "api_key_present_envs": ["GOOGLE_API_KEY"],
+                "application_credentials_present": False,
+                "diagnostics": [],
+            },
+        ),
+        (
+            {"GEMINI_API_KEY": private_key},
+            {
+                "provider_family": "google",
+                "route_hint": "google_api_key",
+                "api_key_present": True,
+                "api_key_present_envs": ["GEMINI_API_KEY"],
+                "application_credentials_present": False,
+                "diagnostics": [],
+            },
+        ),
+        (
+            {"GOOGLE_APPLICATION_CREDENTIALS": private_credentials_path},
+            {
+                "provider_family": "google",
+                "route_hint": "google_application_credentials_without_api_key",
+                "api_key_present": False,
+                "api_key_present_envs": [],
+                "application_credentials_present": True,
+                "diagnostics": [
+                    "GOOGLE_APPLICATION_CREDENTIALS is present without GOOGLE_API_KEY or GEMINI_API_KEY; "
+                    "ambient Google API-key credentials are incomplete"
+                ],
+            },
+        ),
+        (
+            {"GOOGLE_API_KEY": private_key, "GOOGLE_APPLICATION_CREDENTIALS": private_credentials_path},
+            {
+                "provider_family": "google",
+                "route_hint": "google_api_key_and_application_credentials",
+                "api_key_present": True,
+                "api_key_present_envs": ["GOOGLE_API_KEY"],
+                "application_credentials_present": True,
+                "diagnostics": [],
+            },
+        ),
+    ]
+
+    for env, expected in cases:
+        preflight = build_codex_provider_preflight(CodexCliConfig(), env=env)
+        ambient_google = preflight["ambient_google"]
+        serialized = json.dumps(preflight, sort_keys=True)
+
+        assert ambient_google["schema_version"] == 1
+        assert ambient_google["api_key_envs"] == ["GOOGLE_API_KEY", "GEMINI_API_KEY"]
+        assert ambient_google["api_key_values_recorded"] is False
+        assert ambient_google["application_credentials_env"] == "GOOGLE_APPLICATION_CREDENTIALS"
+        assert ambient_google["application_credentials_value_recorded"] is False
+        for key, value in expected.items():
+            assert ambient_google[key] == value
+        assert private_key not in serialized
+        assert private_credentials_path not in serialized
+
+
+def test_ambient_google_preflight_treats_blank_env_values_as_absent():
+    ambient_google = build_ambient_google_preflight(
+        {
+            "GOOGLE_API_KEY": " ",
+            "GEMINI_API_KEY": "\t",
+            "GOOGLE_APPLICATION_CREDENTIALS": "",
+        }
+    )
+
+    assert ambient_google["route_hint"] == "not_configured"
+    assert ambient_google["api_key_present"] is False
+    assert ambient_google["application_credentials_present"] is False
+    assert ambient_google["api_key_values_recorded"] is False
+    assert ambient_google["application_credentials_value_recorded"] is False
 
 
 def test_codex_kernel_fails_before_exec_when_route_is_implicit(tmp_path):

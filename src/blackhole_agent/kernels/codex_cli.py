@@ -236,6 +236,7 @@ def build_codex_provider_preflight(
         "implicit_default_route_allowed": not config.require_explicit_route,
         "token_value_recorded": False,
         "ambient_openai": build_ambient_openai_preflight(os.environ if env is None else env),
+        "ambient_google": build_ambient_google_preflight(os.environ if env is None else env),
     }
 
 
@@ -276,6 +277,48 @@ def build_ambient_openai_preflight(env: Mapping[str, str | None]) -> dict[str, A
         "base_url_env": "OPENAI_BASE_URL",
         "base_url_present": base_url_present,
         "base_url_value_recorded": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def build_ambient_google_preflight(env: Mapping[str, str | None]) -> dict[str, Any]:
+    """Summarize ambient Google model credentials without recording values."""
+
+    api_key_env_names = ("GOOGLE_API_KEY", "GEMINI_API_KEY")
+    api_key_present_names = [name for name in api_key_env_names if str(env.get(name) or "").strip()]
+    application_credentials_present = bool(str(env.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip())
+
+    if api_key_present_names and application_credentials_present:
+        route_hint = "google_api_key_and_application_credentials"
+        provider_family = "google"
+    elif api_key_present_names:
+        route_hint = "google_api_key"
+        provider_family = "google"
+    elif application_credentials_present:
+        route_hint = "google_application_credentials_without_api_key"
+        provider_family = "google"
+    else:
+        route_hint = "not_configured"
+        provider_family = None
+
+    diagnostics: list[str] = []
+    if application_credentials_present and not api_key_present_names:
+        diagnostics.append(
+            "GOOGLE_APPLICATION_CREDENTIALS is present without GOOGLE_API_KEY or GEMINI_API_KEY; "
+            "ambient Google API-key credentials are incomplete"
+        )
+
+    return {
+        "schema_version": 1,
+        "provider_family": provider_family,
+        "route_hint": route_hint,
+        "api_key_envs": list(api_key_env_names),
+        "api_key_present": bool(api_key_present_names),
+        "api_key_present_envs": api_key_present_names,
+        "api_key_values_recorded": False,
+        "application_credentials_env": "GOOGLE_APPLICATION_CREDENTIALS",
+        "application_credentials_present": application_credentials_present,
+        "application_credentials_value_recorded": False,
         "diagnostics": diagnostics,
     }
 

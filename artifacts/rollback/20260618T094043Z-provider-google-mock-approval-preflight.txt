@@ -1,0 +1,13 @@
+Rollback point for blackhole-agent self-evolution run
+Created: 2026-06-18T09:40:43Z source digest github-growth-20260618T094044.063929Z
+Original branch: codex/blackhole-evolve/20260618T094229.915048-add-or-extend-local-provider-config-preflight-te
+Original HEAD: 4ec0deada032dea99f4ae4a1d1da22e521e1417c
+Rollback ref: refs/rollback/20260618T094043Z-provider-google-mock-approval-preflight
+
+Recovery commands, to be run only after explicit human or supervisor approval:
+  git switch codex/blackhole-evolve/20260618T094229.915048-add-or-extend-local-provider-config-preflight-te
+  git reset --hard refs/rollback/20260618T094043Z-provider-google-mock-approval-preflight
+
+Notes:
+  This artifact is retained by the run that created it.
+  Rollback execution is destructive and intentionally not performed by the kernel.

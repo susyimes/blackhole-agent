@@ -745,6 +745,14 @@ def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_
     assert agent["expected_queue_mismatches"] == 0
     assert output["native_tool_policy"]["route_status"] == "denied"
     assert output["native_tool_policy"]["permission_decision"] == "deny"
+    assert output["native_tool_policy"]["approval_required"] is False
+    assert output["native_tool_policy"]["approval_path"] == {
+        "declared": False,
+        "route_status": "not_required",
+        "passive": False,
+        "tool_executed": False,
+        "arguments_exported": False,
+    }
     assert output["native_tool_policy"]["fail_closed_applied"] is True
     assert output["native_tool_policy"]["tool_executed"] is False
     assert output["mock_llm"]["remaining_response_count"] == 0
@@ -759,6 +767,62 @@ def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_
     assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
+    assert "Write" not in serialized
+
+
+def test_mock_llm_workflow_route_records_review_required_approval_path_without_execution():
+    raw_input = {
+        "task_id": "fixture-mock-llm-approval-review-required",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "native_tool_policy": {
+            "task_id": "fixture-mock-llm-approval-review-required",
+            "policy_hook": {
+                "governed": True,
+                "session_id": "PRIVATE_APPROVAL_SESSION_DO_NOT_EXPORT",
+                "server_url_configured": True,
+                "event_phase": "PreToolUse",
+                "failure_mode": "slow_ask_timeout",
+            },
+            "tool_call": {
+                "name": "Write",
+                "transport": "native",
+                "arguments": {"path": "fixtures/private-output.md"},
+            },
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "approval gate reached", "tool_calls": [{"name": "Write"}]}],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "approval-step", "expect_contains": "approval gate"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_approval_review_required_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["native_tool_policy"]["route_status"] == "review_only"
+    assert output["native_tool_policy"]["permission_decision"] == "review_required"
+    assert output["native_tool_policy"]["approval_required"] is True
+    assert output["native_tool_policy"]["approval_path"] == {
+        "declared": True,
+        "route_status": "review_only",
+        "passive": True,
+        "tool_executed": False,
+        "arguments_exported": False,
+    }
+    assert output["native_tool_policy"]["passive_or_denied"] is True
+    assert output["tool_call_contract"]["all_required_tool_calls_observed"] is True
+    assert output["failure_mode"] == "none"
+    assert "PRIVATE_APPROVAL_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "fixtures/private-output.md" not in serialized
     assert "Write" not in serialized
 
 
