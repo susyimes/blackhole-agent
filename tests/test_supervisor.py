@@ -458,6 +458,7 @@ def test_run_health_checks_isolates_candidate_import_environment(tmp_path, monke
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "src").mkdir()
+    output_dir = repo / ".blackhole-agent" / "supervisor"
     monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "outer" / ".venv"))
     monkeypatch.setenv("PYTHONPATH", str(tmp_path / "outer" / "src"))
     seen = {}
@@ -480,6 +481,56 @@ def test_run_health_checks_isolates_candidate_import_environment(tmp_path, monke
     assert seen["cwd"] == repo
     assert "VIRTUAL_ENV" not in seen["env"]
     assert seen["env"]["PYTHONPATH"] == str(repo / "src")
+    assert seen["env"]["UV_PROJECT_ENVIRONMENT"] == str(output_dir / "health-venv")
+
+
+def test_run_health_checks_keeps_candidate_worktree_on_its_own_uv_environment(tmp_path):
+    repo = tmp_path / "repo"
+    candidate = tmp_path / "candidate"
+    repo.mkdir()
+    candidate.mkdir()
+    seen = {}
+
+    def runner(command, **kwargs):
+        seen["command"] = command
+        seen["cwd"] = Path(kwargs["cwd"])
+        seen["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(command, 0, stdout="ok\n", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=repo / ".blackhole-agent" / "supervisor",
+        health_commands=("uv run pytest",),
+    )
+    results = run_health_checks(config, candidate, command_runner=runner)
+
+    assert results[0].returncode == 0
+    assert seen["command"] == ["uv", "run", "pytest"]
+    assert seen["cwd"] == candidate
+    assert "UV_PROJECT_ENVIRONMENT" not in seen["env"]
+
+
+def test_run_health_checks_uses_dedicated_main_worktree_health_venv(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    output_dir = repo / ".blackhole-agent" / "supervisor"
+    seen = {}
+
+    def runner(command, **kwargs):
+        seen["command"] = command
+        seen["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(command, 0, stdout="ok\n", stderr="")
+
+    config = SupervisorConfig(
+        repo_path=repo,
+        output_dir=output_dir,
+        health_commands=("uv run pytest",),
+    )
+    results = run_health_checks(config, repo, command_runner=runner)
+
+    assert results[0].returncode == 0
+    assert seen["command"] == ["uv", "run", "pytest"]
+    assert seen["env"]["UV_PROJECT_ENVIRONMENT"] == str(output_dir / "health-venv")
 
 
 def test_provider_config_preflight_reports_missing_required_token_without_value(tmp_path, monkeypatch):

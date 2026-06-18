@@ -856,7 +856,7 @@ def run_health_checks(
     command_runner: Any = subprocess.run,
 ) -> list[HealthCheckResult]:
     results: list[HealthCheckResult] = []
-    env = build_health_env(repo_path)
+    env = build_health_env(config, repo_path)
     for command_text in config.health_commands:
         if not command_text.strip():
             continue
@@ -883,11 +883,22 @@ def run_health_checks(
     return results
 
 
-def build_health_env(repo_path: Path) -> dict[str, str]:
+def build_health_env(config: SupervisorConfig, repo_path: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)
     env["PYTHONPATH"] = str(repo_path / "src")
+    if same_path(repo_path, config.repo_path):
+        health_venv = config.resolved_output_dir / "health-venv"
+        health_venv.parent.mkdir(parents=True, exist_ok=True)
+        env["UV_PROJECT_ENVIRONMENT"] = str(health_venv)
     return env
+
+
+def same_path(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return left.absolute() == right.absolute()
 
 
 def run_startup_health_check(
