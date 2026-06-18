@@ -31,6 +31,7 @@ ROUTE_HINT_VALIDATION_LANES = {
     "skill_route_discovery": ["documentation", "config", "test", "code_patch"],
     "provider_config_preflight": ["documentation", "config", "test"],
     "agent_harness_eval": ["documentation", "test", "code_patch"],
+    "governance_policy": ["documentation", "config", "test", "code_patch"],
 }
 SKILL_WORKFLOW_ROUTE_TERMS = (
     "agent skill",
@@ -71,6 +72,25 @@ HARNESS_EVAL_ROUTE_TERMS = (
     "replay",
     "replayable",
     "validation harness",
+)
+GOVERNANCE_POLICY_ROUTE_TERMS = (
+    "approval",
+    "approval gate",
+    "approval gates",
+    "cap spend",
+    "govern",
+    "governance",
+    "limit tools",
+    "permission",
+    "permissions",
+    "policies",
+    "policy",
+    "sandbox",
+    "sandboxing",
+    "spend cap",
+    "spend caps",
+    "tool limit",
+    "tool limits",
 )
 HIGH_RISK_FLAGS = {
     "offensive-behavior",
@@ -302,6 +322,7 @@ def build_proposal_evidence_package(
             "final_scope_and_gate_are_recomputed_by_controller": True,
             "allowed_route_hints": [
                 "agent_harness_eval",
+                "governance_policy",
                 "provider_config_preflight",
                 "skill_route_discovery",
             ],
@@ -349,29 +370,43 @@ def build_route_hint_policy_preflight(evidence_package: dict[str, Any]) -> dict[
     )
 
     diagnostics: list[str] = []
-    expected_skill_lanes = ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
-    skill_lanes = configured_hints.get("skill_route_discovery")
-    if skill_lanes != expected_skill_lanes:
+    expected_policy_lanes = {
+        hint: lanes
+        for hint, lanes in ROUTE_HINT_VALIDATION_LANES.items()
+        if hint in selected_route_hints or hint == "skill_route_discovery"
+    }
+    for route_hint, expected_lanes in expected_policy_lanes.items():
+        configured = configured_hints.get(route_hint)
+        if configured == expected_lanes:
+            continue
         diagnostics.append(
-            "skill_route_discovery route hint must resolve only to: "
-            + ", ".join(expected_skill_lanes)
+            f"{route_hint} route hint must resolve only to: "
+            + ", ".join(expected_lanes)
         )
 
-    unsupported_skill_lanes = sorted(set(skill_lanes or []) - set(expected_skill_lanes))
-    if unsupported_skill_lanes:
-        diagnostics.append("skill_route_discovery has unsupported lanes: " + ", ".join(unsupported_skill_lanes))
+    unsupported_lanes_by_hint = {
+        route_hint: sorted(set(configured_hints.get(route_hint, [])) - set(expected_lanes))
+        for route_hint, expected_lanes in expected_policy_lanes.items()
+    }
+    for route_hint, unsupported_lanes in unsupported_lanes_by_hint.items():
+        if unsupported_lanes:
+            diagnostics.append(f"{route_hint} has unsupported lanes: " + ", ".join(unsupported_lanes))
 
     unconfigured_hints = sorted(set(selected_route_hints) - set(configured_hints))
     if unconfigured_hints:
         diagnostics.append("selected route hints lack validation lanes: " + ", ".join(unconfigured_hints))
 
+    skill_lanes = configured_hints.get("skill_route_discovery")
+    governance_lanes = configured_hints.get("governance_policy")
     return {
         "ok": not diagnostics,
         "route_hint_count": len(selected_route_hints),
         "selected_route_hints": selected_route_hints,
         "configured_route_hints": sorted(configured_hints),
         "skill_route_discovery_lanes": skill_lanes or [],
-        "allowed_skill_route_discovery_lanes": list(expected_skill_lanes),
+        "allowed_skill_route_discovery_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "governance_policy_lanes": governance_lanes or [],
+        "allowed_governance_policy_lanes": list(ROUTE_HINT_VALIDATION_LANES["governance_policy"]),
         "diagnostics": diagnostics,
     }
 
@@ -390,6 +425,8 @@ def route_hints_for_digest_item(item: dict[str, Any]) -> list[str]:
         hints.append("provider_config_preflight")
     if any(term in text for term in HARNESS_EVAL_ROUTE_TERMS):
         hints.append("agent_harness_eval")
+    if any(term in text for term in GOVERNANCE_POLICY_ROUTE_TERMS):
+        hints.append("governance_policy")
     return hints
 
 
@@ -1188,7 +1225,7 @@ def candidate_route_hint_lane_errors(
         }
     )
     errors: list[str] = []
-    enforced_route_hints = {"agent_harness_eval", "skill_route_discovery"}
+    enforced_route_hints = {"agent_harness_eval", "governance_policy", "skill_route_discovery"}
     for route_hint in route_hints:
         if route_hint not in enforced_route_hints:
             continue

@@ -1,0 +1,7 @@
+rollback_created_at: 2026-06-19T00:00:00+08:00
+original_branch: codex/blackhole-evolve/20260618T235305.878408-borrow-cautiously-from-omnigent-ai-omnigent-merg
+original_head: 24fd3f363d2f9c95402c7c4d67c4d0eaa6837ef4
+rollback_ref: refs/blackhole-rollback/20260618T235207Z
+recover_commands:
+  - git reset --hard refs/blackhole-rollback/20260618T235207Z
+  - git clean -fd

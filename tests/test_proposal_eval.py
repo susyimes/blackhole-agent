@@ -290,11 +290,14 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
         "selected_route_hints": ["skill_route_discovery"],
         "configured_route_hints": [
             "agent_harness_eval",
+            "governance_policy",
             "provider_config_preflight",
             "skill_route_discovery",
         ],
         "skill_route_discovery_lanes": ["documentation", "config", "test", "code_patch"],
         "allowed_skill_route_discovery_lanes": ["documentation", "config", "test", "code_patch"],
+        "governance_policy_lanes": ["documentation", "config", "test", "code_patch"],
+        "allowed_governance_policy_lanes": ["documentation", "config", "test", "code_patch"],
         "diagnostics": [],
     }
 
@@ -445,6 +448,70 @@ def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():
         "route_hint_policy_preflight failed: "
         "skill_route_discovery route hint must resolve only to: documentation, config, test, code_patch; "
         "skill_route_discovery has unsupported lanes: runtime_execution"
+    )
+
+
+def test_omnigent_governance_policy_hint_bounds_local_validation_lanes():
+    case = load_proposal_replay_case(FIXTURE_DIR / "omnigent_route_contract.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+    selected_items_by_id = {str(item["item_id"]): item for item in evidence_package["items"]}
+
+    assert "governance_policy" in selected_items_by_id["omnigent-trend"]["route_hints"]
+    assert evidence_package["policy"]["route_hint_validation_lanes"]["governance_policy"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    preflight = build_route_hint_policy_preflight(evidence_package)
+    assert preflight["ok"] is True
+    assert "governance_policy" in preflight["selected_route_hints"]
+    assert preflight["governance_policy_lanes"] == ["documentation", "config", "test", "code_patch"]
+
+    valid_proposal = case["raw_response"]["proposals"][0]
+    allowed_review = review_llm_proposal_response(
+        json.dumps(
+            {
+                **case["raw_response"],
+                "proposals": [
+                    {
+                        **valid_proposal,
+                        "proposal_id": "omnigent-governance-documentation-lane",
+                        "kind": "documentation",
+                        "evidence_refs": ["omnigent-trend"],
+                    }
+                ],
+            }
+        ),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert allowed_review.status == "accepted"
+
+    escaped_review = review_llm_proposal_response(
+        json.dumps(
+            {
+                **case["raw_response"],
+                "proposals": [
+                    {
+                        **valid_proposal,
+                        "proposal_id": "omnigent-governance-follow-up-lane",
+                        "kind": "follow_up_issue",
+                        "evidence_refs": ["omnigent-trend"],
+                    }
+                ],
+            }
+        ),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert escaped_review.status == "rejected"
+    assert "governance_policy proposals must use one of: documentation, config, test, code_patch" in (
+        escaped_review.rejected_candidates[0]["errors"]
     )
 
 

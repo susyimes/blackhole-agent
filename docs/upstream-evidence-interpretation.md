@@ -70,6 +70,20 @@ candidate lanes are stripped from the exported lane list and preserved only as
 validation errors, so the registry output remains limited to documentation,
 config, test, and code patch review paths.
 
+## Governance Policy Route
+
+Public agent projects that advertise policies, sandboxing, approval gates,
+permission controls, spend caps, or tool limits should be classified as
+`governance_policy` evidence before any local change is drafted. This route is
+for local controller behavior, configuration, tests, or documentation; it does
+not grant new runtime authority, remote execution, credential access, restart
+activation, or live policy changes.
+
+`governance_policy` proposals may use only documentation, config, test, or code
+patch lanes. Follow-up-only or runtime-expansion proposals from the same
+evidence should be rejected or narrowed until a focused local validation path is
+available.
+
 ## Omnigent Upstream Movement Watchlist
 
 Source digest: `github-growth-20260618T175207.227269Z`.

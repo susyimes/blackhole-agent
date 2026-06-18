@@ -165,9 +165,19 @@
       ]
     },
     {
+      "path": "route_hint_policy.validation_lanes.governance_policy",
+      "equals": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch"
+      ]
+    },
+    {
       "path": "route_hint_policy.selected_route_hints",
       "equals": [
-        "agent_harness_eval"
+        "agent_harness_eval",
+        "governance_policy"
       ]
     },
     {
