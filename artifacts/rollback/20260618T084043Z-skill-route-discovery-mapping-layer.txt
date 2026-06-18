@@ -1,0 +1,15 @@
+# Rollback Point
+
+Source digest: github-growth-20260618T084044.013080Z
+Created at: 2026-06-18T08:40:43Z
+Original branch: codex/blackhole-evolve/20260618T084134.589530-add-a-local-skill-route-discovery-mapping-layer-
+Original HEAD: 00e014eb37af99af0f81e4d54dde2a15f7de9362
+Rollback ref: refs/rollback/20260618T084043Z-skill-route-discovery-mapping-layer
+
+Recovery commands:
+```powershell
+git switch codex/blackhole-evolve/20260618T084134.589530-add-a-local-skill-route-discovery-mapping-layer-
+git reset --hard refs/rollback/20260618T084043Z-skill-route-discovery-mapping-layer
+```
+
+Notes: rollback execution is explicit and destructive; do not run it unless selected by operator policy.

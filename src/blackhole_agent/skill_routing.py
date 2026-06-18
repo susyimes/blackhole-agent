@@ -33,6 +33,9 @@ SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS = (
 )
 SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
 SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
+SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE = "proposal_lane"
+SKILL_ROUTE_DISCOVERY_REJECTED = "rejected_candidate"
+SKILL_ROUTE_DISCOVERY_DOWNGRADED = "downgraded_candidate"
 SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
     "documentation": (
         "agent",
@@ -537,6 +540,117 @@ def build_skill_route_discovery_registry_from_evidence_items(
     return registry
 
 
+def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -> dict[str, Any]:
+    """Convert a disabled discovery registry into bounded local proposal lanes.
+
+    This is the controller-facing view of external skill evidence. It never
+    enables, installs, executes, or deletes a skill; it only exposes local work
+    lanes that can become documentation, config, test, or code_patch proposals.
+    """
+
+    candidates = registry.get("candidates")
+    if not isinstance(candidates, Sequence) or isinstance(candidates, (str, bytes)):
+        raise ValueError("skill route discovery registry requires a candidates sequence")
+
+    proposal_lanes: list[dict[str, Any]] = []
+    rejected_candidates: list[dict[str, Any]] = []
+    downgraded_candidates: list[dict[str, Any]] = []
+    for raw_candidate in candidates:
+        if not isinstance(raw_candidate, Mapping):
+            rejected_candidates.append(
+                {
+                    "name": "",
+                    "source_url": "",
+                    "status": SKILL_ROUTE_DISCOVERY_REJECTED,
+                    "reason": "candidate_entry_must_be_an_object",
+                    "validation_errors": ["candidate_entry_must_be_an_object"],
+                }
+            )
+            continue
+
+        candidate = dict(raw_candidate)
+        name = str(candidate.get("name") or "")
+        source_url = str(candidate.get("source_url") or "")
+        validation_errors = [str(error) for error in candidate.get("validation_errors", []) if str(error).strip()]
+        allowed_lanes = [
+            str(lane)
+            for lane in candidate.get("candidate_lanes", [])
+            if str(lane) in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        unsupported_lanes = _unsupported_lanes_from_validation_errors(validation_errors)
+        hard_errors = [
+            error
+            for error in validation_errors
+            if not error.startswith("unsupported_candidate_lanes:")
+        ]
+
+        if hard_errors:
+            rejected_candidates.append(
+                {
+                    "name": name,
+                    "source_url": source_url,
+                    "status": SKILL_ROUTE_DISCOVERY_REJECTED,
+                    "reason": "candidate_has_non_lane_validation_errors",
+                    "validation_errors": validation_errors,
+                }
+            )
+            continue
+
+        if unsupported_lanes:
+            downgraded_candidates.append(
+                {
+                    "name": name,
+                    "source_url": source_url,
+                    "status": SKILL_ROUTE_DISCOVERY_DOWNGRADED,
+                    "allowed_lanes": allowed_lanes,
+                    "rejected_lanes": unsupported_lanes,
+                    "reason": "unsupported_candidate_lanes_removed",
+                    "validation_errors": validation_errors,
+                }
+            )
+
+        if not allowed_lanes:
+            rejected_candidates.append(
+                {
+                    "name": name,
+                    "source_url": source_url,
+                    "status": SKILL_ROUTE_DISCOVERY_REJECTED,
+                    "reason": "candidate_has_no_allowed_proposal_lanes",
+                    "validation_errors": validation_errors,
+                }
+            )
+            continue
+
+        for lane in allowed_lanes:
+            proposal_lanes.append(
+                {
+                    "candidate_name": name,
+                    "source_url": source_url,
+                    "proposal_kind": lane,
+                    "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                    "status": SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
+                    "evidence_urls": list(candidate.get("evidence_urls") or ([source_url] if source_url else [])),
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "reason": "recognized_skill_project_evidence",
+                }
+            )
+
+    return {
+        "schema_version": 1,
+        "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+        "allowed_proposal_kinds": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "source_registry_status": str(registry.get("registry_status") or ""),
+        "candidate_count": len(candidates),
+        "proposal_lane_count": len(proposal_lanes),
+        "rejected_candidate_count": len(rejected_candidates),
+        "downgraded_candidate_count": len(downgraded_candidates),
+        "proposal_lanes": proposal_lanes,
+        "rejected_candidates": rejected_candidates,
+        "downgraded_candidates": downgraded_candidates,
+    }
+
+
 def _rank_skill_for_task(task: str, descriptor: SkillDescriptor) -> SkillRouteDecision:
     if not descriptor.enabled:
         return SkillRouteDecision(
@@ -738,6 +852,16 @@ def _discovery_event_effect(event_kind: str) -> str:
     if event_kind == "repository_deleted":
         return "record_only_no_local_deletion"
     return "record_only"
+
+
+def _unsupported_lanes_from_validation_errors(errors: Sequence[str]) -> list[str]:
+    lanes: list[str] = []
+    for error in errors:
+        if not error.startswith("unsupported_candidate_lanes:"):
+            continue
+        raw_lanes = error.split(":", 1)[1]
+        lanes.extend(lane for lane in raw_lanes.split(",") if lane)
+    return sorted(dict.fromkeys(lanes))
 
 
 def _route_weight(route: str) -> int:

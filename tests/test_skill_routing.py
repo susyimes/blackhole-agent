@@ -13,6 +13,7 @@ from blackhole_agent.skill_routing import (
     ExternalSkillRepositorySummary,
     TOPICAL_MATCH,
     SkillDescriptor,
+    build_skill_route_discovery_proposal_lane_map,
     build_skill_route_discovery_registry,
     build_skill_route_discovery_registry_from_evidence_items,
     build_skill_route_discovery_registry_from_summaries,
@@ -428,3 +429,87 @@ def test_skill_route_discovery_issue_evidence_requires_explicit_hint():
 
     assert registry["candidate_count"] == 0
     assert registry["ignored_evidence_item_count"] == 1
+
+
+def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidence():
+    fixture_path = Path(__file__).parent / "fixtures" / "skill_route_discovery" / "synthetic_repository_summaries.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_summaries(payload["summaries"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert lane_map["source_registry_status"] == "classification_only"
+    assert lane_map["candidate_count"] == 3
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+    assert lane_map["allowed_proposal_kinds"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane_map["proposal_lane_count"] == 11
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(lane["route_hint"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+
+
+def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
+    registry = build_skill_route_discovery_registry(
+        [
+            ExternalSkillRouteCandidate(
+                name="lane-overreach",
+                source_url="https://github.com/example/lane-overreach",
+                candidate_lanes=("documentation", "runtime_execution", "install"),
+            )
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert lane_map["source_registry_status"] == "invalid_candidates_present"
+    assert lane_map["proposal_lane_count"] == 1
+    assert lane_map["proposal_lanes"][0]["proposal_kind"] == "documentation"
+    assert lane_map["proposal_lanes"][0]["runtime_action"] == "none"
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 1
+    assert lane_map["downgraded_candidates"][0] == {
+        "name": "lane-overreach",
+        "source_url": "https://github.com/example/lane-overreach",
+        "status": "downgraded_candidate",
+        "allowed_lanes": ["documentation"],
+        "rejected_lanes": ["install", "runtime_execution"],
+        "reason": "unsupported_candidate_lanes_removed",
+        "validation_errors": ["unsupported_candidate_lanes:install,runtime_execution"],
+    }
+
+
+def test_skill_route_discovery_proposal_lane_map_rejects_actionful_or_unsafe_candidates():
+    registry = build_skill_route_discovery_registry(
+        [
+            ExternalSkillRouteCandidate(
+                name="actionful-skill",
+                source_url="https://github.com/example/actionful-skill",
+                candidate_lanes=("documentation", "code_patch"),
+                requested_actions=("install",),
+            ),
+            ExternalSkillRouteCandidate(
+                name="private-host-skill",
+                source_url="https://git.internal.example/team/private-skill",
+                candidate_lanes=("test",),
+            ),
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert lane_map["proposal_lane_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+    assert lane_map["rejected_candidate_count"] == 2
+    assert [candidate["name"] for candidate in lane_map["rejected_candidates"]] == [
+        "actionful-skill",
+        "private-host-skill",
+    ]
+    assert [candidate["reason"] for candidate in lane_map["rejected_candidates"]] == [
+        "candidate_has_non_lane_validation_errors",
+        "candidate_has_non_lane_validation_errors",
+    ]

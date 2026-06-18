@@ -81,3 +81,21 @@ Repeated issue evidence increments duplicate counts instead of creating another
 candidate, requested action, or executable route. Issue-derived lanes remain
 bounded to documentation, config, test, and code_patch; install, execute, run,
 and other runtime lanes are ignored during classification.
+
+## Proposal Lane Map
+
+The disabled discovery registry can now be rendered into a proposal-lane map.
+This is the controller-facing form for local growth planning: each recognized
+skill project can produce only documentation, config, test, or code_patch
+proposal kinds, each with `runtime_action: none` and local validation required.
+
+Unsupported lane hints are downgraded by removing the unsupported lanes and
+recording them in `downgraded_candidates`. Candidates that request install,
+enable, run, execute, clone-and-run, local deletion, private/non-plain source
+URLs, or other non-lane validation failures are recorded in
+`rejected_candidates` and produce no proposal lanes.
+
+This keeps the useful lesson from the reviewed repositories: public skill
+ecosystems reveal reusable routing shapes, but upstream installers, scripts,
+scaffolds, profile stores, and QA helpers are evidence to inspect, not actions
+to perform during discovery.
