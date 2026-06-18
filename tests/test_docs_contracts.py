@@ -68,6 +68,30 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "low-detail PR/push interpretation rule" in architecture
     assert "docs/skill-route-discovery.md" in architecture
     assert "classification-only matrix" in architecture
+    assert "Claude-native prompt readiness" in architecture
+    assert "prompt_scan_timeout_risk" in architecture
+    assert "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight" in architecture
+
+
+def test_upstream_evidence_interpretation_doc_records_claude_prompt_scan_contract():
+    doc = (REPO_ROOT / "docs" / "upstream-evidence-interpretation.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "Source digest: `github-growth-20260618T181207.161132Z`",
+        "https://github.com/omnigent-ai/omnigent/issues/701",
+        "Claude-native second-message timeout",
+        "configured tail\nlines",
+        "non-empty status-footer line count",
+        "whether a second message would time out",
+        "pytest tests/test_harness_eval.py -q -k\nprovider_runtime_preflight",
+        "prompt_scan_timeout_risk",
+        "Raw terminal\npane text",
+        "tokens, and credentials\nmust not be exported",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
 
 
 def test_skill_route_discovery_doc_records_bounded_matrix():

@@ -1019,6 +1019,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     runtime = raw_input.get("runtime") if isinstance(raw_input.get("runtime"), dict) else {}
     runner_env = raw_input.get("runner_env") if isinstance(raw_input.get("runner_env"), dict) else {}
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
+    prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -1058,6 +1059,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     blocked = (
         (incompatible_sandbox and not degraded)
         or native_terminal_timeout_risk
+        or not prompt_preflight["prompt_scan"]["prompt_detected"]
         or not browser_preflight["url_safety"]["ok"]
     )
     runner_invoked = not blocked
@@ -1072,12 +1074,15 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         auto_degrade=auto_degrade,
     )
     diagnostics.extend(browser_preflight["preflight"]["diagnostics"])
+    diagnostics.extend(prompt_preflight["preflight"]["diagnostics"])
 
     if blocked:
         route_status = "blocked"
         failure_mode = (
             "url_safety_preflight_failed"
             if not browser_preflight["url_safety"]["ok"]
+            else "prompt_scan_timeout_risk"
+            if not prompt_preflight["prompt_scan"]["prompt_detected"]
             else "native_terminal_timeout_risk"
             if native_terminal_timeout_risk
             else "sandbox_runtime_preflight_failed"
@@ -1134,6 +1139,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         },
         "browser_tooling": browser_preflight["browser_tooling"],
         "url_safety": browser_preflight["url_safety"],
+        "prompt_scan": prompt_preflight["prompt_scan"],
     }
 
 
@@ -1181,6 +1187,93 @@ def evaluate_provider_browser_preflight(raw_input: dict[str, Any], *, provider: 
             "diagnostics": browser_diagnostics + url_diagnostics,
         },
     }
+
+
+def evaluate_provider_prompt_scan_preflight(raw_input: dict[str, Any], *, provider: dict[str, Any]) -> dict[str, Any]:
+    """Simulate prompt readiness scanning without exporting terminal pane text."""
+
+    prompt_scan = raw_input.get("prompt_scan") if isinstance(raw_input.get("prompt_scan"), dict) else {}
+    provider_name = (optional_string(provider.get("name")) or "").lower()
+    harness = (optional_string(provider.get("harness")) or "").lower()
+    is_claude_provider = "claude" in provider_name or "claude" in harness or "anthropic" in provider_name
+    configured = bool(prompt_scan)
+    if not configured:
+        return {
+            "prompt_scan": {
+                "configured": False,
+                "provider_prompt_scan_relevant": is_claude_provider,
+                "tail_lines": None,
+                "legacy_tail_lines": None,
+                "status_footer_non_empty_lines": 0,
+                "prompt_distance_from_bottom": None,
+                "prompt_glyph_present": False,
+                "prompt_detected": True,
+                "legacy_timeout_risk": False,
+                "second_message_send_would_timeout": False,
+                "pane_text_exported": False,
+                "timeout_seconds": None,
+            },
+            "preflight": {"diagnostics": []},
+        }
+
+    tail_lines = positive_int(prompt_scan.get("tail_lines"), default=12)
+    legacy_tail_lines = positive_int(prompt_scan.get("legacy_tail_lines"), default=5)
+    status_footer_lines = nonnegative_int(prompt_scan.get("status_footer_non_empty_lines"), default=0)
+    prompt_glyph_present = prompt_scan.get("prompt_glyph_present") is not False
+    timeout_seconds = positive_int(prompt_scan.get("timeout_seconds"), default=30)
+    prompt_distance = status_footer_lines + 1 if prompt_glyph_present else None
+    prompt_detected = bool(prompt_glyph_present and prompt_distance is not None and prompt_distance <= tail_lines)
+    legacy_timeout_risk = bool(
+        is_claude_provider
+        and prompt_glyph_present
+        and prompt_distance is not None
+        and prompt_distance > legacy_tail_lines
+    )
+    second_message_send_would_timeout = not prompt_detected
+    diagnostics: list[str] = []
+    if legacy_timeout_risk and prompt_detected:
+        diagnostics.append(
+            "Claude prompt sits beyond the legacy scan tail but inside the configured provider prompt scan window"
+        )
+    if second_message_send_would_timeout:
+        diagnostics.append(
+            "provider prompt scan window does not reach the prompt above the rendered status footer"
+        )
+        diagnostics.append("increase provider prompt scan tail lines before sending a second message")
+
+    return {
+        "prompt_scan": {
+            "configured": configured,
+            "provider_prompt_scan_relevant": is_claude_provider,
+            "tail_lines": tail_lines,
+            "legacy_tail_lines": legacy_tail_lines,
+            "status_footer_non_empty_lines": status_footer_lines,
+            "prompt_distance_from_bottom": prompt_distance,
+            "prompt_glyph_present": prompt_glyph_present,
+            "prompt_detected": prompt_detected,
+            "legacy_timeout_risk": legacy_timeout_risk,
+            "second_message_send_would_timeout": second_message_send_would_timeout,
+            "pane_text_exported": False,
+            "timeout_seconds": timeout_seconds,
+        },
+        "preflight": {"diagnostics": diagnostics},
+    }
+
+
+def positive_int(value: Any, *, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def nonnegative_int(value: Any, *, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed >= 0 else default
 
 
 def build_url_safety_diagnostics(

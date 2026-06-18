@@ -1,0 +1,60 @@
+{
+  "name": "provider-runtime-preflight-claude-long-status-prompt-scan",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-claude-long-status-prompt-scan",
+    "provider": {
+      "name": "claude-code",
+      "harness": "claude-native"
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "darwin",
+      "cli_path": "/usr/local/bin/claude",
+      "cli_resolved_in_runner": true,
+      "install_tree_readable": true,
+      "launch_transport": "tmux",
+      "terminal_integration": "iTerm2"
+    },
+    "prompt_scan": {
+      "tail_lines": 12,
+      "legacy_tail_lines": 5,
+      "status_footer_non_empty_lines": 6,
+      "prompt_glyph_present": true,
+      "timeout_seconds": 30
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": true
+    },
+    {
+      "path": "prompt_scan.prompt_detected",
+      "equals": true
+    },
+    {
+      "path": "prompt_scan.legacy_timeout_risk",
+      "equals": true
+    },
+    {
+      "path": "prompt_scan.second_message_send_would_timeout",
+      "equals": false
+    },
+    {
+      "path": "prompt_scan.pane_text_exported",
+      "equals": false
+    }
+  ]
+}

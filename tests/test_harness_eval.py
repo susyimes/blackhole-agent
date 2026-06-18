@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 13
-    assert payload["pass_count"] == 12
+    assert payload["fixture_count"] == 14
+    assert payload["pass_count"] == 13
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -104,6 +104,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["native-tool-call-policy-slow-ask-timeout"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
+    assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -653,6 +654,83 @@ def test_provider_runtime_preflight_blocks_native_claude_iterm2_tmux_timeout_ris
         "ensure the runner PATH resolves the native CLI or configure an explicit provider CLI path",
     ]
     assert "~/.local/bin/claude" not in serialized
+
+
+def test_provider_runtime_preflight_detects_claude_prompt_above_long_status_footer():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_claude_long_status_prompt_scan.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["runtime"]["runner_invoked"] is True
+    assert output["prompt_scan"] == {
+        "configured": True,
+        "provider_prompt_scan_relevant": True,
+        "tail_lines": 12,
+        "legacy_tail_lines": 5,
+        "status_footer_non_empty_lines": 6,
+        "prompt_distance_from_bottom": 7,
+        "prompt_glyph_present": True,
+        "prompt_detected": True,
+        "legacy_timeout_risk": True,
+        "second_message_send_would_timeout": False,
+        "pane_text_exported": False,
+        "timeout_seconds": 30,
+    }
+    assert output["preflight"]["ok"] is True
+    assert output["preflight"]["diagnostics"] == [
+        "Claude prompt sits beyond the legacy scan tail but inside the configured provider prompt scan window",
+    ]
+    assert "PRIVATE" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_when_prompt_scan_window_misses_prompt():
+    raw_input = {
+        "task_id": "fixture-provider-runtime-preflight-claude-prompt-scan-too-small",
+        "provider": {
+            "name": "claude-code",
+            "harness": "claude-native",
+        },
+        "sandbox": {"active": False, "type": "none"},
+        "runtime": {
+            "platform": "darwin",
+            "cli_path": "/usr/local/bin/claude",
+            "cli_resolved_in_runner": True,
+            "install_tree_readable": True,
+            "launch_transport": "tmux",
+            "terminal_integration": "iTerm2",
+        },
+        "prompt_scan": {
+            "tail_lines": 5,
+            "legacy_tail_lines": 5,
+            "status_footer_non_empty_lines": 6,
+            "prompt_glyph_present": True,
+            "timeout_seconds": 30,
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_claude_prompt_scan_too_small_inline.json",
+    )
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "prompt_scan_timeout_risk"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["prompt_scan"]["prompt_detected"] is False
+    assert output["prompt_scan"]["second_message_send_would_timeout"] is True
+    assert output["preflight"]["diagnostics"] == [
+        "provider prompt scan window does not reach the prompt above the rendered status footer",
+        "increase provider prompt scan tail lines before sending a second message",
+    ]
 
 
 def test_provider_runtime_preflight_skips_browser_configure_without_masking_url_safety():

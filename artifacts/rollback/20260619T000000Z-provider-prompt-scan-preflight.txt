@@ -1,0 +1,8 @@
+Rollback point: 20260619T000000Z-provider-prompt-scan-preflight
+Original branch: codex/blackhole-evolve/20260618T181313.972968-add-a-local-provider-config-preflight-test-lane-
+Original HEAD: 13759f46c16ba4ff591ac0efa9929389239d0a56
+Rollback ref: refs/blackhole-rollback/20260619T000000Z-provider-prompt-scan-preflight
+Recovery commands:
+  git reset --hard refs/blackhole-rollback/20260619T000000Z-provider-prompt-scan-preflight
+  git clean -fd
+Pre-run dirty status:

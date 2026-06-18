@@ -134,6 +134,28 @@ Evidence reviewed for this watchlist:
   those review anchors are useful watchlist prompts, but not enough to copy a
   patch without inspecting the specific finding or proving the local boundary.
 
+## Claude-Native Prompt Scan Regression
+
+Source digest: `github-growth-20260618T181207.161132Z`
+
+The Omnigent issue `https://github.com/omnigent-ai/omnigent/issues/701`
+describes a Claude-native second-message timeout when prompt readiness scans
+only the last few non-empty terminal lines and a rendered status footer pushes
+the prompt outside that tail window. This is a concrete upstream bug report, so
+the local lesson is an executable preflight lane rather than a broad runtime
+copy.
+
+For this repository, provider prompt scanning assumptions are modeled in
+`provider_runtime_preflight` fixtures with body-free metadata: configured tail
+lines, legacy tail lines, non-empty status-footer line count, prompt distance
+from the bottom, timeout seconds, and whether a second message would time out.
+The validation command is `pytest tests/test_harness_eval.py -q -k
+provider_runtime_preflight`. Troubleshooting a long Claude status footer should
+raise the configured scan-tail limit or block launch with
+`prompt_scan_timeout_risk` before trying a live provider session. Raw terminal
+pane text, prompts, paths, URLs, environment values, tokens, and credentials
+must not be exported.
+
 ## Evidence From This Run
 
 The source digest cited `https://github.com/omnigent-ai/omnigent`. Its public
