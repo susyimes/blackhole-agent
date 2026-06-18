@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 12
-    assert payload["pass_count"] == 11
+    assert payload["fixture_count"] == 13
+    assert payload["pass_count"] == 12
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -104,6 +104,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["native-tool-call-policy-slow-ask-timeout"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
+    assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
@@ -556,6 +557,7 @@ def test_provider_runtime_preflight_degrades_when_sandbox_override_reaches_harne
     assert output["runtime"]["supervisor_unwrapped"] is True
     assert output["runtime"]["native_file_shell_tools_disabled"] is True
     assert output["runtime"]["cli_path_recorded"] is False
+    assert output["runtime"]["native_terminal_timeout_risk"] is False
     assert output["preflight"]["ok"] is True
     assert output["preflight"]["blocked_before_launch"] is False
     assert "CLAUDE_SDK_NO_SANDBOX reached the provider harness" in output["preflight"]["diagnostics"][0]
@@ -602,6 +604,53 @@ def test_provider_runtime_preflight_blocks_before_launch_when_override_is_stripp
         "CLAUDE_SDK_NO_SANDBOX was set before runner launch but did not reach the provider harness",
         "provider runtime sandbox is incompatible and no degraded startup path was available",
         "add CLAUDE_SDK_NO_SANDBOX to the runner environment allowlist or enable provider auto-degrade",
+    ]
+    assert "~/.local/bin/claude" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_native_claude_iterm2_tmux_timeout_risk():
+    raw_input = {
+        "task_id": "fixture-provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk",
+        "provider": {
+            "name": "claude-code",
+            "harness": "claude-code",
+        },
+        "sandbox": {"active": False, "type": "none"},
+        "runtime": {
+            "platform": "darwin",
+            "cli_path": "~/.local/bin/claude",
+            "cli_resolved_in_runner": False,
+            "install_tree_readable": True,
+            "launch_transport": "tmux",
+            "terminal_integration": "com.googlecode.iterm2",
+        },
+        "runner_env": {
+            "parent_env_keys": ["PATH"],
+            "allowlist": ["PATH"],
+            "passthrough": [],
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_native_claude_iterm2_timeout_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "native_terminal_timeout_risk"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["runtime"]["cli_resolved_in_runner"] is False
+    assert output["runtime"]["launch_transport"] == "tmux"
+    assert output["runtime"]["terminal_integration"] == "iterm2"
+    assert output["runtime"]["native_terminal_timeout_risk"] is True
+    assert output["runtime"]["cli_path_recorded"] is False
+    assert output["preflight"]["ok"] is False
+    assert output["preflight"]["blocked_before_launch"] is True
+    assert output["preflight"]["diagnostics"] == [
+        "native Claude CLI is not visible to the tmux-launched provider harness; block before terminal timeout",
+        "ensure the runner PATH resolves the native CLI or configure an explicit provider CLI path",
     ]
     assert "~/.local/bin/claude" not in serialized
 

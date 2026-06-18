@@ -1,0 +1,58 @@
+{
+  "name": "provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk",
+    "provider": {
+      "name": "claude-code",
+      "harness": "claude-code"
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "darwin",
+      "cli_path": "~/.local/bin/claude",
+      "cli_resolved_in_runner": false,
+      "install_tree_readable": true,
+      "launch_transport": "tmux",
+      "terminal_integration": "iTerm2"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "native_terminal_timeout_risk"
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "runtime.native_terminal_timeout_risk",
+      "equals": true
+    },
+    {
+      "path": "runtime.cli_path_recorded",
+      "equals": false
+    },
+    {
+      "path": "preflight.blocked_before_launch",
+      "equals": true
+    }
+  ]
+}

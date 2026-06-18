@@ -1024,6 +1024,9 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     harness = optional_string(provider.get("harness")) or provider_name
     platform_system = (optional_string(runtime.get("platform")) or "").lower()
     cli_path = optional_string(runtime.get("cli_path")) or ""
+    cli_resolved_in_runner = truthy(runtime.get("cli_resolved_in_runner"))
+    launch_transport = (optional_string(runtime.get("launch_transport")) or "").lower()
+    terminal_integration = normalize_terminal_integration(runtime.get("terminal_integration"))
     sandbox_active = truthy(sandbox.get("active"))
     install_tree_readable = truthy(runtime.get("install_tree_readable"))
     auto_degrade = truthy(provider.get("degrade_on_incompatible_sandbox"))
@@ -1043,11 +1046,24 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         and cli_path.startswith("~/")
         and not install_tree_readable
     )
+    native_terminal_timeout_risk = (
+        platform_system == "darwin"
+        and "claude" in provider_name.lower()
+        and cli_path.startswith("~/.local/bin/")
+        and launch_transport == "tmux"
+        and terminal_integration == "iterm2"
+        and not cli_resolved_in_runner
+    )
     degraded = incompatible_sandbox and (override_propagated or auto_degrade)
-    blocked = (incompatible_sandbox and not degraded) or not browser_preflight["url_safety"]["ok"]
+    blocked = (
+        (incompatible_sandbox and not degraded)
+        or native_terminal_timeout_risk
+        or not browser_preflight["url_safety"]["ok"]
+    )
     runner_invoked = not blocked
     diagnostics = build_provider_runtime_diagnostics(
         incompatible_sandbox=incompatible_sandbox,
+        native_terminal_timeout_risk=native_terminal_timeout_risk,
         degraded=degraded,
         blocked=incompatible_sandbox and not degraded,
         override_flag=override_flag,
@@ -1062,6 +1078,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         failure_mode = (
             "url_safety_preflight_failed"
             if not browser_preflight["url_safety"]["ok"]
+            else "native_terminal_timeout_risk"
+            if native_terminal_timeout_risk
             else "sandbox_runtime_preflight_failed"
         )
     elif degraded or browser_preflight["browser_tooling"]["configure_checks_skipped"]:
@@ -1098,6 +1116,10 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "runtime": {
             "platform": platform_system or "unknown",
             "cli_path_recorded": False,
+            "cli_resolved_in_runner": cli_resolved_in_runner,
+            "launch_transport": launch_transport or "unknown",
+            "terminal_integration": terminal_integration,
+            "native_terminal_timeout_risk": native_terminal_timeout_risk,
             "install_tree_readable": install_tree_readable,
             "supervisor_unwrapped": degraded,
             "native_file_shell_tools_disabled": degraded,
@@ -1197,6 +1219,7 @@ def is_local_url_host(host: str) -> bool:
 def build_provider_runtime_diagnostics(
     *,
     incompatible_sandbox: bool,
+    native_terminal_timeout_risk: bool,
     degraded: bool,
     blocked: bool,
     override_flag: str,
@@ -1216,9 +1239,25 @@ def build_provider_runtime_diagnostics(
     if blocked:
         diagnostics.append("provider runtime sandbox is incompatible and no degraded startup path was available")
         diagnostics.append(f"add {override_flag} to the runner environment allowlist or enable provider auto-degrade")
+    if native_terminal_timeout_risk:
+        diagnostics.append(
+            "native Claude CLI is not visible to the tmux-launched provider harness; block before terminal timeout"
+        )
+        diagnostics.append("ensure the runner PATH resolves the native CLI or configure an explicit provider CLI path")
     if incompatible_sandbox and not degraded and not blocked:
         diagnostics.append("provider runtime sandbox compatibility could not be classified")
     return diagnostics
+
+
+def normalize_terminal_integration(value: Any) -> str:
+    terminal = (optional_string(value) or "unknown").strip().lower()
+    if terminal in {"iterm", "iterm2", "com.googlecode.iterm2"}:
+        return "iterm2"
+    if terminal in {"apple_terminal", "terminal.app", "terminal"}:
+        return "terminal_app"
+    if terminal in {"vscode", "visual_studio_code"}:
+        return "vscode"
+    return terminal or "unknown"
 
 
 def string_list(value: Any) -> list[str]:

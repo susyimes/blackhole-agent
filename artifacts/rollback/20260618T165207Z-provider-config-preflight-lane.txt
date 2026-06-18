@@ -1,0 +1,11 @@
+Rollback point for source digest github-growth-20260618T165207.105877Z
+
+Original branch: codex/blackhole-evolve/20260618T165403.538673-add-or-refine-a-provider-config-preflight-lane-t
+Original HEAD: 2c1c30e7b4b08bbddb2796a06e1b5c8269d13d91
+Rollback ref: refs/rollback/20260618T165207Z-codex_blackhole-evolve_20260618T165403.538673-add-or-refine-a-provider-config-preflight-lane-t
+
+Recovery commands (destructive; run only by explicit operator/supervisor choice):
+  git reset --hard refs/rollback/20260618T165207Z-codex_blackhole-evolve_20260618T165403.538673-add-or-refine-a-provider-config-preflight-lane-t
+  git clean -fd
+
+Created before local self-modification for provider/config preflight diagnostics inspired by omnigent issue #668.
