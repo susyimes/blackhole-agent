@@ -180,6 +180,8 @@ Connector-native tool policy evaluation is fail-closed. A timeout, exception, un
 
 Native harness policy-hook fixtures follow the same no-silent-allow rule for governed tool-call phases. Timeout, connection failure, and error-response cases deny the tool call. A slow ASK decision routes to `review_only` with `policy_ask_timeout`, so an operator-review path is explicit and the tool is not executed.
 
+Mock LLM workflow fixtures that model a REPL or e2e approval journey can set `native_tool_policy.approval_expected`. When this contract is present, a governed tool-call step must produce a review-required approval path; a missing or stale policy verdict is reported as `approval_path_missing` even if the mock response and tool-call-name contract otherwise look green. The evaluator still omits raw tool arguments, session IDs, and tool names from exported results.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:

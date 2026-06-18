@@ -1,0 +1,14 @@
+Rollback point for source digest github-growth-20260618T100044.112130Z
+
+Original branch: codex/blackhole-evolve/20260618T100205.285368-add-or-refine-local-tests-for-stale-green-repl-a
+Original HEAD: 22d2c08cdd7954129418242969285d2c2a8a63f6
+Local rollback ref: refs/blackhole-rollback/20260618T100043Z
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+git reset --hard refs/blackhole-rollback/20260618T100043Z
+git clean -fd
+
+Scope note:
+This run is evaluating stale-green mock REPL/e2e approval coverage inspired by
+omnigent-ai/omnigent's public agent harness, policy, sandboxing, and approval
+surface. Provider/token preflight remains review-only for privacy-leakage risk.

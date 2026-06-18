@@ -821,22 +821,31 @@ def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, 
     policy_result = evaluate_native_tool_call_policy(native_tool_policy, source_path=source_path)
     decision = str(policy_result["permission"]["decision"])
     tool_executed = bool(policy_result["safety"]["tool_executed"])
+    approval_expected = truthy(native_tool_policy.get("approval_expected"))
+    approval_observed = decision == "review_required"
+    approval_contract_passed = not approval_expected or approval_observed
+    failure_mode = str(policy_result["failure_mode"])
+    if not approval_contract_passed:
+        failure_mode = "approval_path_missing"
     return {
         "declared": True,
         "route_status": policy_result["route_status"],
-        "failure_mode": policy_result["failure_mode"],
+        "failure_mode": failure_mode,
         "permission_decision": decision,
         "permission_reason": policy_result["permission"]["reason"],
         "approval_required": decision == "review_required",
         "approval_path": {
-            "declared": decision == "review_required",
+            "expected": approval_expected,
+            "declared": approval_observed,
             "route_status": "review_only" if decision == "review_required" else "not_required",
             "passive": decision == "review_required" and not tool_executed,
             "tool_executed": tool_executed,
             "arguments_exported": False,
         },
         "fail_closed_applied": policy_result["policy_hook"]["fail_closed_applied"],
-        "passive_or_denied": decision in {"deny", "review_required", "no_opinion"} and not tool_executed,
+        "passive_or_denied": approval_contract_passed
+        and decision in {"deny", "review_required", "no_opinion"}
+        and not tool_executed,
         "tool_executed": tool_executed,
         "arguments_exported": False,
     }

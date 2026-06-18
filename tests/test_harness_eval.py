@@ -747,6 +747,7 @@ def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_
     assert output["native_tool_policy"]["permission_decision"] == "deny"
     assert output["native_tool_policy"]["approval_required"] is False
     assert output["native_tool_policy"]["approval_path"] == {
+        "expected": False,
         "declared": False,
         "route_status": "not_required",
         "passive": False,
@@ -776,6 +777,7 @@ def test_mock_llm_workflow_route_records_review_required_approval_path_without_e
         "provider": {"name": "external-chat-provider", "enabled": False},
         "native_tool_policy": {
             "task_id": "fixture-mock-llm-approval-review-required",
+            "approval_expected": True,
             "policy_hook": {
                 "governed": True,
                 "session_id": "PRIVATE_APPROVAL_SESSION_DO_NOT_EXPORT",
@@ -812,6 +814,7 @@ def test_mock_llm_workflow_route_records_review_required_approval_path_without_e
     assert output["native_tool_policy"]["permission_decision"] == "review_required"
     assert output["native_tool_policy"]["approval_required"] is True
     assert output["native_tool_policy"]["approval_path"] == {
+        "expected": True,
         "declared": True,
         "route_status": "review_only",
         "passive": True,
@@ -821,6 +824,63 @@ def test_mock_llm_workflow_route_records_review_required_approval_path_without_e
     assert output["native_tool_policy"]["passive_or_denied"] is True
     assert output["tool_call_contract"]["all_required_tool_calls_observed"] is True
     assert output["failure_mode"] == "none"
+    assert "PRIVATE_APPROVAL_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "fixtures/private-output.md" not in serialized
+    assert "Write" not in serialized
+
+
+def test_mock_llm_workflow_route_fails_when_expected_approval_path_is_missing():
+    raw_input = {
+        "task_id": "fixture-mock-llm-approval-stale-green",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "native_tool_policy": {
+            "task_id": "fixture-mock-llm-approval-stale-green",
+            "approval_expected": True,
+            "policy_hook": {
+                "governed": True,
+                "session_id": "PRIVATE_APPROVAL_SESSION_DO_NOT_EXPORT",
+                "server_url_configured": True,
+                "event_phase": "PreToolUse",
+            },
+            "tool_call": {
+                "name": "Write",
+                "transport": "native",
+                "arguments": {"path": "fixtures/private-output.md"},
+            },
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "mock step completed", "tool_calls": [{"name": "Write"}]}],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "approval-step", "expect_contains": "mock step"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_approval_stale_green_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["native_tool_policy"]["permission_decision"] == "no_opinion"
+    assert output["native_tool_policy"]["approval_required"] is False
+    assert output["native_tool_policy"]["approval_path"] == {
+        "expected": True,
+        "declared": False,
+        "route_status": "not_required",
+        "passive": False,
+        "tool_executed": False,
+        "arguments_exported": False,
+    }
+    assert output["native_tool_policy"]["failure_mode"] == "approval_path_missing"
+    assert output["native_tool_policy"]["passive_or_denied"] is False
+    assert output["tool_call_contract"]["all_required_tool_calls_observed"] is True
+    assert output["failure_mode"] == "native_policy_route_failed"
     assert "PRIVATE_APPROVAL_SESSION_DO_NOT_EXPORT" not in serialized
     assert "fixtures/private-output.md" not in serialized
     assert "Write" not in serialized
