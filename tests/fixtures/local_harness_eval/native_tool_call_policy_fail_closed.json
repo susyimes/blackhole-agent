@@ -1,0 +1,72 @@
+{
+  "name": "native-tool-call-policy-fail-closed",
+  "behavior": "native_tool_call_policy",
+  "input": {
+    "task_id": "fixture-native-tool-call-policy-fail-closed",
+    "policy_hook": {
+      "governed": true,
+      "session_id": "native-session-fixture-do-not-export",
+      "server_url_configured": true,
+      "event_phase": "PreToolUse",
+      "failure_mode": "connect_error"
+    },
+    "tool_call": {
+      "name": "Write",
+      "transport": "native",
+      "arguments": {
+        "path": "fixtures/private-output.md",
+        "content": "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT"
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "denied"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "policy_hook_unavailable"
+    },
+    {
+      "path": "policy_hook.governed",
+      "equals": true
+    },
+    {
+      "path": "policy_hook.is_tool_call_phase",
+      "equals": true
+    },
+    {
+      "path": "policy_hook.fail_closed_applied",
+      "equals": true
+    },
+    {
+      "path": "policy_hook.raw_payload_exported",
+      "equals": false
+    },
+    {
+      "path": "permission.decision",
+      "equals": "deny"
+    },
+    {
+      "path": "permission.reason",
+      "equals": "policy_hook_fail_closed:connect_error"
+    },
+    {
+      "path": "permission.arguments_exported",
+      "equals": false
+    },
+    {
+      "path": "tool_call.arguments_exported",
+      "equals": false
+    },
+    {
+      "path": "safety.offensive_behavior_local_execution",
+      "equals": false
+    },
+    {
+      "path": "safety.tool_executed",
+      "equals": false
+    }
+  ]
+}

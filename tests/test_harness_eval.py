@@ -76,14 +76,15 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 9
-    assert payload["pass_count"] == 8
+    assert payload["fixture_count"] == 10
+    assert payload["pass_count"] == 9
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
         "agent_workflow_route",
         "harness_run_summary",
         "mock_llm_workflow_route",
+        "native_tool_call_policy",
         "provider_runtime_preflight",
         "proposal_interpretation",
     ]
@@ -99,12 +100,15 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
+    assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
     assert results["fail-harness-summary"]["passed"] is False
     assert results["fail-harness-summary"]["failure_mode"] == "assertion_failed"
+    assert "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
+    assert "native-session-fixture-do-not-export" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -647,6 +651,84 @@ def test_mock_llm_workflow_route_fails_when_file_tool_is_not_mocked():
     assert output["route_status"] == "failed"
     assert output["file_tools"]["unmocked_external_count"] == 1
     assert output["failure_mode"] == "file_tool_mock_failed"
+
+
+def test_native_tool_call_policy_denies_governed_tool_calls_when_hook_is_unavailable():
+    raw_input = {
+        "task_id": "fixture-native-policy-pretool-fail-closed",
+        "policy_hook": {
+            "governed": True,
+            "session_id": "session-private-fixture",
+            "server_url_configured": True,
+            "event_phase": "PreToolUse",
+            "failure_mode": "non_2xx",
+        },
+        "tool_call": {
+            "name": "Bash",
+            "transport": "native",
+            "arguments": {"command": "PRIVATE_COMMAND_BODY_DO_NOT_EXPORT"},
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "native_tool_call_policy",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_tool_call_policy_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "denied"
+    assert output["failure_mode"] == "policy_hook_unavailable"
+    assert output["policy_hook"]["fail_closed_applied"] is True
+    assert output["permission"] == {
+        "decision": "deny",
+        "reason": "policy_hook_fail_closed:non_2xx",
+        "arguments_exported": False,
+    }
+    assert output["safety"] == {
+        "offensive_behavior_local_execution": False,
+        "tool_executed": False,
+    }
+    assert "session-private-fixture" not in serialized
+    assert "PRIVATE_COMMAND_BODY_DO_NOT_EXPORT" not in serialized
+
+
+def test_native_tool_call_policy_keeps_advisory_and_ungoverned_paths_fail_open():
+    advisory_output = evaluate_harness_behavior(
+        "native_tool_call_policy",
+        {
+            "policy_hook": {
+                "governed": True,
+                "session_id": "session-private-fixture",
+                "server_url_configured": True,
+                "event_phase": "PostToolUse",
+                "failure_mode": "connect_error",
+            },
+            "tool_call": {"name": "Bash"},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_tool_call_policy_advisory_inline.json",
+    )
+    ungoverned_output = evaluate_harness_behavior(
+        "native_tool_call_policy",
+        {
+            "policy_hook": {
+                "governed": False,
+                "event_phase": "PreToolUse",
+                "failure_mode": "connect_error",
+            },
+            "tool_call": {"name": "Bash"},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_tool_call_policy_ungoverned_inline.json",
+    )
+
+    assert advisory_output["route_status"] == "passed"
+    assert advisory_output["policy_hook"]["fail_closed_applied"] is False
+    assert advisory_output["permission"]["decision"] == "no_opinion"
+    assert advisory_output["permission"]["reason"] == "policy_hook_advisory_phase_fail_open"
+    assert ungoverned_output["route_status"] == "passed"
+    assert ungoverned_output["policy_hook"]["fail_closed_applied"] is False
+    assert ungoverned_output["permission"]["decision"] == "no_opinion"
+    assert ungoverned_output["permission"]["reason"] == "policy_hook_not_governed"
 
 
 def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_json():

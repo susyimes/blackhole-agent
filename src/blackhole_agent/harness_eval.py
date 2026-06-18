@@ -41,9 +41,20 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_workflow_route",
     "harness_run_summary",
     "mock_llm_workflow_route",
+    "native_tool_call_policy",
     "provider_runtime_preflight",
     "proposal_interpretation",
 ]
+
+NATIVE_TOOL_CALL_PHASES = {"PreToolUse", "PHASE_TOOL_CALL", "TOOL_CALL", "tool_call"}
+NATIVE_POLICY_HOOK_UNAVAILABLE_FAILURES = {
+    "connect_error",
+    "empty_body",
+    "malformed_json",
+    "non_2xx",
+    "server_unreachable",
+    "timeout",
+}
 
 
 @dataclass(frozen=True)
@@ -269,6 +280,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
     if behavior == "mock_llm_workflow_route":
         return evaluate_mock_llm_workflow_route(raw_input, source_path=source_path)
+    if behavior == "native_tool_call_policy":
+        return evaluate_native_tool_call_policy(raw_input, source_path=source_path)
     if behavior == "provider_runtime_preflight":
         return evaluate_provider_runtime_preflight(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
@@ -582,6 +595,107 @@ def mock_llm_workflow_failure_mode(
     if not file_tools_passed:
         return "file_tool_mock_failed"
     return "none"
+
+
+def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Model native policy-hook behavior without executing or exporting tool arguments."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    policy_hook = raw_input.get("policy_hook") if isinstance(raw_input.get("policy_hook"), dict) else {}
+    tool_call = raw_input.get("tool_call") if isinstance(raw_input.get("tool_call"), dict) else {}
+    session_id = optional_string(policy_hook.get("session_id"))
+    server_url_configured = truthy(policy_hook.get("server_url_configured")) or bool(
+        optional_string(policy_hook.get("ap_server_url"))
+    )
+    governed = truthy(policy_hook.get("governed")) or bool(session_id and server_url_configured)
+    event_phase = optional_string(policy_hook.get("event_phase")) or "PreToolUse"
+    is_tool_call_phase = event_phase in NATIVE_TOOL_CALL_PHASES
+    hook_failure_mode = optional_string(policy_hook.get("failure_mode")) or "none"
+    verdict = policy_hook.get("verdict") if isinstance(policy_hook.get("verdict"), dict) else {}
+    verdict_received = bool(verdict) and hook_failure_mode == "none"
+    unavailable = governed and not verdict_received and hook_failure_mode in NATIVE_POLICY_HOOK_UNAVAILABLE_FAILURES
+    malformed_verdict = governed and not verdict_received and hook_failure_mode == "malformed_verdict"
+
+    if governed and is_tool_call_phase and (unavailable or malformed_verdict):
+        decision = "deny"
+        decision_reason = f"policy_hook_fail_closed:{hook_failure_mode}"
+        route_status = "denied"
+        failure_mode = "policy_hook_unavailable"
+        fail_closed_applied = True
+    elif verdict_received and verdict.get("allowed") is False:
+        decision = "deny"
+        decision_reason = f"policy_denied:{optional_string(verdict.get('reason')) or 'unspecified'}"
+        route_status = "denied"
+        failure_mode = "policy_denied"
+        fail_closed_applied = False
+    elif verdict_received and truthy(verdict.get("review_required")):
+        decision = "review_required"
+        decision_reason = f"policy_review_required:{optional_string(verdict.get('reason')) or 'unspecified'}"
+        route_status = "review_only"
+        failure_mode = "policy_review_required"
+        fail_closed_applied = False
+    elif verdict_received and verdict.get("allowed") is True:
+        decision = "allow"
+        decision_reason = "policy_allowed"
+        route_status = "passed"
+        failure_mode = "none"
+        fail_closed_applied = False
+    else:
+        decision = "no_opinion"
+        decision_reason = native_policy_no_opinion_reason(
+            governed=governed,
+            is_tool_call_phase=is_tool_call_phase,
+            hook_failure_mode=hook_failure_mode,
+        )
+        route_status = "passed"
+        failure_mode = "none"
+        fail_closed_applied = False
+
+    tool_name = optional_string(tool_call.get("name")) or "unknown_tool"
+    return {
+        "schema_version": 1,
+        "behavior": "native_tool_call_policy",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "policy_hook": {
+            "governed": governed,
+            "session_id_present": bool(session_id),
+            "session_id_hash": stable_text_hash(session_id) if session_id else None,
+            "server_url_configured": server_url_configured,
+            "event_phase": event_phase,
+            "is_tool_call_phase": is_tool_call_phase,
+            "failure_mode": hook_failure_mode,
+            "verdict_received": verdict_received,
+            "fail_closed_applied": fail_closed_applied,
+            "raw_payload_exported": False,
+        },
+        "permission": {
+            "decision": decision,
+            "reason": decision_reason,
+            "arguments_exported": False,
+        },
+        "tool_call": {
+            "name": tool_name,
+            "name_hash": stable_text_hash(tool_name),
+            "transport": optional_string(tool_call.get("transport")) or "native",
+            "arguments_exported": False,
+        },
+        "safety": {
+            "offensive_behavior_local_execution": False,
+            "tool_executed": decision == "allow",
+        },
+    }
+
+
+def native_policy_no_opinion_reason(*, governed: bool, is_tool_call_phase: bool, hook_failure_mode: str) -> str:
+    if not governed:
+        return "policy_hook_not_governed"
+    if not is_tool_call_phase:
+        return "policy_hook_advisory_phase_fail_open"
+    if hook_failure_mode == "none":
+        return "policy_hook_no_verdict"
+    return f"policy_hook_fail_open:{hook_failure_mode}"
 
 
 def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

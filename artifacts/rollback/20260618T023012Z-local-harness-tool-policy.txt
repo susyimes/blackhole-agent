@@ -1,0 +1,16 @@
+# Rollback Point
+
+- Created: 2026-06-18T02:30:12Z
+- Source digest: github-growth-20260618T023013.103109Z
+- Original branch: codex/blackhole-evolve/20260618T023145.993477-add-or-extend-local-harness-tests-that-assert-to
+- HEAD: 57b1f803d75244f420dd7c5936bd6d30aff0a761
+- Rollback ref: refs/rollback/20260618T023012Z-local-harness-tool-policy
+
+Recovery commands:
+
+```powershell
+git switch codex/blackhole-evolve/20260618T023145.993477-add-or-extend-local-harness-tests-that-assert-to
+git reset --hard refs/rollback/20260618T023012Z-local-harness-tool-policy
+```
+
+Note: rollback execution is explicit and destructive; do not run unless chosen by operator policy.
