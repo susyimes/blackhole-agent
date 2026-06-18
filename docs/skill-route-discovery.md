@@ -5,9 +5,10 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
-This note is grounded in source digest `github-growth-20260618T062043.878926Z`
-and refined by `github-growth-20260618T171207.138935Z`. The bounded evidence
-reviewed for these runs:
+This note is grounded in source digest `github-growth-20260618T062043.878926Z`,
+refined by `github-growth-20260618T171207.138935Z`, and clarified by
+`github-growth-20260618T193207.157147Z`. The bounded evidence reviewed for
+these runs:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
@@ -106,3 +107,39 @@ This keeps the useful lesson from the reviewed repositories: public skill
 ecosystems reveal reusable routing shapes, but upstream installers, scripts,
 scaffolds, profile stores, and QA helpers are evidence to inspect, not actions
 to perform during discovery.
+
+## Evidence Citation And Uncertainty
+
+When `skill_route_discovery` appears in a frozen proposal evidence package,
+proposal examples and replay fixtures must cite only selected `item_id` values
+in `evidence_refs`. They must not cite repository URLs, owner/repository names,
+truncated item IDs, or evidence URLs invented by the candidate. The deterministic
+review layer derives accepted evidence URLs from those frozen `item_id` values.
+
+Trend-only repository details are enough to select a bounded local lane, but not
+enough to claim upstream implementation parity. When the selected evidence is
+generic, README-level, sparse, or context-budget truncation reports
+`missing_detail_risk`, proposal uncertainty must mention that missing detail
+risk and narrow the claim to local validation.
+
+Example accepted citation shape:
+
+```json
+{
+  "proposal_id": "skill-route-doc-contract",
+  "kind": "documentation",
+  "evidence_refs": ["fablecodex-codex-skill-workflow"],
+  "uncertainty": "Repository-level trend evidence leaves missing_detail_risk for specific upstream implementation details."
+}
+```
+
+Example rejected citation shape:
+
+```json
+{
+  "proposal_id": "skill-route-url-citation",
+  "kind": "documentation",
+  "evidence_refs": ["https://github.com/baskduf/FableCodex"],
+  "uncertainty": "This cites a URL instead of a frozen item_id."
+}
+```

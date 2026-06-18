@@ -103,6 +103,7 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
         "No upstream code, install scripts, prompts, or skill bodies were adopted.",
+        "clarified by\n`github-growth-20260618T193207.157147Z`",
         "`baskduf/FableCodex`",
         "`dongshuyan/compass-skills`",
         "`majidmanzarpour/threejs-game-skills`",
@@ -115,6 +116,15 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "deletion does not delete a local\nskill",
         "repository-level and README-level",
         "not enough to promote a candidate\nto executable skill routing",
+        "## Evidence Citation And Uncertainty",
+        "cite only selected `item_id` values\nin `evidence_refs`",
+        "must not cite repository URLs, owner/repository names,\ntruncated item IDs",
+        "review layer derives accepted evidence URLs from those frozen `item_id` values",
+        "generic, README-level, sparse",
+        "`missing_detail_risk`",
+        "proposal uncertainty must mention that missing detail\nrisk",
+        "\"evidence_refs\": [\"fablecodex-codex-skill-workflow\"]",
+        "\"evidence_refs\": [\"https://github.com/baskduf/FableCodex\"]",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]
