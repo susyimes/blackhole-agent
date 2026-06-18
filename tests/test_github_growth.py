@@ -2663,6 +2663,7 @@ def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
         output_dir=tmp_path,
         topics=["agent", "workflow"],
         client=client,
+        proposal_mode="heuristic",
     )
 
     assert result.json_path.exists()
@@ -2694,6 +2695,7 @@ def test_run_intake_once_updates_state_for_all_paginated_events(tmp_path):
         topics=["workflow"],
         client=client,
         max_events_per_repo=100,
+        proposal_mode="heuristic",
     )
 
     state = json.loads(result.state_path.read_text(encoding="utf-8"))
@@ -2732,6 +2734,7 @@ def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
         state_path=state_path,
         trend_config=GitHubTrendConfig(),
         client=client,
+        proposal_mode="heuristic",
     )
 
     digest = result.digest
@@ -2764,6 +2767,7 @@ def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
         output_dir=tmp_path,
         trend_config=GitHubTrendConfig(),
         client=client,
+        proposal_mode="heuristic",
     )
 
     assert result.digest["items"][0]["event_kind"] == "RepositoryTrend"
