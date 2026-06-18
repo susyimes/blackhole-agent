@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 10
-    assert payload["pass_count"] == 9
+    assert payload["fixture_count"] == 11
+    assert payload["pass_count"] == 10
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -99,6 +99,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
+    assert results["mock-llm-named-subagent-policy-route"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
@@ -109,6 +110,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["fail-harness-summary"]["failure_mode"] == "assertion_failed"
     assert "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
     assert "native-session-fixture-do-not-export" not in serialized
+    assert "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -705,6 +709,144 @@ def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting
     assert "fixtures/private-note.md" not in serialized
     assert "mock attachment summary" not in serialized
     assert output["failure_mode"] == "none"
+
+
+def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_bodies():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_named_subagent_policy_route.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["sub_agents"]["agent_count"] == 1
+    assert output["sub_agents"]["all_expected_agents_observed"] is True
+    assert output["sub_agents"]["persistence_passed"] is True
+    assert output["sub_agents"]["queue_desync_detected"] is False
+    agent = output["sub_agents"]["agents"][0]
+    assert agent["turn_count"] == 2
+    assert agent["unique_session_hash_count"] == 1
+    assert agent["expected_queue_mismatches"] == 0
+    assert output["native_tool_policy"]["route_status"] == "denied"
+    assert output["native_tool_policy"]["permission_decision"] == "deny"
+    assert output["native_tool_policy"]["fail_closed_applied"] is True
+    assert output["native_tool_policy"]["tool_executed"] is False
+    assert output["failure_mode"] == "none"
+    assert "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_fails_when_named_subagent_queue_falls_back_to_default():
+    raw_input = {
+        "task_id": "fixture-mock-llm-named-subagent-queue-desync",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "sub_agents": {
+            "shared_model_key": True,
+            "agents": [
+                {
+                    "name": "PRIVATE_CHILD_DO_NOT_EXPORT",
+                    "expected_response_key": "queue-a",
+                    "turn_session_ids": ["PRIVATE_SESSION_DO_NOT_EXPORT"],
+                    "persistence_required": True,
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "default": [{"content": "fallback response"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "child-turn",
+                    "agent": "PRIVATE_CHILD_DO_NOT_EXPORT",
+                    "response_key": "queue-a",
+                    "expect_contains": "fallback",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_named_subagent_queue_desync_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["sub_agents"]["queue_desync_detected"] is True
+    assert output["sub_agents"]["agents"][0]["fallback_count"] == 1
+    assert output["sub_agents"]["agents"][0]["expected_queue_mismatches"] == 1
+    assert output["failure_mode"] == "sub_agent_mock_route_failed"
+    assert "PRIVATE_CHILD_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_SESSION_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_fails_when_named_subagent_session_is_not_persistent():
+    raw_input = {
+        "task_id": "fixture-mock-llm-named-subagent-session-drift",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "sub_agents": {
+            "agents": [
+                {
+                    "name": "PRIVATE_CHILD_DO_NOT_EXPORT",
+                    "expected_response_key": "queue-a",
+                    "turn_session_ids": [
+                        "PRIVATE_SESSION_ONE_DO_NOT_EXPORT",
+                        "PRIVATE_SESSION_TWO_DO_NOT_EXPORT",
+                    ],
+                    "persistence_required": True,
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "queue-a": [{"content": "turn one"}, {"content": "turn two"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "child-turn-1",
+                    "agent": "PRIVATE_CHILD_DO_NOT_EXPORT",
+                    "response_key": "queue-a",
+                    "expect_contains": "turn one",
+                },
+                {
+                    "id": "child-turn-2",
+                    "agent": "PRIVATE_CHILD_DO_NOT_EXPORT",
+                    "response_key": "queue-a",
+                    "expect_contains": "turn two",
+                },
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_named_subagent_session_drift_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["sub_agents"]["persistence_passed"] is False
+    assert output["sub_agents"]["queue_desync_detected"] is False
+    assert output["sub_agents"]["agents"][0]["unique_session_hash_count"] == 2
+    assert output["failure_mode"] == "sub_agent_mock_route_failed"
+    assert "PRIVATE_CHILD_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_SESSION_ONE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_SESSION_TWO_DO_NOT_EXPORT" not in serialized
 
 
 def test_mock_llm_workflow_route_fails_when_session_reuses_previous_id():

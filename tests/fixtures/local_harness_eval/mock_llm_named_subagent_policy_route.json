@@ -1,0 +1,148 @@
+{
+  "name": "mock-llm-named-subagent-policy-route",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-named-subagent-policy-route",
+    "provider": {
+      "name": "external-chat-provider",
+      "enabled": false
+    },
+    "sub_agents": {
+      "shared_model_key": true,
+      "agents": [
+        {
+          "name": "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT",
+          "expected_response_key": "queue-a",
+          "turn_session_ids": [
+            "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT",
+            "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT"
+          ],
+          "persistence_required": true
+        }
+      ]
+    },
+    "native_tool_policy": {
+      "task_id": "fixture-mock-llm-named-subagent-policy-route",
+      "policy_hook": {
+        "governed": true,
+        "session_id": "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT",
+        "server_url_configured": true,
+        "event_phase": "PreToolUse",
+        "failure_mode": "timeout"
+      },
+      "tool_call": {
+        "name": "Write",
+        "transport": "native",
+        "arguments": {
+          "path": "fixtures/private-output.md",
+          "content": "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT"
+        }
+      }
+    },
+    "mock_llm": {
+      "enabled": true,
+      "model": "shared-model",
+      "response_queues": {
+        "queue-a": [
+          {
+            "content": "child turn one completed",
+            "usage": {
+              "input_tokens": 5,
+              "output_tokens": 4
+            },
+            "tool_calls": [
+              {
+                "name": "sys_session_send"
+              }
+            ]
+          },
+          {
+            "content": "child turn two persisted",
+            "usage": {
+              "input_tokens": 6,
+              "output_tokens": 4
+            }
+          }
+        ]
+      }
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "child-turn-1",
+          "agent": "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT",
+          "response_key": "queue-a",
+          "expect_contains": "turn one"
+        },
+        {
+          "id": "child-turn-2",
+          "agent": "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT",
+          "response_key": "queue-a",
+          "expect_contains": "persisted"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "provider.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "mock_llm.call_count",
+      "equals": 2
+    },
+    {
+      "path": "workflow.fallback_count",
+      "equals": 0
+    },
+    {
+      "path": "sub_agents.agent_count",
+      "equals": 1
+    },
+    {
+      "path": "sub_agents.shared_model_key",
+      "equals": true
+    },
+    {
+      "path": "sub_agents.persistence_passed",
+      "equals": true
+    },
+    {
+      "path": "sub_agents.queue_desync_detected",
+      "equals": false
+    },
+    {
+      "path": "sub_agents.raw_names_exported",
+      "equals": false
+    },
+    {
+      "path": "sub_agents.raw_session_ids_exported",
+      "equals": false
+    },
+    {
+      "path": "native_tool_policy.route_status",
+      "equals": "denied"
+    },
+    {
+      "path": "native_tool_policy.passive_or_denied",
+      "equals": true
+    },
+    {
+      "path": "native_tool_policy.tool_executed",
+      "equals": false
+    },
+    {
+      "path": "native_tool_policy.arguments_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

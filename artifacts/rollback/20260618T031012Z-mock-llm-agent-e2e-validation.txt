@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260618T031013.177089Z
+
+Original branch: codex/blackhole-evolve/20260618T031119.096126-add-or-extend-local-mock-llm-e2e-coverage-for-to
+Original HEAD: 37220dacc8eda73e129e6e4ac98ae6bdf3a022ec
+Rollback ref: refs/blackhole-agent/rollback/20260618T031012Z/37220dacc8ed
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260618T031119.096126-add-or-extend-local-mock-llm-e2e-coverage-for-to
+git reset --hard refs/blackhole-agent/rollback/20260618T031012Z/37220dacc8ed
+
+Notes:
+- Created before local self-modification.
+- Do not delete this artifact during the run that created it.

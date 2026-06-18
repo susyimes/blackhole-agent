@@ -303,6 +303,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     workflow = raw_input.get("workflow") if isinstance(raw_input.get("workflow"), dict) else {}
     session = raw_input.get("session") if isinstance(raw_input.get("session"), dict) else {}
     file_tools = raw_input.get("file_tools") if isinstance(raw_input.get("file_tools"), dict) else {}
+    sub_agents = raw_input.get("sub_agents") if isinstance(raw_input.get("sub_agents"), dict) else {}
+    native_tool_policy = raw_input.get("native_tool_policy") if isinstance(raw_input.get("native_tool_policy"), dict) else {}
     steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
     multimodal_preflight = evaluate_mock_multimodal_preflight(provider, steps)
     response_queues = build_mock_llm_response_queues(mock_llm)
@@ -325,6 +327,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
     session_result = evaluate_mock_session_route(session)
     file_tool_result = evaluate_mock_file_tools_route(file_tools)
+    sub_agent_result = evaluate_mock_named_sub_agents_route(sub_agents, response_results=response_results)
+    native_policy_result = evaluate_embedded_native_tool_policy(native_tool_policy, source_path=source_path)
     usage = aggregate_mock_llm_usage(response_results)
     failure_mode = mock_llm_workflow_failure_mode(
         step_count=len(steps),
@@ -338,6 +342,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         session_passed=session_result["isolation_passed"],
         file_tools_passed=file_tool_result["all_operations_mocked"]
         and file_tool_result["all_expectations_passed"],
+        sub_agents_passed=sub_agent_result["persistence_passed"] and not sub_agent_result["queue_desync_detected"],
+        native_policy_passed=native_policy_result["passive_or_denied"],
     )
 
     return {
@@ -372,6 +378,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         "multimodal_preflight": multimodal_preflight,
         "session": session_result,
         "file_tools": file_tool_result,
+        "sub_agents": sub_agent_result,
+        "native_tool_policy": native_policy_result,
         "failure_mode": failure_mode,
     }
 
@@ -479,6 +487,7 @@ def build_mock_llm_response_results(
         results.append(
             {
                 "step_id": optional_string(step_data.get("id")) or f"step-{index + 1}",
+                "agent": optional_string(step_data.get("agent")),
                 "request_key": request_key,
                 "response_key": queue_key,
                 "response_model": response_model,
@@ -657,6 +666,102 @@ def evaluate_mock_file_tool_operation(operation: Any) -> dict[str, Any]:
     }
 
 
+def evaluate_mock_named_sub_agents_route(
+    sub_agents: dict[str, Any],
+    *,
+    response_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Check named sub-agent mock routing without recording names or message bodies."""
+
+    agents = sub_agents.get("agents") if isinstance(sub_agents.get("agents"), list) else []
+    agent_results = [
+        evaluate_mock_named_sub_agent(agent, response_results=response_results)
+        for agent in agents
+        if isinstance(agent, dict)
+    ]
+    declared = bool(agent_results)
+    persistence_passed = all(result["persistence_passed"] for result in agent_results)
+    queue_desync_detected = any(result["queue_desync_detected"] for result in agent_results)
+    return {
+        "declared": declared,
+        "agent_count": len(agent_results),
+        "agent_name_hashes": [result["name_hash"] for result in agent_results],
+        "all_expected_agents_observed": all(result["turn_count"] > 0 for result in agent_results),
+        "persistence_passed": persistence_passed,
+        "queue_desync_detected": queue_desync_detected,
+        "shared_model_key": truthy(sub_agents.get("shared_model_key")),
+        "raw_names_exported": False,
+        "raw_session_ids_exported": False,
+        "agents": agent_results,
+    }
+
+
+def evaluate_mock_named_sub_agent(
+    agent: dict[str, Any],
+    *,
+    response_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    name = optional_string(agent.get("name")) or "named-sub-agent"
+    expected_response_key = optional_string(agent.get("expected_response_key"))
+    turn_session_ids = string_list(agent.get("turn_session_ids"))
+    persistence_required = truthy(agent.get("persistence_required")) or len(turn_session_ids) > 1
+    observed_turns = [result for result in response_results if result.get("agent") == name]
+    response_keys = [str(result["response_key"]) for result in observed_turns]
+    fallback_count = sum(1 for result in observed_turns if result["fallback_used"])
+    expected_queue_mismatches = (
+        sum(1 for key in response_keys if key != expected_response_key) if expected_response_key else fallback_count
+    )
+    session_hashes = [stable_text_hash(session_id) for session_id in turn_session_ids]
+    unique_session_hash_count = len(set(session_hashes))
+    persistence_passed = (
+        not persistence_required
+        or bool(session_hashes)
+        and unique_session_hash_count == 1
+        and len(observed_turns) >= len(session_hashes)
+    )
+    queue_desync_detected = fallback_count > 0 or expected_queue_mismatches > 0
+    return {
+        "name_hash": stable_text_hash(name),
+        "turn_count": len(observed_turns),
+        "expected_response_key_hash": stable_text_hash(expected_response_key) if expected_response_key else None,
+        "response_key_hashes": [stable_text_hash(key) for key in response_keys],
+        "fallback_count": fallback_count,
+        "expected_queue_mismatches": expected_queue_mismatches,
+        "queue_desync_detected": queue_desync_detected,
+        "persistence_required": persistence_required,
+        "turn_session_hashes": session_hashes,
+        "unique_session_hash_count": unique_session_hash_count,
+        "persistence_passed": persistence_passed,
+    }
+
+
+def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    if not native_tool_policy:
+        return {
+            "declared": False,
+            "route_status": "not_configured",
+            "failure_mode": "none",
+            "passive_or_denied": True,
+            "tool_executed": False,
+            "arguments_exported": False,
+        }
+
+    policy_result = evaluate_native_tool_call_policy(native_tool_policy, source_path=source_path)
+    decision = str(policy_result["permission"]["decision"])
+    tool_executed = bool(policy_result["safety"]["tool_executed"])
+    return {
+        "declared": True,
+        "route_status": policy_result["route_status"],
+        "failure_mode": policy_result["failure_mode"],
+        "permission_decision": decision,
+        "permission_reason": policy_result["permission"]["reason"],
+        "fail_closed_applied": policy_result["policy_hook"]["fail_closed_applied"],
+        "passive_or_denied": decision in {"deny", "review_required", "no_opinion"} and not tool_executed,
+        "tool_executed": tool_executed,
+        "arguments_exported": False,
+    }
+
+
 def mock_llm_workflow_failure_mode(
     *,
     step_count: int,
@@ -669,6 +774,8 @@ def mock_llm_workflow_failure_mode(
     anthropic_messages_ok: bool,
     session_passed: bool,
     file_tools_passed: bool,
+    sub_agents_passed: bool,
+    native_policy_passed: bool,
 ) -> str:
     if step_count < 1:
         return "no_workflow_steps"
@@ -688,6 +795,10 @@ def mock_llm_workflow_failure_mode(
         return "session_isolation_failed"
     if not file_tools_passed:
         return "file_tool_mock_failed"
+    if not sub_agents_passed:
+        return "sub_agent_mock_route_failed"
+    if not native_policy_passed:
+        return "native_policy_route_failed"
     return "none"
 
 
