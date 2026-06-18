@@ -316,6 +316,11 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         if mock_enabled and multimodal_preflight["ok"]
         else []
     )
+    anthropic_messages = evaluate_anthropic_messages_compatibility(
+        provider,
+        mock_llm,
+        response_results=response_results,
+    )
     enough_responses = len(response_results) >= len(steps)
     expectations_passed = bool(response_results) and all(result["expectation_passed"] for result in response_results)
     session_result = evaluate_mock_session_route(session)
@@ -329,6 +334,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         mock_enabled=mock_enabled,
         enough_responses=enough_responses,
         expectations_passed=expectations_passed,
+        anthropic_messages_ok=anthropic_messages["ok"],
         session_passed=session_result["isolation_passed"],
         file_tools_passed=file_tool_result["all_operations_mocked"]
         and file_tool_result["all_expectations_passed"],
@@ -353,6 +359,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "queue_keys": sorted(response_queues),
             "exhausted": mock_enabled and not enough_responses,
             "usage": usage,
+            "anthropic_messages": anthropic_messages,
         },
         "workflow": {
             "step_count": len(steps),
@@ -466,17 +473,19 @@ def build_mock_llm_response_results(
         content = optional_string(response_data.get("content")) or ""
         expect_contains = optional_string(step_data.get("expect_contains"))
         usage = response_data.get("usage") if isinstance(response_data.get("usage"), dict) else {}
+        tool_calls = response_data.get("tool_calls") if isinstance(response_data.get("tool_calls"), list) else []
+        request_key = mock_llm_request_key(step_data, mock_llm=mock_llm)
+        response_model = optional_string(response_data.get("response_model")) or request_key
         results.append(
             {
                 "step_id": optional_string(step_data.get("id")) or f"step-{index + 1}",
-                "request_key": mock_llm_request_key(step_data, mock_llm=mock_llm),
+                "request_key": request_key,
                 "response_key": queue_key,
+                "response_model": response_model,
                 "fallback_used": fallback_used,
                 "response_hash": stable_text_hash(content),
                 "expectation_passed": expect_contains is None or expect_contains in content,
-                "tool_call_count": len(response_data.get("tool_calls"))
-                if isinstance(response_data.get("tool_calls"), list)
-                else 0,
+                "tool_call_count": len(tool_calls),
                 "input_tokens": optional_int(usage.get("input_tokens") or usage.get("prompt_tokens")) or 0,
                 "output_tokens": optional_int(usage.get("output_tokens") or usage.get("completion_tokens")) or 0,
             }
@@ -516,6 +525,88 @@ def aggregate_mock_llm_usage(response_results: list[dict[str, Any]]) -> dict[str
         "total_tokens": input_tokens + output_tokens,
         "tool_calls": sum(int(result["tool_call_count"]) for result in response_results),
     }
+
+
+def evaluate_anthropic_messages_compatibility(
+    provider: dict[str, Any],
+    mock_llm: dict[str, Any],
+    *,
+    response_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Validate Anthropic Messages mock protocol shape without exporting bodies."""
+
+    enabled = mock_llm_uses_anthropic_messages(provider, mock_llm)
+    if not enabled:
+        return {
+            "enabled": False,
+            "ok": True,
+            "endpoint": None,
+            "request_count": 0,
+            "response_format": None,
+            "model_echoed": True,
+            "same_keyed_queue_routing": True,
+            "text_event_sequence_count": 0,
+            "tool_event_sequence_count": 0,
+            "diagnostics": [],
+        }
+
+    diagnostics: list[str] = []
+    missing_request_models = [result["step_id"] for result in response_results if result["request_key"] == "default"]
+    if missing_request_models:
+        diagnostics.append("Anthropic Messages mock requests must carry an explicit model for keyed queue routing")
+
+    model_mismatches = [
+        result["step_id"] for result in response_results if result["response_model"] != result["request_key"]
+    ]
+    if model_mismatches:
+        diagnostics.append("Anthropic Messages mock responses must echo the request model in message_start")
+
+    fallback_count = sum(1 for result in response_results if result["fallback_used"])
+    if fallback_count:
+        diagnostics.append("Anthropic Messages mock requests must use the same keyed queues as response routes")
+
+    text_sequence_count = sum(1 for result in response_results if int(result["tool_call_count"]) == 0)
+    tool_sequence_count = sum(1 for result in response_results if int(result["tool_call_count"]) > 0)
+    event_types = [
+        "message_start",
+        "content_block_start",
+        "content_block_delta",
+        "content_block_stop",
+        "message_delta",
+        "message_stop",
+    ]
+    tool_event_types = [
+        "message_start",
+        "content_block_start",
+        "input_json_delta",
+        "content_block_stop",
+        "message_delta",
+        "message_stop",
+    ]
+
+    return {
+        "enabled": True,
+        "ok": not diagnostics,
+        "endpoint": "/v1/messages",
+        "request_count": len(response_results),
+        "response_format": "anthropic_sse",
+        "model_echoed": not model_mismatches,
+        "same_keyed_queue_routing": fallback_count == 0,
+        "text_event_sequence_count": text_sequence_count,
+        "tool_event_sequence_count": tool_sequence_count,
+        "event_types": event_types,
+        "tool_event_types": tool_event_types if tool_sequence_count else [],
+        "diagnostics": diagnostics,
+    }
+
+
+def mock_llm_uses_anthropic_messages(provider: dict[str, Any], mock_llm: dict[str, Any]) -> bool:
+    api = optional_string(mock_llm.get("api")) or optional_string(mock_llm.get("protocol"))
+    if api in {"anthropic_messages", "messages"}:
+        return True
+    provider_name = (optional_string(provider.get("name")) or "").lower()
+    harness = (optional_string(provider.get("harness")) or "").lower()
+    return "claude" in provider_name or "claude" in harness or "anthropic" in provider_name or "anthropic" in harness
 
 
 def evaluate_mock_session_route(session: dict[str, Any]) -> dict[str, Any]:
@@ -575,6 +666,7 @@ def mock_llm_workflow_failure_mode(
     mock_enabled: bool,
     enough_responses: bool,
     expectations_passed: bool,
+    anthropic_messages_ok: bool,
     session_passed: bool,
     file_tools_passed: bool,
 ) -> str:
@@ -588,6 +680,8 @@ def mock_llm_workflow_failure_mode(
         return "mock_llm_disabled"
     if not enough_responses:
         return "mock_llm_exhausted"
+    if not anthropic_messages_ok:
+        return "anthropic_messages_incompatible"
     if not expectations_passed:
         return "expectation_failed"
     if not session_passed:

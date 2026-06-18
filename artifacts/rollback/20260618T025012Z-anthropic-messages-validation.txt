@@ -1,0 +1,18 @@
+Rollback point for source digest github-growth-20260618T025013.019961Z
+
+Original branch:
+codex/blackhole-evolve/20260618T025116.578353-add-or-extend-local-tests-around-anthropic-messa
+
+Original HEAD:
+99c4af788464fd6fd52dd06bf13e9a8ab3f7fef3
+
+Local rollback ref:
+refs/rollback/20260618T025012Z-anthropic-messages-validation
+
+Recovery commands, if an operator chooses destructive rollback:
+git switch codex/blackhole-evolve/20260618T025116.578353-add-or-extend-local-tests-around-anthropic-messa
+git reset --hard refs/rollback/20260618T025012Z-anthropic-messages-validation
+
+Notes:
+- Created before source/test edits for Anthropic Messages mock LLM validation.
+- Upstream lookup was skipped after PowerShell parsed @{u} as a hash literal in the first attempt; the local ref is the recovery anchor.

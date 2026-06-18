@@ -339,6 +339,128 @@ def test_mock_llm_workflow_route_uses_deterministic_keyed_response_queues():
     assert output["failure_mode"] == "none"
 
 
+def test_mock_llm_workflow_route_validates_anthropic_messages_round_trip_without_bodies():
+    raw_input = {
+        "task_id": "fixture-mock-llm-anthropic-messages",
+        "provider": {"name": "anthropic", "harness": "claude-sdk", "enabled": False},
+        "mock_llm": {
+            "enabled": True,
+            "api": "anthropic_messages",
+            "response_queues": {
+                "claude-3-haiku": [
+                    {
+                        "content": "PRIVATE_TEXT_BODY_DO_NOT_EXPORT accepted",
+                        "usage": {"input_tokens": 8, "output_tokens": 5},
+                    },
+                    {
+                        "content": "tool result accepted",
+                        "tool_calls": [{"name": "record_validation", "arguments": "{\"ok\": true}"}],
+                        "usage": {"input_tokens": 10, "output_tokens": 7},
+                    },
+                ]
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "messages-text",
+                    "model": "claude-3-haiku",
+                    "prompt": "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT",
+                    "expect_contains": "accepted",
+                },
+                {
+                    "id": "messages-tool",
+                    "model": "claude-3-haiku",
+                    "prompt": "PRIVATE_TOOL_PROMPT_BODY_DO_NOT_EXPORT",
+                    "expect_contains": "tool result",
+                },
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_anthropic_messages_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["workflow"]["response_keys"] == ["claude-3-haiku", "claude-3-haiku"]
+    assert output["workflow"]["fallback_count"] == 0
+    assert output["mock_llm"]["usage"] == {"input_tokens": 18, "output_tokens": 12, "total_tokens": 30, "tool_calls": 1}
+    assert output["mock_llm"]["anthropic_messages"] == {
+        "enabled": True,
+        "ok": True,
+        "endpoint": "/v1/messages",
+        "request_count": 2,
+        "response_format": "anthropic_sse",
+        "model_echoed": True,
+        "same_keyed_queue_routing": True,
+        "text_event_sequence_count": 1,
+        "tool_event_sequence_count": 1,
+        "event_types": [
+            "message_start",
+            "content_block_start",
+            "content_block_delta",
+            "content_block_stop",
+            "message_delta",
+            "message_stop",
+        ],
+        "tool_event_types": [
+            "message_start",
+            "content_block_start",
+            "input_json_delta",
+            "content_block_stop",
+            "message_delta",
+            "message_stop",
+        ],
+        "diagnostics": [],
+    }
+    assert "PRIVATE_TEXT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_TOOL_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_fails_when_anthropic_messages_model_is_not_echoed():
+    raw_input = {
+        "task_id": "fixture-mock-llm-anthropic-messages-model-mismatch",
+        "provider": {"name": "anthropic", "harness": "claude-sdk", "enabled": False},
+        "mock_llm": {
+            "enabled": True,
+            "api": "anthropic_messages",
+            "response_queues": {
+                "claude-3-haiku": [
+                    {
+                        "content": "model mismatch response",
+                        "response_model": "mock-model",
+                    }
+                ]
+            },
+        },
+        "workflow": {
+            "steps": [
+                {"id": "messages-text", "model": "claude-3-haiku", "expect_contains": "mismatch"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_anthropic_messages_model_mismatch_inline.json",
+    )
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "anthropic_messages_incompatible"
+    assert output["mock_llm"]["anthropic_messages"]["ok"] is False
+    assert output["mock_llm"]["anthropic_messages"]["model_echoed"] is False
+    assert output["mock_llm"]["anthropic_messages"]["diagnostics"] == [
+        "Anthropic Messages mock responses must echo the request model in message_start"
+    ]
+
+
 def test_mock_llm_workflow_route_falls_back_to_default_queue_for_missing_key():
     raw_input = {
         "task_id": "fixture-mock-llm-default-fallback",
