@@ -6,8 +6,9 @@ observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
 This note is grounded in source digest `github-growth-20260618T062043.878926Z`,
-refined by `github-growth-20260618T171207.138935Z`, and clarified by
-`github-growth-20260618T193207.157147Z`. The bounded evidence reviewed for
+refined by `github-growth-20260618T171207.138935Z`, clarified by
+`github-growth-20260618T193207.157147Z`, and reaffirmed by
+`github-growth-20260618T215207.204133Z`. The bounded evidence reviewed for
 these runs:
 
 - `https://github.com/baskduf/FableCodex`
@@ -15,6 +16,15 @@ these runs:
 - `https://github.com/majidmanzarpour/threejs-game-skills`
 
 No upstream code, install scripts, prompts, or skill bodies were adopted.
+
+The 2026-06-18T21:52Z wake rechecked the same public repository class and kept
+the lesson narrow. FableCodex describes Codex workflow gates, COMPASS Skills
+describes local skills for clarification, task memory, and collaboration
+profiles, and Three.js Game Skills describes a domain director with specialist
+skills and verification helpers. Those are useful routing shapes, but the local
+artifact remains documentation and fixture coverage only. The evidence does not
+grant permission to install, execute, scaffold, profile, generate assets, or
+activate any upstream skill package.
 
 ## Route Matrix
 
@@ -136,6 +146,13 @@ proposal examples and replay fixtures must cite only selected `item_id` values
 in `evidence_refs`. They must not cite repository URLs, owner/repository names,
 truncated item IDs, or evidence URLs invented by the candidate. The deterministic
 review layer derives accepted evidence URLs from those frozen `item_id` values.
+
+Focused replay checks for this route should assert both halves of the contract:
+accepted candidates use only documentation, config, test, or code_patch lanes,
+and every accepted `evidence_ref` is a selected `item_id` from the frozen
+evidence package. URL strings such as `https://github.com/baskduf/FableCodex`
+are valid source evidence in the package, but they are not valid proposal
+citations.
 
 Trend-only repository details are enough to select a bounded local lane, but not
 enough to claim upstream implementation parity. When the selected evidence is

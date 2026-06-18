@@ -1,0 +1,10 @@
+rollback_id: 20260618T215503Z-skill-route-item-id-citation
+created_at_utc: 20260618T215503Z
+original_branch: codex/blackhole-evolve/20260618T215342.229675-add-or-extend-a-local-validation-lane-that-exerc
+original_head: ae1485b5fc5d0be24a780419f39153a1e83aeaf4
+rollback_ref: refs/rollback/20260618T215503Z-skill-route-item-id-citation
+recovery_commands:
+  git switch codex/blackhole-evolve/20260618T215342.229675-add-or-extend-a-local-validation-lane-that-exerc
+  git reset --hard refs/rollback/20260618T215503Z-skill-route-item-id-citation
+  git clean -fd
+notes: Created before skill_route_discovery item-id citation regression changes for source digest github-growth-20260618T215207.204133Z.

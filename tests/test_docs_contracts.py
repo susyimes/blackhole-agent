@@ -99,10 +99,18 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
 
     required_phrases = [
         "source digest `github-growth-20260618T062043.878926Z`",
+        "`github-growth-20260618T215207.204133Z`",
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
         "No upstream code, install scripts, prompts, or skill bodies were adopted.",
+        "FableCodex describes Codex workflow gates, COMPASS Skills\n"
+        "describes local skills for clarification, task memory, and collaboration\n"
+        "profiles, and Three.js Game Skills describes a domain director with specialist\n"
+        "skills and verification helpers",
+        "does not\n"
+        "grant permission to install, execute, scaffold, profile, generate assets, or\n"
+        "activate any upstream skill package",
         "clarified by\n`github-growth-20260618T193207.157147Z`",
         "`baskduf/FableCodex`",
         "`dongshuyan/compass-skills`",
@@ -128,6 +136,12 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "cite only selected `item_id` values\nin `evidence_refs`",
         "must not cite repository URLs, owner/repository names,\ntruncated item IDs",
         "review layer derives accepted evidence URLs from those frozen `item_id` values",
+        "accepted candidates use only documentation, config, test, or code_patch lanes",
+        "every accepted `evidence_ref` is a selected `item_id` from the frozen\n"
+        "evidence package",
+        "URL strings such as `https://github.com/baskduf/FableCodex`\n"
+        "are valid source evidence in the package, but they are not valid proposal\n"
+        "citations",
         "generic, README-level, sparse",
         "`missing_detail_risk`",
         "proposal uncertainty must mention that missing detail\nrisk",
