@@ -1,0 +1,15 @@
+# Rollback Point
+
+Digest: `github-growth-20260618T092043.842756Z`
+Branch: `codex/blackhole-evolve/20260618T092151.309175-add-or-update-local-provider-config-preflight-co`
+HEAD: `4d7abdda63d0e630893f0f09372bd1c478edd867`
+Rollback ref: `refs/rollback/20260618T092225Z-ci-security-waiver-rerun`
+
+Recovery commands, if an external operator chooses destructive rollback:
+
+```bash
+git reset --hard refs/rollback/20260618T092225Z-ci-security-waiver-rerun
+git clean -fd
+```
+
+Rollback execution is explicit and destructive. A human operator or external supervisor policy must choose it before running these commands.

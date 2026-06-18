@@ -69,3 +69,23 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
     missing = [phrase for phrase in required_phrases if phrase not in doc]
 
     assert missing == []
+
+
+def test_ci_security_waiver_doc_records_label_only_rerun_contract():
+    doc = (REPO_ROOT / "docs" / "ci-security-waiver.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "Source digest: `github-growth-20260618T092043.842756Z`",
+        "https://github.com/omnigent-ai/omnigent/pull/637",
+        "does not change this repository's live CI",
+        "label snapshot for the same workflow rerun attempt",
+        "Scan conclusion `success` passes without a waiver.",
+        "exact label-only waiver",
+        "Comments, commit\n  messages, workflow inputs, environment variables, secrets, token values",
+        "stale\n  label snapshot from an earlier attempt blocks the waiver path",
+        "do not record credentials, private data,\n  or raw CI logs",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
