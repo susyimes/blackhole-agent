@@ -1411,8 +1411,8 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     assert reparsed == payload
     assert payload["suite_name"] == "fixture-harness-adapter"
-    assert payload["fixture_count"] == 8
-    assert payload["pass_count"] == 8
+    assert payload["fixture_count"] == 9
+    assert payload["pass_count"] == 9
     assert payload["fail_count"] == 0
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert "fixture-agent-harness-adapter" not in serialized
@@ -1427,6 +1427,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     truncated = results["proposal-interpretation-rejects-truncated-refs"]
     boundary = results["proposal-interpretation-policy-boundary"]
     max_proposals = results["proposal-interpretation-rejects-too-many-proposals"]
+    current_wake = results["proposal-interpretation-visa-current-wake-agent-harness-eval"]
 
     assert agent_codex["passed"] is True
     assert agent_harness["passed"] is True
@@ -1436,6 +1437,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert truncated["passed"] is True
     assert boundary["passed"] is True
     assert max_proposals["passed"] is True
+    assert current_wake["passed"] is True
     assert all(assertion["passed"] for assertion in agent_codex["assertions"])
     assert all(assertion["passed"] for assertion in agent_harness["assertions"])
     assert all(assertion["passed"] for assertion in accepted["assertions"])
@@ -1444,6 +1446,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert all(assertion["passed"] for assertion in truncated["assertions"])
     assert all(assertion["passed"] for assertion in boundary["assertions"])
     assert all(assertion["passed"] for assertion in max_proposals["assertions"])
+    assert all(assertion["passed"] for assertion in current_wake["assertions"])
 
 
 def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_ids():
