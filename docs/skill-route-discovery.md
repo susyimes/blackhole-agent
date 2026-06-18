@@ -7,8 +7,9 @@ locally: documentation, config, test, or code patch.
 
 This note is grounded in source digest `github-growth-20260618T062043.878926Z`,
 refined by `github-growth-20260618T171207.138935Z`, clarified by
-`github-growth-20260618T193207.157147Z`, and reaffirmed by
-`github-growth-20260618T215207.204133Z`. The bounded evidence reviewed for
+`github-growth-20260618T193207.157147Z`, reaffirmed by
+`github-growth-20260618T215207.204133Z`, and extended by
+`github-growth-20260618T233207.218276Z`. The bounded evidence reviewed for
 these runs:
 
 - `https://github.com/baskduf/FableCodex`
@@ -33,6 +34,23 @@ activate any upstream skill package.
 | `baskduf/FableCodex` | Codex workflow package with evidence gates, inspection, ledgers, and verification habits. | documentation, test, code patch | Treat workflow skills as process-contract evidence that can become local docs, regression checks, or bounded verification behavior. | Keep disabled until a local test or controller path proves the specific gate. |
 | `dongshuyan/compass-skills` | Multi-skill system for clarification, repo-local task memory, and collaboration profile state. | documentation, config, test, code patch | Treat skill ecosystems as routing topology evidence: entry points, durable state, and ambiguity gates can inform local route metadata. | Do not create local memory/profile behavior from repository presence alone. |
 | `majidmanzarpour/threejs-game-skills` | Domain director routes specialist game, asset, debug, QA, and release skills with bundled helper materials. | documentation, config, test, code patch | Treat domain directors as evidence for explicit route orchestration and validation ledgers. | Do not run bundled scaffolds, installers, browser checks, or asset generators without a separate local capability path. |
+
+## Route Discovery Catalog
+
+The reusable lesson is a category map, not a source import. A future digest may
+observe more skill repositories than the three above, but each observation must
+be translated through one of these local routes before proposal synthesis uses
+it:
+
+| Category | Recognition hints | Allowed local outputs | Required validation | Rejected shortcut |
+| --- | --- | --- | --- | --- |
+| Workflow-gate package | Evidence gates, review ledgers, inspection habits, verification routines, Codex or agent workflow language. | documentation, test, code_patch | Show the local gate in docs or a focused regression before changing runtime behavior. | Installing the upstream workflow or treating its README as proof the local controller already behaves that way. |
+| State and alignment skill system | Task memory, collaboration profile, clarification gate, repo-local task graph, route metadata, skill ecosystem map. | documentation, config, test, code_patch | Keep state body-free unless a later local design explicitly models storage, retention, correction, and privacy boundaries. | Creating profile or memory behavior from repository presence alone. |
+| Domain director or specialist bundle | Director skill, specialist skills, scaffold, packaged helpers, QA scripts, asset or browser validation workflow. | documentation, config, test, code_patch | Validate only the local orchestration or boundary being changed; treat bundled scaffolds and helpers as evidence to inspect. | Running installer, scaffold, browser checker, asset generator, credential probe, or helper script during discovery. |
+
+Catalog entries are additive only when they preserve the same bounded outputs:
+documentation, config, test, or code_patch. Any proposed lane outside that set
+is recorded as rejected or downgraded evidence, never as an activation request.
 
 ## Classification Rules
 

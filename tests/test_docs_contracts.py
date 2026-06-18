@@ -100,6 +100,7 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
     required_phrases = [
         "source digest `github-growth-20260618T062043.878926Z`",
         "`github-growth-20260618T215207.204133Z`",
+        "`github-growth-20260618T233207.218276Z`",
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
@@ -147,6 +148,33 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "proposal uncertainty must mention that missing detail\nrisk",
         "\"evidence_refs\": [\"fablecodex-codex-skill-workflow\"]",
         "\"evidence_refs\": [\"https://github.com/baskduf/FableCodex\"]",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
+def test_skill_route_discovery_doc_records_route_discovery_catalog():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "## Route Discovery Catalog",
+        "The reusable lesson is a category map, not a source import",
+        "Workflow-gate package",
+        "Evidence gates, review ledgers, inspection habits, verification routines",
+        "Show the local gate in docs or a focused regression before changing runtime behavior",
+        "Installing the upstream workflow or treating its README as proof",
+        "State and alignment skill system",
+        "Task memory, collaboration profile, clarification gate, repo-local task graph",
+        "storage, retention, correction, and privacy boundaries",
+        "Creating profile or memory behavior from repository presence alone",
+        "Domain director or specialist bundle",
+        "Director skill, specialist skills, scaffold, packaged helpers",
+        "bundled scaffolds and helpers as evidence to inspect",
+        "Running installer, scaffold, browser checker, asset generator, credential probe",
+        "documentation, config, test, or code_patch",
+        "recorded as rejected or downgraded evidence, never as an activation request",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]
