@@ -203,6 +203,7 @@ def test_external_skill_route_discovery_fixture_stays_classification_only():
 
     assert registry["registry_status"] == "classification_only"
     assert registry["allowed_candidate_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert registry["allowed_source_hosts"] == ["github.com", "www.github.com"]
     assert registry["candidate_count"] == 3
     assert registry["enabled_candidate_count"] == 0
     assert registry["executable_skill_count"] == 0
@@ -238,6 +239,46 @@ def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates(
     assert registry["candidates"][0]["validation_errors"] == [
         "external_skill_route_candidates_must_start_disabled",
         "unsupported_candidate_lanes:runtime_execution",
+    ]
+
+
+def test_external_skill_route_discovery_rejects_non_public_or_decorated_source_urls():
+    registry = build_skill_route_discovery_registry(
+        [
+            {
+                "name": "local-skill",
+                "source_url": "file:///tmp/local-skill",
+            },
+            {
+                "name": "private-host-skill",
+                "source_url": "https://git.internal.example/team/private-skill",
+            },
+            {
+                "name": "github-owner-only",
+                "source_url": "https://github.com/example",
+            },
+            {
+                "name": "github-url-with-tokenish-query",
+                "source_url": "https://github.com/example/public-skill?token=secret",
+            },
+        ]
+    )
+
+    assert registry["registry_status"] == "invalid_candidates_present"
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 4
+    assert [candidate["name"] for candidate in registry["candidates"]] == [
+        "github-owner-only",
+        "github-url-with-tokenish-query",
+        "local-skill",
+        "private-host-skill",
+    ]
+    assert [candidate["validation_errors"] for candidate in registry["candidates"]] == [
+        ["source_url_must_include_repository_owner_and_name"],
+        ["source_url_must_be_plain_repository_url"],
+        ["source_url_must_use_https"],
+        ["source_url_must_be_public_github_repository"],
     ]
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from urllib.parse import urlparse
 from typing import Any, Mapping, Sequence
 
 
@@ -13,6 +14,7 @@ NO_SKILL_MATCH = "no_match"
 AMBIGUOUS_SKILL_MATCH = "ambiguous_match"
 SKILL_ROUTE_DISCOVERY_HINT = "skill_route_discovery"
 SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
+SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS = ("github.com", "www.github.com")
 SKILL_ROUTE_DISCOVERY_ALLOWED_EVENTS = (
     "repository_created",
     "repository_updated",
@@ -113,6 +115,9 @@ class ExternalSkillRouteCandidate:
 
     def validation_errors(self) -> tuple[str, ...]:
         errors: list[str] = []
+        source_error = _validate_public_github_source_url(self.source_url)
+        if source_error:
+            errors.append(source_error)
         if self.enabled:
             errors.append("external_skill_route_candidates_must_start_disabled")
         if SKILL_ROUTE_DISCOVERY_HINT not in self.route_hints:
@@ -290,6 +295,7 @@ def build_skill_route_discovery_registry(
     return {
         "schema_version": 1,
         "allowed_candidate_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "allowed_source_hosts": list(SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS),
         "blocked_discovery_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS),
         "candidate_count": len(entries),
         "enabled_candidate_count": sum(1 for entry in entries if entry["enabled"]),
@@ -390,6 +396,21 @@ def _normalize_discovery_event(value: Any) -> str:
     if event_kind in {"update", "updated", "repository_update", "repositoryupdated"}:
         return "repository_updated"
     return event_kind or "unknown"
+
+
+def _validate_public_github_source_url(source_url: str) -> str | None:
+    parsed = urlparse(source_url)
+    host = (parsed.hostname or "").casefold()
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if parsed.scheme != "https":
+        return "source_url_must_use_https"
+    if host not in SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS:
+        return "source_url_must_be_public_github_repository"
+    if len(path_parts) < 2:
+        return "source_url_must_include_repository_owner_and_name"
+    if parsed.username or parsed.password or parsed.params or parsed.query or parsed.fragment:
+        return "source_url_must_be_plain_repository_url"
+    return None
 
 
 def _discovery_event_effect(event_kind: str) -> str:

@@ -30,6 +30,12 @@ or skill installation. The first local artifact should be body-free metadata:
 name, source URL, short evidence summary, route hint, candidate lanes, validation
 status, and disabled state.
 
+Source URLs must be plain public GitHub repository URLs. The classifier rejects
+local paths, non-HTTPS schemes, private hostnames, owner-only GitHub URLs, and
+URLs carrying query strings, fragments, embedded credentials, or other
+decorations. Discovery metadata is intended to be replayable public evidence,
+not an intake path for private locations, tokens, or installable package bodies.
+
 Allowed candidate lanes are exactly:
 
 - documentation

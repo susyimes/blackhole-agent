@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260618T072043.982900Z
+
+Original branch:
+codex/blackhole-evolve/20260618T072151.853738-add-or-refine-local-provider-config-preflight-ch
+
+Original HEAD:
+9e2c1a8d5cacac7d68d5bb8adda9dd0a654c58b9
+
+Local rollback ref:
+refs/blackhole-rollback/20260618T072043Z-skill-route-public-source-gate
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260618T072151.853738-add-or-refine-local-provider-config-preflight-ch
+git reset --hard refs/blackhole-rollback/20260618T072043Z-skill-route-public-source-gate
+
+Notes:
+Rollback execution is explicit and destructive. Do not run the recovery commands
+unless a human operator or external supervisor policy chooses rollback.
