@@ -68,3 +68,16 @@ the bounded lanes: documentation, config, test, and code_patch. Suggested lanes
 such as install, execute, run, or runtime execution are ignored rather than
 promoted into candidate lanes or requested actions. Non-skill repositories are
 ignored, and URL validation still happens at registry build time.
+
+## Issue Evidence Lane
+
+Repository issues can refine the same disabled discovery candidate when they
+carry an explicit `skill_route_discovery` hint and body-free title or summary
+evidence about a skill or workflow route. Issue URLs are canonicalized back to
+their repository for candidate grouping, while the original issue URL is kept as
+deduplicated evidence.
+
+Repeated issue evidence increments duplicate counts instead of creating another
+candidate, requested action, or executable route. Issue-derived lanes remain
+bounded to documentation, config, test, and code_patch; install, execute, run,
+and other runtime lanes are ignored during classification.

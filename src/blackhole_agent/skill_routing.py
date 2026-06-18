@@ -133,6 +133,7 @@ class ExternalSkillRouteCandidate:
     discovery_event_kind: str = "unknown"
     route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
     candidate_lanes: tuple[str, ...] = SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    evidence_urls: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
@@ -152,6 +153,7 @@ class ExternalSkillRouteCandidate:
             discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
             route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
             candidate_lanes=_string_tuple(value.get("candidate_lanes")) or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+            evidence_urls=_string_tuple(value.get("evidence_urls")),
             requested_actions=_string_tuple(value.get("requested_actions")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
@@ -184,6 +186,7 @@ class ExternalSkillRouteCandidate:
             "discovery_event_kind": self.discovery_event_kind,
             "discovery_event_effect": _discovery_event_effect(self.discovery_event_kind),
             "enabled": self.enabled,
+            "evidence_urls": list(dict.fromkeys(self.evidence_urls or (self.source_url,))),
             "evidence_summary": self.evidence_summary,
             "name": self.name,
             "requested_actions": list(self.requested_actions),
@@ -237,6 +240,64 @@ class ExternalSkillRepositorySummary:
             candidate_lanes=_bounded_skill_discovery_lanes(self),
             validation_status="unvalidated",
             enabled=False,
+        )
+
+
+@dataclass(frozen=True)
+class ExternalSkillEvidenceItem:
+    """Body-free repository or issue signal used for skill-route discovery.
+
+    Issue signals are folded into their repository candidate because one issue
+    should refine the local lane choice, not create an executable skill route.
+    """
+
+    source_url: str
+    title: str = ""
+    summary: str = ""
+    item_kind: str = "repository"
+    name: str = ""
+    discovery_event_kind: str = "unknown"
+    route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
+    topics: tuple[str, ...] = ()
+    suggested_lanes: tuple[str, ...] = ()
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillEvidenceItem":
+        source_url = str(value.get("source_url") or value.get("url") or "").strip()
+        if not source_url:
+            raise ValueError("external skill evidence item requires a non-empty source_url")
+        return cls(
+            source_url=source_url,
+            title=str(value.get("title") or "").strip(),
+            summary=str(value.get("summary") or value.get("evidence_summary") or "").strip(),
+            item_kind=_normalize_evidence_item_kind(value.get("item_kind") or value.get("kind")),
+            name=str(value.get("name") or "").strip(),
+            discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
+            route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
+            topics=_string_tuple(value.get("topics")),
+            suggested_lanes=_string_tuple(value.get("suggested_lanes")),
+        )
+
+    def canonical_repository_url(self) -> str:
+        return _canonical_public_github_repository_url(self.source_url)
+
+    def evidence_url(self) -> str:
+        return _canonical_public_github_evidence_url(self.source_url)
+
+    def to_summary(self) -> ExternalSkillRepositorySummary | None:
+        if SKILL_ROUTE_DISCOVERY_HINT not in self.route_hints:
+            return None
+        text = " ".join(part for part in (self.title, self.summary) if part).strip()
+        if not text:
+            raise ValueError("external skill evidence item requires a title or summary")
+        repository_url = self.canonical_repository_url()
+        return ExternalSkillRepositorySummary(
+            name=self.name or _repository_name_from_url(repository_url),
+            source_url=repository_url,
+            summary=text,
+            discovery_event_kind=self.discovery_event_kind,
+            topics=self.topics,
+            suggested_lanes=self.suggested_lanes,
         )
 
 
@@ -418,6 +479,64 @@ def build_skill_route_discovery_registry_from_summaries(
     return registry
 
 
+def build_skill_route_discovery_registry_from_evidence_items(
+    items: Sequence[ExternalSkillEvidenceItem | Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Classify repository or issue evidence into deduplicated disabled candidates."""
+
+    grouped: dict[str, dict[str, Any]] = {}
+    ignored_count = 0
+    duplicate_count = 0
+    seen_evidence_urls: set[str] = set()
+
+    for item in items:
+        evidence_item = _coerce_external_skill_evidence_item(item)
+        summary = evidence_item.to_summary()
+        if summary is None or not _looks_like_skill_repository_summary(summary):
+            ignored_count += 1
+            continue
+
+        evidence_url = evidence_item.evidence_url()
+        if evidence_url in seen_evidence_urls:
+            duplicate_count += 1
+            continue
+        seen_evidence_urls.add(evidence_url)
+
+        repository_url = summary.source_url
+        bucket = grouped.setdefault(
+            repository_url,
+            {
+                "discovery_event_kind": summary.discovery_event_kind,
+                "evidence_urls": [],
+                "lanes": [],
+                "name": summary.name,
+                "summaries": [],
+            },
+        )
+        bucket["evidence_urls"].append(evidence_url)
+        bucket["lanes"].extend(_bounded_skill_discovery_lanes(summary))
+        bucket["summaries"].append(summary.summary)
+
+    candidates = [
+        ExternalSkillRouteCandidate(
+            name=str(bucket["name"]),
+            source_url=repository_url,
+            evidence_summary=" ".join(dict.fromkeys(bucket["summaries"])),
+            discovery_event_kind=str(bucket["discovery_event_kind"]),
+            candidate_lanes=tuple(dict.fromkeys(bucket["lanes"])) or ("documentation",),
+            evidence_urls=tuple(bucket["evidence_urls"]),
+            validation_status="unvalidated",
+            enabled=False,
+        )
+        for repository_url, bucket in grouped.items()
+    ]
+    registry = build_skill_route_discovery_registry(candidates)
+    registry["evidence_item_count"] = len(items)
+    registry["ignored_evidence_item_count"] = ignored_count
+    registry["duplicate_evidence_item_count"] = duplicate_count
+    return registry
+
+
 def _rank_skill_for_task(task: str, descriptor: SkillDescriptor) -> SkillRouteDecision:
     if not descriptor.enabled:
         return SkillRouteDecision(
@@ -490,6 +609,14 @@ def _coerce_external_skill_repository_summary(
     return ExternalSkillRepositorySummary.from_mapping(value)
 
 
+def _coerce_external_skill_evidence_item(
+    value: ExternalSkillEvidenceItem | Mapping[str, Any],
+) -> ExternalSkillEvidenceItem:
+    if isinstance(value, ExternalSkillEvidenceItem):
+        return value
+    return ExternalSkillEvidenceItem.from_mapping(value)
+
+
 def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary) -> bool:
     text = _summary_text(summary)
     return any(
@@ -499,6 +626,7 @@ def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary
             "codex skill",
             "claude skill",
             "director skill",
+            "fablecodex",
             "skill ecosystem",
             "skill.md",
             "skills/",
@@ -550,6 +678,15 @@ def _normalize_discovery_event(value: Any) -> str:
     return event_kind or "unknown"
 
 
+def _normalize_evidence_item_kind(value: Any) -> str:
+    item_kind = str(value or "repository").strip().lower().replace("-", "_")
+    if item_kind in {"repo", "repository"}:
+        return "repository"
+    if item_kind in {"issue", "github_issue"}:
+        return "issue"
+    return item_kind or "repository"
+
+
 def _validate_public_github_source_url(source_url: str) -> str | None:
     parsed = urlparse(source_url)
     host = (parsed.hostname or "").casefold()
@@ -558,11 +695,33 @@ def _validate_public_github_source_url(source_url: str) -> str | None:
         return "source_url_must_use_https"
     if host not in SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS:
         return "source_url_must_be_public_github_repository"
-    if len(path_parts) < 2:
+    if len(path_parts) != 2:
         return "source_url_must_include_repository_owner_and_name"
     if parsed.username or parsed.password or parsed.params or parsed.query or parsed.fragment:
         return "source_url_must_be_plain_repository_url"
     return None
+
+
+def _canonical_public_github_repository_url(source_url: str) -> str:
+    parsed = urlparse(source_url)
+    host = (parsed.hostname or "").casefold()
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if parsed.scheme != "https" or host not in SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS or len(path_parts) < 2:
+        raise ValueError("source_url_must_be_public_github_repository")
+    if parsed.username or parsed.password or parsed.params or parsed.query or parsed.fragment:
+        raise ValueError("source_url_must_be_plain_github_url")
+    return f"https://github.com/{path_parts[0]}/{path_parts[1]}"
+
+
+def _canonical_public_github_evidence_url(source_url: str) -> str:
+    parsed = urlparse(source_url)
+    host = (parsed.hostname or "").casefold()
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if parsed.scheme != "https" or host not in SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS or len(path_parts) < 2:
+        raise ValueError("source_url_must_be_public_github_repository")
+    if parsed.username or parsed.password or parsed.params or parsed.query or parsed.fragment:
+        raise ValueError("source_url_must_be_plain_github_url")
+    return f"https://github.com/{'/'.join(path_parts)}"
 
 
 def _repository_name_from_url(source_url: str) -> str:

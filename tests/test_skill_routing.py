@@ -9,10 +9,12 @@ from blackhole_agent.skill_routing import (
     SKILL_ROUTE_DISCOVERY_INVALID,
     NO_SKILL_MATCH,
     ExternalSkillRouteCandidate,
+    ExternalSkillEvidenceItem,
     ExternalSkillRepositorySummary,
     TOPICAL_MATCH,
     SkillDescriptor,
     build_skill_route_discovery_registry,
+    build_skill_route_discovery_registry_from_evidence_items,
     build_skill_route_discovery_registry_from_summaries,
     build_skill_routing_index,
     rank_skills_for_task,
@@ -372,3 +374,57 @@ def test_skill_route_discovery_summary_classifier_defaults_to_documentation_only
     assert registry["candidate_count"] == 1
     assert registry["candidates"][0]["candidate_lanes"] == ["documentation"]
     assert registry["candidates"][0]["requested_actions"] == []
+
+
+def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candidates():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "fablecodex_issue_evidence_items.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 5
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["duplicate_evidence_item_count"] == 1
+    assert registry["candidate_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    candidate = registry["candidates"][0]
+    assert candidate["name"] == "codex-fable5"
+    assert candidate["source_url"] == "https://github.com/baskduf/FableCodex"
+    assert candidate["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert candidate["evidence_urls"] == [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/baskduf/FableCodex/issues/15",
+        "https://github.com/baskduf/FableCodex/issues/18",
+    ]
+    assert candidate["candidate_lanes"] == ["documentation", "test", "config", "code_patch"]
+    assert set(candidate["candidate_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert candidate["requested_actions"] == []
+    assert candidate["validation_errors"] == []
+    assert candidate["enabled"] is False
+
+
+def test_skill_route_discovery_issue_evidence_requires_explicit_hint():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            ExternalSkillEvidenceItem(
+                item_kind="issue",
+                source_url="https://github.com/baskduf/FableCodex/issues/18",
+                title="Add user-facing FableCodex workflow examples",
+                summary="Codex skill workflow examples with docs and tests.",
+                route_hints=("general_trend",),
+                suggested_lanes=("documentation", "test"),
+            )
+        ]
+    )
+
+    assert registry["candidate_count"] == 0
+    assert registry["ignored_evidence_item_count"] == 1

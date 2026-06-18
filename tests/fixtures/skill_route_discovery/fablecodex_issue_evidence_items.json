@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "item_kind": "repository",
+      "name": "codex-fable5",
+      "source_url": "https://github.com/baskduf/FableCodex",
+      "title": "FableCodex",
+      "summary": "Codex skill and workflow package with evidence gates, review ledgers, verification habits, localized documentation, and plugin routing docs.",
+      "topics": ["codex", "agent-skills", "workflow", "verification"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "test", "runtime_execution"]
+    },
+    {
+      "item_kind": "issue",
+      "source_url": "https://github.com/baskduf/FableCodex/issues/15",
+      "title": "Strengthen localized README drift checks",
+      "summary": "Issue requests localized README drift checks for release tags, limitation warnings, command parity, and exact failing documentation evidence.",
+      "topics": ["documentation", "test", "workflow"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "test", "execute"]
+    },
+    {
+      "item_kind": "issue",
+      "source_url": "https://github.com/baskduf/FableCodex/issues/15",
+      "title": "Strengthen localized README drift checks",
+      "summary": "Repeated digest evidence for the same FableCodex issue should not create another candidate or evidence URL.",
+      "topics": ["documentation", "test"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "test"]
+    },
+    {
+      "item_kind": "issue",
+      "source_url": "https://github.com/baskduf/FableCodex/issues/18",
+      "title": "Add user-facing FableCodex workflow examples",
+      "summary": "Issue requests workflow examples with prompt text, expected workflow, command evidence snippets, README links, and honest limitation notes.",
+      "topics": ["documentation", "workflow", "examples"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "code_patch", "install"]
+    },
+    {
+      "item_kind": "repository",
+      "name": "ordinary-library",
+      "source_url": "https://github.com/example/ordinary-library",
+      "title": "ordinary-library",
+      "summary": "Small timestamp parsing package for application utilities.",
+      "topics": ["library"],
+      "route_hints": ["skill_route_discovery"]
+    }
+  ]
+}

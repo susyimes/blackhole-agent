@@ -1,0 +1,7 @@
+rollback point for github-growth-20260618T080044.097882Z
+original_branch=codex/blackhole-evolve/20260618T080138.631755-add-or-refine-a-local-skill-route-discovery-path
+original_head=b93e4b755f50f561ca180465491aa46608885c20
+rollback_ref=refs/rollback/20260618T080043Z-skill-route-discovery-lane
+recovery_commands:
+  git reset --hard b93e4b755f50f561ca180465491aa46608885c20
+  git clean -fd
