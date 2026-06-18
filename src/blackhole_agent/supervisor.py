@@ -10,6 +10,7 @@ loop inside the controller.
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -39,6 +40,7 @@ DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/supervisor")
 DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = ("uv run pytest", "uv run ruff check .")
 DEFAULT_RESTART_EXIT_CODE = 75
 LATEST_ACTIVATION_FILENAME = "latest-activation.json"
+VERSION_PREVIEW_MARKERS = ("dev", "alpha", "a", "beta", "b", "rc", "pre", "preview", "nightly", "snapshot")
 DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION = (
     "Native supervisor note: this wake is one pass in an autonomous scheduled loop. "
     "Prefer coherent local improvements and size them by evidence, benefit, rollback coverage, and validation coverage rather than by smallness. "
@@ -1223,6 +1225,114 @@ def build_runtime_startup_preflight(
         "tool_routing": tool_preflight,
         "token_value_recorded": False,
     }
+
+
+def build_upgrade_version_preflight(
+    *,
+    current_version: str,
+    latest_version: str,
+    allow_dev_versions: bool = False,
+) -> dict[str, Any]:
+    """Return the local decision a runner should make before invoking an upgrade action."""
+
+    current = normalize_version_for_preflight(current_version)
+    latest = normalize_version_for_preflight(latest_version)
+    diagnostics: list[str] = []
+    if current is None:
+        diagnostics.append("current_version is missing or invalid")
+    if latest is None:
+        diagnostics.append("latest_version is missing or invalid")
+
+    current_is_dev = current is not None and version_has_preview_marker(current_version)
+    latest_is_dev = latest is not None and version_has_preview_marker(latest_version)
+    if (current_is_dev or latest_is_dev) and not allow_dev_versions:
+        diagnostics.append("development or preview versions require explicit opt-in before upgrade")
+        return {
+            "schema_version": 1,
+            "ok": False,
+            "should_upgrade": False,
+            "outcome": "dev_version_blocked",
+            "diagnostics": diagnostics,
+            "current_version": current_version,
+            "latest_version": latest_version,
+            "current_version_is_dev": current_is_dev,
+            "latest_version_is_dev": latest_is_dev,
+            "upgrade_action_permitted": False,
+        }
+
+    if current is None or latest is None:
+        return {
+            "schema_version": 1,
+            "ok": False,
+            "should_upgrade": False,
+            "outcome": "invalid_version",
+            "diagnostics": diagnostics,
+            "current_version": current_version,
+            "latest_version": latest_version,
+            "current_version_is_dev": current_is_dev,
+            "latest_version_is_dev": latest_is_dev,
+            "upgrade_action_permitted": False,
+        }
+
+    comparison = compare_normalized_versions(current, latest)
+    if comparison < 0:
+        outcome = "upgrade_needed"
+        should_upgrade = True
+        ok = True
+    elif comparison == 0:
+        outcome = "already_current"
+        should_upgrade = False
+        ok = True
+        diagnostics.append("current_version already matches latest_version")
+    else:
+        outcome = "downgrade_blocked"
+        should_upgrade = False
+        ok = False
+        diagnostics.append("latest_version is older than current_version")
+
+    return {
+        "schema_version": 1,
+        "ok": ok,
+        "should_upgrade": should_upgrade,
+        "outcome": outcome,
+        "diagnostics": diagnostics,
+        "current_version": current_version,
+        "latest_version": latest_version,
+        "current_version_is_dev": current_is_dev,
+        "latest_version_is_dev": latest_is_dev,
+        "upgrade_action_permitted": should_upgrade,
+    }
+
+
+def normalize_version_for_preflight(value: str) -> tuple[int, ...] | None:
+    cleaned = str(value or "").strip().lower()
+    if not cleaned:
+        return None
+    cleaned = cleaned.removeprefix("v")
+    match = re.match(r"^(\d+(?:[._-]\d+)*)", cleaned)
+    if match is None:
+        return None
+    return tuple(int(part) for part in re.split(r"[._-]", match.group(1)) if part != "")
+
+
+def version_has_preview_marker(value: str) -> bool:
+    cleaned = str(value or "").strip().lower()
+    if not cleaned:
+        return False
+    marker_text = re.sub(r"^\d+(?:[._-]\d+)*", "", cleaned.removeprefix("v"))
+    marker_pattern = r"(?:^|[.+_-])(" + "|".join(re.escape(marker) for marker in VERSION_PREVIEW_MARKERS) + r")(?:\d|[.+_-]|$)"
+    return re.search(marker_pattern, marker_text) is not None
+
+
+def compare_normalized_versions(current: tuple[int, ...], latest: tuple[int, ...]) -> int:
+    width = max(len(current), len(latest))
+    padded_current = current + (0,) * (width - len(current))
+    padded_latest = latest + (0,) * (width - len(latest))
+    if padded_current < padded_latest:
+        return -1
+    if padded_current > padded_latest:
+        return 1
+    return 0
 
 
 def is_valid_env_var_name(name: str) -> bool:

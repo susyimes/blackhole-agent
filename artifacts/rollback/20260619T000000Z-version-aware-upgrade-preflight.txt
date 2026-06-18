@@ -1,0 +1,12 @@
+Rollback point: 20260619T000000Z-version-aware-upgrade-preflight
+Original branch: codex/blackhole-evolve/20260618T231317.081569-add-a-local-validation-lane-for-version-aware-up
+Original HEAD: 358e92a62a10a9395a53b3791c05a347f1da8a8c
+Rollback ref: refs/rollback/20260619T000000Z-version-aware-upgrade-preflight
+
+Recovery commands (destructive; operator-approved only):
+  git switch codex/blackhole-evolve/20260618T231317.081569-add-a-local-validation-lane-for-version-aware-up
+  git reset --hard 358e92a62a10a9395a53b3791c05a347f1da8a8c
+  git clean -fd
+
+Source digest: github-growth-20260618T231207.828873Z
+Proposal: p1-version-aware-upgrade-preflight

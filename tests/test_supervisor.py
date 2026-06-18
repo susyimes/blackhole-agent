@@ -10,6 +10,7 @@ from blackhole_agent.supervisor import (
     SupervisorConfig,
     build_provider_config_preflight,
     build_runtime_startup_preflight,
+    build_upgrade_version_preflight,
     build_wake_command,
     create_candidate_worktree,
     run_health_checks,
@@ -688,6 +689,60 @@ def test_runtime_startup_preflight_combines_provider_and_tool_gaps_without_token
     ]
     assert preflight["token_value_recorded"] is False
     assert "secret-token-value" not in rendered
+
+
+def test_upgrade_version_preflight_allows_newer_stable_upgrade():
+    preflight = build_upgrade_version_preflight(
+        current_version="1.4.2",
+        latest_version="1.5.0",
+    )
+
+    assert preflight["ok"] is True
+    assert preflight["outcome"] == "upgrade_needed"
+    assert preflight["should_upgrade"] is True
+    assert preflight["upgrade_action_permitted"] is True
+    assert preflight["diagnostics"] == []
+
+
+def test_upgrade_version_preflight_reports_already_current_without_action():
+    preflight = build_upgrade_version_preflight(
+        current_version="v1.5",
+        latest_version="1.5.0",
+    )
+
+    assert preflight["ok"] is True
+    assert preflight["outcome"] == "already_current"
+    assert preflight["should_upgrade"] is False
+    assert preflight["upgrade_action_permitted"] is False
+    assert preflight["diagnostics"] == ["current_version already matches latest_version"]
+
+
+def test_upgrade_version_preflight_blocks_downgrade():
+    preflight = build_upgrade_version_preflight(
+        current_version="2.0.0",
+        latest_version="1.9.9",
+    )
+
+    assert preflight["ok"] is False
+    assert preflight["outcome"] == "downgrade_blocked"
+    assert preflight["should_upgrade"] is False
+    assert preflight["upgrade_action_permitted"] is False
+    assert preflight["diagnostics"] == ["latest_version is older than current_version"]
+
+
+def test_upgrade_version_preflight_blocks_dev_versions_by_default():
+    preflight = build_upgrade_version_preflight(
+        current_version="1.5.0",
+        latest_version="1.6.0-dev.1",
+    )
+
+    assert preflight["ok"] is False
+    assert preflight["outcome"] == "dev_version_blocked"
+    assert preflight["should_upgrade"] is False
+    assert preflight["upgrade_action_permitted"] is False
+    assert preflight["current_version_is_dev"] is False
+    assert preflight["latest_version_is_dev"] is True
+    assert preflight["diagnostics"] == ["development or preview versions require explicit opt-in before upgrade"]
 
 
 def test_startup_health_success_records_manual_activation_baseline(tmp_path):
