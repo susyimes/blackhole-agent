@@ -1,0 +1,17 @@
+Rollback point for source digest github-growth-20260618T082044.021293Z.
+
+Original branch:
+codex/blackhole-evolve/20260618T082218.949502-add-or-extend-local-provider-preflight-tests-for
+
+Original HEAD:
+84eaa92f3b257fd608b8246ffadbb7304ba4a13c
+
+Local rollback ref:
+refs/rollback/20260618T082043Z-openai-base-url-key-preflight
+
+Recovery commands, if an operator chooses destructive rollback:
+git reset --hard refs/rollback/20260618T082043Z-openai-base-url-key-preflight
+git clean -fd
+
+Scope planned:
+Add metadata-only local preflight coverage for ambient OPENAI_API_KEY and OPENAI_BASE_URL handling in the Codex CLI route.

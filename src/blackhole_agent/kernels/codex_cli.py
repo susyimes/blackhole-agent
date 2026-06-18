@@ -8,12 +8,13 @@ selection outside the model process.
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
 LOGGER = logging.getLogger(__name__)
@@ -198,7 +199,11 @@ def build_codex_exec_command(
     return command
 
 
-def build_codex_provider_preflight(config: CodexCliConfig) -> dict[str, Any]:
+def build_codex_provider_preflight(
+    config: CodexCliConfig,
+    *,
+    env: Mapping[str, str | None] | None = None,
+) -> dict[str, Any]:
     """Return metadata-only diagnostics for the selected Codex execution route."""
 
     model = str(config.model or "").strip()
@@ -230,6 +235,48 @@ def build_codex_provider_preflight(config: CodexCliConfig) -> dict[str, Any]:
         "requires_explicit_route": config.require_explicit_route,
         "implicit_default_route_allowed": not config.require_explicit_route,
         "token_value_recorded": False,
+        "ambient_openai": build_ambient_openai_preflight(os.environ if env is None else env),
+    }
+
+
+def build_ambient_openai_preflight(env: Mapping[str, str | None]) -> dict[str, Any]:
+    """Summarize ambient OpenAI env routing without recording credential or URL values."""
+
+    api_key_present = bool(str(env.get("OPENAI_API_KEY") or "").strip())
+    base_url_present = bool(str(env.get("OPENAI_BASE_URL") or "").strip())
+    if api_key_present and base_url_present:
+        route_hint = "openai_compatible_gateway"
+        endpoint_source = "OPENAI_BASE_URL"
+        provider_family = "openai"
+    elif api_key_present:
+        route_hint = "openai_default_endpoint"
+        endpoint_source = "default_openai"
+        provider_family = "openai"
+    elif base_url_present:
+        route_hint = "base_url_without_api_key"
+        endpoint_source = "OPENAI_BASE_URL"
+        provider_family = None
+    else:
+        route_hint = "not_configured"
+        endpoint_source = None
+        provider_family = None
+
+    diagnostics: list[str] = []
+    if base_url_present and not api_key_present:
+        diagnostics.append("OPENAI_BASE_URL is present without OPENAI_API_KEY; ambient OpenAI credentials are incomplete")
+
+    return {
+        "schema_version": 1,
+        "provider_family": provider_family,
+        "route_hint": route_hint,
+        "endpoint_source": endpoint_source,
+        "api_key_env": "OPENAI_API_KEY",
+        "api_key_present": api_key_present,
+        "api_key_value_recorded": False,
+        "base_url_env": "OPENAI_BASE_URL",
+        "base_url_present": base_url_present,
+        "base_url_value_recorded": False,
+        "diagnostics": diagnostics,
     }
 
 

@@ -10,6 +10,7 @@ import blackhole_agent.kernels.codex_cli as codex_cli
 from blackhole_agent.kernels.codex_cli import (
     CodexCliConfig,
     CodexCliKernel,
+    build_ambient_openai_preflight,
     build_codex_exec_command,
     build_codex_provider_preflight,
     shutdown_subprocess_cli_transport_stderr,
@@ -82,6 +83,89 @@ def test_codex_provider_preflight_accepts_explicit_model_or_profile():
     assert profile_preflight["route_selector"] == "profile"
     assert profile_preflight["profile_present"] is True
     assert profile_preflight["profile_value_recorded"] is False
+
+
+def test_codex_provider_preflight_records_ambient_openai_matrix_without_values():
+    secret_key = "sk-PRIVATE-OPENAI-TOKEN-DO-NOT-EXPORT"
+    private_base_url = "https://gateway.example.invalid/private-openai-route"
+    cases = [
+        (
+            {},
+            {
+                "provider_family": None,
+                "route_hint": "not_configured",
+                "endpoint_source": None,
+                "api_key_present": False,
+                "base_url_present": False,
+                "diagnostics": [],
+            },
+        ),
+        (
+            {"OPENAI_API_KEY": secret_key},
+            {
+                "provider_family": "openai",
+                "route_hint": "openai_default_endpoint",
+                "endpoint_source": "default_openai",
+                "api_key_present": True,
+                "base_url_present": False,
+                "diagnostics": [],
+            },
+        ),
+        (
+            {"OPENAI_BASE_URL": private_base_url},
+            {
+                "provider_family": None,
+                "route_hint": "base_url_without_api_key",
+                "endpoint_source": "OPENAI_BASE_URL",
+                "api_key_present": False,
+                "base_url_present": True,
+                "diagnostics": [
+                    "OPENAI_BASE_URL is present without OPENAI_API_KEY; ambient OpenAI credentials are incomplete"
+                ],
+            },
+        ),
+        (
+            {"OPENAI_API_KEY": secret_key, "OPENAI_BASE_URL": private_base_url},
+            {
+                "provider_family": "openai",
+                "route_hint": "openai_compatible_gateway",
+                "endpoint_source": "OPENAI_BASE_URL",
+                "api_key_present": True,
+                "base_url_present": True,
+                "diagnostics": [],
+            },
+        ),
+    ]
+
+    for env, expected in cases:
+        preflight = build_codex_provider_preflight(CodexCliConfig(), env=env)
+        ambient_openai = preflight["ambient_openai"]
+        serialized = json.dumps(preflight, sort_keys=True)
+
+        assert ambient_openai["schema_version"] == 1
+        assert ambient_openai["api_key_env"] == "OPENAI_API_KEY"
+        assert ambient_openai["base_url_env"] == "OPENAI_BASE_URL"
+        assert ambient_openai["api_key_value_recorded"] is False
+        assert ambient_openai["base_url_value_recorded"] is False
+        for key, value in expected.items():
+            assert ambient_openai[key] == value
+        assert secret_key not in serialized
+        assert private_base_url not in serialized
+
+
+def test_ambient_openai_preflight_treats_blank_env_values_as_absent():
+    ambient_openai = build_ambient_openai_preflight(
+        {
+            "OPENAI_API_KEY": "   ",
+            "OPENAI_BASE_URL": "\t",
+        }
+    )
+
+    assert ambient_openai["route_hint"] == "not_configured"
+    assert ambient_openai["api_key_present"] is False
+    assert ambient_openai["base_url_present"] is False
+    assert ambient_openai["api_key_value_recorded"] is False
+    assert ambient_openai["base_url_value_recorded"] is False
 
 
 def test_codex_kernel_fails_before_exec_when_route_is_implicit(tmp_path):

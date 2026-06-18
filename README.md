@@ -201,7 +201,7 @@ uv run blackhole-supervisor \
 The preflight records valid env var names and boolean presence; token values are not written to diagnostics or artifacts.
 Malformed `--token-env` input is rejected without echoing the raw input into startup diagnostics.
 
-Codex mutation routes are also checked before execution. By default, `codex` mode requires either `--model` or `--profile` so a wake cannot silently use an unintended CLI default provider. Operators who intentionally want the Codex CLI default route can pass `--allow-default-codex-route`; the preflight artifact still records that the route was implicit without recording secrets or profile values.
+Codex mutation routes are also checked before execution. By default, `codex` mode requires either `--model` or `--profile` so a wake cannot silently use an unintended CLI default provider. Operators who intentionally want the Codex CLI default route can pass `--allow-default-codex-route`; the preflight artifact still records that the route was implicit without recording secrets or profile values. Ambient OpenAI env discovery is summarized as presence booleans and an endpoint-source hint, so `OPENAI_API_KEY` plus `OPENAI_BASE_URL` can be distinguished from the default OpenAI endpoint without writing either value.
 
 For a half-hour local experiment:
 
