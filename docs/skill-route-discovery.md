@@ -57,6 +57,27 @@ route-discovery matrix and local fixture, but not enough to promote a candidate
 to executable skill routing. A future code patch should cite a narrower local
 failure, test gap, or inspected upstream detail before changing runtime behavior.
 
+## Acceptance Criteria
+
+`skill_route_discovery` is accepted only when it stays inside the discovery
+lane. A valid local change must satisfy all of these criteria before it can be
+treated as more than evidence:
+
+- Provenance: cite only frozen digest evidence or derived item evidence already
+  present in the run package; do not trust README claims as implementation
+  parity.
+- Scope: map the discovery route only to documentation, config, test, or
+  code_patch work.
+- Local tests: add or run validation sized to the local artifact being changed;
+  repository popularity or external examples do not replace local tests.
+- Rollback: record a rollback ref or artifact before self-modification and keep
+  recovery explicit.
+- Trust boundary: do not automatically import, install, enable, execute, clone,
+  scaffold, or otherwise trust external skill code from discovery evidence.
+- Privacy boundary: do not expose, print, upload, publish, or share tokens,
+  credentials, secrets, private keys, private chats, PII, or personal data while
+  evaluating skill repositories.
+
 ## Summary Fixture Lane
 
 Synthetic repository summaries can now be classified into the same disabled

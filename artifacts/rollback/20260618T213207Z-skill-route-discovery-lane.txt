@@ -1,0 +1,17 @@
+# Rollback Point
+
+Source digest: github-growth-20260618T213207.167898Z
+Created at: 2026-06-18T21:32:07Z
+Original branch: codex/blackhole-evolve/20260618T213308.114284-add-local-validation-coverage-for-provider-tools
+Original HEAD: 62e492bcc5dd8f0b5ec0ab76067ed12fed5c0fe4
+Local rollback ref: refs/rollback/20260618T213207Z-skill-route-discovery-lane
+
+Recovery commands:
+
+```powershell
+git reset --hard 62e492bcc5dd8f0b5ec0ab76067ed12fed5c0fe4
+git clean -fd
+# or inspect: git show refs/rollback/20260618T213207Z-skill-route-discovery-lane
+```
+
+Rollback execution is destructive and requires explicit operator choice.
