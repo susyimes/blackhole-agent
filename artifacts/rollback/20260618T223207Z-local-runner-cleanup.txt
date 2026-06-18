@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260618T223207.205993Z
+
+Original branch:
+codex/blackhole-evolve/20260618T223305.436490-add-or-improve-a-local-defensive-agent-harness-e
+
+Original HEAD:
+4aad9709e7282dd92b3d0a7f8aaf880a9650f28f
+
+Local rollback ref:
+refs/blackhole-rollback/20260618T223207Z-local-runner-cleanup
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260618T223305.436490-add-or-improve-a-local-defensive-agent-harness-e
+git reset --hard refs/blackhole-rollback/20260618T223207Z-local-runner-cleanup
+
+Notes:
+- Created before local source edits in this kernel run.
+- Rollback execution is explicit and destructive; do not run these commands unless a human operator or supervisor policy chooses rollback.

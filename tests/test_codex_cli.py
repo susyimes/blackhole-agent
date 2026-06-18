@@ -17,6 +17,7 @@ from blackhole_agent.kernels.codex_cli import (
     build_ambient_openai_preflight,
     build_codex_exec_command,
     build_codex_provider_preflight,
+    cleanup_orphaned_process_tree,
     shutdown_subprocess_cli_transport_stderr,
 )
 
@@ -492,3 +493,64 @@ def test_shutdown_subprocess_cli_transport_stderr_is_idempotent_after_cancel_sco
     assert transport._stderr_task_group is None
     assert second_cleaned is False
     assert "_stderr_task_group is already cleared" in caplog.text
+
+
+def test_cleanup_orphaned_process_tree_terminates_children_before_parent_and_kills_stubborn_child():
+    events = []
+
+    class FakeProcess:
+        def __init__(self, pid, *, children=None, exits_on_terminate=True):
+            self.pid = pid
+            self._children = children or []
+            self._exits_on_terminate = exits_on_terminate
+            self._terminated = False
+            self._killed = False
+
+        def children(self, recursive=True):
+            events.append(("children", self.pid, recursive))
+            return self._children
+
+        def terminate(self):
+            events.append(("terminate", self.pid))
+            self._terminated = True
+
+        def kill(self):
+            events.append(("kill", self.pid))
+            self._killed = True
+
+        def wait(self, timeout=None):
+            events.append(("wait", self.pid, timeout))
+            if self._killed or (self._terminated and self._exits_on_terminate):
+                return 0
+            raise subprocess.TimeoutExpired(["fake-process"], timeout=timeout)
+
+    child = FakeProcess(202, exits_on_terminate=False)
+    root = FakeProcess(101, children=[child], exits_on_terminate=True)
+
+    result = cleanup_orphaned_process_tree(root, grace_seconds=0.1)
+
+    assert result.root_pid == 101
+    assert result.child_pids == (202,)
+    assert result.terminated_pids == (202, 101)
+    assert result.killed_pids == (202,)
+    assert result.timeout_pids == ()
+    assert result.errors == ()
+    assert result.all_exited is True
+    assert events.index(("terminate", 202)) < events.index(("terminate", 101))
+    assert ("kill", 202) in events
+
+
+def test_cleanup_orphaned_process_tree_reports_processes_that_cannot_be_waited_or_killed():
+    class UncooperativeProcess:
+        pid = 303
+
+        def terminate(self):
+            return None
+
+    result = cleanup_orphaned_process_tree(UncooperativeProcess(), grace_seconds=0.1)
+
+    assert result.root_pid == 303
+    assert result.terminated_pids == (303,)
+    assert result.killed_pids == ()
+    assert result.timeout_pids == (303,)
+    assert result.all_exited is False

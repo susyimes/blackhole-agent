@@ -71,6 +71,25 @@ class CodexStreamAssemblyResult:
     completed: bool
 
 
+@dataclass(frozen=True)
+class ProcessTreeCleanupResult:
+    """Best-effort cleanup details for a local CLI subprocess tree."""
+
+    root_pid: int | None
+    child_pids: tuple[int, ...]
+    terminated_pids: tuple[int, ...]
+    killed_pids: tuple[int, ...]
+    timeout_pids: tuple[int, ...]
+    errors: tuple[str, ...]
+
+    @property
+    def all_exited(self) -> bool:
+        return not self.timeout_pids and not self.errors
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 class CodexStreamTimeoutError(TimeoutError):
     """Raised when a simulated Codex stream stalls before completion."""
 
@@ -441,6 +460,121 @@ def _find_paragraph_boundary(value: str) -> int | None:
     if not indexes:
         return None
     return min(indexes)
+
+
+def cleanup_orphaned_process_tree(
+    root_process: Any,
+    *,
+    grace_seconds: float = 2.0,
+    logger: logging.Logger | None = None,
+) -> ProcessTreeCleanupResult:
+    """Terminate a local CLI process and children without requiring psutil.
+
+    The helper accepts process-like objects from SDK transports or tests. When a
+    transport exposes ``children(recursive=True)``, children are stopped before
+    the root process so orphaned descendants do not keep a terminal session
+    looking active after the parent is already gone.
+    """
+
+    log = logger or LOGGER
+    errors: list[str] = []
+    children = _process_children(root_process, errors)
+    processes = [*children, root_process]
+    terminated_pids: list[int] = []
+    killed_pids: list[int] = []
+    timeout_pids: list[int] = []
+
+    for process in processes:
+        pid = _process_pid(process)
+        terminate = getattr(process, "terminate", None)
+        if not callable(terminate):
+            continue
+        try:
+            terminate()
+            if pid is not None:
+                terminated_pids.append(pid)
+        except Exception as error:  # pragma: no cover - defensive against transport-specific process shims
+            message = f"terminate failed for pid {pid}: {error}"
+            errors.append(message)
+            log.debug(message)
+
+    remaining: list[Any] = []
+    for process in processes:
+        if not _wait_process(process, timeout=grace_seconds, errors=errors, log=log):
+            remaining.append(process)
+
+    for process in remaining:
+        pid = _process_pid(process)
+        kill = getattr(process, "kill", None)
+        if not callable(kill):
+            if pid is not None:
+                timeout_pids.append(pid)
+            continue
+        try:
+            kill()
+            if pid is not None:
+                killed_pids.append(pid)
+        except Exception as error:  # pragma: no cover - defensive against transport-specific process shims
+            message = f"kill failed for pid {pid}: {error}"
+            errors.append(message)
+            log.debug(message)
+            if pid is not None:
+                timeout_pids.append(pid)
+
+    for process in remaining:
+        pid = _process_pid(process)
+        if not _wait_process(process, timeout=grace_seconds, errors=errors, log=log) and pid is not None:
+            timeout_pids.append(pid)
+
+    return ProcessTreeCleanupResult(
+        root_pid=_process_pid(root_process),
+        child_pids=tuple(pid for child in children if (pid := _process_pid(child)) is not None),
+        terminated_pids=tuple(terminated_pids),
+        killed_pids=tuple(killed_pids),
+        timeout_pids=tuple(dict.fromkeys(timeout_pids)),
+        errors=tuple(errors),
+    )
+
+
+def _process_children(root_process: Any, errors: list[str]) -> list[Any]:
+    children = getattr(root_process, "children", None)
+    if not callable(children):
+        return []
+    try:
+        child_processes = children(recursive=True)
+    except TypeError:
+        child_processes = children()
+    except Exception as error:  # pragma: no cover - defensive against transport-specific process shims
+        errors.append(f"children lookup failed: {error}")
+        return []
+    return list(child_processes or [])
+
+
+def _process_pid(process: Any) -> int | None:
+    try:
+        pid = getattr(process, "pid", None)
+        return int(pid) if pid is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _wait_process(process: Any, *, timeout: float, errors: list[str], log: logging.Logger) -> bool:
+    wait = getattr(process, "wait", None)
+    pid = _process_pid(process)
+    if not callable(wait):
+        return False
+    try:
+        wait(timeout=timeout)
+        return True
+    except subprocess.TimeoutExpired:
+        return False
+    except TimeoutError:
+        return False
+    except Exception as error:  # pragma: no cover - defensive against transport-specific process shims
+        message = f"wait failed for pid {pid}: {error}"
+        errors.append(message)
+        log.debug(message)
+        return False
 
 
 def shutdown_subprocess_cli_transport_stderr(

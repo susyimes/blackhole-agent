@@ -267,6 +267,44 @@ def test_supervisor_runner_liveness_surfaces_active_children_instead_of_sleeping
     assert "2 child agents active" in status.user_visible_message
 
 
+def test_supervisor_runner_liveness_surfaces_terminating_children_until_cleanup_finishes(tmp_path):
+    heartbeat = {
+        "last_pass_id": "20260618T223207Z",
+        "last_finished_at": "2026-06-18T22:32:07Z",
+        "last_effective_returncode": 0,
+        "child_sessions": [
+            {
+                "id": "terminating-cli-transport",
+                "pass_id": "20260618T223207Z",
+                "state": "terminating",
+                "busy": False,
+                "current_task_status": "",
+                "pending_elicitations_count": 0,
+            }
+        ],
+    }
+
+    status = supervisor_runner_status_from_heartbeat(
+        tmp_path / "latest-supervisor-heartbeat.json",
+        heartbeat=heartbeat,
+        now=datetime(2026, 6, 18, 22, 40, tzinfo=timezone.utc),
+    )
+
+    assert status.status == "child_agents_active"
+    assert status.controller_visible_status == "children_active"
+    assert status.reason == "active_child_sessions"
+    assert status.active_child_count == 1
+    assert status.active_child_sessions == [
+        {
+            "id": "terminating-cli-transport",
+            "status": "terminating",
+            "busy": False,
+            "current_task_status": "",
+            "pending_elicitations_count": 0,
+        }
+    ]
+
+
 def test_supervisor_runner_liveness_ignores_pending_children_from_other_pass(tmp_path):
     heartbeat = {
         "last_pass_id": "20260617T054315Z",

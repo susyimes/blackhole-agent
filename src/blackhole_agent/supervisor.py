@@ -1491,7 +1491,20 @@ def supervisor_child_session_is_active(session: dict[str, Any], status: str) -> 
         return True
     if safe_int(session.get("pending_elicitations_count")) > 0:
         return True
-    if status in {"active", "busy", "running", "working", "queued", "pending", "awaiting_user"}:
+    if status in {
+        "active",
+        "busy",
+        "running",
+        "working",
+        "queued",
+        "pending",
+        "awaiting_user",
+        "terminating",
+        "stopping",
+        "cancelling",
+        "canceling",
+        "shutting_down",
+    }:
         return True
     current_task_status = str(session.get("current_task_status") or "").strip().lower()
     return bool(current_task_status and current_task_status not in {"idle", "done", "complete", "completed", "sleeping"})
