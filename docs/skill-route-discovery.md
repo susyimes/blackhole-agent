@@ -54,3 +54,17 @@ The evidence is repository-level and README-level. That is enough to preserve a
 route-discovery matrix and local fixture, but not enough to promote a candidate
 to executable skill routing. A future code patch should cite a narrower local
 failure, test gap, or inspected upstream detail before changing runtime behavior.
+
+## Summary Fixture Lane
+
+Synthetic repository summaries can now be classified into the same disabled
+registry without requiring pre-shaped candidate metadata. This lane is
+body-free: the classifier reads public source URL, name, short summary, topics,
+event kind, and optional suggested lanes, then emits only disabled
+`skill_route_discovery` records.
+
+Summary classification may narrow or expand local validation work only across
+the bounded lanes: documentation, config, test, and code_patch. Suggested lanes
+such as install, execute, run, or runtime execution are ignored rather than
+promoted into candidate lanes or requested actions. Non-skill repositories are
+ignored, and URL validation still happens at registry build time.

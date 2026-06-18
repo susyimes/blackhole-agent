@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "summaries": [
+    {
+      "name": "codex-fable5",
+      "source_url": "https://github.com/baskduf/FableCodex",
+      "summary": "Codex skill and workflow package with evidence gates, review ledgers, verification habits, and plugin routing docs.",
+      "topics": ["codex", "agent-skills", "workflow", "verification"],
+      "suggested_lanes": ["documentation", "test", "runtime_execution"]
+    },
+    {
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "summary": "Personal alignment skill ecosystem for AI agents with task routing, profiles, local memory notes, and validation evidence.",
+      "topics": ["agent-skills", "task-management", "local-first", "codex-skills"],
+      "suggested_lanes": ["config", "test", "install"]
+    },
+    {
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "summary": "Director skill package for Three.js games with gameplay, graphics, UI, debug, QA, scaffold helpers, and install commands.",
+      "topics": ["agent-skills", "threejs", "qa", "scaffold"],
+      "suggested_lanes": ["documentation", "code_patch", "execute"]
+    },
+    {
+      "name": "ordinary-library",
+      "source_url": "https://github.com/example/ordinary-library",
+      "summary": "Small utility package for parsing timestamps in local applications.",
+      "topics": ["library"]
+    }
+  ]
+}

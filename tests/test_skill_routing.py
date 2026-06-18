@@ -9,9 +9,11 @@ from blackhole_agent.skill_routing import (
     SKILL_ROUTE_DISCOVERY_INVALID,
     NO_SKILL_MATCH,
     ExternalSkillRouteCandidate,
+    ExternalSkillRepositorySummary,
     TOPICAL_MATCH,
     SkillDescriptor,
     build_skill_route_discovery_registry,
+    build_skill_route_discovery_registry_from_summaries,
     build_skill_routing_index,
     rank_skills_for_task,
     select_skill_for_task,
@@ -320,3 +322,53 @@ def test_external_skill_route_discovery_lifecycle_events_cannot_install_execute_
     assert deleted["validation_errors"] == [
         "blocked_discovery_actions:delete_local_skill,execute",
     ]
+
+
+def test_skill_route_discovery_classifies_summaries_into_bounded_lanes():
+    fixture_path = Path(__file__).parent / "fixtures" / "skill_route_discovery" / "synthetic_repository_summaries.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_summaries(payload["summaries"])
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["summary_count"] == 4
+    assert registry["ignored_summary_count"] == 1
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+    assert [candidate["name"] for candidate in registry["candidates"]] == [
+        "codex-fable5",
+        "compass-skills",
+        "threejs-game-skills",
+    ]
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    for candidate in registry["candidates"]:
+        assert set(candidate["candidate_lanes"]) <= allowed_lanes
+        assert candidate["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+        assert candidate["requested_actions"] == []
+        assert candidate["validation_errors"] == []
+        assert candidate["enabled"] is False
+
+    lanes_by_name = {candidate["name"]: candidate["candidate_lanes"] for candidate in registry["candidates"]}
+    assert lanes_by_name["codex-fable5"] == ["documentation", "test", "config", "code_patch"]
+    assert lanes_by_name["compass-skills"] == ["config", "test", "documentation", "code_patch"]
+    assert lanes_by_name["threejs-game-skills"] == ["documentation", "code_patch", "test"]
+
+
+def test_skill_route_discovery_summary_classifier_defaults_to_documentation_only():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            ExternalSkillRepositorySummary(
+                name="minimal-skill-note",
+                source_url="https://github.com/example/minimal-skill-note",
+                summary="Tiny agent skill note with naming signal only.",
+            )
+        ]
+    )
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 1
+    assert registry["candidates"][0]["candidate_lanes"] == ["documentation"]
+    assert registry["candidates"][0]["requested_actions"] == []

@@ -1,0 +1,8 @@
+rollback point: 20260618T074043Z-skill-route-fixtures
+original branch: codex/blackhole-evolve/20260618T074156.771763-add-a-bounded-local-validation-lane-for-provider
+head: 74095edef8960f1723c06099278213c3b9267a9d
+rollback ref: refs/rollback/20260618T074043Z-skill-route-fixtures
+recover commands:
+  git switch codex/blackhole-evolve/20260618T074156.771763-add-a-bounded-local-validation-lane-for-provider
+  git reset --hard refs/rollback/20260618T074043Z-skill-route-fixtures
+  git clean -fd

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from urllib.parse import urlparse
 from typing import Any, Mapping, Sequence
+from urllib.parse import urlparse
 
 
 EXACT_TRIGGER_MATCH = "exact_trigger"
@@ -33,6 +33,50 @@ SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS = (
 )
 SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
 SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
+SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
+    "documentation": (
+        "agent",
+        "director",
+        "guide",
+        "markdown",
+        "prompt",
+        "readme",
+        "skill",
+        "workflow",
+    ),
+    "config": (
+        "config",
+        "ecosystem",
+        "frontmatter",
+        "metadata",
+        "profile",
+        "route",
+        "routing",
+        "skill.md",
+        "skills.sh.json",
+    ),
+    "test": (
+        "audit",
+        "evidence",
+        "gate",
+        "qa",
+        "review",
+        "test",
+        "validation",
+        "verification",
+        "verify",
+    ),
+    "code_patch": (
+        "codex",
+        "debug",
+        "helper",
+        "plugin",
+        "scaffold",
+        "script",
+        "tool",
+        "workflow",
+    ),
+}
 
 VALIDATION_WEIGHTS: Mapping[str, int] = {
     "validated": 12,
@@ -149,6 +193,51 @@ class ExternalSkillRouteCandidate:
             "validation_errors": list(errors),
             "validation_status": self.validation_status,
         }
+
+
+@dataclass(frozen=True)
+class ExternalSkillRepositorySummary:
+    """Body-free public repository summary used to classify skill-route evidence."""
+
+    name: str
+    source_url: str
+    summary: str
+    discovery_event_kind: str = "unknown"
+    topics: tuple[str, ...] = ()
+    suggested_lanes: tuple[str, ...] = ()
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillRepositorySummary":
+        source_url = str(value.get("source_url") or "").strip()
+        name = str(value.get("name") or "").strip() or _repository_name_from_url(source_url)
+        summary = str(value.get("summary") or value.get("evidence_summary") or "").strip()
+        if not name:
+            raise ValueError("external skill repository summary requires a non-empty name or source_url")
+        if not source_url:
+            raise ValueError("external skill repository summary requires a non-empty source_url")
+        if not summary:
+            raise ValueError("external skill repository summary requires a non-empty summary")
+        return cls(
+            name=name,
+            source_url=source_url,
+            summary=summary,
+            discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
+            topics=_string_tuple(value.get("topics")),
+            suggested_lanes=_string_tuple(value.get("suggested_lanes")),
+        )
+
+    def to_candidate(self) -> ExternalSkillRouteCandidate | None:
+        if not _looks_like_skill_repository_summary(self):
+            return None
+        return ExternalSkillRouteCandidate(
+            name=self.name,
+            source_url=self.source_url,
+            evidence_summary=self.summary,
+            discovery_event_kind=self.discovery_event_kind,
+            candidate_lanes=_bounded_skill_discovery_lanes(self),
+            validation_status="unvalidated",
+            enabled=False,
+        )
 
 
 @dataclass(frozen=True)
@@ -307,6 +396,28 @@ def build_skill_route_discovery_registry(
     }
 
 
+def build_skill_route_discovery_registry_from_summaries(
+    summaries: Sequence[ExternalSkillRepositorySummary | Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Classify public repository summaries into disabled skill-route candidates.
+
+    The classifier is intentionally body-free: repository summaries may influence
+    only the bounded local work lanes, never installation, execution, deletion,
+    or enablement.
+    """
+
+    candidates: list[ExternalSkillRouteCandidate] = []
+    for summary in summaries:
+        descriptor = _coerce_external_skill_repository_summary(summary)
+        candidate = descriptor.to_candidate()
+        if candidate is not None:
+            candidates.append(candidate)
+    registry = build_skill_route_discovery_registry(candidates)
+    registry["summary_count"] = len(summaries)
+    registry["ignored_summary_count"] = len(summaries) - len(candidates)
+    return registry
+
+
 def _rank_skill_for_task(task: str, descriptor: SkillDescriptor) -> SkillRouteDecision:
     if not descriptor.enabled:
         return SkillRouteDecision(
@@ -371,6 +482,47 @@ def _coerce_external_skill_route_candidate(
     return ExternalSkillRouteCandidate.from_mapping(value)
 
 
+def _coerce_external_skill_repository_summary(
+    value: ExternalSkillRepositorySummary | Mapping[str, Any],
+) -> ExternalSkillRepositorySummary:
+    if isinstance(value, ExternalSkillRepositorySummary):
+        return value
+    return ExternalSkillRepositorySummary.from_mapping(value)
+
+
+def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary) -> bool:
+    text = _summary_text(summary)
+    return any(
+        marker in text
+        for marker in (
+            "agent skill",
+            "codex skill",
+            "claude skill",
+            "director skill",
+            "skill ecosystem",
+            "skill.md",
+            "skills/",
+            "workflow skill",
+        )
+    )
+
+
+def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> tuple[str, ...]:
+    text = _summary_text(summary)
+    suggested = tuple(lane for lane in summary.suggested_lanes if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    keyword_lanes = tuple(
+        lane
+        for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        if any(keyword in text for keyword in SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS[lane])
+    )
+    lanes = tuple(dict.fromkeys((*suggested, *keyword_lanes)))
+    return lanes or ("documentation",)
+
+
+def _summary_text(summary: ExternalSkillRepositorySummary) -> str:
+    return " ".join((summary.name, summary.summary, *summary.topics)).casefold()
+
+
 def _contains_term(text: str, term: str) -> bool:
     normalized = term.strip().casefold()
     if not normalized:
@@ -411,6 +563,14 @@ def _validate_public_github_source_url(source_url: str) -> str | None:
     if parsed.username or parsed.password or parsed.params or parsed.query or parsed.fragment:
         return "source_url_must_be_plain_repository_url"
     return None
+
+
+def _repository_name_from_url(source_url: str) -> str:
+    parsed = urlparse(source_url)
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if len(path_parts) < 2:
+        return ""
+    return path_parts[1]
 
 
 def _discovery_event_effect(event_kind: str) -> str:
