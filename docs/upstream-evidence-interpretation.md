@@ -70,6 +70,70 @@ candidate lanes are stripped from the exported lane list and preserved only as
 validation errors, so the registry output remains limited to documentation,
 config, test, and code patch review paths.
 
+## Omnigent Upstream Movement Watchlist
+
+Source digest: `github-growth-20260618T175207.227269Z`.
+
+Watch `https://github.com/omnigent-ai/omnigent` for controller, runner, harness,
+and review workflow movement, but keep each signal in an evidence tier before it
+changes local behavior.
+
+High-detail signals are actionable only as bounded local validation candidates:
+
+- PR bodies or commit messages that name a concrete controller, runner, or
+  harness interface, such as `HarnessDescriptor`, `NativeServerHarness`, native
+  server transport, terminal takeover, or sub-agent harness override
+- explicit policy or safety changes, especially allowlist-gated runtime
+  overrides, fail-closed permission decisions, sandbox isolation, spend limits,
+  or approval gates
+- review outcomes that include a concrete blocking finding, fixed file path,
+  affected behavior, and follow-up test or deferral rationale
+- test evidence that names the covered matrix, such as conformance parity,
+  transport contracts, permission mapping, forwarder translation, UI picker
+  coverage, or full-suite counts
+- explicit deferrals that explain why a migration is not behavior-preserving or
+  not safely landable in the same change
+
+Weak signals are activity evidence, not implementation evidence:
+
+- untitled pull request metadata
+- generic merged, opened, closed, labeled, or pushed events without an inspected
+  body, commit message, diff, test result, or review finding
+- review anchors where GitHub exposes only "left review comments", "found
+  potential problems", "fixed", or an error while loading the review body
+- large size labels by themselves
+- repository star, fork, issue, or PR counts without a mapped local hypothesis
+
+Before adopting upstream behavior locally, run this checklist:
+
+- cite the exact evidence URL from the frozen digest and record whether it is
+  high-detail or weak
+- separate the upstream observation from the local hypothesis
+- compare the proposed behavior with this repository's current controller,
+  runner, tool-routing, provider-preflight, and harness-validation contracts
+- require a focused local validation lane: documentation for interpretation
+  rules, tests for boundaries, config for explicit runtime assumptions, or code
+  only when a concrete local behavior and rollback path are covered
+- keep remote execution, credential access, promotion, push, restart, cloud
+  sandbox, and live policy changes out of scope unless a later run has explicit
+  local configuration and validation for that capability
+
+Evidence reviewed for this watchlist:
+
+- `https://github.com/omnigent-ai/omnigent` presents a meta-harness over Claude
+  Code, Codex, Cursor, Pi, and custom agents, with policies, sandboxing,
+  approval gates, spend caps, shared sessions, server/host workflows, and cloud
+  sandbox options.
+- `https://github.com/omnigent-ai/omnigent/pull/576#pullrequestreview-4527267074`
+  points at a detailed OpenCode harness and unified harness-interface PR. The
+  visible PR text names a controller/runner-relevant abstraction, optional
+  workers, allowlist-gated `args.harness`, permission-policy fail-closed fixes,
+  model pinning, environment isolation, concrete tests, and deferred migration
+  rationale.
+- The same review URL only partially exposes bot review comments in this run;
+  those review anchors are useful watchlist prompts, but not enough to copy a
+  patch without inspecting the specific finding or proving the local boundary.
+
 ## Evidence From This Run
 
 The source digest cited `https://github.com/omnigent-ai/omnigent`. Its public

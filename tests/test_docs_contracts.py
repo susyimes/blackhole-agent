@@ -33,6 +33,33 @@ def test_upstream_evidence_interpretation_doc_records_local_validation_contract(
     assert missing == []
 
 
+def test_upstream_evidence_interpretation_doc_records_omnigent_watchlist_contract():
+    doc = (REPO_ROOT / "docs" / "upstream-evidence-interpretation.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "## Omnigent Upstream Movement Watchlist",
+        "Source digest: `github-growth-20260618T175207.227269Z`",
+        "controller, runner, harness,\nand review workflow movement",
+        "High-detail signals are actionable only as bounded local validation candidates",
+        "`HarnessDescriptor`, `NativeServerHarness`, native\n  server transport",
+        "allowlist-gated runtime\n  overrides, fail-closed permission decisions",
+        "conformance parity,\n  transport contracts, permission mapping",
+        "Weak signals are activity evidence, not implementation evidence",
+        "untitled pull request metadata",
+        "review anchors where GitHub exposes only \"left review comments\", \"found\n  potential problems\", \"fixed\"",
+        "large size labels by themselves",
+        "compare the proposed behavior with this repository's current controller,\n  runner, tool-routing, provider-preflight, and harness-validation contracts",
+        "remote execution, credential access, promotion, push, restart, cloud\n  sandbox",
+        "https://github.com/omnigent-ai/omnigent/pull/576#pullrequestreview-4527267074",
+        "permission-policy fail-closed fixes",
+        "not enough to copy a\n  patch without inspecting the specific finding or proving the local boundary",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_architecture_links_upstream_evidence_interpretation_contract():
     architecture = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
 

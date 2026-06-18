@@ -1,0 +1,15 @@
+Rollback point for blackhole-agent self-evolution run
+
+Source digest: github-growth-20260618T175207.227269Z
+Prepared branch: codex/blackhole-evolve/20260618T175325.237260-document-an-upstream-movement-watchlist-for-omni
+Original HEAD: a6fd46fc559596cf001183d22e91003ccc9e6f19
+Rollback ref: refs/rollback/20260618T175207Z-omnigent-upstream-movement-watchlist
+Created at: 20260618T175207Z
+
+Recovery commands, destructive and for explicit operator use only:
+  git reset --hard refs/rollback/20260618T175207Z-omnigent-upstream-movement-watchlist
+  git clean -fd
+
+Notes:
+- Created before edits for the Omnigent upstream movement watchlist documentation run.
+- Do not delete this artifact during the run that created it.
