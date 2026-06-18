@@ -886,6 +886,7 @@ def run_health_checks(
 def build_health_env(config: SupervisorConfig, repo_path: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)
+    env.pop("UV_PROJECT_ENVIRONMENT", None)
     env["PYTHONPATH"] = str(repo_path / "src")
     if same_path(repo_path, config.repo_path):
         health_venv = config.resolved_output_dir / "health-venv"

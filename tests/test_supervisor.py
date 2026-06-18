@@ -484,11 +484,12 @@ def test_run_health_checks_isolates_candidate_import_environment(tmp_path, monke
     assert seen["env"]["UV_PROJECT_ENVIRONMENT"] == str(output_dir / "health-venv")
 
 
-def test_run_health_checks_keeps_candidate_worktree_on_its_own_uv_environment(tmp_path):
+def test_run_health_checks_keeps_candidate_worktree_on_its_own_uv_environment(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     candidate = tmp_path / "candidate"
     repo.mkdir()
     candidate.mkdir()
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "inherited-health-venv")
     seen = {}
 
     def runner(command, **kwargs):
