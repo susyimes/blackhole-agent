@@ -11,6 +11,10 @@ EXACT_TRIGGER_MATCH = "exact_trigger"
 TOPICAL_MATCH = "topical_match"
 NO_SKILL_MATCH = "no_match"
 AMBIGUOUS_SKILL_MATCH = "ambiguous_match"
+SKILL_ROUTE_DISCOVERY_HINT = "skill_route_discovery"
+SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
+SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
+SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
 
 VALIDATION_WEIGHTS: Mapping[str, int] = {
     "validated": 12,
@@ -50,6 +54,67 @@ class SkillDescriptor:
             validation_status=str(value.get("validation_status") or "unknown").strip().lower(),
             enabled=bool(value.get("enabled", True)),
         )
+
+
+@dataclass(frozen=True)
+class ExternalSkillRouteCandidate:
+    """Metadata for an observed external skill package before local enablement.
+
+    These candidates are discovery records only. They preserve enough public
+    evidence for proposal routing without turning an external repository into an
+    executable local skill.
+    """
+
+    name: str
+    source_url: str
+    evidence_summary: str = ""
+    route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
+    candidate_lanes: tuple[str, ...] = SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    validation_status: str = "unvalidated"
+    enabled: bool = False
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillRouteCandidate":
+        name = str(value.get("name") or "").strip()
+        source_url = str(value.get("source_url") or "").strip()
+        if not name:
+            raise ValueError("external skill route candidate requires a non-empty name")
+        if not source_url:
+            raise ValueError("external skill route candidate requires a non-empty source_url")
+        return cls(
+            name=name,
+            source_url=source_url,
+            evidence_summary=str(value.get("evidence_summary") or ""),
+            route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
+            candidate_lanes=_string_tuple(value.get("candidate_lanes")) or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+            validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
+            enabled=bool(value.get("enabled", False)),
+        )
+
+    def validation_errors(self) -> tuple[str, ...]:
+        errors: list[str] = []
+        if self.enabled:
+            errors.append("external_skill_route_candidates_must_start_disabled")
+        if SKILL_ROUTE_DISCOVERY_HINT not in self.route_hints:
+            errors.append(f"route_hints must include {SKILL_ROUTE_DISCOVERY_HINT}")
+        unsupported_lanes = sorted(set(self.candidate_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES))
+        if unsupported_lanes:
+            errors.append("unsupported_candidate_lanes:" + ",".join(unsupported_lanes))
+        return tuple(errors)
+
+    def to_registry_entry(self) -> dict[str, Any]:
+        errors = self.validation_errors()
+        return {
+            "candidate_lanes": list(self.candidate_lanes),
+            "enabled": self.enabled,
+            "evidence_summary": self.evidence_summary,
+            "name": self.name,
+            "route_hints": list(self.route_hints),
+            "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
+            "source_url": self.source_url,
+            "validation_errors": list(errors),
+            "validation_status": self.validation_status,
+        }
 
 
 @dataclass(frozen=True)
@@ -185,6 +250,27 @@ def build_skill_routing_index(
     }
 
 
+def build_skill_route_discovery_registry(
+    candidates: Sequence[ExternalSkillRouteCandidate | Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Return a disabled-by-default registry for external skill discovery signals."""
+
+    descriptors = tuple(_coerce_external_skill_route_candidate(candidate) for candidate in candidates)
+    entries = [candidate.to_registry_entry() for candidate in sorted(descriptors, key=lambda item: item.name.casefold())]
+    invalid_count = sum(1 for entry in entries if entry["route_status"] == SKILL_ROUTE_DISCOVERY_INVALID)
+    return {
+        "schema_version": 1,
+        "allowed_candidate_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "candidate_count": len(entries),
+        "enabled_candidate_count": sum(1 for entry in entries if entry["enabled"]),
+        "executable_skill_count": 0,
+        "invalid_candidate_count": invalid_count,
+        "registry_status": "invalid_candidates_present" if invalid_count else "classification_only",
+        "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+        "candidates": entries,
+    }
+
+
 def _rank_skill_for_task(task: str, descriptor: SkillDescriptor) -> SkillRouteDecision:
     if not descriptor.enabled:
         return SkillRouteDecision(
@@ -239,6 +325,14 @@ def _coerce_skill_descriptor(value: SkillDescriptor | Mapping[str, Any]) -> Skil
     if isinstance(value, SkillDescriptor):
         return value
     return SkillDescriptor.from_mapping(value)
+
+
+def _coerce_external_skill_route_candidate(
+    value: ExternalSkillRouteCandidate | Mapping[str, Any],
+) -> ExternalSkillRouteCandidate:
+    if isinstance(value, ExternalSkillRouteCandidate):
+        return value
+    return ExternalSkillRouteCandidate.from_mapping(value)
 
 
 def _contains_term(text: str, term: str) -> bool:

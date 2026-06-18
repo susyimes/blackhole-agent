@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "candidates": [
+    {
+      "name": "codex-fable5",
+      "source_url": "https://github.com/baskduf/FableCodex",
+      "evidence_summary": "Codex workflow skill package with evidence gates and explicit invocation.",
+      "route_hints": ["skill_route_discovery"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "evidence_summary": "Personal alignment skills system for AI agent task routing.",
+      "route_hints": ["skill_route_discovery"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "evidence_summary": "Agent skills package for Three.js game workflows and QA.",
+      "route_hints": ["skill_route_discovery"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    }
+  ]
+}

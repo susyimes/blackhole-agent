@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260618T054043.833729Z
+
+Original branch: codex/blackhole-evolve/20260618T054129.128780-add-or-extend-a-local-agent-harness-evaluation-l
+Original HEAD: 24de65c4f39a5ca469799ec4053bd0c302c67b3c
+Rollback ref: refs/rollback/20260618T054043Z-skill-route-discovery-fixture
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260618T054129.128780-add-or-extend-a-local-agent-harness-evaluation-l
+git reset --hard refs/rollback/20260618T054043Z-skill-route-discovery-fixture
+
+Notes:
+- This rollback point was created before local source changes for the skill-route discovery fixture run.
+- Do not delete this artifact during the run that created it.

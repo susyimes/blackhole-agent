@@ -50,6 +50,19 @@ leakage remain review-only. Missing detail should not block every experiment,
 but it must narrow the claim: prefer a reversible local validation over broad
 adoption, and record uncertainty in the run artifact or proposal rationale.
 
+## Skill Route Discovery
+
+External skill repositories may be useful evidence for future routing behavior,
+but discovery is not installation. Skill-route evidence should first be recorded
+as a disabled local candidate with the source URL, observed workflow shape, the
+`skill_route_discovery` hint, and only these candidate lanes: documentation,
+config, test, or code patch.
+
+The local registry shape is classification-only. It must not enable an external
+skill, add executable tool routes, or treat a repository name as permission to
+load code. A later change may promote a candidate only after a separate local
+validation path proves the behavior and records the activation boundary.
+
 ## Evidence From This Run
 
 The source digest cited `https://github.com/omnigent-ai/omnigent`. Its public

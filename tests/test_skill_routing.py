@@ -1,9 +1,17 @@
+import json
+from pathlib import Path
+
 from blackhole_agent.skill_routing import (
     AMBIGUOUS_SKILL_MATCH,
     EXACT_TRIGGER_MATCH,
+    SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+    SKILL_ROUTE_DISCOVERY_DISABLED,
+    SKILL_ROUTE_DISCOVERY_INVALID,
     NO_SKILL_MATCH,
+    ExternalSkillRouteCandidate,
     TOPICAL_MATCH,
     SkillDescriptor,
+    build_skill_route_discovery_registry,
     build_skill_routing_index,
     rank_skills_for_task,
     select_skill_for_task,
@@ -185,3 +193,48 @@ def test_select_skill_marks_tied_top_matches_as_ambiguous():
         "beta-skill",
     ]
     assert selection.diagnostics == ("ambiguous_top_skill_match:alpha-skill,beta-skill",)
+
+
+def test_external_skill_route_discovery_fixture_stays_classification_only():
+    fixture_path = Path(__file__).parent / "fixtures" / "skill_route_discovery" / "disabled_external_candidates.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry(payload["candidates"])
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["allowed_candidate_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+    assert [candidate["name"] for candidate in registry["candidates"]] == [
+        "codex-fable5",
+        "compass-skills",
+        "threejs-game-skills",
+    ]
+    assert {candidate["route_status"] for candidate in registry["candidates"]} == {SKILL_ROUTE_DISCOVERY_DISABLED}
+    assert all(candidate["route_hints"] == ["skill_route_discovery"] for candidate in registry["candidates"])
+    assert all(candidate["validation_errors"] == [] for candidate in registry["candidates"])
+
+
+def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():
+    registry = build_skill_route_discovery_registry(
+        [
+            ExternalSkillRouteCandidate(
+                name="unsafe-enabled-skill",
+                source_url="https://github.com/example/unsafe-enabled-skill",
+                candidate_lanes=("documentation", "runtime_execution"),
+                enabled=True,
+            )
+        ]
+    )
+
+    assert registry["registry_status"] == "invalid_candidates_present"
+    assert registry["enabled_candidate_count"] == 1
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 1
+    assert registry["candidates"][0]["route_status"] == SKILL_ROUTE_DISCOVERY_INVALID
+    assert registry["candidates"][0]["validation_errors"] == [
+        "external_skill_route_candidates_must_start_disabled",
+        "unsupported_candidate_lanes:runtime_execution",
+    ]
