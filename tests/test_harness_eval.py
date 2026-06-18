@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 16
-    assert payload["pass_count"] == 15
+    assert payload["fixture_count"] == 17
+    assert payload["pass_count"] == 16
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -87,6 +87,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "native_tool_call_policy",
         "provider_runtime_preflight",
         "proposal_interpretation",
+        "workspace_changes_panel",
     ]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
@@ -108,6 +109,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
+    assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
     assert results["pass-harness-summary"]["input_hash"].startswith("sha256:")
@@ -123,6 +125,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "native-ask-session-fixture-do-not-export" not in serialized
     assert "PRIVATE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_NATIVE_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_NATIVE_CONTENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_CONTENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REST_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REST_CONTENT_DO_NOT_EXPORT" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -1466,6 +1474,45 @@ def test_native_tool_call_policy_denies_governed_tool_calls_when_hook_is_unavail
     }
     assert "session-private-fixture" not in serialized
     assert "PRIVATE_COMMAND_BODY_DO_NOT_EXPORT" not in serialized
+
+
+def test_workspace_changes_panel_non_git_requires_visible_external_and_native_entries_without_git_metadata():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "workspace_changes_panel_non_git_native_external.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["workspace"] == {
+        "is_git_repo": False,
+        "runner_workspace_configured": True,
+        "git_metadata_required": False,
+        "non_git_without_git_metadata": True,
+    }
+    assert output["changes_panel"]["visible_entry_count"] == 3
+    assert output["changes_panel"]["empty_panel_silent"] is False
+    assert output["changes_panel"]["non_git_limitation_present"] is True
+    assert output["edits"]["required_visible_count"] == 3
+    assert output["edits"]["visible_required_count"] == 3
+    assert output["edits"]["unrecorded_edit_count"] == 2
+    assert output["edits"]["missing_visible_edit_ids"] == []
+    assert output["privacy"] == {
+        "raw_paths_exported": False,
+        "raw_contents_exported": False,
+        "path_hashes_only": True,
+    }
+    assert "PRIVATE_NATIVE_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_NATIVE_CONTENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_CONTENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REST_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REST_CONTENT_DO_NOT_EXPORT" not in serialized
 
 
 def test_native_tool_call_policy_matrix_does_not_silently_allow_policy_hook_failures():

@@ -44,6 +44,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "native_tool_call_policy",
     "provider_runtime_preflight",
     "proposal_interpretation",
+    "workspace_changes_panel",
 ]
 
 NATIVE_TOOL_CALL_PHASES = {"PreToolUse", "PHASE_TOOL_CALL", "TOOL_CALL", "tool_call"}
@@ -290,7 +291,154 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_provider_runtime_preflight(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
+    if behavior == "workspace_changes_panel":
+        return evaluate_workspace_changes_panel(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Check that workspace edits have visible changes-panel evidence without exporting paths or file bodies."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    workspace = raw_input.get("workspace") if isinstance(raw_input.get("workspace"), dict) else {}
+    changes_panel = raw_input.get("changes_panel") if isinstance(raw_input.get("changes_panel"), dict) else {}
+    performed_edits = raw_input.get("performed_edits") if isinstance(raw_input.get("performed_edits"), list) else []
+    panel_entries = changes_panel.get("entries") if isinstance(changes_panel.get("entries"), list) else []
+
+    edit_results = [evaluate_workspace_change_edit(edit) for edit in performed_edits]
+    panel_results = [evaluate_workspace_change_panel_entry(entry) for entry in panel_entries]
+    visible_entry_ids = {
+        str(result["edit_id"])
+        for result in panel_results
+        if result["edit_id"] and result["visible"]
+    }
+    required_edit_ids = [
+        str(result["edit_id"])
+        for result in edit_results
+        if result["exists_on_disk"] and result["requires_panel_visibility"]
+    ]
+    missing_visible_edit_ids = sorted(set(required_edit_ids) - visible_entry_ids)
+
+    is_git_repo = truthy(workspace.get("is_git_repo"))
+    runner_workspace_configured = truthy(workspace.get("runner_workspace_configured"))
+    unrecorded_edit_count = sum(
+        1 for result in edit_results if result["exists_on_disk"] and not result["record_change_observed"]
+    )
+    has_tracking_limitation_entry = any(result["kind"] == "tracking_limitation" and result["visible"] for result in panel_results)
+    panel_reason = optional_string(changes_panel.get("reason")) or ""
+    non_git_limitation_present = is_git_repo or unrecorded_edit_count == 0 or (
+        has_tracking_limitation_entry and panel_reason == "non_git_workspace_limited_tracking"
+    )
+    git_metadata_required = bool(changes_panel.get("git_metadata_required"))
+
+    visible_entry_count = sum(1 for result in panel_results if result["visible"])
+    failure_mode = workspace_changes_panel_failure_mode(
+        runner_workspace_configured=runner_workspace_configured,
+        visible_entry_count=visible_entry_count,
+        missing_visible_edit_ids=missing_visible_edit_ids,
+        non_git_limitation_present=non_git_limitation_present,
+        git_metadata_required=git_metadata_required,
+        is_git_repo=is_git_repo,
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "workspace_changes_panel",
+        "task_id": task_id,
+        "route_status": "passed" if failure_mode == "none" else "failed",
+        "failure_mode": failure_mode,
+        "workspace": {
+            "is_git_repo": is_git_repo,
+            "runner_workspace_configured": runner_workspace_configured,
+            "git_metadata_required": git_metadata_required,
+            "non_git_without_git_metadata": not is_git_repo and not git_metadata_required,
+        },
+        "changes_panel": {
+            "available": truthy(changes_panel.get("available")),
+            "reason": panel_reason,
+            "entry_count": len(panel_results),
+            "visible_entry_count": visible_entry_count,
+            "has_tracking_limitation_entry": has_tracking_limitation_entry,
+            "non_git_limitation_present": non_git_limitation_present,
+            "empty_panel_silent": visible_entry_count == 0 and bool(required_edit_ids),
+        },
+        "edits": {
+            "performed_count": len(edit_results),
+            "required_visible_count": len(required_edit_ids),
+            "visible_required_count": len(required_edit_ids) - len(missing_visible_edit_ids),
+            "unrecorded_edit_count": unrecorded_edit_count,
+            "required_edit_ids": required_edit_ids,
+            "missing_visible_edit_ids": missing_visible_edit_ids,
+            "raw_paths_exported": False,
+            "raw_contents_exported": False,
+            "items": edit_results,
+        },
+        "panel_entries": panel_results,
+        "privacy": {
+            "raw_paths_exported": False,
+            "raw_contents_exported": False,
+            "path_hashes_only": True,
+        },
+    }
+
+
+def evaluate_workspace_change_edit(edit: Any) -> dict[str, Any]:
+    edit_data = edit if isinstance(edit, dict) else {}
+    edit_id = optional_string(edit_data.get("edit_id")) or "workspace-edit"
+    origin = optional_string(edit_data.get("origin")) or "unknown"
+    path = optional_string(edit_data.get("path"))
+    content = optional_string(edit_data.get("content"))
+    exists_on_disk = truthy(edit_data.get("exists_on_disk"))
+    record_change_observed = truthy(edit_data.get("record_change_observed"))
+    requires_panel_visibility = origin in {
+        "external_process",
+        "filesystem_endpoint",
+        "native_harness",
+        "native_harness_cli",
+        "sys_os_shell",
+    }
+    return {
+        "edit_id": edit_id,
+        "origin": origin,
+        "exists_on_disk": exists_on_disk,
+        "record_change_observed": record_change_observed,
+        "requires_panel_visibility": requires_panel_visibility,
+        "path_hash": stable_text_hash(path) if path else None,
+        "content_hash": stable_text_hash(content) if content else None,
+    }
+
+
+def evaluate_workspace_change_panel_entry(entry: Any) -> dict[str, Any]:
+    entry_data = entry if isinstance(entry, dict) else {}
+    path = optional_string(entry_data.get("path"))
+    return {
+        "edit_id": optional_string(entry_data.get("edit_id")),
+        "kind": optional_string(entry_data.get("kind")) or "changed_file",
+        "visible": truthy(entry_data.get("visible")),
+        "path_hash": stable_text_hash(path) if path else None,
+    }
+
+
+def workspace_changes_panel_failure_mode(
+    *,
+    runner_workspace_configured: bool,
+    visible_entry_count: int,
+    missing_visible_edit_ids: list[str],
+    non_git_limitation_present: bool,
+    git_metadata_required: bool,
+    is_git_repo: bool,
+) -> str:
+    if not runner_workspace_configured:
+        return "runner_workspace_missing"
+    if visible_entry_count < 1:
+        return "changes_panel_empty"
+    if missing_visible_edit_ids:
+        return "missing_visible_change_entries"
+    if not non_git_limitation_present:
+        return "missing_non_git_tracking_limitation"
+    if not is_git_repo and git_metadata_required:
+        return "git_metadata_required_for_non_git_workspace"
+    return "none"
 
 
 def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

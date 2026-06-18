@@ -1,0 +1,94 @@
+{
+  "name": "workspace-changes-panel-non-git-native-external",
+  "behavior": "workspace_changes_panel",
+  "input": {
+    "task_id": "fixture-non-git-native-external-changes-panel",
+    "workspace": {
+      "is_git_repo": false,
+      "runner_workspace_configured": true
+    },
+    "performed_edits": [
+      {
+        "edit_id": "native-cli-write",
+        "origin": "native_harness",
+        "path": "PRIVATE_NATIVE_PATH_DO_NOT_EXPORT.md",
+        "content": "PRIVATE_NATIVE_CONTENT_DO_NOT_EXPORT",
+        "exists_on_disk": true,
+        "record_change_observed": false
+      },
+      {
+        "edit_id": "external-write",
+        "origin": "external_process",
+        "path": "PRIVATE_EXTERNAL_PATH_DO_NOT_EXPORT.md",
+        "content": "PRIVATE_EXTERNAL_CONTENT_DO_NOT_EXPORT",
+        "exists_on_disk": true,
+        "record_change_observed": false
+      },
+      {
+        "edit_id": "rest-put-write",
+        "origin": "filesystem_endpoint",
+        "path": "PRIVATE_REST_PATH_DO_NOT_EXPORT.md",
+        "content": "PRIVATE_REST_CONTENT_DO_NOT_EXPORT",
+        "exists_on_disk": true,
+        "record_change_observed": true
+      }
+    ],
+    "changes_panel": {
+      "available": false,
+      "reason": "non_git_workspace_limited_tracking",
+      "git_metadata_required": false,
+      "entries": [
+        {
+          "edit_id": "native-cli-write",
+          "kind": "tracking_limitation",
+          "visible": true
+        },
+        {
+          "edit_id": "external-write",
+          "kind": "tracking_limitation",
+          "visible": true
+        },
+        {
+          "edit_id": "rest-put-write",
+          "kind": "changed_file",
+          "path": "PRIVATE_REST_PATH_DO_NOT_EXPORT.md",
+          "visible": true
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "workspace.non_git_without_git_metadata",
+      "equals": true
+    },
+    {
+      "path": "changes_panel.visible_entry_count",
+      "equals": 3
+    },
+    {
+      "path": "changes_panel.non_git_limitation_present",
+      "equals": true
+    },
+    {
+      "path": "edits.missing_visible_edit_ids",
+      "equals": []
+    },
+    {
+      "path": "privacy.raw_paths_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_contents_exported",
+      "equals": false
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+Rollback point: non-git changes panel harness
+Created at: 20260619T051206Z
+Original branch: codex/blackhole-evolve/20260618T225301.452056-add-or-extend-local-harness-coverage-for-non-git
+Original HEAD: dbf9f946d6c66cf5a9f90d15d2e19433c4889f78
+Local rollback ref: refs/rollback/20260619T051206Z-non-git-changes-panel-harness
+
+Recovery commands (destructive; operator/supervisor only):
+  git switch codex/blackhole-evolve/20260618T225301.452056-add-or-extend-local-harness-coverage-for-non-git
+  git reset --hard dbf9f946d6c66cf5a9f90d15d2e19433c4889f78
+  git clean -fd
+
+Notes:
+- Created before local self-modification for source digest github-growth-20260618T225207.212934Z.
+- Do not delete this artifact during the run that created it.
