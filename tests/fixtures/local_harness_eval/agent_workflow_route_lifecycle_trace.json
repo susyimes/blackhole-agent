@@ -1,0 +1,98 @@
+{
+  "name": "agent-workflow-route-lifecycle-trace",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-lifecycle-trace",
+    "plan": {
+      "steps": [
+        {
+          "id": "inspect",
+          "status": "completed"
+        },
+        {
+          "id": "invoke-runner",
+          "status": "completed"
+        },
+        {
+          "id": "capture-result",
+          "status": "completed"
+        },
+        {
+          "id": "verify",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "focused-evidence-review",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-lifecycle",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-lifecycle-trace",
+      "artifact_path": "artifacts/rollback/fixture-route-lifecycle-trace.txt"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "lifecycle.complete",
+      "equals": true
+    },
+    {
+      "path": "lifecycle.ordered",
+      "equals": true
+    },
+    {
+      "path": "lifecycle.failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "runner.invoked",
+      "equals": true
+    },
+    {
+      "path": "validation.gate_outcome",
+      "equals": "passed"
+    },
+    {
+      "path": "rollback.recovery_mode",
+      "equals": "explicit_operator_reset"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

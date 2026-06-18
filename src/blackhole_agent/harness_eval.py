@@ -1374,6 +1374,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     validation = raw_input.get("validation") if isinstance(raw_input.get("validation"), dict) else {}
     checks = validation.get("checks") if isinstance(validation.get("checks"), list) else []
     rollback = raw_input.get("rollback") if isinstance(raw_input.get("rollback"), dict) else {}
+    lifecycle = raw_input.get("lifecycle") if isinstance(raw_input.get("lifecycle"), dict) else {}
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
@@ -1392,12 +1393,27 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     rollback_ref = optional_string(rollback.get("ref"))
     rollback_artifact = optional_string(rollback.get("artifact_path"))
     rollback_available = truthy(rollback.get("created")) and bool(rollback_ref or rollback_artifact)
+    state_transitions = build_agent_workflow_state_transitions(
+        plan_steps=plan_steps,
+        runner_invoked=runner_invoked,
+        validation_checks=validation_checks,
+        failure_mode=agent_workflow_failure_mode(
+            runner_invoked=runner_invoked,
+            runner_returncode=runner_returncode,
+            runner_timed_out=runner_timed_out,
+            validation_passed=validation_passed,
+            lifecycle_passed=True,
+        ),
+        rollback_available=rollback_available,
+    )
+    lifecycle_result = evaluate_agent_workflow_lifecycle(lifecycle, state_transitions)
 
     failure_mode = agent_workflow_failure_mode(
         runner_invoked=runner_invoked,
         runner_returncode=runner_returncode,
         runner_timed_out=runner_timed_out,
         validation_passed=validation_passed,
+        lifecycle_passed=lifecycle_result["passed"],
     )
     route_status = "passed" if failure_mode == "none" else "failed_recoverable" if rollback_available else "failed_unrecoverable"
     state_transitions = build_agent_workflow_state_transitions(
@@ -1407,6 +1423,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         failure_mode=failure_mode,
         rollback_available=rollback_available,
     )
+    lifecycle_result = evaluate_agent_workflow_lifecycle(lifecycle, state_transitions)
 
     return {
         "schema_version": 1,
@@ -1426,6 +1443,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             "returncode": runner_returncode,
             "timed_out": runner_timed_out,
         },
+        "lifecycle": lifecycle_result,
         "validation": {
             "gate": validation_gate,
             "gate_recorded": bool(validation_gate),
@@ -1448,6 +1466,7 @@ def agent_workflow_failure_mode(
     runner_returncode: int | None,
     runner_timed_out: bool,
     validation_passed: bool,
+    lifecycle_passed: bool,
 ) -> str:
     if not runner_invoked:
         return "runner_not_invoked"
@@ -1455,6 +1474,8 @@ def agent_workflow_failure_mode(
         return "timeout"
     if runner_returncode not in (None, 0):
         return "nonzero_exit"
+    if not lifecycle_passed:
+        return "lifecycle_incomplete"
     if not validation_passed:
         return "validation_failed"
     return "none"
@@ -1498,6 +1519,53 @@ def build_agent_workflow_state_transitions(
         }
     )
     return transitions
+
+
+def evaluate_agent_workflow_lifecycle(
+    lifecycle: dict[str, Any],
+    state_transitions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Check an optional harness-style lifecycle trace against controller states."""
+
+    expected_phases = string_list(lifecycle.get("expected_phases")) or [
+        str(transition["state"]) for transition in state_transitions
+    ]
+    observed_phases = string_list(lifecycle.get("observed_phases")) or [
+        str(transition["state"]) for transition in state_transitions
+    ]
+    missing_phases = [phase for phase in expected_phases if phase not in observed_phases]
+    unexpected_phases = [phase for phase in observed_phases if phase not in expected_phases]
+    ordered = phases_are_ordered(expected_phases, observed_phases)
+    completed = bool(observed_phases) and not missing_phases
+    passed = completed and ordered and not unexpected_phases
+    if not completed:
+        failure_mode = "missing_lifecycle_phase"
+    elif not ordered:
+        failure_mode = "lifecycle_out_of_order"
+    elif unexpected_phases:
+        failure_mode = "unexpected_lifecycle_phase"
+    else:
+        failure_mode = "none"
+    return {
+        "expected_phases": expected_phases,
+        "observed_phases": observed_phases,
+        "complete": completed,
+        "ordered": ordered,
+        "unexpected_phases": unexpected_phases,
+        "missing_phases": missing_phases,
+        "passed": passed,
+        "failure_mode": failure_mode,
+    }
+
+
+def phases_are_ordered(expected_phases: list[str], observed_phases: list[str]) -> bool:
+    cursor = -1
+    for phase in expected_phases:
+        try:
+            cursor = observed_phases.index(phase, cursor + 1)
+        except ValueError:
+            return False
+    return True
 
 
 def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

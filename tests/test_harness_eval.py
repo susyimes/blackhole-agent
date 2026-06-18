@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 14
-    assert payload["pass_count"] == 13
+    assert payload["fixture_count"] == 15
+    assert payload["pass_count"] == 14
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -96,6 +96,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
+    assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
@@ -164,6 +165,71 @@ def test_agent_workflow_route_fixture_records_state_validation_and_recovery():
         "completed",
     ]
     assert output["state_transitions"][-1] == {"state": "completed", "outcome": "failed"}
+
+
+def test_agent_workflow_route_fails_when_lifecycle_trace_misses_required_phase():
+    raw_input = {
+        "task_id": "fixture-route-missing-lifecycle-phase",
+        "plan": {"steps": [{"id": "inspect"}, {"id": "run"}, {"id": "verify"}]},
+        "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+        "lifecycle": {
+            "expected_phases": [
+                "planned",
+                "runner_invoked",
+                "runner_completed",
+                "validation_recorded",
+                "rollback_checked",
+                "completed",
+            ],
+            "observed_phases": [
+                "planned",
+                "runner_invoked",
+                "runner_completed",
+                "rollback_checked",
+                "completed",
+            ],
+        },
+        "validation": {"gate": "focused-evidence-review", "checks": [{"name": "pytest", "returncode": 0}]},
+        "rollback": {
+            "created": True,
+            "ref": "refs/rollback/fixture-route-missing-lifecycle-phase",
+            "artifact_path": "artifacts/rollback/fixture-route-missing-lifecycle-phase.txt",
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "agent_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_missing_lifecycle_phase_inline.json",
+    )
+
+    assert output["route_status"] == "failed_recoverable"
+    assert output["failure_mode"] == "lifecycle_incomplete"
+    assert output["lifecycle"] == {
+        "expected_phases": [
+            "planned",
+            "runner_invoked",
+            "runner_completed",
+            "validation_recorded",
+            "rollback_checked",
+            "completed",
+        ],
+        "observed_phases": [
+            "planned",
+            "runner_invoked",
+            "runner_completed",
+            "rollback_checked",
+            "completed",
+        ],
+        "complete": False,
+        "ordered": False,
+        "unexpected_phases": [],
+        "missing_phases": ["validation_recorded"],
+        "passed": False,
+        "failure_mode": "missing_lifecycle_phase",
+    }
+    assert output["validation"]["gate_outcome"] == "passed"
+    assert output["rollback"]["recovery_mode"] == "explicit_operator_reset"
 
 
 def test_mock_llm_workflow_route_exercises_provider_disabled_path_without_external_calls():

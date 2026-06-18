@@ -1,0 +1,9 @@
+rollback_id=20260618T191401Z-agent-workflow-lifecycle-eval
+created_at=20260618T191401Z
+original_branch=codex/blackhole-evolve/20260618T191308.123460-add-a-bounded-local-evaluation-lane-for-agent-ha
+original_head=ad401a9b5d3bfc17080a5ec7cdddfb9d31b57e07
+rollback_ref=refs/rollback/20260618T191401Z-agent-workflow-lifecycle-eval
+recovery_commands:
+  git reset --hard ad401a9b5d3bfc17080a5ec7cdddfb9d31b57e07
+  git clean -fd
+  git switch codex/blackhole-evolve/20260618T191308.123460-add-a-bounded-local-evaluation-lane-for-agent-ha
