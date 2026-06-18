@@ -1,0 +1,14 @@
+Rollback point for Source digest github-growth-20260618T173207.146965Z
+
+Original branch: codex/blackhole-evolve/20260618T173248.607427-add-or-adapt-a-local-agent-harness-evaluation-la
+Original HEAD: 17e821ef68041a4e9a0c329821a61e3d9a673a70
+Local rollback ref: refs/rollback/20260618T173248Z-agent-harness-eval-local-validation
+
+Recovery commands, for explicit operator use only:
+
+git reset --hard 17e821ef68041a4e9a0c329821a61e3d9a673a70
+git clean -fd
+
+Notes:
+- Created before source edits for the agent harness evaluation local validation run.
+- Rollback execution is destructive and must be chosen by a human operator or supervisor policy.

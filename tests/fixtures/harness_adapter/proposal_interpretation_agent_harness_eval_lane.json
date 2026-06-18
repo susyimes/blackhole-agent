@@ -1,0 +1,182 @@
+{
+  "name": "proposal-interpretation-agent-harness-eval-lane",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-agent-harness-eval-lane",
+    "mode": "hybrid",
+    "options": {
+      "max_items": 3,
+      "max_item_text_chars": 320
+    },
+    "digest": {
+      "digest_id": "fixture-agent-harness-eval-lane",
+      "generated_at": "2026-06-18T17:32:07Z",
+      "items": [
+        {
+          "item_id": "apodex-agent-harness",
+          "source_url": "https://github.com/ApodexAI/AgentHarness",
+          "event_kind": "RepositoryTrend",
+          "summary": "ApodexAI/AgentHarness: evaluation harness with smoke and benchmark-style runs.",
+          "relevance_reason": "Supports repeatable local proposal interpretation tests.",
+          "risk_flags": [],
+          "confidence": 0.9
+        },
+        {
+          "item_id": "opencode-harness",
+          "source_url": "https://github.com/samarailly51-pixel/opencode-harness",
+          "event_kind": "RepositoryTrend",
+          "summary": "opencode-harness: coding-agent harness with traces, eval reports, permission policy, and failure taxonomy.",
+          "relevance_reason": "Supports structured local reports that expose routing decisions and validation metadata.",
+          "risk_flags": [],
+          "confidence": 0.91
+        },
+        {
+          "item_id": "visa-vulnerability-harness",
+          "source_url": "https://github.com/visa/visa-vulnerability-agentic-harness",
+          "event_kind": "RepositoryTrend",
+          "summary": "visa/visa-vulnerability-agentic-harness: security-adjacent agent harness with structured triage artifacts and multi-agent validation.",
+          "relevance_reason": "Boundary evidence only; offensive or unauthorized-access behavior remains review-only.",
+          "risk_flags": [
+            "offensive-behavior"
+          ],
+          "confidence": 0.7
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-agent-harness-eval-lane",
+      "run_interpretation": "The safe reusable lesson is a local, frozen proposal-interpretation eval lane for agent harness evidence.",
+      "self_model_reading": {
+        "status": "left_unchanged",
+        "reason": "The self-model already prefers rollback-backed local validation."
+      },
+      "proposals": [
+        {
+          "proposal_id": "p1-agent-harness-eval-local-validation",
+          "kind": "test",
+          "summary": "Add local adapter coverage for agent harness proposal interpretation and lane discipline.",
+          "evidence_refs": [
+            "apodex-agent-harness",
+            "opencode-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Run unit tests against frozen harness adapter fixtures and verify strict JSON, item-id evidence refs, and agent_harness_eval lane mapping.",
+          "rationale": "The selected harness evidence emphasizes repeatable evaluation reports and structured validation, which maps to local replay tests.",
+          "uncertainty": "The Visa repository is security-adjacent boundary evidence, so this fixture validates local interpretation contracts rather than vulnerability behavior.",
+          "self_effect": "Makes future agent harness trend interpretation drift visible in the local harness lane.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p2-agent-harness-config-lane-rejected",
+          "kind": "config",
+          "summary": "Incorrectly map agent harness evidence to a config lane.",
+          "evidence_refs": [
+            "opencode-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Negative fixture for route-hint lane discipline.",
+          "rationale": "agent_harness_eval evidence should not become config-only work.",
+          "uncertainty": "This candidate is intentionally malformed.",
+          "self_effect": "Would weaken local routing if accepted.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p3-agent-harness-url-ref-rejected",
+          "kind": "test",
+          "summary": "Incorrectly cite a repository URL instead of an item_id.",
+          "evidence_refs": [
+            "https://github.com/visa/visa-vulnerability-agentic-harness"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Negative fixture for evidence_ref URL rejection.",
+          "rationale": "The adapter should reject refs that are not supplied item IDs.",
+          "uncertainty": "This candidate is intentionally malformed.",
+          "self_effect": "Would make proposal evidence less replayable if accepted.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "accepted",
+      "accepted_count": 1,
+      "rejected_count": 2,
+      "accepted_evidence_refs": {
+        "p1-agent-harness-eval-local-validation": [
+          "apodex-agent-harness",
+          "opencode-harness"
+        ]
+      },
+      "rejected_error_substrings": [
+        "agent_harness_eval proposals must use one of: documentation, test, code_patch",
+        "evidence_refs contain unknown item ids: https://github.com/visa/visa-vulnerability-agentic-harness"
+      ],
+      "proposal_controls": {
+        "p1-agent-harness-eval-local-validation": {
+          "kind": "test",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        }
+      },
+      "proposal_validation_preflights": {
+        "p1-agent-harness-eval-local-validation": {
+          "status": "ready",
+          "requires_unit_test_or_coverage": true,
+          "has_unit_test_signal": true,
+          "safety_block": false,
+          "blocks_autonomous_apply": false
+        }
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "schema_version",
+      "equals": 1
+    },
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "review_status",
+      "equals": "accepted"
+    },
+    {
+      "path": "accepted_count",
+      "equals": 1
+    },
+    {
+      "path": "rejected_count",
+      "equals": 2
+    },
+    {
+      "path": "evidence_ref_policy.url_refs_allowed",
+      "equals": false
+    },
+    {
+      "path": "route_hint_policy.validation_lanes.agent_harness_eval",
+      "equals": [
+        "documentation",
+        "test",
+        "code_patch"
+      ]
+    },
+    {
+      "path": "route_hint_policy.selected_route_hints",
+      "equals": [
+        "agent_harness_eval"
+      ]
+    },
+    {
+      "path": "proposal_controls.p1-agent-harness-eval-local-validation.kind",
+      "equals": "test"
+    },
+    {
+      "path": "proposal_validation_preflights.p1-agent-harness-eval-local-validation.status",
+      "equals": "ready"
+    }
+  ]
+}

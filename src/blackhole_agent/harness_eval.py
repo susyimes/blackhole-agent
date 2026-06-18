@@ -1479,6 +1479,27 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
             "selected_item_ids": selected_item_ids,
             "url_refs_allowed": False,
         },
+        "route_hint_policy": {
+            "allowed_route_hints": [
+                str(route_hint)
+                for route_hint in evidence_package.get("policy", {}).get("allowed_route_hints", [])
+            ],
+            "validation_lanes": {
+                str(route_hint): [str(lane) for lane in lanes]
+                for route_hint, lanes in evidence_package.get("policy", {})
+                .get("route_hint_validation_lanes", {})
+                .items()
+            },
+            "selected_route_hints": sorted(
+                {
+                    str(route_hint)
+                    for item in evidence_package.get("items", [])
+                    if str(item.get("item_id") or "") in selected_item_ids
+                    for route_hint in item.get("route_hints", [])
+                    if str(route_hint).strip()
+                }
+            ),
+        },
         "safety_boundary": summarize_proposal_safety_boundary(result.proposal_controls),
         "accepted_candidates": accepted_candidates,
         "evidence_ref_violations": evidence_ref_violations,

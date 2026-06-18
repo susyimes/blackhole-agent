@@ -1333,8 +1333,8 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     assert reparsed == payload
     assert payload["suite_name"] == "fixture-harness-adapter"
-    assert payload["fixture_count"] == 7
-    assert payload["pass_count"] == 7
+    assert payload["fixture_count"] == 8
+    assert payload["pass_count"] == 8
     assert payload["fail_count"] == 0
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert "fixture-agent-harness-adapter" not in serialized
@@ -1342,6 +1342,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     results = {result["name"]: result for result in payload["results"]}
     agent_codex = results["proposal-interpretation-agent-codex-workflow-validation"]
+    agent_harness = results["proposal-interpretation-agent-harness-eval-lane"]
     accepted = results["proposal-interpretation-accepts-item-refs"]
     malformed_json = results["proposal-interpretation-rejects-malformed-json"]
     rejected = results["proposal-interpretation-rejects-url-refs"]
@@ -1350,6 +1351,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     max_proposals = results["proposal-interpretation-rejects-too-many-proposals"]
 
     assert agent_codex["passed"] is True
+    assert agent_harness["passed"] is True
     assert accepted["passed"] is True
     assert malformed_json["passed"] is True
     assert rejected["passed"] is True
@@ -1357,6 +1359,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert boundary["passed"] is True
     assert max_proposals["passed"] is True
     assert all(assertion["passed"] for assertion in agent_codex["assertions"])
+    assert all(assertion["passed"] for assertion in agent_harness["assertions"])
     assert all(assertion["passed"] for assertion in accepted["assertions"])
     assert all(assertion["passed"] for assertion in malformed_json["assertions"])
     assert all(assertion["passed"] for assertion in rejected["assertions"])
@@ -1391,6 +1394,7 @@ def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_i
         "selected_item_ids",
         "truncated_item_ids",
         "evidence_ref_policy",
+        "route_hint_policy",
         "safety_boundary",
         "accepted_candidates",
         "evidence_ref_violations",
@@ -1411,6 +1415,11 @@ def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_i
         "offensive_behavior_local_execution": False,
     }
     assert output["evidence_ref_violations"] == []
+    assert output["route_hint_policy"]["validation_lanes"]["agent_harness_eval"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
     supplied_item_ids = set(output["evidence_ref_policy"]["supplied_item_ids"])
     assert supplied_item_ids == {"agent-harness", "opencode-harness"}
     for candidate in output["accepted_candidates"]:
