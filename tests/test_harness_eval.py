@@ -180,6 +180,8 @@ def test_mock_llm_workflow_route_exercises_provider_disabled_path_without_extern
     }
     assert output["mock_llm"]["enabled"] is True
     assert output["mock_llm"]["call_count"] == 2
+    assert output["mock_llm"]["remaining_response_count"] == 0
+    assert output["mock_llm"]["all_responses_consumed"] is True
     assert output["mock_llm"]["usage"] == {
         "input_tokens": 20,
         "output_tokens": 13,
@@ -702,6 +704,13 @@ def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting
     assert output["file_tools"]["mocked_count"] == 2
     assert output["file_tools"]["unmocked_external_count"] == 0
     assert output["file_tools"]["all_expectations_passed"] is True
+    assert output["mock_llm"]["remaining_response_count"] == 0
+    assert output["tool_call_contract"]["declared"] is True
+    assert output["tool_call_contract"]["required_tool_call_count"] == 2
+    assert output["tool_call_contract"]["observed_tool_call_count"] == 2
+    assert output["tool_call_contract"]["matched_required_tool_call_count"] == 2
+    assert output["tool_call_contract"]["all_required_tool_calls_observed"] is True
+    assert output["tool_call_contract"]["raw_tool_arguments_exported"] is False
     assert all(operation["path_hash"].startswith("sha256:") for operation in output["file_tools"]["operations"])
     assert all(operation["content_hash"].startswith("sha256:") for operation in output["file_tools"]["operations"])
     assert "session-current-fixture" not in serialized
@@ -735,11 +744,103 @@ def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_
     assert output["native_tool_policy"]["permission_decision"] == "deny"
     assert output["native_tool_policy"]["fail_closed_applied"] is True
     assert output["native_tool_policy"]["tool_executed"] is False
+    assert output["mock_llm"]["remaining_response_count"] == 0
+    assert output["tool_call_contract"]["declared"] is True
+    assert output["tool_call_contract"]["required_tool_call_count"] == 1
+    assert output["tool_call_contract"]["observed_tool_call_count"] == 2
+    assert output["tool_call_contract"]["matched_required_tool_call_count"] == 1
+    assert output["tool_call_contract"]["all_required_tool_calls_observed"] is True
+    assert output["tool_call_contract"]["raw_tool_arguments_exported"] is False
     assert output["failure_mode"] == "none"
     assert "PRIVATE_NAMED_SUB_AGENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
+    assert "Write" not in serialized
+
+
+def test_mock_llm_workflow_route_fails_when_response_queue_is_not_consumed():
+    raw_input = {
+        "task_id": "fixture-mock-llm-unconsumed-queue",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "mock_llm": {
+            "enabled": True,
+            "responses": [
+                {"content": "first response"},
+                {"content": "unused response"},
+            ],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "only-step", "expect_contains": "first"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_unconsumed_queue_inline.json",
+    )
+
+    assert output["route_status"] == "failed"
+    assert output["mock_llm"]["call_count"] == 1
+    assert output["mock_llm"]["response_count"] == 2
+    assert output["mock_llm"]["remaining_response_count"] == 1
+    assert output["mock_llm"]["all_responses_consumed"] is False
+    assert output["failure_mode"] == "mock_llm_queue_not_consumed"
+
+
+def test_mock_llm_workflow_route_fails_when_declared_native_tool_call_is_not_observed():
+    raw_input = {
+        "task_id": "fixture-mock-llm-native-tool-not-observed",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "native_tool_policy": {
+            "task_id": "fixture-mock-llm-native-tool-not-observed",
+            "policy_hook": {
+                "governed": True,
+                "session_id": "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT",
+                "server_url_configured": True,
+                "event_phase": "PreToolUse",
+                "failure_mode": "timeout",
+            },
+            "tool_call": {
+                "name": "Write",
+                "transport": "native",
+                "arguments": {"path": "fixtures/private-output.md"},
+            },
+        },
+        "mock_llm": {
+            "enabled": True,
+            "responses": [{"content": "no tool call was emitted"}],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "missing-tool-call", "expect_contains": "no tool call"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_native_tool_not_observed_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["native_tool_policy"]["route_status"] == "denied"
+    assert output["native_tool_policy"]["tool_executed"] is False
+    assert output["tool_call_contract"]["declared"] is True
+    assert output["tool_call_contract"]["required_tool_call_count"] == 1
+    assert output["tool_call_contract"]["observed_tool_call_count"] == 0
+    assert output["tool_call_contract"]["matched_required_tool_call_count"] == 0
+    assert output["tool_call_contract"]["all_required_tool_calls_observed"] is False
+    assert output["tool_call_contract"]["raw_tool_arguments_exported"] is False
+    assert output["failure_mode"] == "tool_call_contract_failed"
+    assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "fixtures/private-output.md" not in serialized
+    assert "Write" not in serialized
 
 
 def test_mock_llm_workflow_route_fails_when_named_subagent_queue_falls_back_to_default():

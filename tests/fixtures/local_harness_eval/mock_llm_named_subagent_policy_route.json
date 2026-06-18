@@ -53,6 +53,9 @@
             "tool_calls": [
               {
                 "name": "sys_session_send"
+              },
+              {
+                "name": "Write"
               }
             ]
           },
@@ -97,6 +100,14 @@
       "equals": 2
     },
     {
+      "path": "mock_llm.remaining_response_count",
+      "equals": 0
+    },
+    {
+      "path": "mock_llm.all_responses_consumed",
+      "equals": true
+    },
+    {
       "path": "workflow.fallback_count",
       "equals": 0
     },
@@ -138,6 +149,26 @@
     },
     {
       "path": "native_tool_policy.arguments_exported",
+      "equals": false
+    },
+    {
+      "path": "tool_call_contract.required_tool_call_count",
+      "equals": 1
+    },
+    {
+      "path": "tool_call_contract.observed_tool_call_count",
+      "equals": 2
+    },
+    {
+      "path": "tool_call_contract.matched_required_tool_call_count",
+      "equals": 1
+    },
+    {
+      "path": "tool_call_contract.all_required_tool_calls_observed",
+      "equals": true
+    },
+    {
+      "path": "tool_call_contract.raw_tool_arguments_exported",
       "equals": false
     },
     {

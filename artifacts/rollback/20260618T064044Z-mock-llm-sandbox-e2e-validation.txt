@@ -1,0 +1,12 @@
+Rollback point for source digest github-growth-20260618T064044.692705Z
+
+Original branch: codex/blackhole-evolve/20260618T064140.070843-add-or-adapt-a-local-validation-lane-that-exerci
+Original HEAD: 41b9538204bef69f2c0b52d499f11ec658bb2145
+Local rollback ref: refs/rollback/20260618T064044Z-mock-llm-sandbox-e2e-validation
+
+Recovery commands:
+  git reset --hard 41b9538204bef69f2c0b52d499f11ec658bb2145
+  git clean -fd
+
+Notes:
+  Rollback execution is explicit and destructive. Do not run these commands unless an operator or supervisor chooses recovery.

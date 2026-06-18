@@ -329,6 +329,12 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     file_tool_result = evaluate_mock_file_tools_route(file_tools)
     sub_agent_result = evaluate_mock_named_sub_agents_route(sub_agents, response_results=response_results)
     native_policy_result = evaluate_embedded_native_tool_policy(native_tool_policy, source_path=source_path)
+    tool_contract = evaluate_mock_tool_call_contract(
+        file_tools=file_tools,
+        native_tool_policy=native_tool_policy,
+        response_results=response_results,
+    )
+    remaining_response_count = sum(len(queue) for queue in response_queues.values())
     usage = aggregate_mock_llm_usage(response_results)
     failure_mode = mock_llm_workflow_failure_mode(
         step_count=len(steps),
@@ -344,6 +350,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         and file_tool_result["all_expectations_passed"],
         sub_agents_passed=sub_agent_result["persistence_passed"] and not sub_agent_result["queue_desync_detected"],
         native_policy_passed=native_policy_result["passive_or_denied"],
+        queue_consumed=remaining_response_count == 0,
+        tool_contract_passed=tool_contract["all_required_tool_calls_observed"],
     )
 
     return {
@@ -362,6 +370,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "model": optional_string(mock_llm.get("model")) or "mock-llm",
             "call_count": len(response_results),
             "response_count": response_count,
+            "remaining_response_count": remaining_response_count,
+            "all_responses_consumed": remaining_response_count == 0,
             "queue_keys": sorted(response_queues),
             "exhausted": mock_enabled and not enough_responses,
             "usage": usage,
@@ -380,6 +390,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         "file_tools": file_tool_result,
         "sub_agents": sub_agent_result,
         "native_tool_policy": native_policy_result,
+        "tool_call_contract": tool_contract,
         "failure_mode": failure_mode,
     }
 
@@ -484,6 +495,15 @@ def build_mock_llm_response_results(
         tool_calls = response_data.get("tool_calls") if isinstance(response_data.get("tool_calls"), list) else []
         request_key = mock_llm_request_key(step_data, mock_llm=mock_llm)
         response_model = optional_string(response_data.get("response_model")) or request_key
+        tool_call_names = [
+            name
+            for name in (
+                optional_string(tool_call.get("name"))
+                for tool_call in tool_calls
+                if isinstance(tool_call, dict)
+            )
+            if name
+        ]
         results.append(
             {
                 "step_id": optional_string(step_data.get("id")) or f"step-{index + 1}",
@@ -495,6 +515,7 @@ def build_mock_llm_response_results(
                 "response_hash": stable_text_hash(content),
                 "expectation_passed": expect_contains is None or expect_contains in content,
                 "tool_call_count": len(tool_calls),
+                "tool_call_names": tool_call_names,
                 "input_tokens": optional_int(usage.get("input_tokens") or usage.get("prompt_tokens")) or 0,
                 "output_tokens": optional_int(usage.get("output_tokens") or usage.get("completion_tokens")) or 0,
             }
@@ -666,6 +687,53 @@ def evaluate_mock_file_tool_operation(operation: Any) -> dict[str, Any]:
     }
 
 
+def evaluate_mock_tool_call_contract(
+    *,
+    file_tools: dict[str, Any],
+    native_tool_policy: dict[str, Any],
+    response_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Check that mock responses exercised the declared local tool boundary."""
+
+    required_names: list[str] = []
+    operations = file_tools.get("operations") if isinstance(file_tools.get("operations"), list) else []
+    for operation in operations:
+        operation_data = operation if isinstance(operation, dict) else {}
+        name = optional_string(operation_data.get("name"))
+        if name:
+            required_names.append(name)
+
+    tool_call = native_tool_policy.get("tool_call") if isinstance(native_tool_policy.get("tool_call"), dict) else {}
+    native_name = optional_string(tool_call.get("name"))
+    if native_name:
+        required_names.append(native_name)
+
+    observed_names = [
+        name
+        for result in response_results
+        for name in result.get("tool_call_names", [])
+        if isinstance(name, str) and name
+    ]
+    remaining_observed = list(observed_names)
+    matched_count = 0
+    for name in required_names:
+        if name not in remaining_observed:
+            continue
+        matched_count += 1
+        remaining_observed.remove(name)
+
+    return {
+        "declared": bool(required_names),
+        "required_tool_call_count": len(required_names),
+        "observed_tool_call_count": len(observed_names),
+        "matched_required_tool_call_count": matched_count,
+        "all_required_tool_calls_observed": matched_count == len(required_names),
+        "required_tool_call_name_hashes": [stable_text_hash(name) for name in required_names],
+        "observed_tool_call_name_hashes": [stable_text_hash(name) for name in observed_names],
+        "raw_tool_arguments_exported": False,
+    }
+
+
 def evaluate_mock_named_sub_agents_route(
     sub_agents: dict[str, Any],
     *,
@@ -776,6 +844,8 @@ def mock_llm_workflow_failure_mode(
     file_tools_passed: bool,
     sub_agents_passed: bool,
     native_policy_passed: bool,
+    queue_consumed: bool,
+    tool_contract_passed: bool,
 ) -> str:
     if step_count < 1:
         return "no_workflow_steps"
@@ -791,6 +861,8 @@ def mock_llm_workflow_failure_mode(
         return "anthropic_messages_incompatible"
     if not expectations_passed:
         return "expectation_failed"
+    if not queue_consumed:
+        return "mock_llm_queue_not_consumed"
     if not session_passed:
         return "session_isolation_failed"
     if not file_tools_passed:
@@ -799,6 +871,8 @@ def mock_llm_workflow_failure_mode(
         return "sub_agent_mock_route_failed"
     if not native_policy_passed:
         return "native_policy_route_failed"
+    if not tool_contract_passed:
+        return "tool_call_contract_failed"
     return "none"
 
 
