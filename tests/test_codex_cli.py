@@ -10,6 +10,9 @@ import blackhole_agent.kernels.codex_cli as codex_cli
 from blackhole_agent.kernels.codex_cli import (
     CodexCliConfig,
     CodexCliKernel,
+    CodexStreamChunk,
+    CodexStreamTimeoutError,
+    assemble_codex_stream_chunks,
     build_ambient_google_preflight,
     build_ambient_openai_preflight,
     build_codex_exec_command,
@@ -391,6 +394,62 @@ def test_codex_kernel_cancel_recover_uses_fresh_artifacts_for_same_second(tmp_pa
     assert latest["last_message"] == "recovered cleanly"
     assert latest["timed_out"] is False
     assert latest["result_path"].endswith("codex-run-20260616T091703Z-001.json")
+
+
+def test_codex_stream_assembler_flushes_split_paragraphs_and_completion():
+    result = assemble_codex_stream_chunks(
+        [
+            CodexStreamChunk(0.0, "I'm drilling into runner now: first the module boundaries, then "),
+            CodexStreamChunk(0.4, "the control path for policies, transports, and folder names."),
+            CodexStreamChunk(0.8, "\n"),
+            CodexStreamChunk(1.1, "\nI have the runner's main HTTP app now."),
+            CodexStreamChunk(1.2, completed=True),
+        ],
+        idle_timeout_seconds=2,
+    )
+
+    assert result.completed is True
+    assert result.paragraphs == [
+        "I'm drilling into runner now: first the module boundaries, then "
+        "the control path for policies, transports, and folder names.",
+        "I have the runner's main HTTP app now.",
+    ]
+
+
+def test_codex_stream_assembler_handles_windows_paragraph_boundaries():
+    result = assemble_codex_stream_chunks(
+        [
+            CodexStreamChunk(0.0, "First paragraph.\r"),
+            CodexStreamChunk(0.1, "\n\r\nSecond paragraph."),
+            CodexStreamChunk(0.2, completed=True),
+        ],
+        idle_timeout_seconds=1,
+    )
+
+    assert result.paragraphs == ["First paragraph.", "Second paragraph."]
+
+
+def test_codex_stream_assembler_detects_idle_hang_before_completion():
+    with pytest.raises(CodexStreamTimeoutError, match="stalled for 5 seconds"):
+        assemble_codex_stream_chunks(
+            [
+                CodexStreamChunk(0.0, "Partial reasoning that has not completed"),
+                CodexStreamChunk(5.0, " and arrives too late."),
+                CodexStreamChunk(5.1, completed=True),
+            ],
+            idle_timeout_seconds=2,
+        )
+
+
+def test_codex_stream_assembler_requires_completion_marker():
+    with pytest.raises(CodexStreamTimeoutError, match="ended without a completion marker"):
+        assemble_codex_stream_chunks(
+            [
+                CodexStreamChunk(0.0, "Buffered final sentence."),
+                CodexStreamChunk(0.1, "\n\nNext paragraph."),
+            ],
+            idle_timeout_seconds=2,
+        )
 
 
 def test_shutdown_subprocess_cli_transport_stderr_treats_absent_task_group_as_already_closed(caplog):

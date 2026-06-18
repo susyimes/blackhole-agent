@@ -14,7 +14,7 @@ import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 
 LOGGER = logging.getLogger(__name__)
@@ -52,6 +52,27 @@ class CodexCliRunResult:
     stdout_tail: str
     stderr_tail: str
     last_message: str
+
+
+@dataclass(frozen=True)
+class CodexStreamChunk:
+    """Deterministic fixture event for Codex streaming regression tests."""
+
+    offset_seconds: float
+    text: str = ""
+    completed: bool = False
+
+
+@dataclass(frozen=True)
+class CodexStreamAssemblyResult:
+    """Paragraphs and completion state produced from streamed Codex chunks."""
+
+    paragraphs: list[str]
+    completed: bool
+
+
+class CodexStreamTimeoutError(TimeoutError):
+    """Raised when a simulated Codex stream stalls before completion."""
 
 
 class CodexCliKernel:
@@ -343,6 +364,83 @@ def timeout_text(value: Any) -> str:
     if isinstance(value, bytes):
         return value.decode(errors="replace")
     return str(value)
+
+
+class CodexStreamParagraphAssembler:
+    """Assemble streamed text into finalized paragraphs.
+
+    Codex streaming regressions are most visible when buffered text hangs at
+    completion or a new paragraph is appended directly to the previous one.
+    This fixture-oriented assembler keeps that behavior locally testable
+    without network access, provider tokens, or a live UI stream.
+    """
+
+    def __init__(self) -> None:
+        self._buffer = ""
+
+    def feed(self, text: str) -> list[str]:
+        self._buffer += text
+        paragraphs: list[str] = []
+        while True:
+            split_at = _find_paragraph_boundary(self._buffer)
+            if split_at is None:
+                return paragraphs
+            paragraph = self._buffer[:split_at].strip()
+            self._buffer = self._buffer[split_at:]
+            self._buffer = self._buffer.lstrip("\r\n")
+            if paragraph:
+                paragraphs.append(paragraph)
+
+    def finish(self) -> list[str]:
+        paragraph = self._buffer.strip()
+        self._buffer = ""
+        return [paragraph] if paragraph else []
+
+
+def assemble_codex_stream_chunks(
+    chunks: Iterable[CodexStreamChunk],
+    *,
+    idle_timeout_seconds: float,
+) -> CodexStreamAssemblyResult:
+    """Consume deterministic stream chunks and fail on stalled completion."""
+
+    if idle_timeout_seconds <= 0:
+        raise ValueError("idle_timeout_seconds must be greater than zero")
+
+    assembler = CodexStreamParagraphAssembler()
+    paragraphs: list[str] = []
+    previous_offset: float | None = None
+    completed = False
+
+    for chunk in chunks:
+        offset = float(chunk.offset_seconds)
+        if previous_offset is not None:
+            idle_seconds = offset - previous_offset
+            if idle_seconds < 0:
+                raise ValueError("Codex stream chunk offsets must be monotonic")
+            if idle_seconds > idle_timeout_seconds:
+                raise CodexStreamTimeoutError(
+                    f"Codex stream stalled for {idle_seconds:g} seconds before completion"
+                )
+        previous_offset = offset
+        if chunk.text:
+            paragraphs.extend(assembler.feed(chunk.text))
+        if chunk.completed:
+            completed = True
+            paragraphs.extend(assembler.finish())
+            break
+
+    if not completed:
+        raise CodexStreamTimeoutError("Codex stream ended without a completion marker")
+
+    return CodexStreamAssemblyResult(paragraphs=paragraphs, completed=True)
+
+
+def _find_paragraph_boundary(value: str) -> int | None:
+    indexes = [index for marker in ("\r\n\r\n", "\n\n") if (index := value.find(marker)) != -1]
+    if not indexes:
+        return None
+    return min(indexes)
 
 
 def shutdown_subprocess_cli_transport_stderr(

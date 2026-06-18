@@ -1,0 +1,8 @@
+original_branch: codex/blackhole-evolve/20260618T102156.503367-add-or-extend-a-local-regression-test-lane-for-c
+original_head: 94ee5c9dd45c5f388ab5ed373014f423b9bf70fb
+rollback_ref: refs/blackhole-rollback/20260618T102044Z-codex-streaming-regression-lane
+recovery_commands:
+  git switch codex/blackhole-evolve/20260618T102156.503367-add-or-extend-a-local-regression-test-lane-for-c
+  git reset --hard refs/blackhole-rollback/20260618T102044Z-codex-streaming-regression-lane
+  git clean -fd
+created_for: github-growth-20260618T102044.179836Z
