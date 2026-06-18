@@ -259,6 +259,142 @@ def test_agent_harness_eval_fixture_enforces_json_refs_max_count_and_route_lanes
     assert too_many_review.reason == "proposal count exceeds max_proposals=5"
 
 
+def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
+    case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+    selected_items_by_id = {str(item["item_id"]): item for item in evidence_package["items"]}
+
+    assert evidence_package["policy"]["route_hint_validation_lanes"]["skill_route_discovery"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert {
+        route_hint
+        for item in selected_items_by_id.values()
+        for route_hint in item["route_hints"]
+    } == {"skill_route_discovery"}
+
+    valid_proposal = case["raw_response"]["proposals"][0]
+    table = [
+        (
+            "accepts_allowed_lane",
+            {**valid_proposal, "kind": "test", "proposal_id": "skill-route-test-lane"},
+            "accepted",
+            None,
+        ),
+        (
+            "rejects_escaped_lane",
+            {**valid_proposal, "kind": "follow_up_issue", "proposal_id": "skill-route-follow-up-lane"},
+            "rejected",
+            "skill_route_discovery proposals must use one of: documentation, config, test, code_patch",
+        ),
+        (
+            "rejects_url_ref",
+            {
+                **valid_proposal,
+                "proposal_id": "skill-route-url-ref",
+                "evidence_refs": ["https://github.com/baskduf/FableCodex"],
+            },
+            "rejected",
+            "evidence_refs contain unknown item ids: https://github.com/baskduf/FableCodex",
+        ),
+    ]
+
+    for name, proposal, expected_status, expected_error in table:
+        review = review_llm_proposal_response(
+            json.dumps({**case["raw_response"], "proposals": [proposal]}),
+            evidence_package,
+            mode=case["mode"],
+        )
+
+        assert review.status == expected_status, name
+        if expected_error is None:
+            accepted = review.accepted_candidates[0]
+            assert accepted["proposal_id"] == proposal["proposal_id"]
+            assert accepted["evidence_urls"] == sorted(
+                selected_items_by_id[item_id]["source_url"] for item_id in accepted["evidence_refs"]
+            )
+        else:
+            assert expected_error in review.rejected_candidates[0]["errors"]
+
+    too_many_review = review_llm_proposal_response(
+        json.dumps(
+            {
+                **case["raw_response"],
+                "proposals": [
+                    {**valid_proposal, "proposal_id": f"skill-route-overflow-{index}"}
+                    for index in range(evidence_package["policy"]["max_proposals"] + 1)
+                ],
+            }
+        ),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert too_many_review.status == "rejected"
+    assert too_many_review.reason == "proposal count exceeds max_proposals=5"
+
+    truncation_case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
+    truncation_case["options"] = {"max_items": 1, "max_item_text_chars": 360}
+    truncation_package = build_proposal_evidence_package(
+        truncation_case["digest"],
+        max_items=truncation_case["options"]["max_items"],
+        max_item_text_chars=truncation_case["options"]["max_item_text_chars"],
+    )
+    assert truncation_package["context_budget"]["evidence_truncation_uncertainty"]["missing_detail_risk"] is True
+    assert truncation_package["context_budget"]["selected_item_ids"] == ["fablecodex-codex-skill-workflow"]
+    assert truncation_package["context_budget"]["truncated_item_ids"] == ["compass-skills-task-routing"]
+
+    truncated_ref_review = review_llm_proposal_response(
+        json.dumps(
+            {
+                **truncation_case["raw_response"],
+                "proposals": [
+                    {
+                        **valid_proposal,
+                        "proposal_id": "skill-route-truncated-ref",
+                        "evidence_refs": ["compass-skills-task-routing"],
+                        "uncertainty": "This malformed candidate cites omitted context-budget evidence.",
+                    }
+                ],
+            }
+        ),
+        truncation_package,
+        mode=truncation_case["mode"],
+    )
+    assert truncated_ref_review.status == "rejected"
+    assert "evidence_refs contain unknown item ids: compass-skills-task-routing" in (
+        truncated_ref_review.rejected_candidates[0]["errors"]
+    )
+
+    missing_uncertainty_review = review_llm_proposal_response(
+        json.dumps(
+            {
+                **truncation_case["raw_response"],
+                "proposals": [
+                    {
+                        **valid_proposal,
+                        "proposal_id": "skill-route-missing-detail-risk",
+                        "evidence_refs": ["fablecodex-codex-skill-workflow"],
+                        "uncertainty": "The selected repository summary supports this local routing test.",
+                    }
+                ],
+            }
+        ),
+        truncation_package,
+        mode=truncation_case["mode"],
+    )
+    assert missing_uncertainty_review.status == "rejected"
+    assert "uncertainty must record context_budget missing_detail_risk" in (
+        missing_uncertainty_review.rejected_candidates[0]["errors"]
+    )
+
+
 def test_proposal_benchmark_report_classifies_schema_and_evidence_ref_drift():
     schema_case = load_proposal_replay_case(FIXTURE_DIR / "benign_agent_harness.json")
     schema_case["raw_response"]["schema_version"] = 2
