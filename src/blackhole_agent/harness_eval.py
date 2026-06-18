@@ -55,6 +55,10 @@ NATIVE_POLICY_HOOK_UNAVAILABLE_FAILURES = {
     "server_unreachable",
     "timeout",
 }
+NATIVE_POLICY_HOOK_ASK_TIMEOUT_FAILURES = {
+    "ask_timeout",
+    "slow_ask_timeout",
+}
 
 
 @dataclass(frozen=True)
@@ -893,9 +897,16 @@ def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: 
     verdict = policy_hook.get("verdict") if isinstance(policy_hook.get("verdict"), dict) else {}
     verdict_received = bool(verdict) and hook_failure_mode == "none"
     unavailable = governed and not verdict_received and hook_failure_mode in NATIVE_POLICY_HOOK_UNAVAILABLE_FAILURES
+    ask_timeout = governed and not verdict_received and hook_failure_mode in NATIVE_POLICY_HOOK_ASK_TIMEOUT_FAILURES
     malformed_verdict = governed and not verdict_received and hook_failure_mode == "malformed_verdict"
 
-    if governed and is_tool_call_phase and (unavailable or malformed_verdict):
+    if governed and is_tool_call_phase and ask_timeout:
+        decision = "review_required"
+        decision_reason = f"policy_hook_ask_timeout:{hook_failure_mode}"
+        route_status = "review_only"
+        failure_mode = "policy_ask_timeout"
+        fail_closed_applied = False
+    elif governed and is_tool_call_phase and (unavailable or malformed_verdict):
         decision = "deny"
         decision_reason = f"policy_hook_fail_closed:{hook_failure_mode}"
         route_status = "denied"

@@ -178,6 +178,8 @@ Codex mutation uses a separate provider/config preflight before `codex exec` sta
 
 Connector-native tool policy evaluation is fail-closed. A timeout, exception, unreachable policy service, malformed result object, or malformed `ToolCallPolicyResult` field keeps the tool out of the executable registry. DENY verdicts route to `denied`; ASK-style verdicts set `review_required` and route to `review_only` rather than executing silently.
 
+Native harness policy-hook fixtures follow the same no-silent-allow rule for governed tool-call phases. Timeout, connection failure, and error-response cases deny the tool call. A slow ASK decision routes to `review_only` with `policy_ask_timeout`, so an operator-review path is explicit and the tool is not executed.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:

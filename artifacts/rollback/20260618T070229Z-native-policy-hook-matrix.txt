@@ -1,0 +1,15 @@
+Rollback point for native policy hook matrix self-evolution
+
+Source digest: github-growth-20260618T070044.059847Z
+Original branch: codex/blackhole-evolve/20260618T070158.057365-add-or-strengthen-local-tests-for-native-harness
+Original HEAD: 59e3432c56ea34b68731f6491dd8e6f5fb3a4f5e
+Rollback ref: refs/blackhole-rollback/20260618T070229Z-native-policy-hook-matrix
+
+Recovery commands, to run only after an explicit operator or supervisor rollback decision:
+
+git reset --hard refs/blackhole-rollback/20260618T070229Z-native-policy-hook-matrix
+git clean -fd
+
+Notes:
+- This run targets local validation for native policy hook fail-closed behavior.
+- Do not delete this rollback artifact from the run that created it.
