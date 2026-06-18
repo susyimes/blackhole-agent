@@ -1,0 +1,13 @@
+Rollback point for skill route preflight run
+
+Source digest: github-growth-20260618T221207.168427Z
+Original branch: codex/blackhole-evolve/20260618T221307.423898-document-a-local-skill-route-discovery-inventory
+Original HEAD: 7e66aea3dda429fd175917391bb97bcbdb66daba
+Rollback ref: refs/blackhole-agent/rollback/20260618T221207Z-skill-route-preflight
+
+Recovery commands, if explicitly chosen by an operator:
+
+git switch codex/blackhole-evolve/20260618T221307.423898-document-a-local-skill-route-discovery-inventory
+git reset --hard refs/blackhole-agent/rollback/20260618T221207Z-skill-route-preflight
+
+This rollback point was created before editing local source, tests, docs, or run notes.

@@ -327,6 +327,55 @@ def build_proposal_evidence_package(
     }
 
 
+def build_route_hint_policy_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:
+    """Validate route-hint lane policy before proposal implementation lanes are chosen."""
+
+    policy = evidence_package.get("policy") if isinstance(evidence_package.get("policy"), dict) else {}
+    configured_lanes = policy.get("route_hint_validation_lanes")
+    configured_lanes = configured_lanes if isinstance(configured_lanes, dict) else {}
+    configured_hints = {
+        str(hint): [str(lane) for lane in lanes if str(lane).strip()]
+        for hint, lanes in configured_lanes.items()
+        if isinstance(lanes, list)
+    }
+    selected_route_hints = sorted(
+        {
+            str(route_hint)
+            for item in evidence_package.get("items", [])
+            if isinstance(item, dict)
+            for route_hint in item.get("route_hints", [])
+            if str(route_hint).strip()
+        }
+    )
+
+    diagnostics: list[str] = []
+    expected_skill_lanes = ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+    skill_lanes = configured_hints.get("skill_route_discovery")
+    if skill_lanes != expected_skill_lanes:
+        diagnostics.append(
+            "skill_route_discovery route hint must resolve only to: "
+            + ", ".join(expected_skill_lanes)
+        )
+
+    unsupported_skill_lanes = sorted(set(skill_lanes or []) - set(expected_skill_lanes))
+    if unsupported_skill_lanes:
+        diagnostics.append("skill_route_discovery has unsupported lanes: " + ", ".join(unsupported_skill_lanes))
+
+    unconfigured_hints = sorted(set(selected_route_hints) - set(configured_hints))
+    if unconfigured_hints:
+        diagnostics.append("selected route hints lack validation lanes: " + ", ".join(unconfigured_hints))
+
+    return {
+        "ok": not diagnostics,
+        "route_hint_count": len(selected_route_hints),
+        "selected_route_hints": selected_route_hints,
+        "configured_route_hints": sorted(configured_hints),
+        "skill_route_discovery_lanes": skill_lanes or [],
+        "allowed_skill_route_discovery_lanes": list(expected_skill_lanes),
+        "diagnostics": diagnostics,
+    }
+
+
 def route_hints_for_digest_item(item: dict[str, Any]) -> list[str]:
     """Return deterministic proposal lanes suggested by non-sensitive item text."""
 
@@ -922,6 +971,15 @@ def review_llm_proposal_response(
     input_digest_id = str(evidence_package.get("digest_id") or "")
     input_hash = stable_hash(evidence_package)
     output_hash = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
+    route_hint_preflight = build_route_hint_policy_preflight(evidence_package)
+    if not route_hint_preflight["ok"]:
+        return rejected_review(
+            mode=normalized_mode,
+            reason="route_hint_policy_preflight failed: " + "; ".join(route_hint_preflight["diagnostics"]),
+            input_digest_id=input_digest_id,
+            input_hash=input_hash,
+            output_hash=output_hash,
+        )
     try:
         payload = extract_json_object(raw_text)
     except ValueError as error:

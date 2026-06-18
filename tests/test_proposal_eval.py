@@ -10,7 +10,11 @@ from blackhole_agent.proposal_eval import (
     run_proposal_replay_suite,
     validate_proposal_replay_manifest,
 )
-from blackhole_agent.proposal_synthesis import build_proposal_evidence_package, review_llm_proposal_response
+from blackhole_agent.proposal_synthesis import (
+    build_proposal_evidence_package,
+    build_route_hint_policy_preflight,
+    review_llm_proposal_response,
+)
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "proposal_replay"
@@ -279,6 +283,20 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
         for item in selected_items_by_id.values()
         for route_hint in item["route_hints"]
     } == {"skill_route_discovery"}
+    preflight = build_route_hint_policy_preflight(evidence_package)
+    assert preflight == {
+        "ok": True,
+        "route_hint_count": 1,
+        "selected_route_hints": ["skill_route_discovery"],
+        "configured_route_hints": [
+            "agent_harness_eval",
+            "provider_config_preflight",
+            "skill_route_discovery",
+        ],
+        "skill_route_discovery_lanes": ["documentation", "config", "test", "code_patch"],
+        "allowed_skill_route_discovery_lanes": ["documentation", "config", "test", "code_patch"],
+        "diagnostics": [],
+    }
 
     valid_proposal = case["raw_response"]["proposals"][0]
     table = [
@@ -392,6 +410,41 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
     assert missing_uncertainty_review.status == "rejected"
     assert "uncertainty must record context_budget missing_detail_risk" in (
         missing_uncertainty_review.rejected_candidates[0]["errors"]
+    )
+
+
+def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():
+    case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+    evidence_package["policy"]["route_hint_validation_lanes"]["skill_route_discovery"] = [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "runtime_execution",
+    ]
+
+    preflight = build_route_hint_policy_preflight(evidence_package)
+    review = review_llm_proposal_response(
+        json.dumps(case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+
+    assert preflight["ok"] is False
+    assert preflight["diagnostics"] == [
+        "skill_route_discovery route hint must resolve only to: documentation, config, test, code_patch",
+        "skill_route_discovery has unsupported lanes: runtime_execution",
+    ]
+    assert review.status == "rejected"
+    assert review.reason == (
+        "route_hint_policy_preflight failed: "
+        "skill_route_discovery route hint must resolve only to: documentation, config, test, code_patch; "
+        "skill_route_discovery has unsupported lanes: runtime_execution"
     )
 
 
