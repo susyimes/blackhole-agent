@@ -1,0 +1,8 @@
+original_branch: codex/blackhole-evolve/20260618T104148.255091-create-focused-tests-for-skill-route-discovery-l
+original_head: d445f12eb66f64a451dab58a4b1f8e680bc793af
+rollback_ref: refs/blackhole-rollback/20260618T104044Z-skill-route-discovery-focused-tests
+recovery_commands:
+  git switch codex/blackhole-evolve/20260618T104148.255091-create-focused-tests-for-skill-route-discovery-l
+  git reset --hard refs/blackhole-rollback/20260618T104044Z-skill-route-discovery-focused-tests
+  git clean -fd
+created_for_digest: github-growth-20260618T104044.027769Z

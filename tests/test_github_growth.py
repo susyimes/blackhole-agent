@@ -1345,6 +1345,185 @@ def test_proposal_evidence_package_marks_skill_workflow_route_hints():
     ]
 
 
+def test_skill_route_discovery_accepts_only_bounded_repository_trend_lanes():
+    digest = {
+        "digest_id": "github-growth-skill-route-focused-lanes",
+        "generated_at": "2026-06-18T10:40:44Z",
+        "items": [
+            {
+                "item_id": "fablecodex-workflow-gates",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": "FableCodex: Codex skill and workflow gates for inspecting evidence before completion.",
+                "relevance_reason": "Skill repository trend evidence should map to bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.91,
+            },
+            {
+                "item_id": "compass-skills-routing",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "compass-skills: personal alignment skill ecosystem for AI agents and task routing.",
+                "relevance_reason": "Skill ecosystem evidence can inform local route discovery without expansion.",
+                "risk_flags": [],
+                "confidence": 0.88,
+            },
+            {
+                "item_id": "threejs-game-skills-pack",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "threejs-game-skills: agent skills for polished Three.js browser game workflows and QA.",
+                "relevance_reason": "Skill-pack evidence should remain documentation, config, test, or code patch work.",
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=260)
+    allowed_lanes = evidence_package["policy"]["route_hint_validation_lanes"]["skill_route_discovery"]
+
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-skill-route-focused-lanes",
+            "run_interpretation": "Skill repositories can propose only bounded local validation work.",
+            "self_model_reading": {"status": "left_unchanged"},
+            "proposals": [
+                {
+                    "proposal_id": f"skill-route-{kind}",
+                    "kind": kind,
+                    "summary": f"Map skill repository evidence to {kind} work.",
+                    "evidence_refs": ["fablecodex-workflow-gates", "compass-skills-routing"],
+                    "added_risk_flags": [],
+                    "validation_task": f"Run focused local tests for skill-route {kind} mapping.",
+                    "rationale": "The selected evidence is skill/workflow-shaped and supports bounded local validation.",
+                    "uncertainty": "Repository summaries do not prove upstream implementation details.",
+                    "self_effect": "Improves deterministic trend evidence routing.",
+                    "action_lane": "local_validation_candidate",
+                }
+                for kind in allowed_lanes
+            ],
+            "rejected_items": [],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="hybrid")
+
+    assert allowed_lanes == ["documentation", "config", "test", "code_patch"]
+    assert evidence_package["context_budget"]["selected_item_ids"] == [
+        "fablecodex-workflow-gates",
+        "compass-skills-routing",
+        "threejs-game-skills-pack",
+    ]
+    assert all("skill_route_discovery" in item["route_hints"] for item in evidence_package["items"])
+    assert review.status == "accepted"
+    assert review.rejected_count == 0
+    assert [candidate["kind"] for candidate in review.accepted_candidates] == allowed_lanes
+    assert all(
+        candidate["evidence_urls"]
+        == [
+            "https://github.com/baskduf/FableCodex",
+            "https://github.com/dongshuyan/compass-skills",
+        ]
+        for candidate in review.accepted_candidates
+    )
+
+
+@pytest.mark.parametrize(
+    ("proposal_kind", "evidence_refs", "expected_error"),
+    [
+        (
+            "follow_up_issue",
+            ["fablecodex-workflow-gates"],
+            "skill_route_discovery proposals must use one of: documentation, config, test, code_patch",
+        ),
+        (
+            "config",
+            ["https://github.com/dongshuyan/compass-skills"],
+            "evidence_refs contain unknown item ids: https://github.com/dongshuyan/compass-skills",
+        ),
+        (
+            "test",
+            ["threejs-game-skills-pack"],
+            "evidence_refs contain unknown item ids: threejs-game-skills-pack",
+        ),
+    ],
+)
+def test_skill_route_discovery_rejects_unsupported_lanes_and_unselected_refs(
+    proposal_kind,
+    evidence_refs,
+    expected_error,
+):
+    digest = {
+        "digest_id": "github-growth-skill-route-focused-rejections",
+        "generated_at": "2026-06-18T10:40:44Z",
+        "items": [
+            {
+                "item_id": "fablecodex-workflow-gates",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": "FableCodex: Codex skill and workflow gates for inspecting evidence.",
+                "relevance_reason": "Skill route discovery should stay in bounded local lanes.",
+                "risk_flags": [],
+                "confidence": 0.91,
+            },
+            {
+                "item_id": "compass-skills-routing",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "compass-skills: skill ecosystem for AI agent task routing.",
+                "relevance_reason": "Skill route discovery should cite selected item ids only.",
+                "risk_flags": [],
+                "confidence": 0.88,
+            },
+            {
+                "item_id": "threejs-game-skills-pack",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "threejs-game-skills: agent skill pack for game workflow and QA.",
+                "relevance_reason": "This lower-ranked item is intentionally outside the selected context budget.",
+                "risk_flags": [],
+                "confidence": 0.2,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=260)
+    raw_response = json.dumps(
+        {
+            "schema_version": 1,
+            "input_digest_id": "github-growth-skill-route-focused-rejections",
+            "run_interpretation": "Reject skill-route proposals that escape lane or evidence-ref constraints.",
+            "self_model_reading": {"status": "left_unchanged"},
+            "proposals": [
+                {
+                    "proposal_id": "skill-route-rejected",
+                    "kind": proposal_kind,
+                    "summary": "Malformed skill route discovery proposal.",
+                    "evidence_refs": evidence_refs,
+                    "added_risk_flags": [],
+                    "validation_task": "Run focused tests for rejection behavior.",
+                    "rationale": "Malformed candidates must not pass deterministic local review.",
+                    "uncertainty": "This is a synthetic rejection fixture.",
+                    "self_effect": "Would weaken skill-route evidence boundaries if accepted.",
+                    "action_lane": "local_validation_candidate",
+                }
+            ],
+            "rejected_items": [],
+        }
+    )
+
+    review = review_llm_proposal_response(raw_response, evidence_package, mode="hybrid")
+
+    assert evidence_package["context_budget"]["selected_item_ids"] == [
+        "fablecodex-workflow-gates",
+        "compass-skills-routing",
+    ]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == ["threejs-game-skills-pack"]
+    assert review.status == "rejected"
+    assert review.accepted_count == 0
+    assert expected_error in review.rejected_candidates[0]["errors"]
+
+
 def test_skill_workflow_route_hints_reject_unbounded_candidate_kind():
     digest = {
         "digest_id": "github-growth-skill-route-lane",
