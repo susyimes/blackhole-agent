@@ -215,6 +215,7 @@ def test_external_skill_route_discovery_fixture_stays_classification_only():
     assert {candidate["route_status"] for candidate in registry["candidates"]} == {SKILL_ROUTE_DISCOVERY_DISABLED}
     assert all(candidate["route_hints"] == ["skill_route_discovery"] for candidate in registry["candidates"])
     assert all(candidate["validation_errors"] == [] for candidate in registry["candidates"])
+    assert all(candidate["discovery_event_effect"] == "record_only" for candidate in registry["candidates"])
 
 
 def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():
@@ -237,4 +238,44 @@ def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates(
     assert registry["candidates"][0]["validation_errors"] == [
         "external_skill_route_candidates_must_start_disabled",
         "unsupported_candidate_lanes:runtime_execution",
+    ]
+
+
+def test_external_skill_route_discovery_lifecycle_events_cannot_install_execute_or_delete():
+    fixture_path = Path(__file__).parent / "fixtures" / "skill_route_discovery" / "lifecycle_external_candidates.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry(payload["candidates"])
+
+    assert registry["registry_status"] == "invalid_candidates_present"
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 2
+    assert registry["blocked_discovery_actions"] == [
+        "clone_and_run",
+        "delete_local_skill",
+        "enable",
+        "execute",
+        "install",
+        "run",
+    ]
+
+    created, deleted = registry["candidates"]
+    assert created["name"] == "new-skill-package"
+    assert created["discovery_event_kind"] == "repository_created"
+    assert created["discovery_event_effect"] == "record_only_no_install"
+    assert created["candidate_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert created["requested_actions"] == ["install"]
+    assert created["validation_errors"] == [
+        "unsupported_candidate_lanes:runtime_execution",
+        "blocked_discovery_actions:install",
+    ]
+
+    assert deleted["name"] == "removed-skill-package"
+    assert deleted["discovery_event_kind"] == "repository_deleted"
+    assert deleted["discovery_event_effect"] == "record_only_no_local_deletion"
+    assert deleted["candidate_lanes"] == ["documentation", "test"]
+    assert deleted["requested_actions"] == ["delete_local_skill", "execute"]
+    assert deleted["validation_errors"] == [
+        "blocked_discovery_actions:delete_local_skill,execute",
     ]

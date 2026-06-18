@@ -63,6 +63,13 @@ skill, add executable tool routes, or treat a repository name as permission to
 load code. A later change may promote a candidate only after a separate local
 validation path proves the behavior and records the activation boundary.
 
+Repository lifecycle signals do not change that boundary. A newly discovered
+skill repository is recorded as `record_only_no_install`, and a deleted upstream
+skill repository is recorded as `record_only_no_local_deletion`. Malformed
+candidate lanes are stripped from the exported lane list and preserved only as
+validation errors, so the registry output remains limited to documentation,
+config, test, and code patch review paths.
+
 ## Evidence From This Run
 
 The source digest cited `https://github.com/omnigent-ai/omnigent`. Its public

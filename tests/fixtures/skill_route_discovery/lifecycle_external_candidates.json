@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "candidates": [
+    {
+      "name": "new-skill-package",
+      "source_url": "https://github.com/example/new-skill-package",
+      "evidence_summary": "Repository creation event for a public skill package.",
+      "discovery_event_kind": "created",
+      "route_hints": ["skill_route_discovery"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "requested_actions": ["install"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "removed-skill-package",
+      "source_url": "https://github.com/example/removed-skill-package",
+      "evidence_summary": "Repository deletion event for a public skill package.",
+      "discovery_event_kind": "deleted",
+      "route_hints": ["skill_route_discovery"],
+      "candidate_lanes": ["documentation", "test"],
+      "requested_actions": ["delete_local_skill", "execute"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    }
+  ]
+}

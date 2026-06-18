@@ -13,6 +13,22 @@ NO_SKILL_MATCH = "no_match"
 AMBIGUOUS_SKILL_MATCH = "ambiguous_match"
 SKILL_ROUTE_DISCOVERY_HINT = "skill_route_discovery"
 SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
+SKILL_ROUTE_DISCOVERY_ALLOWED_EVENTS = (
+    "repository_created",
+    "repository_updated",
+    "repository_deleted",
+    "push",
+    "release",
+    "unknown",
+)
+SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS = (
+    "clone_and_run",
+    "delete_local_skill",
+    "enable",
+    "execute",
+    "install",
+    "run",
+)
 SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
 SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
 
@@ -68,8 +84,10 @@ class ExternalSkillRouteCandidate:
     name: str
     source_url: str
     evidence_summary: str = ""
+    discovery_event_kind: str = "unknown"
     route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
     candidate_lanes: tuple[str, ...] = SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    requested_actions: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
 
@@ -85,8 +103,10 @@ class ExternalSkillRouteCandidate:
             name=name,
             source_url=source_url,
             evidence_summary=str(value.get("evidence_summary") or ""),
+            discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
             route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
             candidate_lanes=_string_tuple(value.get("candidate_lanes")) or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+            requested_actions=_string_tuple(value.get("requested_actions")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
         )
@@ -97,18 +117,27 @@ class ExternalSkillRouteCandidate:
             errors.append("external_skill_route_candidates_must_start_disabled")
         if SKILL_ROUTE_DISCOVERY_HINT not in self.route_hints:
             errors.append(f"route_hints must include {SKILL_ROUTE_DISCOVERY_HINT}")
+        if self.discovery_event_kind not in SKILL_ROUTE_DISCOVERY_ALLOWED_EVENTS:
+            errors.append(f"unsupported_discovery_event_kind:{self.discovery_event_kind}")
         unsupported_lanes = sorted(set(self.candidate_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES))
         if unsupported_lanes:
             errors.append("unsupported_candidate_lanes:" + ",".join(unsupported_lanes))
+        blocked_actions = sorted(set(self.requested_actions) & set(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS))
+        if blocked_actions:
+            errors.append("blocked_discovery_actions:" + ",".join(blocked_actions))
         return tuple(errors)
 
     def to_registry_entry(self) -> dict[str, Any]:
         errors = self.validation_errors()
+        candidate_lanes = tuple(lane for lane in self.candidate_lanes if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
         return {
-            "candidate_lanes": list(self.candidate_lanes),
+            "candidate_lanes": list(candidate_lanes),
+            "discovery_event_kind": self.discovery_event_kind,
+            "discovery_event_effect": _discovery_event_effect(self.discovery_event_kind),
             "enabled": self.enabled,
             "evidence_summary": self.evidence_summary,
             "name": self.name,
+            "requested_actions": list(self.requested_actions),
             "route_hints": list(self.route_hints),
             "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
             "source_url": self.source_url,
@@ -261,6 +290,7 @@ def build_skill_route_discovery_registry(
     return {
         "schema_version": 1,
         "allowed_candidate_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "blocked_discovery_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS),
         "candidate_count": len(entries),
         "enabled_candidate_count": sum(1 for entry in entries if entry["enabled"]),
         "executable_skill_count": 0,
@@ -349,6 +379,25 @@ def _contains_explicit_skill_name(text: str, name: str) -> bool:
     if not normalized:
         return False
     return any(_contains_term(text, marker + normalized) for marker in ("", "$", "@"))
+
+
+def _normalize_discovery_event(value: Any) -> str:
+    event_kind = str(value or "unknown").strip().lower().replace("-", "_")
+    if event_kind in {"create", "created", "repository_create", "repositorycreated"}:
+        return "repository_created"
+    if event_kind in {"delete", "deleted", "repository_delete", "repositorydeleted"}:
+        return "repository_deleted"
+    if event_kind in {"update", "updated", "repository_update", "repositoryupdated"}:
+        return "repository_updated"
+    return event_kind or "unknown"
+
+
+def _discovery_event_effect(event_kind: str) -> str:
+    if event_kind == "repository_created":
+        return "record_only_no_install"
+    if event_kind == "repository_deleted":
+        return "record_only_no_local_deletion"
+    return "record_only"
 
 
 def _route_weight(route: str) -> int:
