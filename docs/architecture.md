@@ -123,6 +123,8 @@ Public agent-project movement follows the same rule: it is a source of bounded
 local validation candidates, not permission or implementation authority. See
 `docs/upstream-evidence-interpretation.md` for the evidence citation, missing
 detail, low-detail PR/push interpretation rule, and validation-lane contract.
+Skill repository discoveries use the classification-only matrix in
+`docs/skill-route-discovery.md` before any local activation path is considered.
 
 ### Local Codex CLI Kernel
 

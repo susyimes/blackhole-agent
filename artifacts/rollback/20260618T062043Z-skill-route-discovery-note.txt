@@ -1,0 +1,14 @@
+Rollback point for source digest github-growth-20260618T062043.878926Z
+
+Original branch: codex/blackhole-evolve/20260618T062142.180788-create-a-local-skill-route-discovery-note-that-c
+Original HEAD: 0ef0b2e260db0b74be227eae8820eddc91319d00
+Local rollback ref: refs/blackhole-rollback/github-growth-20260618T062043.878926Z
+
+Recovery commands, if an operator chooses destructive rollback explicitly:
+
+git switch codex/blackhole-evolve/20260618T062142.180788-create-a-local-skill-route-discovery-note-that-c
+git reset --hard refs/blackhole-rollback/github-growth-20260618T062043.878926Z
+
+Scope note:
+This rollback point was created before local edits for the skill-route discovery note run.
+Do not delete this artifact during the run that created it.
