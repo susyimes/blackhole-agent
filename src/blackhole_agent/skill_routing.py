@@ -137,6 +137,7 @@ class ExternalSkillRouteCandidate:
     route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
     candidate_lanes: tuple[str, ...] = SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
     evidence_urls: tuple[str, ...] = ()
+    evidence_item_urls: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
@@ -157,6 +158,7 @@ class ExternalSkillRouteCandidate:
             route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
             candidate_lanes=_string_tuple(value.get("candidate_lanes")) or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
             evidence_urls=_string_tuple(value.get("evidence_urls")),
+            evidence_item_urls=_string_tuple(value.get("evidence_item_urls")),
             requested_actions=_string_tuple(value.get("requested_actions")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
@@ -189,6 +191,7 @@ class ExternalSkillRouteCandidate:
             "discovery_event_kind": self.discovery_event_kind,
             "discovery_event_effect": _discovery_event_effect(self.discovery_event_kind),
             "enabled": self.enabled,
+            "evidence_item_urls": list(dict.fromkeys(self.evidence_item_urls)),
             "evidence_urls": list(dict.fromkeys(self.evidence_urls or (self.source_url,))),
             "evidence_summary": self.evidence_summary,
             "name": self.name,
@@ -527,6 +530,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
             evidence_summary=" ".join(dict.fromkeys(bucket["summaries"])),
             discovery_event_kind=str(bucket["discovery_event_kind"]),
             candidate_lanes=tuple(dict.fromkeys(bucket["lanes"])) or ("documentation",),
+            evidence_item_urls=tuple(bucket["evidence_urls"]),
             evidence_urls=tuple(bucket["evidence_urls"]),
             validation_status="unvalidated",
             enabled=False,
@@ -629,7 +633,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "proposal_kind": lane,
                     "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
                     "status": SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
-                    "evidence_urls": list(candidate.get("evidence_urls") or ([source_url] if source_url else [])),
+                    "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
                     "local_validation_required": True,
                     "runtime_action": "none",
                     "reason": "recognized_skill_project_evidence",
@@ -864,12 +868,41 @@ def _unsupported_lanes_from_validation_errors(errors: Sequence[str]) -> list[str
     return sorted(dict.fromkeys(lanes))
 
 
+def _proposal_lane_evidence_urls(candidate: Mapping[str, Any], source_url: str) -> list[str]:
+    """Return lane evidence URLs without expanding beyond item-derived evidence.
+
+    Registries built from frozen evidence items carry ``evidence_item_urls``.
+    When present, proposal lanes cite only those item URLs even if broader
+    candidate metadata contains extra repository, issue, or user-supplied URLs.
+    Older summary/candidate registries do not have item provenance, so they keep
+    the existing repository-level fallback.
+    """
+
+    item_urls = _string_list(candidate.get("evidence_item_urls"))
+    if item_urls:
+        return list(dict.fromkeys(item_urls))
+    evidence_urls = _string_list(candidate.get("evidence_urls"))
+    if evidence_urls:
+        return list(dict.fromkeys(evidence_urls))
+    return [source_url] if source_url else []
+
+
 def _route_weight(route: str) -> int:
     if route == EXACT_TRIGGER_MATCH:
         return 3
     if route == TOPICAL_MATCH:
         return 2
     return 1
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if isinstance(value, Sequence):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
 
 
 def _string_tuple(value: Any) -> tuple[str, ...]:

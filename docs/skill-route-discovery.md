@@ -6,7 +6,8 @@ observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
 This note is grounded in source digest `github-growth-20260618T062043.878926Z`
-and the bounded evidence reviewed for this run:
+and refined by `github-growth-20260618T171207.138935Z`. The bounded evidence
+reviewed for these runs:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
@@ -81,6 +82,12 @@ Repeated issue evidence increments duplicate counts instead of creating another
 candidate, requested action, or executable route. Issue-derived lanes remain
 bounded to documentation, config, test, and code_patch; install, execute, run,
 and other runtime lanes are ignored during classification.
+
+Issue and repository evidence items also preserve a separate
+`evidence_item_urls` list. Proposal lanes rendered from an item-derived registry
+cite only those frozen item URLs, even when broader candidate metadata contains
+extra URLs. Summary-only registries keep the older repository-level fallback
+because they do not carry per-item provenance.
 
 ## Proposal Lane Map
 

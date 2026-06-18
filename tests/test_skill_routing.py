@@ -406,6 +406,11 @@ def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candi
         "https://github.com/baskduf/FableCodex/issues/15",
         "https://github.com/baskduf/FableCodex/issues/18",
     ]
+    assert candidate["evidence_item_urls"] == [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/baskduf/FableCodex/issues/15",
+        "https://github.com/baskduf/FableCodex/issues/18",
+    ]
     assert candidate["candidate_lanes"] == ["documentation", "test", "config", "code_patch"]
     assert set(candidate["candidate_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert candidate["requested_actions"] == []
@@ -451,6 +456,36 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert all(lane["route_hint"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
     assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+
+
+def test_skill_route_discovery_proposal_lane_map_cites_only_item_evidence_urls():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "fablecodex_issue_evidence_items.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    registry["candidates"][0]["evidence_urls"].append("https://github.com/example/non-item-evidence")
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert lane_map["proposal_lane_count"] == 4
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(
+        lane["evidence_urls"]
+        == [
+            "https://github.com/baskduf/FableCodex",
+            "https://github.com/baskduf/FableCodex/issues/15",
+            "https://github.com/baskduf/FableCodex/issues/18",
+        ]
+        for lane in lane_map["proposal_lanes"]
+    )
+    assert all("https://github.com/example/non-item-evidence" not in lane["evidence_urls"] for lane in lane_map["proposal_lanes"])
 
 
 def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
