@@ -1,0 +1,14 @@
+Rollback point for source digest github-growth-20260619T205207.380274Z
+
+Original branch: codex/blackhole-evolve/20260619T205303.728202-add-a-local-validation-candidate-for-provider-us
+Original HEAD: 0c333a18ba57c1a55374373ed5fef28a8f38d10c
+Local rollback ref: refs/rollback/20260619T205207Z-provider-usage-limit-preflight
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260619T205303.728202-add-a-local-validation-candidate-for-provider-us
+  git reset --hard refs/rollback/20260619T205207Z-provider-usage-limit-preflight
+
+Notes:
+  Created before local source edits for provider/runtime preflight pass 3.
+  Rollback execution is explicit and destructive; do not run it unless selected
+  by a human operator or external supervisor policy.

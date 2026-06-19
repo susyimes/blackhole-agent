@@ -78,6 +78,42 @@
         }
       },
       {
+        "task_id": "fixture-usage-limit-429",
+        "provider": {
+          "name": "claude-code",
+          "harness": "claude-code",
+          "usage_limit": {
+            "response_status": 429,
+            "response_body": "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT",
+            "headers": {
+              "anthropic-ratelimit-unified-5h-limit": "100",
+              "anthropic-ratelimit-unified-5h-remaining": "0",
+              "anthropic-ratelimit-unified-5h-reset": "PRIVATE_5H_RESET_DO_NOT_EXPORT",
+              "retry-after": "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT"
+            },
+            "credential_pool": {
+              "configured": true,
+              "credential_count": 2,
+              "active_credential_label": "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT"
+            }
+          }
+        },
+        "runtime": {
+          "platform": "linux",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess"
+        },
+        "runner_env": {
+          "parent_env_keys": [
+            "PATH"
+          ],
+          "allowlist": [
+            "PATH"
+          ],
+          "passthrough": []
+        }
+      },
+      {
         "task_id": "fixture-review-model-unavailable",
         "provider": {
           "name": "polly-review",
@@ -129,11 +165,11 @@
     },
     {
       "path": "preflight_count",
-      "equals": 4
+      "equals": 5
     },
     {
       "path": "status_counts.blocked",
-      "equals": 3
+      "equals": 4
     },
     {
       "path": "status_counts.degraded",
@@ -147,6 +183,7 @@
       "path": "blocked_failure_modes",
       "equals": [
         "native_terminal_timeout_risk",
+        "provider_usage_limit_exhausted",
         "review_model_unavailable",
         "url_safety_preflight_failed"
       ]
@@ -165,10 +202,14 @@
     },
     {
       "path": "recovery_hints.3.code",
-      "equals": "review_model_unavailable"
+      "equals": "provider_usage_limit_exhausted"
     },
     {
       "path": "recovery_hints.4.code",
+      "equals": "review_model_unavailable"
+    },
+    {
+      "path": "recovery_hints.5.code",
       "equals": "url_safety_preflight_failed"
     },
     {

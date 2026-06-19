@@ -3807,6 +3807,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
+    usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -3873,6 +3874,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         (incompatible_sandbox and not degraded)
         or native_terminal_timeout_risk
         or not review_model_preflight["ok"]
+        or not usage_limit_preflight["ok"]
         or not model_command_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
@@ -3892,6 +3894,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(browser_preflight["preflight"]["diagnostics"])
     diagnostics.extend(prompt_preflight["preflight"]["diagnostics"])
     diagnostics.extend(review_model_preflight["diagnostics"])
+    diagnostics.extend(usage_limit_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
@@ -3909,6 +3912,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         failure_mode = (
             review_model_preflight["failure_mode"]
             if not review_model_preflight["ok"]
+            else usage_limit_preflight["failure_mode"]
+            if not usage_limit_preflight["ok"]
             else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
             else "provider_env_missing"
@@ -4001,6 +4006,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "url_safety": browser_preflight["url_safety"],
         "prompt_scan": prompt_preflight["prompt_scan"],
         "review_model": review_model_preflight,
+        "usage_limit": usage_limit_preflight,
         "model_command": model_command_preflight,
     }
     recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
@@ -4010,6 +4016,108 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
     )
     return output
+
+
+def evaluate_provider_usage_limit_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Classify provider usage-limit signals without exporting credentials or bodies."""
+
+    raw_usage = provider.get("usage_limit", runtime.get("usage_limit"))
+    usage = raw_usage if isinstance(raw_usage, dict) else {}
+    raw_headers = usage.get("headers") or usage.get("response_headers")
+    headers = raw_headers if isinstance(raw_headers, dict) else {}
+    response_status = optional_int(usage.get("response_status") or usage.get("status_code"))
+    pool = usage.get("credential_pool") if isinstance(usage.get("credential_pool"), dict) else {}
+    account_label = optional_string(
+        usage.get("active_credential_label")
+        or usage.get("credential_label")
+        or pool.get("active_credential_label")
+        or pool.get("credential_label")
+    )
+    credential_count = optional_int(pool.get("credential_count") or usage.get("credential_count")) or 0
+    pool_configured = truthy(pool.get("configured")) or credential_count > 0
+    retry_after = optional_string(usage.get("retry_after") or headers.get("retry-after") or headers.get("Retry-After"))
+    windows = provider_usage_limit_windows(headers)
+    exhausted_windows = [window for window in windows if window["exhausted"]]
+    near_limit_windows = [window for window in windows if window["near_limit"]]
+    rate_limited = response_status == 429 or truthy(usage.get("rate_limited"))
+    exhausted = rate_limited or bool(exhausted_windows)
+    observed = bool(usage or headers or response_status)
+
+    diagnostics: list[str] = []
+    if rate_limited:
+        diagnostics.append("provider returned a rate-limit status; block retry before launching another request")
+    if exhausted_windows:
+        diagnostics.append("provider usage-limit headers report an exhausted account window")
+    if near_limit_windows and not exhausted:
+        diagnostics.append("provider usage-limit headers report low remaining headroom")
+    if exhausted and pool_configured:
+        diagnostics.append("credential-pool failover is review-only because credential labels and tokens are privacy-sensitive")
+
+    return {
+        "observed": observed,
+        "ok": not exhausted,
+        "failure_mode": "provider_usage_limit_exhausted" if exhausted else "none",
+        "response_status": response_status,
+        "rate_limited": rate_limited,
+        "window_count": len(windows),
+        "exhausted_window_count": len(exhausted_windows),
+        "near_limit_window_count": len(near_limit_windows),
+        "windows": windows,
+        "retry_after_present": bool(retry_after),
+        "retry_after_hash": stable_text_hash(retry_after) if retry_after else None,
+        "credential_pool_configured": pool_configured,
+        "credential_count": credential_count,
+        "active_credential_label_hash": stable_text_hash(account_label) if account_label else None,
+        "active_credential_label_exported": False,
+        "credential_values_exported": False,
+        "raw_headers_exported": False,
+        "raw_response_body_exported": False,
+        "failover_review_only": exhausted and pool_configured,
+        "failover_executed": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def provider_usage_limit_windows(headers: dict[Any, Any]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for raw_name, raw_value in headers.items():
+        name = str(raw_name).strip().lower()
+        if not name.startswith("anthropic-ratelimit-unified-"):
+            continue
+        suffix = name.removeprefix("anthropic-ratelimit-unified-")
+        parts = suffix.rsplit("-", 1)
+        if len(parts) != 2:
+            continue
+        window_name, field = parts
+        if field not in {"limit", "remaining", "reset"}:
+            continue
+        record = grouped.setdefault(window_name, {"name": window_name})
+        record[field] = raw_value
+
+    windows: list[dict[str, Any]] = []
+    for window_name, record in sorted(grouped.items()):
+        remaining = optional_int(record.get("remaining"))
+        limit = optional_int(record.get("limit"))
+        reset = optional_string(record.get("reset"))
+        near_limit = remaining is not None and remaining <= 1
+        windows.append(
+            {
+                "name": window_name,
+                "limit_recorded": limit is not None,
+                "remaining": remaining,
+                "remaining_recorded": remaining is not None,
+                "reset_present": bool(reset),
+                "reset_hash": stable_text_hash(reset) if reset else None,
+                "exhausted": remaining is not None and remaining <= 0,
+                "near_limit": near_limit,
+                "raw_header_values_exported": False,
+            }
+        )
+    return windows
 
 
 def evaluate_provider_review_model_preflight(
@@ -4339,6 +4447,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     provider_auth = preflight.get("provider_auth") if isinstance(preflight.get("provider_auth"), dict) else {}
     browser_tooling = preflight.get("browser_tooling") if isinstance(preflight.get("browser_tooling"), dict) else {}
     review_model = preflight.get("review_model") if isinstance(preflight.get("review_model"), dict) else {}
+    usage_limit = preflight.get("usage_limit") if isinstance(preflight.get("usage_limit"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
@@ -4402,6 +4511,26 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "scope": "provider_url_safety",
                 "severity": "blocker",
                 "action": "replace localhost, loopback, private, or link-local provider URLs before browser launch",
+            }
+        )
+    elif failure_mode == "provider_usage_limit_exhausted":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_usage_limit_exhausted",
+                "scope": "provider_usage_limit",
+                "severity": "blocker",
+                "action": "wait for the provider usage window reset or route credential-pool failover through privacy review before retry",
+                "response_status": usage_limit.get("response_status"),
+                "rate_limited": bool(usage_limit.get("rate_limited")),
+                "window_count": int(usage_limit.get("window_count") or 0),
+                "exhausted_window_count": int(usage_limit.get("exhausted_window_count") or 0),
+                "credential_pool_configured": bool(usage_limit.get("credential_pool_configured")),
+                "credential_count": int(usage_limit.get("credential_count") or 0),
+                "failover_review_only": bool(usage_limit.get("failover_review_only")),
+                "failover_executed": False,
+                "raw_headers_exported": False,
+                "raw_response_body_exported": False,
             }
         )
     elif failure_mode in {"provider_model_command_missing", "provider_model_command_malformed"}:

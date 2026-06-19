@@ -1,0 +1,115 @@
+{
+  "name": "provider-runtime-preflight-usage-limit-429",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-usage-limit-429",
+    "provider": {
+      "name": "claude-code",
+      "harness": "claude-code",
+      "usage_limit": {
+        "response_status": 429,
+        "response_body": "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT",
+        "headers": {
+          "anthropic-ratelimit-unified-5h-limit": "100",
+          "anthropic-ratelimit-unified-5h-remaining": "0",
+          "anthropic-ratelimit-unified-5h-reset": "PRIVATE_5H_RESET_DO_NOT_EXPORT",
+          "anthropic-ratelimit-unified-weekly-limit": "1000",
+          "anthropic-ratelimit-unified-weekly-remaining": "12",
+          "anthropic-ratelimit-unified-weekly-reset": "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT",
+          "retry-after": "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT"
+        },
+        "credential_pool": {
+          "configured": true,
+          "credential_count": 3,
+          "active_credential_label": "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT"
+        }
+      }
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_usage_limit_exhausted"
+    },
+    {
+      "path": "usage_limit.rate_limited",
+      "equals": true
+    },
+    {
+      "path": "usage_limit.window_count",
+      "equals": 2
+    },
+    {
+      "path": "usage_limit.exhausted_window_count",
+      "equals": 1
+    },
+    {
+      "path": "usage_limit.credential_pool_configured",
+      "equals": true
+    },
+    {
+      "path": "usage_limit.credential_count",
+      "equals": 3
+    },
+    {
+      "path": "usage_limit.active_credential_label_exported",
+      "equals": false
+    },
+    {
+      "path": "usage_limit.failover_review_only",
+      "equals": true
+    },
+    {
+      "path": "usage_limit.failover_executed",
+      "equals": false
+    },
+    {
+      "path": "usage_limit.raw_headers_exported",
+      "equals": false
+    },
+    {
+      "path": "usage_limit.raw_response_body_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "provider_usage_limit_exhausted"
+    },
+    {
+      "path": "recovery_hints.0.failover_review_only",
+      "equals": true
+    },
+    {
+      "path": "supervisor_replay.recovery_hint_codes",
+      "equals": [
+        "provider_usage_limit_exhausted"
+      ]
+    }
+  ]
+}

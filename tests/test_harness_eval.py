@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 41
-    assert payload["pass_count"] == 40
+    assert payload["fixture_count"] == 42
+    assert payload["pass_count"] == 41
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -147,6 +147,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
     assert results["provider-runtime-preflight-review-model-unavailable"]["passed"] is True
+    assert results["provider-runtime-preflight-usage-limit-429"]["passed"] is True
     assert results["provider-runtime-recovery-summary-blocked-and-degraded"]["passed"] is True
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
@@ -197,6 +198,11 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
@@ -2000,6 +2006,74 @@ def test_provider_runtime_preflight_skips_worker_env_inherit_when_worker_tool_mi
     assert "OPENAI_API_KEY" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or_body_export():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_usage_limit_429.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_usage_limit_exhausted"
+    assert output["usage_limit"]["response_status"] == 429
+    assert output["usage_limit"]["rate_limited"] is True
+    assert output["usage_limit"]["window_count"] == 2
+    assert output["usage_limit"]["exhausted_window_count"] == 1
+    assert output["usage_limit"]["windows"][0] == {
+        "name": "5h",
+        "limit_recorded": True,
+        "remaining": 0,
+        "remaining_recorded": True,
+        "reset_present": True,
+        "reset_hash": output["usage_limit"]["windows"][0]["reset_hash"],
+        "exhausted": True,
+        "near_limit": True,
+        "raw_header_values_exported": False,
+    }
+    assert output["usage_limit"]["credential_pool_configured"] is True
+    assert output["usage_limit"]["credential_count"] == 3
+    assert output["usage_limit"]["active_credential_label_hash"].startswith("sha256:")
+    assert output["usage_limit"]["active_credential_label_exported"] is False
+    assert output["usage_limit"]["credential_values_exported"] is False
+    assert output["usage_limit"]["raw_headers_exported"] is False
+    assert output["usage_limit"]["raw_response_body_exported"] is False
+    assert output["usage_limit"]["failover_review_only"] is True
+    assert output["usage_limit"]["failover_executed"] is False
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["claude-code"],
+            "value_recorded": False,
+            "code": "provider_usage_limit_exhausted",
+            "scope": "provider_usage_limit",
+            "severity": "blocker",
+            "action": "wait for the provider usage window reset or route credential-pool failover through privacy review before retry",
+            "response_status": 429,
+            "rate_limited": True,
+            "window_count": 2,
+            "exhausted_window_count": 1,
+            "credential_pool_configured": True,
+            "credential_count": 3,
+            "failover_review_only": True,
+            "failover_executed": False,
+            "raw_headers_exported": False,
+            "raw_response_body_exported": False,
+        }
+    ]
+    assert output["supervisor_replay"]["decision"] == "blocked_before_provider_launch"
+    assert output["supervisor_replay"]["provider_runtime_launch_allowed"] is False
+    assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT" not in serialized
+
+
 def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_before_launch():
     missing_fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_omnigent_model_command_missing.json"
     missing_fixture = json.loads(missing_fixture_path.read_text(encoding="utf-8"))
@@ -3110,10 +3184,11 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
 
     assert output["route_status"] == "blocked"
     assert output["failure_mode"] == "provider_runtime_recovery_required"
-    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 3}
+    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 4}
     assert output["runner_invoked_count"] == 1
     assert output["blocked_failure_modes"] == [
         "native_terminal_timeout_risk",
+        "provider_usage_limit_exhausted",
         "review_model_unavailable",
         "url_safety_preflight_failed",
     ]
@@ -3121,6 +3196,7 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         "browser_configure_checks_skipped",
         "mock_auth_placeholder_used",
         "native_terminal_timeout_risk",
+        "provider_usage_limit_exhausted",
         "review_model_unavailable",
         "url_safety_preflight_failed",
     ]
@@ -3137,10 +3213,11 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         "ready_for_supervisor_promotion": False,
         "decision": "blocked_before_supervisor_promotion",
         "reason": "provider_runtime_recovery_required",
-        "preflight_count": 4,
-        "status_counts": {"passed": 0, "degraded": 1, "blocked": 3},
+        "preflight_count": 5,
+        "status_counts": {"passed": 0, "degraded": 1, "blocked": 4},
         "blocked_failure_modes": [
             "native_terminal_timeout_risk",
+            "provider_usage_limit_exhausted",
             "review_model_unavailable",
             "url_safety_preflight_failed",
         ],
@@ -3149,6 +3226,7 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
             "browser_configure_checks_skipped",
             "mock_auth_placeholder_used",
             "native_terminal_timeout_risk",
+            "provider_usage_limit_exhausted",
             "review_model_unavailable",
             "url_safety_preflight_failed",
         ],
@@ -3174,6 +3252,10 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     assert "~/.local/bin/claude" not in serialized
     assert "127.0.0.1" not in serialized
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT" not in serialized
 
     command_gap = evaluate_harness_behavior(
         "provider_runtime_recovery_summary",
