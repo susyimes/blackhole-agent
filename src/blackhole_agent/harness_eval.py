@@ -4173,6 +4173,11 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
         else "passed"
     )
     failure_mode = "provider_runtime_recovery_required" if status_counts["blocked"] else "none"
+    supervisor_readiness = provider_runtime_supervisor_readiness(
+        preflights,
+        status_counts=status_counts,
+        recovery_hints=recovery_hints,
+    )
 
     return {
         "schema_version": 1,
@@ -4192,6 +4197,7 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
         "degraded_provider_count": status_counts["degraded"],
         "runner_invoked_count": sum(1 for preflight in preflights if preflight["runtime"]["runner_invoked"]),
         "recovery_hints": recovery_hints,
+        "supervisor_readiness": supervisor_readiness,
         "activation_gate": {
             "controller_surface": "provider_runtime_recovery_summary",
             "activation_scope": "local_replay_only",
@@ -4215,6 +4221,59 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
 def provider_runtime_summary_case_input(case: dict[str, Any]) -> dict[str, Any]:
     nested_input = case.get("input")
     return nested_input if isinstance(nested_input, dict) else case
+
+
+def provider_runtime_supervisor_readiness(
+    preflights: list[dict[str, Any]],
+    *,
+    status_counts: dict[str, int],
+    recovery_hints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return an operator-facing provider-runtime handoff without raw diagnostics."""
+
+    replay_commands = [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    blocked_failure_modes = sorted(
+        {
+            str(preflight["failure_mode"])
+            for preflight in preflights
+            if preflight["route_status"] == "blocked"
+        }
+    )
+    recovery_hint_codes = sorted(
+        {str(hint.get("code")) for hint in recovery_hints if str(hint.get("code") or "").strip()}
+    )
+    no_preflights = not preflights
+    blocked = bool(status_counts.get("blocked"))
+
+    if no_preflights:
+        decision = "blocked_before_supervisor_promotion"
+        reason = "no_provider_runtime_preflights"
+    elif blocked:
+        decision = "blocked_before_supervisor_promotion"
+        reason = "provider_runtime_recovery_required"
+    else:
+        decision = "ready_for_supervisor_local_replay"
+        reason = "none"
+
+    return {
+        "ready_for_supervisor_promotion": bool(preflights) and not blocked,
+        "decision": decision,
+        "reason": reason,
+        "preflight_count": len(preflights),
+        "status_counts": dict(status_counts),
+        "blocked_failure_modes": blocked_failure_modes,
+        "degraded_provider_count": int(status_counts.get("degraded") or 0),
+        "recovery_hint_codes": recovery_hint_codes,
+        "replay_commands": replay_commands,
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+    }
 
 
 def provider_runtime_recovery_hints(preflights: list[dict[str, Any]]) -> list[dict[str, Any]]:

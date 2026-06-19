@@ -3071,6 +3071,35 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         "provider_runtime_launch_allowed": False,
         "local_validation_required": True,
     }
+    assert output["supervisor_readiness"] == {
+        "ready_for_supervisor_promotion": False,
+        "decision": "blocked_before_supervisor_promotion",
+        "reason": "provider_runtime_recovery_required",
+        "preflight_count": 4,
+        "status_counts": {"passed": 0, "degraded": 1, "blocked": 3},
+        "blocked_failure_modes": [
+            "native_terminal_timeout_risk",
+            "review_model_unavailable",
+            "url_safety_preflight_failed",
+        ],
+        "degraded_provider_count": 1,
+        "recovery_hint_codes": [
+            "browser_configure_checks_skipped",
+            "mock_auth_placeholder_used",
+            "native_terminal_timeout_risk",
+            "review_model_unavailable",
+            "url_safety_preflight_failed",
+        ],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+    }
     assert output["privacy"] == {
         "raw_preflight_inputs_exported": False,
         "raw_diagnostics_exported": False,
@@ -3127,6 +3156,44 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         }
     ]
     assert "OPENAI_API_KEY" not in serialized
+
+    degraded_only = evaluate_harness_behavior(
+        "provider_runtime_recovery_summary",
+        {
+            "task_id": "fixture-provider-runtime-recovery-summary-degraded-only",
+            "preflights": [
+                {
+                    "provider": {
+                        "name": "openai-agents",
+                        "harness": "openai-agents",
+                        "auth_env_key": "OPENAI_API_KEY",
+                        "required_env_keys": ["OPENAI_API_KEY"],
+                    },
+                    "runtime": {
+                        "platform": "linux",
+                        "cli_resolved_in_runner": True,
+                        "launch_transport": "subprocess",
+                    },
+                    "runner_env": {
+                        "parent_env_keys": ["PATH"],
+                        "allowlist": ["PATH"],
+                    },
+                    "mock_llm": {
+                        "enabled": True,
+                        "auth_placeholder": True,
+                    },
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_recovery_summary_degraded_only_inline.json",
+    )
+
+    assert degraded_only["route_status"] == "degraded"
+    assert degraded_only["supervisor_readiness"]["ready_for_supervisor_promotion"] is True
+    assert degraded_only["supervisor_readiness"]["decision"] == "ready_for_supervisor_local_replay"
+    assert degraded_only["supervisor_readiness"]["reason"] == "none"
+    assert degraded_only["supervisor_readiness"]["provider_runtime_launch_allowed"] is False
+    assert degraded_only["supervisor_readiness"]["recovery_hint_codes"] == ["mock_auth_placeholder_used"]
 
 
 def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting_bodies():
