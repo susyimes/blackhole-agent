@@ -597,6 +597,22 @@ def test_provider_config_preflight_reports_missing_required_token_without_value(
         "required token environment variable is not set or empty",
         "codex mode requires an explicit --model or --profile to avoid implicit provider fallback",
     ]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "set_required_token_env",
+            "scope": "github_token",
+            "action": "set the required GitHub token environment variable before supervisor startup",
+            "env_names": ["BLACKHOLE_TEST_TOKEN"],
+            "value_recorded": False,
+        },
+        {
+            "code": "explicit_codex_route_required",
+            "scope": "codex_route",
+            "action": "configure --model or --profile before codex mode starts, or explicitly allow the default route",
+            "env_names": [],
+            "value_recorded": False,
+        },
+    ]
 
 
 def test_provider_config_preflight_rejects_placeholder_required_token_without_value(tmp_path, monkeypatch):
@@ -618,6 +634,15 @@ def test_provider_config_preflight_rejects_placeholder_required_token_without_va
     assert preflight["token_env_quality"] == "placeholder"
     assert preflight["token_value_recorded"] is False
     assert preflight["diagnostics"] == ["required token environment variable is a placeholder value"]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "replace_required_token_placeholder",
+            "scope": "github_token",
+            "action": "replace the placeholder GitHub token value with a real credential or unset it",
+            "env_names": ["BLACKHOLE_TEST_TOKEN"],
+            "value_recorded": False,
+        }
+    ]
     assert placeholder_token not in rendered
 
 
@@ -660,6 +685,15 @@ def test_runtime_startup_preflight_rejects_placeholder_ambient_provider_env_with
     assert preflight["diagnostics"] == [
         "OPENAI_API_KEY is a placeholder value; ambient OpenAI credentials are invalid",
     ]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "replace_openai_placeholder_key",
+            "scope": "ambient_openai",
+            "action": "replace the placeholder OpenAI API key with a real credential or unset the variable",
+            "env_names": ["OPENAI_API_KEY"],
+            "value_recorded": False,
+        }
+    ]
     assert placeholder_token not in rendered
 
 
@@ -675,6 +709,7 @@ def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling
     assert preflight["diagnostics"] == [
         "codex mode requires an explicit --model or --profile to avoid implicit provider fallback"
     ]
+    assert preflight["recovery_hints"][0]["code"] == "explicit_codex_route_required"
 
 
 def test_claude_sdk_permission_preflight_defaults_to_auto_with_explicit_metadata(monkeypatch):
@@ -744,6 +779,15 @@ def test_provider_config_preflight_includes_claude_sdk_permission_gate(tmp_path,
     assert preflight["codex"]["ok"] is True
     assert preflight["claude_sdk"]["permission_mode"] == "auto"
     assert preflight["diagnostics"] == ["Claude SDK permission mode 'auto' is disallowed by runtime policy"]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "select_claude_sdk_permission_mode",
+            "scope": "claude_sdk",
+            "action": "configure a non-auto Claude SDK permission mode accepted by runtime policy",
+            "env_names": [CLAUDE_SDK_PERMISSION_MODE_ENV],
+            "value_recorded": False,
+        }
+    ]
 
 
 def test_validate_supervisor_config_rejects_malformed_token_env_before_scheduling(tmp_path):
@@ -765,6 +809,15 @@ def test_provider_config_preflight_does_not_echo_malformed_token_env_text(tmp_pa
     assert preflight["token_env_name_recorded"] is False
     assert preflight["token_env_valid"] is False
     assert preflight["diagnostics"] == ["token_env must be a valid environment variable name"]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "fix_token_env_name",
+            "scope": "github_token",
+            "action": "replace token_env with a valid environment variable name",
+            "env_names": [],
+            "value_recorded": False,
+        }
+    ]
     assert secret_shaped_input not in rendered
 
 
@@ -806,8 +859,36 @@ def test_runtime_startup_preflight_combines_provider_and_tool_gaps_without_token
     assert preflight["diagnostics"] == [
         "required tool is not executable or is unavailable: browser",
     ]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "make_required_tool_available",
+            "scope": "tool_routing",
+            "action": "configure or expose the required local tool before startup",
+            "tool_name": "browser",
+            "value_recorded": False,
+        }
+    ]
     assert preflight["token_value_recorded"] is False
     assert "secret-token-value" not in rendered
+
+
+def test_runtime_startup_preflight_aggregates_provider_recovery_without_secret_values(tmp_path):
+    placeholder_token = "sk-dummy-openai-token"
+    config = SupervisorConfig(repo_path=tmp_path)
+
+    preflight = build_runtime_startup_preflight(
+        config,
+        env={"OPENAI_API_KEY": placeholder_token},
+    )
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert [hint["code"] for hint in preflight["recovery_hints"]] == [
+        "explicit_codex_route_required",
+        "replace_openai_placeholder_key",
+    ]
+    assert all(hint["value_recorded"] is False for hint in preflight["recovery_hints"])
+    assert placeholder_token not in rendered
 
 
 def test_upgrade_version_preflight_allows_newer_stable_upgrade():

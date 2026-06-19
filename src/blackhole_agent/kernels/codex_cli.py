@@ -384,10 +384,17 @@ def build_codex_provider_preflight(
     ambient_google = build_ambient_google_preflight(environment)
     diagnostics.extend(str(item) for item in ambient_openai["diagnostics"])
     diagnostics.extend(str(item) for item in ambient_google["diagnostics"])
+    recovery_hints = build_codex_provider_recovery_hints(
+        route_selector=route_selector,
+        require_explicit_route=config.require_explicit_route,
+        ambient_openai=ambient_openai,
+        ambient_google=ambient_google,
+    )
     return {
         "schema_version": 1,
         "ok": not diagnostics,
         "diagnostics": diagnostics,
+        "recovery_hints": recovery_hints,
         "provider": "codex",
         "selected_provider": "codex_cli",
         "route_selector": route_selector,
@@ -401,6 +408,72 @@ def build_codex_provider_preflight(
         "ambient_openai": ambient_openai,
         "ambient_google": ambient_google,
     }
+
+
+def build_codex_provider_recovery_hints(
+    *,
+    route_selector: str,
+    require_explicit_route: bool,
+    ambient_openai: Mapping[str, Any],
+    ambient_google: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Return body-free operator recovery hints for Codex provider preflight failures."""
+
+    hints: list[dict[str, Any]] = []
+    if require_explicit_route and route_selector == "implicit_default":
+        hints.append(
+            {
+                "code": "explicit_codex_route_required",
+                "scope": "codex_route",
+                "action": "configure --model or --profile before codex mode starts, or explicitly allow the default route",
+                "env_names": [],
+                "value_recorded": False,
+            }
+        )
+    if ambient_openai.get("api_key_quality") == "placeholder":
+        hints.append(
+            {
+                "code": "replace_openai_placeholder_key",
+                "scope": "ambient_openai",
+                "action": "replace the placeholder OpenAI API key with a real credential or unset the variable",
+                "env_names": ["OPENAI_API_KEY"],
+                "value_recorded": False,
+            }
+        )
+    if ambient_openai.get("route_hint") == "base_url_without_api_key":
+        hints.append(
+            {
+                "code": "complete_openai_gateway_credentials",
+                "scope": "ambient_openai",
+                "action": "set OPENAI_API_KEY for the configured OpenAI-compatible endpoint or unset OPENAI_BASE_URL",
+                "env_names": ["OPENAI_API_KEY", "OPENAI_BASE_URL"],
+                "value_recorded": False,
+            }
+        )
+    google_placeholder_envs = [
+        str(name) for name in ambient_google.get("api_key_placeholder_envs", []) if str(name).strip()
+    ]
+    if google_placeholder_envs:
+        hints.append(
+            {
+                "code": "replace_google_placeholder_key",
+                "scope": "ambient_google",
+                "action": "replace placeholder Google API-key environment values with real credentials or unset them",
+                "env_names": google_placeholder_envs,
+                "value_recorded": False,
+            }
+        )
+    if ambient_google.get("route_hint") == "google_application_credentials_without_api_key":
+        hints.append(
+            {
+                "code": "complete_google_api_key_credentials",
+                "scope": "ambient_google",
+                "action": "set GOOGLE_API_KEY or GEMINI_API_KEY when Google application credentials are present",
+                "env_names": ["GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS"],
+                "value_recorded": False,
+            }
+        )
+    return hints
 
 
 def token_quality(value: str | None) -> str:

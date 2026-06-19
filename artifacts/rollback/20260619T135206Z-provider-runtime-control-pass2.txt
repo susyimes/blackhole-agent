@@ -1,0 +1,11 @@
+# Rollback point
+
+Original branch: codex/blackhole-evolve/20260619T135301.171403-add-or-extend-a-local-validation-lane-for-agent-
+HEAD: 66c2466d5c918cc6c2787ad0c58ca7280ea08a31
+Rollback ref: refs/rollback/20260619T135206Z-provider-runtime-control-pass2
+
+Recovery commands:
+git reset --hard refs/rollback/20260619T135206Z-provider-runtime-control-pass2
+git clean -fd
+
+Created for source digest github-growth-20260619T135207.064198Z provider-runtime-control pass 2.

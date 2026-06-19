@@ -73,6 +73,15 @@ def test_codex_provider_preflight_blocks_implicit_default_route_when_required():
     assert preflight["diagnostics"] == [
         "codex mode requires an explicit --model or --profile to avoid implicit provider fallback"
     ]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "explicit_codex_route_required",
+            "scope": "codex_route",
+            "action": "configure --model or --profile before codex mode starts, or explicitly allow the default route",
+            "env_names": [],
+            "value_recorded": False,
+        }
+    ]
     assert preflight["token_value_recorded"] is False
     assert preflight["profile_value_recorded"] is False
 
@@ -197,6 +206,15 @@ def test_codex_provider_preflight_rejects_placeholder_openai_key_without_leaking
         "OPENAI_API_KEY is a placeholder value; ambient OpenAI credentials are invalid",
         "OPENAI_BASE_URL is present without OPENAI_API_KEY; ambient OpenAI credentials are incomplete",
     ]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "replace_openai_placeholder_key",
+            "scope": "ambient_openai",
+            "action": "replace the placeholder OpenAI API key with a real credential or unset the variable",
+            "env_names": ["OPENAI_API_KEY"],
+            "value_recorded": False,
+        }
+    ]
     assert placeholder_key not in rendered
     assert "gateway.example.invalid" not in rendered
 
@@ -314,7 +332,50 @@ def test_codex_provider_preflight_rejects_placeholder_google_key_without_leaking
     assert preflight["diagnostics"] == [
         "Google API key environment contains a placeholder value; ambient Google credentials are invalid"
     ]
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "replace_google_placeholder_key",
+            "scope": "ambient_google",
+            "action": "replace placeholder Google API-key environment values with real credentials or unset them",
+            "env_names": ["GEMINI_API_KEY"],
+            "value_recorded": False,
+        }
+    ]
     assert placeholder_key not in rendered
+
+
+def test_codex_provider_preflight_recovery_hints_cover_incomplete_ambient_routes_without_values():
+    private_base_url = "https://gateway.example.invalid/private-openai-route"
+    private_credentials_path = "C:/private/google/application-default-credentials.json"
+
+    preflight = build_codex_provider_preflight(
+        CodexCliConfig(model="gpt-5.5"),
+        env={
+            "OPENAI_BASE_URL": private_base_url,
+            "GOOGLE_APPLICATION_CREDENTIALS": private_credentials_path,
+        },
+    )
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["recovery_hints"] == [
+        {
+            "code": "complete_openai_gateway_credentials",
+            "scope": "ambient_openai",
+            "action": "set OPENAI_API_KEY for the configured OpenAI-compatible endpoint or unset OPENAI_BASE_URL",
+            "env_names": ["OPENAI_API_KEY", "OPENAI_BASE_URL"],
+            "value_recorded": False,
+        },
+        {
+            "code": "complete_google_api_key_credentials",
+            "scope": "ambient_google",
+            "action": "set GOOGLE_API_KEY or GEMINI_API_KEY when Google application credentials are present",
+            "env_names": ["GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS"],
+            "value_recorded": False,
+        },
+    ]
+    assert private_base_url not in rendered
+    assert private_credentials_path not in rendered
 
 
 def test_codex_kernel_fails_before_exec_when_route_is_implicit(tmp_path):

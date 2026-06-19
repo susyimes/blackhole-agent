@@ -1203,10 +1203,21 @@ def build_provider_config_preflight(
         diagnostics.extend(str(item) for item in codex_preflight["diagnostics"])
     if not claude_sdk_preflight["ok"]:
         diagnostics.extend(str(item) for item in claude_sdk_preflight["diagnostics"])
+    recovery_hints = build_provider_config_recovery_hints(
+        token_env_name=token_env_name,
+        token_env_valid=token_env_valid,
+        token_env_present=token_env_present,
+        token_env_usable=token_env_usable,
+        github_token_quality=github_token_quality,
+        token_env_required=config.require_token_env,
+        codex_preflight=codex_preflight,
+        claude_sdk_preflight=claude_sdk_preflight,
+    )
     return {
         "schema_version": 1,
         "ok": not diagnostics,
         "diagnostics": diagnostics,
+        "recovery_hints": recovery_hints,
         "provider": "github",
         "token_env_name": token_env_name if token_env_valid else None,
         "token_env_name_recorded": token_env_valid,
@@ -1219,6 +1230,85 @@ def build_provider_config_preflight(
         "codex": codex_preflight,
         "claude_sdk": claude_sdk_preflight,
     }
+
+
+def build_provider_config_recovery_hints(
+    *,
+    token_env_name: str,
+    token_env_valid: bool,
+    token_env_present: bool,
+    token_env_usable: bool,
+    github_token_quality: str,
+    token_env_required: bool,
+    codex_preflight: dict[str, Any],
+    claude_sdk_preflight: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Return body-free recovery hints for supervisor provider preflight failures."""
+
+    hints: list[dict[str, Any]] = []
+    if not token_env_name:
+        hints.append(
+            {
+                "code": "configure_token_env_name",
+                "scope": "github_token",
+                "action": "configure token_env with the name of the GitHub token environment variable",
+                "env_names": [],
+                "value_recorded": False,
+            }
+        )
+    elif not token_env_valid:
+        hints.append(
+            {
+                "code": "fix_token_env_name",
+                "scope": "github_token",
+                "action": "replace token_env with a valid environment variable name",
+                "env_names": [],
+                "value_recorded": False,
+            }
+        )
+    elif token_env_required and not token_env_present:
+        hints.append(
+            {
+                "code": "set_required_token_env",
+                "scope": "github_token",
+                "action": "set the required GitHub token environment variable before supervisor startup",
+                "env_names": [token_env_name],
+                "value_recorded": False,
+            }
+        )
+    elif token_env_required and not token_env_usable and github_token_quality == "placeholder":
+        hints.append(
+            {
+                "code": "replace_required_token_placeholder",
+                "scope": "github_token",
+                "action": "replace the placeholder GitHub token value with a real credential or unset it",
+                "env_names": [token_env_name],
+                "value_recorded": False,
+            }
+        )
+
+    hints.extend(dict(hint) for hint in codex_preflight.get("recovery_hints", []) if isinstance(hint, dict))
+    if claude_sdk_preflight.get("permission_mode") == "auto" and not claude_sdk_preflight.get("auto_mode_allowed", True):
+        hints.append(
+            {
+                "code": "select_claude_sdk_permission_mode",
+                "scope": "claude_sdk",
+                "action": "configure a non-auto Claude SDK permission mode accepted by runtime policy",
+                "env_names": [CLAUDE_SDK_PERMISSION_MODE_ENV],
+                "value_recorded": False,
+            }
+        )
+    elif not claude_sdk_preflight.get("ok", True):
+        hints.append(
+            {
+                "code": "fix_claude_sdk_permission_mode",
+                "scope": "claude_sdk",
+                "action": "configure one of the supported Claude SDK permission modes",
+                "env_names": [CLAUDE_SDK_PERMISSION_MODE_ENV],
+                "value_recorded": False,
+            }
+        )
+    return hints
 
 
 def build_claude_sdk_permission_preflight(
@@ -1295,6 +1385,19 @@ def build_runtime_startup_preflight(
         "schema_version": 1,
         "ok": provider_preflight["ok"] and tool_preflight["ok"],
         "diagnostics": diagnostics,
+        "recovery_hints": [
+            *[dict(hint) for hint in provider_preflight.get("recovery_hints", []) if isinstance(hint, dict)],
+            *[
+                {
+                    "code": "make_required_tool_available",
+                    "scope": "tool_routing",
+                    "action": "configure or expose the required local tool before startup",
+                    "tool_name": str(tool_name),
+                    "value_recorded": False,
+                }
+                for tool_name in tool_preflight.get("missing_required_tool_names", [])
+            ],
+        ],
         "provider_config": provider_preflight,
         "tool_routing": tool_preflight,
         "token_value_recorded": False,
