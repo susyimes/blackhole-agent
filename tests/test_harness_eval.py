@@ -2630,6 +2630,125 @@ def test_mock_llm_workflow_route_fails_when_named_subagent_session_is_not_persis
     assert "PRIVATE_SESSION_TWO_DO_NOT_EXPORT" not in serialized
 
 
+def test_mock_llm_workflow_route_fails_when_resolver_miss_clones_parent_agent():
+    raw_input = {
+        "task_id": "fixture-mock-llm-named-subagent-parent-clone",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "sub_agents": {
+            "parent_name": "PRIVATE_PARENT_AGENT_DO_NOT_EXPORT",
+            "agents": [
+                {
+                    "name": "PRIVATE_CHILD_AGENT_DO_NOT_EXPORT",
+                    "expected_response_key": "child-queue",
+                    "turn_session_ids": ["PRIVATE_CHILD_SESSION_DO_NOT_EXPORT"],
+                    "persistence_required": True,
+                    "resolution": {
+                        "persisted_agent_names": ["PRIVATE_PARENT_AGENT_DO_NOT_EXPORT"],
+                        "resolved_agent_name": "PRIVATE_PARENT_AGENT_DO_NOT_EXPORT",
+                    },
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "child-queue": [{"content": "child turn"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "child-turn",
+                    "agent": "PRIVATE_CHILD_AGENT_DO_NOT_EXPORT",
+                    "response_key": "child-queue",
+                    "expect_contains": "child",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_named_subagent_parent_clone_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    resolution = output["sub_agents"]["agents"][0]["resolution"]
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "sub_agent_mock_route_failed"
+    assert output["sub_agents"]["resolution_guard_passed"] is False
+    assert resolution["resolver_miss"] is True
+    assert resolution["fallback_to_parent_detected"] is True
+    assert resolution["fail_closed_applied"] is False
+    assert resolution["guard_passed"] is False
+    assert resolution["decision"] == "blocked_required"
+    assert resolution["failure_mode"] == "parent_clone_fallback"
+    assert resolution["raw_agent_names_exported"] is False
+    assert "PRIVATE_PARENT_AGENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_AGENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_allows_resolver_miss_when_blocked_before_spawn():
+    raw_input = {
+        "task_id": "fixture-mock-llm-named-subagent-resolver-miss-blocked",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "sub_agents": {
+            "parent_name": "PRIVATE_PARENT_AGENT_DO_NOT_EXPORT",
+            "agents": [
+                {
+                    "name": "PRIVATE_CHILD_AGENT_DO_NOT_EXPORT",
+                    "expected_response_key": "child-queue",
+                    "turn_session_ids": ["PRIVATE_CHILD_SESSION_DO_NOT_EXPORT"],
+                    "persistence_required": True,
+                    "resolution": {
+                        "resolver_miss": True,
+                        "blocked_before_spawn": True,
+                    },
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "child-queue": [{"content": "child turn"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "child-turn",
+                    "agent": "PRIVATE_CHILD_AGENT_DO_NOT_EXPORT",
+                    "response_key": "child-queue",
+                    "expect_contains": "child",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_named_subagent_resolver_miss_blocked_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    resolution = output["sub_agents"]["agents"][0]["resolution"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["sub_agents"]["resolution_guard_passed"] is True
+    assert resolution["resolver_miss"] is True
+    assert resolution["fallback_to_parent_detected"] is False
+    assert resolution["fail_closed_applied"] is True
+    assert resolution["guard_passed"] is True
+    assert resolution["decision"] == "blocked_before_spawn"
+    assert resolution["failure_mode"] == "none"
+    assert "PRIVATE_PARENT_AGENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_AGENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
+
+
 def test_mock_llm_workflow_route_fails_when_session_reuses_previous_id():
     raw_input = {
         "task_id": "fixture-mock-llm-session-reuse",

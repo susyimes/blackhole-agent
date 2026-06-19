@@ -2042,7 +2042,11 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         session_passed=session_result["isolation_passed"],
         interrupt_passed=interrupt_result["passed"],
         file_tools_passed=file_tool_result["all_operations_mocked"] and file_tool_result["all_expectations_passed"],
-        sub_agents_passed=sub_agent_result["persistence_passed"] and not sub_agent_result["queue_desync_detected"],
+        sub_agents_passed=(
+            sub_agent_result["persistence_passed"]
+            and not sub_agent_result["queue_desync_detected"]
+            and sub_agent_result["resolution_guard_passed"]
+        ),
         native_policy_passed=native_policy_result["passive_or_denied"],
         queue_consumed=remaining_response_count == 0,
         tool_contract_passed=tool_contract["all_required_tool_calls_observed"],
@@ -2774,13 +2778,18 @@ def evaluate_mock_named_sub_agents_route(
 
     agents = sub_agents.get("agents") if isinstance(sub_agents.get("agents"), list) else []
     agent_results = [
-        evaluate_mock_named_sub_agent(agent, response_results=response_results)
+        evaluate_mock_named_sub_agent(
+            agent,
+            response_results=response_results,
+            parent_name=optional_string(sub_agents.get("parent_name")),
+        )
         for agent in agents
         if isinstance(agent, dict)
     ]
     declared = bool(agent_results)
     persistence_passed = all(result["persistence_passed"] for result in agent_results)
     queue_desync_detected = any(result["queue_desync_detected"] for result in agent_results)
+    resolution_guard_passed = all(result["resolution"]["guard_passed"] for result in agent_results)
     return {
         "declared": declared,
         "agent_count": len(agent_results),
@@ -2788,6 +2797,7 @@ def evaluate_mock_named_sub_agents_route(
         "all_expected_agents_observed": all(result["turn_count"] > 0 for result in agent_results),
         "persistence_passed": persistence_passed,
         "queue_desync_detected": queue_desync_detected,
+        "resolution_guard_passed": resolution_guard_passed,
         "shared_model_key": truthy(sub_agents.get("shared_model_key")),
         "raw_names_exported": False,
         "raw_session_ids_exported": False,
@@ -2799,6 +2809,7 @@ def evaluate_mock_named_sub_agent(
     agent: dict[str, Any],
     *,
     response_results: list[dict[str, Any]],
+    parent_name: str | None = None,
 ) -> dict[str, Any]:
     name = optional_string(agent.get("name")) or "named-sub-agent"
     expected_response_key = optional_string(agent.get("expected_response_key"))
@@ -2819,6 +2830,7 @@ def evaluate_mock_named_sub_agent(
         and len(observed_turns) >= len(session_hashes)
     )
     queue_desync_detected = fallback_count > 0 or expected_queue_mismatches > 0
+    resolution = evaluate_mock_named_sub_agent_resolution(agent, name=name, parent_name=parent_name)
     return {
         "name_hash": stable_text_hash(name),
         "turn_count": len(observed_turns),
@@ -2831,6 +2843,67 @@ def evaluate_mock_named_sub_agent(
         "turn_session_hashes": session_hashes,
         "unique_session_hash_count": unique_session_hash_count,
         "persistence_passed": persistence_passed,
+        "resolution": resolution,
+    }
+
+
+def evaluate_mock_named_sub_agent_resolution(
+    agent: dict[str, Any],
+    *,
+    name: str,
+    parent_name: str | None,
+) -> dict[str, Any]:
+    """Model child-agent resolver misses without exporting raw agent names."""
+
+    resolution = agent.get("resolution") if isinstance(agent.get("resolution"), dict) else {}
+    persisted_agent_names = set(string_list(resolution.get("persisted_agent_names")))
+    resolved_agent_name = optional_string(resolution.get("resolved_agent_name"))
+    resolver_miss = truthy(resolution.get("resolver_miss")) or (
+        bool(persisted_agent_names) and name not in persisted_agent_names
+    )
+    reconstructed_on_miss = truthy(resolution.get("reconstructed_on_miss"))
+    blocked_before_spawn = truthy(resolution.get("blocked_before_spawn"))
+    fallback_to_parent = bool(
+        resolver_miss
+        and parent_name
+        and resolved_agent_name == parent_name
+        and name != parent_name
+    )
+    fail_closed_required = resolver_miss and not reconstructed_on_miss
+    fail_closed_applied = fail_closed_required and blocked_before_spawn and not fallback_to_parent
+    guard_passed = (not resolver_miss) or reconstructed_on_miss or fail_closed_applied
+
+    if not resolver_miss:
+        failure_mode = "none"
+        decision = "resolved_child_spec"
+    elif reconstructed_on_miss:
+        failure_mode = "none"
+        decision = "reconstructed_child_spec"
+    elif fail_closed_applied:
+        failure_mode = "none"
+        decision = "blocked_before_spawn"
+    elif fallback_to_parent:
+        failure_mode = "parent_clone_fallback"
+        decision = "blocked_required"
+    else:
+        failure_mode = "resolver_miss_not_blocked"
+        decision = "blocked_required"
+
+    return {
+        "declared": bool(resolution),
+        "resolver_miss": resolver_miss,
+        "reconstructed_on_miss": reconstructed_on_miss,
+        "blocked_before_spawn": blocked_before_spawn,
+        "fallback_to_parent_detected": fallback_to_parent,
+        "fail_closed_required": fail_closed_required,
+        "fail_closed_applied": fail_closed_applied,
+        "guard_passed": guard_passed,
+        "decision": decision,
+        "failure_mode": failure_mode,
+        "raw_agent_names_exported": False,
+        "agent_name_hash": stable_text_hash(name),
+        "parent_name_hash": stable_text_hash(parent_name) if parent_name else None,
+        "resolved_agent_name_hash": stable_text_hash(resolved_agent_name) if resolved_agent_name else None,
     }
 
 

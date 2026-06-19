@@ -1,0 +1,16 @@
+Rollback point for github-growth-20260619T113207.070481Z
+
+Original branch:
+codex/blackhole-evolve/20260619T113312.527967-add-or-extend-a-local-agent-harness-evaluation-l
+
+Original HEAD:
+b0cb2123ecc73e310a5cfe2340093f93f4661737
+
+Local rollback ref:
+refs/rollback/blackhole-agent/20260619T113206Z
+
+Recovery commands, if an operator chooses destructive rollback:
+git reset --hard refs/rollback/blackhole-agent/20260619T113206Z
+git clean -fd
+
+Created before local source edits for the upstream-evidence-capability pass.
