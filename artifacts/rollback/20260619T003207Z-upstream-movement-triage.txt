@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260619T003207.232172Z self-evolution run.
+
+Original branch:
+codex/blackhole-evolve/20260619T003306.099053-open-a-follow-up-triage-task-to-inspect-low-deta
+
+Original HEAD:
+da648515002e7e12a8afbc6664ad662408f2bb3a
+
+Rollback ref:
+refs/blackhole-agent/rollback/20260619T003207Z/da648515002e
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T003306.099053-open-a-follow-up-triage-task-to-inspect-low-deta
+git reset --hard refs/blackhole-agent/rollback/20260619T003207Z/da648515002e
+
+Notes:
+Rollback execution is intentionally explicit and destructive. Do not run these
+commands unless the operator or supervisor chooses to abandon this evolution.

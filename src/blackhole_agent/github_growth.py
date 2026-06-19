@@ -989,25 +989,29 @@ def build_digest(
     generated_at = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     digest_id = "github-growth-" + generated_at.replace("-", "").replace(":", "").replace("+00:00", "Z")
     digest_proposals = build_proposals(signals, memory=memory) if proposals is None else proposals
+    items = [
+        {
+            "item_id": signal.event_id,
+            "source_url": signal.url,
+            "event_kind": signal.kind,
+            "summary": f"{signal.repo}: {signal.title}",
+            "relevance_reason": signal.relevance_reason,
+            "risk_flags": signal.risk_flags,
+            "confidence": signal.confidence,
+        }
+        for signal in signals
+    ]
     digest = {
         "digest_id": digest_id,
         "generated_at": generated_at,
         "repositories": repos,
         "cursor": dict(sorted(state.last_seen_at_by_repo.items())),
-        "items": [
-            {
-                "item_id": signal.event_id,
-                "source_url": signal.url,
-                "event_kind": signal.kind,
-                "summary": f"{signal.repo}: {signal.title}",
-                "relevance_reason": signal.relevance_reason,
-                "risk_flags": signal.risk_flags,
-                "confidence": signal.confidence,
-            }
-            for signal in signals
-        ],
+        "items": items,
         "proposals": digest_proposals,
     }
+    upstream_triage = build_upstream_movement_triage(items)
+    if upstream_triage["clusters"]:
+        digest["upstream_movement_triage"] = upstream_triage
     if source is not None:
         digest["source"] = source
     return digest
@@ -1037,6 +1041,9 @@ def build_proposals(
         pattern_evidence = push_pattern_evidence_for_signal(signal)
         if pattern_evidence is not None:
             proposal["push_pattern_evidence"] = pattern_evidence
+        upstream_evidence = upstream_movement_evidence_for_signal(signal)
+        if upstream_evidence is not None:
+            proposal["upstream_movement_evidence"] = upstream_evidence
         proposals.append(proposal)
     return proposals
 
@@ -1313,6 +1320,13 @@ def proposal_validation_preflight(proposal: dict[str, Any]) -> dict[str, Any]:
         and not push_pattern_evidence.get("has_clear_test_evidence")
     ):
         validation_gaps.append("missing_push_pattern_test_evidence")
+    upstream_movement_evidence = proposal.get("upstream_movement_evidence")
+    if (
+        requires_test_or_coverage
+        and isinstance(upstream_movement_evidence, dict)
+        and upstream_movement_evidence.get("status") != "ready"
+    ):
+        validation_gaps.append("missing_upstream_movement_confirmation")
 
     safety_block = safety_boundary_risk([str(flag) for flag in proposal.get("risk_flags", [])])
     status = "blocked_by_safety_boundary" if safety_block else "validation_gap" if validation_gaps else "ready"
@@ -1916,6 +1930,177 @@ def push_pattern_evidence_for_signal(signal: GrowthSignal) -> dict[str, Any] | N
         "policy": "keep_push_patterns_only_when_commit_messages_include_clear_test_or_ci_evidence",
         "matched_text_hash": stable_push_message_hash(text),
     }
+
+
+def upstream_movement_evidence_for_signal(signal: GrowthSignal) -> dict[str, Any] | None:
+    """Return local confirmation metadata for PR/review/push-derived lessons."""
+
+    if signal.kind not in {"PullRequestEvent", *REVIEW_ACTIVITY_EVENT_KINDS, "PushEvent"}:
+        return None
+    item = {
+        "item_id": signal.event_id,
+        "event_kind": signal.kind,
+        "summary": f"{signal.repo}: {signal.title}",
+        "relevance_reason": signal.relevance_reason,
+        "source_url": signal.url,
+    }
+    classification = classify_upstream_movement_item(item)
+    status = "ready" if classification["confirmation_level"] == "specific" else "needs_triage"
+    return {
+        "status": status,
+        "confirmation_level": classification["confirmation_level"],
+        "branch": classification["branch"],
+        "merge_timing": classification["merge_timing"],
+        "subsystem": classification["subsystem"],
+        "triage_key": classification["triage_key"],
+        "missing_details": classification["missing_details"],
+        "policy": "promote_upstream_movement_only_after_branch_timing_or_subsystem_confirmation",
+    }
+
+
+def build_upstream_movement_triage(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Group low-detail PR/review/push movement before it can justify local code."""
+
+    clusters: dict[str, dict[str, Any]] = {}
+    low_detail_count = 0
+    specific_count = 0
+    for item in items:
+        if str(item.get("event_kind") or "") not in {"PullRequestEvent", *REVIEW_ACTIVITY_EVENT_KINDS, "PushEvent"}:
+            continue
+        classification = classify_upstream_movement_item(item)
+        key = classification["triage_key"]
+        cluster = clusters.setdefault(
+            key,
+            {
+                "key": key,
+                "branch": classification["branch"],
+                "merge_timing": classification["merge_timing"],
+                "subsystem": classification["subsystem"],
+                "event_kinds": [],
+                "item_ids": [],
+                "confirmation_level": classification["confirmation_level"],
+                "missing_details": [],
+            },
+        )
+        cluster["event_kinds"].append(str(item.get("event_kind") or ""))
+        cluster["item_ids"].append(str(item.get("item_id") or ""))
+        cluster["missing_details"].extend(classification["missing_details"])
+        if classification["confirmation_level"] == "low_detail":
+            low_detail_count += 1
+        else:
+            specific_count += 1
+
+    rendered_clusters = []
+    for cluster in clusters.values():
+        event_kinds = sorted(set(cluster["event_kinds"]))
+        missing_details = sorted(set(cluster["missing_details"]))
+        rendered_clusters.append(
+            {
+                "key": cluster["key"],
+                "branch": cluster["branch"],
+                "merge_timing": cluster["merge_timing"],
+                "subsystem": cluster["subsystem"],
+                "event_kinds": event_kinds,
+                "item_ids": cluster["item_ids"],
+                "item_count": len(cluster["item_ids"]),
+                "confirmation_level": "low_detail" if missing_details else "specific",
+                "missing_details": missing_details,
+            }
+        )
+    rendered_clusters.sort(key=lambda cluster: (-int(cluster["item_count"]), str(cluster["key"])))
+    return {
+        "schema_version": 1,
+        "policy": "group_pr_review_push_items_by_branch_timing_and_subsystem_before_promotion",
+        "promotion_rule": (
+            "Specific local proposals require an inspected branch, merge timing, touched subsystem, "
+            "or local failing test; low-detail clusters remain follow-up evidence."
+        ),
+        "low_detail_item_count": low_detail_count,
+        "specific_item_count": specific_count,
+        "clusters": rendered_clusters,
+    }
+
+
+def classify_upstream_movement_item(item: dict[str, Any]) -> dict[str, Any]:
+    text = " ".join(
+        str(item.get(key) or "")
+        for key in ("event_kind", "summary", "relevance_reason", "source_url")
+    )
+    lowered = text.lower()
+    branch = branch_from_upstream_movement_text(text)
+    merge_timing = merge_timing_from_upstream_movement_text(lowered)
+    subsystem = subsystem_from_upstream_movement_text(lowered)
+    missing_details: list[str] = []
+    if branch == "unknown":
+        missing_details.append("branch")
+    if merge_timing == "unknown":
+        missing_details.append("merge_timing")
+    if subsystem == "unknown":
+        missing_details.append("subsystem")
+    if upstream_movement_text_is_generic(lowered):
+        missing_details.append("specific_title_or_body")
+    confirmation_level = "low_detail" if missing_details else "specific"
+    return {
+        "branch": branch,
+        "merge_timing": merge_timing,
+        "subsystem": subsystem,
+        "missing_details": missing_details,
+        "confirmation_level": confirmation_level,
+        "triage_key": f"branch={branch}|timing={merge_timing}|subsystem={subsystem}",
+    }
+
+
+def branch_from_upstream_movement_text(text: str) -> str:
+    match = re.search(r"\bpush to ([^:\s]+)", text, flags=re.IGNORECASE)
+    if match:
+        return sanitize_upstream_group_value(match.group(1))
+    match = re.search(r"\bfrom\s+(?:[^:\s]+:)?([A-Za-z0-9._/-]+)", text)
+    if match:
+        return sanitize_upstream_group_value(match.group(1))
+    return "unknown"
+
+
+def merge_timing_from_upstream_movement_text(text: str) -> str:
+    if any(term in text for term in ("merged pull request", "closed pull request", "merge commit")):
+        return "merged_or_closed"
+    if any(term in text for term in ("opened pull request", "ready for review", "wants to merge")):
+        return "pre_merge"
+    if "push to" in text:
+        return "push"
+    return "unknown"
+
+
+def subsystem_from_upstream_movement_text(text: str) -> str:
+    subsystem_terms = (
+        ("tests", ("test", "tests", "pytest", "e2e", "coverage", "regression", "smoke")),
+        ("docs", ("docs", "documentation", "readme", "guide")),
+        ("controller", ("controller", "proposal", "digest", "triage", "github-growth")),
+        ("runtime", ("runner", "runtime", "harness", "sandbox", "policy", "provider", "scheduler")),
+        ("ci", ("ci", "workflow", "actions", "release")),
+    )
+    for subsystem, terms in subsystem_terms:
+        if any(term in text for term in terms):
+            return subsystem
+    return "unknown"
+
+
+def upstream_movement_text_is_generic(text: str) -> bool:
+    generic_terms = (
+        "untitled pull request",
+        "generic",
+        "left a comment",
+        "left review comments",
+        "reviewed pull request",
+        "submitted pull request review",
+        "opened pull request: untitled",
+        "push to repository",
+    )
+    return any(term in text for term in generic_terms)
+
+
+def sanitize_upstream_group_value(value: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9._/-]+", "-", value.strip()).strip("-").lower()
+    return sanitized[:80] or "unknown"
 
 
 def push_message_text(signal: GrowthSignal) -> str:

@@ -1849,6 +1849,98 @@ def test_generic_pr_opened_and_labeled_metadata_is_clustered_and_downweighted():
     assert "untitled pull request" not in json.dumps(preflight, sort_keys=True)
 
 
+def test_digest_groups_low_detail_upstream_movement_by_available_triage_fields():
+    signals = [
+        GrowthSignal(
+            event_id="generic-pr",
+            repo="omnigent-ai/omnigent",
+            kind="PullRequestEvent",
+            title="opened pull request: untitled pull request",
+            url="https://github.com/omnigent-ai/omnigent/pull/500",
+            relevance_reason="generic PullRequestEvent item with missing PR details",
+            risk_flags=[],
+            recommended_action="compare the pull request approach with local agent behavior before drafting a change",
+            confidence=0.9,
+        ),
+        GrowthSignal(
+            event_id="review-anchor",
+            repo="omnigent-ai/omnigent",
+            kind="PullRequestReviewEvent",
+            title="submitted pull request review (commented): untitled pull request",
+            url="https://github.com/omnigent-ai/omnigent/pull/500#pullrequestreview-4529338631",
+            relevance_reason="review anchor exposed without inspected finding details",
+            risk_flags=[],
+            recommended_action="treat repeated pull request review activity as supporting evidence for local validation or test changes",
+            confidence=0.8,
+        ),
+        GrowthSignal(
+            event_id="e2e-push",
+            repo="omnigent-ai/omnigent",
+            kind="PushEvent",
+            title="push to copilot/fix-e2e-claude-sdk-sandbox-tests: test(e2e): isolate policy allow response",
+            url="https://github.com/omnigent-ai/omnigent",
+            relevance_reason="push commit message names e2e test coverage",
+            risk_flags=[],
+            recommended_action="cluster commit messages and keep only patterns with clear test evidence",
+            confidence=0.72,
+        ),
+    ]
+
+    digest = build_digest(
+        ["omnigent-ai/omnigent"],
+        signals,
+        state=GrowthState(),
+        generated_at="2026-06-19T00:32:07Z",
+        proposals=[],
+    )
+
+    triage = digest["upstream_movement_triage"]
+    assert triage["low_detail_item_count"] == 2
+    assert triage["specific_item_count"] == 1
+    assert triage["promotion_rule"].startswith("Specific local proposals require")
+
+    clusters_by_key = {cluster["key"]: cluster for cluster in triage["clusters"]}
+    assert clusters_by_key["branch=unknown|timing=pre_merge|subsystem=unknown"] == {
+        "key": "branch=unknown|timing=pre_merge|subsystem=unknown",
+        "branch": "unknown",
+        "merge_timing": "pre_merge",
+        "subsystem": "unknown",
+        "event_kinds": ["PullRequestEvent"],
+        "item_ids": ["generic-pr"],
+        "item_count": 1,
+        "confirmation_level": "low_detail",
+        "missing_details": ["branch", "specific_title_or_body", "subsystem"],
+    }
+    assert clusters_by_key[
+        "branch=copilot/fix-e2e-claude-sdk-sandbox-tests|timing=push|subsystem=tests"
+    ]["confirmation_level"] == "specific"
+
+
+def test_proposal_preflight_requires_confirmation_for_low_detail_upstream_movement():
+    proposal = {
+        "proposal_id": "low-detail-upstream",
+        "kind": "test",
+        "summary": "Add a local regression test for generic upstream PR movement.",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "narrow-local-verification",
+        "validation_task": "Run a focused local test for upstream movement triage.",
+        "upstream_movement_evidence": {
+            "status": "needs_triage",
+            "confirmation_level": "low_detail",
+            "branch": "unknown",
+            "merge_timing": "unknown",
+            "subsystem": "unknown",
+            "missing_details": ["branch", "merge_timing", "subsystem"],
+        },
+    }
+
+    preflight = proposal_validation_preflight(proposal)
+
+    assert preflight["status"] == "validation_gap"
+    assert preflight["validation_gaps"] == ["missing_upstream_movement_confirmation"]
+
+
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
     evidence_package = build_proposal_evidence_package(
         {
