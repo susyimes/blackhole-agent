@@ -1752,6 +1752,100 @@ def test_workspace_changes_panel_non_git_requires_visible_external_and_native_en
     assert "PRIVATE_REST_CONTENT_DO_NOT_EXPORT" not in serialized
 
 
+def test_workspace_changes_panel_fails_stale_visible_path_without_exporting_paths():
+    output = evaluate_harness_behavior(
+        "workspace_changes_panel",
+        {
+            "task_id": "fixture-stale-workspace-change-panel",
+            "workspace": {
+                "is_git_repo": True,
+                "runner_workspace_configured": True,
+            },
+            "performed_edits": [
+                {
+                    "edit_id": "native-cli-write",
+                    "origin": "native_harness",
+                    "path": "PRIVATE_CURRENT_PATH_DO_NOT_EXPORT.md",
+                    "content": "PRIVATE_CURRENT_CONTENT_DO_NOT_EXPORT",
+                    "exists_on_disk": True,
+                    "record_change_observed": True,
+                }
+            ],
+            "changes_panel": {
+                "available": True,
+                "entries": [
+                    {
+                        "edit_id": "native-cli-write",
+                        "kind": "changed_file",
+                        "path": "PRIVATE_STALE_PATH_DO_NOT_EXPORT.md",
+                        "visible": True,
+                    }
+                ],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "workspace_changes_panel_stale_path_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "stale_visible_change_entries"
+    assert output["edits"]["missing_visible_edit_ids"] == []
+    assert output["edits"]["stale_visible_edit_ids"] == ["native-cli-write"]
+    assert "PRIVATE_CURRENT_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STALE_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CURRENT_CONTENT_DO_NOT_EXPORT" not in serialized
+
+
+def test_workspace_changes_panel_fails_unexpected_extra_visible_changed_file():
+    output = evaluate_harness_behavior(
+        "workspace_changes_panel",
+        {
+            "task_id": "fixture-overbroad-workspace-change-panel",
+            "workspace": {
+                "is_git_repo": True,
+                "runner_workspace_configured": True,
+            },
+            "performed_edits": [
+                {
+                    "edit_id": "expected-write",
+                    "origin": "native_harness",
+                    "path": "PRIVATE_EXPECTED_PATH_DO_NOT_EXPORT.md",
+                    "content": "PRIVATE_EXPECTED_CONTENT_DO_NOT_EXPORT",
+                    "exists_on_disk": True,
+                    "record_change_observed": True,
+                }
+            ],
+            "changes_panel": {
+                "available": True,
+                "entries": [
+                    {
+                        "edit_id": "expected-write",
+                        "kind": "changed_file",
+                        "path": "PRIVATE_EXPECTED_PATH_DO_NOT_EXPORT.md",
+                        "visible": True,
+                    },
+                    {
+                        "edit_id": "stale-unrelated-write",
+                        "kind": "changed_file",
+                        "path": "PRIVATE_UNRELATED_PATH_DO_NOT_EXPORT.md",
+                        "visible": True,
+                    },
+                ],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "workspace_changes_panel_overbroad_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "unexpected_visible_change_entries"
+    assert output["edits"]["missing_visible_edit_ids"] == []
+    assert output["edits"]["unexpected_visible_edit_ids"] == ["stale-unrelated-write"]
+    assert "PRIVATE_EXPECTED_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_UNRELATED_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXPECTED_CONTENT_DO_NOT_EXPORT" not in serialized
+
+
 def test_native_tool_call_policy_matrix_does_not_silently_allow_policy_hook_failures():
     cases = [
         ("timeout", "denied", "policy_hook_unavailable", "deny", "policy_hook_fail_closed:timeout"),

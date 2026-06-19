@@ -471,17 +471,28 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
 
     edit_results = [evaluate_workspace_change_edit(edit) for edit in performed_edits]
     panel_results = [evaluate_workspace_change_panel_entry(entry) for entry in panel_entries]
-    visible_entry_ids = {
-        str(result["edit_id"])
-        for result in panel_results
-        if result["edit_id"] and result["visible"]
-    }
+    visible_entry_ids = {str(result["edit_id"]) for result in panel_results if result["edit_id"] and result["visible"]}
     required_edit_ids = [
         str(result["edit_id"])
         for result in edit_results
         if result["exists_on_disk"] and result["requires_panel_visibility"]
     ]
     missing_visible_edit_ids = sorted(set(required_edit_ids) - visible_entry_ids)
+    performed_edit_ids = {str(result["edit_id"]) for result in edit_results if result["exists_on_disk"]}
+    unexpected_visible_edit_ids = sorted(
+        {
+            str(result["edit_id"])
+            for result in panel_results
+            if result["visible"]
+            and result["kind"] == "changed_file"
+            and result["edit_id"]
+            and str(result["edit_id"]) not in performed_edit_ids
+        }
+    )
+    stale_visible_edit_ids = workspace_changes_stale_visible_edit_ids(
+        edit_results=edit_results,
+        panel_results=panel_results,
+    )
 
     is_git_repo = truthy(workspace.get("is_git_repo"))
     runner_workspace_configured = truthy(workspace.get("runner_workspace_configured"))
@@ -500,6 +511,8 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
         runner_workspace_configured=runner_workspace_configured,
         visible_entry_count=visible_entry_count,
         missing_visible_edit_ids=missing_visible_edit_ids,
+        unexpected_visible_edit_ids=unexpected_visible_edit_ids,
+        stale_visible_edit_ids=stale_visible_edit_ids,
         non_git_limitation_present=non_git_limitation_present,
         git_metadata_required=git_metadata_required,
         is_git_repo=is_git_repo,
@@ -533,6 +546,8 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
             "unrecorded_edit_count": unrecorded_edit_count,
             "required_edit_ids": required_edit_ids,
             "missing_visible_edit_ids": missing_visible_edit_ids,
+            "unexpected_visible_edit_ids": unexpected_visible_edit_ids,
+            "stale_visible_edit_ids": stale_visible_edit_ids,
             "raw_paths_exported": False,
             "raw_contents_exported": False,
             "items": edit_results,
@@ -583,11 +598,39 @@ def evaluate_workspace_change_panel_entry(entry: Any) -> dict[str, Any]:
     }
 
 
+def workspace_changes_stale_visible_edit_ids(
+    *,
+    edit_results: list[dict[str, Any]],
+    panel_results: list[dict[str, Any]],
+) -> list[str]:
+    edit_path_hashes = {
+        str(result["edit_id"]): result["path_hash"]
+        for result in edit_results
+        if result["exists_on_disk"] and result["path_hash"]
+    }
+    stale_ids: set[str] = set()
+    for result in panel_results:
+        edit_id = optional_string(result.get("edit_id"))
+        panel_path_hash = result.get("path_hash")
+        if (
+            result["visible"]
+            and result["kind"] == "changed_file"
+            and edit_id
+            and panel_path_hash
+            and edit_path_hashes.get(edit_id)
+            and panel_path_hash != edit_path_hashes[edit_id]
+        ):
+            stale_ids.add(edit_id)
+    return sorted(stale_ids)
+
+
 def workspace_changes_panel_failure_mode(
     *,
     runner_workspace_configured: bool,
     visible_entry_count: int,
     missing_visible_edit_ids: list[str],
+    unexpected_visible_edit_ids: list[str],
+    stale_visible_edit_ids: list[str],
     non_git_limitation_present: bool,
     git_metadata_required: bool,
     is_git_repo: bool,
@@ -598,6 +641,10 @@ def workspace_changes_panel_failure_mode(
         return "changes_panel_empty"
     if missing_visible_edit_ids:
         return "missing_visible_change_entries"
+    if stale_visible_edit_ids:
+        return "stale_visible_change_entries"
+    if unexpected_visible_edit_ids:
+        return "unexpected_visible_change_entries"
     if not non_git_limitation_present:
         return "missing_non_git_tracking_limitation"
     if not is_git_repo and git_metadata_required:

@@ -1,0 +1,14 @@
+Rollback point for self-evolution run
+
+Source digest: github-growth-20260619T031207.034542Z
+Proposal focus: p1-e2e-runner-workspace-changed-files
+Original branch: codex/blackhole-evolve/20260619T031305.663257-locally-validate-e2e-runner-handling-of-workspac
+Original HEAD: 6a9912fe173dd9e13ff8c77d3ee2bd532e0f3227
+Local rollback ref: refs/blackhole-rollback/20260619T031207Z-workspace-changed-files-e2e-validation
+
+Recovery commands (destructive; operator approval required):
+  git switch codex/blackhole-evolve/20260619T031305.663257-locally-validate-e2e-runner-handling-of-workspac
+  git reset --hard refs/blackhole-rollback/20260619T031207Z-workspace-changed-files-e2e-validation
+  git clean -fd
+
+Created before source edits in this run.
