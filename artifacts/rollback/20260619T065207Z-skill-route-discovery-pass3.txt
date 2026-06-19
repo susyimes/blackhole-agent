@@ -1,0 +1,10 @@
+Rollback point for skill-route-discovery pass 3
+
+Original branch: codex/blackhole-evolve/20260619T065302.092212-add-or-update-a-local-harness-regression-test-th
+Original HEAD: b106230519b0e84cf0a89d910f0792b9d1746c66
+Rollback ref: refs/rollback/20260619T065207Z-skill-route-discovery-pass3
+
+Recovery commands (destructive, human/supervisor initiated only):
+  git switch codex/blackhole-evolve/20260619T065302.092212-add-or-update-a-local-harness-regression-test-th
+  git reset --hard refs/rollback/20260619T065207Z-skill-route-discovery-pass3
+  git clean -fd

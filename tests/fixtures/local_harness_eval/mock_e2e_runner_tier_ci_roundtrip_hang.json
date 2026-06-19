@@ -1,0 +1,108 @@
+{
+  "name": "mock-e2e-runner-tier-ci-roundtrip-hang",
+  "behavior": "mock_e2e_runner_tier",
+  "input": {
+    "task_id": "fixture-mock-e2e-runner-tier-ci-roundtrip-hang",
+    "mock_only": true,
+    "provider": {
+      "name": "external-agent-provider",
+      "enabled": false,
+      "credentials_required": false,
+      "network_required": false
+    },
+    "ci_round_trip": {
+      "expected_failure_family": "ci_round_trip_hang",
+      "prompt_observed": true,
+      "completion_observed": false,
+      "timed_out": true,
+      "auth_error": false,
+      "failure_text": "PRIVATE_CI_ROUNDTRIP_FAILURE_TEXT_DO_NOT_EXPORT"
+    },
+    "runner_tiers": [
+      {
+        "name": "host-native",
+        "lane": "host_native",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "send-ci-prompt",
+            "observed": "host-native mocked run sent the CI prompt before timeout",
+            "expect_contains": "CI prompt"
+          }
+        ],
+        "operations": [
+          {
+            "name": "ci_prompt_roundtrip_probe",
+            "command": "PRIVATE_CI_ROUNDTRIP_COMMAND_DO_NOT_EXPORT",
+            "mocked": true,
+            "mock_content": "round trip timeout classified without credentials",
+            "expect_content_contains": "without credentials"
+          }
+        ]
+      },
+      {
+        "name": "miscellaneous",
+        "lane": "miscellaneous",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "classify-hang-not-auth",
+            "observed": "miscellaneous metadata classified the CI round trip hang separately from auth",
+            "expect_contains": "separately from auth"
+          }
+        ],
+        "operations": [
+          {
+            "name": "ci_round_trip_metadata_parse",
+            "path": "tests/ci_roundtrip_metadata.json",
+            "mocked": true,
+            "mock_content": "metadata preserves timeout family and avoids key material",
+            "expect_content_contains": "timeout family"
+          }
+        ]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "ci_round_trip.configured",
+      "equals": true
+    },
+    {
+      "path": "ci_round_trip.passed",
+      "equals": true
+    },
+    {
+      "path": "ci_round_trip.expected_failure_family",
+      "equals": "ci_round_trip_hang"
+    },
+    {
+      "path": "ci_round_trip.observed_failure_family",
+      "equals": "ci_round_trip_hang"
+    },
+    {
+      "path": "ci_round_trip.auth_failure_detected",
+      "equals": false
+    },
+    {
+      "path": "ci_round_trip.round_trip_hang_detected",
+      "equals": true
+    },
+    {
+      "path": "ci_round_trip.raw_failure_text_exported",
+      "equals": false
+    },
+    {
+      "path": "ci_round_trip.auth_key_value_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

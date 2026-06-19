@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 26
-    assert payload["pass_count"] == 25
+    assert payload["fixture_count"] == 27
+    assert payload["pass_count"] == 26
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -104,6 +104,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-ask-boundary"]["passed"] is True
+    assert results["mock-e2e-runner-tier-ci-roundtrip-hang"]["passed"] is True
     assert results["mock-e2e-runner-tier-compaction-known-failure-repoint"]["passed"] is True
     assert results["mock-llm-chat-completions-contract"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
@@ -149,6 +150,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_E2E_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_E2E_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CI_ROUNDTRIP_FAILURE_TEXT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CI_ROUNDTRIP_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "Pattern 'sleeping' not found" not in serialized
     assert "OPENAI_API_KEY" not in serialized
     assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
@@ -449,6 +452,46 @@ def test_mock_e2e_runner_tier_routes_known_failure_repoints_without_raw_failure_
     assert output["failure_mode"] == "none"
     assert "Pattern 'sleeping' not found" not in serialized
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_e2e_runner_tier_classifies_ci_roundtrip_hang_separately_from_auth():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_e2e_runner_tier_ci_roundtrip_hang.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    auth_output = evaluate_harness_behavior(
+        "mock_e2e_runner_tier",
+        {
+            **fixture["input"],
+            "task_id": "fixture-mock-e2e-runner-tier-auth-failure",
+            "ci_round_trip": {
+                "expected_failure_family": "authentication_failure",
+                "prompt_observed": False,
+                "completion_observed": False,
+                "timed_out": False,
+                "auth_error": True,
+                "failure_text": "PRIVATE_AUTH_FAILURE_TEXT_DO_NOT_EXPORT",
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_e2e_runner_tier_auth_failure_inline.json",
+    )
+    serialized = json.dumps({"hang": output, "auth": auth_output}, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["ci_round_trip"]["observed_failure_family"] == "ci_round_trip_hang"
+    assert output["ci_round_trip"]["round_trip_hang_detected"] is True
+    assert output["ci_round_trip"]["auth_failure_detected"] is False
+
+    assert auth_output["route_status"] == "passed"
+    assert auth_output["ci_round_trip"]["observed_failure_family"] == "authentication_failure"
+    assert auth_output["ci_round_trip"]["auth_failure_detected"] is True
+    assert auth_output["ci_round_trip"]["round_trip_hang_detected"] is False
+    assert "PRIVATE_CI_ROUNDTRIP_FAILURE_TEXT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AUTH_FAILURE_TEXT_DO_NOT_EXPORT" not in serialized
 
 
 def test_push_delivery_path_fixture_records_mocked_handoff_without_raw_remote_or_command():

@@ -84,6 +84,27 @@ NATIVE_POLICY_HOOK_ASK_TIMEOUT_FAILURES = {
     "ask_timeout",
     "slow_ask_timeout",
 }
+CI_ROUND_TRIP_AUTH_FAILURE_MARKERS = (
+    "401",
+    "api key",
+    "auth",
+    "authentication",
+    "credential",
+    "login required",
+    "unauthorized",
+)
+CI_ROUND_TRIP_HANG_MARKERS = (
+    "ci round-trip",
+    "ci round trip",
+    "hang",
+    "hung",
+    "no completion",
+    "no response",
+    "round-trip",
+    "round trip",
+    "timed out",
+    "timeout",
+)
 
 
 @dataclass(frozen=True)
@@ -990,11 +1011,13 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
     provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
     runner_tiers = raw_input.get("runner_tiers") if isinstance(raw_input.get("runner_tiers"), list) else []
     known_failure = raw_input.get("known_failure") if isinstance(raw_input.get("known_failure"), dict) else {}
+    ci_round_trip = raw_input.get("ci_round_trip") if isinstance(raw_input.get("ci_round_trip"), dict) else {}
     approval_boundary_input = (
         raw_input.get("approval_boundary") if isinstance(raw_input.get("approval_boundary"), dict) else {}
     )
     tier_results = [evaluate_mock_e2e_runner_tier_item(tier) for tier in runner_tiers]
     known_failure_route = evaluate_mock_e2e_known_failure_route(known_failure)
+    ci_round_trip_diagnostic = evaluate_mock_e2e_ci_round_trip(ci_round_trip)
     approval_boundary = evaluate_mock_e2e_approval_boundary(approval_boundary_input, source_path=source_path)
 
     provider_enabled = truthy(provider.get("enabled"))
@@ -1020,6 +1043,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
         all_tiers_passed=all_tiers_passed,
         tool_boundaries_mocked=tool_boundaries_mocked,
         known_failure_route_passed=known_failure_route["passed"],
+        ci_round_trip_passed=ci_round_trip_diagnostic["passed"],
         approval_boundary_passed=approval_boundary["passed"],
     )
 
@@ -1046,6 +1070,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
             "tiers": tier_results,
         },
         "known_failure_route": known_failure_route,
+        "ci_round_trip": ci_round_trip_diagnostic,
         "approval_boundary": approval_boundary,
         "privacy": {
             "raw_commands_exported": False,
@@ -1174,6 +1199,7 @@ def mock_e2e_runner_tier_failure_mode(
     all_tiers_passed: bool,
     tool_boundaries_mocked: bool,
     known_failure_route_passed: bool,
+    ci_round_trip_passed: bool,
     approval_boundary_passed: bool,
 ) -> str:
     if tier_count < 1:
@@ -1198,6 +1224,8 @@ def mock_e2e_runner_tier_failure_mode(
         return "tier_expectation_failed"
     if not known_failure_route_passed:
         return "known_failure_route_mismatch"
+    if not ci_round_trip_passed:
+        return "ci_round_trip_classification_mismatch"
     return "none"
 
 
@@ -1249,6 +1277,80 @@ def evaluate_mock_e2e_known_failure_route(known_failure: dict[str, Any]) -> dict
         "test_logic_changed": test_logic_changed,
         "raw_failure_text_exported": False,
     }
+
+
+def evaluate_mock_e2e_ci_round_trip(ci_round_trip: dict[str, Any]) -> dict[str, Any]:
+    """Classify mocked CI round-trip failures without exporting logs or credentials."""
+
+    configured = bool(ci_round_trip)
+    if not configured:
+        return {
+            "configured": False,
+            "passed": True,
+            "route_status": "not_required",
+            "failure_mode": "none",
+            "expected_failure_family": "none",
+            "observed_failure_family": "none",
+            "auth_failure_detected": False,
+            "round_trip_hang_detected": False,
+            "prompt_observed": False,
+            "completion_observed": False,
+            "raw_failure_text_exported": False,
+            "auth_key_value_exported": False,
+        }
+
+    expected_failure_family = normalize_ci_round_trip_failure_family(
+        ci_round_trip.get("expected_failure_family") or ci_round_trip.get("expected")
+    )
+    observed_failure_family = classify_ci_round_trip_failure(ci_round_trip)
+    prompt_observed = truthy(ci_round_trip.get("prompt_observed") or ci_round_trip.get("prompt_sent"))
+    completion_observed = truthy(ci_round_trip.get("completion_observed") or ci_round_trip.get("response_received"))
+    passed = expected_failure_family != "none" and observed_failure_family == expected_failure_family
+    return {
+        "configured": True,
+        "passed": passed,
+        "route_status": "passed" if passed else "failed",
+        "failure_mode": "none" if passed else "ci_round_trip_classification_mismatch",
+        "expected_failure_family": expected_failure_family,
+        "observed_failure_family": observed_failure_family,
+        "auth_failure_detected": observed_failure_family == "authentication_failure",
+        "round_trip_hang_detected": observed_failure_family == "ci_round_trip_hang",
+        "prompt_observed": prompt_observed,
+        "completion_observed": completion_observed,
+        "raw_failure_text_exported": False,
+        "auth_key_value_exported": False,
+    }
+
+
+def classify_ci_round_trip_failure(ci_round_trip: dict[str, Any]) -> str:
+    failure_text = optional_string(
+        ci_round_trip.get("failure_text")
+        or ci_round_trip.get("stderr_tail")
+        or ci_round_trip.get("stdout_tail")
+        or ci_round_trip.get("observed_signature")
+    )
+    text = (failure_text or "").casefold()
+    auth_error = truthy(ci_round_trip.get("auth_error") or ci_round_trip.get("authentication_failed"))
+    timed_out = truthy(ci_round_trip.get("timed_out") or ci_round_trip.get("timeout"))
+    prompt_observed = truthy(ci_round_trip.get("prompt_observed") or ci_round_trip.get("prompt_sent"))
+    completion_observed = truthy(ci_round_trip.get("completion_observed") or ci_round_trip.get("response_received"))
+
+    if auth_error or any(marker in text for marker in CI_ROUND_TRIP_AUTH_FAILURE_MARKERS):
+        return "authentication_failure"
+    if (timed_out and prompt_observed and not completion_observed) or any(
+        marker in text for marker in CI_ROUND_TRIP_HANG_MARKERS
+    ):
+        return "ci_round_trip_hang"
+    return "none"
+
+
+def normalize_ci_round_trip_failure_family(value: Any) -> str:
+    text = (optional_string(value) or "none").strip().casefold().replace("-", "_").replace(" ", "_")
+    if text in {"auth", "authentication", "authentication_failure", "credentials", "credential_failure"}:
+        return "authentication_failure"
+    if text in {"ci_round_trip_hang", "round_trip_hang", "roundtrip_hang", "hang", "timeout"}:
+        return "ci_round_trip_hang"
+    return "none"
 
 
 def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

@@ -183,6 +183,14 @@ source and evidence URLs are hashed rather than exported. Requested activation
 actions such as install, enable, run, execute, clone-and-run, or local deletion
 block the harness lane as rejected candidates and do not execute.
 
+The same local harness family now includes a metadata-only CI round-trip
+diagnostic for mocked E2E runner lanes. When public harness evidence suggests a
+CI prompt round-trip is hanging, the local fixture should classify that as
+`ci_round_trip_hang` separately from `authentication_failure`. The diagnostic
+records only the expected and observed failure families, prompt/completion
+booleans, and body-free privacy flags; it must not export raw CI logs, command
+strings, token names with values, credentials, or provider responses.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:
