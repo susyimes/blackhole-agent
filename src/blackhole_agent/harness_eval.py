@@ -403,6 +403,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         else "blocked"
     )
     activation_gate = skill_route_discovery_activation_gate(failure_mode)
+    discovery_checklist = build_skill_route_discovery_checklist(proposal_lanes)
 
     return {
         "schema_version": 1,
@@ -431,6 +432,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "evidence_strength": evidence_strength,
         "activation_gate": activation_gate,
+        "discovery_checklist": discovery_checklist,
         "proposal_lanes": [
             {
                 "candidate_name": str(lane.get("candidate_name") or ""),
@@ -452,6 +454,25 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "runtime_actions_executed": False,
         },
     }
+
+
+def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Render proposal lanes as an operator checklist without exporting URLs."""
+
+    validation_command = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    return [
+        {
+            "source_url_hash": stable_text_hash(str(lane.get("source_url") or "")),
+            "capability": "skill_route_discovery",
+            "candidate_name": str(lane.get("candidate_name") or ""),
+            "allowed_local_lane": str(lane.get("proposal_kind") or ""),
+            "required_tests": [validation_command],
+            "rollback_note": "record rollback ref and artifact before applying local source changes",
+            "runtime_action": str(lane.get("runtime_action") or ""),
+            "external_skill_activation_allowed": False,
+        }
+        for lane in proposal_lanes
+    ]
 
 
 def skill_route_discovery_lane_failure_mode(

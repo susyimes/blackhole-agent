@@ -204,6 +204,16 @@ records only the expected and observed failure families, prompt/completion
 booleans, and body-free privacy flags; it must not export raw CI logs, command
 strings, token names with values, credentials, or provider responses.
 
+The harness also renders a `discovery_checklist` for operator review before
+local activation. Each checklist row records the hashed source, capability,
+allowed local lane, required tests, rollback note, runtime action, and external
+activation flag. The row is intentionally bounded: source URLs are represented
+as hashes, capability is `skill_route_discovery`, allowed local lane is one of
+documentation, config, test, or code_patch, required tests include
+`pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane`, rollback
+notes require a rollback ref and artifact before source changes, runtime action
+remains `none`, and external skill activation remains false.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:

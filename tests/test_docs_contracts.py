@@ -189,6 +189,12 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "specific\nsummary, explicit route hint, or local validation signal",
         "not\nactivation-ready merely because its candidate lanes are otherwise bounded",
         "weak generic upstream movement is\n`review_weak_evidence_before_activation`",
+        "The harness also renders a `discovery_checklist` for operator review before\nlocal activation",
+        "hashed source, capability,\nallowed local lane, required tests, rollback note, runtime action, and external\nactivation flag",
+        "source URLs are represented\nas hashes",
+        "required tests include\n`pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane`",
+        "rollback\nnotes require a rollback ref and artifact before source changes",
+        "runtime action\nremains `none`, and external skill activation remains false",
         "\"evidence_refs\": [\"fablecodex-codex-skill-workflow\"]",
         "\"evidence_refs\": [\"https://github.com/baskduf/FableCodex\"]",
     ]

@@ -240,6 +240,25 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "local_proposal_activation_allowed": True,
         "external_skill_activation_allowed": False,
     }
+    assert len(output["discovery_checklist"]) == 4
+    assert {entry["capability"] for entry in output["discovery_checklist"]} == {"skill_route_discovery"}
+    assert {entry["allowed_local_lane"] for entry in output["discovery_checklist"]} == {
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    }
+    assert {entry["runtime_action"] for entry in output["discovery_checklist"]} == {"none"}
+    assert all(entry["source_url_hash"] for entry in output["discovery_checklist"])
+    assert all(entry["external_skill_activation_allowed"] is False for entry in output["discovery_checklist"])
+    assert all(
+        entry["required_tests"] == ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"]
+        for entry in output["discovery_checklist"]
+    )
+    assert all(
+        entry["rollback_note"] == "record rollback ref and artifact before applying local source changes"
+        for entry in output["discovery_checklist"]
+    )
     assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
     assert {lane["evidence_url_count"] for lane in output["proposal_lanes"]} == {3}
     assert all(lane["evidence_url_hashes"] for lane in output["proposal_lanes"])
@@ -275,6 +294,7 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
     assert output["registry"]["registry_status"] == "invalid_candidates_present"
     assert output["registry"]["invalid_candidate_count"] == 1
     assert output["lane_map"]["proposal_lane_count"] == 0
+    assert output["discovery_checklist"] == []
     assert output["activation_gate"] == {
         "controller_surface": "skill_route_discovery_lane",
         "activation_scope": "local_proposal_only",
@@ -312,6 +332,10 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
     assert output["failure_mode"] == "weak_generic_upstream_evidence"
     assert output["lane_map"]["proposal_lane_count"] == 2
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation"]
+    assert [entry["allowed_local_lane"] for entry in output["discovery_checklist"]] == [
+        "documentation",
+        "code_patch",
+    ]
     assert output["evidence_strength"] == {
         "tier": "weak_generic_upstream_movement",
         "record_count": 1,
