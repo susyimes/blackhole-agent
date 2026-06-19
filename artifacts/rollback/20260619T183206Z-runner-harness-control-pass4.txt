@@ -1,0 +1,17 @@
+# Rollback Point
+
+Run: github-growth-20260619T183206.911100Z
+Created: 2026-06-19T18:32:06Z
+Original branch: codex/blackhole-evolve/20260619T183327.610549-add-a-local-validation-lane-for-skill-or-slash-c
+Original HEAD: 15cf9e304bfb9774f0201bb2249c49a3445e79a7
+Rollback ref: refs/blackhole-rollback/20260619T183206Z-runner-harness-control-pass4
+
+Recovery commands:
+
+``powershell
+git switch codex/blackhole-evolve/20260619T183327.610549-add-a-local-validation-lane-for-skill-or-slash-c
+git reset --hard refs/blackhole-rollback/20260619T183206Z-runner-harness-control-pass4
+git clean -fd
+``
+
+Rollback is explicit and destructive; do not run it unless selected by a human operator or supervisor policy.

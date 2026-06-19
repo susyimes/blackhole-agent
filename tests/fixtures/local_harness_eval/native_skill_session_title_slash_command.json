@@ -1,0 +1,61 @@
+{
+  "name": "native-skill-session-title-slash-command",
+  "behavior": "native_skill_session_title",
+  "input": {
+    "task_id": "fixture-native-skill-session-title",
+    "provider_label": "Claude Code",
+    "generic_provider_labels": ["Claude Code", "Codex", "OpenAI", "Claude", "Gemini"],
+    "allowed_title_sources": ["command", "skill", "prompt", "launch_context", "llm_summary"],
+    "launch_context": {
+      "command": "/my-plugin:my-skill",
+      "skill_name": "my-skill",
+      "arguments": "ARG-123",
+      "expected_title": "my-skill ARG-123"
+    },
+    "transcript": [
+      {
+        "type": "slash_command",
+        "command_name": "/my-plugin:my-skill",
+        "arguments": "ARG-123"
+      },
+      {
+        "type": "assistant",
+        "content": "PRIVATE_ASSISTANT_BODY_DO_NOT_EXPORT"
+      }
+    ],
+    "session_metadata": {
+      "title": "my-skill ARG-123",
+      "title_source": "command"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "launch_path.skill_or_slash_first",
+      "equals": true
+    },
+    {
+      "path": "session_title.generic_provider_fallback",
+      "equals": false
+    },
+    {
+      "path": "session_title.context_derived",
+      "equals": true
+    },
+    {
+      "path": "activation_gate.native_session_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_command_exported",
+      "equals": false
+    }
+  ]
+}

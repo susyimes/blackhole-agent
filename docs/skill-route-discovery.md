@@ -274,6 +274,32 @@ allowed local lanes, selected-item `evidence_refs` rather than URL citations,
 and review-only classification for offensive-behavior or privacy-leakage
 signals. Passing route discovery alone does not prove those proposal gates.
 
+## Native Session Title Lane
+
+The 2026-06-19 source digest carried Omnigent issue #851, where a native Claude
+Code session launched first through a Skill or slash-command stayed untitled and
+the sidebar fell back to the generic provider label `Claude Code`. The reusable
+local lesson is not provider-specific UI behavior; it is a runner-harness
+metadata invariant: a skill-first native session must preserve enough command,
+skill, prompt, or launch context to seed a descriptive session title.
+
+`native_skill_session_title` is the local replay lane for that invariant. It
+accepts body-free fixture metadata for provider label, launch context,
+transcript item kinds, and session title metadata. It passes only when a
+skill/slash-command-first launch has context signals, the session title is
+present, the title source is one of command, skill, prompt, launch_context, or
+LLM summary, and the title does not fall back to a generic provider label.
+
+The lane is metadata-only. It hashes title and provider labels, does not export
+raw command text, prompt bodies, title strings, session IDs, or transcript
+bodies, and does not launch a native provider. A blocked result should be fixed
+by preserving launch context through the controller/session metadata path before
+activation, then replayed with:
+
+```bash
+pytest tests/test_harness_eval.py -q -k native_skill_session_title
+```
+
 ## Route-Hint Policy Preflight
 
 Before proposal interpretation accepts any implementation lane,

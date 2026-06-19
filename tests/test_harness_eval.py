@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 40
-    assert payload["pass_count"] == 39
+    assert payload["fixture_count"] == 41
+    assert payload["pass_count"] == 40
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -94,6 +94,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "headless_tool_roundtrip",
         "mock_e2e_runner_tier",
         "mock_llm_workflow_route",
+        "native_skill_session_title",
         "native_tool_call_policy",
         "push_delivery_path",
         "provider_runtime_preflight",
@@ -135,6 +136,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-interrupt-rebuild-replay"]["passed"] is True
     assert results["mock-llm-named-subagent-policy-route"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
+    assert results["native-skill-session-title-slash-command"]["passed"] is True
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["native-tool-call-policy-slow-ask-timeout"]["passed"] is True
     assert results["push-delivery-path-mock-success"]["passed"] is True
@@ -191,6 +193,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_STREAMED_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMED_TOOL_RESULT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_ASSISTANT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
@@ -209,6 +212,45 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_native_skill_session_title_blocks_generic_provider_fallback_without_exporting_context():
+    output = evaluate_harness_behavior(
+        "native_skill_session_title",
+        {
+            "task_id": "fixture-native-skill-generic-title",
+            "provider_label": "Claude Code",
+            "launch_context": {
+                "command": "/my-plugin:my-skill",
+                "skill_name": "my-skill",
+                "arguments": "PRIVATE_COMMAND_ARGUMENT_DO_NOT_EXPORT",
+                "expected_title": "my-skill ARG-123",
+            },
+            "transcript": [
+                {
+                    "type": "slash_command",
+                    "command_name": "/my-plugin:my-skill",
+                    "arguments": "PRIVATE_COMMAND_ARGUMENT_DO_NOT_EXPORT",
+                }
+            ],
+            "session_metadata": {
+                "title": "Claude Code",
+                "title_source": "provider",
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_skill_session_title_generic_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "generic_provider_title"
+    assert output["launch_path"]["skill_or_slash_first"] is True
+    assert output["session_title"]["generic_provider_fallback"] is True
+    assert output["session_title"]["context_derived"] is False
+    assert output["activation_gate"]["decision"] == "blocked_before_activation"
+    assert output["privacy"]["provider_launched"] is False
+    assert "PRIVATE_COMMAND_ARGUMENT_DO_NOT_EXPORT" not in serialized
+    assert "Claude Code" not in serialized
 
 
 def test_rendered_html_artifact_validation_covers_script_execution_and_link_targets():

@@ -46,6 +46,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "headless_tool_roundtrip",
     "mock_e2e_runner_tier",
     "mock_llm_workflow_route",
+    "native_skill_session_title",
     "native_tool_call_policy",
     "push_delivery_path",
     "provider_runtime_preflight",
@@ -367,6 +368,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_mock_e2e_runner_tier(raw_input, source_path=source_path)
     if behavior == "mock_llm_workflow_route":
         return evaluate_mock_llm_workflow_route(raw_input, source_path=source_path)
+    if behavior == "native_skill_session_title":
+        return evaluate_native_skill_session_title(raw_input, source_path=source_path)
     if behavior == "native_tool_call_policy":
         return evaluate_native_tool_call_policy(raw_input, source_path=source_path)
     if behavior == "push_delivery_path":
@@ -4426,6 +4429,165 @@ def normalize_terminal_integration(value: Any) -> str:
     if terminal in {"vscode", "visual_studio_code"}:
         return "vscode"
     return terminal or "unknown"
+
+
+def evaluate_native_skill_session_title(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate skill/slash-command native sessions keep descriptive labels.
+
+    The fixture models the Omnigent #851 failure class without launching a
+    provider: a native session starts with a slash-command item, so title
+    derivation must use launch context instead of falling back to the provider
+    label.
+    """
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    provider_label = optional_string(raw_input.get("provider_label")) or "Claude Code"
+    launch_context = raw_input.get("launch_context") if isinstance(raw_input.get("launch_context"), dict) else {}
+    session_metadata = raw_input.get("session_metadata") if isinstance(raw_input.get("session_metadata"), dict) else {}
+    transcript = raw_input.get("transcript") if isinstance(raw_input.get("transcript"), list) else []
+    allowed_title_sources = set(
+        string_list(raw_input.get("allowed_title_sources"))
+        or ["command", "skill", "prompt", "launch_context", "llm_summary"]
+    )
+    generic_provider_labels = {
+        normalize_title_label(label)
+        for label in (
+            string_list(raw_input.get("generic_provider_labels"))
+            or ["Claude Code", "Codex", "OpenAI", "Claude", "Gemini"]
+        )
+    }
+
+    actual_title = optional_string(session_metadata.get("title"))
+    title_source = optional_string(session_metadata.get("title_source")) or ""
+    expected_title = optional_string(session_metadata.get("expected_title") or launch_context.get("expected_title"))
+    first_item_kind = first_transcript_item_kind(transcript)
+    launch_context_signals = native_skill_launch_context_signals(launch_context, transcript)
+    has_context_signal = bool(launch_context_signals)
+    title_present = bool(actual_title)
+    title_generic = bool(actual_title and normalize_title_label(actual_title) in generic_provider_labels)
+    title_source_allowed = title_source in allowed_title_sources
+    expected_title_matched = bool(
+        expected_title and actual_title and normalize_title_label(actual_title) == normalize_title_label(expected_title)
+    )
+    context_derived = has_context_signal and (expected_title_matched or title_source_allowed)
+
+    failure_mode = native_skill_session_title_failure_mode(
+        title_present=title_present,
+        title_generic=title_generic,
+        has_context_signal=has_context_signal,
+        title_source_allowed=title_source_allowed,
+        expected_title_declared=bool(expected_title),
+        expected_title_matched=expected_title_matched,
+        context_derived=context_derived,
+    )
+    route_status = "passed" if failure_mode == "none" else "blocked"
+
+    return {
+        "schema_version": 1,
+        "behavior": "native_skill_session_title",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "launch_path": {
+            "first_item_kind": first_item_kind,
+            "skill_or_slash_first": first_item_kind in {"slash_command", "skill", "command"},
+            "context_signal_count": len(launch_context_signals),
+            "context_signal_kinds": launch_context_signals,
+            "context_signal_present": has_context_signal,
+        },
+        "session_title": {
+            "present": title_present,
+            "generic_provider_fallback": title_generic,
+            "title_hash": stable_text_hash(actual_title) if actual_title else None,
+            "title_exported": False,
+            "provider_label_hash": stable_text_hash(provider_label),
+            "provider_label_exported": False,
+            "title_source": title_source,
+            "title_source_allowed": title_source_allowed,
+            "allowed_title_sources": sorted(allowed_title_sources),
+            "expected_title_declared": bool(expected_title),
+            "expected_title_matched": expected_title_matched,
+            "context_derived": context_derived,
+        },
+        "activation_gate": {
+            "controller_surface": "native_skill_session_title",
+            "decision": "ready_for_native_session_metadata_validation"
+            if failure_mode == "none"
+            else "blocked_before_activation",
+            "reason": failure_mode,
+            "native_session_launch_allowed": False,
+            "local_metadata_validation_allowed": failure_mode == "none",
+        },
+        "privacy": {
+            "raw_command_exported": False,
+            "raw_prompt_exported": False,
+            "raw_title_exported": False,
+            "raw_session_id_exported": False,
+            "provider_launched": False,
+        },
+    }
+
+
+def first_transcript_item_kind(transcript: list[Any]) -> str:
+    for item in transcript:
+        if isinstance(item, dict):
+            return optional_string(item.get("type") or item.get("kind")) or "unknown"
+    return "none"
+
+
+def native_skill_launch_context_signals(launch_context: dict[str, Any], transcript: list[Any]) -> list[str]:
+    signals: list[str] = []
+    for key, signal in (
+        ("command", "command"),
+        ("command_name", "command"),
+        ("slash_command", "command"),
+        ("skill_name", "skill"),
+        ("skill", "skill"),
+        ("prompt", "prompt"),
+        ("arguments", "arguments"),
+        ("subject", "subject"),
+    ):
+        if optional_string(launch_context.get(key)) and signal not in signals:
+            signals.append(signal)
+
+    for item in transcript:
+        if not isinstance(item, dict):
+            continue
+        item_kind = optional_string(item.get("type") or item.get("kind")) or ""
+        if item_kind in {"slash_command", "skill", "command"} and "transcript_slash_command" not in signals:
+            signals.append("transcript_slash_command")
+        if item_kind == "message" and optional_string(item.get("role")) == "user" and "user_message" not in signals:
+            signals.append("user_message")
+    return signals
+
+
+def native_skill_session_title_failure_mode(
+    *,
+    title_present: bool,
+    title_generic: bool,
+    has_context_signal: bool,
+    title_source_allowed: bool,
+    expected_title_declared: bool,
+    expected_title_matched: bool,
+    context_derived: bool,
+) -> str:
+    if not has_context_signal:
+        return "missing_skill_launch_context"
+    if not title_present:
+        return "missing_session_title"
+    if title_generic:
+        return "generic_provider_title"
+    if expected_title_declared and not expected_title_matched:
+        return "title_does_not_match_expected_context"
+    if not title_source_allowed:
+        return "unsupported_title_source"
+    if not context_derived:
+        return "title_not_context_derived"
+    return "none"
+
+
+def normalize_title_label(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip().casefold())
 
 
 def string_list(value: Any) -> list[str]:
