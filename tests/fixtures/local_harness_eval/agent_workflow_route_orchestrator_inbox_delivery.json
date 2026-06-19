@@ -1,0 +1,136 @@
+{
+  "name": "agent-workflow-route-orchestrator-inbox-delivery",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-orchestrator-inbox-delivery",
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "launch-child-session",
+          "status": "completed"
+        },
+        {
+          "id": "receive-inbox-completion",
+          "status": "completed"
+        },
+        {
+          "id": "write-report",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "orchestrator_inbox": {
+      "required": true,
+      "expected_completion_count": 1,
+      "parent_woken": true,
+      "messages": [
+        {
+          "id": "PRIVATE_INBOX_MESSAGE_ID_DO_NOT_EXPORT",
+          "kind": "sub_agent_completion",
+          "child_session_id": "PRIVATE_CHILD_SESSION_ID_DO_NOT_EXPORT",
+          "payload_present": true
+        }
+      ],
+      "child_turns": [
+        {
+          "id": "PRIVATE_CHILD_TURN_ID_DO_NOT_EXPORT",
+          "has_output": true,
+          "output_tokens": 64,
+          "transcript_only": false
+        }
+      ],
+      "child_lifecycle": {
+        "sub_agent_name_present": true,
+        "send_handle_degraded": false,
+        "close_supported": true
+      }
+    },
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-orchestrator-inbox",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-orchestrator-inbox-delivery",
+      "artifact_path": "artifacts/rollback/fixture-route-orchestrator-inbox-delivery.txt"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git reset --hard fixture-route-orchestrator-inbox-head"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_orchestrator_inbox"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/fixture-route-orchestrator-inbox-delivery-report.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_orchestrator_inbox_delivery.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "orchestrator_inbox.passed",
+      "equals": true
+    },
+    {
+      "path": "orchestrator_inbox.completion_message_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.inbox_delivery_contract.parent_woken",
+      "equals": true
+    },
+    {
+      "path": "control_plane.inbox_delivery_contract.child_lifecycle_degraded",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

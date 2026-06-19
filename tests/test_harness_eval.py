@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 39
-    assert payload["pass_count"] == 38
+    assert payload["fixture_count"] == 40
+    assert payload["pass_count"] == 39
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -113,6 +113,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
@@ -1266,6 +1267,167 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert missing_handoff["control_plane"]["recovery"]["ready"] is False
     assert missing_handoff["control_plane"]["recovery"]["blockers"] == ["recovery_commands_missing"]
     assert "PRIVATE_RECOVERY_REF_DO_NOT_EXPORT" not in missing_serialized
+
+
+def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_delivery.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["orchestrator_inbox"]["passed"] is True
+    assert output["orchestrator_inbox"]["completion_message_count"] == 1
+    assert output["orchestrator_inbox"]["expected_completion_count"] == 1
+    assert output["orchestrator_inbox"]["parent_woken"] is True
+    assert output["orchestrator_inbox"]["empty_turn_count"] == 0
+    assert output["orchestrator_inbox"]["transcript_only_turn_count"] == 0
+    assert output["orchestrator_inbox"]["child_lifecycle"] == {
+        "sub_agent_name_present": True,
+        "send_handle_degraded": False,
+        "close_supported": True,
+        "degraded": False,
+        "raw_agent_names_exported": False,
+        "raw_session_ids_exported": False,
+    }
+    assert output["control_plane"]["inbox_delivery_contract"] == {
+        "required": True,
+        "passed": True,
+        "failure_mode": "none",
+        "expected_completion_count": 1,
+        "completion_message_count": 1,
+        "parent_woken": True,
+        "transcript_only_turn_count": 0,
+        "empty_turn_count": 0,
+        "child_lifecycle_degraded": False,
+    }
+    assert "PRIVATE_INBOX_MESSAGE_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_SESSION_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHILD_TURN_ID_DO_NOT_EXPORT" not in serialized
+
+    missing_delivery = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-orchestrator-inbox-missing-delivery",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "orchestrator_inbox": {
+                "required": True,
+                "expected_completion_count": 1,
+                "parent_woken": False,
+                "messages": [],
+                "child_turns": [
+                    {
+                        "id": "PRIVATE_TRANSCRIPT_ONLY_TURN_DO_NOT_EXPORT",
+                        "has_output": True,
+                        "output_tokens": 72,
+                        "transcript_only": True,
+                    }
+                ],
+                "child_lifecycle": {
+                    "sub_agent_name_present": False,
+                    "send_handle_degraded": True,
+                    "close_supported": False,
+                },
+            },
+            "validation": {
+                "gate": "runner-harness-control-plane",
+                "checks": [{"name": "pytest-agent-workflow-orchestrator-inbox", "returncode": 0}],
+            },
+            "rollback": {"created": True, "ref": "refs/rollback/fixture-route-orchestrator-inbox"},
+            "artifacts": {
+                "report_recorded": True,
+                "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_missing_inline.json",
+    )
+    missing_serialized = json.dumps(missing_delivery, sort_keys=True)
+
+    assert missing_delivery["route_status"] == "failed_recoverable"
+    assert missing_delivery["failure_mode"] == "orchestrator_inbox_completion_missing"
+    assert missing_delivery["orchestrator_inbox"]["transcript_only_turn_count"] == 1
+    assert missing_delivery["orchestrator_inbox"]["child_lifecycle"]["degraded"] is True
+    assert "PRIVATE_TRANSCRIPT_ONLY_TURN_DO_NOT_EXPORT" not in missing_serialized
+
+    duplicate_delivery = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-orchestrator-inbox-duplicate",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "orchestrator_inbox": {
+                "required": True,
+                "expected_completion_count": 1,
+                "parent_woken": True,
+                "messages": [{"kind": "completion"}, {"kind": "completion"}],
+                "child_lifecycle": {
+                    "sub_agent_name_present": True,
+                    "send_handle_degraded": False,
+                    "close_supported": True,
+                },
+            },
+            "validation": {"checks": [{"name": "pytest-agent-workflow-orchestrator-inbox", "returncode": 0}]},
+            "rollback": {"created": True, "ref": "refs/rollback/fixture-route-orchestrator-inbox"},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_duplicate_inline.json",
+    )
+    assert duplicate_delivery["failure_mode"] == "orchestrator_inbox_duplicate_completion"
+
+    empty_turn = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-orchestrator-inbox-empty-turn",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "orchestrator_inbox": {
+                "required": True,
+                "expected_completion_count": 1,
+                "parent_woken": True,
+                "messages": [{"kind": "completion"}],
+                "child_turns": [{"output_tokens": 0}],
+                "child_lifecycle": {
+                    "sub_agent_name_present": True,
+                    "send_handle_degraded": False,
+                    "close_supported": True,
+                },
+            },
+            "validation": {"checks": [{"name": "pytest-agent-workflow-orchestrator-inbox", "returncode": 0}]},
+            "rollback": {"created": True, "ref": "refs/rollback/fixture-route-orchestrator-inbox"},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_empty_inline.json",
+    )
+    assert empty_turn["failure_mode"] == "orchestrator_inbox_empty_turn"
+
+    lifecycle_degraded = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-orchestrator-inbox-lifecycle-degraded",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "orchestrator_inbox": {
+                "required": True,
+                "expected_completion_count": 1,
+                "parent_woken": True,
+                "messages": [{"kind": "completion"}],
+                "child_lifecycle": {
+                    "sub_agent_name_present": False,
+                    "send_handle_degraded": True,
+                    "close_supported": False,
+                },
+            },
+            "validation": {"checks": [{"name": "pytest-agent-workflow-orchestrator-inbox", "returncode": 0}]},
+            "rollback": {"created": True, "ref": "refs/rollback/fixture-route-orchestrator-inbox"},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_lifecycle_inline.json",
+    )
+    assert lifecycle_degraded["failure_mode"] == "orchestrator_inbox_lifecycle_degraded"
 
 
 def test_agent_workflow_route_blocks_before_activation_when_oneshot_marker_absent():

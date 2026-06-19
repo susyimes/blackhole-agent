@@ -4461,6 +4461,11 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         if isinstance(raw_input.get("streamed_tool_boundaries"), dict)
         else {}
     )
+    orchestrator_inbox = (
+        raw_input.get("orchestrator_inbox")
+        if isinstance(raw_input.get("orchestrator_inbox"), dict)
+        else {}
+    )
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
@@ -4489,6 +4494,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     )
     observation_result = evaluate_agent_workflow_observations(observations)
     stream_boundary_result = evaluate_agent_workflow_stream_boundaries(stream_boundaries)
+    inbox_result = evaluate_agent_workflow_orchestrator_inbox(orchestrator_inbox)
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
         oneshot_marker_ready=marker_result["ready"],
@@ -4508,6 +4514,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             observations_failure_mode=observation_result["failure_mode"],
             stream_boundaries_passed=stream_boundary_result["passed"],
             stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
+            inbox_delivery_passed=inbox_result["passed"],
+            inbox_delivery_failure_mode=inbox_result["failure_mode"],
         ),
         rollback_available=rollback_available,
     )
@@ -4526,6 +4534,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         observations_failure_mode=observation_result["failure_mode"],
         stream_boundaries_passed=stream_boundary_result["passed"],
         stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
+        inbox_delivery_passed=inbox_result["passed"],
+        inbox_delivery_failure_mode=inbox_result["failure_mode"],
     )
     if failure_mode == "none":
         route_status = "passed"
@@ -4554,6 +4564,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
         stream_boundary_result=stream_boundary_result,
+        inbox_result=inbox_result,
         report_artifacts=report_artifacts,
         source_path=source_path,
     )
@@ -4594,6 +4605,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         "lifecycle": lifecycle_result,
         "observations": observation_result,
         "streamed_tool_boundaries": stream_boundary_result,
+        "orchestrator_inbox": inbox_result,
         "validation": {
             "gate": validation_gate,
             "gate_recorded": bool(validation_gate),
@@ -4625,6 +4637,8 @@ def agent_workflow_failure_mode(
     observations_failure_mode: str = "none",
     stream_boundaries_passed: bool = True,
     stream_boundaries_failure_mode: str = "none",
+    inbox_delivery_passed: bool = True,
+    inbox_delivery_failure_mode: str = "none",
 ) -> str:
     if not oneshot_marker_ready:
         return "oneshot_marker_missing"
@@ -4638,6 +4652,8 @@ def agent_workflow_failure_mode(
         return observations_failure_mode
     if not stream_boundaries_passed:
         return stream_boundaries_failure_mode
+    if not inbox_delivery_passed:
+        return inbox_delivery_failure_mode
     if recovery_handoff_required and not recovery_handoff_ready:
         return "recovery_handoff_incomplete"
     if not lifecycle_passed:
@@ -4645,6 +4661,129 @@ def agent_workflow_failure_mode(
     if not validation_passed:
         return "validation_failed"
     return "none"
+
+
+def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[str, Any]:
+    """Validate sub-agent completion delivery to the parent inbox without bodies."""
+
+    required = truthy(inbox.get("required"))
+    expected_count = optional_int(inbox.get("expected_completion_count"))
+    if expected_count is None:
+        expected_count = 1 if required else 0
+    parent_woken = truthy(inbox.get("parent_woken", not required))
+    raw_messages = inbox.get("messages") if isinstance(inbox.get("messages"), list) else []
+    raw_child_turns = inbox.get("child_turns") if isinstance(inbox.get("child_turns"), list) else []
+    messages = [
+        normalize_agent_workflow_inbox_message(message, index)
+        for index, message in enumerate(raw_messages, start=1)
+        if isinstance(message, dict)
+    ]
+    child_turns = [
+        normalize_agent_workflow_child_turn(turn, index)
+        for index, turn in enumerate(raw_child_turns, start=1)
+        if isinstance(turn, dict)
+    ]
+    lifecycle = (
+        inbox.get("child_lifecycle")
+        if isinstance(inbox.get("child_lifecycle"), dict)
+        else {}
+    )
+    completion_count = sum(1 for message in messages if message["completion"])
+    transcript_only_count = sum(1 for turn in child_turns if turn["transcript_only"])
+    empty_turn_count = sum(1 for turn in child_turns if turn["empty"])
+    sub_agent_name_present = truthy(lifecycle.get("sub_agent_name_present", not required))
+    send_handle_degraded = truthy(lifecycle.get("send_handle_degraded"))
+    close_supported = truthy(lifecycle.get("close_supported", not required))
+    lifecycle_degraded = required and (
+        not sub_agent_name_present or send_handle_degraded or not close_supported
+    )
+
+    if required and completion_count < expected_count:
+        failure_mode = "orchestrator_inbox_completion_missing"
+    elif expected_count >= 0 and completion_count > expected_count:
+        failure_mode = "orchestrator_inbox_duplicate_completion"
+    elif required and empty_turn_count:
+        failure_mode = "orchestrator_inbox_empty_turn"
+    elif required and transcript_only_count:
+        failure_mode = "orchestrator_inbox_transcript_only_completion"
+    elif required and not parent_woken:
+        failure_mode = "orchestrator_inbox_parent_not_woken"
+    elif lifecycle_degraded:
+        failure_mode = "orchestrator_inbox_lifecycle_degraded"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "passed": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "expected_completion_count": expected_count,
+        "completion_message_count": completion_count,
+        "message_count": len(messages),
+        "parent_woken": parent_woken,
+        "transcript_only_turn_count": transcript_only_count,
+        "empty_turn_count": empty_turn_count,
+        "child_turn_count": len(child_turns),
+        "messages": messages,
+        "child_turns": child_turns,
+        "child_lifecycle": {
+            "sub_agent_name_present": sub_agent_name_present,
+            "send_handle_degraded": send_handle_degraded,
+            "close_supported": close_supported,
+            "degraded": lifecycle_degraded,
+            "raw_agent_names_exported": False,
+            "raw_session_ids_exported": False,
+        },
+        "policy": {
+            "exactly_one_completion_by_default": True,
+            "parent_wake_required": required,
+            "empty_turns_allowed": False,
+            "transcript_only_completion_allowed": False,
+            "raw_message_bodies_exported": False,
+            "raw_transcript_bodies_exported": False,
+        },
+    }
+
+
+def normalize_agent_workflow_inbox_message(message: dict[str, Any], ordinal: int) -> dict[str, Any]:
+    kind = normalize_agent_workflow_inbox_message_kind(message.get("kind") or message.get("type"))
+    message_id = optional_string(message.get("id") or message.get("message_id"))
+    child_session_id = optional_string(message.get("child_session_id") or message.get("session_id"))
+    return {
+        "ordinal": ordinal,
+        "kind": kind,
+        "completion": kind == "completion",
+        "message_id_hash": stable_text_hash(message_id) if message_id else None,
+        "child_session_hash": stable_text_hash(child_session_id) if child_session_id else None,
+        "payload_present": truthy(message.get("payload_present", message.get("has_payload", True))),
+    }
+
+
+def normalize_agent_workflow_inbox_message_kind(value: Any) -> str:
+    kind = (optional_string(value) or "completion").strip().lower().replace("-", "_")
+    aliases = {
+        "subagent_completion": "completion",
+        "sub_agent_completion": "completion",
+        "child_completion": "completion",
+        "done": "completion",
+        "finished": "completion",
+    }
+    kind = aliases.get(kind, kind)
+    return kind if kind in {"completion", "status", "error", "other"} else "other"
+
+
+def normalize_agent_workflow_child_turn(turn: dict[str, Any], ordinal: int) -> dict[str, Any]:
+    turn_id = optional_string(turn.get("id") or turn.get("turn_id"))
+    has_output = truthy(turn.get("has_output", turn.get("output_present", True)))
+    output_tokens = optional_int(turn.get("output_tokens"))
+    empty = truthy(turn.get("empty")) or (output_tokens == 0 if output_tokens is not None else not has_output)
+    return {
+        "ordinal": ordinal,
+        "turn_id_hash": stable_text_hash(turn_id) if turn_id else None,
+        "has_output": has_output,
+        "empty": empty,
+        "transcript_only": truthy(turn.get("transcript_only")),
+    }
 
 
 def evaluate_agent_workflow_stream_boundaries(boundaries: dict[str, Any]) -> dict[str, Any]:
@@ -4915,6 +5054,7 @@ def build_agent_workflow_control_plane(
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
+    inbox_result: dict[str, Any],
     report_artifacts: dict[str, Any],
     source_path: Path,
 ) -> dict[str, Any]:
@@ -4927,7 +5067,12 @@ def build_agent_workflow_control_plane(
         required=validation_gate == "runner-harness-control-plane",
     )
     intake_ready = bool(task_id and plan_steps)
-    midflight_ready = runner_invoked and bool(state_transitions) and bool(stream_boundary_result["passed"])
+    midflight_ready = (
+        runner_invoked
+        and bool(state_transitions)
+        and bool(stream_boundary_result["passed"])
+        and bool(inbox_result["passed"])
+    )
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
     replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
     report_ready = bool(report_contract["passed"])
@@ -4948,13 +5093,20 @@ def build_agent_workflow_control_plane(
         failure_mode = str(observation_result["failure_mode"])
     elif not stream_boundary_result["passed"]:
         failure_mode = str(stream_boundary_result["failure_mode"])
+    elif not inbox_result["passed"]:
+        failure_mode = str(inbox_result["failure_mode"])
     else:
         failure_mode = "none"
 
     return {
         "surface": "runner_harness_control_plane",
         "stage_count": len(stages),
-        "complete": not missing_stages and observation_result["passed"] and stream_boundary_result["passed"],
+        "complete": (
+            not missing_stages
+            and observation_result["passed"]
+            and stream_boundary_result["passed"]
+            and inbox_result["passed"]
+        ),
         "failure_mode": failure_mode,
         "stages": {
             stage: {
@@ -4997,6 +5149,17 @@ def build_agent_workflow_control_plane(
             "invalid_json_event_count": stream_boundary_result["invalid_json_event_count"],
             "url_ref_event_count": stream_boundary_result["url_ref_event_count"],
             "unknown_ref_event_count": stream_boundary_result["unknown_ref_event_count"],
+        },
+        "inbox_delivery_contract": {
+            "required": inbox_result["required"],
+            "passed": inbox_result["passed"],
+            "failure_mode": inbox_result["failure_mode"],
+            "expected_completion_count": inbox_result["expected_completion_count"],
+            "completion_message_count": inbox_result["completion_message_count"],
+            "parent_woken": inbox_result["parent_woken"],
+            "transcript_only_turn_count": inbox_result["transcript_only_turn_count"],
+            "empty_turn_count": inbox_result["empty_turn_count"],
+            "child_lifecycle_degraded": inbox_result["child_lifecycle"]["degraded"],
         },
     }
 

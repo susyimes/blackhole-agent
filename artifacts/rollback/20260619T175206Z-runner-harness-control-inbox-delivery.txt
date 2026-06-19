@@ -1,0 +1,17 @@
+Rollback point for github-growth-20260619T175206.904609Z
+
+Original branch:
+codex/blackhole-evolve/20260619T175409.454118-add-or-strengthen-a-local-regression-test-for-su
+
+Original HEAD:
+8fa5151176ae8b9ffec2a109b52235d2737b60cd
+
+Rollback ref:
+refs/blackhole-rollback/20260619T175206Z-runner-harness-control-inbox-delivery
+
+Recovery commands, for explicit operator use only:
+git reset --hard refs/blackhole-rollback/20260619T175206Z-runner-harness-control-inbox-delivery
+git clean -fd
+
+Notes:
+This rollback point was created before modifying source, tests, docs, or run artifacts for the runner-harness-control inbox-delivery pass.
