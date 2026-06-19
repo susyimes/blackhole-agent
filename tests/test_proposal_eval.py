@@ -4,6 +4,7 @@ from pathlib import Path
 
 from blackhole_agent.proposal_eval import (
     build_proposal_benchmark_report,
+    collect_safety_boundary_failures,
     load_proposal_replay_case,
     run_proposal_benchmark_suite,
     run_proposal_replay_case,
@@ -35,6 +36,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
         "benign-agent-harness",
         "current-wake-agent-harness-validation",
         "fastcontext-budget-memory-pressure",
+        "omnigent-policy-boundary-current-wake",
         "omnigent-release-evidence-validation",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
@@ -47,10 +49,10 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 9
-    assert report.passed_count == 9
+    assert report.case_count == 10
+    assert report.passed_count == 10
     assert report.failed_count == 0
-    assert report.accepted_count == 14
+    assert report.accepted_count == 17
     assert report.rejected_count == 8
     assert report.failure_counts == {
         "schema_validity": 0,
@@ -85,6 +87,20 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
         current.proposal_validation_preflights["p3-benchmark-style-regression-suite"]["status"]
         == "blocked_by_safety_boundary"
     )
+    boundary = results_by_name["omnigent-policy-boundary-current-wake"]
+    assert boundary.proposal_controls["ask-snapshot-privacy-review"] == {
+        "kind": "follow_up_issue",
+        "risk_flags": ["privacy-leakage"],
+        "implementation_scope": "reviewable_proposal_only",
+        "validation_gate": "privacy-leakage-human-review",
+    }
+    assert boundary.proposal_controls["agent-tool-auth-offensive-review"] == {
+        "kind": "follow_up_issue",
+        "risk_flags": ["offensive-behavior"],
+        "implementation_scope": "reviewable_proposal_only",
+        "validation_gate": "offensive-behavior-human-review",
+    }
+    assert boundary.proposal_validation_preflights["mock-e2e-push-test-pattern"]["status"] == "ready"
     assert report.to_dict()["suite_name"] == "proposal-replay-benchmark"
 
 
@@ -92,13 +108,14 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 9
+    assert report.case_count == 10
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
         "fastcontext-budget-memory-pressure",
         "omnigent-route-contract",
         "omnigent-release-evidence-validation",
+        "omnigent-policy-boundary-current-wake",
         "public-agent-trend-validation-harness",
         "current-wake-agent-harness-validation",
         "agent-codex-workflow-local-validation",
@@ -111,7 +128,9 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent",
+        "https://github.com/omnigent-ai/omnigent/pull/590",
         "https://github.com/omnigent-ai/omnigent/pull/740",
+        "https://github.com/omnigent-ai/omnigent/pull/779",
         "https://github.com/samarailly51-pixel/opencode-harness",
         "https://github.com/visa/visa-vulnerability-agentic-harness",
     ]
@@ -616,6 +635,25 @@ def test_proposal_benchmark_report_classifies_action_lane_and_safety_boundary_dr
     assert report.passed is False
     assert report.failure_counts["action_lane_classification"] == 1
     assert report.failure_counts["safety_boundary_handling"] == 1
+
+
+def test_proposal_replay_case_detects_boundary_gate_drift():
+    failures = collect_safety_boundary_failures(
+        "wrong-boundary-gate",
+        {
+            "ask-snapshot-privacy-review": {
+                "kind": "follow_up_issue",
+                "risk_flags": ["privacy-leakage"],
+                "implementation_scope": "reviewable_proposal_only",
+                "validation_gate": "offensive-behavior-human-review",
+            }
+        },
+    )
+
+    assert failures == [
+        "wrong-boundary-gate: safety boundary proposal ask-snapshot-privacy-review "
+        "must use validation_gate='privacy-leakage-human-review'"
+    ]
 
 
 def test_proposal_benchmark_report_classifies_validation_gate_metadata_drift():

@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260619T053207.011595Z
+
+Original branch:
+codex/blackhole-evolve/20260619T053334.587882-borrow-cautiously-from-omnigent-ai-omnigent-crea
+
+Original HEAD:
+153bc46f1663623f49360768649b8dacbaecff10
+
+Local rollback ref:
+refs/rollback/20260619T053206Z-omnigent-policy-boundary
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T053334.587882-borrow-cautiously-from-omnigent-ai-omnigent-crea
+git reset --hard refs/rollback/20260619T053206Z-omnigent-policy-boundary
+
+Notes:
+- Rollback is explicit and destructive; do not run it unless a human operator or supervisor policy chooses recovery.
+- This run reviewed Omnigent PR evidence for policy-boundary and local validation lessons.

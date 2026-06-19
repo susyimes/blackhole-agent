@@ -8,7 +8,9 @@
     "https://github.com/dongshuyan/compass-skills",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
+    "https://github.com/omnigent-ai/omnigent/pull/590",
     "https://github.com/omnigent-ai/omnigent/pull/740",
+    "https://github.com/omnigent-ai/omnigent/pull/779",
     "https://github.com/samarailly51-pixel/opencode-harness",
     "https://github.com/visa/visa-vulnerability-agentic-harness"
   ],
@@ -53,6 +55,16 @@
       "evidence_urls": [
         "https://github.com/omnigent-ai/omnigent",
         "https://github.com/omnigent-ai/omnigent/pull/740"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "omnigent-policy-boundary-current-wake",
+      "file": "omnigent_policy_boundary_current_wake.json",
+      "evidence_urls": [
+        "https://github.com/omnigent-ai/omnigent",
+        "https://github.com/omnigent-ai/omnigent/pull/590",
+        "https://github.com/omnigent-ai/omnigent/pull/779"
       ],
       "expected_review_status": "accepted"
     },

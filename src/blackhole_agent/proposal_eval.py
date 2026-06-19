@@ -458,7 +458,22 @@ def collect_safety_boundary_failures(name: str, proposal_controls: dict[str, dic
             )
         if not validation_gate.endswith("-human-review"):
             failures.append(f"{name}: safety boundary proposal {proposal_id} must require human review")
+        expected_gate = safety_boundary_validation_gate(risk_flags)
+        if expected_gate and validation_gate != expected_gate:
+            failures.append(
+                f"{name}: safety boundary proposal {proposal_id} must use validation_gate={expected_gate!r}"
+            )
     return failures
+
+
+def safety_boundary_validation_gate(risk_flags: set[str]) -> str:
+    """Return the controller-owned human-review gate for hard safety flags."""
+
+    if "offensive-behavior" in risk_flags:
+        return "offensive-behavior-human-review"
+    if "privacy-leakage" in risk_flags:
+        return "privacy-leakage-human-review"
+    return ""
 
 
 def compare_expected_scalar(name: str, key: str, actual: Any, expected: dict[str, Any]) -> list[str]:
