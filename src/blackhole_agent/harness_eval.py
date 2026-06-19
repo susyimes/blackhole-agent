@@ -42,6 +42,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_harness_provider_registration",
     "agent_workflow_route",
     "harness_run_summary",
+    "headless_tool_roundtrip",
     "mock_e2e_runner_tier",
     "mock_llm_workflow_route",
     "native_tool_call_policy",
@@ -331,6 +332,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_agent_workflow_route(raw_input, source_path=source_path)
     if behavior == "harness_run_summary":
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
+    if behavior == "headless_tool_roundtrip":
+        return evaluate_headless_tool_roundtrip(raw_input, source_path=source_path)
     if behavior == "mock_e2e_runner_tier":
         return evaluate_mock_e2e_runner_tier(raw_input, source_path=source_path)
     if behavior == "mock_llm_workflow_route":
@@ -448,7 +451,9 @@ def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, s
         "activation_gate": {
             "controller_surface": "agent_harness_provider_registration",
             "activation_scope": "local_harness_provider_only",
-            "decision": "ready_for_local_provider_registration" if failure_mode == "none" else "blocked_before_activation",
+            "decision": "ready_for_local_provider_registration"
+            if failure_mode == "none"
+            else "blocked_before_activation",
             "reason": failure_mode,
             "local_provider_registration_allowed": failure_mode == "none",
             "provider_runtime_launch_allowed": False,
@@ -484,6 +489,71 @@ def redact_provider_registration_skip_reason(reason: str) -> str:
         return reason
     _, env_key = reason.split(":", 1)
     return f"missing_env_key_hash:{stable_text_hash(env_key)}"
+
+
+def evaluate_headless_tool_roundtrip(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate that headless function_call events enter the local tool dispatch lane."""
+
+    from blackhole_agent.tool_routing import build_headless_function_call_dispatch_report
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    raw_events = raw_input.get("events") if isinstance(raw_input.get("events"), list) else []
+    events = [event for event in raw_events if isinstance(event, dict)]
+    raw_tools = raw_input.get("tools") if isinstance(raw_input.get("tools"), list) else []
+    descriptors = [tool_descriptor_from_mapping(tool) for tool in raw_tools if isinstance(tool, dict)]
+    dispatch = build_headless_function_call_dispatch_report(events, descriptors)
+
+    if dispatch["function_call_event_count"] == 0:
+        failure_mode = "no_function_call_events"
+    elif dispatch["missing_handler_count"]:
+        failure_mode = "missing_tool_handler"
+    elif dispatch["blocked_count"]:
+        failure_mode = "tool_route_blocked"
+    elif not dispatch["all_function_calls_dispatched"]:
+        failure_mode = "function_call_not_dispatched"
+    else:
+        failure_mode = "none"
+
+    return {
+        "schema_version": 1,
+        "behavior": "headless_tool_roundtrip",
+        "task_id": task_id,
+        "route_status": "passed" if failure_mode == "none" else "failed",
+        "failure_mode": failure_mode,
+        "dispatch": dispatch,
+        "activation_gate": {
+            "controller_surface": "headless_tool_roundtrip",
+            "activation_scope": "local_harness_dispatch_only",
+            "decision": "ready_for_headless_tool_roundtrip" if failure_mode == "none" else "blocked_before_activation",
+            "reason": failure_mode,
+            "local_dispatch_allowed": failure_mode == "none",
+            "tool_execution_allowed": False,
+        },
+        "privacy": {
+            "raw_events_exported": False,
+            "raw_tool_arguments_exported": False,
+            "tools_executed": False,
+        },
+    }
+
+
+def tool_descriptor_from_mapping(value: dict[str, Any]) -> Any:
+    """Build a ToolDescriptor from fixture metadata without callable execution."""
+
+    from blackhole_agent.tool_routing import ToolDescriptor
+
+    parameters = value.get("parameters") if isinstance(value.get("parameters"), dict) else None
+    return ToolDescriptor(
+        name=optional_string(value.get("name")) or "unnamed-tool",
+        description=optional_string(value.get("description")) or "",
+        parameters=parameters,
+        provider=optional_string(value.get("provider")) or "function",
+        session_id=optional_string(value.get("session_id")),
+        tool_type=optional_string(value.get("type") or value.get("tool_type")),
+        callable_path=optional_string(value.get("callable") or value.get("callable_path")),
+        policy_name=optional_string(value.get("policy_name")),
+        risk_flags=tuple(string_list(value.get("risk_flags"))),
+    )
 
 
 def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
@@ -782,7 +852,9 @@ def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, sou
     html_hash = optional_string(artifact.get("html_hash")) or (stable_text_hash(html_body) if html_body else None)
 
     browser_available = browser.get("available") is not False
-    sandbox_allows_scripts = truthy(browser.get("sandbox_allows_scripts")) or truthy(script_probe.get("sandbox_allows_scripts"))
+    sandbox_allows_scripts = truthy(browser.get("sandbox_allows_scripts")) or truthy(
+        script_probe.get("sandbox_allows_scripts")
+    )
     script_expected = script_probe.get("expected_execution") is not False
     script_observed = truthy(script_probe.get("observed_execution"))
     script_passed = (not script_expected) or (browser_available and sandbox_allows_scripts and script_observed)
@@ -904,7 +976,9 @@ def evaluate_push_delivery_path(raw_input: dict[str, Any], *, source_path: Path)
     activation = raw_input.get("activation") if isinstance(raw_input.get("activation"), dict) else {}
     rollback = raw_input.get("rollback") if isinstance(raw_input.get("rollback"), dict) else {}
 
-    promotion_successful = truthy(promotion.get("promoted")) and optional_string(promotion.get("target_head")) is not None
+    promotion_successful = (
+        truthy(promotion.get("promoted")) and optional_string(promotion.get("target_head")) is not None
+    )
     push_requested = truthy(delivery.get("push_requested"))
     remote_configured = optional_string(delivery.get("remote_name")) is not None
     branch_configured = optional_string(delivery.get("branch")) is not None
@@ -927,7 +1001,9 @@ def evaluate_push_delivery_path(raw_input: dict[str, Any], *, source_path: Path)
 
     activation_recorded = truthy(activation.get("activation_recorded"))
     restart_request_recorded = truthy(activation.get("restart_request_recorded"))
-    activation_head_matches = optional_string(activation.get("activated_head")) == optional_string(promotion.get("target_head"))
+    activation_head_matches = optional_string(activation.get("activated_head")) == optional_string(
+        promotion.get("target_head")
+    )
     rollback_available = truthy(rollback.get("created")) and optional_string(rollback.get("ref")) is not None
     artifact_recorded = optional_string(rollback.get("artifact_path")) is not None
 
@@ -1065,7 +1141,8 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
         evaluate_workspace_change_edit(edit, runner_workspace_root=runner_workspace_root) for edit in performed_edits
     ]
     panel_results = [
-        evaluate_workspace_change_panel_entry(entry, runner_workspace_root=runner_workspace_root) for entry in panel_entries
+        evaluate_workspace_change_panel_entry(entry, runner_workspace_root=runner_workspace_root)
+        for entry in panel_entries
     ]
     visible_entry_ids = {str(result["edit_id"]) for result in panel_results if result["edit_id"] and result["visible"]}
     required_edit_ids = [
@@ -1097,10 +1174,14 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
     unrecorded_edit_count = sum(
         1 for result in edit_results if result["exists_on_disk"] and not result["record_change_observed"]
     )
-    has_tracking_limitation_entry = any(result["kind"] == "tracking_limitation" and result["visible"] for result in panel_results)
+    has_tracking_limitation_entry = any(
+        result["kind"] == "tracking_limitation" and result["visible"] for result in panel_results
+    )
     panel_reason = optional_string(changes_panel.get("reason")) or ""
-    non_git_limitation_present = is_git_repo or unrecorded_edit_count == 0 or (
-        has_tracking_limitation_entry and panel_reason == "non_git_workspace_limited_tracking"
+    non_git_limitation_present = (
+        is_git_repo
+        or unrecorded_edit_count == 0
+        or (has_tracking_limitation_entry and panel_reason == "non_git_workspace_limited_tracking")
     )
     git_metadata_required = bool(changes_panel.get("git_metadata_required"))
 
@@ -1249,7 +1330,9 @@ def workspace_changes_outside_runner_workspace_edit_ids(edit_results: list[dict[
     return sorted(
         str(result["edit_id"])
         for result in edit_results
-        if result["exists_on_disk"] and result["requires_panel_visibility"] and result["inside_runner_workspace"] is False
+        if result["exists_on_disk"]
+        and result["requires_panel_visibility"]
+        and result["inside_runner_workspace"] is False
     )
 
 
@@ -1428,16 +1511,16 @@ def evaluate_mock_e2e_agent_config_yaml(agent_config: dict[str, Any]) -> dict[st
             "passed": passed,
             "parse_error": False,
             "yaml_hash": stable_text_hash(yaml_text),
-            "executor_harness_hash": stable_text_hash(str(executor.get("harness"))) if executor.get("harness") else None,
+            "executor_harness_hash": stable_text_hash(str(executor.get("harness")))
+            if executor.get("harness")
+            else None,
             "function_tool_count": tool_count,
             "executable_tool_count": executable_count,
             "non_executable_tool_count": tool_count - executable_count,
             "route_counts": preflight["route_counts"],
             "required_tool_count": len(preflight["required_tool_names"]),
             "missing_required_tool_count": missing_required_count,
-            "tool_name_hashes": [
-                stable_text_hash(str(name)) for name in sorted(preflight["executable_tool_names"])
-            ],
+            "tool_name_hashes": [stable_text_hash(str(name)) for name in sorted(preflight["executable_tool_names"])],
             "raw_yaml_exported": False,
             "raw_tool_metadata_exported": False,
         }
@@ -1761,11 +1844,11 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     interrupt = raw_input.get("interrupt") if isinstance(raw_input.get("interrupt"), dict) else {}
     file_tools = raw_input.get("file_tools") if isinstance(raw_input.get("file_tools"), dict) else {}
     sub_agents = raw_input.get("sub_agents") if isinstance(raw_input.get("sub_agents"), dict) else {}
-    native_tool_policy = raw_input.get("native_tool_policy") if isinstance(raw_input.get("native_tool_policy"), dict) else {}
+    native_tool_policy = (
+        raw_input.get("native_tool_policy") if isinstance(raw_input.get("native_tool_policy"), dict) else {}
+    )
     mock_server_contract = (
-        raw_input.get("mock_server_contract")
-        if isinstance(raw_input.get("mock_server_contract"), dict)
-        else {}
+        raw_input.get("mock_server_contract") if isinstance(raw_input.get("mock_server_contract"), dict) else {}
     )
     steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
     multimodal_preflight = evaluate_mock_multimodal_preflight(provider, steps)
@@ -1814,11 +1897,11 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         expectations_passed=expectations_passed,
         anthropic_messages_ok=anthropic_messages["ok"],
         chat_completions_ok=chat_completions["ok"],
-        chat_completions_failure_mode=optional_string(chat_completions["failure_mode"]) or "chat_completions_contract_failed",
+        chat_completions_failure_mode=optional_string(chat_completions["failure_mode"])
+        or "chat_completions_contract_failed",
         session_passed=session_result["isolation_passed"],
         interrupt_passed=interrupt_result["passed"],
-        file_tools_passed=file_tool_result["all_operations_mocked"]
-        and file_tool_result["all_expectations_passed"],
+        file_tools_passed=file_tool_result["all_operations_mocked"] and file_tool_result["all_expectations_passed"],
         sub_agents_passed=sub_agent_result["persistence_passed"] and not sub_agent_result["queue_desync_detected"],
         native_policy_passed=native_policy_result["passive_or_denied"],
         queue_consumed=remaining_response_count == 0,
@@ -1971,9 +2054,7 @@ def build_mock_llm_response_results(
         tool_call_names = [
             name
             for name in (
-                optional_string(tool_call.get("name"))
-                for tool_call in tool_calls
-                if isinstance(tool_call, dict)
+                optional_string(tool_call.get("name")) for tool_call in tool_calls if isinstance(tool_call, dict)
             )
             if name
         ]
@@ -2158,9 +2239,7 @@ def evaluate_chat_completions_mock_contract(
     observed_formats = chat_completions_observed_formats(contract, response_results, request_count=request_count)
     expected_formats = ["sse" if stream else "json" for stream in stream_flags]
     format_mismatch_count = sum(
-        1
-        for expected, observed in zip(expected_formats, observed_formats)
-        if expected != observed
+        1 for expected, observed in zip(expected_formats, observed_formats) if expected != observed
     )
     model_echoed = chat_completions_models_echoed(contract, response_results)
     provider_preflight = evaluate_mock_chat_provider_preflight(provider, contract)
@@ -2242,7 +2321,9 @@ def chat_completions_observed_formats(
     *,
     request_count: int,
 ) -> list[str]:
-    raw_formats = contract.get("observed_response_formats") if isinstance(contract.get("observed_response_formats"), list) else []
+    raw_formats = (
+        contract.get("observed_response_formats") if isinstance(contract.get("observed_response_formats"), list) else []
+    )
     formats = [normal_chat_response_format(value) for value in raw_formats]
     if formats:
         return formats
@@ -2273,11 +2354,7 @@ def chat_completions_models_echoed(contract: dict[str, Any], response_results: l
         requests = contract.get("requests") if isinstance(contract.get("requests"), list) else []
         request_models = [
             model
-            for model in (
-                optional_string(request.get("model"))
-                for request in requests
-                if isinstance(request, dict)
-            )
+            for model in (optional_string(request.get("model")) for request in requests if isinstance(request, dict))
             if model
         ]
     if not request_models:
@@ -2357,9 +2434,7 @@ def evaluate_mock_interrupt_replay(interrupt: dict[str, Any]) -> dict[str, Any]:
     session_rebuilt = bool(previous_session_id and rebuilt_session_id and previous_session_id != rebuilt_session_id)
     agent_rebuilt = bool(previous_agent_id and rebuilt_agent_id and previous_agent_id != rebuilt_agent_id)
     conversation_rebuilt = bool(
-        previous_conversation_id
-        and rebuilt_conversation_id
-        and previous_conversation_id != rebuilt_conversation_id
+        previous_conversation_id and rebuilt_conversation_id and previous_conversation_id != rebuilt_conversation_id
     )
     replay_counts_match = count_strings(pending_idle_message_ids) == count_strings(replayed_idle_message_ids)
     lost_idle_message_count = count_missing_strings(pending_idle_message_ids, replayed_idle_message_ids)
@@ -2897,27 +2972,29 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     override_requested = override_flag in parent_env_keys
     override_propagated = override_requested and override_flag in harness_env_keys
     auth_env_key = optional_string(provider.get("auth_env_key"))
-    required_env_keys = sorted(set(string_list(provider.get("required_env_keys")) + ([auth_env_key] if auth_env_key else [])))
+    required_env_keys = sorted(
+        set(string_list(provider.get("required_env_keys")) + ([auth_env_key] if auth_env_key else []))
+    )
     required_env_scope = optional_string(provider.get("required_env_scope")) or "harness"
     worker_tools = string_list(provider.get("worker_tools"))
     expected_worker_tool = optional_string(provider.get("worker_tool_name")) or default_worker_tool_name(harness)
-    worker_tool_available = expected_worker_tool in worker_tools or any(tool.endswith("_worker") for tool in worker_tools)
+    worker_tool_available = expected_worker_tool in worker_tools or any(
+        tool.endswith("_worker") for tool in worker_tools
+    )
     os_env_inherit_to_worker = truthy(runner_env.get("os_env_inherit_to_worker"))
     worker_env_inherit_skipped = bool(
-        os_env_inherit_to_worker
-        and required_env_scope == "worker"
-        and not worker_tool_available
+        os_env_inherit_to_worker and required_env_scope == "worker" and not worker_tool_available
     )
     missing_parent_env_keys = sorted(set(required_env_keys) - set(parent_env_keys))
     missing_harness_env_keys = (
-        []
-        if worker_env_inherit_skipped
-        else sorted(set(required_env_keys) - set(harness_env_keys))
+        [] if worker_env_inherit_skipped else sorted(set(required_env_keys) - set(harness_env_keys))
     )
     required_env_ready = not missing_parent_env_keys and not missing_harness_env_keys
     mock_auth_placeholder = truthy(mock_llm.get("auth_placeholder")) or truthy(mock_llm.get("mock_auth_placeholder"))
     mock_enabled = truthy(mock_llm.get("enabled"))
-    is_openai_agents = "openai" in f"{provider_name} {harness}".lower() and "agent" in f"{provider_name} {harness}".lower()
+    is_openai_agents = (
+        "openai" in f"{provider_name} {harness}".lower() and "agent" in f"{provider_name} {harness}".lower()
+    )
     mock_auth_substitution = bool(required_env_keys and mock_enabled and mock_auth_placeholder)
     env_preflight_failed = bool(required_env_keys and not required_env_ready and not mock_auth_substitution)
 
@@ -3050,7 +3127,9 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         },
         "preflight": {
             "ok": not blocked,
-            "degraded": degraded or mock_auth_substitution or browser_preflight["browser_tooling"]["configure_checks_skipped"],
+            "degraded": degraded
+            or mock_auth_substitution
+            or browser_preflight["browser_tooling"]["configure_checks_skipped"],
             "blocked_before_launch": blocked,
             "diagnostics": diagnostics,
             "diagnostic_count": len(diagnostics),
@@ -3154,9 +3233,7 @@ def evaluate_provider_prompt_scan_preflight(raw_input: dict[str, Any], *, provid
             "Claude prompt sits beyond the legacy scan tail but inside the configured provider prompt scan window"
         )
     if second_message_send_would_timeout:
-        diagnostics.append(
-            "provider prompt scan window does not reach the prompt above the rendered status footer"
-        )
+        diagnostics.append("provider prompt scan window does not reach the prompt above the rendered status footer")
         diagnostics.append("increase provider prompt scan tail lines before sending a second message")
 
     return {
@@ -3243,10 +3320,14 @@ def build_provider_runtime_diagnostics(
         diagnostics.append(f"{override_flag} was set before runner launch but did not reach the provider harness")
     if degraded:
         if override_propagated:
-            diagnostics.append(f"{override_flag} reached the provider harness; using degraded unwrapped supervisor mode")
+            diagnostics.append(
+                f"{override_flag} reached the provider harness; using degraded unwrapped supervisor mode"
+            )
         elif auto_degrade:
             diagnostics.append("provider runtime sandbox is incompatible; using degraded unwrapped supervisor mode")
-        diagnostics.append("native provider file and shell tools must remain disabled while outer sandbox tools stay active")
+        diagnostics.append(
+            "native provider file and shell tools must remain disabled while outer sandbox tools stay active"
+        )
     if blocked:
         diagnostics.append("provider runtime sandbox is incompatible and no degraded startup path was available")
         diagnostics.append(f"add {override_flag} to the runner environment allowlist or enable provider auto-degrade")
@@ -3365,7 +3446,9 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         validation_passed=validation_passed,
         lifecycle_passed=lifecycle_result["passed"],
     )
-    route_status = "passed" if failure_mode == "none" else "failed_recoverable" if rollback_available else "failed_unrecoverable"
+    route_status = (
+        "passed" if failure_mode == "none" else "failed_recoverable" if rollback_available else "failed_unrecoverable"
+    )
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
         runner_invoked=runner_invoked,
@@ -3453,7 +3536,9 @@ def build_agent_workflow_state_transitions(
     transitions.append(
         {
             "state": "validation_recorded",
-            "outcome": "passed" if validation_checks and failure_mode in {"none", "timeout", "nonzero_exit"} else "failed",
+            "outcome": "passed"
+            if validation_checks and failure_mode in {"none", "timeout", "nonzero_exit"}
+            else "failed",
         }
     )
     transitions.append(
@@ -3592,8 +3677,7 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
         },
         "route_hint_policy": {
             "allowed_route_hints": [
-                str(route_hint)
-                for route_hint in evidence_package.get("policy", {}).get("allowed_route_hints", [])
+                str(route_hint) for route_hint in evidence_package.get("policy", {}).get("allowed_route_hints", [])
             ],
             "validation_lanes": {
                 str(route_hint): [str(lane) for lane in lanes]
@@ -3803,7 +3887,9 @@ def summarize_harness_run(payload: dict[str, Any], *, source_path: Path | None =
             payload.get("elapsed_seconds") or payload.get("duration_seconds") or payload.get("latency_seconds")
         ),
         tool_calls=optional_int(payload.get("tool_calls") or usage.get("tool_calls")),
-        input_tokens=optional_int(payload.get("input_tokens") or usage.get("input_tokens") or usage.get("prompt_tokens")),
+        input_tokens=optional_int(
+            payload.get("input_tokens") or usage.get("input_tokens") or usage.get("prompt_tokens")
+        ),
         output_tokens=optional_int(
             payload.get("output_tokens") or usage.get("output_tokens") or usage.get("completion_tokens")
         ),

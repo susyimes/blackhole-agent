@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260619T093207.045859Z
+
+Original branch:
+codex/blackhole-evolve/20260619T093323.384963-add-or-strengthen-a-local-harness-test-that-veri
+
+Original HEAD:
+755677a5d961bbd01d08625662c7edca4be5eb63
+
+Local rollback ref:
+refs/rollback/20260619T093206Z-skill-route-discovery-pass2
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T093323.384963-add-or-strengthen-a-local-harness-test-that-veri
+git reset --hard refs/rollback/20260619T093206Z-skill-route-discovery-pass2
+
+Scope note:
+This pass targets the skill-route-discovery capability slice by strengthening the local harness around
+headless function_call tool round-trips. Rollback execution is intentionally explicit and destructive.

@@ -9,6 +9,7 @@ from blackhole_agent.tool_routing import (
     ToolCompatibilityCache,
     ToolCallPolicyResult,
     ToolDescriptor,
+    build_headless_function_call_dispatch_report,
     build_tool_routing_preflight,
     discover_provider_harnesses,
     executable_tool_registry,
@@ -62,7 +63,9 @@ def test_tool_cache_distinguishes_same_named_tools_by_provider_and_session_conte
     }
     local_read = ToolDescriptor(name="read_file", parameters=parameters, provider="local", session_id="session-a")
     remote_read = ToolDescriptor(name="read_file", parameters=parameters, provider="mcp", session_id="session-a")
-    next_session_read = ToolDescriptor(name="read_file", parameters=parameters, provider="local", session_id="session-b")
+    next_session_read = ToolDescriptor(
+        name="read_file", parameters=parameters, provider="local", session_id="session-b"
+    )
 
     cache.set(local_read, "local-session-a")
     cache.set(remote_read, "mcp-session-a")
@@ -244,6 +247,53 @@ def test_wrapped_tool_policy_name_keeps_model_facing_transport_name():
     }
     assert registry["sys_session_send"]["name"] == "sys_session_send"
     assert registry["sys_session_send"]["policy_name"] == "worker"
+
+
+def test_headless_function_call_dispatch_report_routes_events_without_executing_tools():
+    report = build_headless_function_call_dispatch_report(
+        [
+            {"id": "msg-1", "type": "message_delta", "content": "PRIVATE_TEXT_DO_NOT_EXPORT"},
+            {
+                "id": "call-1",
+                "type": "function_call",
+                "name": "summarize",
+                "arguments": {"text": "PRIVATE_ARGUMENT_DO_NOT_EXPORT"},
+            },
+        ],
+        [
+            ToolDescriptor(
+                name="summarize",
+                provider="function",
+                tool_type="function",
+                callable_path="local_fixture.tools.summarize",
+            )
+        ],
+    )
+
+    assert report["event_count"] == 2
+    assert report["function_call_event_count"] == 1
+    assert report["dispatch_attempt_count"] == 1
+    assert report["dispatched_count"] == 1
+    assert report["missing_handler_count"] == 0
+    assert report["dropped_event_count"] == 1
+    assert report["route_counts"] == {"dispatched": 1}
+    assert report["all_function_calls_dispatched"] is True
+    assert report["raw_arguments_exported"] is False
+    assert report["tools_executed"] is False
+    assert report["dispatches"][0]["arguments_hash"].startswith("sha256:")
+    assert "PRIVATE_ARGUMENT_DO_NOT_EXPORT" not in str(report)
+
+
+def test_headless_function_call_dispatch_report_flags_missing_handlers():
+    report = build_headless_function_call_dispatch_report(
+        [{"id": "call-1", "type": "function_call", "name": "missing_tool", "arguments": {"value": "private"}}],
+        [ToolDescriptor(name="other_tool", provider="local")],
+    )
+
+    assert report["dispatched_count"] == 0
+    assert report["missing_handler_count"] == 1
+    assert report["route_counts"] == {"missing_handler": 1}
+    assert report["all_function_calls_dispatched"] is False
 
 
 def test_tool_call_policy_evaluator_errors_fail_closed():
@@ -439,7 +489,9 @@ def test_provider_harness_selection_uses_deterministic_fallback_order():
     harnesses = [
         ProviderHarness(name="cursor-sdk", provider="cursor", priority=30, optional_extra_modules=("cursor_agent",)),
         ProviderHarness(name="function-agent", provider="function", priority=90),
-        ProviderHarness(name="copilot-sdk", provider="copilot", priority=20, optional_extra_modules=("github_copilot",)),
+        ProviderHarness(
+            name="copilot-sdk", provider="copilot", priority=20, optional_extra_modules=("github_copilot",)
+        ),
     ]
 
     selection = select_provider_harness(

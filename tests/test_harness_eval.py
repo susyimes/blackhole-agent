@@ -1,7 +1,11 @@
 import json
 from pathlib import Path
 
-from blackhole_agent.harness_eval import build_harness_comparison_report, evaluate_harness_behavior, run_local_harness_eval
+from blackhole_agent.harness_eval import (
+    build_harness_comparison_report,
+    evaluate_harness_behavior,
+    run_local_harness_eval,
+)
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "harness_comparison"
@@ -76,14 +80,15 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 29
-    assert payload["pass_count"] == 28
+    assert payload["fixture_count"] == 30
+    assert payload["pass_count"] == 29
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
         "agent_harness_provider_registration",
         "agent_workflow_route",
         "harness_run_summary",
+        "headless_tool_roundtrip",
         "mock_e2e_runner_tier",
         "mock_llm_workflow_route",
         "native_tool_call_policy",
@@ -98,12 +103,15 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HEADLESS_TEXT_EVENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_FUNCTION_ARGUMENT_DO_NOT_EXPORT" not in serialized
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
+    assert results["headless-tool-roundtrip-function-call"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-ask-boundary"]["passed"] is True
     assert results["mock-e2e-runner-tier-ci-roundtrip-hang"]["passed"] is True
@@ -828,9 +836,10 @@ def test_provider_runtime_preflight_skips_worker_env_inherit_when_worker_tool_mi
     assert output["provider"]["worker_tool_available"] is False
     assert output["provider_auth"]["auth_env_key_propagated_to_worker"] is False
     assert output["preflight"]["blocked_before_launch"] is False
-    assert "skipped worker env inheritance check because the harness declares no worker tool" in output["preflight"][
-        "diagnostics"
-    ]
+    assert (
+        "skipped worker env inheritance check because the harness declares no worker tool"
+        in output["preflight"]["diagnostics"]
+    )
     assert "OPENAI_API_KEY" not in serialized
 
 
@@ -1356,7 +1365,7 @@ def test_mock_llm_workflow_route_validates_anthropic_messages_round_trip_without
                     },
                     {
                         "content": "tool result accepted",
-                        "tool_calls": [{"name": "record_validation", "arguments": "{\"ok\": true}"}],
+                        "tool_calls": [{"name": "record_validation", "arguments": '{"ok": true}'}],
                         "usage": {"input_tokens": 10, "output_tokens": 7},
                     },
                 ]

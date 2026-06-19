@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import shutil
 import sys
@@ -90,6 +91,7 @@ REVIEW_ONLY_TOOL_ROUTE = "review_only"
 UNSUPPORTED_TOOL_ROUTE = "unsupported"
 DEFAULT_EXECUTABLE_TOOL_PROVIDERS = ("local", "function")
 DEFAULT_EXECUTABLE_TOOL_TYPES = (None, "function")
+HEADLESS_FUNCTION_CALL_EVENT_TYPES = frozenset({"function_call", "tool_call"})
 TOOL_REVIEW_RISK_FLAGS = frozenset(
     {
         "abuse",
@@ -556,6 +558,102 @@ def executable_tool_registry(
         for descriptor in descriptors
         if route_tool_descriptor(descriptor, tool_call_policy_evaluator=tool_call_policy_evaluator).executable
     }
+
+
+def build_headless_function_call_dispatch_report(
+    events: Sequence[Mapping[str, Any]],
+    descriptors: Sequence[ToolDescriptor],
+    *,
+    tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
+) -> dict[str, Any]:
+    """Normalize headless function_call events and prove they reach tool routing.
+
+    This is a dry-run dispatch report: it checks whether each model-emitted event
+    has an executable local descriptor after policy routing, but never invokes the
+    descriptor callable or exports raw arguments.
+    """
+
+    decisions = {
+        decision.descriptor.name: decision
+        for decision in route_tool_descriptors(
+            descriptors,
+            tool_call_policy_evaluator=tool_call_policy_evaluator,
+        )
+    }
+    normalized_events = [
+        normalize_headless_function_call_event(event) for event in events if is_headless_function_call_event(event)
+    ]
+    dispatches: list[dict[str, Any]] = []
+    for index, event in enumerate(normalized_events):
+        name = str(event["name"])
+        decision = decisions.get(name)
+        if decision is None:
+            route = "missing_handler"
+            reasons = ["missing_executable_handler"]
+        elif decision.executable:
+            route = "dispatched"
+            reasons = []
+        else:
+            route = decision.route
+            reasons = list(decision.reasons)
+        dispatches.append(
+            {
+                "event_index": index,
+                "event_id": event["event_id"],
+                "name": name,
+                "route": route,
+                "reasons": reasons,
+                "arguments_hash": event["arguments_hash"],
+                "arguments_exported": False,
+            }
+        )
+
+    dispatched_count = sum(1 for dispatch in dispatches if dispatch["route"] == "dispatched")
+    missing_handler_count = sum(1 for dispatch in dispatches if dispatch["route"] == "missing_handler")
+    blocked_count = sum(1 for dispatch in dispatches if dispatch["route"] not in {"dispatched", "missing_handler"})
+    dropped_count = len(events) - len(normalized_events)
+    route_counts: dict[str, int] = {}
+    for dispatch in dispatches:
+        route = str(dispatch["route"])
+        route_counts[route] = route_counts.get(route, 0) + 1
+    all_function_calls_dispatched = bool(normalized_events) and dispatched_count == len(normalized_events)
+    return {
+        "schema_version": 1,
+        "event_count": len(events),
+        "function_call_event_count": len(normalized_events),
+        "dispatch_attempt_count": len(dispatches),
+        "dispatched_count": dispatched_count,
+        "blocked_count": blocked_count,
+        "missing_handler_count": missing_handler_count,
+        "dropped_event_count": dropped_count,
+        "route_counts": route_counts,
+        "all_function_calls_dispatched": all_function_calls_dispatched,
+        "dispatches": dispatches,
+        "raw_arguments_exported": False,
+        "tools_executed": False,
+    }
+
+
+def is_headless_function_call_event(event: Mapping[str, Any]) -> bool:
+    event_type = str(event.get("type") or event.get("event") or "").strip()
+    return event_type in HEADLESS_FUNCTION_CALL_EVENT_TYPES
+
+
+def normalize_headless_function_call_event(event: Mapping[str, Any]) -> dict[str, Any]:
+    function = event.get("function") if isinstance(event.get("function"), Mapping) else {}
+    name = str(event.get("name") or function.get("name") or "").strip()
+    arguments = event.get("arguments") if "arguments" in event else function.get("arguments")
+    event_id = str(event.get("id") or event.get("call_id") or name or "headless-function-call")
+    return {
+        "event_id": event_id,
+        "name": name,
+        "arguments_hash": _stable_tool_json_hash(arguments) if arguments is not None else None,
+    }
+
+
+def _stable_tool_json_hash(value: Any) -> str:
+    serialized = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return "sha256:" + hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def _parse_simple_agent_yaml(text: str) -> dict[str, Any]:

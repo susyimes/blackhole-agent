@@ -1,0 +1,97 @@
+{
+  "name": "headless-tool-roundtrip-function-call",
+  "behavior": "headless_tool_roundtrip",
+  "input": {
+    "task_id": "fixture-headless-tool-roundtrip-function-call",
+    "tools": [
+      {
+        "name": "retain_lesson",
+        "description": "Retain a validated local lesson.",
+        "provider": "function",
+        "type": "function",
+        "callable": "local_fixture.tools.retain",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "content"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "events": [
+      {
+        "id": "text-delta-1",
+        "type": "message_delta",
+        "content": "PRIVATE_HEADLESS_TEXT_EVENT_DO_NOT_EXPORT"
+      },
+      {
+        "id": "call-1",
+        "type": "function_call",
+        "name": "retain_lesson",
+        "arguments": {
+          "content": "PRIVATE_FUNCTION_ARGUMENT_DO_NOT_EXPORT"
+        }
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "dispatch.event_count",
+      "equals": 2
+    },
+    {
+      "path": "dispatch.function_call_event_count",
+      "equals": 1
+    },
+    {
+      "path": "dispatch.dispatch_attempt_count",
+      "equals": 1
+    },
+    {
+      "path": "dispatch.dispatched_count",
+      "equals": 1
+    },
+    {
+      "path": "dispatch.dropped_event_count",
+      "equals": 1
+    },
+    {
+      "path": "dispatch.all_function_calls_dispatched",
+      "equals": true
+    },
+    {
+      "path": "dispatch.raw_arguments_exported",
+      "equals": false
+    },
+    {
+      "path": "dispatch.tools_executed",
+      "equals": false
+    },
+    {
+      "path": "dispatch.route_counts.dispatched",
+      "equals": 1
+    },
+    {
+      "path": "activation_gate.local_dispatch_allowed",
+      "equals": true
+    },
+    {
+      "path": "activation_gate.tool_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}
