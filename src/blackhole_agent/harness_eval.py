@@ -611,6 +611,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     )
     activation_gate = skill_route_discovery_activation_gate(failure_mode)
     discovery_checklist = build_skill_route_discovery_checklist(proposal_lanes)
+    activation_lanes = build_skill_route_discovery_activation_lanes(
+        proposal_lanes,
+        activation_allowed=activation_gate["local_proposal_activation_allowed"] is True,
+        failure_mode=failure_mode,
+    )
 
     return {
         "schema_version": 1,
@@ -639,6 +644,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "evidence_strength": evidence_strength,
         "activation_gate": activation_gate,
+        "activation_lanes": activation_lanes,
         "discovery_checklist": discovery_checklist,
         "proposal_lanes": [
             {
@@ -679,6 +685,38 @@ def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) 
             "external_skill_activation_allowed": False,
         }
         for lane in proposal_lanes
+    ]
+
+
+def build_skill_route_discovery_activation_lanes(
+    proposal_lanes: list[dict[str, Any]],
+    *,
+    activation_allowed: bool,
+    failure_mode: str,
+) -> list[dict[str, Any]]:
+    """Group discovered proposal lanes into controller-ready activation checks."""
+
+    validation_command = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        if not proposal_kind:
+            continue
+        grouped.setdefault(proposal_kind, []).append(lane)
+
+    activation_blockers = [] if activation_allowed else [failure_mode or "activation_gate_not_ready"]
+    return [
+        {
+            "proposal_kind": proposal_kind,
+            "candidate_count": len(lanes),
+            "candidate_names": sorted({str(lane.get("candidate_name") or "") for lane in lanes}),
+            "required_validation": [validation_command],
+            "activation_ready": activation_allowed,
+            "activation_blockers": activation_blockers,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        }
+        for proposal_kind, lanes in sorted(grouped.items())
     ]
 
 

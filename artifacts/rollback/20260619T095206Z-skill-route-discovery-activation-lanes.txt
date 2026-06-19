@@ -1,0 +1,10 @@
+Rollback point for skill route discovery activation lanes
+
+Original branch: codex/blackhole-evolve/20260619T095302.989528-add-or-extend-local-tests-for-rendered-html-arti
+Original HEAD: 9699be5c1d4ffb504339581ec9801811421a693b
+Rollback ref: refs/rollback/blackhole-agent/20260619T095206Z
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260619T095302.989528-add-or-extend-local-tests-for-rendered-html-arti
+  git reset --hard refs/rollback/blackhole-agent/20260619T095206Z
+  git clean -fd

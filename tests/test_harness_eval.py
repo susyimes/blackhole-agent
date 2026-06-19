@@ -251,6 +251,48 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "local_proposal_activation_allowed": True,
         "external_skill_activation_allowed": False,
     }
+    assert output["activation_lanes"] == [
+        {
+            "proposal_kind": "code_patch",
+            "candidate_count": 1,
+            "candidate_names": ["codex-fable5"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        },
+        {
+            "proposal_kind": "config",
+            "candidate_count": 1,
+            "candidate_names": ["codex-fable5"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        },
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "candidate_names": ["codex-fable5"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        },
+        {
+            "proposal_kind": "test",
+            "candidate_count": 1,
+            "candidate_names": ["codex-fable5"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        },
+    ]
     assert len(output["discovery_checklist"]) == 4
     assert {entry["capability"] for entry in output["discovery_checklist"]} == {"skill_route_discovery"}
     assert {entry["allowed_local_lane"] for entry in output["discovery_checklist"]} == {
@@ -406,6 +448,28 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         "local_proposal_activation_allowed": False,
         "external_skill_activation_allowed": False,
     }
+    assert output["activation_lanes"] == [
+        {
+            "proposal_kind": "code_patch",
+            "candidate_count": 1,
+            "candidate_names": ["omnigent-generic-movement"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": False,
+            "activation_blockers": ["weak_generic_upstream_evidence"],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        },
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "candidate_names": ["omnigent-generic-movement"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": False,
+            "activation_blockers": ["weak_generic_upstream_evidence"],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        },
+    ]
 
 
 def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
@@ -437,6 +501,18 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
         "local_proposal_activation_allowed": False,
         "external_skill_activation_allowed": False,
     }
+    assert output["activation_lanes"] == [
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "candidate_names": ["overbroad-skill"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "activation_ready": False,
+            "activation_blockers": ["unsupported_lanes_downgraded"],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        }
+    ]
 
 
 def test_rendered_html_artifact_validation_blocks_when_scripts_do_not_execute():

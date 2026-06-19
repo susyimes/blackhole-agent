@@ -214,6 +214,16 @@ documentation, config, test, or code_patch, required tests include
 notes require a rollback ref and artifact before source changes, runtime action
 remains `none`, and external skill activation remains false.
 
+For controller handoff, the harness also emits `activation_lanes`. These rows
+group proposal lanes by local output kind and carry the required validation
+command, candidate names, readiness flag, blockers, runtime action, and external
+activation flag. A lane is `activation_ready: true` only when the overall gate
+is `ready_for_local_proposal_activation`; weak generic evidence, downgraded
+lanes, rejected candidates, unbounded lanes, missing validation, or requested
+runtime action keep the row present but blocked. This lets a supervisor promote
+validated documentation, config, test, or code_patch work without treating an
+external skill repository as an installable package.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:
