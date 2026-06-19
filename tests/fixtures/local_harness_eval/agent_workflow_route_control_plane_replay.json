@@ -1,0 +1,135 @@
+{
+  "name": "agent-workflow-route-control-plane-replay",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-control-plane-replay",
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "invoke-runner",
+          "status": "completed"
+        },
+        {
+          "id": "capture-replay",
+          "status": "completed"
+        },
+        {
+          "id": "write-report",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "observations": [
+      {
+        "id": "overview-title-painted",
+        "phase": "midflight",
+        "load_bearing": true,
+        "reliable": true,
+        "observed": true
+      },
+      {
+        "id": "idle-status-after-teardown",
+        "phase": "teardown",
+        "load_bearing": false,
+        "reliable": false,
+        "observed": false
+      }
+    ],
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-control-plane",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-control-plane-replay",
+      "artifact_path": "artifacts/rollback/fixture-route-control-plane-replay.txt"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/fixture-route-control-plane-report.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_control_plane_replay.json"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "control_plane.complete",
+      "equals": true
+    },
+    {
+      "path": "control_plane.failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "control_plane.stages.report.ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.observation_contract.load_bearing_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.observation_contract.non_load_bearing_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.observation_contract.unreliable_non_load_bearing_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.observation_contract.failed_load_bearing_count",
+      "equals": 0
+    },
+    {
+      "path": "observations.passed",
+      "equals": true
+    },
+    {
+      "path": "observations.items.1.load_bearing",
+      "equals": false
+    },
+    {
+      "path": "observations.items.1.reliable",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

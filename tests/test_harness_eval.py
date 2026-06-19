@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 34
-    assert payload["pass_count"] == 33
+    assert payload["fixture_count"] == 35
+    assert payload["pass_count"] == 34
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -115,6 +115,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
+    assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
@@ -1014,6 +1015,81 @@ def test_agent_workflow_route_fixture_records_state_validation_and_recovery():
         "completed",
     ]
     assert output["state_transitions"][-1] == {"state": "completed", "outcome": "failed"}
+
+
+def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearing():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_control_plane_replay.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["control_plane"]["complete"] is True
+    assert output["control_plane"]["stages"] == {
+        "intake": {"ready": True, "status": "recorded"},
+        "midflight": {"ready": True, "status": "recorded"},
+        "recovery": {"ready": True, "status": "recorded"},
+        "replay": {"ready": True, "status": "recorded"},
+        "report": {"ready": True, "status": "recorded"},
+    }
+    assert output["control_plane"]["observation_contract"] == {
+        "load_bearing_count": 1,
+        "non_load_bearing_count": 1,
+        "unreliable_non_load_bearing_count": 1,
+        "failed_load_bearing_count": 0,
+        "flaky_observations_allowed_only_when_non_load_bearing": True,
+    }
+    assert output["observations"]["passed"] is True
+    assert output["observations"]["items"][1]["phase"] == "teardown"
+    assert output["observations"]["items"][1]["load_bearing"] is False
+    assert output["observations"]["items"][1]["reliable"] is False
+    assert output["observations"]["raw_observation_ids_exported"] is False
+    assert output["control_plane"]["report"]["raw_artifact_paths_exported"] is False
+    assert output["control_plane"]["report"]["report_artifact_hash"].startswith("sha256:")
+    assert output["control_plane"]["replay"]["replay_artifact_hash"].startswith("sha256:")
+    assert "overview-title-painted" not in serialized
+    assert "idle-status-after-teardown" not in serialized
+    assert "artifacts/self-evolution/fixture-route-control-plane-report.md" not in serialized
+
+    stale_gate = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-stale-load-bearing-observation",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "observations": [
+                {
+                    "id": "PRIVATE_STALE_OBSERVATION_ID_DO_NOT_EXPORT",
+                    "phase": "teardown",
+                    "load_bearing": True,
+                    "reliable": False,
+                    "observed": False,
+                }
+            ],
+            "validation": {
+                "gate": "runner-harness-control-plane",
+                "checks": [{"name": "pytest-agent-workflow-control-plane", "returncode": 0}],
+            },
+            "rollback": {
+                "created": True,
+                "ref": "refs/rollback/fixture-route-stale-load-bearing-observation",
+            },
+            "artifacts": {"report_recorded": True},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_stale_observation_inline.json",
+    )
+    stale_serialized = json.dumps(stale_gate, sort_keys=True)
+
+    assert stale_gate["route_status"] == "failed_recoverable"
+    assert stale_gate["failure_mode"] == "unreliable_load_bearing_observation"
+    assert stale_gate["observations"]["failed_load_bearing_count"] == 1
+    assert stale_gate["control_plane"]["complete"] is False
+    assert "PRIVATE_STALE_OBSERVATION_ID_DO_NOT_EXPORT" not in stale_serialized
 
 
 def test_agent_workflow_route_blocks_before_activation_when_oneshot_marker_absent():

@@ -1,0 +1,21 @@
+Rollback point for github-growth-20260619T145206.939448Z
+
+Original branch:
+codex/blackhole-evolve/20260619T145317.717955-borrow-cautiously-from-omnigent-ai-omnigent-crea
+
+Original HEAD:
+1013e6aa594074a67b669ef11022b7881156efdb
+
+Local rollback ref:
+refs/rollback/20260619T145206Z-runner-harness-control
+
+Pre-run status:
+clean
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T145317.717955-borrow-cautiously-from-omnigent-ai-omnigent-crea
+git reset --hard refs/rollback/20260619T145206Z-runner-harness-control
+git clean -fd
+
+Notes:
+Rollback execution is explicit and destructive. A human operator or external supervisor policy must choose it before running reset or clean commands.

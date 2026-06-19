@@ -4157,6 +4157,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     oneshot_marker = (
         raw_input.get("oneshot_marker") if isinstance(raw_input.get("oneshot_marker"), dict) else {}
     )
+    observations = raw_input.get("observations") if isinstance(raw_input.get("observations"), list) else []
+    report_artifacts = raw_input.get("artifacts") if isinstance(raw_input.get("artifacts"), dict) else {}
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
@@ -4176,6 +4178,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     rollback_ref = optional_string(rollback.get("ref"))
     rollback_artifact = optional_string(rollback.get("artifact_path"))
     rollback_available = truthy(rollback.get("created")) and bool(rollback_ref or rollback_artifact)
+    observation_result = evaluate_agent_workflow_observations(observations)
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
         oneshot_marker_ready=marker_result["ready"],
@@ -4189,6 +4192,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             runner_timed_out=runner_timed_out,
             validation_passed=validation_passed,
             lifecycle_passed=True,
+            observations_passed=observation_result["passed"],
+            observations_failure_mode=observation_result["failure_mode"],
         ),
         rollback_available=rollback_available,
     )
@@ -4201,6 +4206,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         runner_timed_out=runner_timed_out,
         validation_passed=validation_passed,
         lifecycle_passed=lifecycle_result["passed"],
+        observations_passed=observation_result["passed"],
+        observations_failure_mode=observation_result["failure_mode"],
     )
     if failure_mode == "none":
         route_status = "passed"
@@ -4218,12 +4225,25 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         rollback_available=rollback_available,
     )
     lifecycle_result = evaluate_agent_workflow_lifecycle(lifecycle, state_transitions)
+    control_plane = build_agent_workflow_control_plane(
+        task_id=task_id,
+        plan_steps=plan_steps,
+        runner_invoked=runner_invoked,
+        state_transitions=state_transitions,
+        validation_gate=validation_gate,
+        validation_checks=validation_checks,
+        rollback_available=rollback_available,
+        observation_result=observation_result,
+        report_artifacts=report_artifacts,
+        source_path=source_path,
+    )
 
     return {
         "schema_version": 1,
         "behavior": "agent_workflow_route",
         "task_id": task_id,
         "route_status": route_status,
+        "control_plane": control_plane,
         "state_transitions": state_transitions,
         "planning": {
             "step_count": len(plan_steps),
@@ -4239,6 +4259,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         },
         "oneshot_marker": marker_result,
         "lifecycle": lifecycle_result,
+        "observations": observation_result,
         "validation": {
             "gate": validation_gate,
             "gate_recorded": bool(validation_gate),
@@ -4263,6 +4284,8 @@ def agent_workflow_failure_mode(
     runner_timed_out: bool,
     validation_passed: bool,
     lifecycle_passed: bool,
+    observations_passed: bool = True,
+    observations_failure_mode: str = "none",
 ) -> str:
     if not oneshot_marker_ready:
         return "oneshot_marker_missing"
@@ -4272,11 +4295,156 @@ def agent_workflow_failure_mode(
         return "timeout"
     if runner_returncode not in (None, 0):
         return "nonzero_exit"
+    if not observations_passed:
+        return observations_failure_mode
     if not lifecycle_passed:
         return "lifecycle_incomplete"
     if not validation_passed:
         return "validation_failed"
     return "none"
+
+
+def evaluate_agent_workflow_observations(observations: list[Any]) -> dict[str, Any]:
+    """Classify runner observations without letting flaky probes become silent gates."""
+
+    items: list[dict[str, Any]] = []
+    for index, observation in enumerate(observations, start=1):
+        if not isinstance(observation, dict):
+            continue
+        raw_id = optional_string(observation.get("id") or observation.get("name"))
+        load_bearing = truthy(observation.get("load_bearing", True))
+        reliable = truthy(observation.get("reliable", True))
+        observed = truthy(observation.get("observed", observation.get("passed", True)))
+        if load_bearing and not reliable:
+            failure_mode = "unreliable_load_bearing_observation"
+        elif load_bearing and not observed:
+            failure_mode = "load_bearing_observation_failed"
+        else:
+            failure_mode = "none"
+        items.append(
+            {
+                "ordinal": index,
+                "id_hash": stable_text_hash(raw_id) if raw_id else None,
+                "phase": normalize_agent_workflow_observation_phase(observation.get("phase")),
+                "load_bearing": load_bearing,
+                "reliable": reliable,
+                "observed": observed,
+                "passed": failure_mode == "none",
+                "failure_mode": failure_mode,
+            }
+        )
+
+    failed_load_bearing = [item for item in items if item["load_bearing"] and not item["passed"]]
+    unreliable_non_load_bearing = [
+        item for item in items if not item["load_bearing"] and not item["reliable"]
+    ]
+    if not failed_load_bearing:
+        failure_mode = "none"
+    elif any(item["failure_mode"] == "unreliable_load_bearing_observation" for item in failed_load_bearing):
+        failure_mode = "unreliable_load_bearing_observation"
+    else:
+        failure_mode = "load_bearing_observation_failed"
+
+    return {
+        "count": len(items),
+        "load_bearing_count": sum(1 for item in items if item["load_bearing"]),
+        "non_load_bearing_count": sum(1 for item in items if not item["load_bearing"]),
+        "unreliable_non_load_bearing_count": len(unreliable_non_load_bearing),
+        "failed_load_bearing_count": len(failed_load_bearing),
+        "passed": not failed_load_bearing,
+        "failure_mode": failure_mode,
+        "items": items,
+        "raw_observation_ids_exported": False,
+        "raw_observation_bodies_exported": False,
+    }
+
+
+def normalize_agent_workflow_observation_phase(value: Any) -> str:
+    phase = (optional_string(value) or "unspecified").strip().lower().replace("-", "_")
+    allowed = {
+        "intake",
+        "midflight",
+        "recovery",
+        "replay",
+        "report",
+        "teardown",
+        "validation",
+        "unspecified",
+    }
+    return phase if phase in allowed else "other"
+
+
+def build_agent_workflow_control_plane(
+    *,
+    task_id: str,
+    plan_steps: list[Any],
+    runner_invoked: bool,
+    state_transitions: list[dict[str, Any]],
+    validation_gate: str,
+    validation_checks: list[dict[str, Any]],
+    rollback_available: bool,
+    observation_result: dict[str, Any],
+    report_artifacts: dict[str, Any],
+    source_path: Path,
+) -> dict[str, Any]:
+    """Summarize intake, mid-flight, recovery, replay, and report readiness."""
+
+    report_path = optional_string(report_artifacts.get("report_path"))
+    replay_path = optional_string(report_artifacts.get("replay_path"))
+    intake_ready = bool(task_id and plan_steps)
+    midflight_ready = runner_invoked and bool(state_transitions)
+    replay_ready = bool(validation_gate and validation_checks)
+    report_ready = truthy(report_artifacts.get("report_recorded")) or bool(report_path)
+    stages = {
+        "intake": intake_ready,
+        "midflight": midflight_ready,
+        "recovery": rollback_available,
+        "replay": replay_ready,
+        "report": report_ready,
+    }
+    missing_stages = [stage for stage, ready in stages.items() if not ready]
+
+    if missing_stages:
+        failure_mode = "control_plane_stage_missing"
+    elif not observation_result["passed"]:
+        failure_mode = str(observation_result["failure_mode"])
+    else:
+        failure_mode = "none"
+
+    return {
+        "surface": "runner_harness_control_plane",
+        "stage_count": len(stages),
+        "complete": not missing_stages and observation_result["passed"],
+        "failure_mode": failure_mode,
+        "stages": {
+            stage: {
+                "ready": ready,
+                "status": "recorded" if ready else "missing",
+            }
+            for stage, ready in stages.items()
+        },
+        "missing_stages": missing_stages,
+        "replay": {
+            "fixture_source_hash": stable_text_hash(source_path.as_posix()),
+            "validation_gate_recorded": bool(validation_gate),
+            "validation_check_count": len(validation_checks),
+            "replay_artifact_hash": stable_text_hash(replay_path) if replay_path else None,
+        },
+        "report": {
+            "report_recorded": report_ready,
+            "report_artifact_hash": stable_text_hash(report_path) if report_path else None,
+            "raw_artifact_paths_exported": False,
+        },
+        "observation_contract": {
+            "load_bearing_count": observation_result["load_bearing_count"],
+            "non_load_bearing_count": observation_result["non_load_bearing_count"],
+            "unreliable_non_load_bearing_count": observation_result["unreliable_non_load_bearing_count"],
+            "failed_load_bearing_count": observation_result["failed_load_bearing_count"],
+            "flaky_observations_allowed_only_when_non_load_bearing": (
+                observation_result["failed_load_bearing_count"] == 0
+            ),
+        },
+    }
 
 
 def build_agent_workflow_state_transitions(
