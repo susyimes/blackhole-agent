@@ -1316,7 +1316,7 @@ def evaluate_mock_session_route(session: dict[str, Any]) -> dict[str, Any]:
 
 
 def evaluate_mock_interrupt_replay(interrupt: dict[str, Any]) -> dict[str, Any]:
-    """Validate interrupt rebuild and idle replay metadata without exporting IDs."""
+    """Validate interrupt rebuild, idle replay, and blocked-drain steering metadata without exporting IDs."""
 
     previous_session_id = optional_string(interrupt.get("previous_session_id"))
     rebuilt_session_id = optional_string(interrupt.get("rebuilt_session_id"))
@@ -1339,12 +1339,14 @@ def evaluate_mock_interrupt_replay(interrupt: dict[str, Any]) -> dict[str, Any]:
     replay_counts_match = count_strings(pending_idle_message_ids) == count_strings(replayed_idle_message_ids)
     lost_idle_message_count = count_missing_strings(pending_idle_message_ids, replayed_idle_message_ids)
     duplicated_idle_message_count = count_missing_strings(replayed_idle_message_ids, pending_idle_message_ids)
+    async_drain = evaluate_mock_interrupt_async_drain(interrupt)
     passed = (
         not required
         or session_rebuilt
         and agent_rebuilt
         and conversation_rebuilt
         and replay_counts_match
+        and async_drain["passed"]
     )
 
     return {
@@ -1366,9 +1368,68 @@ def evaluate_mock_interrupt_replay(interrupt: dict[str, Any]) -> dict[str, Any]:
         "rebuilt_conversation_hash": stable_text_hash(rebuilt_conversation_id) if rebuilt_conversation_id else None,
         "pending_idle_message_hashes": [stable_text_hash(message_id) for message_id in pending_idle_message_ids],
         "replayed_idle_message_hashes": [stable_text_hash(message_id) for message_id in replayed_idle_message_ids],
+        "async_drain": async_drain,
         "raw_ids_exported": False,
         "passed": passed,
     }
+
+
+def evaluate_mock_interrupt_async_drain(interrupt: dict[str, Any]) -> dict[str, Any]:
+    """Check that steering can break a simulated blocked async drain within a bounded timeout."""
+
+    drain = interrupt.get("async_drain") if isinstance(interrupt.get("async_drain"), dict) else {}
+    declared = bool(drain)
+    required = truthy(drain.get("required")) or declared
+    blocked = truthy(drain.get("blocked"))
+    steering_sent = truthy(drain.get("steering_sent"))
+    timeout_ms = optional_float(drain.get("timeout_ms")) or 1000.0
+    cancelled = truthy(drain.get("cancelled"))
+    progressed = truthy(drain.get("progressed"))
+    cancelled_after_ms = optional_float(drain.get("cancelled_after_ms"))
+    progress_after_ms = optional_float(drain.get("progress_after_ms"))
+
+    cancelled_timely = cancelled and duration_within_timeout(cancelled_after_ms, timeout_ms)
+    progressed_timely = progressed and duration_within_timeout(progress_after_ms, timeout_ms)
+    broke_drain = cancelled_timely or progressed_timely
+    passed = not required or (blocked and steering_sent and broke_drain)
+
+    if not required:
+        failure_mode = "none"
+    elif not blocked:
+        failure_mode = "drain_not_blocked"
+    elif not steering_sent:
+        failure_mode = "steering_not_sent"
+    elif not broke_drain:
+        failure_mode = "steering_did_not_break_drain"
+    else:
+        failure_mode = "none"
+
+    if cancelled_timely:
+        outcome = "cancelled"
+    elif progressed_timely:
+        outcome = "progressed"
+    elif required:
+        outcome = "blocked"
+    else:
+        outcome = "not_required"
+
+    return {
+        "declared": declared,
+        "required": required,
+        "blocked": blocked,
+        "steering_sent": steering_sent,
+        "timeout_ms": timeout_ms,
+        "cancelled_timely": cancelled_timely,
+        "progressed_timely": progressed_timely,
+        "broke_drain": broke_drain,
+        "outcome": outcome,
+        "failure_mode": failure_mode,
+        "passed": passed,
+    }
+
+
+def duration_within_timeout(duration_ms: float | None, timeout_ms: float) -> bool:
+    return duration_ms is not None and 0 <= duration_ms <= timeout_ms
 
 
 def count_strings(values: list[str]) -> dict[str, int]:

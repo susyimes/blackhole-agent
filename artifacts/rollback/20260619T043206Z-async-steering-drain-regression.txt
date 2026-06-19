@@ -1,0 +1,20 @@
+Rollback point for github-growth-20260619T043207.063289Z
+
+Original branch: codex/blackhole-evolve/20260619T043311.427660-add-or-strengthen-local-sandbox-governance-tests
+Original HEAD: 13e949e8f0a858aec46851504f2e4bfdb3e93358
+Rollback ref: refs/rollback/20260619T043206Z-async-steering-drain-regression
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+git reset --hard refs/rollback/20260619T043206Z-async-steering-drain-regression
+git clean -fd
+
+Evidence reviewed:
+- https://github.com/omnigent-ai/omnigent/issues/771
+- https://github.com/omnigent-ai/omnigent/issues/770
+
+Chosen proposal:
+- p2-async-steering-drain-regression
+
+Review note:
+- p1 sandbox write governance was kept review-only per proposal scope and human-review gate.

@@ -27,7 +27,15 @@
       "replayed_idle_message_ids": [
         "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT",
         "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT"
-      ]
+      ],
+      "async_drain": {
+        "required": true,
+        "blocked": true,
+        "steering_sent": true,
+        "timeout_ms": 500,
+        "cancelled": true,
+        "cancelled_after_ms": 120
+      }
     },
     "mock_llm": {
       "enabled": true,
@@ -104,6 +112,14 @@
     {
       "path": "interrupt.raw_ids_exported",
       "equals": false
+    },
+    {
+      "path": "interrupt.async_drain.broke_drain",
+      "equals": true
+    },
+    {
+      "path": "interrupt.async_drain.outcome",
+      "equals": "cancelled"
     },
     {
       "path": "mock_llm.remaining_response_count",

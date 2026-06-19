@@ -1185,6 +1185,19 @@ def test_mock_llm_workflow_route_covers_interrupt_rebuild_and_idle_replay_withou
     assert output["interrupt"]["idle_replay_counts_match"] is True
     assert output["interrupt"]["lost_idle_message_count"] == 0
     assert output["interrupt"]["duplicated_idle_message_count"] == 0
+    assert output["interrupt"]["async_drain"] == {
+        "declared": True,
+        "required": True,
+        "blocked": True,
+        "steering_sent": True,
+        "timeout_ms": 500.0,
+        "cancelled_timely": True,
+        "progressed_timely": False,
+        "broke_drain": True,
+        "outcome": "cancelled",
+        "failure_mode": "none",
+        "passed": True,
+    }
     assert output["interrupt"]["previous_session_hash"].startswith("sha256:")
     assert output["interrupt"]["rebuilt_session_hash"].startswith("sha256:")
     assert all(hash_value.startswith("sha256:") for hash_value in output["interrupt"]["pending_idle_message_hashes"])
@@ -1197,6 +1210,60 @@ def test_mock_llm_workflow_route_covers_interrupt_rebuild_and_idle_replay_withou
     assert "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_IDLE_MESSAGE_TWO_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_fails_when_steering_cannot_break_blocked_async_drain():
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        {
+            "task_id": "fixture-mock-llm-blocked-async-drain",
+            "provider": {"name": "external-chat-provider", "enabled": False},
+            "session": {
+                "id": "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT",
+                "previous_id": "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT",
+                "isolation_required": True,
+            },
+            "interrupt": {
+                "required": True,
+                "previous_session_id": "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT",
+                "rebuilt_session_id": "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT",
+                "previous_agent_id": "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT",
+                "rebuilt_agent_id": "PRIVATE_AGENT_AFTER_INTERRUPT_DO_NOT_EXPORT",
+                "previous_conversation_id": "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT",
+                "rebuilt_conversation_id": "PRIVATE_CONVERSATION_AFTER_INTERRUPT_DO_NOT_EXPORT",
+                "pending_idle_message_ids": ["PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT"],
+                "replayed_idle_message_ids": ["PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT"],
+                "async_drain": {
+                    "required": True,
+                    "blocked": True,
+                    "steering_sent": True,
+                    "timeout_ms": 250,
+                    "cancelled": False,
+                    "progressed": False,
+                },
+            },
+            "mock_llm": {
+                "enabled": True,
+                "model": "mock-local-llm",
+                "response_queues": {"mock-local-llm": [{"content": "interrupted session rebuilt"}]},
+            },
+            "workflow": {"steps": [{"id": "rebuild-session", "expect_contains": "rebuilt"}]},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_blocked_async_drain_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "interrupt_replay_failed"
+    assert output["interrupt"]["async_drain"]["failure_mode"] == "steering_did_not_break_drain"
+    assert output["interrupt"]["async_drain"]["broke_drain"] is False
+    assert output["interrupt"]["async_drain"]["outcome"] == "blocked"
+    assert output["interrupt"]["raw_ids_exported"] is False
+    assert "PRIVATE_REBUILT_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_INTERRUPTED_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_IDLE_MESSAGE_ONE_DO_NOT_EXPORT" not in serialized
 
 
 def test_mock_llm_workflow_route_covers_named_subagent_policy_without_exporting_bodies():
