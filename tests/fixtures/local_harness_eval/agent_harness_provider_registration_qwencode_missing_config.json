@@ -1,0 +1,78 @@
+{
+  "name": "agent-harness-provider-registration-qwencode-missing-config",
+  "behavior": "agent_harness_provider_registration",
+  "input": {
+    "task_id": "fixture-qwencode-provider-registration-missing-config",
+    "required_provider": "qwencode",
+    "expected_harness": "qwencode-cli",
+    "providers": [
+      {
+        "name": "qwencode-cli",
+        "provider": "qwencode",
+        "priority": 15,
+        "required_commands": ["qwencode"],
+        "required_env": ["QWENCODE_API_KEY"]
+      },
+      {
+        "name": "single-file-function-agent",
+        "provider": "function",
+        "priority": 90
+      }
+    ],
+    "runtime": {
+      "platform": "linux",
+      "available_commands": [],
+      "installed_modules": [],
+      "env_keys_present": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "required_provider_config_missing"
+    },
+    {
+      "path": "provider_count",
+      "equals": 2
+    },
+    {
+      "path": "selected_harness",
+      "equals": "single-file-function-agent"
+    },
+    {
+      "path": "missing_required_config",
+      "equals": true
+    },
+    {
+      "path": "missing_config_reasons",
+      "equals": [
+        "missing_dependency:qwencode",
+        "missing_env_key_hash:sha256:dfa09d06ce907c1b6e5e72a7dbc053a65677ea79ec00b03a32472f158c5f9cf2"
+      ]
+    },
+    {
+      "path": "activation_gate.local_provider_registration_allowed",
+      "equals": false
+    },
+    {
+      "path": "activation_gate.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.env_values_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.env_key_names_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.provider_launched",
+      "equals": false
+    }
+  ]
+}

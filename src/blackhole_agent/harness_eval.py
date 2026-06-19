@@ -39,6 +39,7 @@ SAFETY_BOUNDARY_REVIEW_FLAGS = {
     "privacy-leakage",
 }
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
+    "agent_harness_provider_registration",
     "agent_workflow_route",
     "harness_run_summary",
     "mock_e2e_runner_tier",
@@ -324,6 +325,8 @@ def run_local_harness_fixture(path: Path) -> HarnessEvalFixtureResult:
 
 
 def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    if behavior == "agent_harness_provider_registration":
+        return evaluate_agent_harness_provider_registration(raw_input, source_path=source_path)
     if behavior == "agent_workflow_route":
         return evaluate_agent_workflow_route(raw_input, source_path=source_path)
     if behavior == "harness_run_summary":
@@ -347,6 +350,140 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
     if behavior == "workspace_changes_panel":
         return evaluate_workspace_changes_panel(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate a proposed agent harness provider route without launching it."""
+
+    from blackhole_agent.tool_routing import discover_provider_harnesses
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    providers = raw_input.get("providers")
+    providers = providers if isinstance(providers, list) else []
+    runtime = raw_input.get("runtime") if isinstance(raw_input.get("runtime"), dict) else {}
+    required_provider = optional_string(raw_input.get("required_provider"))
+    expected_harness = optional_string(raw_input.get("expected_harness"))
+    available_commands = set(string_list(runtime.get("available_commands")))
+    installed_modules = set(string_list(runtime.get("installed_modules")))
+    env_keys_present = set(string_list(runtime.get("env_keys_present")))
+    environ = {name: "present" for name in env_keys_present}
+    platform = optional_string(runtime.get("platform")) or "linux"
+
+    harnesses = [provider_harness_from_mapping(provider) for provider in providers if isinstance(provider, dict)]
+    statuses = discover_provider_harnesses(
+        harnesses,
+        installed_modules=installed_modules,
+        available_commands=available_commands,
+        environ=environ,
+        platform=platform,
+    )
+    available_statuses = [status for status in statuses if status.available]
+    selected = available_statuses[0].harness.name if available_statuses else None
+    required_status = next(
+        (
+            status
+            for status in statuses
+            if status.harness.provider == required_provider or status.harness.name == required_provider
+        ),
+        None,
+    )
+    missing_config_reasons = sorted(
+        {
+            redact_provider_registration_skip_reason(reason)
+            for status in statuses
+            for reason in status.skip_reasons
+            if reason.startswith(("missing_env:", "missing_dependency:", "missing_optional_extra:"))
+        }
+    )
+    missing_required_config = bool(required_status and not required_status.available and required_status.skip_reasons)
+    registration_ready = bool(
+        required_status
+        and required_status.available
+        and (not expected_harness or required_status.harness.name == expected_harness)
+    )
+
+    if not statuses:
+        route_status = "blocked"
+        failure_mode = "no_provider_harnesses_declared"
+    elif missing_required_config:
+        route_status = "blocked"
+        failure_mode = "required_provider_config_missing"
+    elif required_provider and required_status is None:
+        route_status = "blocked"
+        failure_mode = "required_provider_not_declared"
+    elif expected_harness and selected != expected_harness:
+        route_status = "blocked"
+        failure_mode = "expected_harness_not_selected"
+    elif registration_ready or (not required_provider and selected):
+        route_status = "passed"
+        failure_mode = "none"
+    else:
+        route_status = "blocked"
+        failure_mode = "no_available_provider_harness"
+
+    return {
+        "schema_version": 1,
+        "behavior": "agent_harness_provider_registration",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "provider_count": len(statuses),
+        "selected_harness": selected,
+        "required_provider": required_provider,
+        "expected_harness": expected_harness,
+        "missing_required_config": missing_required_config,
+        "missing_config_reasons": missing_config_reasons,
+        "statuses": [
+            {
+                "name": status.harness.name,
+                "provider": status.harness.provider,
+                "available": status.available,
+                "skip_reasons": [redact_provider_registration_skip_reason(reason) for reason in status.skip_reasons],
+                "required_env_key_hashes": [stable_text_hash(name) for name in status.harness.required_env],
+                "required_commands": list(status.harness.required_commands),
+                "required_modules": list(status.harness.required_modules),
+            }
+            for status in statuses
+        ],
+        "activation_gate": {
+            "controller_surface": "agent_harness_provider_registration",
+            "activation_scope": "local_harness_provider_only",
+            "decision": "ready_for_local_provider_registration" if failure_mode == "none" else "blocked_before_activation",
+            "reason": failure_mode,
+            "local_provider_registration_allowed": failure_mode == "none",
+            "provider_runtime_launch_allowed": False,
+        },
+        "privacy": {
+            "env_values_exported": False,
+            "env_key_names_exported": False,
+            "provider_launched": False,
+        },
+    }
+
+
+def provider_harness_from_mapping(value: dict[str, Any]) -> Any:
+    """Build a ProviderHarness from fixture metadata without env values."""
+
+    from blackhole_agent.tool_routing import ProviderHarness
+
+    return ProviderHarness(
+        name=optional_string(value.get("name")) or "unnamed-provider-harness",
+        provider=optional_string(value.get("provider")) or "unknown",
+        priority=int(value.get("priority") or 100),
+        enabled=truthy(value.get("enabled", True)),
+        required_modules=tuple(string_list(value.get("required_modules"))),
+        optional_extra_modules=tuple(string_list(value.get("optional_extra_modules"))),
+        required_commands=tuple(string_list(value.get("required_commands"))),
+        required_env=tuple(string_list(value.get("required_env"))),
+        supported_platforms=tuple(string_list(value.get("supported_platforms"))),
+    )
+
+
+def redact_provider_registration_skip_reason(reason: str) -> str:
+    if not reason.startswith("missing_env:"):
+        return reason
+    _, env_key = reason.split(":", 1)
+    return f"missing_env_key_hash:{stable_text_hash(env_key)}"
 
 
 def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

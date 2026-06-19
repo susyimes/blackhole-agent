@@ -76,11 +76,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 28
-    assert payload["pass_count"] == 27
+    assert payload["fixture_count"] == 29
+    assert payload["pass_count"] == 28
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
+        "agent_harness_provider_registration",
         "agent_workflow_route",
         "harness_run_summary",
         "mock_e2e_runner_tier",
@@ -100,6 +101,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
@@ -159,6 +161,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_CI_ROUNDTRIP_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "Pattern 'sleeping' not found" not in serialized
     assert "OPENAI_API_KEY" not in serialized
+    assert "QWENCODE_API_KEY" not in serialized
     assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
@@ -269,6 +272,48 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "runtime_actions_executed": False,
     }
     assert "https://github.com/baskduf/FableCodex" not in serialized
+
+
+def test_agent_harness_provider_registration_blocks_qwencode_without_local_config():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_harness_provider_registration_qwencode_missing_config.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "required_provider_config_missing"
+    assert output["selected_harness"] == "single-file-function-agent"
+    assert output["missing_required_config"] is True
+    assert output["missing_config_reasons"] == [
+        "missing_dependency:qwencode",
+        "missing_env_key_hash:sha256:dfa09d06ce907c1b6e5e72a7dbc053a65677ea79ec00b03a32472f158c5f9cf2",
+    ]
+    assert output["activation_gate"] == {
+        "controller_surface": "agent_harness_provider_registration",
+        "activation_scope": "local_harness_provider_only",
+        "decision": "blocked_before_activation",
+        "reason": "required_provider_config_missing",
+        "local_provider_registration_allowed": False,
+        "provider_runtime_launch_allowed": False,
+    }
+    assert output["statuses"][0]["skip_reasons"] == [
+        "missing_dependency:qwencode",
+        "missing_env_key_hash:sha256:dfa09d06ce907c1b6e5e72a7dbc053a65677ea79ec00b03a32472f158c5f9cf2",
+    ]
+    assert output["statuses"][0]["required_env_key_hashes"] == [
+        "sha256:dfa09d06ce907c1b6e5e72a7dbc053a65677ea79ec00b03a32472f158c5f9cf2"
+    ]
+    assert output["privacy"] == {
+        "env_values_exported": False,
+        "env_key_names_exported": False,
+        "provider_launched": False,
+    }
+    assert "QWENCODE_API_KEY" not in serialized
 
 
 def test_skill_route_discovery_lane_blocks_actionful_candidates():

@@ -71,6 +71,9 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "Claude-native prompt readiness" in architecture
     assert "prompt_scan_timeout_risk" in architecture
     assert "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight" in architecture
+    assert "agent_harness_provider_registration" in architecture
+    assert "required_provider_config_missing" in architecture
+    assert "pytest tests/test_harness_eval.py -q -k agent_harness_provider_registration" in architecture
 
 
 def test_upstream_evidence_interpretation_doc_records_claude_prompt_scan_contract():
