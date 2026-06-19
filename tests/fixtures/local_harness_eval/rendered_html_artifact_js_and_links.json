@@ -31,7 +31,19 @@
         "expected_navigation": "new_frame",
         "observed_navigation": "new_frame"
       }
-    ]
+    ],
+    "snapshot_gate": {
+      "required": true,
+      "state": "empty_landing",
+      "baseline_hash": "sha256:fixture-empty-landing-baseline",
+      "current_hash": "sha256:fixture-empty-landing-current",
+      "diff_hash": "sha256:fixture-empty-landing-diff",
+      "diff_status": "clean",
+      "empty_state_expected": true,
+      "empty_state_observed": true,
+      "baseline_path": "PRIVATE_BASELINE_SNAPSHOT_PATH_DO_NOT_EXPORT",
+      "current_path": "PRIVATE_CURRENT_SNAPSHOT_PATH_DO_NOT_EXPORT"
+    }
   },
   "assertions": [
     {
@@ -75,11 +87,39 @@
       "equals": true
     },
     {
+      "path": "snapshot_gate.required",
+      "equals": true
+    },
+    {
+      "path": "snapshot_gate.state",
+      "equals": "empty_landing"
+    },
+    {
+      "path": "snapshot_gate.baseline_hash_present",
+      "equals": true
+    },
+    {
+      "path": "snapshot_gate.current_hash_present",
+      "equals": true
+    },
+    {
+      "path": "snapshot_gate.empty_state_observed",
+      "equals": true
+    },
+    {
+      "path": "snapshot_gate.passed",
+      "equals": true
+    },
+    {
       "path": "privacy.html_body_exported",
       "equals": false
     },
     {
       "path": "privacy.raw_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.snapshot_paths_exported",
       "equals": false
     },
     {

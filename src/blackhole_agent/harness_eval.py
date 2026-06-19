@@ -921,6 +921,7 @@ def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, sou
     browser = raw_input.get("browser") if isinstance(raw_input.get("browser"), dict) else {}
     script_probe = raw_input.get("script_probe") if isinstance(raw_input.get("script_probe"), dict) else {}
     link_probes = raw_input.get("link_probes") if isinstance(raw_input.get("link_probes"), list) else []
+    snapshot_gate = raw_input.get("snapshot_gate") if isinstance(raw_input.get("snapshot_gate"), dict) else {}
 
     artifact_kind = optional_string(artifact.get("kind")) or "html"
     rendered_boundary = optional_string(artifact.get("rendered_boundary")) or "rendered_html_artifact"
@@ -939,6 +940,7 @@ def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, sou
     same_frame_links = [link for link in evaluated_links if link["declared_target"] in {"", "_self"}]
     new_frame_links = [link for link in evaluated_links if link["declared_target"] == "_blank"]
     links_passed = bool(evaluated_links) and all(link["passed"] for link in evaluated_links)
+    evaluated_snapshot_gate = evaluate_rendered_html_snapshot_gate(snapshot_gate)
 
     failure_mode = rendered_html_validation_failure_mode(
         artifact_kind=artifact_kind,
@@ -947,6 +949,7 @@ def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, sou
         script_passed=script_passed,
         links_present=bool(evaluated_links),
         links_passed=links_passed,
+        snapshot_gate=evaluated_snapshot_gate,
     )
     route_status = "passed" if failure_mode == "none" else "blocked"
 
@@ -980,12 +983,70 @@ def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, sou
             "passed": links_passed,
             "probes": evaluated_links,
         },
+        "snapshot_gate": evaluated_snapshot_gate,
         "privacy": {
             "html_body_exported": False,
             "raw_urls_exported": False,
             "hashes_only": True,
+            "snapshot_paths_exported": False,
         },
     }
+
+
+def evaluate_rendered_html_snapshot_gate(snapshot_gate: dict[str, Any]) -> dict[str, Any]:
+    """Validate a UI snapshot gate without exporting screenshot paths or image bodies."""
+
+    state = normalize_snapshot_gate_state(snapshot_gate.get("state"))
+    required = truthy(snapshot_gate.get("required")) or state in {"empty_landing", "baseline"}
+    baseline_hash = optional_string(snapshot_gate.get("baseline_hash"))
+    current_hash = optional_string(snapshot_gate.get("current_hash"))
+    diff_hash = optional_string(snapshot_gate.get("diff_hash"))
+    diff_status = normalize_snapshot_diff_status(snapshot_gate.get("diff_status"))
+    empty_state_expected = truthy(snapshot_gate.get("empty_state_expected")) or state == "empty_landing"
+    empty_state_observed = truthy(snapshot_gate.get("empty_state_observed"))
+    allow_changed = truthy(snapshot_gate.get("allow_changed"))
+
+    if not required:
+        failure_mode = "none"
+    elif not baseline_hash:
+        failure_mode = "ui_snapshot_baseline_missing"
+    elif not current_hash:
+        failure_mode = "ui_snapshot_current_missing"
+    elif empty_state_expected and not empty_state_observed:
+        failure_mode = "ui_snapshot_empty_state_missing"
+    elif diff_status not in {"clean", "accepted", "approved"} and not allow_changed:
+        failure_mode = "ui_snapshot_diff_unapproved"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "state": state,
+        "baseline_hash_present": bool(baseline_hash),
+        "current_hash_present": bool(current_hash),
+        "diff_hash_present": bool(diff_hash),
+        "diff_status": diff_status,
+        "empty_state_expected": empty_state_expected,
+        "empty_state_observed": empty_state_observed,
+        "passed": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "raw_snapshot_paths_exported": False,
+        "raw_snapshot_images_exported": False,
+    }
+
+
+def normalize_snapshot_gate_state(value: Any) -> str:
+    state = (optional_string(value) or "unspecified").strip().lower().replace("-", "_")
+    if state in {"empty_landing", "baseline", "populated", "unspecified"}:
+        return state
+    return "unspecified"
+
+
+def normalize_snapshot_diff_status(value: Any) -> str:
+    status = (optional_string(value) or "missing").strip().lower().replace("-", "_")
+    if status in {"accepted", "approved", "changed", "clean", "missing", "unreviewed"}:
+        return status
+    return "unreviewed"
 
 
 def evaluate_rendered_html_link_probe(probe: Any) -> dict[str, Any]:
@@ -1028,6 +1089,7 @@ def rendered_html_validation_failure_mode(
     script_passed: bool,
     links_present: bool,
     links_passed: bool,
+    snapshot_gate: dict[str, Any],
 ) -> str:
     if artifact_kind != "html":
         return "not_html_artifact"
@@ -1039,6 +1101,8 @@ def rendered_html_validation_failure_mode(
         return "rendered_html_link_probe_missing"
     if not links_passed:
         return "rendered_html_link_navigation_mismatch"
+    if snapshot_gate.get("required") and not snapshot_gate.get("passed"):
+        return optional_string(snapshot_gate.get("failure_mode")) or "ui_snapshot_gate_failed"
     return "none"
 
 

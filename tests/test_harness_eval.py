@@ -211,9 +211,25 @@ def test_rendered_html_artifact_validation_covers_script_execution_and_link_targ
     assert output["link_navigation"]["target_blank_anchor_count"] == 1
     assert output["link_navigation"]["all_expected_new_frame"] is True
     assert output["link_navigation"]["passed"] is True
+    assert output["snapshot_gate"] == {
+        "required": True,
+        "state": "empty_landing",
+        "baseline_hash_present": True,
+        "current_hash_present": True,
+        "diff_hash_present": True,
+        "diff_status": "clean",
+        "empty_state_expected": True,
+        "empty_state_observed": True,
+        "passed": True,
+        "failure_mode": "none",
+        "raw_snapshot_paths_exported": False,
+        "raw_snapshot_images_exported": False,
+    }
     assert all(probe["raw_href_exported"] is False for probe in output["link_navigation"]["probes"])
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
+    assert "PRIVATE_BASELINE_SNAPSHOT_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CURRENT_SNAPSHOT_PATH_DO_NOT_EXPORT" not in serialized
 
 
 def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
@@ -697,6 +713,112 @@ def test_rendered_html_artifact_validation_blocks_same_frame_link_navigation():
     assert output["link_navigation"]["probes"][0]["observed_navigation"] == "same_frame"
     assert "PRIVATE_RENDERED_HTML_LINK_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-same-frame-link" not in serialized
+
+
+def test_rendered_html_artifact_validation_blocks_empty_landing_snapshot_without_baseline():
+    raw_input = rendered_html_snapshot_gate_input(
+        {
+            "required": True,
+            "state": "empty_landing",
+            "current_hash": "sha256:fixture-empty-landing-current",
+            "diff_status": "clean",
+            "empty_state_expected": True,
+            "empty_state_observed": True,
+            "baseline_path": "PRIVATE_MISSING_BASELINE_PATH_DO_NOT_EXPORT",
+        }
+    )
+
+    output = evaluate_harness_behavior(
+        "rendered_html_artifact_validation",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "rendered_html_empty_landing_missing_baseline_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "ui_snapshot_baseline_missing"
+    assert output["snapshot_gate"]["passed"] is False
+    assert output["snapshot_gate"]["baseline_hash_present"] is False
+    assert output["snapshot_gate"]["current_hash_present"] is True
+    assert output["privacy"]["snapshot_paths_exported"] is False
+    assert "PRIVATE_RENDERED_HTML_SNAPSHOT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_MISSING_BASELINE_PATH_DO_NOT_EXPORT" not in serialized
+    assert "private-snapshot-link" not in serialized
+
+
+def test_rendered_html_artifact_validation_distinguishes_snapshot_gate_failures():
+    cases = [
+        (
+            {
+                "state": "empty_landing",
+                "baseline_hash": "sha256:fixture-empty-landing-baseline",
+                "diff_status": "clean",
+                "empty_state_observed": True,
+            },
+            "ui_snapshot_current_missing",
+        ),
+        (
+            {
+                "state": "empty_landing",
+                "baseline_hash": "sha256:fixture-empty-landing-baseline",
+                "current_hash": "sha256:fixture-empty-landing-current",
+                "diff_status": "clean",
+                "empty_state_observed": False,
+            },
+            "ui_snapshot_empty_state_missing",
+        ),
+        (
+            {
+                "state": "baseline",
+                "baseline_hash": "sha256:fixture-baseline",
+                "current_hash": "sha256:fixture-current",
+                "diff_status": "changed",
+                "empty_state_expected": False,
+            },
+            "ui_snapshot_diff_unapproved",
+        ),
+    ]
+
+    for snapshot_gate, expected_failure_mode in cases:
+        output = evaluate_harness_behavior(
+            "rendered_html_artifact_validation",
+            rendered_html_snapshot_gate_input(snapshot_gate),
+            source_path=LOCAL_EVAL_FIXTURE_DIR / f"rendered_html_{expected_failure_mode}_inline.json",
+        )
+
+        assert output["route_status"] == "blocked"
+        assert output["failure_mode"] == expected_failure_mode
+        assert output["snapshot_gate"]["failure_mode"] == expected_failure_mode
+        assert output["snapshot_gate"]["passed"] is False
+
+
+def rendered_html_snapshot_gate_input(snapshot_gate: dict[str, object]) -> dict[str, object]:
+    return {
+        "task_id": "fixture-rendered-html-empty-landing-missing-baseline",
+        "artifact": {
+            "kind": "html",
+            "rendered_boundary": "rendered_html_artifact",
+            "html_body": "PRIVATE_RENDERED_HTML_SNAPSHOT_BODY_DO_NOT_EXPORT",
+        },
+        "browser": {
+            "available": True,
+            "sandbox_allows_scripts": True,
+        },
+        "script_probe": {
+            "expected_execution": True,
+            "observed_execution": True,
+        },
+        "link_probes": [
+            {
+                "label": "plain-external-anchor",
+                "href": "https://example.com/private-snapshot-link",
+                "declared_target": "",
+                "expected_navigation": "new_frame",
+                "observed_navigation": "new_frame",
+            },
+        ],
+        "snapshot_gate": snapshot_gate,
+    }
 
 
 def test_agent_workflow_route_fixture_records_state_validation_and_recovery():

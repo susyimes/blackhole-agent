@@ -1,0 +1,16 @@
+# Rollback Point: upstream-evidence-capability
+
+- Created at: 2026-06-19T10:32:06Z digest window
+- Original branch: codex/blackhole-evolve/20260619T103330.927563-add-or-strengthen-local-validation-around-ui-dif
+- Original HEAD: 8614b6d62a39e02c65aa49b09579fc11b0eeea07
+- Local rollback ref: refs/blackhole-rollback/20260619T103206Z-upstream-evidence-capability
+
+## Recovery Commands
+
+`powershell
+git switch codex/blackhole-evolve/20260619T103330.927563-add-or-strengthen-local-validation-around-ui-dif
+git reset --hard 8614b6d62a39e02c65aa49b09579fc11b0eeea07
+git clean -fd
+`
+
+Rollback execution is explicit and destructive. Do not run these commands unless an operator chooses rollback.
