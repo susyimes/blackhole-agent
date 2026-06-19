@@ -1,0 +1,7 @@
+rollback_point: 20260619T041206Z-midflight-policy-ask
+original_branch: codex/blackhole-evolve/20260619T041328.305706-add-or-update-local-validation-around-manual-ser
+head: 560d40f8705ba3018f5961275302c04b38954d82
+rollback_ref: refs/rollback/20260619T041206Z-midflight-policy-ask
+recovery_commands:
+  git reset --hard 560d40f8705ba3018f5961275302c04b38954d82
+  git clean -fd

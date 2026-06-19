@@ -1942,6 +1942,156 @@ def test_native_tool_call_policy_matrix_does_not_silently_allow_policy_hook_fail
         assert output["safety"]["tool_executed"] is False
 
 
+def test_native_policy_preserves_midflight_ask_for_controller_resolution_without_exporting_bodies():
+    cases = [
+        ("TOOL_CALL", "TOOL_CALL"),
+        ("TOOL_RESULT", "TOOL_RESULT"),
+        ("OUTPUT", "OUTPUT"),
+        ("SUB_AGENT", "SUB_AGENT"),
+    ]
+
+    for event_phase, event_phase_kind in cases:
+        output = evaluate_harness_behavior(
+            "native_tool_call_policy",
+            {
+                "task_id": f"fixture-native-policy-ask-{event_phase.lower()}",
+                "policy_hook": {
+                    "governed": True,
+                    "session_id": "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT",
+                    "server_url_configured": True,
+                    "event_phase": event_phase,
+                    "failure_mode": "none",
+                    "verdict": {
+                        "review_required": True,
+                        "reason": "operator_ask",
+                    },
+                },
+                "tool_call": {
+                    "name": "Bash",
+                    "transport": "native",
+                    "arguments": {"command": "PRIVATE_COMMAND_BODY_DO_NOT_EXPORT"},
+                },
+            },
+            source_path=LOCAL_EVAL_FIXTURE_DIR / f"native_policy_ask_{event_phase.lower()}_inline.json",
+        )
+        serialized = json.dumps(output, sort_keys=True)
+
+        assert output["route_status"] == "review_only"
+        assert output["failure_mode"] == "policy_review_required"
+        assert output["policy_hook"]["event_phase_kind"] == event_phase_kind
+        assert output["policy_hook"]["interactive_ask_supported"] is True
+        assert output["policy_hook"]["fail_closed_applied"] is False
+        assert output["permission"]["decision"] == "review_required"
+        assert output["permission"]["reason"] == "policy_review_required:operator_ask"
+        assert output["approval"] == {
+            "ask_preserved": True,
+            "controller_surface": "interactive_policy_ask",
+            "resolution": "pending",
+            "resolved_by_explicit_verdict": False,
+            "raw_payload_exported": False,
+        }
+        assert output["safety"]["tool_executed"] is False
+        assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
+        assert "PRIVATE_COMMAND_BODY_DO_NOT_EXPORT" not in serialized
+
+
+def test_native_policy_midflight_ask_resolves_only_with_explicit_approval_or_denial():
+    approved = evaluate_harness_behavior(
+        "native_tool_call_policy",
+        {
+            "policy_hook": {
+                "governed": True,
+                "session_id": "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT",
+                "server_url_configured": True,
+                "event_phase": "TOOL_RESULT",
+                "verdict": {
+                    "review_required": True,
+                    "reason": "operator_ask",
+                    "approval_resolution": "approved",
+                },
+            },
+            "tool_call": {
+                "name": "Write",
+                "arguments": {"content": "PRIVATE_APPROVED_CONTENT_DO_NOT_EXPORT"},
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_policy_ask_approved_inline.json",
+    )
+    denied = evaluate_harness_behavior(
+        "native_tool_call_policy",
+        {
+            "policy_hook": {
+                "governed": True,
+                "session_id": "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT",
+                "server_url_configured": True,
+                "event_phase": "OUTPUT",
+                "approval_resolution": "denied",
+                "verdict": {
+                    "review_required": True,
+                    "reason": "operator_ask",
+                },
+            },
+            "tool_call": {
+                "name": "Bash",
+                "arguments": {"command": "PRIVATE_DENIED_COMMAND_DO_NOT_EXPORT"},
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_policy_ask_denied_inline.json",
+    )
+    serialized = json.dumps({"approved": approved, "denied": denied}, sort_keys=True)
+
+    assert approved["route_status"] == "passed"
+    assert approved["failure_mode"] == "none"
+    assert approved["permission"]["decision"] == "allow"
+    assert approved["permission"]["reason"] == "policy_approved:operator_ask"
+    assert approved["approval"]["ask_preserved"] is False
+    assert approved["approval"]["resolution"] == "approved"
+    assert approved["approval"]["resolved_by_explicit_verdict"] is True
+    assert approved["safety"]["tool_executed"] is True
+
+    assert denied["route_status"] == "denied"
+    assert denied["failure_mode"] == "policy_approval_denied"
+    assert denied["permission"]["decision"] == "deny"
+    assert denied["permission"]["reason"] == "policy_approval_denied:operator_ask"
+    assert denied["approval"]["ask_preserved"] is False
+    assert denied["approval"]["resolution"] == "denied"
+    assert denied["approval"]["resolved_by_explicit_verdict"] is True
+    assert denied["safety"]["tool_executed"] is False
+    assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_APPROVED_CONTENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_DENIED_COMMAND_DO_NOT_EXPORT" not in serialized
+
+
+def test_native_policy_ask_for_unknown_phase_keeps_fail_closed_regression():
+    output = evaluate_harness_behavior(
+        "native_tool_call_policy",
+        {
+            "policy_hook": {
+                "governed": True,
+                "session_id": "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT",
+                "server_url_configured": True,
+                "event_phase": "UNKNOWN_PHASE",
+                "verdict": {
+                    "review_required": True,
+                    "reason": "operator_ask",
+                },
+            },
+            "tool_call": {"name": "Bash"},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "native_policy_ask_unknown_phase_inline.json",
+    )
+
+    assert output["route_status"] == "denied"
+    assert output["failure_mode"] == "policy_ask_not_supported"
+    assert output["permission"]["decision"] == "deny"
+    assert output["permission"]["reason"] == "policy_ask_not_supported:operator_ask"
+    assert output["policy_hook"]["event_phase_kind"] == "OTHER"
+    assert output["policy_hook"]["interactive_ask_supported"] is False
+    assert output["policy_hook"]["fail_closed_applied"] is True
+    assert output["approval"]["ask_preserved"] is False
+    assert output["safety"]["tool_executed"] is False
+
+
 def test_native_tool_call_policy_keeps_advisory_and_ungoverned_paths_fail_open():
     advisory_output = evaluate_harness_behavior(
         "native_tool_call_policy",

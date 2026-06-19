@@ -51,6 +51,25 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
 ]
 
 NATIVE_TOOL_CALL_PHASES = {"PreToolUse", "PHASE_TOOL_CALL", "TOOL_CALL", "tool_call"}
+NATIVE_POLICY_PHASE_KIND_ALIASES = {
+    "PreToolUse": "TOOL_CALL",
+    "PHASE_TOOL_CALL": "TOOL_CALL",
+    "TOOL_CALL": "TOOL_CALL",
+    "tool_call": "TOOL_CALL",
+    "PostToolUse": "TOOL_RESULT",
+    "PHASE_TOOL_RESULT": "TOOL_RESULT",
+    "TOOL_RESULT": "TOOL_RESULT",
+    "tool_result": "TOOL_RESULT",
+    "OUTPUT": "OUTPUT",
+    "PHASE_OUTPUT": "OUTPUT",
+    "output": "OUTPUT",
+    "AgentStart": "SUB_AGENT",
+    "SubAgentStart": "SUB_AGENT",
+    "SUB_AGENT": "SUB_AGENT",
+    "sub_agent": "SUB_AGENT",
+    "agent_start": "SUB_AGENT",
+}
+NATIVE_INTERACTIVE_ASK_PHASE_KINDS = {"TOOL_CALL", "TOOL_RESULT", "OUTPUT", "SUB_AGENT"}
 NATIVE_POLICY_HOOK_UNAVAILABLE_FAILURES = {
     "connect_error",
     "empty_body",
@@ -1620,12 +1639,18 @@ def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: 
     governed = truthy(policy_hook.get("governed")) or bool(session_id and server_url_configured)
     event_phase = optional_string(policy_hook.get("event_phase")) or "PreToolUse"
     is_tool_call_phase = event_phase in NATIVE_TOOL_CALL_PHASES
+    event_phase_kind = native_policy_event_phase_kind(event_phase)
+    can_surface_interactive_ask = governed and event_phase_kind in NATIVE_INTERACTIVE_ASK_PHASE_KINDS
     hook_failure_mode = optional_string(policy_hook.get("failure_mode")) or "none"
     verdict = policy_hook.get("verdict") if isinstance(policy_hook.get("verdict"), dict) else {}
+    approval_resolution = optional_string(policy_hook.get("approval_resolution")) or optional_string(
+        verdict.get("approval_resolution")
+    )
     verdict_received = bool(verdict) and hook_failure_mode == "none"
     unavailable = governed and not verdict_received and hook_failure_mode in NATIVE_POLICY_HOOK_UNAVAILABLE_FAILURES
     ask_timeout = governed and not verdict_received and hook_failure_mode in NATIVE_POLICY_HOOK_ASK_TIMEOUT_FAILURES
     malformed_verdict = governed and not verdict_received and hook_failure_mode == "malformed_verdict"
+    ask_verdict = verdict_received and truthy(verdict.get("review_required"))
 
     if governed and is_tool_call_phase and ask_timeout:
         decision = "review_required"
@@ -1645,12 +1670,30 @@ def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: 
         route_status = "denied"
         failure_mode = "policy_denied"
         fail_closed_applied = False
-    elif verdict_received and truthy(verdict.get("review_required")):
+    elif ask_verdict and approval_resolution == "approved":
+        decision = "allow"
+        decision_reason = f"policy_approved:{optional_string(verdict.get('reason')) or 'unspecified'}"
+        route_status = "passed"
+        failure_mode = "none"
+        fail_closed_applied = False
+    elif ask_verdict and approval_resolution == "denied":
+        decision = "deny"
+        decision_reason = f"policy_approval_denied:{optional_string(verdict.get('reason')) or 'unspecified'}"
+        route_status = "denied"
+        failure_mode = "policy_approval_denied"
+        fail_closed_applied = False
+    elif ask_verdict and can_surface_interactive_ask:
         decision = "review_required"
         decision_reason = f"policy_review_required:{optional_string(verdict.get('reason')) or 'unspecified'}"
         route_status = "review_only"
         failure_mode = "policy_review_required"
         fail_closed_applied = False
+    elif ask_verdict:
+        decision = "deny"
+        decision_reason = f"policy_ask_not_supported:{optional_string(verdict.get('reason')) or 'unspecified'}"
+        route_status = "denied"
+        failure_mode = "policy_ask_not_supported"
+        fail_closed_applied = True
     elif verdict_received and verdict.get("allowed") is True:
         decision = "allow"
         decision_reason = "policy_allowed"
@@ -1681,7 +1724,9 @@ def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: 
             "session_id_hash": stable_text_hash(session_id) if session_id else None,
             "server_url_configured": server_url_configured,
             "event_phase": event_phase,
+            "event_phase_kind": event_phase_kind,
             "is_tool_call_phase": is_tool_call_phase,
+            "interactive_ask_supported": can_surface_interactive_ask,
             "failure_mode": hook_failure_mode,
             "verdict_received": verdict_received,
             "fail_closed_applied": fail_closed_applied,
@@ -1691,6 +1736,13 @@ def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: 
             "decision": decision,
             "reason": decision_reason,
             "arguments_exported": False,
+        },
+        "approval": {
+            "ask_preserved": ask_verdict and decision == "review_required",
+            "controller_surface": "interactive_policy_ask" if ask_verdict and decision == "review_required" else "none",
+            "resolution": approval_resolution or "pending" if ask_verdict else "not_requested",
+            "resolved_by_explicit_verdict": ask_verdict and approval_resolution in {"approved", "denied"},
+            "raw_payload_exported": False,
         },
         "tool_call": {
             "name": tool_name,
@@ -1703,6 +1755,10 @@ def evaluate_native_tool_call_policy(raw_input: dict[str, Any], *, source_path: 
             "tool_executed": decision == "allow",
         },
     }
+
+
+def native_policy_event_phase_kind(event_phase: str) -> str:
+    return NATIVE_POLICY_PHASE_KIND_ALIASES.get(event_phase, "OTHER")
 
 
 def native_policy_no_opinion_reason(*, governed: bool, is_tool_call_phase: bool, hook_failure_mode: str) -> str:
