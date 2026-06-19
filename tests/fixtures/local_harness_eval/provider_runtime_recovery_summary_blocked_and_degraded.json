@@ -1,0 +1,139 @@
+{
+  "name": "provider-runtime-recovery-summary-blocked-and-degraded",
+  "behavior": "provider_runtime_recovery_summary",
+  "input": {
+    "task_id": "fixture-provider-runtime-recovery-summary-blocked-and-degraded",
+    "preflights": [
+      {
+        "task_id": "fixture-native-terminal-timeout",
+        "provider": {
+          "name": "claude-code",
+          "harness": "claude-code"
+        },
+        "sandbox": {
+          "active": false,
+          "type": "none"
+        },
+        "runtime": {
+          "platform": "darwin",
+          "cli_path": "~/.local/bin/claude",
+          "cli_resolved_in_runner": false,
+          "install_tree_readable": true,
+          "launch_transport": "tmux",
+          "terminal_integration": "iTerm2"
+        },
+        "runner_env": {
+          "parent_env_keys": [
+            "PATH"
+          ],
+          "allowlist": [
+            "PATH"
+          ],
+          "passthrough": []
+        }
+      },
+      {
+        "task_id": "fixture-browser-local-url",
+        "provider": {
+          "name": "browser-provider",
+          "harness": "playwright-e2e",
+          "base_url": "http://127.0.0.1:3000/private"
+        },
+        "browser_tooling": {
+          "configure_checks_required": true,
+          "playwright_available": false
+        },
+        "url_safety": {
+          "refuse_local_targets": true
+        }
+      },
+      {
+        "task_id": "fixture-openai-agents-mock-auth",
+        "provider": {
+          "name": "openai-agents",
+          "harness": "openai-agents",
+          "auth_env_key": "OPENAI_API_KEY",
+          "required_env_keys": [
+            "OPENAI_API_KEY"
+          ],
+          "degrade_on_incompatible_sandbox": false
+        },
+        "runtime": {
+          "platform": "linux",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess"
+        },
+        "runner_env": {
+          "parent_env_keys": [
+            "PATH"
+          ],
+          "allowlist": [
+            "PATH"
+          ],
+          "passthrough": []
+        },
+        "mock_llm": {
+          "enabled": true,
+          "auth_placeholder": true
+        }
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_runtime_recovery_required"
+    },
+    {
+      "path": "preflight_count",
+      "equals": 3
+    },
+    {
+      "path": "status_counts.blocked",
+      "equals": 2
+    },
+    {
+      "path": "status_counts.degraded",
+      "equals": 1
+    },
+    {
+      "path": "runner_invoked_count",
+      "equals": 1
+    },
+    {
+      "path": "blocked_failure_modes",
+      "equals": [
+        "native_terminal_timeout_risk",
+        "url_safety_preflight_failed"
+      ]
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "browser_configure_checks_skipped"
+    },
+    {
+      "path": "recovery_hints.1.code",
+      "equals": "mock_auth_placeholder_used"
+    },
+    {
+      "path": "recovery_hints.2.code",
+      "equals": "native_terminal_timeout_risk"
+    },
+    {
+      "path": "recovery_hints.3.code",
+      "equals": "url_safety_preflight_failed"
+    },
+    {
+      "path": "activation_gate.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_preflight_inputs_exported",
+      "equals": false
+    }
+  ]
+}

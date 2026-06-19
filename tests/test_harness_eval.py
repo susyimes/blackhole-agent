@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 33
-    assert payload["pass_count"] == 32
+    assert payload["fixture_count"] == 34
+    assert payload["pass_count"] == 33
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -97,6 +97,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "native_tool_call_policy",
         "push_delivery_path",
         "provider_runtime_preflight",
+        "provider_runtime_recovery_summary",
         "proposal_interpretation",
         "rendered_html_artifact_validation",
         "skill_route_discovery_lane",
@@ -138,6 +139,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
+    assert results["provider-runtime-recovery-summary-blocked-and-degraded"]["passed"] is True
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
     assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
@@ -177,6 +179,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "Pattern 'sleeping' not found" not in serialized
     assert "OPENAI_API_KEY" not in serialized
     assert "QWENCODE_API_KEY" not in serialized
+    assert "127.0.0.1" not in serialized
     assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
@@ -2291,6 +2294,54 @@ def test_provider_runtime_preflight_degrades_for_missing_playwright_when_url_is_
     assert output["url_safety"]["ok"] is True
     assert output["url_safety"]["base_url_recorded"] is False
     assert "https://example.com/app" not in serialized
+
+
+def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_recovery_summary_blocked_and_degraded.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_runtime_recovery_required"
+    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 2}
+    assert output["runner_invoked_count"] == 1
+    assert output["blocked_failure_modes"] == [
+        "native_terminal_timeout_risk",
+        "url_safety_preflight_failed",
+    ]
+    assert [hint["code"] for hint in output["recovery_hints"]] == [
+        "browser_configure_checks_skipped",
+        "mock_auth_placeholder_used",
+        "native_terminal_timeout_risk",
+        "url_safety_preflight_failed",
+    ]
+    assert all(hint["value_recorded"] is False for hint in output["recovery_hints"])
+    assert output["activation_gate"] == {
+        "controller_surface": "provider_runtime_recovery_summary",
+        "activation_scope": "local_replay_only",
+        "decision": "blocked_before_provider_launch",
+        "reason": "provider_runtime_recovery_required",
+        "provider_runtime_launch_allowed": False,
+        "local_validation_required": True,
+    }
+    assert output["privacy"] == {
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_urls_exported": False,
+        "raw_paths_exported": False,
+        "env_values_exported": False,
+        "env_key_names_exported": False,
+        "secret_values_exported": False,
+    }
+    assert "~/.local/bin/claude" not in serialized
+    assert "127.0.0.1" not in serialized
+    assert "OPENAI_API_KEY" not in serialized
 
 
 def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting_bodies():

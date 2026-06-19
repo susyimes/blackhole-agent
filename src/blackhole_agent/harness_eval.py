@@ -49,6 +49,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "native_tool_call_policy",
     "push_delivery_path",
     "provider_runtime_preflight",
+    "provider_runtime_recovery_summary",
     "proposal_interpretation",
     "rendered_html_artifact_validation",
     "skill_route_discovery_lane",
@@ -365,6 +366,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_push_delivery_path(raw_input, source_path=source_path)
     if behavior == "provider_runtime_preflight":
         return evaluate_provider_runtime_preflight(raw_input, source_path=source_path)
+    if behavior == "provider_runtime_recovery_summary":
+        return evaluate_provider_runtime_recovery_summary(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
     if behavior == "rendered_html_artifact_validation":
@@ -3703,6 +3706,186 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "url_safety": browser_preflight["url_safety"],
         "prompt_scan": prompt_preflight["prompt_scan"],
     }
+
+
+def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Aggregate provider runtime preflight cases into body-free recovery hints."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    raw_cases = raw_input.get("preflights")
+    cases = raw_cases if isinstance(raw_cases, list) else []
+    preflights = [
+        evaluate_provider_runtime_preflight(provider_runtime_summary_case_input(case), source_path=source_path)
+        for case in cases
+        if isinstance(case, dict)
+    ]
+    status_counts = {
+        "passed": sum(1 for preflight in preflights if preflight["route_status"] == "passed"),
+        "degraded": sum(1 for preflight in preflights if preflight["route_status"] == "degraded"),
+        "blocked": sum(1 for preflight in preflights if preflight["route_status"] == "blocked"),
+    }
+    recovery_hints = provider_runtime_recovery_hints(preflights)
+    route_status = (
+        "blocked"
+        if status_counts["blocked"]
+        else "degraded"
+        if status_counts["degraded"]
+        else "passed"
+    )
+    failure_mode = "provider_runtime_recovery_required" if status_counts["blocked"] else "none"
+
+    return {
+        "schema_version": 1,
+        "behavior": "provider_runtime_recovery_summary",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "preflight_count": len(preflights),
+        "status_counts": status_counts,
+        "blocked_failure_modes": sorted(
+            {
+                str(preflight["failure_mode"])
+                for preflight in preflights
+                if preflight["route_status"] == "blocked"
+            }
+        ),
+        "degraded_provider_count": status_counts["degraded"],
+        "runner_invoked_count": sum(1 for preflight in preflights if preflight["runtime"]["runner_invoked"]),
+        "recovery_hints": recovery_hints,
+        "activation_gate": {
+            "controller_surface": "provider_runtime_recovery_summary",
+            "activation_scope": "local_replay_only",
+            "decision": "blocked_before_provider_launch" if status_counts["blocked"] else "ready_for_local_mock_replay",
+            "reason": failure_mode,
+            "provider_runtime_launch_allowed": False,
+            "local_validation_required": True,
+        },
+        "privacy": {
+            "raw_preflight_inputs_exported": False,
+            "raw_diagnostics_exported": False,
+            "raw_urls_exported": False,
+            "raw_paths_exported": False,
+            "env_values_exported": False,
+            "env_key_names_exported": False,
+            "secret_values_exported": False,
+        },
+    }
+
+
+def provider_runtime_summary_case_input(case: dict[str, Any]) -> dict[str, Any]:
+    nested_input = case.get("input")
+    return nested_input if isinstance(nested_input, dict) else case
+
+
+def provider_runtime_recovery_hints(preflights: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    hints: dict[str, dict[str, Any]] = {}
+    for preflight in preflights:
+        for hint in provider_runtime_recovery_hints_for_preflight(preflight):
+            key = str(hint["code"])
+            existing = hints.get(key)
+            if existing is None:
+                hints[key] = hint
+                continue
+            existing["affected_preflight_count"] += hint["affected_preflight_count"]
+            existing["provider_harnesses"] = sorted(
+                set(existing["provider_harnesses"]) | set(hint["provider_harnesses"])
+            )
+    return [hints[key] for key in sorted(hints)]
+
+
+def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> list[dict[str, Any]]:
+    provider = preflight.get("provider") if isinstance(preflight.get("provider"), dict) else {}
+    runner_env = preflight.get("runner_env") if isinstance(preflight.get("runner_env"), dict) else {}
+    provider_auth = preflight.get("provider_auth") if isinstance(preflight.get("provider_auth"), dict) else {}
+    browser_tooling = preflight.get("browser_tooling") if isinstance(preflight.get("browser_tooling"), dict) else {}
+    failure_mode = optional_string(preflight.get("failure_mode")) or "none"
+    harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
+    base_hint = {
+        "affected_preflight_count": 1,
+        "provider_harnesses": [harness],
+        "value_recorded": False,
+    }
+    hints: list[dict[str, Any]] = []
+
+    if failure_mode == "provider_env_missing":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_env_missing",
+                "scope": "provider_runtime_env",
+                "severity": "blocker",
+                "action": "configure required provider environment in the parent and harness allowlist or use a mock-only auth placeholder for local replay",
+                "required_env_key_count": int(provider.get("required_env_key_count") or 0),
+                "missing_parent_env_key_count": int(runner_env.get("missing_parent_env_key_count") or 0),
+                "missing_harness_env_key_count": int(runner_env.get("missing_harness_env_key_count") or 0),
+            }
+        )
+    elif failure_mode == "sandbox_runtime_preflight_failed":
+        hints.append(
+            {
+                **base_hint,
+                "code": "sandbox_runtime_preflight_failed",
+                "scope": "provider_runtime_sandbox",
+                "severity": "blocker",
+                "action": "allow the provider sandbox override through the runner environment or enable provider auto-degrade before launch",
+                "override_requested_in_parent": bool(runner_env.get("override_requested_in_parent")),
+                "override_propagated_to_harness": bool(runner_env.get("override_propagated_to_harness")),
+            }
+        )
+    elif failure_mode == "native_terminal_timeout_risk":
+        hints.append(
+            {
+                **base_hint,
+                "code": "native_terminal_timeout_risk",
+                "scope": "provider_runtime_launch",
+                "severity": "blocker",
+                "action": "ensure the runner PATH resolves the native CLI or configure an explicit provider CLI path before terminal launch",
+            }
+        )
+    elif failure_mode == "prompt_scan_timeout_risk":
+        hints.append(
+            {
+                **base_hint,
+                "code": "prompt_scan_timeout_risk",
+                "scope": "provider_prompt_scan",
+                "severity": "blocker",
+                "action": "increase provider prompt scan tail lines before sending a second message",
+            }
+        )
+    elif failure_mode == "url_safety_preflight_failed":
+        hints.append(
+            {
+                **base_hint,
+                "code": "url_safety_preflight_failed",
+                "scope": "provider_url_safety",
+                "severity": "blocker",
+                "action": "replace localhost, loopback, private, or link-local provider URLs before browser launch",
+            }
+        )
+
+    if bool(provider_auth.get("mock_auth_placeholder_used")):
+        hints.append(
+            {
+                **base_hint,
+                "code": "mock_auth_placeholder_used",
+                "scope": "mock_llm_provider_auth",
+                "severity": "notice",
+                "action": "keep this route mock-only unless real provider credentials are configured outside fixture output",
+                "required_env_key_count": int(provider.get("required_env_key_count") or 0),
+            }
+        )
+    if bool(browser_tooling.get("configure_checks_skipped")):
+        hints.append(
+            {
+                **base_hint,
+                "code": "browser_configure_checks_skipped",
+                "scope": "provider_browser_tooling",
+                "severity": "notice",
+                "action": "install or expose optional browser tooling before treating browser configure checks as covered",
+            }
+        )
+
+    return hints
 
 
 def evaluate_provider_browser_preflight(raw_input: dict[str, Any], *, provider: dict[str, Any]) -> dict[str, Any]:

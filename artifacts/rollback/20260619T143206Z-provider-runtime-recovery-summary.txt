@@ -1,0 +1,12 @@
+Rollback point for provider runtime recovery summary pass.
+
+Source digest: github-growth-20260619T143206.952275Z
+Branch at start: codex/blackhole-evolve/20260619T143355.803440-create-a-bounded-local-validation-route-for-migr
+HEAD at start: 719ca1a0f94525bebb32155af343df3a1071e7c0
+Rollback ref: refs/blackhole-rollback/20260619T143206Z-provider-runtime-recovery-summary
+
+Recovery commands:
+  git fetch . refs/blackhole-rollback/20260619T143206Z-provider-runtime-recovery-summary
+  git reset --hard FETCH_HEAD
+
+Rollback execution is explicit and destructive. Do not run these commands unless an operator or supervisor policy chooses rollback.
