@@ -1,0 +1,15 @@
+Rollback point for skill-route-discovery pass 3
+
+Original branch: codex/blackhole-evolve/20260619T125317.828286-track-upstream-omnigent-runtime-hardening-and-ge
+Original HEAD: dbf56273fa8be155bf49c06884c1acc7d9abacdd
+Local rollback ref: refs/rollback/20260619T125206Z-skill-route-discovery-pass3
+Source digest: github-growth-20260619T125206.989918Z
+Created: 2026-06-19T12:52:06Z
+
+Recovery commands (explicit/destructive; operator only):
+  git switch codex/blackhole-evolve/20260619T125317.828286-track-upstream-omnigent-runtime-hardening-and-ge
+  git reset --hard dbf56273fa8be155bf49c06884c1acc7d9abacdd
+  git clean -fd
+
+Notes:
+  Created before Codex self-modification for capability theme window skill-route-discovery.

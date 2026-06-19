@@ -249,6 +249,14 @@ activation. Checklist rows expose the same `preactivation_harness` value and
 external-harness denial so an operator can distinguish local replay from remote
 or upstream harness execution.
 
+The harness also emits a `preactivation_trust_boundary` result. This is a
+second, runtime-facing guard over the generated activation rows: it rechecks
+that every lane remains one of documentation, config, test, or code_patch; that
+runtime action is still `none`; that local validation and the pre-activation
+harness replay are still required; and that external skill or harness execution
+is still denied. A static registry entry is therefore not enough by itself to
+make a lane activation-ready.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:

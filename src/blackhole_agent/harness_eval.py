@@ -857,6 +857,23 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         activation_allowed=activation_gate["local_proposal_activation_allowed"] is True,
         failure_mode=failure_mode,
     )
+    preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
+        proposal_lanes,
+        activation_lanes,
+    )
+    if preactivation_trust_boundary["status"] != "passed" and failure_mode == "none":
+        failure_mode = "preactivation_trust_boundary_failed"
+        route_status = "blocked"
+        activation_gate = skill_route_discovery_activation_gate(failure_mode)
+        activation_lanes = build_skill_route_discovery_activation_lanes(
+            proposal_lanes,
+            activation_allowed=False,
+            failure_mode=failure_mode,
+        )
+        preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
+            proposal_lanes,
+            activation_lanes,
+        )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -889,6 +906,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "evidence_strength": evidence_strength,
         "activation_gate": activation_gate,
+        "preactivation_trust_boundary": preactivation_trust_boundary,
         "activation_lanes": activation_lanes,
         "discovery_checklist": discovery_checklist,
         "proposal_lanes": [
@@ -971,6 +989,74 @@ def build_skill_route_discovery_activation_lanes(
         }
         for proposal_kind, lanes in sorted(grouped.items())
     ]
+
+
+def skill_route_discovery_preactivation_trust_boundary(
+    proposal_lanes: list[dict[str, Any]],
+    activation_lanes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Revalidate controller-visible lanes before local proposal activation.
+
+    The discovery registry is a static declaration. This preflight is the
+    runtime-facing guard: activation rows must still be local-only, validation
+    backed, and unable to activate external skill or harness execution.
+    """
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    expected_validation = skill_route_discovery_preactivation_validation_commands()
+    expected_preactivation_validation = [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    diagnostics: list[str] = []
+
+    proposal_kinds = {str(lane.get("proposal_kind") or "") for lane in proposal_lanes}
+    unbounded_proposal_kinds = sorted(proposal_kinds - allowed_lanes)
+    if unbounded_proposal_kinds:
+        diagnostics.append("proposal_lanes_unbounded:" + ",".join(unbounded_proposal_kinds))
+
+    if any(str(lane.get("runtime_action") or "") != "none" for lane in proposal_lanes):
+        diagnostics.append("proposal_lane_runtime_action_must_be_none")
+    if any(lane.get("local_validation_required") is not True for lane in proposal_lanes):
+        diagnostics.append("proposal_lane_local_validation_required")
+
+    for index, lane in enumerate(activation_lanes):
+        prefix = f"activation_lanes[{index}]"
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        if proposal_kind not in allowed_lanes:
+            diagnostics.append(f"{prefix}.proposal_kind_unbounded:{proposal_kind}")
+        if str(lane.get("runtime_action") or "") != "none":
+            diagnostics.append(f"{prefix}.runtime_action_must_be_none")
+        if lane.get("external_skill_activation_allowed") is not False:
+            diagnostics.append(f"{prefix}.external_skill_activation_must_be_false")
+        if lane.get("required_validation") != expected_validation:
+            diagnostics.append(f"{prefix}.required_validation_mismatch")
+
+        preactivation_harness = lane.get("preactivation_harness")
+        preactivation_harness = preactivation_harness if isinstance(preactivation_harness, dict) else {}
+        if preactivation_harness.get("behavior") != "agent_harness_eval_lane":
+            diagnostics.append(f"{prefix}.preactivation_harness_behavior_mismatch")
+        if preactivation_harness.get("required_validation") != expected_preactivation_validation:
+            diagnostics.append(f"{prefix}.preactivation_harness_validation_mismatch")
+        if preactivation_harness.get("local_eval_only") is not True:
+            diagnostics.append(f"{prefix}.preactivation_harness_must_be_local_eval_only")
+        if preactivation_harness.get("external_harness_execution_allowed") is not False:
+            diagnostics.append(f"{prefix}.external_harness_execution_must_be_false")
+
+        activation_ready = lane.get("activation_ready") is True
+        blockers = lane.get("activation_blockers")
+        blockers = blockers if isinstance(blockers, list) else []
+        if activation_ready and blockers:
+            diagnostics.append(f"{prefix}.ready_lane_must_not_have_blockers")
+
+    return {
+        "status": "passed" if not diagnostics else "blocked",
+        "diagnostics": diagnostics,
+        "static_declaration_rechecked": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+    }
 
 
 def skill_route_discovery_preactivation_validation_commands() -> list[str]:

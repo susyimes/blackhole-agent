@@ -5,6 +5,7 @@ from blackhole_agent.harness_eval import (
     build_harness_comparison_report,
     evaluate_harness_behavior,
     run_local_harness_eval,
+    skill_route_discovery_preactivation_trust_boundary,
     skill_route_discovery_preactivation_validation_commands,
 )
 
@@ -395,6 +396,15 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "local_proposal_activation_allowed": True,
         "external_skill_activation_allowed": False,
     }
+    assert output["preactivation_trust_boundary"] == {
+        "status": "passed",
+        "diagnostics": [],
+        "static_declaration_rechecked": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+    }
     assert [lane["proposal_kind"] for lane in output["activation_lanes"]] == [
         "code_patch",
         "config",
@@ -525,6 +535,47 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "external_skill_activation_allowed": False,
     }
     assert output["privacy"]["runtime_actions_executed"] is False
+
+
+def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_runtime_activation():
+    proposal_lanes = [
+        {
+            "candidate_name": "compass-skills",
+            "proposal_kind": "documentation",
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+    ]
+    activation_lanes = [
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "candidate_names": ["compass-skills"],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "preactivation_harness": {
+                "behavior": "agent_harness_eval_lane",
+                "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+                "local_eval_only": True,
+                "external_harness_execution_allowed": True,
+            },
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "install",
+            "external_skill_activation_allowed": True,
+        }
+    ]
+
+    preflight = skill_route_discovery_preactivation_trust_boundary(proposal_lanes, activation_lanes)
+
+    assert preflight["status"] == "blocked"
+    assert preflight["runtime_action_allowed"] is False
+    assert preflight["external_skill_activation_allowed"] is False
+    assert preflight["external_harness_execution_allowed"] is False
+    assert preflight["diagnostics"] == [
+        "activation_lanes[0].runtime_action_must_be_none",
+        "activation_lanes[0].external_skill_activation_must_be_false",
+        "activation_lanes[0].external_harness_execution_must_be_false",
+    ]
 
 
 def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only():
