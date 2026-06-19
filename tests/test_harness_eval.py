@@ -3295,8 +3295,19 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     }
     assert output["supervisor_readiness"] == {
         "ready_for_supervisor_promotion": False,
+        "ready_for_supervisor_local_replay": False,
         "decision": "blocked_before_supervisor_promotion",
         "reason": "provider_runtime_recovery_required",
+        "success_status": {
+            "misleading_success_guardrail": True,
+            "status_label": "provider_runtime_blocked",
+            "reason": "provider_runtime_recovery_required",
+            "success_claim_allowed": False,
+            "operator_action_required": True,
+            "local_replay_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "body_free_diagnostics_only": True,
+        },
         "preflight_count": 5,
         "status_counts": {"passed": 0, "degraded": 1, "blocked": 4},
         "blocked_failure_modes": [
@@ -3417,9 +3428,20 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     )
 
     assert degraded_only["route_status"] == "degraded"
-    assert degraded_only["supervisor_readiness"]["ready_for_supervisor_promotion"] is True
-    assert degraded_only["supervisor_readiness"]["decision"] == "ready_for_supervisor_local_replay"
-    assert degraded_only["supervisor_readiness"]["reason"] == "none"
+    assert degraded_only["supervisor_readiness"]["ready_for_supervisor_promotion"] is False
+    assert degraded_only["supervisor_readiness"]["ready_for_supervisor_local_replay"] is True
+    assert degraded_only["supervisor_readiness"]["decision"] == "ready_for_supervisor_degraded_local_replay"
+    assert degraded_only["supervisor_readiness"]["reason"] == "degraded_provider_runtime_replay_only"
+    assert degraded_only["supervisor_readiness"]["success_status"] == {
+        "misleading_success_guardrail": True,
+        "status_label": "provider_runtime_degraded_replay_only",
+        "reason": "degraded_provider_runtime_replay_only",
+        "success_claim_allowed": False,
+        "operator_action_required": True,
+        "local_replay_allowed": True,
+        "provider_runtime_launch_allowed": False,
+        "body_free_diagnostics_only": True,
+    }
     assert degraded_only["supervisor_readiness"]["provider_runtime_launch_allowed"] is False
     assert degraded_only["supervisor_readiness"]["recovery_hint_codes"] == ["mock_auth_placeholder_used"]
 

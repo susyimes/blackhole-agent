@@ -4519,6 +4519,12 @@ def provider_runtime_supervisor_readiness(
     )
     no_preflights = not preflights
     blocked = bool(status_counts.get("blocked"))
+    degraded = bool(status_counts.get("degraded"))
+    success_status = provider_runtime_success_status_guardrail(
+        preflight_count=len(preflights),
+        blocked=blocked,
+        degraded=degraded,
+    )
 
     if no_preflights:
         decision = "blocked_before_supervisor_promotion"
@@ -4526,14 +4532,19 @@ def provider_runtime_supervisor_readiness(
     elif blocked:
         decision = "blocked_before_supervisor_promotion"
         reason = "provider_runtime_recovery_required"
+    elif degraded:
+        decision = "ready_for_supervisor_degraded_local_replay"
+        reason = "degraded_provider_runtime_replay_only"
     else:
         decision = "ready_for_supervisor_local_replay"
         reason = "none"
 
     return {
-        "ready_for_supervisor_promotion": bool(preflights) and not blocked,
+        "ready_for_supervisor_promotion": success_status["success_claim_allowed"],
+        "ready_for_supervisor_local_replay": success_status["local_replay_allowed"],
         "decision": decision,
         "reason": reason,
+        "success_status": success_status,
         "preflight_count": len(preflights),
         "status_counts": dict(status_counts),
         "blocked_failure_modes": blocked_failure_modes,
@@ -4545,6 +4556,39 @@ def provider_runtime_supervisor_readiness(
         "remote_execution_allowed": False,
         "raw_preflight_inputs_exported": False,
         "raw_diagnostics_exported": False,
+    }
+
+
+def provider_runtime_success_status_guardrail(
+    *,
+    preflight_count: int,
+    blocked: bool,
+    degraded: bool,
+) -> dict[str, Any]:
+    """Classify provider-runtime readiness without turning replay into launch success."""
+
+    if preflight_count <= 0:
+        status_label = "no_provider_runtime_preflights"
+        reason = "no_provider_runtime_preflights"
+    elif blocked:
+        status_label = "provider_runtime_blocked"
+        reason = "provider_runtime_recovery_required"
+    elif degraded:
+        status_label = "provider_runtime_degraded_replay_only"
+        reason = "degraded_provider_runtime_replay_only"
+    else:
+        status_label = "provider_runtime_replay_ready"
+        reason = "none"
+
+    return {
+        "misleading_success_guardrail": True,
+        "status_label": status_label,
+        "reason": reason,
+        "success_claim_allowed": preflight_count > 0 and not blocked and not degraded,
+        "operator_action_required": preflight_count <= 0 or blocked or degraded,
+        "local_replay_allowed": preflight_count > 0 and not blocked,
+        "provider_runtime_launch_allowed": False,
+        "body_free_diagnostics_only": True,
     }
 
 

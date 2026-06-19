@@ -217,6 +217,26 @@
       "equals": false
     },
     {
+      "path": "supervisor_readiness.ready_for_supervisor_promotion",
+      "equals": false
+    },
+    {
+      "path": "supervisor_readiness.ready_for_supervisor_local_replay",
+      "equals": false
+    },
+    {
+      "path": "supervisor_readiness.success_status.misleading_success_guardrail",
+      "equals": true
+    },
+    {
+      "path": "supervisor_readiness.success_status.status_label",
+      "equals": "provider_runtime_blocked"
+    },
+    {
+      "path": "supervisor_readiness.success_status.success_claim_allowed",
+      "equals": false
+    },
+    {
       "path": "privacy.raw_preflight_inputs_exported",
       "equals": false
     }

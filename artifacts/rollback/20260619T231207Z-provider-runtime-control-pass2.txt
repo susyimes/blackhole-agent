@@ -1,0 +1,21 @@
+Rollback point for provider-runtime-control pass 2.
+
+Source digest: github-growth-20260619T231207.458034Z
+Prepared branch: codex/blackhole-evolve/20260619T231340.670829-create-focused-tests-for-skill-route-discovery-s
+Original HEAD: 25eaf698d5c465d721150d22df14b4fcb54077c6
+
+Local rollback ref:
+
+```bash
+git update-ref refs/rollback/provider-runtime-control-pass2 25eaf698d5c465d721150d22df14b4fcb54077c6
+```
+
+Recovery commands, if a human operator or supervisor chooses destructive rollback:
+
+```bash
+git switch codex/blackhole-evolve/20260619T231340.670829-create-focused-tests-for-skill-route-discovery-s
+git reset --hard 25eaf698d5c465d721150d22df14b4fcb54077c6
+git clean -fd
+```
+
+Rollback execution is intentionally not automatic.

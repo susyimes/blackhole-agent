@@ -204,6 +204,12 @@ unavailability, prompt-scan timeout risk, or native terminal launch risk. Use
 `provider_runtime_recovery_summary` when multiple preflights must be grouped
 into status counts and deduplicated hint codes.
 
+The recovery summary separates local replay readiness from success. A degraded
+mock-auth or optional-tooling route may be replayable, but it is still reported
+as `provider_runtime_degraded_replay_only` with `success_claim_allowed: false`
+and `provider_runtime_launch_allowed: false`. This prevents a scheduler from
+treating body-free diagnostics as a successful provider launch or promotion.
+
 Both surfaces are replay-only. They may expose hint codes, affected harness
 labels, counts, replay commands, and boolean launch decisions. They must not
 export raw model commands, prompt bodies, review output, terminal panes, URLs,
