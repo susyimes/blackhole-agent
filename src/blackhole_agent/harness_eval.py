@@ -4688,6 +4688,7 @@ def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[st
         if isinstance(inbox.get("child_lifecycle"), dict)
         else {}
     )
+    recovery = inbox.get("recovery") if isinstance(inbox.get("recovery"), dict) else {}
     completion_count = sum(1 for message in messages if message["completion"])
     transcript_only_count = sum(1 for turn in child_turns if turn["transcript_only"])
     empty_turn_count = sum(1 for turn in child_turns if turn["empty"])
@@ -4697,6 +4698,13 @@ def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[st
     lifecycle_degraded = required and (
         not sub_agent_name_present or send_handle_degraded or not close_supported
     )
+    transcript_polling_available = truthy(
+        recovery.get("transcript_polling_available"),
+    ) or transcript_only_count > 0
+    transcript_polling_required = required and completion_count < expected_count and transcript_polling_available
+    cleanup_required = required and lifecycle_degraded
+    cleanup_supported = close_supported and not send_handle_degraded
+    cleanup_blocked = cleanup_required and not cleanup_supported
 
     if required and completion_count < expected_count:
         failure_mode = "orchestrator_inbox_completion_missing"
@@ -4724,6 +4732,20 @@ def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[st
         "transcript_only_turn_count": transcript_only_count,
         "empty_turn_count": empty_turn_count,
         "child_turn_count": len(child_turns),
+        "recovery": {
+            "transcript_polling_available": transcript_polling_available,
+            "transcript_polling_required": transcript_polling_required,
+            "cleanup_required": cleanup_required,
+            "cleanup_supported": cleanup_supported,
+            "cleanup_blocked": cleanup_blocked,
+            "operator_action": agent_workflow_inbox_recovery_action(
+                failure_mode,
+                transcript_polling_required=transcript_polling_required,
+                cleanup_blocked=cleanup_blocked,
+            ),
+            "raw_transcripts_exported": False,
+            "raw_session_ids_exported": False,
+        },
         "messages": messages,
         "child_turns": child_turns,
         "child_lifecycle": {
@@ -4739,10 +4761,31 @@ def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[st
             "parent_wake_required": required,
             "empty_turns_allowed": False,
             "transcript_only_completion_allowed": False,
+            "transcript_polling_is_recovery_only": True,
+            "uncleanable_child_sessions_block_cleanup": True,
             "raw_message_bodies_exported": False,
             "raw_transcript_bodies_exported": False,
         },
     }
+
+
+def agent_workflow_inbox_recovery_action(
+    failure_mode: str,
+    *,
+    transcript_polling_required: bool,
+    cleanup_blocked: bool,
+) -> str:
+    if failure_mode == "none":
+        return "none"
+    if transcript_polling_required and cleanup_blocked:
+        return "poll_child_transcript_then_manual_session_cleanup"
+    if transcript_polling_required:
+        return "poll_child_transcript_for_result"
+    if cleanup_blocked:
+        return "manual_session_cleanup_required"
+    if failure_mode == "orchestrator_inbox_empty_turn":
+        return "rerun_child_turn_with_empty_output_error"
+    return "inspect_inbox_delivery_route"
 
 
 def normalize_agent_workflow_inbox_message(message: dict[str, Any], ordinal: int) -> dict[str, Any]:
@@ -5160,6 +5203,13 @@ def build_agent_workflow_control_plane(
             "transcript_only_turn_count": inbox_result["transcript_only_turn_count"],
             "empty_turn_count": inbox_result["empty_turn_count"],
             "child_lifecycle_degraded": inbox_result["child_lifecycle"]["degraded"],
+            "recovery": {
+                "transcript_polling_available": inbox_result["recovery"]["transcript_polling_available"],
+                "transcript_polling_required": inbox_result["recovery"]["transcript_polling_required"],
+                "cleanup_required": inbox_result["recovery"]["cleanup_required"],
+                "cleanup_blocked": inbox_result["recovery"]["cleanup_blocked"],
+                "operator_action": inbox_result["recovery"]["operator_action"],
+            },
         },
     }
 

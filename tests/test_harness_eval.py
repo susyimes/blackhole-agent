@@ -1296,6 +1296,16 @@ def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
         "raw_agent_names_exported": False,
         "raw_session_ids_exported": False,
     }
+    assert output["orchestrator_inbox"]["recovery"] == {
+        "transcript_polling_available": False,
+        "transcript_polling_required": False,
+        "cleanup_required": False,
+        "cleanup_supported": True,
+        "cleanup_blocked": False,
+        "operator_action": "none",
+        "raw_transcripts_exported": False,
+        "raw_session_ids_exported": False,
+    }
     assert output["control_plane"]["inbox_delivery_contract"] == {
         "required": True,
         "passed": True,
@@ -1306,6 +1316,13 @@ def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
         "transcript_only_turn_count": 0,
         "empty_turn_count": 0,
         "child_lifecycle_degraded": False,
+        "recovery": {
+            "transcript_polling_available": False,
+            "transcript_polling_required": False,
+            "cleanup_required": False,
+            "cleanup_blocked": False,
+            "operator_action": "none",
+        },
     }
     assert "PRIVATE_INBOX_MESSAGE_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CHILD_SESSION_ID_DO_NOT_EXPORT" not in serialized
@@ -1354,6 +1371,23 @@ def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
     assert missing_delivery["failure_mode"] == "orchestrator_inbox_completion_missing"
     assert missing_delivery["orchestrator_inbox"]["transcript_only_turn_count"] == 1
     assert missing_delivery["orchestrator_inbox"]["child_lifecycle"]["degraded"] is True
+    assert missing_delivery["orchestrator_inbox"]["recovery"] == {
+        "transcript_polling_available": True,
+        "transcript_polling_required": True,
+        "cleanup_required": True,
+        "cleanup_supported": False,
+        "cleanup_blocked": True,
+        "operator_action": "poll_child_transcript_then_manual_session_cleanup",
+        "raw_transcripts_exported": False,
+        "raw_session_ids_exported": False,
+    }
+    assert missing_delivery["control_plane"]["inbox_delivery_contract"]["recovery"] == {
+        "transcript_polling_available": True,
+        "transcript_polling_required": True,
+        "cleanup_required": True,
+        "cleanup_blocked": True,
+        "operator_action": "poll_child_transcript_then_manual_session_cleanup",
+    }
     assert "PRIVATE_TRANSCRIPT_ONLY_TURN_DO_NOT_EXPORT" not in missing_serialized
 
     duplicate_delivery = evaluate_harness_behavior(
@@ -1379,6 +1413,7 @@ def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
         source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_duplicate_inline.json",
     )
     assert duplicate_delivery["failure_mode"] == "orchestrator_inbox_duplicate_completion"
+    assert duplicate_delivery["orchestrator_inbox"]["recovery"]["operator_action"] == "inspect_inbox_delivery_route"
 
     empty_turn = evaluate_harness_behavior(
         "agent_workflow_route",
@@ -1404,6 +1439,7 @@ def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
         source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_empty_inline.json",
     )
     assert empty_turn["failure_mode"] == "orchestrator_inbox_empty_turn"
+    assert empty_turn["orchestrator_inbox"]["recovery"]["operator_action"] == "rerun_child_turn_with_empty_output_error"
 
     lifecycle_degraded = evaluate_harness_behavior(
         "agent_workflow_route",
@@ -1428,6 +1464,7 @@ def test_agent_workflow_route_orchestrator_inbox_delivery_contract():
         source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_orchestrator_inbox_lifecycle_inline.json",
     )
     assert lifecycle_degraded["failure_mode"] == "orchestrator_inbox_lifecycle_degraded"
+    assert lifecycle_degraded["orchestrator_inbox"]["recovery"]["operator_action"] == "manual_session_cleanup_required"
 
 
 def test_agent_workflow_route_blocks_before_activation_when_oneshot_marker_absent():

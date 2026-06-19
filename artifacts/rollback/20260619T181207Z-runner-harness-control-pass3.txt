@@ -1,0 +1,15 @@
+Rollback point for runner-harness-control pass 3.
+
+Source digest: github-growth-20260619T181207.018032Z
+Prepared branch: codex/blackhole-evolve/20260619T181333.809701-add-a-focused-local-regression-lane-for-sub-agen
+Original HEAD: 4abe131ed1aca2e8a663e11e873beab2ff21e16c
+Rollback ref: refs/blackhole-rollback/20260619T181207Z-runner-harness-control-pass3
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git reset --hard refs/blackhole-rollback/20260619T181207Z-runner-harness-control-pass3
+git clean -fd
+
+Notes:
+- This rollback artifact must not be deleted by the run that created it.
+- Rollback execution is explicit and destructive; it is reserved for a human operator or external supervisor policy.
