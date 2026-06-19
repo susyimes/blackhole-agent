@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -1489,8 +1490,22 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     override_propagated = override_requested and override_flag in harness_env_keys
     auth_env_key = optional_string(provider.get("auth_env_key"))
     required_env_keys = sorted(set(string_list(provider.get("required_env_keys")) + ([auth_env_key] if auth_env_key else [])))
+    required_env_scope = optional_string(provider.get("required_env_scope")) or "harness"
+    worker_tools = string_list(provider.get("worker_tools"))
+    expected_worker_tool = optional_string(provider.get("worker_tool_name")) or default_worker_tool_name(harness)
+    worker_tool_available = expected_worker_tool in worker_tools or any(tool.endswith("_worker") for tool in worker_tools)
+    os_env_inherit_to_worker = truthy(runner_env.get("os_env_inherit_to_worker"))
+    worker_env_inherit_skipped = bool(
+        os_env_inherit_to_worker
+        and required_env_scope == "worker"
+        and not worker_tool_available
+    )
     missing_parent_env_keys = sorted(set(required_env_keys) - set(parent_env_keys))
-    missing_harness_env_keys = sorted(set(required_env_keys) - set(harness_env_keys))
+    missing_harness_env_keys = (
+        []
+        if worker_env_inherit_skipped
+        else sorted(set(required_env_keys) - set(harness_env_keys))
+    )
     required_env_ready = not missing_parent_env_keys and not missing_harness_env_keys
     mock_auth_placeholder = truthy(mock_llm.get("auth_placeholder")) or truthy(mock_llm.get("mock_auth_placeholder"))
     mock_enabled = truthy(mock_llm.get("enabled"))
@@ -1539,6 +1554,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             required_env_key_count=len(required_env_keys),
             missing_parent_env_key_count=len(missing_parent_env_keys),
             missing_harness_env_key_count=len(missing_harness_env_keys),
+            worker_env_inherit_skipped=worker_env_inherit_skipped,
             mock_auth_substitution=mock_auth_substitution,
             env_preflight_failed=env_preflight_failed,
         )
@@ -1576,7 +1592,12 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             "sandbox_override_flag": override_flag,
             "degrade_on_incompatible_sandbox": auto_degrade,
             "required_env_key_count": len(required_env_keys),
+            "required_env_scope": required_env_scope,
             "required_env_key_names_recorded": True,
+            "expected_worker_tool": expected_worker_tool,
+            "worker_tool_count": len(worker_tools),
+            "worker_tool_available": worker_tool_available,
+            "worker_tool_names_recorded": True,
         },
         "sandbox": {
             "active": sandbox_active,
@@ -1591,6 +1612,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             "required_env_ready": required_env_ready,
             "missing_parent_env_key_count": len(missing_parent_env_keys),
             "missing_harness_env_key_count": len(missing_harness_env_keys),
+            "os_env_inherit_to_worker": os_env_inherit_to_worker,
+            "worker_env_inherit_skipped": worker_env_inherit_skipped,
             "env_values_recorded": False,
         },
         "provider_auth": {
@@ -1598,6 +1621,9 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             "auth_env_key_configured": bool(auth_env_key),
             "auth_env_key_present_in_parent": bool(auth_env_key and auth_env_key in parent_env_keys),
             "auth_env_key_propagated_to_harness": bool(auth_env_key and auth_env_key in harness_env_keys),
+            "auth_env_key_propagated_to_worker": bool(
+                auth_env_key and auth_env_key in harness_env_keys and worker_tool_available
+            ),
             "mock_auth_placeholder_used": mock_auth_substitution,
             "real_key_required": bool(required_env_keys and not mock_auth_substitution),
             "key_value_recorded": False,
@@ -1831,6 +1857,7 @@ def build_provider_env_diagnostics(
     required_env_key_count: int,
     missing_parent_env_key_count: int,
     missing_harness_env_key_count: int,
+    worker_env_inherit_skipped: bool,
     mock_auth_substitution: bool,
     env_preflight_failed: bool,
 ) -> list[str]:
@@ -1839,6 +1866,8 @@ def build_provider_env_diagnostics(
         return diagnostics
     if mock_auth_substitution:
         diagnostics.append("mock LLM auth placeholder accepted; real provider key not required for this local fixture")
+    if worker_env_inherit_skipped:
+        diagnostics.append("skipped worker env inheritance check because the harness declares no worker tool")
     if missing_parent_env_key_count:
         diagnostics.append("required provider environment keys are missing from the parent runner environment")
     if missing_harness_env_key_count:
@@ -1846,6 +1875,13 @@ def build_provider_env_diagnostics(
     if env_preflight_failed:
         diagnostics.append("block provider startup before launch because required environment keys are unavailable")
     return diagnostics
+
+
+def default_worker_tool_name(harness: str) -> str:
+    """Return the conventional inline worker-tool name for a provider harness."""
+
+    normalized = re.sub(r"[^A-Za-z0-9]+", "_", harness.strip().lower()).strip("_")
+    return f"{normalized or 'provider'}_worker"
 
 
 def normalize_terminal_integration(value: Any) -> str:

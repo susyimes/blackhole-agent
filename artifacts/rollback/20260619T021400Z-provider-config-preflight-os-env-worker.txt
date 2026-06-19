@@ -1,0 +1,16 @@
+Rollback point: provider-config-preflight-os-env-worker
+
+Created: 2026-06-19T02:14:00Z
+Original branch: codex/blackhole-evolve/20260619T021322.467704-add-or-extend-local-validation-for-provider-conf
+Original HEAD: 44822696a375b871e3fd3573472fc141691324fc
+Rollback ref: refs/rollback/20260619T021400Z-provider-config-preflight-os-env-worker
+
+Recovery commands:
+
+1. git switch codex/blackhole-evolve/20260619T021322.467704-add-or-extend-local-validation-for-provider-conf
+2. git reset --hard refs/rollback/20260619T021400Z-provider-config-preflight-os-env-worker
+
+Notes:
+
+- Rollback execution is explicit and destructive.
+- Do not remove this artifact during the run that created it.

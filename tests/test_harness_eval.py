@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 20
-    assert payload["pass_count"] == 19
+    assert payload["fixture_count"] == 21
+    assert payload["pass_count"] == 20
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -113,6 +113,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
+    assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -269,12 +270,36 @@ def test_provider_runtime_preflight_allows_openai_agents_mock_auth_without_key_v
         "auth_env_key_configured": True,
         "auth_env_key_present_in_parent": False,
         "auth_env_key_propagated_to_harness": False,
+        "auth_env_key_propagated_to_worker": False,
         "mock_auth_placeholder_used": True,
         "real_key_required": False,
         "key_value_recorded": False,
     }
     assert output["runtime"]["runner_invoked"] is True
     assert output["preflight"]["degraded"] is True
+    assert "OPENAI_API_KEY" not in serialized
+
+
+def test_provider_runtime_preflight_skips_worker_env_inherit_when_worker_tool_missing():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_openai_agents_no_worker_env_skip.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["runner_env"]["required_env_ready"] is True
+    assert output["runner_env"]["worker_env_inherit_skipped"] is True
+    assert output["provider"]["worker_tool_available"] is False
+    assert output["provider_auth"]["auth_env_key_propagated_to_worker"] is False
+    assert output["preflight"]["blocked_before_launch"] is False
+    assert "skipped worker env inheritance check because the harness declares no worker tool" in output["preflight"][
+        "diagnostics"
+    ]
     assert "OPENAI_API_KEY" not in serialized
 
 
@@ -757,6 +782,8 @@ def test_provider_runtime_preflight_degrades_when_sandbox_override_reaches_harne
         "required_env_ready": True,
         "missing_parent_env_key_count": 0,
         "missing_harness_env_key_count": 0,
+        "os_env_inherit_to_worker": False,
+        "worker_env_inherit_skipped": False,
         "env_values_recorded": False,
     }
     assert output["runtime"]["runner_invoked"] is True

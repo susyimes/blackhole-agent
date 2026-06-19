@@ -1,0 +1,109 @@
+{
+  "name": "provider-runtime-preflight-openai-agents-no-worker-env-skip",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-openai-agents-no-worker-env-skip",
+    "provider": {
+      "name": "openai-agents",
+      "harness": "openai-agents",
+      "auth_env_key": "OPENAI_API_KEY",
+      "required_env_keys": [
+        "OPENAI_API_KEY"
+      ],
+      "required_env_scope": "worker",
+      "worker_tool_name": "openai_agents_worker",
+      "worker_tools": [],
+      "degrade_on_incompatible_sandbox": false
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "OPENAI_API_KEY",
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": [],
+      "os_env_inherit_to_worker": true
+    },
+    "mock_llm": {
+      "enabled": false,
+      "auth_placeholder": false
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "provider.required_env_scope",
+      "equals": "worker"
+    },
+    {
+      "path": "provider.expected_worker_tool",
+      "equals": "openai_agents_worker"
+    },
+    {
+      "path": "provider.worker_tool_count",
+      "equals": 0
+    },
+    {
+      "path": "provider.worker_tool_available",
+      "equals": false
+    },
+    {
+      "path": "runner_env.required_env_ready",
+      "equals": true
+    },
+    {
+      "path": "runner_env.missing_parent_env_key_count",
+      "equals": 0
+    },
+    {
+      "path": "runner_env.missing_harness_env_key_count",
+      "equals": 0
+    },
+    {
+      "path": "runner_env.os_env_inherit_to_worker",
+      "equals": true
+    },
+    {
+      "path": "runner_env.worker_env_inherit_skipped",
+      "equals": true
+    },
+    {
+      "path": "provider_auth.auth_env_key_present_in_parent",
+      "equals": true
+    },
+    {
+      "path": "provider_auth.auth_env_key_propagated_to_worker",
+      "equals": false
+    },
+    {
+      "path": "provider_auth.key_value_recorded",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": true
+    },
+    {
+      "path": "preflight.blocked_before_launch",
+      "equals": false
+    }
+  ]
+}
