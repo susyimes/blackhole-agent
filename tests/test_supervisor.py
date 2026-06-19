@@ -590,11 +590,35 @@ def test_provider_config_preflight_reports_missing_required_token_without_value(
     assert preflight["token_env_name"] == "BLACKHOLE_TEST_TOKEN"
     assert preflight["token_env_name_recorded"] is True
     assert preflight["token_env_present"] is False
+    assert preflight["token_env_usable"] is False
+    assert preflight["token_env_quality"] == "absent"
     assert preflight["token_value_recorded"] is False
     assert preflight["diagnostics"] == [
         "required token environment variable is not set or empty",
         "codex mode requires an explicit --model or --profile to avoid implicit provider fallback",
     ]
+
+
+def test_provider_config_preflight_rejects_placeholder_required_token_without_value(tmp_path, monkeypatch):
+    placeholder_token = "dummy-github-token"
+    monkeypatch.setenv("BLACKHOLE_TEST_TOKEN", placeholder_token)
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        token_env="BLACKHOLE_TEST_TOKEN",
+        require_token_env=True,
+        model="gpt-5.5",
+    )
+
+    preflight = build_provider_config_preflight(config)
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["token_env_present"] is True
+    assert preflight["token_env_usable"] is False
+    assert preflight["token_env_quality"] == "placeholder"
+    assert preflight["token_value_recorded"] is False
+    assert preflight["diagnostics"] == ["required token environment variable is a placeholder value"]
+    assert placeholder_token not in rendered
 
 
 def test_provider_config_preflight_never_records_token_value(tmp_path, monkeypatch):
@@ -611,9 +635,32 @@ def test_provider_config_preflight_never_records_token_value(tmp_path, monkeypat
     rendered = json.dumps(preflight, sort_keys=True)
     assert preflight["ok"] is True
     assert preflight["token_env_present"] is True
+    assert preflight["token_env_usable"] is True
+    assert preflight["token_env_quality"] == "provided"
     assert preflight["token_value_recorded"] is False
     assert preflight["codex"]["route_selector"] == "model"
     assert "secret-token-value" not in rendered
+
+
+def test_runtime_startup_preflight_rejects_placeholder_ambient_provider_env_without_leakage(tmp_path):
+    placeholder_token = "sk-dummy-openai-token"
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        model="gpt-5.5",
+    )
+
+    preflight = build_runtime_startup_preflight(
+        config,
+        env={"OPENAI_API_KEY": placeholder_token},
+    )
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["provider_config"]["codex"]["ambient_openai"]["api_key_quality"] == "placeholder"
+    assert preflight["diagnostics"] == [
+        "OPENAI_API_KEY is a placeholder value; ambient OpenAI credentials are invalid",
+    ]
+    assert placeholder_token not in rendered
 
 
 def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling(tmp_path):

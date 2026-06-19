@@ -65,7 +65,7 @@ def test_codex_kernel_writes_task_and_result_files(tmp_path):
 
 
 def test_codex_provider_preflight_blocks_implicit_default_route_when_required():
-    preflight = build_codex_provider_preflight(CodexCliConfig(require_explicit_route=True))
+    preflight = build_codex_provider_preflight(CodexCliConfig(require_explicit_route=True), env={})
 
     assert preflight["ok"] is False
     assert preflight["selected_provider"] == "codex_cli"
@@ -78,8 +78,14 @@ def test_codex_provider_preflight_blocks_implicit_default_route_when_required():
 
 
 def test_codex_provider_preflight_accepts_explicit_model_or_profile():
-    model_preflight = build_codex_provider_preflight(CodexCliConfig(model="gpt-5.5", require_explicit_route=True))
-    profile_preflight = build_codex_provider_preflight(CodexCliConfig(profile="work", require_explicit_route=True))
+    model_preflight = build_codex_provider_preflight(
+        CodexCliConfig(model="gpt-5.5", require_explicit_route=True),
+        env={},
+    )
+    profile_preflight = build_codex_provider_preflight(
+        CodexCliConfig(profile="work", require_explicit_route=True),
+        env={},
+    )
 
     assert model_preflight["ok"] is True
     assert model_preflight["route_selector"] == "model"
@@ -171,6 +177,28 @@ def test_ambient_openai_preflight_treats_blank_env_values_as_absent():
     assert ambient_openai["base_url_present"] is False
     assert ambient_openai["api_key_value_recorded"] is False
     assert ambient_openai["base_url_value_recorded"] is False
+
+
+def test_codex_provider_preflight_rejects_placeholder_openai_key_without_leaking_value():
+    placeholder_key = "sk-dummy-token-for-ci"
+
+    preflight = build_codex_provider_preflight(
+        CodexCliConfig(model="gpt-5.5", require_explicit_route=True),
+        env={"OPENAI_API_KEY": placeholder_key, "OPENAI_BASE_URL": "https://gateway.example.invalid/private"},
+    )
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["ambient_openai"]["api_key_present"] is True
+    assert preflight["ambient_openai"]["api_key_usable"] is False
+    assert preflight["ambient_openai"]["api_key_quality"] == "placeholder"
+    assert preflight["ambient_openai"]["route_hint"] == "placeholder_api_key"
+    assert preflight["diagnostics"] == [
+        "OPENAI_API_KEY is a placeholder value; ambient OpenAI credentials are invalid",
+        "OPENAI_BASE_URL is present without OPENAI_API_KEY; ambient OpenAI credentials are incomplete",
+    ]
+    assert placeholder_key not in rendered
+    assert "gateway.example.invalid" not in rendered
 
 
 def test_codex_provider_preflight_records_ambient_google_warnings_without_values():
@@ -268,6 +296,25 @@ def test_ambient_google_preflight_treats_blank_env_values_as_absent():
     assert ambient_google["application_credentials_present"] is False
     assert ambient_google["api_key_values_recorded"] is False
     assert ambient_google["application_credentials_value_recorded"] is False
+
+
+def test_codex_provider_preflight_rejects_placeholder_google_key_without_leaking_value():
+    placeholder_key = "dummy-google-key"
+
+    preflight = build_codex_provider_preflight(
+        CodexCliConfig(model="gpt-5.5", require_explicit_route=True),
+        env={"GEMINI_API_KEY": placeholder_key},
+    )
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["ambient_google"]["api_key_present"] is True
+    assert preflight["ambient_google"]["api_key_usable"] is False
+    assert preflight["ambient_google"]["api_key_placeholder_envs"] == ["GEMINI_API_KEY"]
+    assert preflight["diagnostics"] == [
+        "Google API key environment contains a placeholder value; ambient Google credentials are invalid"
+    ]
+    assert placeholder_key not in rendered
 
 
 def test_codex_kernel_fails_before_exec_when_route_is_implicit(tmp_path):

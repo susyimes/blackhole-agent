@@ -1,0 +1,16 @@
+Rollback point for provider runtime token preflight hardening
+
+Created: 2026-06-19T13:33:44Z
+Source digest: github-growth-20260619T133206.977615Z
+Original branch: codex/blackhole-evolve/20260619T133303.387657-add-or-extend-a-local-agent-harness-evaluation-l
+Original HEAD: f6b5f1d00704ea5b440124ce0173c0185da3a369
+Local rollback ref: refs/rollback/20260619T133344Z-provider-runtime-token-preflight
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260619T133303.387657-add-or-extend-a-local-agent-harness-evaluation-l
+git reset --hard f6b5f1d00704ea5b440124ce0173c0185da3a369
+
+Review notes:
+- This run targets provider/runtime preflight control.
+- Rollback execution is explicit and destructive; this file records the recovery path only.

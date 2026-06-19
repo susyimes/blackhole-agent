@@ -18,6 +18,31 @@ from typing import Any, Iterable, Mapping
 
 
 LOGGER = logging.getLogger(__name__)
+PLACEHOLDER_SECRET_VALUES = frozenset(
+    {
+        "dummy",
+        "fake",
+        "placeholder",
+        "changeme",
+        "change-me",
+        "replace-me",
+        "replace_me",
+        "your-api-key",
+        "your_api_key",
+        "your-token",
+        "your_token",
+        "not-a-real-token",
+        "example",
+        "none",
+        "null",
+        "todo",
+        "sk-placeholder",
+        "sk-dummy",
+        "sk-fake",
+        "sk-test",
+    }
+)
+PLACEHOLDER_SECRET_MARKERS = ("placeholder", "dummy", "not-a-real", "replace-me", "your-api-key")
 
 
 @dataclass(frozen=True)
@@ -339,6 +364,7 @@ def build_codex_provider_preflight(
 ) -> dict[str, Any]:
     """Return metadata-only diagnostics for the selected Codex execution route."""
 
+    environment = os.environ if env is None else env
     model = str(config.model or "").strip()
     profile = str(config.profile or "").strip()
     has_model = bool(model)
@@ -354,6 +380,10 @@ def build_codex_provider_preflight(
     diagnostics: list[str] = []
     if config.require_explicit_route and route_selector == "implicit_default":
         diagnostics.append("codex mode requires an explicit --model or --profile to avoid implicit provider fallback")
+    ambient_openai = build_ambient_openai_preflight(environment)
+    ambient_google = build_ambient_google_preflight(environment)
+    diagnostics.extend(str(item) for item in ambient_openai["diagnostics"])
+    diagnostics.extend(str(item) for item in ambient_google["diagnostics"])
     return {
         "schema_version": 1,
         "ok": not diagnostics,
@@ -368,21 +398,40 @@ def build_codex_provider_preflight(
         "requires_explicit_route": config.require_explicit_route,
         "implicit_default_route_allowed": not config.require_explicit_route,
         "token_value_recorded": False,
-        "ambient_openai": build_ambient_openai_preflight(os.environ if env is None else env),
-        "ambient_google": build_ambient_google_preflight(os.environ if env is None else env),
+        "ambient_openai": ambient_openai,
+        "ambient_google": ambient_google,
     }
+
+
+def token_quality(value: str | None) -> str:
+    """Classify a token-like value without returning or recording the value."""
+
+    stripped = str(value or "").strip()
+    if not stripped:
+        return "absent"
+    normalized = stripped.lower()
+    compact = normalized.replace(" ", "").replace("_", "-")
+    if compact in PLACEHOLDER_SECRET_VALUES or any(marker in compact for marker in PLACEHOLDER_SECRET_MARKERS):
+        return "placeholder"
+    return "provided"
 
 
 def build_ambient_openai_preflight(env: Mapping[str, str | None]) -> dict[str, Any]:
     """Summarize ambient OpenAI env routing without recording credential or URL values."""
 
-    api_key_present = bool(str(env.get("OPENAI_API_KEY") or "").strip())
+    api_key_quality = token_quality(env.get("OPENAI_API_KEY"))
+    api_key_present = api_key_quality != "absent"
+    api_key_usable = api_key_quality == "provided"
     base_url_present = bool(str(env.get("OPENAI_BASE_URL") or "").strip())
-    if api_key_present and base_url_present:
+    if api_key_present and not api_key_usable:
+        route_hint = "placeholder_api_key"
+        endpoint_source = "OPENAI_BASE_URL" if base_url_present else None
+        provider_family = None
+    elif api_key_usable and base_url_present:
         route_hint = "openai_compatible_gateway"
         endpoint_source = "OPENAI_BASE_URL"
         provider_family = "openai"
-    elif api_key_present:
+    elif api_key_usable:
         route_hint = "openai_default_endpoint"
         endpoint_source = "default_openai"
         provider_family = "openai"
@@ -396,7 +445,9 @@ def build_ambient_openai_preflight(env: Mapping[str, str | None]) -> dict[str, A
         provider_family = None
 
     diagnostics: list[str] = []
-    if base_url_present and not api_key_present:
+    if api_key_present and not api_key_usable:
+        diagnostics.append("OPENAI_API_KEY is a placeholder value; ambient OpenAI credentials are invalid")
+    if base_url_present and not api_key_usable:
         diagnostics.append("OPENAI_BASE_URL is present without OPENAI_API_KEY; ambient OpenAI credentials are incomplete")
 
     return {
@@ -406,6 +457,8 @@ def build_ambient_openai_preflight(env: Mapping[str, str | None]) -> dict[str, A
         "endpoint_source": endpoint_source,
         "api_key_env": "OPENAI_API_KEY",
         "api_key_present": api_key_present,
+        "api_key_usable": api_key_usable,
+        "api_key_quality": api_key_quality,
         "api_key_value_recorded": False,
         "base_url_env": "OPENAI_BASE_URL",
         "base_url_present": base_url_present,
@@ -418,13 +471,19 @@ def build_ambient_google_preflight(env: Mapping[str, str | None]) -> dict[str, A
     """Summarize ambient Google model credentials without recording values."""
 
     api_key_env_names = ("GOOGLE_API_KEY", "GEMINI_API_KEY")
-    api_key_present_names = [name for name in api_key_env_names if str(env.get(name) or "").strip()]
+    api_key_quality_by_env = {name: token_quality(env.get(name)) for name in api_key_env_names}
+    api_key_present_names = [name for name, quality in api_key_quality_by_env.items() if quality != "absent"]
+    api_key_usable_names = [name for name, quality in api_key_quality_by_env.items() if quality == "provided"]
+    placeholder_api_key_names = [name for name, quality in api_key_quality_by_env.items() if quality == "placeholder"]
     application_credentials_present = bool(str(env.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip())
 
-    if api_key_present_names and application_credentials_present:
+    if placeholder_api_key_names:
+        route_hint = "placeholder_api_key"
+        provider_family = None
+    elif api_key_usable_names and application_credentials_present:
         route_hint = "google_api_key_and_application_credentials"
         provider_family = "google"
-    elif api_key_present_names:
+    elif api_key_usable_names:
         route_hint = "google_api_key"
         provider_family = "google"
     elif application_credentials_present:
@@ -435,7 +494,9 @@ def build_ambient_google_preflight(env: Mapping[str, str | None]) -> dict[str, A
         provider_family = None
 
     diagnostics: list[str] = []
-    if application_credentials_present and not api_key_present_names:
+    if placeholder_api_key_names:
+        diagnostics.append("Google API key environment contains a placeholder value; ambient Google credentials are invalid")
+    if application_credentials_present and not api_key_usable_names:
         diagnostics.append(
             "GOOGLE_APPLICATION_CREDENTIALS is present without GOOGLE_API_KEY or GEMINI_API_KEY; "
             "ambient Google API-key credentials are incomplete"
@@ -448,6 +509,9 @@ def build_ambient_google_preflight(env: Mapping[str, str | None]) -> dict[str, A
         "api_key_envs": list(api_key_env_names),
         "api_key_present": bool(api_key_present_names),
         "api_key_present_envs": api_key_present_names,
+        "api_key_usable": bool(api_key_usable_names),
+        "api_key_usable_envs": api_key_usable_names,
+        "api_key_placeholder_envs": placeholder_api_key_names,
         "api_key_values_recorded": False,
         "application_credentials_env": "GOOGLE_APPLICATION_CREDENTIALS",
         "application_credentials_present": application_credentials_present,

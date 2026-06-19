@@ -23,7 +23,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
-from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight
+from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight, token_quality
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 from blackhole_agent.tool_routing import (
@@ -1175,19 +1175,24 @@ def build_provider_config_preflight(
     token_env_name = str(config.token_env or "").strip()
     diagnostics: list[str] = []
     token_env_valid = is_valid_env_var_name(token_env_name)
-    token_env_present = bool(token_env_valid and str(environment.get(token_env_name) or "").strip())
+    github_token_quality = token_quality(environment.get(token_env_name)) if token_env_valid else "absent"
+    token_env_present = github_token_quality != "absent"
+    token_env_usable = github_token_quality == "provided"
     if not token_env_name:
         diagnostics.append("token_env must name an environment variable")
     elif not token_env_valid:
         diagnostics.append("token_env must be a valid environment variable name")
     elif config.require_token_env and not token_env_present:
         diagnostics.append("required token environment variable is not set or empty")
+    elif config.require_token_env and not token_env_usable:
+        diagnostics.append("required token environment variable is a placeholder value")
     codex_preflight = build_codex_provider_preflight(
         CodexCliConfig(
             model=config.model,
             profile=config.profile,
             require_explicit_route=config.require_codex_route and config.evolution_mode == "codex",
-        )
+        ),
+        env=environment,
     )
     claude_sdk_preflight = build_claude_sdk_permission_preflight(
         configured_permission_mode=config.claude_sdk_permission_mode,
@@ -1208,6 +1213,8 @@ def build_provider_config_preflight(
         "token_env_valid": token_env_valid,
         "token_env_required": config.require_token_env,
         "token_env_present": token_env_present,
+        "token_env_usable": token_env_usable,
+        "token_env_quality": github_token_quality,
         "token_value_recorded": False,
         "codex": codex_preflight,
         "claude_sdk": claude_sdk_preflight,
