@@ -164,6 +164,11 @@ The disabled discovery registry can now be rendered into a proposal-lane map.
 This is the controller-facing form for local growth planning: each recognized
 skill project can produce only documentation, config, test, or code_patch
 proposal kinds, each with `runtime_action: none` and local validation required.
+Each lane also carries body-free uncertainty text and `uncertainty_reasons` so
+review can distinguish repository-level trend evidence, sparse selected-item
+evidence, fork or mirror amplification, and `missing_detail_risk` from locally
+validated behavior. These fields are review metadata; they do not grant external
+skill activation or replace the required local validation commands.
 When the source registry was built from selected evidence items, each lane also
 exports the preserved `evidence_item_ids`; these ids are provenance only and do
 not add new evidence or actions.
@@ -190,8 +195,8 @@ contract: documentation, config, test, and code_patch.
 The harness output is metadata-only. It reports candidate counts, lane counts,
 proposal kinds, downgrade/rejection counts, whether every lane keeps
 `runtime_action: none`, whether every lane requires local validation, a
-body-free `evidence_strength` summary, and an `activation_gate` for the
-controller surface. Generic pull request or push clusters are
+body-free `evidence_strength` summary, body-free uncertainty reasons, and an
+`activation_gate` for the controller surface. Generic pull request or push clusters are
 `weak_generic_upstream_movement` unless the fixture also carries a separate
 body-free `local_corroboration` record. A route hint, CI word, test word, or
 generic PR title inside the upstream evidence does not count as corroboration

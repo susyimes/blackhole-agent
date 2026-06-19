@@ -194,6 +194,7 @@ class ExternalSkillRouteCandidate:
     def to_registry_entry(self) -> dict[str, Any]:
         errors = self.validation_errors()
         candidate_lanes = tuple(lane for lane in self.candidate_lanes if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        uncertainty_reasons = _candidate_uncertainty_reasons(self)
         return {
             "candidate_lanes": list(candidate_lanes),
             "discovery_event_kind": self.discovery_event_kind,
@@ -209,6 +210,8 @@ class ExternalSkillRouteCandidate:
             "route_hints": list(self.route_hints),
             "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
             "source_url": self.source_url,
+            "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
+            "uncertainty_reasons": list(uncertainty_reasons),
             "validation_errors": list(errors),
             "validation_status": self.validation_status,
         }
@@ -659,6 +662,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             continue
 
         for lane in allowed_lanes:
+            uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
             proposal_lanes.append(
                 {
                     "candidate_name": name,
@@ -670,6 +674,8 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
                     "local_validation_required": True,
                     "runtime_action": "none",
+                    "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
+                    "uncertainty_reasons": uncertainty_reasons,
                     "reason": "recognized_skill_project_evidence",
                 }
             )
@@ -840,6 +846,46 @@ def _merge_external_skill_route_candidates(
         requested_actions=tuple(dict.fromkeys((*left.requested_actions, *right.requested_actions))),
         validation_status=left.validation_status,
         enabled=left.enabled or right.enabled,
+    )
+
+
+def _candidate_uncertainty_reasons(candidate: ExternalSkillRouteCandidate) -> tuple[str, ...]:
+    """Return bounded uncertainty tags without inspecting upstream skill bodies."""
+
+    reasons: list[str] = []
+    text = candidate.evidence_summary.casefold()
+    evidence_count = len(set(candidate.evidence_urls or candidate.evidence_item_urls or (candidate.source_url,)))
+
+    if candidate.validation_status in {"", "unknown", "unvalidated", "experimental"}:
+        reasons.append("unvalidated_external_skill_evidence")
+    if evidence_count <= 1:
+        reasons.append("single_repository_level_source")
+    if not candidate.evidence_item_ids:
+        reasons.append("no_selected_digest_item_ids")
+    if candidate.related_source_urls and len(set(candidate.related_source_urls)) > 1:
+        reasons.append("fork_or_mirror_lineage_collapsed")
+    if any(marker in text for marker in ("readme", "repository-level", "summary", "missing detail", "generic")):
+        reasons.append("missing_detail_risk")
+
+    return tuple(dict.fromkeys(reasons))
+
+
+def _candidate_uncertainty_message(reasons: Sequence[str]) -> str:
+    if not reasons:
+        return "External skill evidence is bounded to local validation lanes and does not imply upstream implementation parity."
+    if "missing_detail_risk" in reasons:
+        return (
+            "External skill evidence has missing_detail_risk; proposal lanes are local validation candidates, "
+            "not upstream implementation parity or activation approval."
+        )
+    if "fork_or_mirror_lineage_collapsed" in reasons:
+        return (
+            "Fork or mirror evidence was collapsed into one lineage; repeated repository presence does not increase "
+            "activation readiness."
+        )
+    return (
+        "External skill evidence is unvalidated repository-level routing evidence; keep proposals local, bounded, "
+        "and separately validated."
     )
 
 

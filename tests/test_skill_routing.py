@@ -222,6 +222,23 @@ def test_external_skill_route_discovery_fixture_stays_classification_only():
     assert all(candidate["route_hints"] == ["skill_route_discovery"] for candidate in registry["candidates"])
     assert all(candidate["validation_errors"] == [] for candidate in registry["candidates"])
     assert all(candidate["discovery_event_effect"] == "record_only" for candidate in registry["candidates"])
+    assert all(
+        candidate["uncertainty"]
+        == (
+            "External skill evidence is unvalidated repository-level routing evidence; keep proposals local, "
+            "bounded, and separately validated."
+        )
+        for candidate in registry["candidates"]
+    )
+    assert all(
+        candidate["uncertainty_reasons"]
+        == [
+            "unvalidated_external_skill_evidence",
+            "single_repository_level_source",
+            "no_selected_digest_item_ids",
+        ]
+        for candidate in registry["candidates"]
+    )
 
 
 def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():
@@ -499,6 +516,8 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert all(lane["route_hint"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
     assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+    assert all(lane["uncertainty"] for lane in lane_map["proposal_lanes"])
+    assert all("unvalidated_external_skill_evidence" in lane["uncertainty_reasons"] for lane in lane_map["proposal_lanes"])
 
 
 def test_skill_route_discovery_proposal_lane_map_cites_only_item_evidence_urls():

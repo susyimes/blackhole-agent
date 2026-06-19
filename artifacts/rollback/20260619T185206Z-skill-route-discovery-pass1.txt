@@ -1,0 +1,21 @@
+# Rollback Point
+
+Source digest: github-growth-20260619T185206.935902Z
+Created for: skill-route-discovery pass 1
+Original branch: codex/blackhole-evolve/20260619T185308.944488-add-or-update-a-local-validation-lane-for-agent-
+Original HEAD: 6ea30a565774cc6725e0dbb263dde3304a29e630
+Rollback ref: refs/blackhole-rollback/20260619T185206Z-skill-route-discovery-pass1
+
+Recovery commands, explicit and destructive if chosen by operator:
+
+``powershell
+git reset --hard 6ea30a565774cc6725e0dbb263dde3304a29e630
+git clean -fd
+``
+
+Alternative ref-based recovery:
+
+``powershell
+git reset --hard refs/blackhole-rollback/20260619T185206Z-skill-route-discovery-pass1
+git clean -fd
+``

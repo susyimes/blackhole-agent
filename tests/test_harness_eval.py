@@ -521,6 +521,16 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["lane_map"]["lanes_bounded"] is True
     assert output["lane_map"]["lane_runtime_safe"] is True
     assert output["lane_map"]["local_validation_required"] is True
+    assert "unvalidated_external_skill_evidence" in output["lane_map"]["uncertainty_reasons"]
+    assert output["uncertainty"] == {
+        "body_free": True,
+        "missing_detail_risk": True,
+        "reasons": ["unvalidated_external_skill_evidence", "missing_detail_risk"],
+        "message": (
+            "Skill-route evidence has missing_detail_risk; activate only bounded local documentation, "
+            "config, test, or code_patch lanes after validation."
+        ),
+    }
     assert output["evidence_strength"]["tier"] == "specific_route_or_validation_evidence"
     assert output["evidence_strength"]["activation_evidence_sufficient"] is True
     assert output["activation_gate"] == {
@@ -746,7 +756,29 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         "proposal_lane_count": 2,
         "rejected_candidate_count": 0,
         "downgraded_candidate_count": 0,
+        "uncertainty_reasons": [
+            "unvalidated_external_skill_evidence",
+            "single_repository_level_source",
+            "no_selected_digest_item_ids",
+            "missing_detail_risk",
+            "generic_upstream_movement_requires_local_corroboration",
+        ],
         "body_free": True,
+    }
+    assert output["uncertainty"] == {
+        "body_free": True,
+        "missing_detail_risk": True,
+        "reasons": [
+            "unvalidated_external_skill_evidence",
+            "single_repository_level_source",
+            "no_selected_digest_item_ids",
+            "missing_detail_risk",
+            "generic_upstream_movement_requires_local_corroboration",
+        ],
+        "message": (
+            "Skill-route evidence has missing_detail_risk; activate only bounded local documentation, "
+            "config, test, or code_patch lanes after validation."
+        ),
     }
     assert output["recovery_hints"] == [
         {
@@ -798,6 +830,7 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         assert lane["activation_blockers"] == ["weak_generic_upstream_evidence"]
         assert lane["runtime_action"] == "none"
         assert lane["external_skill_activation_allowed"] is False
+    assert all("missing_detail_risk" in lane["uncertainty_reasons"] for lane in output["proposal_lanes"])
 
 
 def test_skill_route_discovery_lane_requires_local_corroboration_for_generic_pr_route_hints():

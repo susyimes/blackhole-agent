@@ -849,6 +849,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     lanes_bounded = set(proposal_kinds) <= allowed_lanes
     evidence_strength = skill_route_discovery_evidence_strength(raw_input, source_kind=source_kind)
+    uncertainty = skill_route_discovery_lane_uncertainty(proposal_lanes, evidence_strength=evidence_strength)
 
     failure_mode = skill_route_discovery_lane_failure_mode(
         proposal_lane_count=int(lane_map["proposal_lane_count"]),
@@ -929,8 +930,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "lanes_bounded": lanes_bounded,
             "lane_runtime_safe": lane_runtime_safe,
             "local_validation_required": validation_required,
+            "uncertainty_reasons": uncertainty["reasons"],
         },
         "evidence_strength": evidence_strength,
+        "uncertainty": uncertainty,
         "activation_gate": activation_gate,
         "diagnostics": {
             "failure_mode": failure_mode,
@@ -939,6 +942,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "proposal_lane_count": lane_map["proposal_lane_count"],
             "rejected_candidate_count": lane_map["rejected_candidate_count"],
             "downgraded_candidate_count": lane_map["downgraded_candidate_count"],
+            "uncertainty_reasons": uncertainty["reasons"],
             "body_free": True,
         },
         "recovery_hints": recovery_hints,
@@ -956,6 +960,8 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
                 "evidence_url_count": len(lane.get("evidence_urls") or []),
                 "evidence_url_hashes": [stable_text_hash(str(url)) for url in lane.get("evidence_urls") or []],
                 "evidence_item_ids": [str(item_id) for item_id in lane.get("evidence_item_ids") or []],
+                "uncertainty": str(lane.get("uncertainty") or ""),
+                "uncertainty_reasons": [str(reason) for reason in lane.get("uncertainty_reasons") or []],
             }
             for lane in proposal_lanes
         ],
@@ -966,6 +972,48 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "runtime_actions_executed": False,
         },
     }
+
+
+def skill_route_discovery_lane_uncertainty(
+    proposal_lanes: list[dict[str, Any]],
+    *,
+    evidence_strength: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize proposal-lane uncertainty without exporting raw evidence."""
+
+    reasons: list[str] = []
+    for lane in proposal_lanes:
+        lane_reasons = lane.get("uncertainty_reasons")
+        if isinstance(lane_reasons, list):
+            reasons.extend(str(reason) for reason in lane_reasons if str(reason).strip())
+
+    evidence_tier = str(evidence_strength.get("tier") or "")
+    if evidence_tier in {"empty", "weak_generic_upstream_movement"}:
+        reasons.append("missing_detail_risk")
+    if evidence_strength.get("corroboration_required_for_generic_upstream_movement") is True:
+        reasons.append("generic_upstream_movement_requires_local_corroboration")
+
+    reasons = list(dict.fromkeys(reasons))
+    missing_detail_risk = "missing_detail_risk" in reasons or evidence_tier in {"empty", "weak_generic_upstream_movement"}
+    return {
+        "body_free": True,
+        "missing_detail_risk": missing_detail_risk,
+        "reasons": reasons,
+        "message": skill_route_discovery_uncertainty_message(reasons),
+    }
+
+
+def skill_route_discovery_uncertainty_message(reasons: list[str]) -> str:
+    if "missing_detail_risk" in reasons:
+        return (
+            "Skill-route evidence has missing_detail_risk; activate only bounded local documentation, config, "
+            "test, or code_patch lanes after validation."
+        )
+    if "fork_or_mirror_lineage_collapsed" in reasons:
+        return "Fork or mirror skill evidence was collapsed and does not add independent activation pressure."
+    if reasons:
+        return "Skill-route evidence is external and unvalidated; proposal lanes require local validation before activation."
+    return "Skill-route evidence is bounded and locally validated before activation."
 
 
 def skill_route_discovery_recovery_hints(
