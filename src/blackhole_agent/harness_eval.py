@@ -119,6 +119,10 @@ AGENT_HARNESS_EVAL_DETAIL_MARKERS = (
     "triage artifact",
     "validation",
 )
+SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = (
+    "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+)
 
 
 @dataclass(frozen=True)
@@ -913,17 +917,19 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
 def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Render proposal lanes as an operator checklist without exporting URLs."""
 
-    validation_command = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
     return [
         {
             "source_url_hash": stable_text_hash(str(lane.get("source_url") or "")),
             "capability": "skill_route_discovery",
             "candidate_name": str(lane.get("candidate_name") or ""),
             "allowed_local_lane": str(lane.get("proposal_kind") or ""),
-            "required_tests": [validation_command],
+            "required_tests": validation_commands,
+            "preactivation_harness": "agent_harness_eval_lane",
             "rollback_note": "record rollback ref and artifact before applying local source changes",
             "runtime_action": str(lane.get("runtime_action") or ""),
             "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
         }
         for lane in proposal_lanes
     ]
@@ -937,7 +943,7 @@ def build_skill_route_discovery_activation_lanes(
 ) -> list[dict[str, Any]]:
     """Group discovered proposal lanes into controller-ready activation checks."""
 
-    validation_command = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
     grouped: dict[str, list[dict[str, Any]]] = {}
     for lane in proposal_lanes:
         proposal_kind = str(lane.get("proposal_kind") or "")
@@ -951,13 +957,28 @@ def build_skill_route_discovery_activation_lanes(
             "proposal_kind": proposal_kind,
             "candidate_count": len(lanes),
             "candidate_names": sorted({str(lane.get("candidate_name") or "") for lane in lanes}),
-            "required_validation": [validation_command],
+            "required_validation": validation_commands,
+            "preactivation_harness": {
+                "behavior": "agent_harness_eval_lane",
+                "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+                "local_eval_only": True,
+                "external_harness_execution_allowed": False,
+            },
             "activation_ready": activation_allowed,
             "activation_blockers": activation_blockers,
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
         }
         for proposal_kind, lanes in sorted(grouped.items())
+    ]
+
+
+def skill_route_discovery_preactivation_validation_commands() -> list[str]:
+    """Return local checks required before promoting a skill-route discovery lane."""
+
+    return [
+        SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
+        SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND,
     ]
 
 

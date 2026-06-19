@@ -5,6 +5,7 @@ from blackhole_agent.harness_eval import (
     build_harness_comparison_report,
     evaluate_harness_behavior,
     run_local_harness_eval,
+    skill_route_discovery_preactivation_validation_commands,
 )
 
 
@@ -394,48 +395,26 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "local_proposal_activation_allowed": True,
         "external_skill_activation_allowed": False,
     }
-    assert output["activation_lanes"] == [
-        {
-            "proposal_kind": "code_patch",
-            "candidate_count": 1,
-            "candidate_names": ["codex-fable5"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
-            "activation_ready": True,
-            "activation_blockers": [],
-            "runtime_action": "none",
-            "external_skill_activation_allowed": False,
-        },
-        {
-            "proposal_kind": "config",
-            "candidate_count": 1,
-            "candidate_names": ["codex-fable5"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
-            "activation_ready": True,
-            "activation_blockers": [],
-            "runtime_action": "none",
-            "external_skill_activation_allowed": False,
-        },
-        {
-            "proposal_kind": "documentation",
-            "candidate_count": 1,
-            "candidate_names": ["codex-fable5"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
-            "activation_ready": True,
-            "activation_blockers": [],
-            "runtime_action": "none",
-            "external_skill_activation_allowed": False,
-        },
-        {
-            "proposal_kind": "test",
-            "candidate_count": 1,
-            "candidate_names": ["codex-fable5"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
-            "activation_ready": True,
-            "activation_blockers": [],
-            "runtime_action": "none",
-            "external_skill_activation_allowed": False,
-        },
+    assert [lane["proposal_kind"] for lane in output["activation_lanes"]] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
     ]
+    for lane in output["activation_lanes"]:
+        assert lane["candidate_count"] == 1
+        assert lane["candidate_names"] == ["codex-fable5"]
+        assert lane["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert lane["preactivation_harness"] == {
+            "behavior": "agent_harness_eval_lane",
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+            "local_eval_only": True,
+            "external_harness_execution_allowed": False,
+        }
+        assert lane["activation_ready"] is True
+        assert lane["activation_blockers"] == []
+        assert lane["runtime_action"] == "none"
+        assert lane["external_skill_activation_allowed"] is False
     assert len(output["discovery_checklist"]) == 4
     assert {entry["capability"] for entry in output["discovery_checklist"]} == {"skill_route_discovery"}
     assert {entry["allowed_local_lane"] for entry in output["discovery_checklist"]} == {
@@ -448,9 +427,13 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert all(entry["source_url_hash"] for entry in output["discovery_checklist"])
     assert all(entry["external_skill_activation_allowed"] is False for entry in output["discovery_checklist"])
     assert all(
-        entry["required_tests"] == ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"]
+        entry["required_tests"] == skill_route_discovery_preactivation_validation_commands()
         for entry in output["discovery_checklist"]
     )
+    assert {entry["preactivation_harness"] for entry in output["discovery_checklist"]} == {
+        "agent_harness_eval_lane"
+    }
+    assert all(entry["external_harness_execution_allowed"] is False for entry in output["discovery_checklist"])
     assert all(
         entry["rollback_note"] == "record rollback ref and artifact before applying local source changes"
         for entry in output["discovery_checklist"]
@@ -593,28 +576,17 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         "local_proposal_activation_allowed": False,
         "external_skill_activation_allowed": False,
     }
-    assert output["activation_lanes"] == [
-        {
-            "proposal_kind": "code_patch",
-            "candidate_count": 1,
-            "candidate_names": ["omnigent-generic-movement"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
-            "activation_ready": False,
-            "activation_blockers": ["weak_generic_upstream_evidence"],
-            "runtime_action": "none",
-            "external_skill_activation_allowed": False,
-        },
-        {
-            "proposal_kind": "documentation",
-            "candidate_count": 1,
-            "candidate_names": ["omnigent-generic-movement"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
-            "activation_ready": False,
-            "activation_blockers": ["weak_generic_upstream_evidence"],
-            "runtime_action": "none",
-            "external_skill_activation_allowed": False,
-        },
-    ]
+    assert [lane["proposal_kind"] for lane in output["activation_lanes"]] == ["code_patch", "documentation"]
+    for lane in output["activation_lanes"]:
+        assert lane["candidate_count"] == 1
+        assert lane["candidate_names"] == ["omnigent-generic-movement"]
+        assert lane["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert lane["preactivation_harness"]["behavior"] == "agent_harness_eval_lane"
+        assert lane["preactivation_harness"]["external_harness_execution_allowed"] is False
+        assert lane["activation_ready"] is False
+        assert lane["activation_blockers"] == ["weak_generic_upstream_evidence"]
+        assert lane["runtime_action"] == "none"
+        assert lane["external_skill_activation_allowed"] is False
 
 
 def test_skill_route_discovery_lane_requires_local_corroboration_for_generic_pr_route_hints():
@@ -741,7 +713,13 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             "proposal_kind": "documentation",
             "candidate_count": 1,
             "candidate_names": ["overbroad-skill"],
-            "required_validation": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "preactivation_harness": {
+                "behavior": "agent_harness_eval_lane",
+                "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+                "local_eval_only": True,
+                "external_harness_execution_allowed": False,
+            },
             "activation_ready": False,
             "activation_blockers": ["unsupported_lanes_downgraded"],
             "runtime_action": "none",

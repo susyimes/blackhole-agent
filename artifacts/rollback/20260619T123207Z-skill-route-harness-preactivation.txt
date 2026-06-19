@@ -1,0 +1,15 @@
+Rollback point for source digest github-growth-20260619T123207.004379Z
+
+Original branch: codex/blackhole-evolve/20260619T123339.258428-add-or-extend-a-local-agent-harness-evaluation-s
+Original HEAD: 0e03ea7b39ccbbf1da8e101d2757c52df1e2bff0
+Local rollback ref: refs/rollback/20260619T123207Z-skill-route-harness-preactivation
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git update-ref refs/rollback/20260619T123207Z-skill-route-harness-preactivation 0e03ea7b39ccbbf1da8e101d2757c52df1e2bff0
+git switch codex/blackhole-evolve/20260619T123339.258428-add-or-extend-a-local-agent-harness-evaluation-s
+git reset --hard refs/rollback/20260619T123207Z-skill-route-harness-preactivation
+
+Notes:
+- Worktree was clean before this run's edits.
+- Rollback execution is explicit and destructive; this artifact records the recovery path but does not execute it.

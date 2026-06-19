@@ -239,12 +239,23 @@ runtime action keep the row present but blocked. This lets a supervisor promote
 validated documentation, config, test, or code_patch work without treating an
 external skill repository as an installable package.
 
+The activation rows now also include a pre-activation local harness check. Before
+promotion, the controller-visible validation set includes both the
+`skill_route_discovery_lane` replay and the `agent_harness_eval_lane` replay.
+The latter is metadata-only and keeps `external_harness_execution_allowed:
+false`; it exists to prove that a skill-route proposal lane can pass through the
+same local harness evidence surface used for public agent-harness lessons before
+activation. Checklist rows expose the same `preactivation_harness` value and
+external-harness denial so an operator can distinguish local replay from remote
+or upstream harness execution.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:
 
 ```bash
 pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane
+pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane
 ```
 
 ## Route-Hint Policy Preflight
