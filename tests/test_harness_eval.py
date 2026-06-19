@@ -230,6 +230,8 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["lane_map"]["lanes_bounded"] is True
     assert output["lane_map"]["lane_runtime_safe"] is True
     assert output["lane_map"]["local_validation_required"] is True
+    assert output["evidence_strength"]["tier"] == "specific_route_or_validation_evidence"
+    assert output["evidence_strength"]["activation_evidence_sufficient"] is True
     assert output["activation_gate"] == {
         "controller_surface": "skill_route_discovery_lane",
         "activation_scope": "local_proposal_only",
@@ -282,6 +284,51 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "external_skill_activation_allowed": False,
     }
     assert output["privacy"]["runtime_actions_executed"] is False
+
+
+def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-generic-upstream-movement",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "omnigent-generic-movement",
+                    "source_url": "https://github.com/omnigent-ai/omnigent",
+                    "discovery_event_kind": "push",
+                    "evidence_summary": (
+                        "Generic PullRequestEvent and push lifecycle cluster with missing PR detail "
+                        "and only weak activity metadata."
+                    ),
+                    "candidate_lanes": ["documentation", "code_patch"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_generic_upstream_inline.json",
+    )
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "weak_generic_upstream_evidence"
+    assert output["lane_map"]["proposal_lane_count"] == 2
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation"]
+    assert output["evidence_strength"] == {
+        "tier": "weak_generic_upstream_movement",
+        "record_count": 1,
+        "weak_generic_movement_count": 1,
+        "specific_detail_count": 0,
+        "explicit_route_hint_count": 0,
+        "local_validation_signal_count": 0,
+        "activation_evidence_sufficient": False,
+    }
+    assert output["activation_gate"] == {
+        "controller_surface": "skill_route_discovery_lane",
+        "activation_scope": "local_proposal_only",
+        "decision": "review_weak_evidence_before_activation",
+        "reason": "weak_generic_upstream_evidence",
+        "local_proposal_activation_allowed": False,
+        "external_skill_activation_allowed": False,
+    }
 
 
 def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():

@@ -384,6 +384,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in proposal_lanes})
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     lanes_bounded = set(proposal_kinds) <= allowed_lanes
+    evidence_strength = skill_route_discovery_evidence_strength(raw_input, source_kind=source_kind)
 
     failure_mode = skill_route_discovery_lane_failure_mode(
         proposal_lane_count=int(lane_map["proposal_lane_count"]),
@@ -392,6 +393,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         lane_runtime_safe=lane_runtime_safe,
         validation_required=validation_required,
         lanes_bounded=lanes_bounded,
+        weak_generic_evidence_only=evidence_strength["tier"] == "weak_generic_upstream_movement",
     )
     route_status = (
         "passed"
@@ -427,6 +429,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "lane_runtime_safe": lane_runtime_safe,
             "local_validation_required": validation_required,
         },
+        "evidence_strength": evidence_strength,
         "activation_gate": activation_gate,
         "proposal_lanes": [
             {
@@ -459,6 +462,7 @@ def skill_route_discovery_lane_failure_mode(
     lane_runtime_safe: bool,
     validation_required: bool,
     lanes_bounded: bool,
+    weak_generic_evidence_only: bool = False,
 ) -> str:
     if not lane_runtime_safe:
         return "runtime_action_requested"
@@ -470,6 +474,8 @@ def skill_route_discovery_lane_failure_mode(
         return "rejected_candidates_present"
     if not proposal_lane_count:
         return "no_skill_route_lanes"
+    if weak_generic_evidence_only:
+        return "weak_generic_upstream_evidence"
     if downgraded_candidate_count:
         return "unsupported_lanes_downgraded"
     return "none"
@@ -481,6 +487,9 @@ def skill_route_discovery_activation_gate(failure_mode: str) -> dict[str, Any]:
     if failure_mode == "none":
         decision = "ready_for_local_proposal_activation"
         local_proposal_activation_allowed = True
+    elif failure_mode == "weak_generic_upstream_evidence":
+        decision = "review_weak_evidence_before_activation"
+        local_proposal_activation_allowed = False
     elif failure_mode == "unsupported_lanes_downgraded":
         decision = "review_degraded_lane_before_activation"
         local_proposal_activation_allowed = False
@@ -496,6 +505,108 @@ def skill_route_discovery_activation_gate(failure_mode: str) -> dict[str, Any]:
         "local_proposal_activation_allowed": local_proposal_activation_allowed,
         "external_skill_activation_allowed": False,
     }
+
+
+def skill_route_discovery_evidence_strength(raw_input: dict[str, Any], *, source_kind: str) -> dict[str, Any]:
+    """Summarize whether discovery evidence is specific enough for local activation."""
+
+    records = _skill_route_discovery_evidence_records(raw_input, source_kind=source_kind)
+    weak_generic_count = 0
+    specific_detail_count = 0
+    explicit_route_hint_count = 0
+    local_validation_signal_count = 0
+
+    for record in records:
+        text = _skill_route_discovery_record_text(record)
+        event_kind = str(
+            record.get("event_kind")
+            or record.get("discovery_event_kind")
+            or record.get("item_kind")
+            or record.get("kind")
+            or ""
+        ).casefold()
+        is_pr_or_push = any(marker in event_kind for marker in ("pullrequest", "pull_request", "pr", "push"))
+        is_generic = any(
+            marker in text
+            for marker in (
+                "generic",
+                "missing detail",
+                "missing pr detail",
+                "missing implementation",
+                "untitled",
+                "lifecycle",
+                "left review comments",
+                "found potential problems",
+            )
+        )
+        if is_pr_or_push and is_generic:
+            weak_generic_count += 1
+        if any(
+            marker in text
+            for marker in (
+                "commit diff",
+                "diff",
+                "failing local test",
+                "inspected pr body",
+                "local validation",
+                "release note",
+                "test evidence",
+                "validated",
+                "validation evidence",
+            )
+        ):
+            specific_detail_count += 1
+        if record.get("route_hints"):
+            explicit_route_hint_count += 1
+        if any(marker in text for marker in ("ci", "e2e", "pytest", "test", "validated", "validation")):
+            local_validation_signal_count += 1
+
+    if not records:
+        tier = "empty"
+        activation_evidence_sufficient = False
+    elif weak_generic_count and not (
+        specific_detail_count or explicit_route_hint_count or local_validation_signal_count
+    ):
+        tier = "weak_generic_upstream_movement"
+        activation_evidence_sufficient = False
+    else:
+        tier = "specific_route_or_validation_evidence"
+        activation_evidence_sufficient = True
+
+    return {
+        "tier": tier,
+        "record_count": len(records),
+        "weak_generic_movement_count": weak_generic_count,
+        "specific_detail_count": specific_detail_count,
+        "explicit_route_hint_count": explicit_route_hint_count,
+        "local_validation_signal_count": local_validation_signal_count,
+        "activation_evidence_sufficient": activation_evidence_sufficient,
+    }
+
+
+def _skill_route_discovery_evidence_records(raw_input: dict[str, Any], *, source_kind: str) -> list[dict[str, Any]]:
+    key = {
+        "candidates": "candidates",
+        "evidence_items": "evidence_items",
+        "summaries": "summaries",
+    }.get(source_kind, "")
+    values = raw_input.get(key) if key else []
+    if not isinstance(values, list):
+        return []
+    return [record for record in values if isinstance(record, dict)]
+
+
+def _skill_route_discovery_record_text(record: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ("name", "title", "summary", "evidence_summary", "relevance_reason"):
+        value = record.get(key)
+        if isinstance(value, str):
+            parts.append(value)
+    for key in ("topics", "candidate_lanes", "suggested_lanes"):
+        value = record.get(key)
+        if isinstance(value, list):
+            parts.extend(str(item) for item in value)
+    return " ".join(parts).casefold()
 
 
 def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

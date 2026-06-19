@@ -1,0 +1,12 @@
+Run: github-growth-20260619T081207.024082Z
+Branch: codex/blackhole-evolve/20260619T081304.405118-document-a-lightweight-local-interpretation-rule
+Original branch: codex/blackhole-evolve/20260619T081304.405118-document-a-lightweight-local-interpretation-rule
+Original HEAD: c6c062993fb54d9b5fdf0838365e8605ae742e38
+Rollback ref: refs/rollback/20260619T081207Z-skill-route-discovery-pass3
+
+Recovery commands:
+git reset --hard refs/rollback/20260619T081207Z-skill-route-discovery-pass3
+
+Notes:
+Rollback execution is explicit and destructive. Do not run the recovery command
+unless a human operator or external supervisor policy chooses rollback.

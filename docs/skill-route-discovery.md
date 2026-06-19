@@ -178,11 +178,18 @@ contract: documentation, config, test, and code_patch.
 
 The harness output is metadata-only. It reports candidate counts, lane counts,
 proposal kinds, downgrade/rejection counts, whether every lane keeps
-`runtime_action: none`, whether every lane requires local validation, and an
-`activation_gate` for the controller surface. Clean evidence is
+`runtime_action: none`, whether every lane requires local validation, a
+body-free `evidence_strength` summary, and an `activation_gate` for the
+controller surface. Generic pull request or push clusters are
+`weak_generic_upstream_movement` unless the fixture also carries a specific
+summary, explicit route hint, or local validation signal. Weak generic movement
+can support investigation, documentation, or review notes, but it is not
+activation-ready merely because its candidate lanes are otherwise bounded.
+Clean evidence is
 `ready_for_local_proposal_activation`; downgraded evidence is
 `review_degraded_lane_before_activation`; rejected or empty evidence is
-`blocked_before_activation`. The gate always keeps
+`blocked_before_activation`; weak generic upstream movement is
+`review_weak_evidence_before_activation`. The gate always keeps
 `external_skill_activation_allowed: false`; it can only permit local proposal
 activation for clean documentation, config, test, or code_patch lanes. Raw
 source and evidence URLs are hashed rather than exported. Requested activation

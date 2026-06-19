@@ -184,6 +184,11 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "generic, README-level, sparse",
         "`missing_detail_risk`",
         "proposal uncertainty must mention that missing detail\nrisk",
+        "body-free `evidence_strength` summary",
+        "Generic pull request or push clusters are\n`weak_generic_upstream_movement`",
+        "specific\nsummary, explicit route hint, or local validation signal",
+        "not\nactivation-ready merely because its candidate lanes are otherwise bounded",
+        "weak generic upstream movement is\n`review_weak_evidence_before_activation`",
         "\"evidence_refs\": [\"fablecodex-codex-skill-workflow\"]",
         "\"evidence_refs\": [\"https://github.com/baskduf/FableCodex\"]",
     ]
