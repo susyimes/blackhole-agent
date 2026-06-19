@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 27
-    assert payload["pass_count"] == 26
+    assert payload["fixture_count"] == 28
+    assert payload["pass_count"] == 27
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -106,6 +106,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-e2e-runner-tier-host-native-ask-boundary"]["passed"] is True
     assert results["mock-e2e-runner-tier-ci-roundtrip-hang"]["passed"] is True
     assert results["mock-e2e-runner-tier-compaction-known-failure-repoint"]["passed"] is True
+    assert results["mock-e2e-runner-tier-yaml-agent-route"]["passed"] is True
     assert results["mock-llm-chat-completions-contract"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
@@ -149,6 +150,10 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_HOST_NATIVE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_E2E_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_E2E_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_YAML_AGENT_PROMPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_YAML_PARSE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_YAML_AGENT_PATH_DO_NOT_EXPORT" not in serialized
+    assert "local_fixture.tools.retain" not in serialized
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CI_ROUNDTRIP_FAILURE_TEXT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CI_ROUNDTRIP_COMMAND_DO_NOT_EXPORT" not in serialized
@@ -465,12 +470,51 @@ def test_mock_e2e_runner_tier_fixture_exercises_host_native_and_misc_without_ext
         "raw_commands_exported": False,
         "raw_paths_exported": False,
         "raw_contents_exported": False,
+        "raw_agent_yaml_exported": False,
         "hashes_only": True,
     }
     assert "PRIVATE_HOST_NATIVE_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "fixtures/private-input.md" not in serialized
     assert "fixtures/private-output.md" not in serialized
     assert "miscellaneous read result stayed inside local fixture" not in serialized
+
+
+def test_mock_e2e_runner_tier_parses_yaml_agent_route_without_exporting_yaml():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_e2e_runner_tier_yaml_agent_route.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["agent_config"]["configured"] is True
+    assert output["agent_config"]["passed"] is True
+    assert output["agent_config"]["parse_error"] is False
+    assert output["agent_config"]["yaml_hash"].startswith("sha256:")
+    assert output["agent_config"]["executor_harness_hash"].startswith("sha256:")
+    assert output["agent_config"]["function_tool_count"] == 1
+    assert output["agent_config"]["executable_tool_count"] == 1
+    assert output["agent_config"]["non_executable_tool_count"] == 0
+    assert output["agent_config"]["route_counts"] == {"executable": 1}
+    assert output["agent_config"]["required_tool_count"] == 1
+    assert output["agent_config"]["missing_required_tool_count"] == 0
+    assert len(output["agent_config"]["tool_name_hashes"]) == 1
+    assert output["agent_config"]["raw_yaml_exported"] is False
+    assert output["agent_config"]["raw_tool_metadata_exported"] is False
+    assert output["provider"]["external_calls_attempted"] is False
+    assert output["provider"]["credentials_required"] is False
+    assert output["provider"]["network_required"] is False
+    assert output["privacy"]["raw_agent_yaml_exported"] is False
+    assert output["failure_mode"] == "none"
+    assert "PRIVATE_YAML_AGENT_PROMPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_YAML_PARSE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_YAML_AGENT_PATH_DO_NOT_EXPORT" not in serialized
+    assert "local_fixture.tools.retain" not in serialized
+    assert "hindsight_retain" not in serialized
 
 
 def test_mock_e2e_runner_tier_routes_known_failure_repoints_without_raw_failure_text():

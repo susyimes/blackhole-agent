@@ -1,0 +1,104 @@
+{
+  "name": "mock-e2e-runner-tier-yaml-agent-route",
+  "behavior": "mock_e2e_runner_tier",
+  "input": {
+    "task_id": "fixture-mock-e2e-runner-tier-yaml-agent-route",
+    "mock_only": true,
+    "provider": {
+      "name": "yaml-agent-provider",
+      "enabled": false,
+      "credentials_required": false,
+      "network_required": false
+    },
+    "agent_config": {
+      "required_tool_names": ["hindsight_retain"],
+      "yaml": "name: yaml_memory_agent\nprompt: PRIVATE_YAML_AGENT_PROMPT_DO_NOT_EXPORT\nexecutor:\n  harness: codex-cli\ntools:\n  hindsight_retain:\n    type: function\n    description: Store safe local note metadata.\n    callable: local_fixture.tools.retain\n    parameters: {\"type\":\"object\",\"properties\":{\"content\":{\"type\":\"string\"}},\"required\":[\"content\"],\"additionalProperties\":false}\n"
+    },
+    "runner_tiers": [
+      {
+        "name": "host-native",
+        "lane": "host_native",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "parse-single-file-agent-yaml",
+            "observed": "single-file agent yaml parsed into deterministic local function tool metadata",
+            "expect_contains": "deterministic local function tool metadata"
+          }
+        ],
+        "operations": [
+          {
+            "name": "yaml_parse",
+            "command": "PRIVATE_YAML_PARSE_COMMAND_DO_NOT_EXPORT",
+            "mocked": true,
+            "mock_content": "YAML parsing stayed inside mock controller boundary",
+            "expect_content_contains": "mock controller boundary"
+          }
+        ]
+      },
+      {
+        "name": "miscellaneous",
+        "lane": "miscellaneous",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "route-function-tool",
+            "observed": "function tool route preflight produced executable metadata without credentials or network",
+            "expect_contains": "without credentials or network"
+          }
+        ],
+        "operations": [
+          {
+            "name": "tool_route_preflight",
+            "path": "PRIVATE_YAML_AGENT_PATH_DO_NOT_EXPORT.yaml",
+            "mocked": true,
+            "mock_content": "route preflight used local descriptor metadata only",
+            "expect_content_contains": "local descriptor metadata"
+          }
+        ]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "agent_config.configured",
+      "equals": true
+    },
+    {
+      "path": "agent_config.parse_error",
+      "equals": false
+    },
+    {
+      "path": "agent_config.function_tool_count",
+      "equals": 1
+    },
+    {
+      "path": "agent_config.executable_tool_count",
+      "equals": 1
+    },
+    {
+      "path": "agent_config.required_tool_count",
+      "equals": 1
+    },
+    {
+      "path": "agent_config.missing_required_tool_count",
+      "equals": 0
+    },
+    {
+      "path": "provider.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_agent_yaml_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

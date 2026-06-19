@@ -1034,12 +1034,14 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
 
     task_id = optional_string(raw_input.get("task_id")) or source_path.stem
     provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
+    agent_config = raw_input.get("agent_config") if isinstance(raw_input.get("agent_config"), dict) else {}
     runner_tiers = raw_input.get("runner_tiers") if isinstance(raw_input.get("runner_tiers"), list) else []
     known_failure = raw_input.get("known_failure") if isinstance(raw_input.get("known_failure"), dict) else {}
     ci_round_trip = raw_input.get("ci_round_trip") if isinstance(raw_input.get("ci_round_trip"), dict) else {}
     approval_boundary_input = (
         raw_input.get("approval_boundary") if isinstance(raw_input.get("approval_boundary"), dict) else {}
     )
+    agent_config_route = evaluate_mock_e2e_agent_config_yaml(agent_config)
     tier_results = [evaluate_mock_e2e_runner_tier_item(tier) for tier in runner_tiers]
     known_failure_route = evaluate_mock_e2e_known_failure_route(known_failure)
     ci_round_trip_diagnostic = evaluate_mock_e2e_ci_round_trip(ci_round_trip)
@@ -1070,6 +1072,11 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
         known_failure_route_passed=known_failure_route["passed"],
         ci_round_trip_passed=ci_round_trip_diagnostic["passed"],
         approval_boundary_passed=approval_boundary["passed"],
+        agent_config_route_passed=agent_config_route["passed"],
+        agent_config_configured=agent_config_route["configured"],
+        agent_config_parse_error=agent_config_route["parse_error"],
+        agent_config_tool_count=int(agent_config_route["function_tool_count"]),
+        agent_config_executable_count=int(agent_config_route["executable_tool_count"]),
     )
 
     return {
@@ -1085,6 +1092,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
             "network_required": network_required,
             "external_calls_attempted": external_calls_attempted,
         },
+        "agent_config": agent_config_route,
         "runner_tiers": {
             "tier_count": tier_count,
             "host_native_count": host_native_count,
@@ -1101,10 +1109,87 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
             "raw_commands_exported": False,
             "raw_paths_exported": False,
             "raw_contents_exported": False,
+            "raw_agent_yaml_exported": False,
             "hashes_only": True,
         },
         "failure_mode": failure_mode,
     }
+
+
+def evaluate_mock_e2e_agent_config_yaml(agent_config: dict[str, Any]) -> dict[str, Any]:
+    """Parse mocked single-file agent YAML into controller-safe route metadata."""
+
+    yaml_text = optional_string(agent_config.get("yaml") or agent_config.get("content"))
+    if not yaml_text:
+        return {
+            "configured": False,
+            "passed": True,
+            "parse_error": False,
+            "yaml_hash": None,
+            "executor_harness_hash": None,
+            "function_tool_count": 0,
+            "executable_tool_count": 0,
+            "non_executable_tool_count": 0,
+            "route_counts": {},
+            "required_tool_count": 0,
+            "missing_required_tool_count": 0,
+            "tool_name_hashes": [],
+            "raw_yaml_exported": False,
+            "raw_tool_metadata_exported": False,
+        }
+
+    from blackhole_agent.tool_routing import (
+        build_tool_routing_preflight,
+        parse_single_file_agent_yaml,
+        tool_descriptors_from_agent_config,
+    )
+
+    try:
+        parsed = parse_single_file_agent_yaml(yaml_text)
+        descriptors = tool_descriptors_from_agent_config(parsed, session_id="mock-e2e-agent-config")
+        required_tool_names = string_list(agent_config.get("required_tool_names"))
+        preflight = build_tool_routing_preflight(descriptors, required_tool_names=required_tool_names)
+        executor = parsed.get("executor") if isinstance(parsed.get("executor"), dict) else {}
+        executable_count = len(preflight["executable_tool_names"])
+        tool_count = int(preflight["tool_count"])
+        missing_required_count = len(preflight["missing_required_tool_names"])
+        passed = tool_count > 0 and executable_count == tool_count and missing_required_count == 0
+        return {
+            "configured": True,
+            "passed": passed,
+            "parse_error": False,
+            "yaml_hash": stable_text_hash(yaml_text),
+            "executor_harness_hash": stable_text_hash(str(executor.get("harness"))) if executor.get("harness") else None,
+            "function_tool_count": tool_count,
+            "executable_tool_count": executable_count,
+            "non_executable_tool_count": tool_count - executable_count,
+            "route_counts": preflight["route_counts"],
+            "required_tool_count": len(preflight["required_tool_names"]),
+            "missing_required_tool_count": missing_required_count,
+            "tool_name_hashes": [
+                stable_text_hash(str(name)) for name in sorted(preflight["executable_tool_names"])
+            ],
+            "raw_yaml_exported": False,
+            "raw_tool_metadata_exported": False,
+        }
+    except Exception as error:
+        return {
+            "configured": True,
+            "passed": False,
+            "parse_error": True,
+            "error_type": type(error).__name__,
+            "yaml_hash": stable_text_hash(yaml_text),
+            "executor_harness_hash": None,
+            "function_tool_count": 0,
+            "executable_tool_count": 0,
+            "non_executable_tool_count": 0,
+            "route_counts": {},
+            "required_tool_count": 0,
+            "missing_required_tool_count": 0,
+            "tool_name_hashes": [],
+            "raw_yaml_exported": False,
+            "raw_tool_metadata_exported": False,
+        }
 
 
 def evaluate_mock_e2e_runner_tier_item(tier: Any) -> dict[str, Any]:
@@ -1226,6 +1311,11 @@ def mock_e2e_runner_tier_failure_mode(
     known_failure_route_passed: bool,
     ci_round_trip_passed: bool,
     approval_boundary_passed: bool,
+    agent_config_route_passed: bool,
+    agent_config_configured: bool,
+    agent_config_parse_error: bool,
+    agent_config_tool_count: int,
+    agent_config_executable_count: int,
 ) -> str:
     if tier_count < 1:
         return "no_runner_tiers"
@@ -1245,6 +1335,14 @@ def mock_e2e_runner_tier_failure_mode(
         return "unmocked_tool_boundary"
     if not approval_boundary_passed:
         return "approval_path_missing"
+    if agent_config_configured and agent_config_parse_error:
+        return "agent_config_yaml_parse_failed"
+    if agent_config_configured and agent_config_tool_count < 1:
+        return "agent_config_no_function_tools"
+    if agent_config_configured and agent_config_executable_count < agent_config_tool_count:
+        return "agent_config_tool_route_unavailable"
+    if not agent_config_route_passed:
+        return "agent_config_route_preflight_failed"
     if not all_tiers_passed:
         return "tier_expectation_failed"
     if not known_failure_route_passed:

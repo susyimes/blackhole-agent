@@ -1,0 +1,31 @@
+Rollback point for source digest github-growth-20260619T073206.998049Z
+
+Original branch:
+codex/blackhole-evolve/20260619T073413.349758-add-or-extend-local-mock-e2e-harness-tests-for-y
+
+Original HEAD:
+4078907b735ea8909d15e92cbbe58916492735af
+
+Local rollback ref:
+refs/blackhole-rollback/20260619T073450Z-skill-route-yaml-harness
+
+Recovery commands, for explicit operator use only:
+git reset --hard refs/blackhole-rollback/20260619T073450Z-skill-route-yaml-harness
+git clean -fd
+
+Run hypothesis:
+Public harness evidence points to YAML-defined/custom agent configs and profile-driven harness setup. Locally, blackhole-agent should be able to validate a YAML-driven mock E2E controller route without provider calls, credentials, upstream code import, or raw body export.
+
+External evidence reviewed:
+- https://github.com/omnigent-ai/omnigent
+- https://github.com/visa/visa-vulnerability-agentic-harness
+- https://github.com/baskduf/FableCodex
+
+Material local actions:
+- Created local rollback ref before file edits.
+- Extended the mock E2E runner-tier evaluator to parse compact single-file agent YAML through the existing local tool-routing parser and report only controller-safe metadata.
+- Added a local fixture and regression test for YAML-driven agent config routing.
+- Updated architecture documentation for the new metadata-only lane.
+
+Self-model decision:
+Left docs/self-model.md unchanged. The current preference already supports rollback-backed, locally validated behavior changes, and this run produced a concrete controller/harness improvement rather than a self-description correction.
