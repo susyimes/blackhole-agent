@@ -1,0 +1,9 @@
+Rollback point for github-growth-20260619T013207.154555Z
+Original branch: codex/blackhole-evolve/20260619T013303.290848-add-or-adapt-a-local-validation-lane-for-mock-en
+Original HEAD: d63f64da7108fec60260125f16b692d24c11e876
+Rollback ref: refs/blackhole-rollback/20260619T013206Z-mock-e2e-runner-lane
+
+Recovery commands (destructive; operator/supervisor only):
+git switch codex/blackhole-evolve/20260619T013303.290848-add-or-adapt-a-local-validation-lane-for-mock-en
+git reset --hard refs/blackhole-rollback/20260619T013206Z-mock-e2e-runner-lane
+git clean -fd

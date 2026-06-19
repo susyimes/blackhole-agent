@@ -1,0 +1,128 @@
+{
+  "name": "mock-e2e-runner-tier-host-native-misc",
+  "behavior": "mock_e2e_runner_tier",
+  "input": {
+    "task_id": "fixture-mock-e2e-runner-tier-host-native-misc",
+    "mock_only": true,
+    "provider": {
+      "name": "external-agent-provider",
+      "enabled": false,
+      "credentials_required": false,
+      "network_required": false
+    },
+    "runner_tiers": [
+      {
+        "name": "host-native",
+        "lane": "host_native",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "prepare-host-runner",
+            "observed": "host-native sandbox preflight accepted mocked shell and workspace state",
+            "expect_contains": "sandbox preflight accepted"
+          },
+          {
+            "id": "capture-host-result",
+            "observed": "host-native runner produced deterministic mocked result",
+            "expect_contains": "deterministic mocked result"
+          }
+        ],
+        "operations": [
+          {
+            "name": "shell_command",
+            "command": "PRIVATE_HOST_NATIVE_COMMAND_DO_NOT_EXPORT",
+            "mocked": true,
+            "mock_content": "host-native operation completed through mock boundary",
+            "expect_content_contains": "mock boundary"
+          }
+        ]
+      },
+      {
+        "name": "miscellaneous",
+        "lane": "miscellaneous",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "misc-tool-roundtrip",
+            "observed": "miscellaneous mocked journey exercised local file and route metadata",
+            "expect_contains": "local file and route metadata"
+          }
+        ],
+        "operations": [
+          {
+            "name": "read_file",
+            "path": "fixtures/private-input.md",
+            "mocked": true,
+            "mock_content": "miscellaneous read result stayed inside local fixture",
+            "expect_content_contains": "local fixture"
+          },
+          {
+            "name": "write_file",
+            "path": "fixtures/private-output.md",
+            "mocked": true,
+            "mock_content": "miscellaneous write result stayed inside local fixture",
+            "expect_content_contains": "local fixture"
+          }
+        ]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "provider.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "provider.credentials_required",
+      "equals": false
+    },
+    {
+      "path": "provider.network_required",
+      "equals": false
+    },
+    {
+      "path": "runner_tiers.tier_count",
+      "equals": 2
+    },
+    {
+      "path": "runner_tiers.host_native_count",
+      "equals": 1
+    },
+    {
+      "path": "runner_tiers.miscellaneous_count",
+      "equals": 1
+    },
+    {
+      "path": "runner_tiers.all_tiers_mocked",
+      "equals": true
+    },
+    {
+      "path": "runner_tiers.all_tiers_passed",
+      "equals": true
+    },
+    {
+      "path": "runner_tiers.tool_boundaries_mocked",
+      "equals": true
+    },
+    {
+      "path": "privacy.raw_commands_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_paths_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_contents_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

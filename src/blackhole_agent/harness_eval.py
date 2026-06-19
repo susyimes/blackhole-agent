@@ -40,6 +40,7 @@ SAFETY_BOUNDARY_REVIEW_FLAGS = {
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_workflow_route",
     "harness_run_summary",
+    "mock_e2e_runner_tier",
     "mock_llm_workflow_route",
     "native_tool_call_policy",
     "provider_runtime_preflight",
@@ -283,6 +284,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_agent_workflow_route(raw_input, source_path=source_path)
     if behavior == "harness_run_summary":
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
+    if behavior == "mock_e2e_runner_tier":
+        return evaluate_mock_e2e_runner_tier(raw_input, source_path=source_path)
     if behavior == "mock_llm_workflow_route":
         return evaluate_mock_llm_workflow_route(raw_input, source_path=source_path)
     if behavior == "native_tool_call_policy":
@@ -438,6 +441,167 @@ def workspace_changes_panel_failure_mode(
         return "missing_non_git_tracking_limitation"
     if not is_git_repo and git_metadata_required:
         return "git_metadata_required_for_non_git_workspace"
+    return "none"
+
+
+def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate tiered mock runner journeys without credentials, network, or real provider calls."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
+    runner_tiers = raw_input.get("runner_tiers") if isinstance(raw_input.get("runner_tiers"), list) else []
+    tier_results = [evaluate_mock_e2e_runner_tier_item(tier) for tier in runner_tiers]
+
+    provider_enabled = truthy(provider.get("enabled"))
+    mock_only = truthy(raw_input.get("mock_only")) or truthy(provider.get("mock_only")) or not provider_enabled
+    external_calls_attempted = provider_enabled and not mock_only
+    credentials_required = truthy(provider.get("credentials_required"))
+    network_required = truthy(provider.get("network_required"))
+
+    tier_count = len(tier_results)
+    host_native_count = sum(1 for tier in tier_results if tier["lane"] == "host_native")
+    miscellaneous_count = sum(1 for tier in tier_results if tier["lane"] == "miscellaneous")
+    all_tiers_mocked = bool(tier_results) and all(tier["mocked"] for tier in tier_results)
+    all_tiers_passed = bool(tier_results) and all(tier["passed"] for tier in tier_results)
+    tool_boundaries_mocked = all(tier["tool_boundary"]["all_operations_mocked"] for tier in tier_results)
+    failure_mode = mock_e2e_runner_tier_failure_mode(
+        tier_count=tier_count,
+        host_native_count=host_native_count,
+        miscellaneous_count=miscellaneous_count,
+        external_calls_attempted=external_calls_attempted,
+        credentials_required=credentials_required,
+        network_required=network_required,
+        all_tiers_mocked=all_tiers_mocked,
+        all_tiers_passed=all_tiers_passed,
+        tool_boundaries_mocked=tool_boundaries_mocked,
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "mock_e2e_runner_tier",
+        "task_id": task_id,
+        "route_status": "passed" if failure_mode == "none" else "failed",
+        "provider": {
+            "name": optional_string(provider.get("name")) or "external-provider",
+            "enabled": provider_enabled,
+            "mock_only": mock_only,
+            "credentials_required": credentials_required,
+            "network_required": network_required,
+            "external_calls_attempted": external_calls_attempted,
+        },
+        "runner_tiers": {
+            "tier_count": tier_count,
+            "host_native_count": host_native_count,
+            "miscellaneous_count": miscellaneous_count,
+            "all_tiers_mocked": all_tiers_mocked,
+            "all_tiers_passed": all_tiers_passed,
+            "tool_boundaries_mocked": tool_boundaries_mocked,
+            "tiers": tier_results,
+        },
+        "privacy": {
+            "raw_commands_exported": False,
+            "raw_paths_exported": False,
+            "raw_contents_exported": False,
+            "hashes_only": True,
+        },
+        "failure_mode": failure_mode,
+    }
+
+
+def evaluate_mock_e2e_runner_tier_item(tier: Any) -> dict[str, Any]:
+    tier_data = tier if isinstance(tier, dict) else {}
+    lane = normalize_mock_e2e_runner_lane(tier_data.get("lane") or tier_data.get("name"))
+    steps = tier_data.get("steps") if isinstance(tier_data.get("steps"), list) else []
+    operations = tier_data.get("operations") if isinstance(tier_data.get("operations"), list) else []
+    step_results = [evaluate_mock_e2e_step(step) for step in steps]
+    operation_results = [evaluate_mock_e2e_operation(operation) for operation in operations]
+    mocked = truthy(tier_data.get("mocked")) or bool(step_results or operation_results)
+    steps_passed = bool(step_results) and all(step["expectation_passed"] for step in step_results)
+    all_operations_mocked = all(operation["mocked"] for operation in operation_results)
+    operations_passed = all(operation["expectation_passed"] for operation in operation_results)
+    return {
+        "lane": lane,
+        "name_hash": stable_text_hash(optional_string(tier_data.get("name")) or lane),
+        "mocked": mocked,
+        "step_count": len(step_results),
+        "steps_passed": steps_passed,
+        "passed": mocked and steps_passed and all_operations_mocked and operations_passed,
+        "tool_boundary": {
+            "operation_count": len(operation_results),
+            "mocked_count": sum(1 for operation in operation_results if operation["mocked"]),
+            "all_operations_mocked": all_operations_mocked,
+            "all_expectations_passed": operations_passed,
+            "operations": operation_results,
+        },
+    }
+
+
+def normalize_mock_e2e_runner_lane(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if text in {"host_native", "native", "host"}:
+        return "host_native"
+    if text in {"miscellaneous", "misc", "misc_mock"}:
+        return "miscellaneous"
+    return "unknown"
+
+
+def evaluate_mock_e2e_step(step: Any) -> dict[str, Any]:
+    step_data = step if isinstance(step, dict) else {}
+    observed = optional_string(step_data.get("observed")) or ""
+    expect_contains = optional_string(step_data.get("expect_contains"))
+    return {
+        "id": optional_string(step_data.get("id")) or "step",
+        "observed_hash": stable_text_hash(observed) if observed else None,
+        "expectation_passed": expect_contains is None or expect_contains in observed,
+    }
+
+
+def evaluate_mock_e2e_operation(operation: Any) -> dict[str, Any]:
+    operation_data = operation if isinstance(operation, dict) else {}
+    command = optional_string(operation_data.get("command"))
+    path = optional_string(operation_data.get("path"))
+    content = optional_string(operation_data.get("mock_content")) or ""
+    expect_contains = optional_string(operation_data.get("expect_content_contains"))
+    return {
+        "name": optional_string(operation_data.get("name")) or "operation",
+        "mocked": truthy(operation_data.get("mocked")),
+        "command_hash": stable_text_hash(command) if command else None,
+        "path_hash": stable_text_hash(path) if path else None,
+        "content_hash": stable_text_hash(content) if content else None,
+        "expectation_passed": expect_contains is None or expect_contains in content,
+    }
+
+
+def mock_e2e_runner_tier_failure_mode(
+    *,
+    tier_count: int,
+    host_native_count: int,
+    miscellaneous_count: int,
+    external_calls_attempted: bool,
+    credentials_required: bool,
+    network_required: bool,
+    all_tiers_mocked: bool,
+    all_tiers_passed: bool,
+    tool_boundaries_mocked: bool,
+) -> str:
+    if tier_count < 1:
+        return "no_runner_tiers"
+    if external_calls_attempted:
+        return "external_provider_required"
+    if credentials_required:
+        return "credentials_required"
+    if network_required:
+        return "network_required"
+    if host_native_count < 1:
+        return "host_native_tier_missing"
+    if miscellaneous_count < 1:
+        return "miscellaneous_tier_missing"
+    if not all_tiers_mocked:
+        return "tier_not_mocked"
+    if not tool_boundaries_mocked:
+        return "unmocked_tool_boundary"
+    if not all_tiers_passed:
+        return "tier_expectation_failed"
     return "none"
 
 
