@@ -1,0 +1,93 @@
+{
+  "name": "agent-workflow-route-oneshot-marker-absent",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-oneshot-marker-absent",
+    "plan": {
+      "steps": [
+        {
+          "id": "inspect",
+          "status": "completed"
+        },
+        {
+          "id": "activate",
+          "status": "pending"
+        }
+      ]
+    },
+    "oneshot_marker": {
+      "required": true,
+      "present": false,
+      "path": "PRIVATE_ONESHOT_MARKER_PATH_DO_NOT_EXPORT"
+    },
+    "runner": {
+      "invoked": false,
+      "returncode": null,
+      "timed_out": false
+    },
+    "validation": {
+      "gate": "narrow-local-verification",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-route-marker",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-oneshot-marker-absent",
+      "artifact_path": "artifacts/rollback/fixture-route-oneshot-marker-absent.txt"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked_before_activation"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "oneshot_marker_missing"
+    },
+    {
+      "path": "oneshot_marker.required",
+      "equals": true
+    },
+    {
+      "path": "oneshot_marker.present",
+      "equals": false
+    },
+    {
+      "path": "oneshot_marker.ready",
+      "equals": false
+    },
+    {
+      "path": "oneshot_marker.failure_mode",
+      "equals": "oneshot_marker_missing"
+    },
+    {
+      "path": "oneshot_marker.raw_path_exported",
+      "equals": false
+    },
+    {
+      "path": "state_transitions.1.state",
+      "equals": "oneshot_marker_checked"
+    },
+    {
+      "path": "state_transitions.1.outcome",
+      "equals": "failed"
+    },
+    {
+      "path": "runner.invoked",
+      "equals": false
+    },
+    {
+      "path": "validation.gate",
+      "equals": "narrow-local-verification"
+    },
+    {
+      "path": "rollback.recovery_mode",
+      "equals": "explicit_operator_reset"
+    }
+  ]
+}

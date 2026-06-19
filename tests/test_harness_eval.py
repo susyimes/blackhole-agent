@@ -80,8 +80,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 30
-    assert payload["pass_count"] == 29
+    assert payload["fixture_count"] == 31
+    assert payload["pass_count"] == 30
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -103,11 +103,13 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FAIL_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_ONESHOT_MARKER_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HEADLESS_TEXT_EVENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FUNCTION_ARGUMENT_DO_NOT_EXPORT" not in serialized
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
@@ -855,6 +857,34 @@ def test_agent_workflow_route_fixture_records_state_validation_and_recovery():
         "completed",
     ]
     assert output["state_transitions"][-1] == {"state": "completed", "outcome": "failed"}
+
+
+def test_agent_workflow_route_blocks_before_activation_when_oneshot_marker_absent():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_oneshot_marker_absent.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked_before_activation"
+    assert output["failure_mode"] == "oneshot_marker_missing"
+    assert output["oneshot_marker"]["required"] is True
+    assert output["oneshot_marker"]["present"] is False
+    assert output["oneshot_marker"]["ready"] is False
+    assert output["oneshot_marker"]["path_hash"].startswith("sha256:")
+    assert output["oneshot_marker"]["raw_path_exported"] is False
+    assert output["runner"]["invoked"] is False
+    assert output["validation"]["gate"] == "narrow-local-verification"
+    assert output["rollback"]["recovery_mode"] == "explicit_operator_reset"
+    assert output["state_transitions"][1] == {
+        "state": "oneshot_marker_checked",
+        "outcome": "failed",
+    }
+    assert "PRIVATE_ONESHOT_MARKER_PATH_DO_NOT_EXPORT" not in serialized
 
 
 def test_mock_e2e_runner_tier_fixture_exercises_host_native_and_misc_without_external_calls():

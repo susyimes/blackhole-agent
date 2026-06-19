@@ -3546,10 +3546,14 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     checks = validation.get("checks") if isinstance(validation.get("checks"), list) else []
     rollback = raw_input.get("rollback") if isinstance(raw_input.get("rollback"), dict) else {}
     lifecycle = raw_input.get("lifecycle") if isinstance(raw_input.get("lifecycle"), dict) else {}
+    oneshot_marker = (
+        raw_input.get("oneshot_marker") if isinstance(raw_input.get("oneshot_marker"), dict) else {}
+    )
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
     runner_timed_out = truthy(runner.get("timed_out"))
+    marker_result = evaluate_agent_workflow_oneshot_marker(oneshot_marker)
     validation_gate = optional_string(validation.get("gate")) or "local-agent-workflow-route"
     validation_checks = [
         {
@@ -3566,9 +3570,12 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     rollback_available = truthy(rollback.get("created")) and bool(rollback_ref or rollback_artifact)
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
+        oneshot_marker_ready=marker_result["ready"],
+        oneshot_marker_required=marker_result["required"],
         runner_invoked=runner_invoked,
         validation_checks=validation_checks,
         failure_mode=agent_workflow_failure_mode(
+            oneshot_marker_ready=marker_result["ready"],
             runner_invoked=runner_invoked,
             runner_returncode=runner_returncode,
             runner_timed_out=runner_timed_out,
@@ -3580,17 +3587,23 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     lifecycle_result = evaluate_agent_workflow_lifecycle(lifecycle, state_transitions)
 
     failure_mode = agent_workflow_failure_mode(
+        oneshot_marker_ready=marker_result["ready"],
         runner_invoked=runner_invoked,
         runner_returncode=runner_returncode,
         runner_timed_out=runner_timed_out,
         validation_passed=validation_passed,
         lifecycle_passed=lifecycle_result["passed"],
     )
-    route_status = (
-        "passed" if failure_mode == "none" else "failed_recoverable" if rollback_available else "failed_unrecoverable"
-    )
+    if failure_mode == "none":
+        route_status = "passed"
+    elif failure_mode == "oneshot_marker_missing":
+        route_status = "blocked_before_activation"
+    else:
+        route_status = "failed_recoverable" if rollback_available else "failed_unrecoverable"
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
+        oneshot_marker_ready=marker_result["ready"],
+        oneshot_marker_required=marker_result["required"],
         runner_invoked=runner_invoked,
         validation_checks=validation_checks,
         failure_mode=failure_mode,
@@ -3616,6 +3629,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             "returncode": runner_returncode,
             "timed_out": runner_timed_out,
         },
+        "oneshot_marker": marker_result,
         "lifecycle": lifecycle_result,
         "validation": {
             "gate": validation_gate,
@@ -3635,12 +3649,15 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
 
 def agent_workflow_failure_mode(
     *,
+    oneshot_marker_ready: bool,
     runner_invoked: bool,
     runner_returncode: int | None,
     runner_timed_out: bool,
     validation_passed: bool,
     lifecycle_passed: bool,
 ) -> str:
+    if not oneshot_marker_ready:
+        return "oneshot_marker_missing"
     if not runner_invoked:
         return "runner_not_invoked"
     if runner_timed_out:
@@ -3657,6 +3674,8 @@ def agent_workflow_failure_mode(
 def build_agent_workflow_state_transitions(
     *,
     plan_steps: list[Any],
+    oneshot_marker_ready: bool = True,
+    oneshot_marker_required: bool = False,
     runner_invoked: bool,
     validation_checks: list[dict[str, Any]],
     failure_mode: str,
@@ -3664,8 +3683,15 @@ def build_agent_workflow_state_transitions(
 ) -> list[dict[str, Any]]:
     transitions = [
         {"state": "planned", "outcome": "passed" if plan_steps else "failed"},
-        {"state": "runner_invoked", "outcome": "passed" if runner_invoked else "failed"},
     ]
+    if oneshot_marker_required:
+        transitions.append(
+            {
+                "state": "oneshot_marker_checked",
+                "outcome": "passed" if oneshot_marker_ready else "failed",
+            }
+        )
+    transitions.append({"state": "runner_invoked", "outcome": "passed" if runner_invoked else "failed"})
     if runner_invoked:
         transitions.append(
             {
@@ -3694,6 +3720,33 @@ def build_agent_workflow_state_transitions(
         }
     )
     return transitions
+
+
+def evaluate_agent_workflow_oneshot_marker(marker: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate the controller-visible one-shot marker without exporting local paths."""
+
+    required = truthy(marker.get("required"))
+    present = truthy(marker.get("present"))
+    path = optional_string(marker.get("path"))
+    stale = truthy(marker.get("stale"))
+    ready = (not required) or (present and not stale)
+    if not required:
+        failure_mode = "not_required"
+    elif not present:
+        failure_mode = "oneshot_marker_missing"
+    elif stale:
+        failure_mode = "oneshot_marker_stale"
+    else:
+        failure_mode = "none"
+    return {
+        "required": required,
+        "present": present,
+        "stale": stale,
+        "ready": ready,
+        "failure_mode": failure_mode,
+        "path_hash": stable_text_hash(path) if path else None,
+        "raw_path_exported": False,
+    }
 
 
 def evaluate_agent_workflow_lifecycle(
@@ -4092,6 +4145,11 @@ def value_at_path(payload: dict[str, Any], path: str) -> Any:
         if isinstance(current, dict) and part in current:
             current = current[part]
             continue
+        if isinstance(current, list) and part.isdigit():
+            index = int(part)
+            if 0 <= index < len(current):
+                current = current[index]
+                continue
         return None
     return current
 

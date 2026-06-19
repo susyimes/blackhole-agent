@@ -1,0 +1,10 @@
+Rollback point: agent harness oneshot marker validation
+Created at: 2026-06-19T10:52:06Z
+Original branch: codex/blackhole-evolve/20260619T105322.054161-add-or-extend-local-tests-that-exercise-agent-ha
+Original HEAD: 3fb7b89e699e0b39f260f34811650d8ade63bc7f
+Rollback ref: refs/rollback/20260619T105206Z-agent-harness-oneshot-marker
+
+Recovery commands (explicit/destructive; operator only):
+git switch codex/blackhole-evolve/20260619T105322.054161-add-or-extend-local-tests-that-exercise-agent-ha
+git reset --hard refs/rollback/20260619T105206Z-agent-harness-oneshot-marker
+git clean -fd -- artifacts/self-evolution/github-growth-20260619T105207.012322Z-codex-run-notes.md
