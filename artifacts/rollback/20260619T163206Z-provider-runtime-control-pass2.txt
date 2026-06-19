@@ -1,0 +1,18 @@
+Rollback point for source digest github-growth-20260619T163206.975939Z
+
+Original branch:
+codex/blackhole-evolve/20260619T163309.572867-add-or-extend-local-validation-coverage-for-skil
+
+Original HEAD:
+53b1ccfc5c22b23f47d18554ebbec8cf695cbcdd
+
+Local rollback ref:
+refs/rollback/20260619T163206Z-provider-runtime-control-pass2
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T163309.572867-add-or-extend-local-validation-coverage-for-skil
+git reset --hard refs/rollback/20260619T163206Z-provider-runtime-control-pass2
+
+Notes:
+Rollback execution is explicit and destructive. A human operator or external
+supervisor policy must choose it before running the recovery commands.

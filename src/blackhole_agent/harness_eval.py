@@ -864,6 +864,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         else "blocked"
     )
     activation_gate = skill_route_discovery_activation_gate(failure_mode)
+    recovery_hints = skill_route_discovery_recovery_hints(
+        failure_mode,
+        evidence_strength=evidence_strength,
+        lane_map=lane_map,
+    )
     discovery_checklist = build_skill_route_discovery_checklist(proposal_lanes)
     activation_lanes = build_skill_route_discovery_activation_lanes(
         proposal_lanes,
@@ -878,6 +883,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         failure_mode = "preactivation_trust_boundary_failed"
         route_status = "blocked"
         activation_gate = skill_route_discovery_activation_gate(failure_mode)
+        recovery_hints = skill_route_discovery_recovery_hints(
+            failure_mode,
+            evidence_strength=evidence_strength,
+            lane_map=lane_map,
+        )
         activation_lanes = build_skill_route_discovery_activation_lanes(
             proposal_lanes,
             activation_allowed=False,
@@ -919,6 +929,16 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "evidence_strength": evidence_strength,
         "activation_gate": activation_gate,
+        "diagnostics": {
+            "failure_mode": failure_mode,
+            "evidence_tier": evidence_strength["tier"],
+            "candidate_count": lane_map["candidate_count"],
+            "proposal_lane_count": lane_map["proposal_lane_count"],
+            "rejected_candidate_count": lane_map["rejected_candidate_count"],
+            "downgraded_candidate_count": lane_map["downgraded_candidate_count"],
+            "body_free": True,
+        },
+        "recovery_hints": recovery_hints,
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "activation_lanes": activation_lanes,
         "discovery_checklist": discovery_checklist,
@@ -943,6 +963,84 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "runtime_actions_executed": False,
         },
     }
+
+
+def skill_route_discovery_recovery_hints(
+    failure_mode: str,
+    *,
+    evidence_strength: dict[str, Any],
+    lane_map: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Return body-free recovery hints for blocked or degraded skill-route evidence."""
+
+    if failure_mode == "none":
+        return []
+
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    common = {
+        "scope": "skill_route_discovery_lane",
+        "required_validation": validation_commands,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "value_recorded": False,
+    }
+    if failure_mode == "weak_generic_upstream_evidence":
+        return [
+            {
+                **common,
+                "code": "skill_route_sparse_upstream_movement",
+                "safe_action": (
+                    "Add a focused local corroboration record or fixture before promoting this "
+                    "repository movement into documentation, config, test, or code_patch work."
+                ),
+                "evidence_tier": str(evidence_strength.get("tier") or ""),
+                "local_corroborating_signal_count": int(
+                    evidence_strength.get("local_corroborating_signal_count") or 0
+                ),
+            }
+        ]
+    if failure_mode == "unsupported_lanes_downgraded":
+        return [
+            {
+                **common,
+                "code": "skill_route_unsupported_lanes_downgraded",
+                "safe_action": (
+                    "Review downgraded lanes and keep only documentation, config, test, or code_patch "
+                    "before local proposal activation."
+                ),
+                "downgraded_candidate_count": int(lane_map.get("downgraded_candidate_count") or 0),
+            }
+        ]
+    if failure_mode == "rejected_candidates_present":
+        return [
+            {
+                **common,
+                "code": "skill_route_rejected_candidates_present",
+                "safe_action": (
+                    "Remove actionful, unsafe, private, or malformed candidate metadata and replay "
+                    "the local harness before activation."
+                ),
+                "rejected_candidate_count": int(lane_map.get("rejected_candidate_count") or 0),
+            }
+        ]
+    if failure_mode == "preactivation_trust_boundary_failed":
+        return [
+            {
+                **common,
+                "code": "skill_route_preactivation_trust_boundary_failed",
+                "safe_action": (
+                    "Regenerate activation lanes from the disabled registry and rerun the local "
+                    "preactivation harness checks."
+                ),
+            }
+        ]
+    return [
+        {
+            **common,
+            "code": f"skill_route_{failure_mode}",
+            "safe_action": "Inspect body-free diagnostics, correct the local fixture metadata, and replay validation.",
+        }
+    ]
 
 
 def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:

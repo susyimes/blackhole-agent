@@ -614,6 +614,31 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
     assert output["failure_mode"] == "weak_generic_upstream_evidence"
     assert output["lane_map"]["proposal_lane_count"] == 2
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation"]
+    assert output["diagnostics"] == {
+        "failure_mode": "weak_generic_upstream_evidence",
+        "evidence_tier": "weak_generic_upstream_movement",
+        "candidate_count": 1,
+        "proposal_lane_count": 2,
+        "rejected_candidate_count": 0,
+        "downgraded_candidate_count": 0,
+        "body_free": True,
+    }
+    assert output["recovery_hints"] == [
+        {
+            "scope": "skill_route_discovery_lane",
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "raw_evidence_exported": False,
+            "raw_source_urls_exported": False,
+            "value_recorded": False,
+            "code": "skill_route_sparse_upstream_movement",
+            "safe_action": (
+                "Add a focused local corroboration record or fixture before promoting this repository movement "
+                "into documentation, config, test, or code_patch work."
+            ),
+            "evidence_tier": "weak_generic_upstream_movement",
+            "local_corroborating_signal_count": 0,
+        }
+    ]
     assert [entry["allowed_local_lane"] for entry in output["discovery_checklist"]] == [
         "documentation",
         "code_patch",
