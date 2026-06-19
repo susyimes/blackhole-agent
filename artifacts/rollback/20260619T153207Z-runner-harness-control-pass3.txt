@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260619T153207.041693Z
+
+Original branch: codex/blackhole-evolve/20260619T153301.360144-add-or-update-a-local-validation-lane-that-evalu
+Original HEAD: 8356509dbb5e9042923609f9e90b876b96a84704
+Local rollback ref: refs/blackhole-agent/rollback/github-growth-20260619T153207.041693Z
+
+Recovery commands (explicit/destructive; operator policy must choose execution):
+  git reset --hard 8356509dbb5e9042923609f9e90b876b96a84704
+  git clean -fd
+
+Run notes:
+  Source digest: github-growth-20260619T153207.041693Z
+  Capability theme: runner-harness-control, pass 3 of 4
+  Created before source edits in this kernel run.

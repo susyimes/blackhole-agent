@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 35
-    assert payload["pass_count"] == 34
+    assert payload["fixture_count"] == 36
+    assert payload["pass_count"] == 35
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -140,6 +140,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
+    assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
     assert results["provider-runtime-recovery-summary-blocked-and-degraded"]["passed"] is True
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
@@ -1443,6 +1444,95 @@ def test_provider_runtime_preflight_skips_worker_env_inherit_when_worker_tool_mi
     assert "OPENAI_API_KEY" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_before_launch():
+    missing_fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_omnigent_model_command_missing.json"
+    missing_fixture = json.loads(missing_fixture_path.read_text(encoding="utf-8"))
+
+    missing = evaluate_harness_behavior(
+        str(missing_fixture["behavior"]),
+        missing_fixture["input"],
+        source_path=missing_fixture_path,
+    )
+    malformed = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-omnigent-model-command-malformed",
+            "provider": {
+                "name": "omnigent-yaml-agent",
+                "harness": "omnigent",
+                "model_command_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_command": "PRIVATE_MODEL_COMMAND_DO_NOT_EXPORT",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_model_command_malformed_inline.json",
+    )
+    configured = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-omnigent-model-command-configured",
+            "provider": {
+                "name": "omnigent-yaml-agent",
+                "harness": "omnigent",
+                "model_command_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_command": ["omnigent", "run", "--agent", "PRIVATE_AGENT_NAME_DO_NOT_EXPORT"],
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_model_command_configured_inline.json",
+    )
+    serialized = json.dumps({"missing": missing, "malformed": malformed, "configured": configured}, sort_keys=True)
+
+    assert missing["route_status"] == "blocked"
+    assert missing["failure_mode"] == "provider_model_command_missing"
+    assert missing["runtime"]["runner_invoked"] is False
+    assert missing["model_command"] == {
+        "required": True,
+        "configured": False,
+        "ok": False,
+        "failure_mode": "provider_model_command_missing",
+        "command_shape_valid": False,
+        "command_arg_count": 0,
+        "command_hashes": [],
+        "raw_command_exported": False,
+        "diagnostics": ["provider model command is required but was not configured"],
+    }
+
+    assert malformed["route_status"] == "blocked"
+    assert malformed["failure_mode"] == "provider_model_command_malformed"
+    assert malformed["runtime"]["runner_invoked"] is False
+    assert malformed["model_command"]["configured"] is True
+    assert malformed["model_command"]["command_shape_valid"] is False
+    assert malformed["model_command"]["command_hashes"] == []
+    assert malformed["model_command"]["raw_command_exported"] is False
+
+    assert configured["route_status"] == "passed"
+    assert configured["failure_mode"] == "none"
+    assert configured["runtime"]["runner_invoked"] is True
+    assert configured["model_command"]["ok"] is True
+    assert configured["model_command"]["command_arg_count"] == 4
+    assert len(configured["model_command"]["command_hashes"]) == 4
+    assert all(command_hash.startswith("sha256:") for command_hash in configured["model_command"]["command_hashes"])
+
+    assert "PRIVATE_MODEL_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AGENT_NAME_DO_NOT_EXPORT" not in serialized
+    assert "omnigent run" not in serialized
+
+
 def test_mock_e2e_runner_tier_fails_when_required_tier_is_missing():
     output = evaluate_harness_behavior(
         "mock_e2e_runner_tier",
@@ -2464,6 +2554,49 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     }
     assert "~/.local/bin/claude" not in serialized
     assert "127.0.0.1" not in serialized
+
+    command_gap = evaluate_harness_behavior(
+        "provider_runtime_recovery_summary",
+        {
+            "task_id": "fixture-provider-runtime-recovery-summary-model-command",
+            "preflights": [
+                {
+                    "provider": {
+                        "name": "omnigent-yaml-agent",
+                        "harness": "omnigent",
+                        "model_command_required": True,
+                    },
+                    "runtime": {
+                        "platform": "linux",
+                        "launch_transport": "subprocess",
+                    },
+                    "runner_env": {
+                        "parent_env_keys": ["PATH"],
+                        "allowlist": ["PATH"],
+                    },
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_recovery_summary_model_command_inline.json",
+    )
+
+    assert command_gap["route_status"] == "blocked"
+    assert command_gap["blocked_failure_modes"] == ["provider_model_command_missing"]
+    assert command_gap["runner_invoked_count"] == 0
+    assert command_gap["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_model_command_missing",
+            "scope": "provider_model_command",
+            "severity": "blocker",
+            "action": "configure a non-empty provider model command list before launching the harness",
+            "command_required": True,
+            "command_configured": False,
+            "command_arg_count": 0,
+        }
+    ]
     assert "OPENAI_API_KEY" not in serialized
 
 

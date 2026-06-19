@@ -3520,6 +3520,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
+    model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -3585,6 +3586,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     blocked = (
         (incompatible_sandbox and not degraded)
         or native_terminal_timeout_risk
+        or not model_command_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
         or not browser_preflight["url_safety"]["ok"]
@@ -3602,6 +3604,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     )
     diagnostics.extend(browser_preflight["preflight"]["diagnostics"])
     diagnostics.extend(prompt_preflight["preflight"]["diagnostics"])
+    diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
             required_env_key_count=len(required_env_keys),
@@ -3616,7 +3619,9 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     if blocked:
         route_status = "blocked"
         failure_mode = (
-            "provider_env_missing"
+            model_command_preflight["failure_mode"]
+            if not model_command_preflight["ok"]
+            else "provider_env_missing"
             if env_preflight_failed
             else "url_safety_preflight_failed"
             if not browser_preflight["url_safety"]["ok"]
@@ -3705,6 +3710,52 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "browser_tooling": browser_preflight["browser_tooling"],
         "url_safety": browser_preflight["url_safety"],
         "prompt_scan": prompt_preflight["prompt_scan"],
+        "model_command": model_command_preflight,
+    }
+
+
+def evaluate_provider_model_command_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate model command metadata before a provider harness can launch."""
+
+    required = truthy(provider.get("model_command_required")) or truthy(runtime.get("model_command_required"))
+    command_value = runtime.get("model_command", provider.get("model_command"))
+    command_configured = command_value is not None
+    command_parts = command_value if isinstance(command_value, list) else None
+    command_shape_valid = bool(
+        command_parts
+        and all(isinstance(part, str) and bool(part.strip()) for part in command_parts)
+    )
+    malformed = command_configured and not command_shape_valid
+    missing = required and not command_configured
+    ok = not missing and not malformed
+    diagnostics: list[str] = []
+    if missing:
+        diagnostics.append("provider model command is required but was not configured")
+    if malformed:
+        diagnostics.append("provider model command must be a non-empty list of non-empty strings")
+
+    if missing:
+        failure_mode = "provider_model_command_missing"
+    elif malformed:
+        failure_mode = "provider_model_command_malformed"
+    else:
+        failure_mode = "none"
+
+    normalized_parts = [str(part).strip() for part in command_parts] if command_shape_valid else []
+    return {
+        "required": required,
+        "configured": command_configured,
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "command_shape_valid": command_shape_valid,
+        "command_arg_count": len(normalized_parts),
+        "command_hashes": [stable_text_hash(part) for part in normalized_parts],
+        "raw_command_exported": False,
+        "diagnostics": diagnostics,
     }
 
 
@@ -3798,6 +3849,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     runner_env = preflight.get("runner_env") if isinstance(preflight.get("runner_env"), dict) else {}
     provider_auth = preflight.get("provider_auth") if isinstance(preflight.get("provider_auth"), dict) else {}
     browser_tooling = preflight.get("browser_tooling") if isinstance(preflight.get("browser_tooling"), dict) else {}
+    model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
     base_hint = {
@@ -3860,6 +3912,19 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "scope": "provider_url_safety",
                 "severity": "blocker",
                 "action": "replace localhost, loopback, private, or link-local provider URLs before browser launch",
+            }
+        )
+    elif failure_mode in {"provider_model_command_missing", "provider_model_command_malformed"}:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_model_command",
+                "severity": "blocker",
+                "action": "configure a non-empty provider model command list before launching the harness",
+                "command_required": bool(model_command.get("required")),
+                "command_configured": bool(model_command.get("configured")),
+                "command_arg_count": int(model_command.get("command_arg_count") or 0),
             }
         )
 
