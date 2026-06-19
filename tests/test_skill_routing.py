@@ -411,6 +411,12 @@ def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candi
         "https://github.com/baskduf/FableCodex/issues/15",
         "https://github.com/baskduf/FableCodex/issues/18",
     ]
+    assert candidate["evidence_item_ids"] == [
+        "fablecodex-repo",
+        "fablecodex-issue-15",
+        "fablecodex-issue-15-repeat",
+        "fablecodex-issue-18",
+    ]
     assert candidate["candidate_lanes"] == ["documentation", "test", "config", "code_patch"]
     assert set(candidate["candidate_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert candidate["requested_actions"] == []
@@ -482,6 +488,16 @@ def test_skill_route_discovery_proposal_lane_map_cites_only_item_evidence_urls()
             "https://github.com/baskduf/FableCodex",
             "https://github.com/baskduf/FableCodex/issues/15",
             "https://github.com/baskduf/FableCodex/issues/18",
+        ]
+        for lane in lane_map["proposal_lanes"]
+    )
+    assert all(
+        lane["evidence_item_ids"]
+        == [
+            "fablecodex-repo",
+            "fablecodex-issue-15",
+            "fablecodex-issue-15-repeat",
+            "fablecodex-issue-18",
         ]
         for lane in lane_map["proposal_lanes"]
     )

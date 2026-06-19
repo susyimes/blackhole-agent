@@ -136,6 +136,7 @@ class ExternalSkillRouteCandidate:
     discovery_event_kind: str = "unknown"
     route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
     candidate_lanes: tuple[str, ...] = SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    evidence_item_ids: tuple[str, ...] = ()
     evidence_urls: tuple[str, ...] = ()
     evidence_item_urls: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
@@ -157,6 +158,7 @@ class ExternalSkillRouteCandidate:
             discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
             route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
             candidate_lanes=_string_tuple(value.get("candidate_lanes")) or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+            evidence_item_ids=_string_tuple(value.get("evidence_item_ids")),
             evidence_urls=_string_tuple(value.get("evidence_urls")),
             evidence_item_urls=_string_tuple(value.get("evidence_item_urls")),
             requested_actions=_string_tuple(value.get("requested_actions")),
@@ -191,6 +193,7 @@ class ExternalSkillRouteCandidate:
             "discovery_event_kind": self.discovery_event_kind,
             "discovery_event_effect": _discovery_event_effect(self.discovery_event_kind),
             "enabled": self.enabled,
+            "evidence_item_ids": list(dict.fromkeys(self.evidence_item_ids)),
             "evidence_item_urls": list(dict.fromkeys(self.evidence_item_urls)),
             "evidence_urls": list(dict.fromkeys(self.evidence_urls or (self.source_url,))),
             "evidence_summary": self.evidence_summary,
@@ -258,6 +261,7 @@ class ExternalSkillEvidenceItem:
     """
 
     source_url: str
+    item_id: str = ""
     title: str = ""
     summary: str = ""
     item_kind: str = "repository"
@@ -274,6 +278,7 @@ class ExternalSkillEvidenceItem:
             raise ValueError("external skill evidence item requires a non-empty source_url")
         return cls(
             source_url=source_url,
+            item_id=str(value.get("item_id") or "").strip(),
             title=str(value.get("title") or "").strip(),
             summary=str(value.get("summary") or value.get("evidence_summary") or "").strip(),
             item_kind=_normalize_evidence_item_kind(value.get("item_kind") or value.get("kind")),
@@ -502,23 +507,27 @@ def build_skill_route_discovery_registry_from_evidence_items(
             ignored_count += 1
             continue
 
-        evidence_url = evidence_item.evidence_url()
-        if evidence_url in seen_evidence_urls:
-            duplicate_count += 1
-            continue
-        seen_evidence_urls.add(evidence_url)
-
         repository_url = summary.source_url
         bucket = grouped.setdefault(
             repository_url,
             {
                 "discovery_event_kind": summary.discovery_event_kind,
                 "evidence_urls": [],
+                "item_ids": [],
                 "lanes": [],
                 "name": summary.name,
                 "summaries": [],
             },
         )
+        if evidence_item.item_id:
+            bucket["item_ids"].append(evidence_item.item_id)
+
+        evidence_url = evidence_item.evidence_url()
+        if evidence_url in seen_evidence_urls:
+            duplicate_count += 1
+            continue
+        seen_evidence_urls.add(evidence_url)
+
         bucket["evidence_urls"].append(evidence_url)
         bucket["lanes"].extend(_bounded_skill_discovery_lanes(summary))
         bucket["summaries"].append(summary.summary)
@@ -530,6 +539,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
             evidence_summary=" ".join(dict.fromkeys(bucket["summaries"])),
             discovery_event_kind=str(bucket["discovery_event_kind"]),
             candidate_lanes=tuple(dict.fromkeys(bucket["lanes"])) or ("documentation",),
+            evidence_item_ids=tuple(dict.fromkeys(bucket["item_ids"])),
             evidence_item_urls=tuple(bucket["evidence_urls"]),
             evidence_urls=tuple(bucket["evidence_urls"]),
             validation_status="unvalidated",
@@ -634,6 +644,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
                     "status": SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
                     "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
+                    "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
                     "local_validation_required": True,
                     "runtime_action": "none",
                     "reason": "recognized_skill_project_evidence",
@@ -885,6 +896,12 @@ def _proposal_lane_evidence_urls(candidate: Mapping[str, Any], source_url: str) 
     if evidence_urls:
         return list(dict.fromkeys(evidence_urls))
     return [source_url] if source_url else []
+
+
+def _proposal_lane_evidence_item_ids(candidate: Mapping[str, Any]) -> list[str]:
+    """Return frozen digest item ids carried by item-derived discovery records."""
+
+    return list(dict.fromkeys(_string_list(candidate.get("evidence_item_ids"))))
 
 
 def _route_weight(route: str) -> int:

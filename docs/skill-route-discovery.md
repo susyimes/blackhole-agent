@@ -9,8 +9,10 @@ This note is grounded in source digest `github-growth-20260618T062043.878926Z`,
 refined by `github-growth-20260618T171207.138935Z`, clarified by
 `github-growth-20260618T193207.157147Z`, reaffirmed by
 `github-growth-20260618T215207.204133Z`, and extended by
-`github-growth-20260618T233207.218276Z`. The bounded evidence reviewed for
-these runs:
+`github-growth-20260618T233207.218276Z`. The source digest
+`github-growth-20260619T001207.230597Z` rechecked the same route class and
+added the requirement that selected digest `item_id` values remain visible in
+item-derived lane maps. The bounded evidence reviewed for these runs:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
@@ -139,12 +141,21 @@ cite only those frozen item URLs, even when broader candidate metadata contains
 extra URLs. Summary-only registries keep the older repository-level fallback
 because they do not carry per-item provenance.
 
+Item-derived registries also preserve selected digest `item_id` values in
+`evidence_item_ids`. Duplicate evidence URLs are still counted as duplicates and
+do not create extra candidates, URLs, lanes, or summaries, but their distinct
+selected `item_id` values are retained so proposal review can trace a lane back
+to the frozen digest selection set.
+
 ## Proposal Lane Map
 
 The disabled discovery registry can now be rendered into a proposal-lane map.
 This is the controller-facing form for local growth planning: each recognized
 skill project can produce only documentation, config, test, or code_patch
 proposal kinds, each with `runtime_action: none` and local validation required.
+When the source registry was built from selected evidence items, each lane also
+exports the preserved `evidence_item_ids`; these ids are provenance only and do
+not add new evidence or actions.
 
 Unsupported lane hints are downgraded by removing the unsupported lanes and
 recording them in `downgraded_candidates`. Candidates that request install,

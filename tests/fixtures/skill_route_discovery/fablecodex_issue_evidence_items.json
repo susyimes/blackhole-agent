@@ -2,6 +2,7 @@
   "schema_version": 1,
   "items": [
     {
+      "item_id": "fablecodex-repo",
       "item_kind": "repository",
       "name": "codex-fable5",
       "source_url": "https://github.com/baskduf/FableCodex",
@@ -12,6 +13,7 @@
       "suggested_lanes": ["documentation", "test", "runtime_execution"]
     },
     {
+      "item_id": "fablecodex-issue-15",
       "item_kind": "issue",
       "source_url": "https://github.com/baskduf/FableCodex/issues/15",
       "title": "Strengthen localized README drift checks",
@@ -21,6 +23,7 @@
       "suggested_lanes": ["documentation", "test", "execute"]
     },
     {
+      "item_id": "fablecodex-issue-15-repeat",
       "item_kind": "issue",
       "source_url": "https://github.com/baskduf/FableCodex/issues/15",
       "title": "Strengthen localized README drift checks",
@@ -30,6 +33,7 @@
       "suggested_lanes": ["documentation", "test"]
     },
     {
+      "item_id": "fablecodex-issue-18",
       "item_kind": "issue",
       "source_url": "https://github.com/baskduf/FableCodex/issues/18",
       "title": "Add user-facing FableCodex workflow examples",
@@ -39,6 +43,7 @@
       "suggested_lanes": ["documentation", "code_patch", "install"]
     },
     {
+      "item_id": "ordinary-library-repo",
       "item_kind": "repository",
       "name": "ordinary-library",
       "source_url": "https://github.com/example/ordinary-library",
