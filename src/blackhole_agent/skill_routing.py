@@ -139,6 +139,7 @@ class ExternalSkillRouteCandidate:
     evidence_item_ids: tuple[str, ...] = ()
     evidence_urls: tuple[str, ...] = ()
     evidence_item_urls: tuple[str, ...] = ()
+    related_source_urls: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
@@ -161,6 +162,7 @@ class ExternalSkillRouteCandidate:
             evidence_item_ids=_string_tuple(value.get("evidence_item_ids")),
             evidence_urls=_string_tuple(value.get("evidence_urls")),
             evidence_item_urls=_string_tuple(value.get("evidence_item_urls")),
+            related_source_urls=_string_tuple(value.get("related_source_urls")),
             requested_actions=_string_tuple(value.get("requested_actions")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
@@ -177,6 +179,10 @@ class ExternalSkillRouteCandidate:
             errors.append(f"route_hints must include {SKILL_ROUTE_DISCOVERY_HINT}")
         if self.discovery_event_kind not in SKILL_ROUTE_DISCOVERY_ALLOWED_EVENTS:
             errors.append(f"unsupported_discovery_event_kind:{self.discovery_event_kind}")
+        for related_source_url in self.related_source_urls:
+            related_source_error = _validate_public_github_source_url(related_source_url)
+            if related_source_error:
+                errors.append(f"related_source_url:{related_source_error}")
         unsupported_lanes = sorted(set(self.candidate_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES))
         if unsupported_lanes:
             errors.append("unsupported_candidate_lanes:" + ",".join(unsupported_lanes))
@@ -198,6 +204,7 @@ class ExternalSkillRouteCandidate:
             "evidence_urls": list(dict.fromkeys(self.evidence_urls or (self.source_url,))),
             "evidence_summary": self.evidence_summary,
             "name": self.name,
+            "related_source_urls": list(dict.fromkeys(self.related_source_urls)),
             "requested_actions": list(self.requested_actions),
             "route_hints": list(self.route_hints),
             "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
@@ -217,6 +224,7 @@ class ExternalSkillRepositorySummary:
     discovery_event_kind: str = "unknown"
     topics: tuple[str, ...] = ()
     suggested_lanes: tuple[str, ...] = ()
+    upstream_source_url: str = ""
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillRepositorySummary":
@@ -236,6 +244,12 @@ class ExternalSkillRepositorySummary:
             discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
             topics=_string_tuple(value.get("topics")),
             suggested_lanes=_string_tuple(value.get("suggested_lanes")),
+            upstream_source_url=str(
+                value.get("upstream_source_url")
+                or value.get("forked_from_url")
+                or value.get("parent_source_url")
+                or ""
+            ).strip(),
         )
 
     def to_candidate(self) -> ExternalSkillRouteCandidate | None:
@@ -247,6 +261,7 @@ class ExternalSkillRepositorySummary:
             evidence_summary=self.summary,
             discovery_event_kind=self.discovery_event_kind,
             candidate_lanes=_bounded_skill_discovery_lanes(self),
+            related_source_urls=_summary_related_source_urls(self),
             validation_status="unvalidated",
             enabled=False,
         )
@@ -478,15 +493,23 @@ def build_skill_route_discovery_registry_from_summaries(
     or enablement.
     """
 
-    candidates: list[ExternalSkillRouteCandidate] = []
+    candidates_by_lineage: dict[str, ExternalSkillRouteCandidate] = {}
+    duplicate_summary_count = 0
     for summary in summaries:
         descriptor = _coerce_external_skill_repository_summary(summary)
         candidate = descriptor.to_candidate()
         if candidate is not None:
-            candidates.append(candidate)
-    registry = build_skill_route_discovery_registry(candidates)
+            lineage_key = _summary_lineage_key(descriptor)
+            existing = candidates_by_lineage.get(lineage_key)
+            if existing is None:
+                candidates_by_lineage[lineage_key] = candidate
+                continue
+            duplicate_summary_count += 1
+            candidates_by_lineage[lineage_key] = _merge_external_skill_route_candidates(existing, candidate)
+    registry = build_skill_route_discovery_registry(tuple(candidates_by_lineage.values()))
     registry["summary_count"] = len(summaries)
-    registry["ignored_summary_count"] = len(summaries) - len(candidates)
+    registry["ignored_summary_count"] = len(summaries) - len(candidates_by_lineage) - duplicate_summary_count
+    registry["duplicate_summary_count"] = duplicate_summary_count
     return registry
 
 
@@ -774,6 +797,50 @@ def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> t
     )
     lanes = tuple(dict.fromkeys((*suggested, *keyword_lanes)))
     return lanes or ("documentation",)
+
+
+def _summary_lineage_key(summary: ExternalSkillRepositorySummary) -> str:
+    source_url = summary.upstream_source_url or summary.source_url
+    try:
+        return _canonical_public_github_repository_url(source_url)
+    except ValueError:
+        return source_url
+
+
+def _summary_related_source_urls(summary: ExternalSkillRepositorySummary) -> tuple[str, ...]:
+    source_urls = [summary.source_url]
+    if summary.upstream_source_url:
+        source_urls.append(summary.upstream_source_url)
+    related_source_urls: list[str] = []
+    for source_url in source_urls:
+        try:
+            related_source_urls.append(_canonical_public_github_repository_url(source_url))
+        except ValueError:
+            related_source_urls.append(source_url)
+    return tuple(dict.fromkeys(related_source_urls))
+
+
+def _merge_external_skill_route_candidates(
+    left: ExternalSkillRouteCandidate,
+    right: ExternalSkillRouteCandidate,
+) -> ExternalSkillRouteCandidate:
+    """Merge fork-related discovery summaries without increasing activation count."""
+
+    return ExternalSkillRouteCandidate(
+        name=left.name,
+        source_url=left.source_url,
+        evidence_summary=" ".join(dict.fromkeys((left.evidence_summary, right.evidence_summary))),
+        discovery_event_kind=left.discovery_event_kind,
+        route_hints=tuple(dict.fromkeys((*left.route_hints, *right.route_hints))),
+        candidate_lanes=tuple(dict.fromkeys((*left.candidate_lanes, *right.candidate_lanes))),
+        evidence_item_ids=tuple(dict.fromkeys((*left.evidence_item_ids, *right.evidence_item_ids))),
+        evidence_urls=tuple(dict.fromkeys((*left.evidence_urls, *right.evidence_urls))),
+        evidence_item_urls=tuple(dict.fromkeys((*left.evidence_item_urls, *right.evidence_item_urls))),
+        related_source_urls=tuple(dict.fromkeys((*left.related_source_urls, *right.related_source_urls))),
+        requested_actions=tuple(dict.fromkeys((*left.requested_actions, *right.requested_actions))),
+        validation_status=left.validation_status,
+        enabled=left.enabled or right.enabled,
+    )
 
 
 def _summary_text(summary: ExternalSkillRepositorySummary) -> str:

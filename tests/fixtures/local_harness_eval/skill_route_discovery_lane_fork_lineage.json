@@ -1,0 +1,51 @@
+{
+  "name": "skill-route-discovery-lane-fork-lineage",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-fork-lineage",
+    "source_kind": "summaries",
+    "summaries": [
+      {
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Director skill package with specialist Three.js game workflow skills, QA validation, and helper scripts.",
+        "topics": ["agent skill", "threejs", "workflow"],
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      },
+      {
+        "name": "threejs-game-skills-fork",
+        "source_url": "https://github.com/pretinhuu1-boop/threejs-game-skills",
+        "upstream_source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Fork of the same director skill package with Three.js game workflow skills and validation helpers.",
+        "topics": ["agent skill", "threejs", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch"]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 1
+    },
+    {
+      "path": "registry.duplicate_summary_count",
+      "equals": 1
+    },
+    {
+      "path": "lane_map.candidate_count",
+      "equals": 1
+    },
+    {
+      "path": "lane_map.proposal_lane_count",
+      "equals": 4
+    },
+    {
+      "path": "activation_lanes.0.candidate_count",
+      "equals": 1
+    }
+  ]
+}

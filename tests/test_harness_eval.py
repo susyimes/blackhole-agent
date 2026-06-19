@@ -80,8 +80,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 32
-    assert payload["pass_count"] == 31
+    assert payload["fixture_count"] == 33
+    assert payload["pass_count"] == 32
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -138,6 +138,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
+    assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"

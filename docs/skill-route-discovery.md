@@ -17,6 +17,7 @@ item-derived lane maps. The bounded evidence reviewed for these runs:
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
 - `https://github.com/majidmanzarpour/threejs-game-skills`
+- `https://github.com/pretinhuu1-boop/threejs-game-skills`
 
 No upstream code, install scripts, prompts, or skill bodies were adopted.
 
@@ -79,6 +80,16 @@ Blocked discovery actions include install, enable, run, execute,
 clone-and-run, and local deletion. Repository lifecycle events remain record
 only: creation does not install a skill, and deletion does not delete a local
 skill.
+
+Fork or mirror evidence is lineage evidence, not independent activation
+pressure. When a body-free repository summary carries `upstream_source_url`,
+`forked_from_url`, or `parent_source_url`, summary classification groups the
+candidate by the upstream public GitHub repository and records the related
+public source URLs for audit. The duplicate fork does not increase
+`candidate_count`, proposal lane count, activation lane candidate count, or the
+readiness of a local proposal. This keeps a repeated public skill package from
+amplifying one lesson merely because it appears under more than one repository
+owner.
 
 ## Review Notes
 

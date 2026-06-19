@@ -145,6 +145,7 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/pretinhuu1-boop/threejs-game-skills",
         "No upstream code, install scripts, prompts, or skill bodies were adopted.",
         "FableCodex describes Codex workflow gates, COMPASS Skills\n"
         "describes local skills for clarification, task memory, and collaboration\n"
@@ -174,6 +175,10 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "record a rollback ref or artifact before self-modification",
         "do not automatically import, install, enable, execute, clone,\n  scaffold, or otherwise trust external skill code",
         "do not expose, print, upload, publish, or share tokens,\n  credentials, secrets, private keys, private chats, PII, or personal data",
+        "Fork or mirror evidence is lineage evidence, not independent activation\npressure",
+        "`upstream_source_url`,\n`forked_from_url`, or `parent_source_url`",
+        "records the related\npublic source URLs for audit",
+        "does not increase\n`candidate_count`, proposal lane count, activation lane candidate count",
         "## Evidence Citation And Uncertainty",
         "cite only selected `item_id` values\nin `evidence_refs`",
         "must not cite repository URLs, owner/repository names,\ntruncated item IDs",

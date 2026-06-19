@@ -854,6 +854,16 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         failure_mode=failure_mode,
     )
 
+    registry_summary = {
+        "registry_status": registry["registry_status"],
+        "candidate_count": registry["candidate_count"],
+        "enabled_candidate_count": registry["enabled_candidate_count"],
+        "invalid_candidate_count": registry["invalid_candidate_count"],
+        "executable_skill_count": registry["executable_skill_count"],
+    }
+    if int(registry.get("duplicate_summary_count") or 0):
+        registry_summary["duplicate_summary_count"] = registry["duplicate_summary_count"]
+
     return {
         "schema_version": 1,
         "behavior": "skill_route_discovery_lane",
@@ -861,13 +871,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_status": route_status,
         "failure_mode": failure_mode,
         "source_kind": source_kind,
-        "registry": {
-            "registry_status": registry["registry_status"],
-            "candidate_count": registry["candidate_count"],
-            "enabled_candidate_count": registry["enabled_candidate_count"],
-            "invalid_candidate_count": registry["invalid_candidate_count"],
-            "executable_skill_count": registry["executable_skill_count"],
-        },
+        "registry": registry_summary,
         "lane_map": {
             "source_registry_status": lane_map["source_registry_status"],
             "candidate_count": lane_map["candidate_count"],

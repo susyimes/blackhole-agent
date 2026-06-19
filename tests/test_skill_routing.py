@@ -377,6 +377,43 @@ def test_skill_route_discovery_summary_classifier_defaults_to_documentation_only
     assert registry["candidates"][0]["requested_actions"] == []
 
 
+def test_skill_route_discovery_summary_classifier_collapses_fork_lineage():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "summary": "Director skill package with specialist Three.js game workflow skills and QA helpers.",
+                "suggested_lanes": ["documentation", "test", "code_patch"],
+            },
+            {
+                "name": "threejs-game-skills-fork",
+                "source_url": "https://github.com/pretinhuu1-boop/threejs-game-skills",
+                "upstream_source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "summary": "Fork of the same director skill package with workflow skills, routing config, and validation helpers.",
+                "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+            },
+        ]
+    )
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["summary_count"] == 2
+    assert registry["candidate_count"] == 1
+    assert registry["duplicate_summary_count"] == 1
+    assert registry["ignored_summary_count"] == 0
+
+    candidate = registry["candidates"][0]
+    assert candidate["name"] == "threejs-game-skills"
+    assert candidate["source_url"] == "https://github.com/majidmanzarpour/threejs-game-skills"
+    assert candidate["candidate_lanes"] == ["documentation", "test", "code_patch", "config"]
+    assert candidate["related_source_urls"] == [
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/pretinhuu1-boop/threejs-game-skills",
+    ]
+    assert candidate["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert candidate["validation_errors"] == []
+
+
 def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candidates():
     fixture_path = (
         Path(__file__).parent
