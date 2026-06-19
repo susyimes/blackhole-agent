@@ -84,6 +84,23 @@ patch lanes. Follow-up-only or runtime-expansion proposals from the same
 evidence should be rejected or narrowed until a focused local validation path is
 available.
 
+## Agent Harness Eval Route
+
+Public agent-harness repositories can justify a local eval lane when the
+evidence names replayable stages, deterministic controls, structured artifacts,
+fixtures, or validation behavior. The local lane is `agent_harness_eval`: it may
+produce only documentation, test, or code patch proposals, and it must keep
+external harness execution out of scope until a separate runtime capability and
+validation path exist.
+
+Security-adjacent harness evidence, including vulnerability discovery,
+adversarial verification, exploit validation, or unauthorized-access context,
+is boundary evidence. It can be recorded as a review note, but it must not
+activate offensive behavior, remote scans, credential use, or external harness
+execution. Use item IDs from the frozen digest in fixtures and comments; export
+source URL hashes or counts rather than raw upstream URLs from local harness
+eval reports.
+
 ## Omnigent Upstream Movement Watchlist
 
 Source digest: `github-growth-20260618T175207.227269Z`.

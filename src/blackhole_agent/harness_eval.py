@@ -39,6 +39,7 @@ SAFETY_BOUNDARY_REVIEW_FLAGS = {
     "privacy-leakage",
 }
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
+    "agent_harness_eval_lane",
     "agent_harness_provider_registration",
     "agent_workflow_route",
     "harness_run_summary",
@@ -106,6 +107,17 @@ CI_ROUND_TRIP_HANG_MARKERS = (
     "round trip",
     "timed out",
     "timeout",
+)
+AGENT_HARNESS_EVAL_HINT = "agent_harness_eval"
+AGENT_HARNESS_EVAL_ALLOWED_LANES = ("documentation", "test", "code_patch")
+AGENT_HARNESS_EVAL_DETAIL_MARKERS = (
+    "deterministic",
+    "fixture",
+    "replay",
+    "stage",
+    "structured",
+    "triage artifact",
+    "validation",
 )
 
 
@@ -326,6 +338,8 @@ def run_local_harness_fixture(path: Path) -> HarnessEvalFixtureResult:
 
 
 def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    if behavior == "agent_harness_eval_lane":
+        return evaluate_agent_harness_eval_lane(raw_input, source_path=source_path)
     if behavior == "agent_harness_provider_registration":
         return evaluate_agent_harness_provider_registration(raw_input, source_path=source_path)
     if behavior == "agent_workflow_route":
@@ -489,6 +503,229 @@ def redact_provider_registration_skip_reason(reason: str) -> str:
         return reason
     _, env_key = reason.split(":", 1)
     return f"missing_env_key_hash:{stable_text_hash(env_key)}"
+
+
+def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Convert public agent-harness evidence into bounded local eval lanes."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    evidence_items = raw_input.get("evidence_items") if isinstance(raw_input.get("evidence_items"), list) else []
+    records = [item for item in evidence_items if isinstance(item, dict)]
+    lane_records: list[dict[str, Any]] = []
+    review_notes: list[dict[str, Any]] = []
+    unsupported_lanes: list[str] = []
+    recognized_count = 0
+    detailed_count = 0
+
+    for index, record in enumerate(records, start=1):
+        text = agent_harness_eval_record_text(record)
+        route_hints = set(string_list(record.get("route_hints")))
+        risk_flags = set(string_list(record.get("risk_flags")))
+        recognized = AGENT_HARNESS_EVAL_HINT in route_hints or any(
+            marker in text for marker in ("agent harness", "benchmark", "eval", "evaluation", "harness")
+        )
+        if not recognized:
+            continue
+        recognized_count += 1
+        if any(marker in text for marker in AGENT_HARNESS_EVAL_DETAIL_MARKERS):
+            detailed_count += 1
+        item_id = optional_string(record.get("item_id")) or f"item-{index}"
+        source_url = optional_string(record.get("source_url")) or ""
+        lanes = string_list(record.get("suggested_lanes")) or ["test"]
+        allowed_lanes = [lane for lane in lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES]
+        rejected_lanes = sorted(set(lanes) - set(AGENT_HARNESS_EVAL_ALLOWED_LANES))
+        unsupported_lanes.extend(rejected_lanes)
+
+        boundary_flags = sorted(risk_flags & SAFETY_BOUNDARY_REVIEW_FLAGS)
+        if boundary_flags:
+            review_notes.append(
+                {
+                    "item_id": item_id,
+                    "risk_flags": boundary_flags,
+                    "review_gate": safety_review_gate_for_flags(boundary_flags),
+                    "local_eval_activation_allowed": False,
+                }
+            )
+            continue
+
+        for lane in allowed_lanes:
+            lane_records.append(
+                {
+                    "item_id": item_id,
+                    "source_url": source_url,
+                    "proposal_kind": lane,
+                    "route_hint": AGENT_HARNESS_EVAL_HINT,
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                }
+            )
+
+    lanes_bounded = not unsupported_lanes
+    runtime_safe = all(lane["runtime_action"] == "none" for lane in lane_records)
+    validation_required = all(lane["local_validation_required"] is True for lane in lane_records)
+    failure_mode = agent_harness_eval_lane_failure_mode(
+        recognized_count=recognized_count,
+        lane_count=len(lane_records),
+        review_only_count=len(review_notes),
+        detailed_count=detailed_count,
+        lanes_bounded=lanes_bounded,
+        runtime_safe=runtime_safe,
+        validation_required=validation_required,
+    )
+    route_status = (
+        "passed"
+        if failure_mode == "none"
+        else "review_only"
+        if failure_mode == "review_only_safety_boundary"
+        else "blocked"
+    )
+    activation_gate = agent_harness_eval_activation_gate(failure_mode)
+    activation_lanes = build_agent_harness_eval_activation_lanes(
+        lane_records,
+        activation_allowed=activation_gate["local_eval_activation_allowed"] is True,
+        failure_mode=failure_mode,
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "agent_harness_eval_lane",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "evidence_strength": {
+            "record_count": len(records),
+            "recognized_harness_record_count": recognized_count,
+            "specific_detail_count": detailed_count,
+            "activation_evidence_sufficient": detailed_count > 0 and bool(lane_records),
+        },
+        "lane_map": {
+            "allowed_proposal_kinds": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+            "proposal_lane_count": len(lane_records),
+            "proposal_kinds": sorted({lane["proposal_kind"] for lane in lane_records}),
+            "lanes_bounded": lanes_bounded,
+            "unsupported_lanes": sorted(dict.fromkeys(unsupported_lanes)),
+            "lane_runtime_safe": runtime_safe,
+            "local_validation_required": validation_required,
+        },
+        "activation_gate": activation_gate,
+        "activation_lanes": activation_lanes,
+        "review_notes": review_notes,
+        "proposal_lanes": [
+            {
+                "item_id": lane["item_id"],
+                "proposal_kind": lane["proposal_kind"],
+                "route_hint": lane["route_hint"],
+                "runtime_action": lane["runtime_action"],
+                "local_validation_required": lane["local_validation_required"],
+                "source_url_hash": stable_text_hash(lane["source_url"]) if lane["source_url"] else None,
+            }
+            for lane in lane_records
+        ],
+        "privacy": {
+            "raw_source_urls_exported": False,
+            "raw_evidence_bodies_exported": False,
+            "source_urls_hashed": True,
+            "runtime_actions_executed": False,
+            "offensive_behavior_local_execution": False,
+        },
+    }
+
+
+def agent_harness_eval_record_text(record: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ("name", "title", "summary", "evidence_summary", "relevance_reason", "recommended_action"):
+        value = record.get(key)
+        if isinstance(value, str):
+            parts.append(value)
+    for key in ("topics", "route_hints", "suggested_lanes"):
+        value = record.get(key)
+        if isinstance(value, list):
+            parts.extend(str(item) for item in value)
+    return " ".join(parts).casefold()
+
+
+def safety_review_gate_for_flags(flags: list[str]) -> str:
+    if "offensive-behavior" in flags:
+        return "offensive-behavior-human-review"
+    if "privacy-leakage" in flags:
+        return "privacy-leakage-human-review"
+    return "safety-boundary-human-review"
+
+
+def agent_harness_eval_lane_failure_mode(
+    *,
+    recognized_count: int,
+    lane_count: int,
+    review_only_count: int,
+    detailed_count: int,
+    lanes_bounded: bool,
+    runtime_safe: bool,
+    validation_required: bool,
+) -> str:
+    if not runtime_safe:
+        return "runtime_action_requested"
+    if not validation_required:
+        return "local_validation_not_required"
+    if not lanes_bounded:
+        return "unbounded_agent_harness_eval_lane"
+    if lane_count:
+        if detailed_count == 0:
+            return "weak_harness_evidence"
+        return "none"
+    if review_only_count:
+        return "review_only_safety_boundary"
+    if not recognized_count:
+        return "no_agent_harness_eval_evidence"
+    return "no_agent_harness_eval_lanes"
+
+
+def agent_harness_eval_activation_gate(failure_mode: str) -> dict[str, Any]:
+    if failure_mode == "none":
+        decision = "ready_for_local_eval_activation"
+        allowed = True
+    elif failure_mode == "review_only_safety_boundary":
+        decision = "review_safety_boundary_before_activation"
+        allowed = False
+    elif failure_mode == "weak_harness_evidence":
+        decision = "review_weak_evidence_before_activation"
+        allowed = False
+    else:
+        decision = "blocked_before_activation"
+        allowed = False
+    return {
+        "controller_surface": "agent_harness_eval_lane",
+        "activation_scope": "local_eval_only",
+        "decision": decision,
+        "reason": failure_mode,
+        "local_eval_activation_allowed": allowed,
+        "external_harness_execution_allowed": False,
+    }
+
+
+def build_agent_harness_eval_activation_lanes(
+    proposal_lanes: list[dict[str, Any]],
+    *,
+    activation_allowed: bool,
+    failure_mode: str,
+) -> list[dict[str, Any]]:
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        grouped.setdefault(str(lane.get("proposal_kind") or ""), []).append(lane)
+    blockers = [] if activation_allowed else [failure_mode or "activation_gate_not_ready"]
+    return [
+        {
+            "proposal_kind": proposal_kind,
+            "item_ids": sorted({str(lane.get("item_id") or "") for lane in lanes}),
+            "required_validation": [validation_command],
+            "activation_ready": activation_allowed,
+            "activation_blockers": blockers,
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+        }
+        for proposal_kind, lanes in sorted(grouped.items())
+        if proposal_kind
+    ]
 
 
 def evaluate_headless_tool_roundtrip(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

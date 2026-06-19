@@ -80,11 +80,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 31
-    assert payload["pass_count"] == 30
+    assert payload["fixture_count"] == 32
+    assert payload["pass_count"] == 31
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
+        "agent_harness_eval_lane",
         "agent_harness_provider_registration",
         "agent_workflow_route",
         "harness_run_summary",
@@ -109,6 +110,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
@@ -177,6 +179,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/visa/visa-vulnerability-agentic-harness" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -232,6 +235,127 @@ def test_rendered_html_artifact_validation_covers_script_execution_and_link_targ
     assert "private-link-do-not-export" not in serialized
     assert "PRIVATE_BASELINE_SNAPSHOT_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CURRENT_SNAPSHOT_PATH_DO_NOT_EXPORT" not in serialized
+
+
+def test_agent_harness_eval_lane_turns_public_harness_evidence_into_local_eval_lanes():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_visa_current_wake.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["evidence_strength"] == {
+        "record_count": 2,
+        "recognized_harness_record_count": 2,
+        "specific_detail_count": 1,
+        "activation_evidence_sufficient": True,
+    }
+    assert output["lane_map"] == {
+        "allowed_proposal_kinds": ["documentation", "test", "code_patch"],
+        "proposal_lane_count": 2,
+        "proposal_kinds": ["code_patch", "test"],
+        "lanes_bounded": True,
+        "unsupported_lanes": [],
+        "lane_runtime_safe": True,
+        "local_validation_required": True,
+    }
+    assert output["activation_gate"] == {
+        "controller_surface": "agent_harness_eval_lane",
+        "activation_scope": "local_eval_only",
+        "decision": "ready_for_local_eval_activation",
+        "reason": "none",
+        "local_eval_activation_allowed": True,
+        "external_harness_execution_allowed": False,
+    }
+    assert output["activation_lanes"] == [
+        {
+            "proposal_kind": "code_patch",
+            "item_ids": ["visa-harness-structured-eval"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+        },
+        {
+            "proposal_kind": "test",
+            "item_ids": ["visa-harness-structured-eval"],
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+        },
+    ]
+    assert output["review_notes"] == [
+        {
+            "item_id": "visa-harness-security-boundary",
+            "risk_flags": ["offensive-behavior"],
+            "review_gate": "offensive-behavior-human-review",
+            "local_eval_activation_allowed": False,
+        }
+    ]
+    assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
+    assert all(lane["source_url_hash"].startswith("sha256:") for lane in output["proposal_lanes"])
+    assert output["privacy"] == {
+        "raw_source_urls_exported": False,
+        "raw_evidence_bodies_exported": False,
+        "source_urls_hashed": True,
+        "runtime_actions_executed": False,
+        "offensive_behavior_local_execution": False,
+    }
+    assert "https://github.com/visa/visa-vulnerability-agentic-harness" not in serialized
+
+
+def test_agent_harness_eval_lane_blocks_unbounded_or_weak_routes():
+    unbounded = evaluate_harness_behavior(
+        "agent_harness_eval_lane",
+        {
+            "task_id": "fixture-agent-harness-unbounded",
+            "evidence_items": [
+                {
+                    "item_id": "harness-config-drift",
+                    "source_url": "https://github.com/example/harness",
+                    "route_hints": ["agent_harness_eval"],
+                    "summary": "Public harness evaluation evidence with deterministic fixture shape.",
+                    "suggested_lanes": ["config", "test"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_unbounded_inline.json",
+    )
+    weak = evaluate_harness_behavior(
+        "agent_harness_eval_lane",
+        {
+            "task_id": "fixture-agent-harness-weak",
+            "evidence_items": [
+                {
+                    "item_id": "generic-harness-mention",
+                    "source_url": "https://github.com/example/harness",
+                    "route_hints": ["agent_harness_eval"],
+                    "summary": "Generic public movement with no concrete local detail.",
+                    "suggested_lanes": ["test"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_weak_inline.json",
+    )
+
+    assert unbounded["route_status"] == "blocked"
+    assert unbounded["failure_mode"] == "unbounded_agent_harness_eval_lane"
+    assert unbounded["lane_map"]["unsupported_lanes"] == ["config"]
+    assert unbounded["activation_gate"]["external_harness_execution_allowed"] is False
+
+    assert weak["route_status"] == "blocked"
+    assert weak["failure_mode"] == "weak_harness_evidence"
+    assert weak["activation_gate"]["decision"] == "review_weak_evidence_before_activation"
+    assert weak["activation_lanes"][0]["activation_ready"] is False
 
 
 def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():

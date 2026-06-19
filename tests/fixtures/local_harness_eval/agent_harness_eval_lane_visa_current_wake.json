@@ -1,0 +1,69 @@
+{
+  "name": "agent-harness-eval-lane-visa-current-wake",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-visa-current-wake",
+    "evidence_items": [
+      {
+        "item_id": "visa-harness-structured-eval",
+        "source_url": "https://github.com/visa/visa-vulnerability-agentic-harness",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public agent harness evidence with structured triage artifacts, deterministic controls, and reusable evaluation stages.",
+        "relevance_reason": "Maps to local replayable eval fixtures and controller-visible validation lanes, not external harness execution.",
+        "suggested_lanes": ["test", "code_patch"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "visa-harness-security-boundary",
+        "source_url": "https://github.com/visa/visa-vulnerability-agentic-harness",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Security-adjacent vulnerability harness evidence with adversarial verification context.",
+        "relevance_reason": "Boundary evidence only; offensive or unauthorized-access behavior remains review-only.",
+        "suggested_lanes": ["test"],
+        "risk_flags": ["offensive-behavior"]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "lane_map.proposal_kinds",
+      "equals": ["code_patch", "test"]
+    },
+    {
+      "path": "lane_map.proposal_lane_count",
+      "equals": 2
+    },
+    {
+      "path": "evidence_strength.recognized_harness_record_count",
+      "equals": 2
+    },
+    {
+      "path": "evidence_strength.specific_detail_count",
+      "equals": 1
+    },
+    {
+      "path": "activation_gate.local_eval_activation_allowed",
+      "equals": true
+    },
+    {
+      "path": "activation_gate.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "review_notes.0.review_gate",
+      "equals": "offensive-behavior-human-review"
+    },
+    {
+      "path": "privacy.offensive_behavior_local_execution",
+      "equals": false
+    }
+  ]
+}
