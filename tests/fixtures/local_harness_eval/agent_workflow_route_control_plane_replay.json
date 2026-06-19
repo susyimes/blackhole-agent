@@ -88,7 +88,14 @@
     "artifacts": {
       "report_recorded": true,
       "report_path": "artifacts/self-evolution/fixture-route-control-plane-report.md",
-      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_control_plane_replay.json"
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_control_plane_replay.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
     }
   },
   "assertions": [

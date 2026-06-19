@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 36
-    assert payload["pass_count"] == 35
+    assert payload["fixture_count"] == 37
+    assert payload["pass_count"] == 36
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -116,6 +116,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
+    assert results["agent-workflow-route-report-sections-missing"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
@@ -1064,6 +1065,16 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert output["observations"]["raw_observation_ids_exported"] is False
     assert output["control_plane"]["report"]["raw_artifact_paths_exported"] is False
     assert output["control_plane"]["report"]["report_artifact_hash"].startswith("sha256:")
+    assert output["control_plane"]["report"]["section_contract"] == {
+        "required": True,
+        "required_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+        "recorded_section_count": 5,
+        "recorded_sections": ["changed_files", "replay", "review_notes", "rollback", "validation"],
+        "missing_sections": [],
+        "passed": True,
+        "failure_mode": "none",
+        "raw_report_body_exported": False,
+    }
     assert output["control_plane"]["replay"]["replay_artifact_hash"].startswith("sha256:")
     assert "overview-title-painted" not in serialized
     assert "idle-status-after-teardown" not in serialized
@@ -1095,7 +1106,10 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
                 "created": True,
                 "ref": "refs/rollback/fixture-route-stale-load-bearing-observation",
             },
-            "artifacts": {"report_recorded": True},
+            "artifacts": {
+                "report_recorded": True,
+                "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+            },
         },
         source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_stale_observation_inline.json",
     )
@@ -1125,7 +1139,10 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
                 "required": True,
                 "commands": [],
             },
-            "artifacts": {"report_recorded": True},
+            "artifacts": {
+                "report_recorded": True,
+                "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+            },
         },
         source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_missing_recovery_handoff_inline.json",
     )

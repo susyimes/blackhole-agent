@@ -127,6 +127,13 @@ SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = (
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
     "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
 )
+AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS = (
+    "changed_files",
+    "validation",
+    "rollback",
+    "replay",
+    "review_notes",
+)
 
 
 @dataclass(frozen=True)
@@ -4315,6 +4322,19 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         report_artifacts=report_artifacts,
         source_path=source_path,
     )
+    if failure_mode == "none" and control_plane["failure_mode"] != "none":
+        failure_mode = str(control_plane["failure_mode"])
+        route_status = "failed_recoverable" if rollback_available else "failed_unrecoverable"
+        state_transitions = build_agent_workflow_state_transitions(
+            plan_steps=plan_steps,
+            oneshot_marker_ready=marker_result["ready"],
+            oneshot_marker_required=marker_result["required"],
+            runner_invoked=runner_invoked,
+            validation_checks=validation_checks,
+            failure_mode=failure_mode,
+            rollback_available=rollback_available,
+        )
+        lifecycle_result = evaluate_agent_workflow_lifecycle(lifecycle, state_transitions)
 
     return {
         "schema_version": 1,
@@ -4523,11 +4543,15 @@ def build_agent_workflow_control_plane(
 
     report_path = optional_string(report_artifacts.get("report_path"))
     replay_path = optional_string(report_artifacts.get("replay_path"))
+    report_contract = evaluate_agent_workflow_report_contract(
+        report_artifacts,
+        required=validation_gate == "runner-harness-control-plane",
+    )
     intake_ready = bool(task_id and plan_steps)
     midflight_ready = runner_invoked and bool(state_transitions)
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
     replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
-    report_ready = truthy(report_artifacts.get("report_recorded")) or bool(report_path)
+    report_ready = bool(report_contract["passed"])
     stages = {
         "intake": intake_ready,
         "midflight": midflight_ready,
@@ -4539,6 +4563,8 @@ def build_agent_workflow_control_plane(
 
     if missing_stages:
         failure_mode = "control_plane_stage_missing"
+    elif not report_contract["passed"]:
+        failure_mode = str(report_contract["failure_mode"])
     elif not observation_result["passed"]:
         failure_mode = str(observation_result["failure_mode"])
     else:
@@ -4567,6 +4593,7 @@ def build_agent_workflow_control_plane(
         "report": {
             "report_recorded": report_ready,
             "report_artifact_hash": stable_text_hash(report_path) if report_path else None,
+            "section_contract": report_contract,
             "raw_artifact_paths_exported": False,
         },
         "observation_contract": {
@@ -4579,6 +4606,63 @@ def build_agent_workflow_control_plane(
             ),
         },
     }
+
+
+def evaluate_agent_workflow_report_contract(
+    report_artifacts: dict[str, Any],
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    """Require enough report structure for an operator to audit and replay a run."""
+
+    report_recorded = truthy(report_artifacts.get("report_recorded")) or bool(
+        optional_string(report_artifacts.get("report_path"))
+    )
+    required = required or report_recorded or "report_sections" in report_artifacts
+    raw_sections = report_artifacts.get("report_sections")
+    sections = (
+        sorted({normalize_report_section(section) for section in raw_sections if optional_string(section)})
+        if isinstance(raw_sections, list)
+        else []
+    )
+    missing_sections = (
+        [section for section in AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS if section not in sections]
+        if required
+        else []
+    )
+    passed = (not required) or (report_recorded and not missing_sections)
+    if required and not report_recorded:
+        failure_mode = "report_artifact_missing"
+    elif required and missing_sections:
+        failure_mode = "report_sections_missing"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "required_sections": list(AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS),
+        "recorded_section_count": len(sections),
+        "recorded_sections": sections,
+        "missing_sections": missing_sections,
+        "passed": passed,
+        "failure_mode": failure_mode,
+        "raw_report_body_exported": False,
+    }
+
+
+def normalize_report_section(value: Any) -> str:
+    section = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "changed_file": "changed_files",
+        "changes": "changed_files",
+        "files": "changed_files",
+        "replay_command": "replay",
+        "review_note": "review_notes",
+        "rollback_point": "rollback",
+        "tests": "validation",
+        "verification": "validation",
+    }
+    return aliases.get(section, section)
 
 
 def build_agent_workflow_state_transitions(

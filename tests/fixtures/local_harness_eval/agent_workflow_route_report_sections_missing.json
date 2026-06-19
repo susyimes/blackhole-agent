@@ -1,0 +1,95 @@
+{
+  "name": "agent-workflow-route-report-sections-missing",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-report-sections-missing",
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "invoke-runner",
+          "status": "completed"
+        },
+        {
+          "id": "write-report",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-control-plane",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-report-sections-missing",
+      "artifact_path": "artifacts/rollback/fixture-route-report-sections-missing.txt"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git reset --hard fixture-route-report-sections-missing-head"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_report_sections_missing"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/fixture-route-report-sections-missing.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_report_sections_missing.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "failed_recoverable"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "control_plane_stage_missing"
+    },
+    {
+      "path": "control_plane.complete",
+      "equals": false
+    },
+    {
+      "path": "control_plane.missing_stages",
+      "equals": [
+        "report"
+      ]
+    },
+    {
+      "path": "control_plane.report.section_contract.missing_sections",
+      "equals": [
+        "replay",
+        "review_notes"
+      ]
+    },
+    {
+      "path": "control_plane.report.section_contract.raw_report_body_exported",
+      "equals": false
+    },
+    {
+      "path": "control_plane.recovery.ready",
+      "equals": true
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+Rollback point: 20260619T155206Z runner-harness-control pass4
+Original branch: codex/blackhole-evolve/20260619T155314.033931-add-or-un-quarantine-local-tests-for-model-comma
+Original HEAD: ee3839e6e41bd832bd88a34e413195990db44815
+Local rollback ref: refs/rollback/20260619T155206Z-runner-harness-control-pass4
+Recovery commands:
+  git reset --hard ee3839e6e41bd832bd88a34e413195990db44815
+  git clean -fd
