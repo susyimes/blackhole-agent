@@ -76,6 +76,15 @@
       "ref": "refs/rollback/fixture-route-control-plane-replay",
       "artifact_path": "artifacts/rollback/fixture-route-control-plane-replay.txt"
     },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git reset --hard fixture-route-control-plane-head",
+        "git clean -fd"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_control_plane"
+    },
     "artifacts": {
       "report_recorded": true,
       "report_path": "artifacts/self-evolution/fixture-route-control-plane-report.md",
@@ -97,6 +106,18 @@
     },
     {
       "path": "control_plane.stages.report.ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.recovery.ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.recovery.command_count",
+      "equals": 2
+    },
+    {
+      "path": "control_plane.recovery.replay_ready",
       "equals": true
     },
     {

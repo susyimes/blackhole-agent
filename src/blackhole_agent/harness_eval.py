@@ -4159,6 +4159,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     )
     observations = raw_input.get("observations") if isinstance(raw_input.get("observations"), list) else []
     report_artifacts = raw_input.get("artifacts") if isinstance(raw_input.get("artifacts"), dict) else {}
+    recovery = raw_input.get("recovery") if isinstance(raw_input.get("recovery"), dict) else {}
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
@@ -4178,6 +4179,13 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     rollback_ref = optional_string(rollback.get("ref"))
     rollback_artifact = optional_string(rollback.get("artifact_path"))
     rollback_available = truthy(rollback.get("created")) and bool(rollback_ref or rollback_artifact)
+    recovery_handoff = evaluate_agent_workflow_recovery_handoff(
+        recovery,
+        rollback_available=rollback_available,
+        rollback_ref=rollback_ref,
+        rollback_artifact=rollback_artifact,
+        validation_checks=validation_checks,
+    )
     observation_result = evaluate_agent_workflow_observations(observations)
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
@@ -4192,6 +4200,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             runner_timed_out=runner_timed_out,
             validation_passed=validation_passed,
             lifecycle_passed=True,
+            recovery_handoff_required=bool(recovery_handoff["required"]),
+            recovery_handoff_ready=bool(recovery_handoff["ready"]),
             observations_passed=observation_result["passed"],
             observations_failure_mode=observation_result["failure_mode"],
         ),
@@ -4206,6 +4216,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         runner_timed_out=runner_timed_out,
         validation_passed=validation_passed,
         lifecycle_passed=lifecycle_result["passed"],
+        recovery_handoff_required=bool(recovery_handoff["required"]),
+        recovery_handoff_ready=bool(recovery_handoff["ready"]),
         observations_passed=observation_result["passed"],
         observations_failure_mode=observation_result["failure_mode"],
     )
@@ -4233,6 +4245,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         validation_gate=validation_gate,
         validation_checks=validation_checks,
         rollback_available=rollback_available,
+        recovery_handoff=recovery_handoff,
         observation_result=observation_result,
         report_artifacts=report_artifacts,
         source_path=source_path,
@@ -4272,6 +4285,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             "artifact_recorded": bool(rollback_artifact),
             "recovery_mode": "explicit_operator_reset" if rollback_available else "manual_investigation",
         },
+        "recovery_handoff": recovery_handoff,
         "failure_mode": failure_mode,
     }
 
@@ -4284,6 +4298,8 @@ def agent_workflow_failure_mode(
     runner_timed_out: bool,
     validation_passed: bool,
     lifecycle_passed: bool,
+    recovery_handoff_required: bool = False,
+    recovery_handoff_ready: bool = True,
     observations_passed: bool = True,
     observations_failure_mode: str = "none",
 ) -> str:
@@ -4297,6 +4313,8 @@ def agent_workflow_failure_mode(
         return "nonzero_exit"
     if not observations_passed:
         return observations_failure_mode
+    if recovery_handoff_required and not recovery_handoff_ready:
+        return "recovery_handoff_incomplete"
     if not lifecycle_passed:
         return "lifecycle_incomplete"
     if not validation_passed:
@@ -4374,6 +4392,54 @@ def normalize_agent_workflow_observation_phase(value: Any) -> str:
     return phase if phase in allowed else "other"
 
 
+def evaluate_agent_workflow_recovery_handoff(
+    recovery: dict[str, Any],
+    *,
+    rollback_available: bool,
+    rollback_ref: str | None,
+    rollback_artifact: str | None,
+    validation_checks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Validate operator replay/recovery metadata without exporting command bodies."""
+
+    required = truthy(recovery.get("required"))
+    operator_required = truthy(recovery.get("operator_required", True))
+    commands = string_list(recovery.get("commands"))
+    replay_command = optional_string(recovery.get("replay_command"))
+    validation_command_names = [
+        str(check["name"]) for check in validation_checks if optional_string(check.get("name"))
+    ]
+    command_count = len(commands)
+    replay_ready = bool(replay_command or validation_command_names)
+    ready = rollback_available and (not required or (command_count > 0 and replay_ready))
+
+    blockers: list[str] = []
+    if required and not rollback_available:
+        blockers.append("rollback_missing")
+    if required and command_count == 0:
+        blockers.append("recovery_commands_missing")
+    if required and not replay_ready:
+        blockers.append("replay_command_missing")
+
+    return {
+        "required": required,
+        "ready": ready,
+        "operator_required": operator_required,
+        "blockers": blockers,
+        "rollback_ref_hash": stable_text_hash(rollback_ref) if rollback_ref else None,
+        "rollback_artifact_hash": stable_text_hash(rollback_artifact) if rollback_artifact else None,
+        "command_count": command_count,
+        "command_hashes": [stable_text_hash(command) for command in commands],
+        "replay_ready": replay_ready,
+        "replay_command_hash": stable_text_hash(replay_command) if replay_command else None,
+        "validation_command_count": len(validation_command_names),
+        "validation_command_hashes": [stable_text_hash(name) for name in validation_command_names],
+        "raw_recovery_commands_exported": False,
+        "raw_replay_command_exported": False,
+        "raw_rollback_refs_exported": False,
+    }
+
+
 def build_agent_workflow_control_plane(
     *,
     task_id: str,
@@ -4383,6 +4449,7 @@ def build_agent_workflow_control_plane(
     validation_gate: str,
     validation_checks: list[dict[str, Any]],
     rollback_available: bool,
+    recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
     report_artifacts: dict[str, Any],
     source_path: Path,
@@ -4393,12 +4460,13 @@ def build_agent_workflow_control_plane(
     replay_path = optional_string(report_artifacts.get("replay_path"))
     intake_ready = bool(task_id and plan_steps)
     midflight_ready = runner_invoked and bool(state_transitions)
-    replay_ready = bool(validation_gate and validation_checks)
+    recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
+    replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
     report_ready = truthy(report_artifacts.get("report_recorded")) or bool(report_path)
     stages = {
         "intake": intake_ready,
         "midflight": midflight_ready,
-        "recovery": rollback_available,
+        "recovery": recovery_ready,
         "replay": replay_ready,
         "report": report_ready,
     }
@@ -4430,6 +4498,7 @@ def build_agent_workflow_control_plane(
             "validation_check_count": len(validation_checks),
             "replay_artifact_hash": stable_text_hash(replay_path) if replay_path else None,
         },
+        "recovery": recovery_handoff,
         "report": {
             "report_recorded": report_ready,
             "report_artifact_hash": stable_text_hash(report_path) if report_path else None,

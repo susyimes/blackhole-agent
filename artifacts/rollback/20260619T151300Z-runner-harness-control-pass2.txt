@@ -1,0 +1,8 @@
+rollback_point: 20260619T151300Z-runner-harness-control-pass2
+original_branch: codex/blackhole-evolve/20260619T151300.832093-create-a-local-validation-lane-for-agent-harness
+head: c4737ce0b8194496d5eda18c888a80edb111f86f
+local_rollback_ref: refs/rollback/20260619T151300Z-runner-harness-control-pass2
+recovery_commands:
+  git reset --hard c4737ce0b8194496d5eda18c888a80edb111f86f
+  git clean -fd
+notes: Created before local self-modification for Source digest github-growth-20260619T151207.105362Z.

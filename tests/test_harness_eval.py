@@ -1044,6 +1044,18 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
         "failed_load_bearing_count": 0,
         "flaky_observations_allowed_only_when_non_load_bearing": True,
     }
+    assert output["control_plane"]["recovery"]["required"] is True
+    assert output["control_plane"]["recovery"]["ready"] is True
+    assert output["control_plane"]["recovery"]["operator_required"] is True
+    assert output["control_plane"]["recovery"]["blockers"] == []
+    assert output["control_plane"]["recovery"]["command_count"] == 2
+    assert len(output["control_plane"]["recovery"]["command_hashes"]) == 2
+    assert output["control_plane"]["recovery"]["replay_ready"] is True
+    assert output["control_plane"]["recovery"]["replay_command_hash"].startswith("sha256:")
+    assert output["control_plane"]["recovery"]["validation_command_count"] == 1
+    assert output["control_plane"]["recovery"]["raw_recovery_commands_exported"] is False
+    assert output["control_plane"]["recovery"]["raw_replay_command_exported"] is False
+    assert output["control_plane"]["recovery"]["raw_rollback_refs_exported"] is False
     assert output["observations"]["passed"] is True
     assert output["observations"]["items"][1]["phase"] == "teardown"
     assert output["observations"]["items"][1]["load_bearing"] is False
@@ -1055,6 +1067,9 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert "overview-title-painted" not in serialized
     assert "idle-status-after-teardown" not in serialized
     assert "artifacts/self-evolution/fixture-route-control-plane-report.md" not in serialized
+    assert "refs/rollback/fixture-route-control-plane-replay" not in serialized
+    assert "git reset --hard fixture-route-control-plane-head" not in serialized
+    assert "pytest tests/test_harness_eval.py -q -k agent_workflow_route_control_plane" not in serialized
 
     stale_gate = evaluate_harness_behavior(
         "agent_workflow_route",
@@ -1090,6 +1105,38 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert stale_gate["observations"]["failed_load_bearing_count"] == 1
     assert stale_gate["control_plane"]["complete"] is False
     assert "PRIVATE_STALE_OBSERVATION_ID_DO_NOT_EXPORT" not in stale_serialized
+
+    missing_handoff = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-missing-recovery-handoff",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "validation": {
+                "gate": "runner-harness-control-plane",
+                "checks": [{"name": "pytest-agent-workflow-control-plane", "returncode": 0}],
+            },
+            "rollback": {
+                "created": True,
+                "ref": "refs/rollback/PRIVATE_RECOVERY_REF_DO_NOT_EXPORT",
+            },
+            "recovery": {
+                "required": True,
+                "commands": [],
+            },
+            "artifacts": {"report_recorded": True},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_missing_recovery_handoff_inline.json",
+    )
+    missing_serialized = json.dumps(missing_handoff, sort_keys=True)
+
+    assert missing_handoff["route_status"] == "failed_recoverable"
+    assert missing_handoff["failure_mode"] == "recovery_handoff_incomplete"
+    assert missing_handoff["control_plane"]["complete"] is False
+    assert missing_handoff["control_plane"]["missing_stages"] == ["recovery"]
+    assert missing_handoff["control_plane"]["recovery"]["ready"] is False
+    assert missing_handoff["control_plane"]["recovery"]["blockers"] == ["recovery_commands_missing"]
+    assert "PRIVATE_RECOVERY_REF_DO_NOT_EXPORT" not in missing_serialized
 
 
 def test_agent_workflow_route_blocks_before_activation_when_oneshot_marker_absent():
