@@ -181,20 +181,24 @@ proposal kinds, downgrade/rejection counts, whether every lane keeps
 `runtime_action: none`, whether every lane requires local validation, a
 body-free `evidence_strength` summary, and an `activation_gate` for the
 controller surface. Generic pull request or push clusters are
-`weak_generic_upstream_movement` unless the fixture also carries a specific
-summary, explicit route hint, or local validation signal. Weak generic movement
-can support investigation, documentation, or review notes, but it is not
-activation-ready merely because its candidate lanes are otherwise bounded.
+`weak_generic_upstream_movement` unless the fixture also carries a separate
+body-free `local_corroboration` record. A route hint, CI word, test word, or
+generic PR title inside the upstream evidence does not count as corroboration
+by itself. Weak generic movement can support investigation, documentation, or
+review notes, but it is not activation-ready merely because its candidate lanes
+are otherwise bounded.
 Clean evidence is
 `ready_for_local_proposal_activation`; downgraded evidence is
 `review_degraded_lane_before_activation`; rejected or empty evidence is
 `blocked_before_activation`; weak generic upstream movement is
-`review_weak_evidence_before_activation`. The gate always keeps
-`external_skill_activation_allowed: false`; it can only permit local proposal
-activation for clean documentation, config, test, or code_patch lanes. Raw
-source and evidence URLs are hashed rather than exported. Requested activation
-actions such as install, enable, run, execute, clone-and-run, or local deletion
-block the harness lane as rejected candidates and do not execute.
+`review_weak_evidence_before_activation`; generic upstream movement with local
+corroboration can become `ready_for_local_proposal_activation`. The gate always
+keeps `external_skill_activation_allowed: false`; it can only permit local
+proposal activation for clean or locally corroborated documentation, config,
+test, or code_patch lanes. Raw source and evidence URLs are hashed rather than
+exported. Requested activation actions such as install, enable, run, execute,
+clone-and-run, or local deletion block the harness lane as rejected candidates
+and do not execute.
 
 The same local harness family now includes a metadata-only CI round-trip
 diagnostic for mocked E2E runner lanes. When public harness evidence suggests a

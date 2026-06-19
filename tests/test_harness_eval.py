@@ -438,6 +438,8 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         "specific_detail_count": 0,
         "explicit_route_hint_count": 0,
         "local_validation_signal_count": 0,
+        "local_corroborating_signal_count": 0,
+        "corroboration_required_for_generic_upstream_movement": True,
         "activation_evidence_sufficient": False,
     }
     assert output["activation_gate"] == {
@@ -470,6 +472,96 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
             "external_skill_activation_allowed": False,
         },
     ]
+
+
+def test_skill_route_discovery_lane_requires_local_corroboration_for_generic_pr_route_hints():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-generic-route-hint-only",
+            "source_kind": "evidence_items",
+            "evidence_items": [
+                {
+                    "item_id": "omnigent-pr-809",
+                    "item_kind": "pull_request",
+                    "name": "omnigent",
+                    "source_url": "https://github.com/omnigent-ai/omnigent/pull/809",
+                    "title": "Untitled generic PR movement",
+                    "summary": (
+                        "Generic PR lifecycle for an agent skill route with route hint and CI wording "
+                        "but missing implementation detail."
+                    ),
+                    "route_hints": ["skill_route_discovery"],
+                    "suggested_lanes": ["documentation", "test"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_generic_route_hint_inline.json",
+    )
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "weak_generic_upstream_evidence"
+    assert output["evidence_strength"] == {
+        "tier": "weak_generic_upstream_movement",
+        "record_count": 1,
+        "weak_generic_movement_count": 1,
+        "specific_detail_count": 0,
+        "explicit_route_hint_count": 1,
+        "local_validation_signal_count": 1,
+        "local_corroborating_signal_count": 0,
+        "corroboration_required_for_generic_upstream_movement": True,
+        "activation_evidence_sufficient": False,
+    }
+    assert output["activation_gate"]["decision"] == "review_weak_evidence_before_activation"
+    assert output["activation_gate"]["local_proposal_activation_allowed"] is False
+
+
+def test_skill_route_discovery_lane_allows_generic_pr_only_with_local_corroboration():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-generic-corroborated",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "omnigent-generic-movement",
+                    "source_url": "https://github.com/omnigent-ai/omnigent",
+                    "discovery_event_kind": "push",
+                    "evidence_summary": "Generic upstream PR/push lifecycle cluster with missing detail.",
+                    "candidate_lanes": ["documentation"],
+                }
+            ],
+            "local_corroboration": [
+                {
+                    "signal_kind": "focused_fixture",
+                    "validation_command": "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_generic_corroborated_inline.json",
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["evidence_strength"] == {
+        "tier": "generic_upstream_movement_with_local_corroboration",
+        "record_count": 1,
+        "weak_generic_movement_count": 1,
+        "specific_detail_count": 0,
+        "explicit_route_hint_count": 0,
+        "local_validation_signal_count": 0,
+        "local_corroborating_signal_count": 1,
+        "corroboration_required_for_generic_upstream_movement": True,
+        "activation_evidence_sufficient": True,
+    }
+    assert output["activation_gate"] == {
+        "controller_surface": "skill_route_discovery_lane",
+        "activation_scope": "local_proposal_only",
+        "decision": "ready_for_local_proposal_activation",
+        "reason": "none",
+        "local_proposal_activation_allowed": True,
+        "external_skill_activation_allowed": False,
+    }
 
 
 def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():

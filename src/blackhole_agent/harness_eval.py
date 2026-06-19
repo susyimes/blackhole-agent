@@ -777,6 +777,7 @@ def skill_route_discovery_evidence_strength(raw_input: dict[str, Any], *, source
     """Summarize whether discovery evidence is specific enough for local activation."""
 
     records = _skill_route_discovery_evidence_records(raw_input, source_kind=source_kind)
+    local_corroboration = _skill_route_discovery_local_corroboration(raw_input)
     weak_generic_count = 0
     specific_detail_count = 0
     explicit_route_hint_count = 0
@@ -830,11 +831,12 @@ def skill_route_discovery_evidence_strength(raw_input: dict[str, Any], *, source
     if not records:
         tier = "empty"
         activation_evidence_sufficient = False
-    elif weak_generic_count and not (
-        specific_detail_count or explicit_route_hint_count or local_validation_signal_count
-    ):
+    elif weak_generic_count and not local_corroboration:
         tier = "weak_generic_upstream_movement"
         activation_evidence_sufficient = False
+    elif weak_generic_count:
+        tier = "generic_upstream_movement_with_local_corroboration"
+        activation_evidence_sufficient = True
     else:
         tier = "specific_route_or_validation_evidence"
         activation_evidence_sufficient = True
@@ -846,6 +848,8 @@ def skill_route_discovery_evidence_strength(raw_input: dict[str, Any], *, source
         "specific_detail_count": specific_detail_count,
         "explicit_route_hint_count": explicit_route_hint_count,
         "local_validation_signal_count": local_validation_signal_count,
+        "local_corroborating_signal_count": len(local_corroboration),
+        "corroboration_required_for_generic_upstream_movement": bool(weak_generic_count),
         "activation_evidence_sufficient": activation_evidence_sufficient,
     }
 
@@ -873,6 +877,40 @@ def _skill_route_discovery_record_text(record: dict[str, Any]) -> str:
         if isinstance(value, list):
             parts.extend(str(item) for item in value)
     return " ".join(parts).casefold()
+
+
+def _skill_route_discovery_local_corroboration(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return body-free local signals that can corroborate generic upstream movement."""
+
+    signals = raw_input.get("local_corroboration")
+    if not isinstance(signals, list):
+        return []
+
+    accepted: list[dict[str, Any]] = []
+    for signal in signals:
+        if not isinstance(signal, dict):
+            continue
+        signal_kind = optional_string(signal.get("signal_kind")) or ""
+        validation_command = optional_string(signal.get("validation_command")) or ""
+        local_artifact = optional_string(signal.get("local_artifact")) or ""
+        if signal_kind not in {
+            "failing_local_test",
+            "focused_fixture",
+            "local_validation",
+            "operator_review_note",
+            "replay_fixture",
+        }:
+            continue
+        if not validation_command and not local_artifact:
+            continue
+        accepted.append(
+            {
+                "signal_kind": signal_kind,
+                "validation_command_present": bool(validation_command),
+                "local_artifact_present": bool(local_artifact),
+            }
+        )
+    return accepted
 
 
 def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

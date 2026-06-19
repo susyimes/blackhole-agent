@@ -1,0 +1,15 @@
+Rollback point for source digest github-growth-20260619T101207.007953Z
+
+Original branch: codex/blackhole-evolve/20260619T101310.372812-document-a-provider-config-token-and-runner-pref
+Original HEAD: 239ea7f6123dac3dd574933eb2ee8b261d59e5cd
+Local rollback ref: refs/rollback/20260619T101207Z-generic-pr-corroboration-lane
+
+Recovery commands:
+
+git reset --hard 239ea7f6123dac3dd574933eb2ee8b261d59e5cd
+git clean -fd
+
+Notes:
+
+Rollback execution is destructive and must be chosen explicitly by a human operator or external supervisor policy.
+This run evaluates generic upstream PR activity as low-confidence skill-route evidence unless a local corroborating signal is present.
