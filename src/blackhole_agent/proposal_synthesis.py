@@ -33,6 +33,7 @@ ROUTE_HINT_VALIDATION_LANES = {
     "agent_harness_eval": ["documentation", "test", "code_patch"],
     "governance_policy": ["documentation", "config", "test", "code_patch"],
 }
+ROUTE_HINT_PROPOSAL_LANES = ["documentation", "config", "test", "code_patch"]
 SKILL_WORKFLOW_ROUTE_TERMS = (
     "agent skill",
     "agent skills",
@@ -351,6 +352,31 @@ def build_proposal_evidence_package(
 def build_route_hint_policy_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:
     """Validate route-hint lane policy before proposal implementation lanes are chosen."""
 
+    lane_map = build_route_hint_lane_map(evidence_package)
+    diagnostics = list(lane_map["diagnostics"])
+    skill_lanes = lane_map["validation_lanes"].get("skill_route_discovery", [])
+    governance_lanes = lane_map["validation_lanes"].get("governance_policy", [])
+    return {
+        "ok": not diagnostics,
+        "route_hint_count": len(lane_map["selected_route_hints"]),
+        "selected_route_hints": lane_map["selected_route_hints"],
+        "configured_route_hints": lane_map["configured_route_hints"],
+        "skill_route_discovery_lanes": skill_lanes,
+        "allowed_skill_route_discovery_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "governance_policy_lanes": governance_lanes,
+        "allowed_governance_policy_lanes": list(ROUTE_HINT_VALIDATION_LANES["governance_policy"]),
+        "diagnostics": diagnostics,
+    }
+
+
+def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any]:
+    """Map known route hints to bounded local proposal lanes.
+
+    The map is metadata-only. It does not add evidence URLs, permissions, or
+    runtime actions; it only exposes the documentation/config/test/code_patch
+    lanes that deterministic proposal review already knows how to validate.
+    """
+
     policy = evidence_package.get("policy") if isinstance(evidence_package.get("policy"), dict) else {}
     configured_lanes = policy.get("route_hint_validation_lanes")
     configured_lanes = configured_lanes if isinstance(configured_lanes, dict) else {}
@@ -396,17 +422,42 @@ def build_route_hint_policy_preflight(evidence_package: dict[str, Any]) -> dict[
     if unconfigured_hints:
         diagnostics.append("selected route hints lack validation lanes: " + ", ".join(unconfigured_hints))
 
-    skill_lanes = configured_hints.get("skill_route_discovery")
-    governance_lanes = configured_hints.get("governance_policy")
+    route_hint_entries: list[dict[str, Any]] = []
+    for route_hint in sorted(expected_policy_lanes):
+        configured = configured_hints.get(route_hint, [])
+        expected_lanes = expected_policy_lanes[route_hint]
+        route_hint_entries.append(
+            {
+                "route_hint": route_hint,
+                "validation_lanes": list(configured),
+                "allowed_lanes": list(expected_lanes),
+                "proposal_lanes": [
+                    {
+                        "route_hint": route_hint,
+                        "proposal_kind": lane,
+                        "runtime_action": "none",
+                        "local_validation_required": True,
+                    }
+                    for lane in configured
+                    if lane in expected_lanes and lane in ROUTE_HINT_PROPOSAL_LANES
+                ],
+                "unsupported_lanes": unsupported_lanes_by_hint.get(route_hint, []),
+                "status": "valid" if configured == expected_lanes else "invalid",
+            }
+        )
+
     return {
+        "schema_version": PROPOSAL_SYNTHESIS_SCHEMA_VERSION,
         "ok": not diagnostics,
         "route_hint_count": len(selected_route_hints),
         "selected_route_hints": selected_route_hints,
         "configured_route_hints": sorted(configured_hints),
-        "skill_route_discovery_lanes": skill_lanes or [],
-        "allowed_skill_route_discovery_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
-        "governance_policy_lanes": governance_lanes or [],
-        "allowed_governance_policy_lanes": list(ROUTE_HINT_VALIDATION_LANES["governance_policy"]),
+        "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
+        "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
+        "route_hint_entries": route_hint_entries,
+        "permission_effect": "none",
+        "evidence_url_effect": "none",
+        "runtime_action": "none",
         "diagnostics": diagnostics,
     }
 

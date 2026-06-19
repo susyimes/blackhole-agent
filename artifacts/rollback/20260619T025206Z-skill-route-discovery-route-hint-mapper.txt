@@ -1,0 +1,9 @@
+rollback_point: 20260619T025206Z-skill-route-discovery-route-hint-mapper
+original_branch: codex/blackhole-evolve/20260619T025313.725710-add-or-restore-a-focused-local-regression-test-f
+original_head: 1b471770d68a1c5a7ad4e9d1c414930de50ba533
+rollback_ref: refs/rollback/20260619T025206Z-codex_blackhole-evolve_20260619T025313.725710-add-or-restore-a-focused-local-regression-test-f
+recovery_commands:
+  git switch codex/blackhole-evolve/20260619T025313.725710-add-or-restore-a-focused-local-regression-test-f
+  git reset --hard refs/rollback/20260619T025206Z-codex_blackhole-evolve_20260619T025313.725710-add-or-restore-a-focused-local-regression-test-f
+notes:
+  Created before local self-modification for source digest github-growth-20260619T025207.035716Z.

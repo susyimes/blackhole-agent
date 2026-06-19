@@ -12,6 +12,7 @@ from blackhole_agent.proposal_eval import (
 )
 from blackhole_agent.proposal_synthesis import (
     build_proposal_evidence_package,
+    build_route_hint_lane_map,
     build_route_hint_policy_preflight,
     review_llm_proposal_response,
 )
@@ -425,6 +426,39 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
     )
 
 
+def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
+    case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+
+    lane_map = build_route_hint_lane_map(evidence_package)
+    skill_entry = next(
+        entry
+        for entry in lane_map["route_hint_entries"]
+        if entry["route_hint"] == "skill_route_discovery"
+    )
+
+    assert lane_map["ok"] is True
+    assert lane_map["allowed_proposal_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert lane_map["permission_effect"] == "none"
+    assert lane_map["evidence_url_effect"] == "none"
+    assert lane_map["runtime_action"] == "none"
+    assert skill_entry["validation_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert [lane["proposal_kind"] for lane in skill_entry["proposal_lanes"]] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert all(lane["runtime_action"] == "none" for lane in skill_entry["proposal_lanes"])
+    assert all(lane["local_validation_required"] is True for lane in skill_entry["proposal_lanes"])
+    assert "allowed_evidence_urls" not in lane_map
+    assert "permissions" not in lane_map
+
+
 def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():
     case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
     evidence_package = build_proposal_evidence_package(
@@ -440,6 +474,7 @@ def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():
         "runtime_execution",
     ]
 
+    lane_map = build_route_hint_lane_map(evidence_package)
     preflight = build_route_hint_policy_preflight(evidence_package)
     review = review_llm_proposal_response(
         json.dumps(case["raw_response"]),
@@ -447,6 +482,19 @@ def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():
         mode=case["mode"],
     )
 
+    skill_entry = next(
+        entry
+        for entry in lane_map["route_hint_entries"]
+        if entry["route_hint"] == "skill_route_discovery"
+    )
+    assert lane_map["ok"] is False
+    assert skill_entry["unsupported_lanes"] == ["runtime_execution"]
+    assert [lane["proposal_kind"] for lane in skill_entry["proposal_lanes"]] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
     assert preflight["ok"] is False
     assert preflight["diagnostics"] == [
         "skill_route_discovery route hint must resolve only to: documentation, config, test, code_patch",

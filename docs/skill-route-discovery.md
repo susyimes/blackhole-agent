@@ -171,19 +171,20 @@ to perform during discovery.
 ## Route-Hint Policy Preflight
 
 Before proposal interpretation accepts any implementation lane,
-`build_route_hint_policy_preflight` checks the controller-owned route-hint
-policy in the frozen evidence package. For `skill_route_discovery`, the only
-valid resolved lanes are still documentation, config, test, and code_patch. Any
-extra lane such as runtime_execution, install, enable, or follow_up_issue causes
-the preflight to fail before a candidate can be normalized or accepted.
+`build_route_hint_lane_map` renders controller-owned route hints into bounded
+proposal lanes, and `build_route_hint_policy_preflight` checks that map. For
+`skill_route_discovery`, the only valid resolved lanes are still documentation,
+config, test, and code_patch. Any extra lane such as runtime_execution,
+install, enable, or follow_up_issue causes the preflight to fail before a
+candidate can be normalized or accepted.
 
-The preflight is intentionally metadata-only. It reads selected item
-`route_hints` and the controller policy table, then reports selected hints,
-configured hints, resolved skill-route lanes, and diagnostics. It does not read
-upstream skill bodies, install packages, expose secrets, execute repository
-scripts, or add new evidence URLs. This makes route-hint drift visible even
-when an LLM candidate would otherwise be rejected later by the per-candidate
-lane check.
+The lane map and preflight are intentionally metadata-only. They read selected
+item `route_hints` and the controller policy table, then report selected hints,
+configured hints, route-hint entries, proposal lanes, and diagnostics. They do
+not read upstream skill bodies, install packages, expose secrets, execute
+repository scripts, grant permissions, or add new evidence URLs. This makes
+route-hint drift visible even when an LLM candidate would otherwise be rejected
+later by the per-candidate lane check.
 
 ## Evidence Citation And Uncertainty
 
