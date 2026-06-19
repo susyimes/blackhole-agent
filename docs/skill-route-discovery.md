@@ -178,7 +178,13 @@ contract: documentation, config, test, and code_patch.
 
 The harness output is metadata-only. It reports candidate counts, lane counts,
 proposal kinds, downgrade/rejection counts, whether every lane keeps
-`runtime_action: none`, and whether every lane requires local validation. Raw
+`runtime_action: none`, whether every lane requires local validation, and an
+`activation_gate` for the controller surface. Clean evidence is
+`ready_for_local_proposal_activation`; downgraded evidence is
+`review_degraded_lane_before_activation`; rejected or empty evidence is
+`blocked_before_activation`. The gate always keeps
+`external_skill_activation_allowed: false`; it can only permit local proposal
+activation for clean documentation, config, test, or code_patch lanes. Raw
 source and evidence URLs are hashed rather than exported. Requested activation
 actions such as install, enable, run, execute, clone-and-run, or local deletion
 block the harness lane as rejected candidates and do not execute.

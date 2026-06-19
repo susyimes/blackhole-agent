@@ -225,6 +225,14 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["lane_map"]["lanes_bounded"] is True
     assert output["lane_map"]["lane_runtime_safe"] is True
     assert output["lane_map"]["local_validation_required"] is True
+    assert output["activation_gate"] == {
+        "controller_surface": "skill_route_discovery_lane",
+        "activation_scope": "local_proposal_only",
+        "decision": "ready_for_local_proposal_activation",
+        "reason": "none",
+        "local_proposal_activation_allowed": True,
+        "external_skill_activation_allowed": False,
+    }
     assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
     assert {lane["evidence_url_count"] for lane in output["proposal_lanes"]} == {3}
     assert all(lane["evidence_url_hashes"] for lane in output["proposal_lanes"])
@@ -260,7 +268,46 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
     assert output["registry"]["registry_status"] == "invalid_candidates_present"
     assert output["registry"]["invalid_candidate_count"] == 1
     assert output["lane_map"]["proposal_lane_count"] == 0
+    assert output["activation_gate"] == {
+        "controller_surface": "skill_route_discovery_lane",
+        "activation_scope": "local_proposal_only",
+        "decision": "blocked_before_activation",
+        "reason": "rejected_candidates_present",
+        "local_proposal_activation_allowed": False,
+        "external_skill_activation_allowed": False,
+    }
     assert output["privacy"]["runtime_actions_executed"] is False
+
+
+def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-downgraded",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "overbroad-skill",
+                    "source_url": "https://github.com/example/overbroad-skill",
+                    "candidate_lanes": ["documentation", "runtime_execution"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_downgraded_inline.json",
+    )
+
+    assert output["route_status"] == "degraded"
+    assert output["failure_mode"] == "unsupported_lanes_downgraded"
+    assert output["lane_map"]["proposal_lane_count"] == 1
+    assert output["lane_map"]["downgraded_candidate_count"] == 1
+    assert output["activation_gate"] == {
+        "controller_surface": "skill_route_discovery_lane",
+        "activation_scope": "local_proposal_only",
+        "decision": "review_degraded_lane_before_activation",
+        "reason": "unsupported_lanes_downgraded",
+        "local_proposal_activation_allowed": False,
+        "external_skill_activation_allowed": False,
+    }
 
 
 def test_rendered_html_artifact_validation_blocks_when_scripts_do_not_execute():

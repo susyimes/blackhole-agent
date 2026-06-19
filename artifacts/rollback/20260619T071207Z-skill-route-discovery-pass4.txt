@@ -1,0 +1,8 @@
+Rollback point for skill-route-discovery-pass4
+Generated: 2026-06-19T07:12:07Z
+Original branch: codex/blackhole-evolve/20260619T071350.565707-add-or-un-quarantine-local-tests-for-sandbox-wri
+Original HEAD: 5141f728c9619b541de03cfdd61122ffdd8da707
+Rollback ref: refs/rollback/20260619T071207Z-skill-route-discovery-pass4
+Recovery commands:
+  git reset --hard refs/rollback/20260619T071207Z-skill-route-discovery-pass4
+  git clean -fd # only if the operator accepts deleting untracked files

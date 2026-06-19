@@ -64,6 +64,14 @@
       "equals": true
     },
     {
+      "path": "activation_gate.decision",
+      "equals": "ready_for_local_proposal_activation"
+    },
+    {
+      "path": "activation_gate.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
       "path": "privacy.raw_evidence_urls_exported",
       "equals": false
     }

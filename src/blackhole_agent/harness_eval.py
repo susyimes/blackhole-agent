@@ -400,6 +400,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         if failure_mode == "unsupported_lanes_downgraded"
         else "blocked"
     )
+    activation_gate = skill_route_discovery_activation_gate(failure_mode)
 
     return {
         "schema_version": 1,
@@ -426,6 +427,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "lane_runtime_safe": lane_runtime_safe,
             "local_validation_required": validation_required,
         },
+        "activation_gate": activation_gate,
         "proposal_lanes": [
             {
                 "candidate_name": str(lane.get("candidate_name") or ""),
@@ -471,6 +473,29 @@ def skill_route_discovery_lane_failure_mode(
     if downgraded_candidate_count:
         return "unsupported_lanes_downgraded"
     return "none"
+
+
+def skill_route_discovery_activation_gate(failure_mode: str) -> dict[str, Any]:
+    """Return the controller-facing activation gate for skill discovery lanes."""
+
+    if failure_mode == "none":
+        decision = "ready_for_local_proposal_activation"
+        local_proposal_activation_allowed = True
+    elif failure_mode == "unsupported_lanes_downgraded":
+        decision = "review_degraded_lane_before_activation"
+        local_proposal_activation_allowed = False
+    else:
+        decision = "blocked_before_activation"
+        local_proposal_activation_allowed = False
+
+    return {
+        "controller_surface": "skill_route_discovery_lane",
+        "activation_scope": "local_proposal_only",
+        "decision": decision,
+        "reason": failure_mode,
+        "local_proposal_activation_allowed": local_proposal_activation_allowed,
+        "external_skill_activation_allowed": False,
+    }
 
 
 def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
