@@ -1,0 +1,13 @@
+Rollback point for source digest github-growth-20260619T035206.981359Z
+
+Original branch: codex/blackhole-evolve/20260619T035311.660518-add-or-update-local-tests-around-provider-config
+Original HEAD: a035315c2a8feda13b0c46e3c116b2a574c760a1
+Rollback ref: refs/rollback/20260619T035206Z-provider-config-approval-watch
+
+Recovery commands, for an explicit operator-approved rollback only:
+
+git switch codex/blackhole-evolve/20260619T035311.660518-add-or-update-local-tests-around-provider-config
+git reset --hard refs/rollback/20260619T035206Z-provider-config-approval-watch
+git clean -fd
+
+This artifact must not be deleted by the run that created it.

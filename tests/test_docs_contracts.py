@@ -94,6 +94,44 @@ def test_upstream_evidence_interpretation_doc_records_claude_prompt_scan_contrac
     assert missing == []
 
 
+def test_upstream_evidence_interpretation_doc_records_approval_ask_surfacing_watch():
+    doc = (REPO_ROOT / "docs" / "upstream-evidence-interpretation.md").read_text(encoding="utf-8")
+    architecture = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+
+    required_doc_phrases = [
+        "## Approval ASK Surfacing Watch",
+        "Source digest: `github-growth-20260619T035206.981359Z`",
+        "https://github.com/omnigent-ai/omnigent/pull/764",
+        "re-filed eight quarantined\napproval e2e tests",
+        "INPUT-phase approval tests passed",
+        "TOOL_CALL, TOOL_RESULT, OUTPUT, and sub-agent-tunneled ASK cases failed\nconsistently",
+        "collapse-to-DENY behavior",
+        "phase-specific approval\nsurfacing",
+        "approval e2e and mock workflow fixtures",
+        "manual/local mode handling",
+        "test-branch and known-failure metadata",
+        "distinguishes INPUT, TOOL_CALL,\nTOOL_RESULT, OUTPUT, and sub-agent ASK phases",
+        "without exporting raw prompts,\ntool arguments, session identifiers, private chats, tokens, credentials",
+        "Privacy-leakage scenarios remain review-only",
+        "phase names, booleans, failure classes, counts, and\nhashes",
+    ]
+    required_architecture_phrases = [
+        "Approval surfacing regressions should be tracked by phase",
+        "Omnigent PR #764 watch item",
+        "INPUT, TOOL_CALL, TOOL_RESULT, OUTPUT, and sub-agent ASK phases",
+        "privacy-leakage cases kept review-only",
+        "body-free metadata such as phase names, booleans, failure classes, counts, and hashes",
+    ]
+
+    missing_doc = [phrase for phrase in required_doc_phrases if phrase not in doc]
+    missing_architecture = [
+        phrase for phrase in required_architecture_phrases if phrase not in architecture
+    ]
+
+    assert missing_doc == []
+    assert missing_architecture == []
+
+
 def test_skill_route_discovery_doc_records_bounded_matrix():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

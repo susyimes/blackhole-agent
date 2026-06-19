@@ -190,6 +190,8 @@ Workspace changes-panel fixtures validate changed-file evidence without exportin
 
 Mock LLM workflow fixtures that model a REPL or e2e approval journey can set `native_tool_policy.approval_expected`. When this contract is present, a governed tool-call step must produce a review-required approval path; a missing or stale policy verdict is reported as `approval_path_missing` even if the mock response and tool-call-name contract otherwise look green. The evaluator still omits raw tool arguments, session IDs, and tool names from exported results.
 
+Approval surfacing regressions should be tracked by phase before changing runtime behavior. `docs/upstream-evidence-interpretation.md` records the Omnigent PR #764 watch item for INPUT, TOOL_CALL, TOOL_RESULT, OUTPUT, and sub-agent ASK phases, with privacy-leakage cases kept review-only and future local tests limited to body-free metadata such as phase names, booleans, failure classes, counts, and hashes.
+
 ### Promotion Gate
 
 After a successful Codex pass, the supervisor may promote the candidate into `main` without human approval when all gate conditions pass:

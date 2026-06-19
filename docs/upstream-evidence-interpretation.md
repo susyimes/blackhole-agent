@@ -170,6 +170,38 @@ raise the configured scan-tail limit or block launch with
 pane text, prompts, paths, URLs, environment values, tokens, and credentials
 must not be exported.
 
+## Approval ASK Surfacing Watch
+
+Source digest: `github-growth-20260619T035206.981359Z`
+
+The Omnigent pull request
+`https://github.com/omnigent-ai/omnigent/pull/764` re-filed eight quarantined
+approval e2e tests under a non-INPUT ASK surfacing issue. The PR describes a
+metadata-only test quarantine change: INPUT-phase approval tests passed, while
+TOOL_CALL, TOOL_RESULT, OUTPUT, and sub-agent-tunneled ASK cases failed
+consistently. The upstream note separates phases that may be intentional
+collapse-to-DENY behavior from phases that look like surfacing bugs, and it
+keeps the entries quarantined pending a product decision.
+
+For this repository, the reusable watch item is phase-specific approval
+surfacing, not Omnigent's quarantine file format. If similar failures appear
+locally, inspect these subsystems before proposing a behavior patch:
+
+- approval e2e and mock workflow fixtures that expect an explicit
+  review-required path
+- manual/local mode handling where a provider or runner might silently collapse
+  ASK into DENY or allow
+- test-branch and known-failure metadata that can make a stale green result
+  look like a working approval path
+
+The first local validation lane should be documentation or tests. A runtime
+change requires a local failing case that distinguishes INPUT, TOOL_CALL,
+TOOL_RESULT, OUTPUT, and sub-agent ASK phases without exporting raw prompts,
+tool arguments, session identifiers, private chats, tokens, credentials, or
+other personal data. Privacy-leakage scenarios remain review-only; they may
+record metadata such as phase names, booleans, failure classes, counts, and
+hashes, but not sensitive bodies.
+
 ## Evidence From This Run
 
 The source digest cited `https://github.com/omnigent-ai/omnigent`. Its public
