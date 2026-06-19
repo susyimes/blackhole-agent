@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 18
-    assert payload["pass_count"] == 17
+    assert payload["fixture_count"] == 20
+    assert payload["pass_count"] == 19
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -100,6 +100,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
+    assert results["mock-e2e-runner-tier-compaction-known-failure-repoint"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
@@ -111,6 +112,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
+    assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -134,6 +136,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REST_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REST_CONTENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HOST_NATIVE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "Pattern 'sleeping' not found" not in serialized
+    assert "OPENAI_API_KEY" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -215,6 +220,62 @@ def test_mock_e2e_runner_tier_fixture_exercises_host_native_and_misc_without_ext
     assert "fixtures/private-input.md" not in serialized
     assert "fixtures/private-output.md" not in serialized
     assert "miscellaneous read result stayed inside local fixture" not in serialized
+
+
+def test_mock_e2e_runner_tier_routes_known_failure_repoints_without_raw_failure_text():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_e2e_runner_tier_compaction_known_failure_repoint.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["known_failure_route"] == {
+        "configured": True,
+        "passed": True,
+        "mode": "skip",
+        "observed_signature_matched": True,
+        "stale_issue_retained": False,
+        "issue_repointed": True,
+        "cluster_repointed": True,
+        "test_logic_changed": False,
+        "raw_failure_text_exported": False,
+    }
+    assert output["failure_mode"] == "none"
+    assert "Pattern 'sleeping' not found" not in serialized
+    assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
+
+
+def test_provider_runtime_preflight_allows_openai_agents_mock_auth_without_key_value_export():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_openai_agents_mock_auth.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "degraded"
+    assert output["failure_mode"] == "none"
+    assert output["runner_env"]["required_env_ready"] is False
+    assert output["provider_auth"] == {
+        "openai_agents_key_relevant": True,
+        "auth_env_key_configured": True,
+        "auth_env_key_present_in_parent": False,
+        "auth_env_key_propagated_to_harness": False,
+        "mock_auth_placeholder_used": True,
+        "real_key_required": False,
+        "key_value_recorded": False,
+    }
+    assert output["runtime"]["runner_invoked"] is True
+    assert output["preflight"]["degraded"] is True
+    assert "OPENAI_API_KEY" not in serialized
 
 
 def test_mock_e2e_runner_tier_fails_when_required_tier_is_missing():
@@ -693,6 +754,9 @@ def test_provider_runtime_preflight_degrades_when_sandbox_override_reaches_harne
         "override_propagated_to_harness": True,
         "allowlist_count": 2,
         "passthrough_count": 0,
+        "required_env_ready": True,
+        "missing_parent_env_key_count": 0,
+        "missing_harness_env_key_count": 0,
         "env_values_recorded": False,
     }
     assert output["runtime"]["runner_invoked"] is True

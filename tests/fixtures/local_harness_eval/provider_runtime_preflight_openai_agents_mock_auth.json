@@ -1,0 +1,92 @@
+{
+  "name": "provider-runtime-preflight-openai-agents-mock-auth",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-openai-agents-mock-auth",
+    "provider": {
+      "name": "openai-agents",
+      "harness": "openai-agents",
+      "auth_env_key": "OPENAI_API_KEY",
+      "required_env_keys": [
+        "OPENAI_API_KEY"
+      ],
+      "degrade_on_incompatible_sandbox": false
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    },
+    "mock_llm": {
+      "enabled": true,
+      "auth_placeholder": true
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "degraded"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "provider.required_env_key_count",
+      "equals": 1
+    },
+    {
+      "path": "runner_env.required_env_ready",
+      "equals": false
+    },
+    {
+      "path": "runner_env.missing_parent_env_key_count",
+      "equals": 1
+    },
+    {
+      "path": "runner_env.missing_harness_env_key_count",
+      "equals": 1
+    },
+    {
+      "path": "provider_auth.openai_agents_key_relevant",
+      "equals": true
+    },
+    {
+      "path": "provider_auth.auth_env_key_present_in_parent",
+      "equals": false
+    },
+    {
+      "path": "provider_auth.mock_auth_placeholder_used",
+      "equals": true
+    },
+    {
+      "path": "provider_auth.real_key_required",
+      "equals": false
+    },
+    {
+      "path": "provider_auth.key_value_recorded",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": true
+    },
+    {
+      "path": "preflight.degraded",
+      "equals": true
+    }
+  ]
+}

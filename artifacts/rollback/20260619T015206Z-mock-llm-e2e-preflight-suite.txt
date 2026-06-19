@@ -1,0 +1,13 @@
+Rollback point for github-growth-20260619T015207.127685Z
+
+Original branch: codex/blackhole-evolve/20260619T015316.771119-add-or-extend-local-tests-for-runner-timeout-rec
+Original HEAD: 5d6b3f1f998396df9b0f237e1d2ccfa012fed092
+Rollback ref: refs/rollback/20260619T015206Z-mock-llm-e2e-preflight-suite
+
+Recovery commands, for an explicit operator rollback only:
+
+git reset --hard refs/rollback/20260619T015206Z-mock-llm-e2e-preflight-suite
+git clean -fd
+
+This rollback artifact was created before local source or fixture edits for the
+mock LLM e2e preflight suite improvement.

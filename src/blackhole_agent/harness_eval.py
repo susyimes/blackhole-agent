@@ -450,7 +450,9 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
     task_id = optional_string(raw_input.get("task_id")) or source_path.stem
     provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
     runner_tiers = raw_input.get("runner_tiers") if isinstance(raw_input.get("runner_tiers"), list) else []
+    known_failure = raw_input.get("known_failure") if isinstance(raw_input.get("known_failure"), dict) else {}
     tier_results = [evaluate_mock_e2e_runner_tier_item(tier) for tier in runner_tiers]
+    known_failure_route = evaluate_mock_e2e_known_failure_route(known_failure)
 
     provider_enabled = truthy(provider.get("enabled"))
     mock_only = truthy(raw_input.get("mock_only")) or truthy(provider.get("mock_only")) or not provider_enabled
@@ -474,6 +476,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
         all_tiers_mocked=all_tiers_mocked,
         all_tiers_passed=all_tiers_passed,
         tool_boundaries_mocked=tool_boundaries_mocked,
+        known_failure_route_passed=known_failure_route["passed"],
     )
 
     return {
@@ -498,6 +501,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
             "tool_boundaries_mocked": tool_boundaries_mocked,
             "tiers": tier_results,
         },
+        "known_failure_route": known_failure_route,
         "privacy": {
             "raw_commands_exported": False,
             "raw_paths_exported": False,
@@ -583,6 +587,7 @@ def mock_e2e_runner_tier_failure_mode(
     all_tiers_mocked: bool,
     all_tiers_passed: bool,
     tool_boundaries_mocked: bool,
+    known_failure_route_passed: bool,
 ) -> str:
     if tier_count < 1:
         return "no_runner_tiers"
@@ -602,7 +607,59 @@ def mock_e2e_runner_tier_failure_mode(
         return "unmocked_tool_boundary"
     if not all_tiers_passed:
         return "tier_expectation_failed"
+    if not known_failure_route_passed:
+        return "known_failure_route_mismatch"
     return "none"
+
+
+def evaluate_mock_e2e_known_failure_route(known_failure: dict[str, Any]) -> dict[str, Any]:
+    """Check that known e2e failures are routed to the observed failure family."""
+
+    configured = bool(known_failure)
+    if not configured:
+        return {
+            "configured": False,
+            "passed": True,
+            "mode": "none",
+            "observed_signature_matched": True,
+            "stale_issue_retained": False,
+            "issue_repointed": False,
+            "cluster_repointed": False,
+            "test_logic_changed": False,
+            "raw_failure_text_exported": False,
+        }
+
+    observed_signature = optional_string(known_failure.get("observed_signature")) or ""
+    expected_signature = optional_string(known_failure.get("expected_signature")) or ""
+    previous_issue = optional_string(known_failure.get("previous_issue")) or ""
+    issue = optional_string(known_failure.get("issue")) or ""
+    previous_cluster = optional_string(known_failure.get("previous_cluster")) or ""
+    cluster = optional_string(known_failure.get("cluster")) or ""
+    mode = optional_string(known_failure.get("mode")) or "skip"
+    test_logic_changed = truthy(known_failure.get("test_logic_changed"))
+    observed_signature_matched = bool(expected_signature and expected_signature in observed_signature)
+    issue_repointed = bool(previous_issue and issue and previous_issue != issue)
+    cluster_repointed = bool(previous_cluster and cluster and previous_cluster != cluster)
+    stale_issue_retained = bool(previous_issue and issue == previous_issue)
+    passed = (
+        observed_signature_matched
+        and issue_repointed
+        and cluster_repointed
+        and mode == "skip"
+        and not test_logic_changed
+    )
+
+    return {
+        "configured": True,
+        "passed": passed,
+        "mode": mode,
+        "observed_signature_matched": observed_signature_matched,
+        "stale_issue_retained": stale_issue_retained,
+        "issue_repointed": issue_repointed,
+        "cluster_repointed": cluster_repointed,
+        "test_logic_changed": test_logic_changed,
+        "raw_failure_text_exported": False,
+    }
 
 
 def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
@@ -1408,6 +1465,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     sandbox = raw_input.get("sandbox") if isinstance(raw_input.get("sandbox"), dict) else {}
     runtime = raw_input.get("runtime") if isinstance(raw_input.get("runtime"), dict) else {}
     runner_env = raw_input.get("runner_env") if isinstance(raw_input.get("runner_env"), dict) else {}
+    mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
 
@@ -1429,6 +1487,16 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     harness_env_keys = sorted(set(allowlist) | set(passthrough))
     override_requested = override_flag in parent_env_keys
     override_propagated = override_requested and override_flag in harness_env_keys
+    auth_env_key = optional_string(provider.get("auth_env_key"))
+    required_env_keys = sorted(set(string_list(provider.get("required_env_keys")) + ([auth_env_key] if auth_env_key else [])))
+    missing_parent_env_keys = sorted(set(required_env_keys) - set(parent_env_keys))
+    missing_harness_env_keys = sorted(set(required_env_keys) - set(harness_env_keys))
+    required_env_ready = not missing_parent_env_keys and not missing_harness_env_keys
+    mock_auth_placeholder = truthy(mock_llm.get("auth_placeholder")) or truthy(mock_llm.get("mock_auth_placeholder"))
+    mock_enabled = truthy(mock_llm.get("enabled"))
+    is_openai_agents = "openai" in f"{provider_name} {harness}".lower() and "agent" in f"{provider_name} {harness}".lower()
+    mock_auth_substitution = bool(required_env_keys and mock_enabled and mock_auth_placeholder)
+    env_preflight_failed = bool(required_env_keys and not required_env_ready and not mock_auth_substitution)
 
     incompatible_sandbox = (
         sandbox_active
@@ -1449,6 +1517,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     blocked = (
         (incompatible_sandbox and not degraded)
         or native_terminal_timeout_risk
+        or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
         or not browser_preflight["url_safety"]["ok"]
     )
@@ -1465,11 +1534,22 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     )
     diagnostics.extend(browser_preflight["preflight"]["diagnostics"])
     diagnostics.extend(prompt_preflight["preflight"]["diagnostics"])
+    diagnostics.extend(
+        build_provider_env_diagnostics(
+            required_env_key_count=len(required_env_keys),
+            missing_parent_env_key_count=len(missing_parent_env_keys),
+            missing_harness_env_key_count=len(missing_harness_env_keys),
+            mock_auth_substitution=mock_auth_substitution,
+            env_preflight_failed=env_preflight_failed,
+        )
+    )
 
     if blocked:
         route_status = "blocked"
         failure_mode = (
-            "url_safety_preflight_failed"
+            "provider_env_missing"
+            if env_preflight_failed
+            else "url_safety_preflight_failed"
             if not browser_preflight["url_safety"]["ok"]
             else "prompt_scan_timeout_risk"
             if not prompt_preflight["prompt_scan"]["prompt_detected"]
@@ -1477,7 +1557,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if native_terminal_timeout_risk
             else "sandbox_runtime_preflight_failed"
         )
-    elif degraded or browser_preflight["browser_tooling"]["configure_checks_skipped"]:
+    elif degraded or mock_auth_substitution or browser_preflight["browser_tooling"]["configure_checks_skipped"]:
         route_status = "degraded"
         failure_mode = "none"
     else:
@@ -1495,6 +1575,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             "harness": harness,
             "sandbox_override_flag": override_flag,
             "degrade_on_incompatible_sandbox": auto_degrade,
+            "required_env_key_count": len(required_env_keys),
+            "required_env_key_names_recorded": True,
         },
         "sandbox": {
             "active": sandbox_active,
@@ -1506,7 +1588,19 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             "override_propagated_to_harness": override_propagated,
             "allowlist_count": len(allowlist),
             "passthrough_count": len(passthrough),
+            "required_env_ready": required_env_ready,
+            "missing_parent_env_key_count": len(missing_parent_env_keys),
+            "missing_harness_env_key_count": len(missing_harness_env_keys),
             "env_values_recorded": False,
+        },
+        "provider_auth": {
+            "openai_agents_key_relevant": is_openai_agents,
+            "auth_env_key_configured": bool(auth_env_key),
+            "auth_env_key_present_in_parent": bool(auth_env_key and auth_env_key in parent_env_keys),
+            "auth_env_key_propagated_to_harness": bool(auth_env_key and auth_env_key in harness_env_keys),
+            "mock_auth_placeholder_used": mock_auth_substitution,
+            "real_key_required": bool(required_env_keys and not mock_auth_substitution),
+            "key_value_recorded": False,
         },
         "runtime": {
             "platform": platform_system or "unknown",
@@ -1522,7 +1616,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         },
         "preflight": {
             "ok": not blocked,
-            "degraded": degraded or browser_preflight["browser_tooling"]["configure_checks_skipped"],
+            "degraded": degraded or mock_auth_substitution or browser_preflight["browser_tooling"]["configure_checks_skipped"],
             "blocked_before_launch": blocked,
             "diagnostics": diagnostics,
             "diagnostic_count": len(diagnostics),
@@ -1729,6 +1823,28 @@ def build_provider_runtime_diagnostics(
         diagnostics.append("ensure the runner PATH resolves the native CLI or configure an explicit provider CLI path")
     if incompatible_sandbox and not degraded and not blocked:
         diagnostics.append("provider runtime sandbox compatibility could not be classified")
+    return diagnostics
+
+
+def build_provider_env_diagnostics(
+    *,
+    required_env_key_count: int,
+    missing_parent_env_key_count: int,
+    missing_harness_env_key_count: int,
+    mock_auth_substitution: bool,
+    env_preflight_failed: bool,
+) -> list[str]:
+    diagnostics: list[str] = []
+    if not required_env_key_count:
+        return diagnostics
+    if mock_auth_substitution:
+        diagnostics.append("mock LLM auth placeholder accepted; real provider key not required for this local fixture")
+    if missing_parent_env_key_count:
+        diagnostics.append("required provider environment keys are missing from the parent runner environment")
+    if missing_harness_env_key_count:
+        diagnostics.append("required provider environment keys are not propagated to the provider harness")
+    if env_preflight_failed:
+        diagnostics.append("block provider startup before launch because required environment keys are unavailable")
     return diagnostics
 
 

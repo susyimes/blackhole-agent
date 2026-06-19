@@ -1,0 +1,114 @@
+{
+  "name": "mock-e2e-runner-tier-compaction-known-failure-repoint",
+  "behavior": "mock_e2e_runner_tier",
+  "input": {
+    "task_id": "fixture-mock-e2e-runner-tier-compaction-known-failure-repoint",
+    "mock_only": true,
+    "provider": {
+      "name": "external-agent-provider",
+      "enabled": false,
+      "credentials_required": false,
+      "network_required": false
+    },
+    "known_failure": {
+      "mode": "skip",
+      "previous_issue": "679",
+      "issue": "523",
+      "previous_cluster": "steering-cancel-compaction-state",
+      "cluster": "repl-pexpect-cli",
+      "expected_signature": "sleeping",
+      "observed_signature": "Pattern 'sleeping' not found within 120.0s during boot readiness",
+      "test_logic_changed": false
+    },
+    "runner_tiers": [
+      {
+        "name": "host-native",
+        "lane": "host_native",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "classify-boot-failure",
+            "observed": "host-native mocked run classified boot readiness before compaction assertions",
+            "expect_contains": "boot readiness"
+          }
+        ],
+        "operations": [
+          {
+            "name": "pexpect_boot_probe",
+            "command": "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT",
+            "mocked": true,
+            "mock_content": "boot readiness signature routed to known failure metadata",
+            "expect_content_contains": "known failure metadata"
+          }
+        ]
+      },
+      {
+        "name": "miscellaneous",
+        "lane": "miscellaneous",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "preserve-quarantine-mode",
+            "observed": "miscellaneous metadata check preserved skip mode without changing test logic",
+            "expect_contains": "preserved skip mode"
+          }
+        ],
+        "operations": [
+          {
+            "name": "known_failure_yaml_parse",
+            "path": "tests/known_failures.yaml",
+            "mocked": true,
+            "mock_content": "known failure metadata parsed with unchanged id and skip mode",
+            "expect_content_contains": "skip mode"
+          }
+        ]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "known_failure_route.configured",
+      "equals": true
+    },
+    {
+      "path": "known_failure_route.passed",
+      "equals": true
+    },
+    {
+      "path": "known_failure_route.mode",
+      "equals": "skip"
+    },
+    {
+      "path": "known_failure_route.observed_signature_matched",
+      "equals": true
+    },
+    {
+      "path": "known_failure_route.issue_repointed",
+      "equals": true
+    },
+    {
+      "path": "known_failure_route.cluster_repointed",
+      "equals": true
+    },
+    {
+      "path": "known_failure_route.stale_issue_retained",
+      "equals": false
+    },
+    {
+      "path": "known_failure_route.test_logic_changed",
+      "equals": false
+    },
+    {
+      "path": "known_failure_route.raw_failure_text_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}
