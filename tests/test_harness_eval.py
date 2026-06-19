@@ -568,6 +568,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         }
         assert lane["activation_ready"] is True
         assert lane["activation_blockers"] == []
+        assert lane["recovery_hint_codes"] == []
         assert lane["runtime_action"] == "none"
         assert lane["external_skill_activation_allowed"] is False
     assert len(output["discovery_checklist"]) == 4
@@ -828,6 +829,7 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         assert lane["preactivation_harness"]["external_harness_execution_allowed"] is False
         assert lane["activation_ready"] is False
         assert lane["activation_blockers"] == ["weak_generic_upstream_evidence"]
+        assert lane["recovery_hint_codes"] == ["skill_route_sparse_upstream_movement"]
         assert lane["runtime_action"] == "none"
         assert lane["external_skill_activation_allowed"] is False
     assert all("missing_detail_risk" in lane["uncertainty_reasons"] for lane in output["proposal_lanes"])
@@ -966,6 +968,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             },
             "activation_ready": False,
             "activation_blockers": ["unsupported_lanes_downgraded"],
+            "recovery_hint_codes": ["skill_route_unsupported_lanes_downgraded"],
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
         }

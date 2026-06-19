@@ -236,13 +236,17 @@ remains `none`, and external skill activation remains false.
 
 For controller handoff, the harness also emits `activation_lanes`. These rows
 group proposal lanes by local output kind and carry the required validation
-command, candidate names, readiness flag, blockers, runtime action, and external
-activation flag. A lane is `activation_ready: true` only when the overall gate
-is `ready_for_local_proposal_activation`; weak generic evidence, downgraded
-lanes, rejected candidates, unbounded lanes, missing validation, or requested
-runtime action keep the row present but blocked. This lets a supervisor promote
-validated documentation, config, test, or code_patch work without treating an
-external skill repository as an installable package.
+command, candidate names, readiness flag, blockers, body-free recovery hint
+codes, runtime action, and external activation flag. A lane is
+`activation_ready: true` only when the overall gate is
+`ready_for_local_proposal_activation`; weak generic evidence, downgraded lanes,
+rejected candidates, unbounded lanes, missing validation, or requested runtime
+action keep the row present but blocked. Blocked rows expose
+`recovery_hint_codes` that point back to the harness recovery hints, so an
+operator can see whether to add local corroboration, review downgraded lanes,
+remove actionful metadata, or regenerate activation rows. This lets a
+supervisor promote validated documentation, config, test, or code_patch work
+without treating an external skill repository as an installable package.
 
 The activation rows now also include a pre-activation local harness check. Before
 promotion, the controller-visible validation set includes both the

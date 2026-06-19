@@ -878,6 +878,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         proposal_lanes,
         activation_allowed=activation_gate["local_proposal_activation_allowed"] is True,
         failure_mode=failure_mode,
+        recovery_hints=recovery_hints,
     )
     preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
         proposal_lanes,
@@ -896,6 +897,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             proposal_lanes,
             activation_allowed=False,
             failure_mode=failure_mode,
+            recovery_hints=recovery_hints,
         )
         preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
             proposal_lanes,
@@ -1120,10 +1122,13 @@ def build_skill_route_discovery_activation_lanes(
     *,
     activation_allowed: bool,
     failure_mode: str,
+    recovery_hints: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Group discovered proposal lanes into controller-ready activation checks."""
 
     validation_commands = skill_route_discovery_preactivation_validation_commands()
+    recovery_hints = recovery_hints or []
+    recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for lane in proposal_lanes:
         proposal_kind = str(lane.get("proposal_kind") or "")
@@ -1146,6 +1151,7 @@ def build_skill_route_discovery_activation_lanes(
             },
             "activation_ready": activation_allowed,
             "activation_blockers": activation_blockers,
+            "recovery_hint_codes": [] if activation_allowed else recovery_hint_codes,
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
         }

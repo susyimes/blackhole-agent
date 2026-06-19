@@ -1,0 +1,6 @@
+rollback point for skill-route-discovery pass 2
+branch: codex/blackhole-evolve/20260619T191350.819771-add-a-local-validation-candidate-for-agent-harne
+head: 5220300053ed39d1f2f655c1aa9c93c396f9db8f
+restore commands:
+  git reset --hard 5220300053ed39d1f2f655c1aa9c93c396f9db8f
+  git clean -fd
