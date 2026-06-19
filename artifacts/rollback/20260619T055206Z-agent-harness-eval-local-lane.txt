@@ -1,0 +1,15 @@
+Rollback point for blackhole-agent self-evolution run
+
+Original branch: codex/blackhole-evolve/20260619T055323.963157-add-or-extend-a-local-agent-harness-evaluation-l
+Original HEAD: 288e5eecf54f6a5399d755464d436fa84f7674cf
+Rollback ref: refs/rollback/20260619T055206Z-agent-harness-eval-local-lane
+Created at: 2026-06-19T05:52:06Z
+Source digest: github-growth-20260619T055207.076056Z
+Proposal: p1-agent-harness-eval-local-lane
+
+Recovery commands (destructive; operator/supervisor only):
+  git reset --hard refs/rollback/20260619T055206Z-agent-harness-eval-local-lane
+  git clean -fd
+
+Notes:
+  This run is expected to stay local-only and validate with focused pytest commands.

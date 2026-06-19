@@ -55,6 +55,43 @@ class CodexCliRunResult:
 
 
 @dataclass(frozen=True)
+class CodexLocalExecutionControls:
+    """Local-only safety controls inferred from one Codex CLI invocation."""
+
+    network_required: bool
+    credentials_required: bool
+    destructive_filesystem_requested: bool
+    shell_invoked: bool
+    stdin_task: bool
+    local_cwd_configured: bool
+    artifacts_configured: bool
+
+    @property
+    def local_only(self) -> bool:
+        return (
+            not self.network_required
+            and not self.credentials_required
+            and not self.destructive_filesystem_requested
+            and not self.shell_invoked
+            and self.stdin_task
+            and self.local_cwd_configured
+            and self.artifacts_configured
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "network_required": self.network_required,
+            "credentials_required": self.credentials_required,
+            "destructive_filesystem_requested": self.destructive_filesystem_requested,
+            "shell_invoked": self.shell_invoked,
+            "stdin_task": self.stdin_task,
+            "local_cwd_configured": self.local_cwd_configured,
+            "artifacts_configured": self.artifacts_configured,
+            "local_only": self.local_only,
+        }
+
+
+@dataclass(frozen=True)
 class CodexStreamChunk:
     """Deterministic fixture event for Codex streaming regression tests."""
 
@@ -237,6 +274,62 @@ def build_codex_exec_command(
     command.extend(config.extra_args)
     command.append("-")
     return command
+
+
+def summarize_codex_local_execution_controls(
+    command: list[str],
+    *,
+    runner_kwargs: Mapping[str, Any],
+    provider_preflight: Mapping[str, Any],
+) -> CodexLocalExecutionControls:
+    """Summarize whether a mocked controller run stayed in the local harness lane."""
+
+    command_parts = [str(part) for part in command]
+    extra_env = runner_kwargs.get("env")
+    capture_output = runner_kwargs.get("capture_output") is True
+    text_mode = runner_kwargs.get("text") is True
+    has_input = isinstance(runner_kwargs.get("input"), str)
+    ambient_openai = provider_preflight.get("ambient_openai")
+    ambient_google = provider_preflight.get("ambient_google")
+    openai_configured = isinstance(ambient_openai, Mapping) and bool(ambient_openai.get("api_key_present"))
+    google_configured = isinstance(ambient_google, Mapping) and bool(ambient_google.get("api_key_present"))
+    application_credentials_configured = isinstance(ambient_google, Mapping) and bool(
+        ambient_google.get("application_credentials_present")
+    )
+
+    return CodexLocalExecutionControls(
+        network_required=has_network_hint(command_parts),
+        credentials_required=bool(openai_configured or google_configured or application_credentials_configured or extra_env),
+        destructive_filesystem_requested=has_destructive_filesystem_hint(command_parts),
+        shell_invoked=uses_shell_runner(runner_kwargs),
+        stdin_task=command_parts[-1:] == ["-"] and has_input,
+        local_cwd_configured="--cd" in command_parts and runner_kwargs.get("cwd") is not None,
+        artifacts_configured="--output-last-message" in command_parts and capture_output and text_mode,
+    )
+
+
+def has_network_hint(command_parts: list[str]) -> bool:
+    network_terms = ("http://", "https://", "ssh://", "git@", "--remote", "--push")
+    return any(any(term in part.lower() for term in network_terms) for part in command_parts)
+
+
+def has_destructive_filesystem_hint(command_parts: list[str]) -> bool:
+    destructive_terms = (
+        " reset ",
+        " clean ",
+        " rm ",
+        " rmdir ",
+        " del ",
+        " remove-item ",
+        " format ",
+        "--dangerously-bypass-approvals-and-sandbox",
+    )
+    normalized = f" {' '.join(command_parts).lower()} "
+    return any(term in normalized for term in destructive_terms)
+
+
+def uses_shell_runner(runner_kwargs: Mapping[str, Any]) -> bool:
+    return bool(runner_kwargs.get("shell"))
 
 
 def build_codex_provider_preflight(
