@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from blackhole_agent.supervisor import (
+    CLAUDE_SDK_PERMISSION_MODE_ENV,
     SupervisorConfig,
+    build_claude_sdk_permission_preflight,
     build_provider_config_preflight,
     build_runtime_startup_preflight,
     build_upgrade_version_preflight,
@@ -40,6 +42,7 @@ def test_build_wake_command_launches_one_shot_child(tmp_path):
         "--evolution-mode",
         "codex",
     ]
+    assert "--allow-claude-sdk-auto-permission-mode" in command
     assert command[command.index("--trend-query") + 1] == "agent language:Python"
     assert command[command.index("--output-dir") + 1] == str(tmp_path / "supervisor" / "growth")
     assert command[command.index("--repo-path") + 1] == str(tmp_path)
@@ -625,6 +628,75 @@ def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling
     assert preflight["diagnostics"] == [
         "codex mode requires an explicit --model or --profile to avoid implicit provider fallback"
     ]
+
+
+def test_claude_sdk_permission_preflight_defaults_to_auto_with_explicit_metadata(monkeypatch):
+    monkeypatch.delenv(CLAUDE_SDK_PERMISSION_MODE_ENV, raising=False)
+
+    preflight = build_claude_sdk_permission_preflight()
+
+    assert preflight["ok"] is True
+    assert preflight["permission_mode"] == "auto"
+    assert preflight["permission_mode_source"] == "default"
+    assert preflight["permission_mode_recorded"] is True
+    assert preflight["permission_mode_env_present"] is False
+    assert preflight["auto_mode"] is True
+    assert preflight["auto_mode_local_enforcement"] is False
+    assert "bypassPermissions" in preflight["valid_permission_modes"]
+
+
+def test_claude_sdk_permission_preflight_accepts_env_override_without_secret_leakage(monkeypatch):
+    monkeypatch.setenv(CLAUDE_SDK_PERMISSION_MODE_ENV, "plan")
+
+    preflight = build_claude_sdk_permission_preflight()
+
+    assert preflight["ok"] is True
+    assert preflight["permission_mode"] == "plan"
+    assert preflight["permission_mode_source"] == "env"
+    assert preflight["permission_mode_env_present"] is True
+    assert preflight["permission_mode_env_value_recorded"] is True
+
+
+def test_claude_sdk_permission_preflight_blocks_auto_when_runtime_policy_disallows_it(monkeypatch):
+    monkeypatch.delenv(CLAUDE_SDK_PERMISSION_MODE_ENV, raising=False)
+
+    preflight = build_claude_sdk_permission_preflight(allow_auto_mode=False)
+
+    assert preflight["ok"] is False
+    assert preflight["permission_mode"] == "auto"
+    assert preflight["auto_mode_allowed"] is False
+    assert preflight["diagnostics"] == ["Claude SDK permission mode 'auto' is disallowed by runtime policy"]
+
+
+def test_claude_sdk_permission_preflight_does_not_echo_invalid_permission_mode(monkeypatch):
+    secret_shaped_input = "sk-live-secret-token"
+    monkeypatch.setenv(CLAUDE_SDK_PERMISSION_MODE_ENV, secret_shaped_input)
+
+    preflight = build_claude_sdk_permission_preflight()
+
+    rendered = json.dumps(preflight, sort_keys=True)
+    assert preflight["ok"] is False
+    assert preflight["permission_mode"] is None
+    assert preflight["permission_mode_recorded"] is False
+    assert preflight["permission_mode_env_value_recorded"] is False
+    assert preflight["diagnostics"] == ["Claude SDK permission mode must be one of the supported SDK modes"]
+    assert secret_shaped_input not in rendered
+
+
+def test_provider_config_preflight_includes_claude_sdk_permission_gate(tmp_path, monkeypatch):
+    monkeypatch.delenv(CLAUDE_SDK_PERMISSION_MODE_ENV, raising=False)
+    config = SupervisorConfig(
+        repo_path=tmp_path,
+        model="gpt-5.5",
+        allow_claude_sdk_auto_permission_mode=False,
+    )
+
+    preflight = build_provider_config_preflight(config)
+
+    assert preflight["ok"] is False
+    assert preflight["codex"]["ok"] is True
+    assert preflight["claude_sdk"]["permission_mode"] == "auto"
+    assert preflight["diagnostics"] == ["Claude SDK permission mode 'auto' is disallowed by runtime policy"]
 
 
 def test_validate_supervisor_config_rejects_malformed_token_env_before_scheduling(tmp_path):

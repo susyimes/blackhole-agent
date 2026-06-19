@@ -41,6 +41,9 @@ DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = ("uv run pytest", "uv run ruff check 
 DEFAULT_RESTART_EXIT_CODE = 75
 LATEST_ACTIVATION_FILENAME = "latest-activation.json"
 VERSION_PREVIEW_MARKERS = ("dev", "alpha", "a", "beta", "b", "rc", "pre", "preview", "nightly", "snapshot")
+CLAUDE_SDK_PERMISSION_MODE_ENV = "HARNESS_CLAUDE_SDK_PERMISSION_MODE"
+CLAUDE_SDK_PERMISSION_MODES = frozenset({"auto", "bypassPermissions", "acceptEdits", "plan", "dontAsk", "default"})
+DEFAULT_CLAUDE_SDK_PERMISSION_MODE = "auto"
 DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION = (
     "Native supervisor note: this wake is one pass in an autonomous scheduled loop. "
     "Prefer coherent local improvements and size them by evidence, benefit, rollback coverage, and validation coverage rather than by smallness. "
@@ -92,6 +95,8 @@ class SupervisorConfig:
     approval_policy: str = "never"
     ignore_user_config: bool = True
     bypass_approvals_and_sandbox: bool = False
+    claude_sdk_permission_mode: str | None = None
+    allow_claude_sdk_auto_permission_mode: bool = True
     codex_timeout_seconds: int = 3600
     extra_instruction: str = ""
     commit_successful_changes: bool = True
@@ -317,6 +322,13 @@ def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = Non
     if config.profile:
         command.extend(["--profile", config.profile])
     command.append("--require-codex-route" if config.require_codex_route else "--allow-default-codex-route")
+    if config.claude_sdk_permission_mode:
+        command.extend(["--claude-sdk-permission-mode", config.claude_sdk_permission_mode])
+    command.append(
+        "--allow-claude-sdk-auto-permission-mode"
+        if config.allow_claude_sdk_auto_permission_mode
+        else "--disallow-claude-sdk-auto-permission-mode"
+    )
     if config.sandbox:
         command.extend(["--sandbox", config.sandbox])
     if config.approval_policy:
@@ -1177,8 +1189,15 @@ def build_provider_config_preflight(
             require_explicit_route=config.require_codex_route and config.evolution_mode == "codex",
         )
     )
+    claude_sdk_preflight = build_claude_sdk_permission_preflight(
+        configured_permission_mode=config.claude_sdk_permission_mode,
+        allow_auto_mode=config.allow_claude_sdk_auto_permission_mode,
+        env=environment,
+    )
     if config.evolution_mode == "codex" and not codex_preflight["ok"]:
         diagnostics.extend(str(item) for item in codex_preflight["diagnostics"])
+    if not claude_sdk_preflight["ok"]:
+        diagnostics.extend(str(item) for item in claude_sdk_preflight["diagnostics"])
     return {
         "schema_version": 1,
         "ok": not diagnostics,
@@ -1191,6 +1210,54 @@ def build_provider_config_preflight(
         "token_env_present": token_env_present,
         "token_value_recorded": False,
         "codex": codex_preflight,
+        "claude_sdk": claude_sdk_preflight,
+    }
+
+
+def build_claude_sdk_permission_preflight(
+    *,
+    configured_permission_mode: str | None = None,
+    allow_auto_mode: bool = True,
+    env: os._Environ[str] | dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return metadata-only diagnostics for Claude SDK permission-mode selection."""
+
+    environment = os.environ if env is None else env
+    configured = str(configured_permission_mode or "").strip()
+    env_value = str(environment.get(CLAUDE_SDK_PERMISSION_MODE_ENV) or "").strip()
+    if configured:
+        raw_mode = configured
+        source = "config"
+    elif env_value:
+        raw_mode = env_value
+        source = "env"
+    else:
+        raw_mode = DEFAULT_CLAUDE_SDK_PERMISSION_MODE
+        source = "default"
+
+    diagnostics: list[str] = []
+    mode_valid = raw_mode in CLAUDE_SDK_PERMISSION_MODES
+    effective_mode = raw_mode if mode_valid else None
+    if not mode_valid:
+        diagnostics.append("Claude SDK permission mode must be one of the supported SDK modes")
+    elif effective_mode == "auto" and not allow_auto_mode:
+        diagnostics.append("Claude SDK permission mode 'auto' is disallowed by runtime policy")
+
+    return {
+        "schema_version": 1,
+        "ok": not diagnostics,
+        "diagnostics": diagnostics,
+        "permission_mode": effective_mode,
+        "permission_mode_source": source,
+        "permission_mode_recorded": mode_valid,
+        "permission_mode_env": CLAUDE_SDK_PERMISSION_MODE_ENV,
+        "permission_mode_env_present": bool(env_value),
+        "permission_mode_env_value_recorded": bool(source == "env" and mode_valid),
+        "default_permission_mode": DEFAULT_CLAUDE_SDK_PERMISSION_MODE,
+        "auto_mode": effective_mode == "auto",
+        "auto_mode_allowed": allow_auto_mode,
+        "auto_mode_local_enforcement": False,
+        "valid_permission_modes": sorted(CLAUDE_SDK_PERMISSION_MODES),
     }
 
 
@@ -1833,6 +1900,16 @@ def main(
         "--bypass-approvals-and-sandbox",
         help="Forward Codex's dangerous full-access bypass flag.",
     ),
+    claude_sdk_permission_mode: str | None = typer.Option(
+        None,
+        "--claude-sdk-permission-mode",
+        help="Expected Claude SDK permission mode. Defaults to the env override or auto.",
+    ),
+    allow_claude_sdk_auto_permission_mode: bool = typer.Option(
+        True,
+        "--allow-claude-sdk-auto-permission-mode/--disallow-claude-sdk-auto-permission-mode",
+        help="Permit Claude SDK auto permission mode during supervisor preflight.",
+    ),
     codex_timeout_seconds: int = typer.Option(3600, "--codex-timeout-seconds", min=1, help="Codex kernel timeout."),
     extra_instruction: str = typer.Option("", "--extra-instruction", help="Extra instruction appended to evolution tasks."),
     commit_successful_changes: bool = typer.Option(
@@ -1933,6 +2010,8 @@ def main(
         approval_policy=approval_policy,
         ignore_user_config=ignore_user_config,
         bypass_approvals_and_sandbox=bypass_approvals_and_sandbox,
+        claude_sdk_permission_mode=claude_sdk_permission_mode,
+        allow_claude_sdk_auto_permission_mode=allow_claude_sdk_auto_permission_mode,
         codex_timeout_seconds=codex_timeout_seconds,
         extra_instruction=extra_instruction,
         commit_successful_changes=commit_successful_changes,
