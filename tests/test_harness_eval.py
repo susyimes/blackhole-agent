@@ -1943,6 +1943,36 @@ def test_provider_runtime_preflight_allows_openai_agents_mock_auth_without_key_v
     }
     assert output["runtime"]["runner_invoked"] is True
     assert output["preflight"]["degraded"] is True
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["openai-agents"],
+            "value_recorded": False,
+            "code": "mock_auth_placeholder_used",
+            "scope": "mock_llm_provider_auth",
+            "severity": "notice",
+            "action": "keep this route mock-only unless real provider credentials are configured outside fixture output",
+            "required_env_key_count": 1,
+        }
+    ]
+    assert output["supervisor_replay"] == {
+        "ready_for_provider_launch": False,
+        "ready_for_local_replay": True,
+        "decision": "ready_for_local_mock_replay",
+        "reason": "none",
+        "route_status": "degraded",
+        "recovery_hint_codes": ["mock_auth_placeholder_used"],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_input_exported": False,
+        "raw_diagnostics_exported": False,
+        "degraded_replay_only": True,
+    }
     assert "OPENAI_API_KEY" not in serialized
 
 
@@ -2036,6 +2066,38 @@ def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_be
         "command_hashes": [],
         "raw_command_exported": False,
         "diagnostics": ["provider model command is required but was not configured"],
+    }
+    assert missing["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_model_command_missing",
+            "scope": "provider_model_command",
+            "severity": "blocker",
+            "action": "configure a non-empty provider model command list before launching the harness",
+            "command_required": True,
+            "command_configured": False,
+            "command_arg_count": 0,
+        }
+    ]
+    assert missing["supervisor_replay"] == {
+        "ready_for_provider_launch": False,
+        "ready_for_local_replay": False,
+        "decision": "blocked_before_provider_launch",
+        "reason": "provider_model_command_missing",
+        "route_status": "blocked",
+        "recovery_hint_codes": ["provider_model_command_missing"],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_input_exported": False,
+        "raw_diagnostics_exported": False,
+        "degraded_replay_only": False,
     }
 
     assert malformed["route_status"] == "blocked"

@@ -3928,7 +3928,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         route_status = "passed"
         failure_mode = "none"
 
-    return {
+    output = {
         "schema_version": 1,
         "behavior": "provider_runtime_preflight",
         "task_id": task_id,
@@ -4003,6 +4003,13 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "review_model": review_model_preflight,
         "model_command": model_command_preflight,
     }
+    recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
+    output["recovery_hints"] = recovery_hints
+    output["supervisor_replay"] = provider_runtime_preflight_supervisor_replay(
+        output,
+        recovery_hints=recovery_hints,
+    )
+    return output
 
 
 def evaluate_provider_review_model_preflight(
@@ -4221,6 +4228,40 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
 def provider_runtime_summary_case_input(case: dict[str, Any]) -> dict[str, Any]:
     nested_input = case.get("input")
     return nested_input if isinstance(nested_input, dict) else case
+
+
+def provider_runtime_preflight_supervisor_replay(
+    preflight: dict[str, Any],
+    *,
+    recovery_hints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return body-free commands and decisions for replaying one provider preflight."""
+
+    route_status = optional_string(preflight.get("route_status")) or "unknown"
+    failure_mode = optional_string(preflight.get("failure_mode")) or "none"
+    blocked = route_status == "blocked"
+    degraded = route_status == "degraded"
+    recovery_hint_codes = sorted(
+        {str(hint.get("code")) for hint in recovery_hints if str(hint.get("code") or "").strip()}
+    )
+    return {
+        "ready_for_provider_launch": False,
+        "ready_for_local_replay": not blocked,
+        "decision": "blocked_before_provider_launch" if blocked else "ready_for_local_mock_replay",
+        "reason": failure_mode if blocked else "none",
+        "route_status": route_status,
+        "recovery_hint_codes": recovery_hint_codes,
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_input_exported": False,
+        "raw_diagnostics_exported": False,
+        "degraded_replay_only": degraded,
+    }
 
 
 def provider_runtime_supervisor_readiness(

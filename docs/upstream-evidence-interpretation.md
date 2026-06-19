@@ -187,6 +187,30 @@ raise the configured scan-tail limit or block launch with
 pane text, prompts, paths, URLs, environment values, tokens, and credentials
 must not be exported.
 
+## Provider Runtime Recovery Handoff
+
+Source digest: `github-growth-20260619T203207.276361Z`.
+
+Public provider and harness projects show useful runtime patterns, but local
+startup remains gated by metadata-only preflight. Each
+`provider_runtime_preflight` result now carries a body-free `recovery_hints`
+list and `supervisor_replay` block so a blocked provider can be diagnosed from
+the individual preflight output, not only from an aggregate recovery summary.
+
+Use the individual preflight when the operator needs the first failure reason
+for one provider route, such as missing model command metadata, missing
+provider environment propagation, unsafe browser URL, review-model
+unavailability, prompt-scan timeout risk, or native terminal launch risk. Use
+`provider_runtime_recovery_summary` when multiple preflights must be grouped
+into status counts and deduplicated hint codes.
+
+Both surfaces are replay-only. They may expose hint codes, affected harness
+labels, counts, replay commands, and boolean launch decisions. They must not
+export raw model commands, prompt bodies, review output, terminal panes, URLs,
+paths, environment values, token names with values, credentials, or secrets.
+`provider_runtime_launch_allowed` remains false until a separate runtime
+capability and validation path explicitly permits launch.
+
 ## Approval ASK Surfacing Watch
 
 Source digest: `github-growth-20260619T035206.981359Z`

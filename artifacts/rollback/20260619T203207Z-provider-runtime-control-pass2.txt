@@ -1,0 +1,9 @@
+Rollback point for provider-runtime-control pass 2
+Original branch: codex/blackhole-evolve/20260619T203331.807465-prototype-bounded-skill-route-discovery-that-map
+Original HEAD: 374afb69212be90c1ee353b65ebe99e14b53e84b
+Rollback ref: refs/rollback/20260619T203207-provider-runtime-control-pass2
+
+Explicit recovery commands:
+git switch codex/blackhole-evolve/20260619T203331.807465-prototype-bounded-skill-route-discovery-that-map
+git reset --hard refs/rollback/20260619T203207-provider-runtime-control-pass2
+git clean -fd
