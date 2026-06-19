@@ -1,0 +1,98 @@
+{
+  "name": "push-delivery-path-mock-success",
+  "behavior": "push_delivery_path",
+  "input": {
+    "task_id": "fixture-push-delivery-path-mock-success",
+    "promotion": {
+      "promoted": true,
+      "target_head": "fixture-target-head"
+    },
+    "delivery": {
+      "push_requested": true,
+      "remote_name": "origin",
+      "branch": "main",
+      "mock_only": true,
+      "credentials_required": false,
+      "network_required": false
+    },
+    "runner": {
+      "invoked": true,
+      "mocked": true,
+      "returncode": 0,
+      "command": [
+        "git",
+        "push",
+        "origin",
+        "main"
+      ]
+    },
+    "activation": {
+      "activation_recorded": true,
+      "restart_request_recorded": true,
+      "activated_head": "fixture-target-head"
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-push-delivery-path",
+      "artifact_path": "artifacts/rollback/fixture-push-delivery-path.txt"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "delivery.external_calls_attempted",
+      "equals": false
+    },
+    {
+      "path": "delivery.credentials_required",
+      "equals": false
+    },
+    {
+      "path": "delivery.network_required",
+      "equals": false
+    },
+    {
+      "path": "runner.invoked",
+      "equals": true
+    },
+    {
+      "path": "runner.mocked",
+      "equals": true
+    },
+    {
+      "path": "runner.command_shape_matched",
+      "equals": true
+    },
+    {
+      "path": "activation.activation_recorded",
+      "equals": true
+    },
+    {
+      "path": "activation.restart_request_recorded",
+      "equals": true
+    },
+    {
+      "path": "activation.activation_head_matches",
+      "equals": true
+    },
+    {
+      "path": "rollback.recovery_mode",
+      "equals": "explicit_operator_reset"
+    },
+    {
+      "path": "privacy.raw_commands_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_remote_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

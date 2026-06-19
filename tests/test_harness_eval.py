@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 21
-    assert payload["pass_count"] == 20
+    assert payload["fixture_count"] == 22
+    assert payload["pass_count"] == 21
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -86,6 +86,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "mock_e2e_runner_tier",
         "mock_llm_workflow_route",
         "native_tool_call_policy",
+        "push_delivery_path",
         "provider_runtime_preflight",
         "proposal_interpretation",
         "workspace_changes_panel",
@@ -109,6 +110,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["native-tool-call-policy-slow-ask-timeout"]["passed"] is True
+    assert results["push-delivery-path-mock-success"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
@@ -249,6 +251,87 @@ def test_mock_e2e_runner_tier_routes_known_failure_repoints_without_raw_failure_
     assert output["failure_mode"] == "none"
     assert "Pattern 'sleeping' not found" not in serialized
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
+
+
+def test_push_delivery_path_fixture_records_mocked_handoff_without_raw_remote_or_command():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "push_delivery_path_mock_success.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["delivery"] == {
+        "push_requested": True,
+        "remote_configured": True,
+        "branch_configured": True,
+        "mock_only": True,
+        "credentials_required": False,
+        "network_required": False,
+        "external_calls_attempted": False,
+    }
+    assert output["runner"]["invoked"] is True
+    assert output["runner"]["mocked"] is True
+    assert output["runner"]["returncode"] == 0
+    assert output["runner"]["command_shape_matched"] is True
+    assert output["activation"] == {
+        "activation_recorded": True,
+        "restart_request_recorded": True,
+        "activation_head_matches": True,
+    }
+    assert output["privacy"] == {
+        "raw_commands_exported": False,
+        "raw_remote_exported": False,
+        "raw_branch_exported": False,
+        "hashes_only": True,
+    }
+    assert "git push origin main" not in serialized
+    assert '"origin"' not in serialized
+    assert '"main"' not in serialized
+    assert output["failure_mode"] == "none"
+
+
+def test_push_delivery_path_fails_when_mock_boundary_would_call_remote():
+    output = evaluate_harness_behavior(
+        "push_delivery_path",
+        {
+            "task_id": "fixture-push-delivery-path-external-call",
+            "promotion": {"promoted": True, "target_head": "fixture-target-head"},
+            "delivery": {
+                "push_requested": True,
+                "remote_name": "origin",
+                "branch": "main",
+                "mock_only": False,
+                "credentials_required": False,
+                "network_required": False,
+            },
+            "runner": {
+                "invoked": True,
+                "mocked": False,
+                "returncode": 0,
+                "command": ["git", "push", "origin", "main"],
+            },
+            "activation": {
+                "activation_recorded": True,
+                "restart_request_recorded": True,
+                "activated_head": "fixture-target-head",
+            },
+            "rollback": {
+                "created": True,
+                "ref": "refs/rollback/fixture-push-delivery-path",
+                "artifact_path": "artifacts/rollback/fixture-push-delivery-path.txt",
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "push_delivery_path_external_call_inline.json",
+    )
+
+    assert output["route_status"] == "failed"
+    assert output["delivery"]["external_calls_attempted"] is True
+    assert output["failure_mode"] == "external_push_attempted"
 
 
 def test_provider_runtime_preflight_allows_openai_agents_mock_auth_without_key_value_export():

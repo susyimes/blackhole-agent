@@ -44,6 +44,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "mock_e2e_runner_tier",
     "mock_llm_workflow_route",
     "native_tool_call_policy",
+    "push_delivery_path",
     "provider_runtime_preflight",
     "proposal_interpretation",
     "workspace_changes_panel",
@@ -291,6 +292,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_mock_llm_workflow_route(raw_input, source_path=source_path)
     if behavior == "native_tool_call_policy":
         return evaluate_native_tool_call_policy(raw_input, source_path=source_path)
+    if behavior == "push_delivery_path":
+        return evaluate_push_delivery_path(raw_input, source_path=source_path)
     if behavior == "provider_runtime_preflight":
         return evaluate_provider_runtime_preflight(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
@@ -298,6 +301,163 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
     if behavior == "workspace_changes_panel":
         return evaluate_workspace_changes_panel(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_push_delivery_path(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate a mocked promotion push and activation handoff without remote access."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    promotion = raw_input.get("promotion") if isinstance(raw_input.get("promotion"), dict) else {}
+    delivery = raw_input.get("delivery") if isinstance(raw_input.get("delivery"), dict) else {}
+    runner = raw_input.get("runner") if isinstance(raw_input.get("runner"), dict) else {}
+    activation = raw_input.get("activation") if isinstance(raw_input.get("activation"), dict) else {}
+    rollback = raw_input.get("rollback") if isinstance(raw_input.get("rollback"), dict) else {}
+
+    promotion_successful = truthy(promotion.get("promoted")) and optional_string(promotion.get("target_head")) is not None
+    push_requested = truthy(delivery.get("push_requested"))
+    remote_configured = optional_string(delivery.get("remote_name")) is not None
+    branch_configured = optional_string(delivery.get("branch")) is not None
+    mock_only = truthy(delivery.get("mock_only"))
+    credentials_required = truthy(delivery.get("credentials_required"))
+    network_required = truthy(delivery.get("network_required"))
+    external_calls_attempted = push_requested and not mock_only
+
+    runner_invoked = truthy(runner.get("invoked"))
+    runner_mocked = truthy(runner.get("mocked"))
+    runner_returncode = optional_int(runner.get("returncode"))
+    runner_command = runner.get("command") if isinstance(runner.get("command"), list) else []
+    expected_command_shape = [
+        "git",
+        "push",
+        optional_string(delivery.get("remote_name")) or "",
+        optional_string(delivery.get("branch")) or "",
+    ]
+    command_shape_matched = [str(part) for part in runner_command] == expected_command_shape
+
+    activation_recorded = truthy(activation.get("activation_recorded"))
+    restart_request_recorded = truthy(activation.get("restart_request_recorded"))
+    activation_head_matches = optional_string(activation.get("activated_head")) == optional_string(promotion.get("target_head"))
+    rollback_available = truthy(rollback.get("created")) and optional_string(rollback.get("ref")) is not None
+    artifact_recorded = optional_string(rollback.get("artifact_path")) is not None
+
+    failure_mode = push_delivery_failure_mode(
+        promotion_successful=promotion_successful,
+        push_requested=push_requested,
+        remote_configured=remote_configured,
+        branch_configured=branch_configured,
+        external_calls_attempted=external_calls_attempted,
+        credentials_required=credentials_required,
+        network_required=network_required,
+        runner_invoked=runner_invoked,
+        runner_mocked=runner_mocked,
+        runner_returncode=runner_returncode,
+        command_shape_matched=command_shape_matched,
+        activation_recorded=activation_recorded,
+        restart_request_recorded=restart_request_recorded,
+        activation_head_matches=activation_head_matches,
+        rollback_available=rollback_available,
+        artifact_recorded=artifact_recorded,
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "push_delivery_path",
+        "task_id": task_id,
+        "route_status": "passed" if failure_mode == "none" else "failed",
+        "promotion": {
+            "promoted": promotion_successful,
+            "target_head_hash": stable_text_hash(optional_string(promotion.get("target_head")) or "")
+            if promotion_successful
+            else None,
+        },
+        "delivery": {
+            "push_requested": push_requested,
+            "remote_configured": remote_configured,
+            "branch_configured": branch_configured,
+            "mock_only": mock_only,
+            "credentials_required": credentials_required,
+            "network_required": network_required,
+            "external_calls_attempted": external_calls_attempted,
+        },
+        "runner": {
+            "invoked": runner_invoked,
+            "mocked": runner_mocked,
+            "returncode": runner_returncode,
+            "command_shape_matched": command_shape_matched,
+            "command_hash": stable_json_hash(runner_command) if runner_command else None,
+        },
+        "activation": {
+            "activation_recorded": activation_recorded,
+            "restart_request_recorded": restart_request_recorded,
+            "activation_head_matches": activation_head_matches,
+        },
+        "rollback": {
+            "available": rollback_available,
+            "artifact_recorded": artifact_recorded,
+            "recovery_mode": "explicit_operator_reset",
+        },
+        "privacy": {
+            "raw_commands_exported": False,
+            "raw_remote_exported": False,
+            "raw_branch_exported": False,
+            "hashes_only": True,
+        },
+        "failure_mode": failure_mode,
+    }
+
+
+def push_delivery_failure_mode(
+    *,
+    promotion_successful: bool,
+    push_requested: bool,
+    remote_configured: bool,
+    branch_configured: bool,
+    external_calls_attempted: bool,
+    credentials_required: bool,
+    network_required: bool,
+    runner_invoked: bool,
+    runner_mocked: bool,
+    runner_returncode: int | None,
+    command_shape_matched: bool,
+    activation_recorded: bool,
+    restart_request_recorded: bool,
+    activation_head_matches: bool,
+    rollback_available: bool,
+    artifact_recorded: bool,
+) -> str:
+    if not promotion_successful:
+        return "promotion_not_successful"
+    if not push_requested:
+        return "push_not_requested"
+    if not remote_configured:
+        return "remote_missing"
+    if not branch_configured:
+        return "branch_missing"
+    if external_calls_attempted:
+        return "external_push_attempted"
+    if credentials_required:
+        return "credentials_required"
+    if network_required:
+        return "network_required"
+    if not runner_invoked:
+        return "runner_not_invoked"
+    if not runner_mocked:
+        return "runner_not_mocked"
+    if runner_returncode != 0:
+        return "push_failed"
+    if not command_shape_matched:
+        return "push_command_mismatch"
+    if not activation_recorded:
+        return "activation_not_recorded"
+    if not restart_request_recorded:
+        return "restart_request_not_recorded"
+    if not activation_head_matches:
+        return "activation_head_mismatch"
+    if not rollback_available:
+        return "rollback_missing"
+    if not artifact_recorded:
+        return "rollback_artifact_missing"
+    return "none"
 
 
 def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

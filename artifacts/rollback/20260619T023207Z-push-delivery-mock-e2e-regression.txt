@@ -1,0 +1,8 @@
+rollback point: 20260619T023207Z-push-delivery-mock-e2e-regression
+original branch: codex/blackhole-evolve/20260619T023309.327529-add-or-strengthen-local-regression-tests-for-pus
+original HEAD: 4fc5bfc1877e90431e3fb00f1cf66c588f56f5db
+local rollback ref: refs/rollback/20260619T023207Z-push-delivery-mock-e2e-regression
+recovery commands:
+  git reset --hard 4fc5bfc1877e90431e3fb00f1cf66c588f56f5db
+  git clean -fd
+notes: destructive rollback requires explicit human/supervisor approval.
