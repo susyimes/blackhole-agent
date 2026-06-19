@@ -1,0 +1,13 @@
+Rollback point for source digest github-growth-20260619T193206.960945Z
+
+Original branch: codex/blackhole-evolve/20260619T193406.011418-add-a-local-validation-lane-for-agent-harness-st
+Original HEAD: ae9f9e0ad3e2e3fd8622920feb4873b141c9a347
+Rollback ref: refs/blackhole-rollback/20260619T193206Z-skill-route-discovery-pass3
+
+Recovery commands, to be run only by an operator or supervisor policy that has
+chosen destructive rollback explicitly:
+
+git switch codex/blackhole-evolve/20260619T193406.011418-add-a-local-validation-lane-for-agent-harness-st
+git reset --hard refs/blackhole-rollback/20260619T193206Z-skill-route-discovery-pass3
+
+Do not delete this artifact during the run that created it.

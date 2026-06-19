@@ -560,6 +560,12 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert lane["candidate_count"] == 1
         assert lane["candidate_names"] == ["codex-fable5"]
         assert lane["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert lane["local_artifact_contract"]["proposal_kind"] == lane["proposal_kind"]
+        assert lane["local_artifact_contract"]["target_paths"]
+        assert lane["local_artifact_contract"]["required_review_surface"] == "changed_files_and_validation"
+        assert lane["local_artifact_contract"]["local_only"] is True
+        assert lane["local_artifact_contract"]["external_skill_code_allowed"] is False
+        assert lane["local_artifact_contract"]["raw_upstream_body_allowed"] is False
         assert lane["preactivation_harness"] == {
             "behavior": "agent_harness_eval_lane",
             "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -579,6 +585,16 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "documentation",
         "test",
     }
+    assert all(
+        entry["local_artifact_contract"]["proposal_kind"] == entry["allowed_local_lane"]
+        for entry in output["discovery_checklist"]
+    )
+    assert all(entry["local_artifact_contract"]["target_paths"] for entry in output["discovery_checklist"])
+    assert all(entry["local_artifact_contract"]["local_only"] is True for entry in output["discovery_checklist"])
+    assert all(
+        entry["local_artifact_contract"]["external_skill_code_allowed"] is False
+        for entry in output["discovery_checklist"]
+    )
     assert {entry["runtime_action"] for entry in output["discovery_checklist"]} == {"none"}
     assert all(entry["source_url_hash"] for entry in output["discovery_checklist"])
     assert all(entry["external_skill_activation_allowed"] is False for entry in output["discovery_checklist"])
@@ -698,6 +714,14 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
             "candidate_count": 1,
             "candidate_names": ["compass-skills"],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "local_artifact_contract": {
+                "proposal_kind": "documentation",
+                "target_paths": ["docs/skill-route-discovery.md"],
+                "required_review_surface": "changed_files_and_validation",
+                "local_only": True,
+                "external_skill_code_allowed": False,
+                "raw_upstream_body_allowed": False,
+            },
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -721,6 +745,54 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
         "activation_lanes[0].runtime_action_must_be_none",
         "activation_lanes[0].external_skill_activation_must_be_false",
         "activation_lanes[0].external_harness_execution_must_be_false",
+    ]
+
+
+def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_artifact_targets():
+    proposal_lanes = [
+        {
+            "candidate_name": "compass-skills",
+            "proposal_kind": "documentation",
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+    ]
+    activation_lanes = [
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "candidate_names": ["compass-skills"],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "local_artifact_contract": {
+                "proposal_kind": "documentation",
+                "target_paths": ["https://github.com/example/skill", "../outside.md"],
+                "required_review_surface": "upstream_readme",
+                "local_only": False,
+                "external_skill_code_allowed": True,
+                "raw_upstream_body_allowed": True,
+            },
+            "preactivation_harness": {
+                "behavior": "agent_harness_eval_lane",
+                "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+                "local_eval_only": True,
+                "external_harness_execution_allowed": False,
+            },
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        }
+    ]
+
+    preflight = skill_route_discovery_preactivation_trust_boundary(proposal_lanes, activation_lanes)
+
+    assert preflight["status"] == "blocked"
+    assert preflight["diagnostics"] == [
+        "activation_lanes[0].local_artifact_contract_review_surface_mismatch",
+        "activation_lanes[0].local_artifact_contract_must_be_local_only",
+        "activation_lanes[0].external_skill_code_must_be_false",
+        "activation_lanes[0].raw_upstream_body_must_be_false",
+        "activation_lanes[0].local_artifact_contract_target_unbounded",
     ]
 
 
@@ -825,6 +897,9 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         assert lane["candidate_count"] == 1
         assert lane["candidate_names"] == ["omnigent-generic-movement"]
         assert lane["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert lane["local_artifact_contract"]["proposal_kind"] == lane["proposal_kind"]
+        assert lane["local_artifact_contract"]["local_only"] is True
+        assert lane["local_artifact_contract"]["external_skill_code_allowed"] is False
         assert lane["preactivation_harness"]["behavior"] == "agent_harness_eval_lane"
         assert lane["preactivation_harness"]["external_harness_execution_allowed"] is False
         assert lane["activation_ready"] is False
@@ -960,6 +1035,14 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             "candidate_count": 1,
             "candidate_names": ["overbroad-skill"],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "local_artifact_contract": {
+                "proposal_kind": "documentation",
+                "target_paths": ["docs/skill-route-discovery.md"],
+                "required_review_surface": "changed_files_and_validation",
+                "local_only": True,
+                "external_skill_code_allowed": False,
+                "raw_upstream_body_allowed": False,
+            },
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],

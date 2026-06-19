@@ -128,6 +128,18 @@ SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = (
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
     "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
 )
+SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS = {
+    "documentation": ("docs/skill-route-discovery.md",),
+    "config": ("src/blackhole_agent/proposal_synthesis.py",),
+    "test": (
+        "tests/test_skill_routing.py",
+        "tests/test_harness_eval.py",
+    ),
+    "code_patch": (
+        "src/blackhole_agent/skill_routing.py",
+        "src/blackhole_agent/harness_eval.py",
+    ),
+}
 AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS = (
     "changed_files",
     "validation",
@@ -1106,6 +1118,9 @@ def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) 
             "capability": "skill_route_discovery",
             "candidate_name": str(lane.get("candidate_name") or ""),
             "allowed_local_lane": str(lane.get("proposal_kind") or ""),
+            "local_artifact_contract": skill_route_discovery_local_artifact_contract(
+                str(lane.get("proposal_kind") or "")
+            ),
             "required_tests": validation_commands,
             "preactivation_harness": "agent_harness_eval_lane",
             "rollback_note": "record rollback ref and artifact before applying local source changes",
@@ -1143,6 +1158,7 @@ def build_skill_route_discovery_activation_lanes(
             "candidate_count": len(lanes),
             "candidate_names": sorted({str(lane.get("candidate_name") or "") for lane in lanes}),
             "required_validation": validation_commands,
+            "local_artifact_contract": skill_route_discovery_local_artifact_contract(proposal_kind),
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
@@ -1157,6 +1173,20 @@ def build_skill_route_discovery_activation_lanes(
         }
         for proposal_kind, lanes in sorted(grouped.items())
     ]
+
+
+def skill_route_discovery_local_artifact_contract(proposal_kind: str) -> dict[str, Any]:
+    """Return the bounded local artifact target for a skill-route proposal lane."""
+
+    targets = list(SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS.get(proposal_kind, ()))
+    return {
+        "proposal_kind": proposal_kind,
+        "target_paths": targets,
+        "required_review_surface": "changed_files_and_validation",
+        "local_only": True,
+        "external_skill_code_allowed": False,
+        "raw_upstream_body_allowed": False,
+    }
 
 
 def skill_route_discovery_preactivation_trust_boundary(
@@ -1198,6 +1228,35 @@ def skill_route_discovery_preactivation_trust_boundary(
             diagnostics.append(f"{prefix}.external_skill_activation_must_be_false")
         if lane.get("required_validation") != expected_validation:
             diagnostics.append(f"{prefix}.required_validation_mismatch")
+
+        artifact_contract = lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        if artifact_contract.get("proposal_kind") != proposal_kind:
+            diagnostics.append(f"{prefix}.local_artifact_contract_kind_mismatch")
+        if artifact_contract.get("required_review_surface") != "changed_files_and_validation":
+            diagnostics.append(f"{prefix}.local_artifact_contract_review_surface_mismatch")
+        if artifact_contract.get("local_only") is not True:
+            diagnostics.append(f"{prefix}.local_artifact_contract_must_be_local_only")
+        if artifact_contract.get("external_skill_code_allowed") is not False:
+            diagnostics.append(f"{prefix}.external_skill_code_must_be_false")
+        if artifact_contract.get("raw_upstream_body_allowed") is not False:
+            diagnostics.append(f"{prefix}.raw_upstream_body_must_be_false")
+
+        target_paths = artifact_contract.get("target_paths")
+        target_paths = target_paths if isinstance(target_paths, list) else []
+        if not target_paths:
+            diagnostics.append(f"{prefix}.local_artifact_contract_targets_missing")
+        for target_path in target_paths:
+            target_text = str(target_path)
+            if (
+                not target_text
+                or target_text.startswith("/")
+                or re.match(r"^[A-Za-z]:", target_text)
+                or ".." in Path(target_text).parts
+                or "://" in target_text
+            ):
+                diagnostics.append(f"{prefix}.local_artifact_contract_target_unbounded")
+                break
 
         preactivation_harness = lane.get("preactivation_harness")
         preactivation_harness = preactivation_harness if isinstance(preactivation_harness, dict) else {}

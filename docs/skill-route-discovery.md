@@ -248,6 +248,17 @@ remove actionful metadata, or regenerate activation rows. This lets a
 supervisor promote validated documentation, config, test, or code_patch work
 without treating an external skill repository as an installable package.
 
+Each activation row also carries a `local_artifact_contract`. This is a
+body-free handoff target, not a write instruction from the upstream repository:
+documentation lanes point at local route documentation, config lanes at local
+proposal-policy code, test lanes at local route and harness tests, and
+code_patch lanes at the local skill-routing or harness evaluator modules. The
+pre-activation trust boundary rejects artifact targets that are URLs, absolute
+paths, path traversal, non-local review surfaces, raw upstream bodies, or
+external skill code. This gives a supervisor an operator-visible lane-to-file
+contract before activation while preserving the rule that discovery never
+imports, runs, or clones external skill packages.
+
 The activation rows now also include a pre-activation local harness check. Before
 promotion, the controller-visible validation set includes both the
 `skill_route_discovery_lane` replay, the `agent_harness_eval_lane` replay, and
