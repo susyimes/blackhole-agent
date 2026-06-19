@@ -1,0 +1,9 @@
+Rollback point for skill-route-discovery pass 4
+
+Original branch: codex/blackhole-evolve/20260619T195318.643466-add-or-improve-a-local-provider-config-preflight
+HEAD: 6b5a1f70fa36a6c15da1793b493c6a7d7f2dc97b
+Rollback ref: refs/blackhole-rollback/20260619T195207Z-skill-route-discovery-pass4
+
+Recovery commands:
+git reset --hard refs/blackhole-rollback/20260619T195207Z-skill-route-discovery-pass4
+git clean -fd

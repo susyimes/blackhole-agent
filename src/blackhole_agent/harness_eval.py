@@ -915,6 +915,14 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             proposal_lanes,
             activation_lanes,
         )
+    supervisor_readiness = skill_route_discovery_supervisor_readiness(
+        route_status=route_status,
+        failure_mode=failure_mode,
+        activation_gate=activation_gate,
+        activation_lanes=activation_lanes,
+        preactivation_trust_boundary=preactivation_trust_boundary,
+        recovery_hints=recovery_hints,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -961,6 +969,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "recovery_hints": recovery_hints,
         "preactivation_trust_boundary": preactivation_trust_boundary,
+        "supervisor_readiness": supervisor_readiness,
         "activation_lanes": activation_lanes,
         "discovery_checklist": discovery_checklist,
         "proposal_lanes": [
@@ -1283,6 +1292,61 @@ def skill_route_discovery_preactivation_trust_boundary(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
+    }
+
+
+def skill_route_discovery_supervisor_readiness(
+    *,
+    route_status: str,
+    failure_mode: str,
+    activation_gate: dict[str, Any],
+    activation_lanes: list[dict[str, Any]],
+    preactivation_trust_boundary: dict[str, Any],
+    recovery_hints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Summarize whether a supervisor may promote only local route work."""
+
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    trust_boundary_passed = preactivation_trust_boundary.get("status") == "passed"
+    activation_allowed = activation_gate.get("local_proposal_activation_allowed") is True
+    ready_lanes = [lane for lane in activation_lanes if lane.get("activation_ready") is True]
+    blocked_lanes = [lane for lane in activation_lanes if lane.get("activation_ready") is not True]
+    all_lanes_ready = bool(activation_lanes) and len(ready_lanes) == len(activation_lanes)
+    runtime_actions = sorted({str(lane.get("runtime_action") or "") for lane in activation_lanes})
+    external_skill_allowed = any(lane.get("external_skill_activation_allowed") is not False for lane in activation_lanes)
+    external_harness_allowed = any(
+        isinstance(lane.get("preactivation_harness"), dict)
+        and lane["preactivation_harness"].get("external_harness_execution_allowed") is not False
+        for lane in activation_lanes
+    )
+    validation_present = all(lane.get("required_validation") == validation_commands for lane in activation_lanes)
+
+    if activation_allowed and trust_boundary_passed and all_lanes_ready and validation_present:
+        decision = "ready_for_supervisor_promotion"
+    elif route_status == "degraded":
+        decision = "review_before_supervisor_promotion"
+    else:
+        decision = "blocked_before_supervisor_promotion"
+
+    replay_commands = list(validation_commands)
+    recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
+    return {
+        "decision": decision,
+        "reason": "none" if decision == "ready_for_supervisor_promotion" else failure_mode,
+        "activation_lane_count": len(activation_lanes),
+        "ready_lane_count": len(ready_lanes),
+        "blocked_lane_count": len(blocked_lanes),
+        "proposal_kinds": sorted({str(lane.get("proposal_kind") or "") for lane in activation_lanes}),
+        "required_validation": validation_commands,
+        "replay_commands": replay_commands,
+        "validation_present": validation_present,
+        "trust_boundary_passed": trust_boundary_passed,
+        "recovery_hint_codes": recovery_hint_codes,
+        "runtime_action_allowed": runtime_actions != ["none"] if runtime_actions else False,
+        "external_skill_activation_allowed": external_skill_allowed,
+        "external_harness_execution_allowed": external_harness_allowed,
+        "raw_evidence_exported": False,
+        "restart_or_remote_activation_required": False,
     }
 
 

@@ -278,6 +278,18 @@ harness replay are still required; and that external skill or harness execution
 is still denied. A static registry entry is therefore not enough by itself to
 make a lane activation-ready.
 
+For supervisor handoff, the same output now includes `supervisor_readiness`.
+This is a compact operator-visible decision derived from the activation gate,
+activation lanes, recovery hints, and preactivation trust boundary. It reports
+`ready_for_supervisor_promotion` only when every local lane is ready, all replay
+commands are present, the trust boundary passed, runtime action remains denied,
+and external skill or harness activation remains false. Downgraded evidence is
+`review_before_supervisor_promotion`; rejected, empty, weak, or trust-boundary
+failed evidence is `blocked_before_supervisor_promotion`. The summary carries
+only lane counts, proposal kinds, recovery hint codes, and replay commands; it
+does not export raw evidence URLs or upstream skill bodies, and it does not
+request restart, remote activation, installation, cloning, or execution.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:

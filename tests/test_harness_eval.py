@@ -550,6 +550,24 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
     }
+    assert output["supervisor_readiness"] == {
+        "decision": "ready_for_supervisor_promotion",
+        "reason": "none",
+        "activation_lane_count": 4,
+        "ready_lane_count": 4,
+        "blocked_lane_count": 0,
+        "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "replay_commands": skill_route_discovery_preactivation_validation_commands(),
+        "validation_present": True,
+        "trust_boundary_passed": True,
+        "recovery_hint_codes": [],
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "restart_or_remote_activation_required": False,
+    }
     assert [lane["proposal_kind"] for lane in output["activation_lanes"]] == [
         "code_patch",
         "config",
@@ -696,6 +714,15 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "local_proposal_activation_allowed": False,
         "external_skill_activation_allowed": False,
     }
+    assert output["supervisor_readiness"]["decision"] == "blocked_before_supervisor_promotion"
+    assert output["supervisor_readiness"]["reason"] == "rejected_candidates_present"
+    assert output["supervisor_readiness"]["activation_lane_count"] == 0
+    assert output["supervisor_readiness"]["ready_lane_count"] == 0
+    assert output["supervisor_readiness"]["blocked_lane_count"] == 0
+    assert output["supervisor_readiness"]["recovery_hint_codes"] == [
+        "skill_route_rejected_candidates_present"
+    ]
+    assert output["supervisor_readiness"]["raw_evidence_exported"] is False
     assert output["privacy"]["runtime_actions_executed"] is False
 
 
@@ -1056,6 +1083,17 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             "external_skill_activation_allowed": False,
         }
     ]
+    assert output["supervisor_readiness"]["decision"] == "review_before_supervisor_promotion"
+    assert output["supervisor_readiness"]["reason"] == "unsupported_lanes_downgraded"
+    assert output["supervisor_readiness"]["activation_lane_count"] == 1
+    assert output["supervisor_readiness"]["ready_lane_count"] == 0
+    assert output["supervisor_readiness"]["blocked_lane_count"] == 1
+    assert output["supervisor_readiness"]["recovery_hint_codes"] == [
+        "skill_route_unsupported_lanes_downgraded"
+    ]
+    assert output["supervisor_readiness"]["runtime_action_allowed"] is False
+    assert output["supervisor_readiness"]["external_skill_activation_allowed"] is False
+    assert output["supervisor_readiness"]["external_harness_execution_allowed"] is False
 
 
 def test_rendered_html_artifact_validation_blocks_when_scripts_do_not_execute():
