@@ -1,0 +1,13 @@
+Rollback point for github-growth-20260619T131206.984370Z
+
+Original branch: codex/blackhole-evolve/20260619T131331.229097-add-or-strengthen-local-provider-config-prefligh
+Original HEAD: ad193306aadf0f537a728a46b086d71d825dff7c
+Rollback ref: refs/rollback/20260619T131206Z-skill-route-discovery-pass4
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T131331.229097-add-or-strengthen-local-provider-config-prefligh
+git reset --hard refs/rollback/20260619T131206Z-skill-route-discovery-pass4
+
+This rollback artifact was created before local source edits for the skill route
+discovery pass-4 preactivation validation change. Rollback execution is
+explicit and destructive; an operator or supervisor policy must choose it.

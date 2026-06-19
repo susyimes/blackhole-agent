@@ -123,6 +123,9 @@ SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND = "pytest tests/test_harness_eval.py -q
 SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = (
     "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
 )
+SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
+    "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+)
 
 
 @dataclass(frozen=True)
@@ -1065,6 +1068,7 @@ def skill_route_discovery_preactivation_validation_commands() -> list[str]:
     return [
         SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
         SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND,
+        SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND,
     ]
 
 

@@ -241,7 +241,8 @@ external skill repository as an installable package.
 
 The activation rows now also include a pre-activation local harness check. Before
 promotion, the controller-visible validation set includes both the
-`skill_route_discovery_lane` replay and the `agent_harness_eval_lane` replay.
+`skill_route_discovery_lane` replay, the `agent_harness_eval_lane` replay, and
+the proposal-interpretation smoke suite.
 The latter is metadata-only and keeps `external_harness_execution_allowed:
 false`; it exists to prove that a skill-route proposal lane can pass through the
 same local harness evidence surface used for public agent-harness lessons before
@@ -264,7 +265,14 @@ documentation proposal is applied:
 ```bash
 pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane
 pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane
+pytest tests/test_harness_eval.py -q -k proposal_interpretation
 ```
+
+The proposal-interpretation smoke suite is required because it checks the
+controller-facing proposal gates that sit immediately after route discovery:
+allowed local lanes, selected-item `evidence_refs` rather than URL citations,
+and review-only classification for offensive-behavior or privacy-leakage
+signals. Passing route discovery alone does not prove those proposal gates.
 
 ## Route-Hint Policy Preflight
 
