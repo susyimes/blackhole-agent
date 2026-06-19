@@ -83,8 +83,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 43
-    assert payload["pass_count"] == 42
+    assert payload["fixture_count"] == 44
+    assert payload["pass_count"] == 43
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -142,6 +142,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
     assert results["native-tool-call-policy-slow-ask-timeout"]["passed"] is True
     assert results["push-delivery-path-mock-success"]["passed"] is True
+    assert results["provider-runtime-preflight-apple-silicon-brew-jiter-linkage"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
@@ -204,6 +205,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
@@ -2356,6 +2360,87 @@ def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_be
     assert "omnigent run" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_apple_silicon_brew_linkage_before_launch():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_apple_silicon_brew_jiter_linkage.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_install_linkage_unresolved"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["install_linkage"] == {
+        "required": True,
+        "observed": True,
+        "ok": False,
+        "failure_mode": "provider_install_linkage_unresolved",
+        "package_manager": "brew",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "apple_silicon_homebrew": True,
+        "homebrew_prefix_hash": output["install_linkage"]["homebrew_prefix_hash"],
+        "homebrew_prefix_exported": False,
+        "library_count": 1,
+        "unresolved_rpath_count": 1,
+        "relink_failure_count": 1,
+        "records": output["install_linkage"]["records"],
+        "raw_paths_exported": False,
+        "raw_install_names_exported": False,
+        "diagnostics": [
+            "Apple Silicon Homebrew install linkage has unresolved rpath or relink failures; block provider launch until relinked or worked around"
+        ],
+    }
+    assert output["install_linkage"]["homebrew_prefix_hash"].startswith("sha256:")
+    assert output["install_linkage"]["records"] == [
+        {
+            "name": "jiter",
+            "path_hash": output["install_linkage"]["records"][0]["path_hash"],
+            "path_recorded": False,
+            "install_name_hash": output["install_linkage"]["records"][0]["install_name_hash"],
+            "install_name_recorded": False,
+            "unresolved_rpath": True,
+            "relink_failed": True,
+            "headerpad_failure": False,
+            "relink_error_hash": output["install_linkage"]["records"][0]["relink_error_hash"],
+            "relink_error_recorded": False,
+        }
+    ]
+    assert output["install_linkage"]["records"][0]["path_hash"].startswith("sha256:")
+    assert output["install_linkage"]["records"][0]["install_name_hash"].startswith("sha256:")
+    assert output["install_linkage"]["records"][0]["relink_error_hash"].startswith("sha256:")
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_install_linkage_unresolved",
+            "scope": "provider_install_linkage",
+            "severity": "blocker",
+            "action": "repair or relink Apple Silicon Homebrew dynamic libraries before launching the provider runtime",
+            "package_manager": "brew",
+            "platform": "darwin",
+            "architecture": "arm64",
+            "apple_silicon_homebrew": True,
+            "library_count": 1,
+            "unresolved_rpath_count": 1,
+            "relink_failure_count": 1,
+            "raw_paths_exported": False,
+            "raw_install_names_exported": False,
+        }
+    ]
+    assert output["supervisor_replay"]["decision"] == "blocked_before_provider_launch"
+    assert output["supervisor_replay"]["recovery_hint_codes"] == ["provider_install_linkage_unresolved"]
+    assert "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT" not in serialized
+    assert "@rpath/jiter.dylib" not in serialized
+
+
 def test_mock_e2e_runner_tier_fails_when_required_tier_is_missing():
     output = evaluate_harness_behavior(
         "mock_e2e_runner_tier",
@@ -3345,10 +3430,11 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
 
     assert output["route_status"] == "blocked"
     assert output["failure_mode"] == "provider_runtime_recovery_required"
-    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 4}
+    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 5}
     assert output["runner_invoked_count"] == 1
     assert output["blocked_failure_modes"] == [
         "native_terminal_timeout_risk",
+        "provider_install_linkage_unresolved",
         "provider_usage_limit_exhausted",
         "review_model_unavailable",
         "url_safety_preflight_failed",
@@ -3357,6 +3443,7 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         "browser_configure_checks_skipped",
         "mock_auth_placeholder_used",
         "native_terminal_timeout_risk",
+        "provider_install_linkage_unresolved",
         "provider_usage_limit_exhausted",
         "review_model_unavailable",
         "url_safety_preflight_failed",
@@ -3385,10 +3472,11 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
             "provider_runtime_launch_allowed": False,
             "body_free_diagnostics_only": True,
         },
-        "preflight_count": 5,
-        "status_counts": {"passed": 0, "degraded": 1, "blocked": 4},
+        "preflight_count": 6,
+        "status_counts": {"passed": 0, "degraded": 1, "blocked": 5},
         "blocked_failure_modes": [
             "native_terminal_timeout_risk",
+            "provider_install_linkage_unresolved",
             "provider_usage_limit_exhausted",
             "review_model_unavailable",
             "url_safety_preflight_failed",
@@ -3398,6 +3486,7 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
             "browser_configure_checks_skipped",
             "mock_auth_placeholder_used",
             "native_terminal_timeout_risk",
+            "provider_install_linkage_unresolved",
             "provider_usage_limit_exhausted",
             "review_model_unavailable",
             "url_safety_preflight_failed",
@@ -3425,6 +3514,10 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     assert "127.0.0.1" not in serialized
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT" not in serialized
+    assert "@rpath/jiter.dylib" not in serialized
     assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT" not in serialized

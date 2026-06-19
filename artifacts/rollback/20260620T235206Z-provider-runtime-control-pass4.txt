@@ -1,0 +1,10 @@
+Rollback point for provider-runtime-control pass 4
+
+Original branch: codex/blackhole-evolve/20260619T235307.656454-add-a-local-validation-test-for-skill-route-disc
+Original HEAD: 45e638e0b65cf419498883549df8b07f4d0a849f
+Rollback ref: refs/blackhole/rollback/20260620T235206Z-codex_blackhole-evolve_20260619T235307.656454-add-a-local-validation-test-for-skill-route-disc
+
+Recovery commands:
+  git reset --hard 45e638e0b65cf419498883549df8b07f4d0a849f
+  git clean -fd
+  git switch codex/blackhole-evolve/20260619T235307.656454-add-a-local-validation-test-for-skill-route-disc

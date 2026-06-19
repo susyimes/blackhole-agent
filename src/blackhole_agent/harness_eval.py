@@ -3942,6 +3942,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
     usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
+    install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -4009,6 +4010,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or native_terminal_timeout_risk
         or not review_model_preflight["ok"]
         or not usage_limit_preflight["ok"]
+        or not install_linkage_preflight["ok"]
         or not model_command_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
@@ -4029,6 +4031,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(prompt_preflight["preflight"]["diagnostics"])
     diagnostics.extend(review_model_preflight["diagnostics"])
     diagnostics.extend(usage_limit_preflight["diagnostics"])
+    diagnostics.extend(install_linkage_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
@@ -4048,6 +4051,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not review_model_preflight["ok"]
             else usage_limit_preflight["failure_mode"]
             if not usage_limit_preflight["ok"]
+            else install_linkage_preflight["failure_mode"]
+            if not install_linkage_preflight["ok"]
             else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
             else "provider_env_missing"
@@ -4141,6 +4146,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "prompt_scan": prompt_preflight["prompt_scan"],
         "review_model": review_model_preflight,
         "usage_limit": usage_limit_preflight,
+        "install_linkage": install_linkage_preflight,
         "model_command": model_command_preflight,
     }
     recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
@@ -4150,6 +4156,95 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
     )
     return output
+
+
+def evaluate_provider_install_linkage_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Detect native library linkage problems before provider runtime launch.
+
+    The check is metadata-only: paths and install names are hashed or counted so
+    Homebrew/macOS diagnostics can be replayed without exporting local paths.
+    """
+
+    raw_linkage = provider.get("install_linkage", runtime.get("install_linkage"))
+    linkage = raw_linkage if isinstance(raw_linkage, dict) else {}
+    required = (
+        truthy(provider.get("install_linkage_preflight_required"))
+        or truthy(runtime.get("install_linkage_preflight_required"))
+        or bool(linkage)
+    )
+    package_manager = (optional_string(linkage.get("package_manager") or runtime.get("package_manager")) or "").lower()
+    platform = (optional_string(linkage.get("platform") or runtime.get("platform")) or "").lower()
+    architecture = (
+        optional_string(linkage.get("architecture") or runtime.get("architecture") or runtime.get("machine")) or ""
+    ).lower()
+    homebrew_prefix = optional_string(linkage.get("homebrew_prefix") or runtime.get("homebrew_prefix"))
+    apple_silicon_homebrew = (
+        platform == "darwin"
+        and architecture in {"arm64", "aarch64", "apple_silicon", "apple-silicon"}
+        and package_manager in {"brew", "homebrew"}
+    )
+    raw_records = linkage.get("libraries") or linkage.get("dynamic_libraries") or linkage.get("dylibs")
+    library_records = [item for item in raw_records if isinstance(item, dict)] if isinstance(raw_records, list) else []
+    records = [normalize_install_linkage_record(item) for item in library_records]
+    unresolved_records = [record for record in records if record["unresolved_rpath"]]
+    relink_failure_records = [record for record in records if record["relink_failed"] or record["headerpad_failure"]]
+    fragile = apple_silicon_homebrew and bool(unresolved_records or relink_failure_records)
+
+    diagnostics: list[str] = []
+    if fragile:
+        diagnostics.append(
+            "Apple Silicon Homebrew install linkage has unresolved rpath or relink failures; block provider launch until relinked or worked around"
+        )
+
+    return {
+        "required": required,
+        "observed": bool(linkage),
+        "ok": not fragile,
+        "failure_mode": "provider_install_linkage_unresolved" if fragile else "none",
+        "package_manager": package_manager or "unknown",
+        "platform": platform or "unknown",
+        "architecture": architecture or "unknown",
+        "apple_silicon_homebrew": apple_silicon_homebrew,
+        "homebrew_prefix_hash": stable_text_hash(homebrew_prefix) if homebrew_prefix else None,
+        "homebrew_prefix_exported": False,
+        "library_count": len(records),
+        "unresolved_rpath_count": len(unresolved_records),
+        "relink_failure_count": len(relink_failure_records),
+        "records": records,
+        "raw_paths_exported": False,
+        "raw_install_names_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_install_linkage_record(value: dict[str, Any]) -> dict[str, Any]:
+    library_name = optional_string(value.get("name") or value.get("library") or value.get("module")) or "unknown"
+    path = optional_string(value.get("path") or value.get("file") or value.get("module_path"))
+    install_name = optional_string(value.get("install_name") or value.get("dylib_id") or value.get("load_command"))
+    relink_error = optional_string(value.get("relink_error") or value.get("error") or value.get("linkage_error"))
+    unresolved_rpath = truthy(value.get("unresolved_rpath")) or bool(
+        install_name and install_name.strip().startswith("@rpath/")
+    )
+    headerpad_failure = truthy(value.get("headerpad_failure")) or bool(
+        relink_error and any(term in relink_error.lower() for term in ("headerpad", "load commands do not fit"))
+    )
+    relink_failed = truthy(value.get("relink_failed")) or bool(relink_error)
+    return {
+        "name": library_name,
+        "path_hash": stable_text_hash(path) if path else None,
+        "path_recorded": False,
+        "install_name_hash": stable_text_hash(install_name) if install_name else None,
+        "install_name_recorded": False,
+        "unresolved_rpath": unresolved_rpath,
+        "relink_failed": relink_failed,
+        "headerpad_failure": headerpad_failure,
+        "relink_error_hash": stable_text_hash(relink_error) if relink_error else None,
+        "relink_error_recorded": False,
+    }
 
 
 def evaluate_provider_usage_limit_preflight(
@@ -4674,6 +4769,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     browser_tooling = preflight.get("browser_tooling") if isinstance(preflight.get("browser_tooling"), dict) else {}
     review_model = preflight.get("review_model") if isinstance(preflight.get("review_model"), dict) else {}
     usage_limit = preflight.get("usage_limit") if isinstance(preflight.get("usage_limit"), dict) else {}
+    install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
@@ -4778,6 +4874,25 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_required": bool(model_command.get("required")),
                 "command_configured": bool(model_command.get("configured")),
                 "command_arg_count": int(model_command.get("command_arg_count") or 0),
+            }
+        )
+    elif failure_mode == "provider_install_linkage_unresolved":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_install_linkage_unresolved",
+                "scope": "provider_install_linkage",
+                "severity": "blocker",
+                "action": "repair or relink Apple Silicon Homebrew dynamic libraries before launching the provider runtime",
+                "package_manager": install_linkage.get("package_manager"),
+                "platform": install_linkage.get("platform"),
+                "architecture": install_linkage.get("architecture"),
+                "apple_silicon_homebrew": bool(install_linkage.get("apple_silicon_homebrew")),
+                "library_count": int(install_linkage.get("library_count") or 0),
+                "unresolved_rpath_count": int(install_linkage.get("unresolved_rpath_count") or 0),
+                "relink_failure_count": int(install_linkage.get("relink_failure_count") or 0),
+                "raw_paths_exported": False,
+                "raw_install_names_exported": False,
             }
         )
     elif failure_mode in {

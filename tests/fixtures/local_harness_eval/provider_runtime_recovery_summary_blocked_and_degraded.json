@@ -114,6 +114,44 @@
         }
       },
       {
+        "task_id": "fixture-apple-silicon-brew-jiter-linkage",
+        "provider": {
+          "name": "omnigent-yaml-agent",
+          "harness": "omnigent",
+          "install_linkage_preflight_required": true,
+          "install_linkage": {
+            "package_manager": "brew",
+            "platform": "darwin",
+            "architecture": "arm64",
+            "homebrew_prefix": "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT",
+            "libraries": [
+              {
+                "name": "jiter",
+                "path": "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT",
+                "install_name": "@rpath/jiter.dylib",
+                "relink_failed": true,
+                "relink_error": "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT"
+              }
+            ]
+          }
+        },
+        "runtime": {
+          "platform": "darwin",
+          "architecture": "arm64",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess"
+        },
+        "runner_env": {
+          "parent_env_keys": [
+            "PATH"
+          ],
+          "allowlist": [
+            "PATH"
+          ],
+          "passthrough": []
+        }
+      },
+      {
         "task_id": "fixture-review-model-unavailable",
         "provider": {
           "name": "polly-review",
@@ -165,11 +203,11 @@
     },
     {
       "path": "preflight_count",
-      "equals": 5
+      "equals": 6
     },
     {
       "path": "status_counts.blocked",
-      "equals": 4
+      "equals": 5
     },
     {
       "path": "status_counts.degraded",
@@ -183,6 +221,7 @@
       "path": "blocked_failure_modes",
       "equals": [
         "native_terminal_timeout_risk",
+        "provider_install_linkage_unresolved",
         "provider_usage_limit_exhausted",
         "review_model_unavailable",
         "url_safety_preflight_failed"
@@ -202,14 +241,18 @@
     },
     {
       "path": "recovery_hints.3.code",
-      "equals": "provider_usage_limit_exhausted"
+      "equals": "provider_install_linkage_unresolved"
     },
     {
       "path": "recovery_hints.4.code",
-      "equals": "review_model_unavailable"
+      "equals": "provider_usage_limit_exhausted"
     },
     {
       "path": "recovery_hints.5.code",
+      "equals": "review_model_unavailable"
+    },
+    {
+      "path": "recovery_hints.6.code",
       "equals": "url_safety_preflight_failed"
     },
     {

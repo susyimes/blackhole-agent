@@ -1,0 +1,92 @@
+{
+  "name": "provider-runtime-preflight-apple-silicon-brew-jiter-linkage",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-apple-silicon-brew-jiter-linkage",
+    "provider": {
+      "name": "omnigent-yaml-agent",
+      "harness": "omnigent",
+      "install_linkage_preflight_required": true,
+      "install_linkage": {
+        "package_manager": "brew",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "homebrew_prefix": "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT",
+        "libraries": [
+          {
+            "name": "jiter",
+            "path": "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT",
+            "install_name": "@rpath/jiter.dylib",
+            "relink_failed": true,
+            "relink_error": "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT"
+          }
+        ]
+      }
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_install_linkage_unresolved"
+    },
+    {
+      "path": "install_linkage.ok",
+      "equals": false
+    },
+    {
+      "path": "install_linkage.apple_silicon_homebrew",
+      "equals": true
+    },
+    {
+      "path": "install_linkage.unresolved_rpath_count",
+      "equals": 1
+    },
+    {
+      "path": "install_linkage.relink_failure_count",
+      "equals": 1
+    },
+    {
+      "path": "install_linkage.raw_paths_exported",
+      "equals": false
+    },
+    {
+      "path": "install_linkage.raw_install_names_exported",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "provider_install_linkage_unresolved"
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "preflight.blocked_before_launch",
+      "equals": true
+    }
+  ]
+}
