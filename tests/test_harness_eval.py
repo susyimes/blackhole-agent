@@ -2043,6 +2043,30 @@ def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or
     assert output["usage_limit"]["raw_response_body_exported"] is False
     assert output["usage_limit"]["failover_review_only"] is True
     assert output["usage_limit"]["failover_executed"] is False
+    assert output["usage_limit"]["failover_review_plan"] == {
+        "required": True,
+        "status": "privacy_review_required",
+        "controller_surface": "provider_usage_limit_failover_review",
+        "review_gate": "privacy-leakage-human-review",
+        "reason": "credential_pool_failover_requires_private_credential_review",
+        "credential_count": 3,
+        "active_credential_label_present": True,
+        "active_credential_label_exported": False,
+        "credential_values_exported": False,
+        "raw_headers_exported": False,
+        "raw_response_body_exported": False,
+        "failover_executed": False,
+        "provider_runtime_launch_allowed": False,
+        "safe_next_actions": [
+            "wait_for_usage_window_reset",
+            "open_privacy_review_for_credential_pool_failover",
+            "replay_provider_runtime_preflight",
+        ],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+    }
     assert output["runtime"]["runner_invoked"] is False
     assert output["recovery_hints"] == [
         {
@@ -2061,6 +2085,30 @@ def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or
             "credential_count": 3,
             "failover_review_only": True,
             "failover_executed": False,
+            "failover_review_plan": {
+                "required": True,
+                "status": "privacy_review_required",
+                "controller_surface": "provider_usage_limit_failover_review",
+                "review_gate": "privacy-leakage-human-review",
+                "reason": "credential_pool_failover_requires_private_credential_review",
+                "credential_count": 3,
+                "active_credential_label_present": True,
+                "active_credential_label_exported": False,
+                "credential_values_exported": False,
+                "raw_headers_exported": False,
+                "raw_response_body_exported": False,
+                "failover_executed": False,
+                "provider_runtime_launch_allowed": False,
+                "safe_next_actions": [
+                    "wait_for_usage_window_reset",
+                    "open_privacy_review_for_credential_pool_failover",
+                    "replay_provider_runtime_preflight",
+                ],
+                "replay_commands": [
+                    "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                    "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+                ],
+            },
             "raw_headers_exported": False,
             "raw_response_body_exported": False,
         }

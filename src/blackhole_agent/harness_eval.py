@@ -4078,7 +4078,55 @@ def evaluate_provider_usage_limit_preflight(
         "raw_response_body_exported": False,
         "failover_review_only": exhausted and pool_configured,
         "failover_executed": False,
+        "failover_review_plan": provider_usage_limit_failover_review_plan(
+            exhausted=exhausted,
+            pool_configured=pool_configured,
+            credential_count=credential_count,
+            account_label_present=bool(account_label),
+        ),
         "diagnostics": diagnostics,
+    }
+
+
+def provider_usage_limit_failover_review_plan(
+    *,
+    exhausted: bool,
+    pool_configured: bool,
+    credential_count: int,
+    account_label_present: bool,
+) -> dict[str, Any]:
+    """Return a body-free operator plan for credential-pool failover review."""
+
+    review_required = exhausted and pool_configured
+    return {
+        "required": review_required,
+        "status": "privacy_review_required" if review_required else "not_applicable",
+        "controller_surface": "provider_usage_limit_failover_review",
+        "review_gate": PRIVACY_REVIEW_GATE if review_required else None,
+        "reason": "credential_pool_failover_requires_private_credential_review"
+        if review_required
+        else "no_exhausted_configured_credential_pool",
+        "credential_count": credential_count,
+        "active_credential_label_present": account_label_present,
+        "active_credential_label_exported": False,
+        "credential_values_exported": False,
+        "raw_headers_exported": False,
+        "raw_response_body_exported": False,
+        "failover_executed": False,
+        "provider_runtime_launch_allowed": False,
+        "safe_next_actions": [
+            "wait_for_usage_window_reset",
+            "open_privacy_review_for_credential_pool_failover",
+            "replay_provider_runtime_preflight",
+        ]
+        if review_required
+        else [],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ]
+        if review_required
+        else [],
     }
 
 
@@ -4529,6 +4577,14 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "credential_count": int(usage_limit.get("credential_count") or 0),
                 "failover_review_only": bool(usage_limit.get("failover_review_only")),
                 "failover_executed": False,
+                "failover_review_plan": usage_limit.get("failover_review_plan")
+                if isinstance(usage_limit.get("failover_review_plan"), dict)
+                else provider_usage_limit_failover_review_plan(
+                    exhausted=True,
+                    pool_configured=bool(usage_limit.get("credential_pool_configured")),
+                    credential_count=int(usage_limit.get("credential_count") or 0),
+                    account_label_present=bool(usage_limit.get("active_credential_label_hash")),
+                ),
                 "raw_headers_exported": False,
                 "raw_response_body_exported": False,
             }
