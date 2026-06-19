@@ -2812,6 +2812,8 @@ def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     assert memory["topics"]["agent"]["useful_signals"] == 1
     assert memory["topics"]["workflow"]["useful_signals"] == 1
     assert memory["lessons"][0]["outcome"] == "proposed"
+    assert memory["theme_window"]["theme_id"] == "runner-harness-control"
+    assert digest["capability_theme_window"]["planned_passes"] == 1
     assert fake_session.requests[0]["headers"]["Authorization"] == "Bearer test-token"
 
 
@@ -2961,6 +2963,81 @@ def test_memory_bias_prioritizes_previously_useful_sources():
     assert "example/hot" in proposals[0]["summary"]
 
 
+def test_memory_theme_window_carries_capability_focus_across_passes():
+    memory = GrowthMemory()
+    first_digest = {
+        "digest_id": "github-growth-theme-1",
+        "generated_at": "2026-06-12T00:00:00Z",
+        "repositories": ["example/repo"],
+        "items": [],
+        "proposals": [
+            {
+                "proposal_id": "runner-replay",
+                "kind": "test",
+                "summary": "Add runner harness replay coverage for interrupted workflows.",
+                "evidence_urls": ["https://github.com/example/repo/pull/1"],
+                "requires_approval": False,
+            }
+        ],
+    }
+    second_digest = {
+        "digest_id": "github-growth-theme-2",
+        "generated_at": "2026-06-12T01:00:00Z",
+        "repositories": ["example/repo"],
+        "items": [],
+        "proposals": [
+            {
+                "proposal_id": "provider-preflight",
+                "kind": "test",
+                "summary": "Add provider config preflight tests.",
+                "evidence_urls": ["https://github.com/example/repo/pull/2"],
+                "requires_approval": False,
+            }
+        ],
+    }
+
+    github_growth.update_memory_from_digest(memory, first_digest)
+    github_growth.update_memory_from_digest(memory, second_digest)
+
+    assert first_digest["capability_theme_window"]["theme_id"] == "runner-harness-control"
+    assert first_digest["capability_theme_window"]["planned_passes"] == 1
+    assert second_digest["capability_theme_window"]["theme_id"] == "runner-harness-control"
+    assert second_digest["capability_theme_window"]["planned_passes"] == 2
+    assert second_digest["capability_theme_window"]["proposal_ids"] == ["runner-replay", "provider-preflight"]
+
+
+def test_completed_theme_window_rolls_to_next_capability_slice():
+    completed = {
+        "schema_version": 1,
+        "theme_id": "runner-harness-control",
+        "title": "Runner and harness control plane",
+        "capability_slice": "Make one runner workflow legible end to end.",
+        "started_at": "2026-06-12T00:00:00Z",
+        "updated_at": "2026-06-12T03:00:00Z",
+        "target_passes": 4,
+        "planned_passes": 4,
+        "status": "complete",
+        "proposal_ids": ["runner-replay"],
+        "evidence_urls": [],
+    }
+
+    window = github_growth.build_capability_theme_window(
+        [
+            {
+                "proposal_id": "provider-preflight",
+                "summary": "Add provider config preflight tests for OpenAI route diagnostics.",
+                "evidence_urls": ["https://github.com/example/repo/pull/2"],
+            }
+        ],
+        previous_window=completed,
+        generated_at="2026-06-12T04:00:00Z",
+    )
+
+    assert window["theme_id"] == "provider-runtime-control"
+    assert window["previous_theme_id"] == "runner-harness-control"
+    assert window["planned_passes"] == 1
+
+
 def test_heuristic_ranking_boosts_repeated_review_activity_after_safety_and_direct_routes():
     signals = [
         GrowthSignal(
@@ -3065,6 +3142,8 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert plan.branch_name.startswith("codex/blackhole-evolve/")
     assert plan.self_model_path == DEFAULT_SELF_MODEL_PATH.as_posix()
     assert plan.self_model_before.exists is True
+    assert plan.capability_theme_window["theme_id"] == "runner-harness-control"
+    assert plan.capability_theme_window["planned_passes"] == 1
     assert "You are Codex running as the local kernel for blackhole-agent." in plan.task
     assert f"Persona version: {PERSONA_VERSION}" in plan.task
     assert "Core mechanism:" in plan.task
@@ -3084,6 +3163,10 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "Choose scope by evidence strength, expected local benefit, rollback coverage, and validation coverage" in plan.task
     assert "may span files, modules, or behavior paths" in plan.task
     assert "do not shrink a justified behavior change merely to look conservative" in plan.task
+    assert "Capability theme window:" in plan.task
+    assert "Runner and harness control plane" in plan.task
+    assert "Planned pass: 1 of 4" in plan.task
+    assert "Continuity rule: advance this slice across passes" in plan.task
     assert "Self-model context:" in plan.task
     assert f"Path: {DEFAULT_SELF_MODEL_PATH.as_posix()}" in plan.task
     assert "This file is a blank, revisable self-description" in plan.task
@@ -3243,7 +3326,9 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
     assert manifest["returncode"] == 0
     assert manifest["codex_cli"] == run_metadata["codex_cli"]
     assert manifest["provider_preflight"]["route_selector"] == "model_and_profile"
+    assert manifest["capability_theme_window"]["theme_id"] == plan.capability_theme_window["theme_id"]
     assert manifest["proposal_ids"] == ["p1"]
+    assert manifest["replayable_validation_report"]["provenance"]["capability_theme_id"] == plan.capability_theme_window["theme_id"]
     assert manifest["replayable_validation_report"]["required_fields"] == [
         "evidence_urls",
         "pre_adoption_risk_review",
@@ -3441,6 +3526,7 @@ def test_replayable_validation_report_records_harness_evidence_without_new_capab
         "proposal_ids": [proposal["proposal_id"]],
         "evidence_urls": ["https://github.com/samarailly51-pixel/opencode-harness"],
         "validation_gates": ["focused-evidence-review"],
+        "capability_theme_id": "runner-harness-control",
         "rollback_ref": "recorded in latest-rollback-point.json when codex mode prepares the branch",
     }
     assert report["local_commands"] == [

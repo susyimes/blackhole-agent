@@ -381,6 +381,7 @@ class GrowthMemory:
     repositories: dict[str, dict[str, Any]] = field(default_factory=dict)
     topics: dict[str, dict[str, Any]] = field(default_factory=dict)
     lessons: list[dict[str, Any]] = field(default_factory=list)
+    theme_window: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GrowthMemory":
@@ -389,6 +390,7 @@ class GrowthMemory:
             repositories={str(repo): dict(stats) for repo, stats in dict(data.get("repositories", {})).items()},
             topics={str(topic): dict(stats) for topic, stats in dict(data.get("topics", {})).items()},
             lessons=[dict(lesson) for lesson in data.get("lessons", []) if isinstance(lesson, dict)],
+            theme_window=dict(data.get("theme_window") or {}),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -397,7 +399,101 @@ class GrowthMemory:
             "repositories": dict(sorted(self.repositories.items())),
             "topics": dict(sorted(self.topics.items())),
             "lessons": self.lessons,
+            "theme_window": dict(self.theme_window),
         }
+
+
+@dataclass(frozen=True)
+class CapabilityThemeWindow:
+    """A cross-run capability focus carried into self-evolution tasks."""
+
+    schema_version: int
+    theme_id: str
+    title: str
+    capability_slice: str
+    started_at: str
+    updated_at: str
+    target_passes: int
+    planned_passes: int
+    status: str
+    proposal_ids: list[str]
+    evidence_urls: list[str]
+    previous_theme_id: str = ""
+
+
+DEFAULT_THEME_WINDOW_TARGET_PASSES = 4
+
+CAPABILITY_THEME_CATALOG: dict[str, dict[str, Any]] = {
+    "runner-harness-control": {
+        "title": "Runner and harness control plane",
+        "keywords": (
+            "harness",
+            "runner",
+            "workflow",
+            "e2e",
+            "workspace",
+            "interrupt",
+            "replay",
+            "subagent",
+            "tool_call",
+            "tool-result",
+            "policy ask",
+            "approval",
+            "push delivery",
+        ),
+        "capability_slice": (
+            "Make one runner workflow legible end to end: intake, mid-flight state, recovery, replay, "
+            "and report artifacts."
+        ),
+    },
+    "provider-runtime-control": {
+        "title": "Provider and runtime preflight control",
+        "keywords": (
+            "provider",
+            "preflight",
+            "config",
+            "openai",
+            "google",
+            "claude",
+            "auth",
+            "permission",
+            "model",
+            "base url",
+        ),
+        "capability_slice": (
+            "Turn provider and runtime configuration problems into body-free diagnostics, recovery hints, "
+            "and locally replayable validation."
+        ),
+    },
+    "skill-route-discovery": {
+        "title": "Skill route discovery",
+        "keywords": ("skill", "route", "discovery", "lane", "registry"),
+        "capability_slice": (
+            "Convert skill and route evidence into bounded local lanes that can be validated before activation."
+        ),
+    },
+    "supervisor-activation": {
+        "title": "Supervisor activation and recovery",
+        "keywords": ("supervisor", "restart", "activation", "worktree", "process", "cleanup", "codex cli"),
+        "capability_slice": (
+            "Make supervisor wakes, candidate worktrees, promotion, push, restart, and rollback visibly recoverable."
+        ),
+    },
+    "upstream-evidence-capability": {
+        "title": "Upstream evidence to capability",
+        "keywords": ("upstream", "omnigent", "release", "triage", "watchlist", "trend"),
+        "capability_slice": (
+            "Translate public agent-ecosystem signals into one local capability step rather than another isolated note."
+        ),
+    },
+}
+
+DEFAULT_CAPABILITY_THEME = {
+    "title": "Controller capability slice",
+    "capability_slice": (
+        "Advance one coherent controller capability until it has behavior, tests, artifacts, and operator-facing docs."
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -484,6 +580,7 @@ class SelfEvolutionPlan:
     proposals: list[dict[str, Any]]
     source_digest_id: str
     source_digest_generated_at: str
+    capability_theme_window: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -687,6 +784,117 @@ def update_memory_from_digest(memory: GrowthMemory, digest: dict[str, Any], *, l
         existing_lesson_ids.add(proposal_id)
     if len(memory.lessons) > lesson_limit:
         memory.lessons = memory.lessons[-lesson_limit:]
+    memory.theme_window = build_capability_theme_window(
+        digest.get("proposals", []),
+        previous_window=memory.theme_window,
+        generated_at=generated_at,
+    )
+    if memory.theme_window:
+        digest["capability_theme_window"] = dict(memory.theme_window)
+
+
+def build_capability_theme_window(
+    proposals: list[dict[str, Any]],
+    *,
+    previous_window: dict[str, Any] | None = None,
+    generated_at: str = "",
+    target_passes: int = DEFAULT_THEME_WINDOW_TARGET_PASSES,
+) -> dict[str, Any]:
+    """Return the active cross-run capability theme for this planning pass."""
+
+    proposal_ids = bounded_unique_strings(proposal.get("proposal_id") for proposal in proposals)
+    evidence_urls = bounded_unique_strings(
+        url for proposal in proposals for url in proposal.get("evidence_urls", []) if str(url).strip()
+    )
+    now = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    previous = previous_window or {}
+    previous_status = str(previous.get("status") or "")
+    previous_theme_id = str(previous.get("theme_id") or "")
+    previous_target = int(previous.get("target_passes") or target_passes)
+    previous_passes = int(previous.get("planned_passes") or 0)
+
+    if previous_theme_id and previous_status == "active" and previous_passes < previous_target:
+        catalog_entry = CAPABILITY_THEME_CATALOG.get(previous_theme_id, DEFAULT_CAPABILITY_THEME)
+        title = str(previous.get("title") or catalog_entry["title"])
+        capability_slice = str(previous.get("capability_slice") or catalog_entry["capability_slice"])
+        merged_proposal_ids = bounded_unique_strings([*previous.get("proposal_ids", []), *proposal_ids])
+        merged_evidence_urls = bounded_unique_strings([*previous.get("evidence_urls", []), *evidence_urls])
+        return asdict(
+            CapabilityThemeWindow(
+                schema_version=1,
+                theme_id=previous_theme_id,
+                title=title,
+                capability_slice=capability_slice,
+                started_at=str(previous.get("started_at") or now),
+                updated_at=now,
+                target_passes=previous_target,
+                planned_passes=previous_passes + 1,
+                status="active" if previous_passes + 1 < previous_target else "complete",
+                proposal_ids=merged_proposal_ids,
+                evidence_urls=merged_evidence_urls,
+                previous_theme_id=str(previous.get("previous_theme_id") or ""),
+            )
+        )
+
+    theme_id = classify_capability_theme(proposals)
+    catalog_entry = CAPABILITY_THEME_CATALOG.get(theme_id, DEFAULT_CAPABILITY_THEME)
+    return asdict(
+        CapabilityThemeWindow(
+            schema_version=1,
+            theme_id=theme_id,
+            title=str(catalog_entry["title"]),
+            capability_slice=str(catalog_entry["capability_slice"]),
+            started_at=now,
+            updated_at=now,
+            target_passes=target_passes,
+            planned_passes=1,
+            status="active" if target_passes > 1 else "complete",
+            proposal_ids=proposal_ids,
+            evidence_urls=evidence_urls,
+            previous_theme_id=previous_theme_id,
+        )
+    )
+
+
+def classify_capability_theme(proposals: list[dict[str, Any]]) -> str:
+    """Classify proposals into a durable capability theme without calling an LLM."""
+
+    text = " ".join(
+        " ".join(
+            [
+                str(proposal.get("proposal_id") or ""),
+                str(proposal.get("kind") or ""),
+                str(proposal.get("summary") or ""),
+                str(proposal.get("implementation_scope") or ""),
+                str(proposal.get("validation_gate") or ""),
+                str(proposal.get("validation_task") or ""),
+            ]
+        ).lower()
+        for proposal in proposals
+    )
+    scores: dict[str, int] = {}
+    for theme_id, config in CAPABILITY_THEME_CATALOG.items():
+        scores[theme_id] = sum(1 for keyword in config["keywords"] if keyword in text)
+    best_theme_id, best_score = max(scores.items(), key=lambda item: item[1])
+    if best_score <= 0:
+        return "controller-capability-slice"
+    return best_theme_id
+
+
+def bounded_unique_strings(values: Any, *, limit: int = 12) -> list[str]:
+    """Return stable, bounded strings for replay artifacts."""
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        unique.append(text)
+        seen.add(text)
+        if len(unique) >= limit:
+            break
+    return unique
 
 
 def touch_memory_stats(
@@ -1538,6 +1746,7 @@ def build_replayable_validation_report(plan: SelfEvolutionPlan, proposal_control
             "proposal_ids": proposal_ids,
             "evidence_urls": evidence_urls,
             "validation_gates": validation_gates,
+            "capability_theme_id": str(plan.capability_theme_window.get("theme_id") or ""),
             "rollback_ref": DRAFT_ROLLBACK_REF,
         },
         "local_commands": [
@@ -2254,6 +2463,13 @@ def build_self_evolution_plan(
             }
         ]
 
+    capability_theme_window = dict(
+        digest.get("capability_theme_window")
+        or build_capability_theme_window(
+            proposals,
+            generated_at=str(digest.get("generated_at") or ""),
+        )
+    )
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     self_model_before = read_self_model_snapshot(repo_path, self_model_path)
     branch_name = build_evolution_branch_name(branch_prefix, generated_at, proposals[0]["summary"])
@@ -2264,6 +2480,7 @@ def build_self_evolution_plan(
         self_model_snapshot=self_model_before,
         digest_id=str(digest.get("digest_id", "")),
         digest_generated_at=str(digest.get("generated_at", "")),
+        capability_theme_window=capability_theme_window,
         extra_instructions=extra_instructions,
     )
     return SelfEvolutionPlan(
@@ -2276,6 +2493,7 @@ def build_self_evolution_plan(
         proposals=proposals,
         source_digest_id=str(digest.get("digest_id", "")),
         source_digest_generated_at=str(digest.get("generated_at", "")),
+        capability_theme_window=capability_theme_window,
     )
 
 
@@ -2298,6 +2516,30 @@ def slugify_branch_part(value: str) -> str:
     return "".join(chars).strip("-")
 
 
+def render_capability_theme_window_lines(theme_window: dict[str, Any]) -> list[str]:
+    """Render the active theme window as bounded task instructions."""
+
+    if not theme_window:
+        return [
+            "- No prior theme window was available; choose one coherent capability slice and make it replayable.",
+        ]
+    proposal_ids = ", ".join(bounded_unique_strings(theme_window.get("proposal_ids", []))) or "none yet"
+    evidence_urls = ", ".join(bounded_unique_strings(theme_window.get("evidence_urls", []), limit=4)) or "none yet"
+    return [
+        f"- Theme: {theme_window.get('title', '')} (`{theme_window.get('theme_id', '')}`)",
+        f"- Capability slice: {theme_window.get('capability_slice', '')}",
+        (
+            f"- Planned pass: {theme_window.get('planned_passes', 0)} of "
+            f"{theme_window.get('target_passes', DEFAULT_THEME_WINDOW_TARGET_PASSES)} "
+            f"({theme_window.get('status', 'active')})"
+        ),
+        f"- Anchoring proposal IDs: {proposal_ids}",
+        f"- Evidence URLs carried by the window: {evidence_urls}",
+        "- Continuity rule: advance this slice across passes; defer unrelated micro-patches unless they unblock the slice.",
+        "- Completion rule: prefer an operator-visible behavior, integration path, or recovery workflow over another standalone fixture.",
+    ]
+
+
 def render_self_evolution_task(
     proposals: list[dict[str, Any]],
     *,
@@ -2306,6 +2548,7 @@ def render_self_evolution_task(
     self_model_snapshot: SelfModelSnapshot,
     digest_id: str,
     digest_generated_at: str,
+    capability_theme_window: dict[str, Any] | None = None,
     extra_instructions: str = "",
 ) -> str:
     proposal_lines: list[str] = []
@@ -2329,6 +2572,7 @@ def render_self_evolution_task(
         validation_task = str(proposal.get("validation_task") or "").strip()
         if validation_task:
             proposal_lines.append(f"   Validation task: {validation_task}")
+    theme_lines = render_capability_theme_window_lines(capability_theme_window or {})
     extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
     return "\n".join(
         [
@@ -2363,6 +2607,9 @@ def render_self_evolution_task(
             "Choose scope by evidence strength, expected local benefit, rollback coverage, and validation coverage; the change may span files, modules, or behavior paths when that is the justified scope.",
             "Prefer direct behavior improvements when evidence and local validation support them; use reliability, validation, observability, tests, or documentation when those are the justified outcome.",
             "",
+            "Capability theme window:",
+            *theme_lines,
+            "",
             "Digest evidence policy:",
             "- Treat the Source digest and proposal Evidence URLs as the primary context for this run.",
             "- Review only enough external evidence to extract one reusable lesson; do not re-run broad trend discovery.",
@@ -2385,6 +2632,8 @@ def render_self_evolution_task(
             "- Use only capabilities and runtime configuration available to this run.",
             "- Record material filesystem and external actions in run artifacts.",
             "- Keep the diff legible enough to audit after the fact; do not shrink a justified behavior change merely to look conservative.",
+            "- Treat the capability theme window as continuity pressure: deepen that slice unless the selected evidence proves it is exhausted or unsafe.",
+            "- Prefer a behavior path, controller surface, or integration seam over another isolated fixture when the theme already has sufficient tests.",
             "- Add or update tests or docs whenever behavior changes.",
             "- If you modify the self-model, edit the file at the self-model path directly and explain why it changed.",
             "- Run validation that matches the changed behavior and include the result in the final answer.",
@@ -2413,6 +2662,7 @@ def write_self_evolution_plan(output_dir: Path, plan: SelfEvolutionPlan) -> tupl
             f"Branch: `{plan.branch_name}`",
             f"Repository: `{plan.repo_path}`",
             f"Source digest: `{plan.source_digest_id}`",
+            f"Capability theme: `{plan.capability_theme_window.get('theme_id', '')}`",
             "",
             "## Task",
             "",
@@ -2649,6 +2899,7 @@ def run_self_evolution_codex(
         "elapsed_seconds": elapsed_seconds,
         "source_digest_id": plan.source_digest_id,
         "source_digest_generated_at": plan.source_digest_generated_at,
+        "capability_theme_window": dict(plan.capability_theme_window),
         "repo_path": plan.repo_path,
         "branch_name": plan.branch_name,
         "target_head": current_head,

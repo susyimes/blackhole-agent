@@ -68,8 +68,9 @@ The memory tracks:
 - repository stats: seen count, useful signal count, validation count, failure count, last seen time
 - topic stats: seen count, useful signal count, validation count, failure count, last seen time
 - lessons: proposal ID, source digest, summary, evidence, outcome
+- theme window: the active multi-pass capability slice, planned pass count, anchoring proposals, and evidence URLs
 
-This layer is intentionally small and transparent. It biases proposal ordering toward sources and topics that have produced useful lessons before. It can be deleted without corrupting cursor state.
+This layer is intentionally small and transparent. It biases proposal ordering toward sources and topics that have produced useful lessons before, and it gives consecutive self-evolution passes a shared capability target. It can be deleted without corrupting cursor state.
 
 ### Self-Model Layer
 
@@ -125,6 +126,12 @@ local validation candidates, not permission or implementation authority. See
 detail, low-detail PR/push interpretation rule, and validation-lane contract.
 Skill repository discoveries use the classification-only matrix in
 `docs/skill-route-discovery.md` before any local activation path is considered.
+
+### Capability Theme Window
+
+Before a self-evolution task is rendered, the controller derives a small `capability_theme_window` from the active proposals and persisted growth memory. The default window spans four planned passes. While the window is active, later passes carry the same theme into the Codex task even when a new digest contains tempting unrelated micro-patches.
+
+The window is not a permission source and does not override safety review. It is continuity pressure: each pass should deepen the same capability slice with behavior, controller surfaces, recovery workflows, tests, and docs until the window completes or the evidence shows the theme is exhausted or unsafe. The current window is written into `memory.json`, `latest.json`, `latest-self-evolution-plan.json`, the plan markdown, and the self-evolution manifest.
 
 ### Local Codex CLI Kernel
 
