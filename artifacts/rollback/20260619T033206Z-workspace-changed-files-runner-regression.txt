@@ -1,0 +1,8 @@
+Rollback point for workspace-changed-files-runner-regression
+Created at: 2026-06-19T03:32:06Z
+Original branch: codex/blackhole-evolve/20260619T033311.448269-validate-e2e-runner-workspace-changed-file-detec
+Original HEAD: c91b8ebd4ec49bc4833d75b6bab0fc77d4fa3548
+Rollback ref: refs/rollback/20260619T033206Z-workspace-changed-files-runner-regression
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T033311.448269-validate-e2e-runner-workspace-changed-file-detec
+git reset --hard refs/rollback/20260619T033206Z-workspace-changed-files-runner-regression

@@ -468,9 +468,14 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
     changes_panel = raw_input.get("changes_panel") if isinstance(raw_input.get("changes_panel"), dict) else {}
     performed_edits = raw_input.get("performed_edits") if isinstance(raw_input.get("performed_edits"), list) else []
     panel_entries = changes_panel.get("entries") if isinstance(changes_panel.get("entries"), list) else []
+    runner_workspace_root = optional_string(workspace.get("runner_workspace_root"))
 
-    edit_results = [evaluate_workspace_change_edit(edit) for edit in performed_edits]
-    panel_results = [evaluate_workspace_change_panel_entry(entry) for entry in panel_entries]
+    edit_results = [
+        evaluate_workspace_change_edit(edit, runner_workspace_root=runner_workspace_root) for edit in performed_edits
+    ]
+    panel_results = [
+        evaluate_workspace_change_panel_entry(entry, runner_workspace_root=runner_workspace_root) for entry in panel_entries
+    ]
     visible_entry_ids = {str(result["edit_id"]) for result in panel_results if result["edit_id"] and result["visible"]}
     required_edit_ids = [
         str(result["edit_id"])
@@ -493,6 +498,8 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
         edit_results=edit_results,
         panel_results=panel_results,
     )
+    outside_runner_workspace_edit_ids = workspace_changes_outside_runner_workspace_edit_ids(edit_results)
+    outside_runner_workspace_panel_ids = workspace_changes_outside_runner_workspace_panel_ids(panel_results)
 
     is_git_repo = truthy(workspace.get("is_git_repo"))
     runner_workspace_configured = truthy(workspace.get("runner_workspace_configured"))
@@ -513,6 +520,8 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
         missing_visible_edit_ids=missing_visible_edit_ids,
         unexpected_visible_edit_ids=unexpected_visible_edit_ids,
         stale_visible_edit_ids=stale_visible_edit_ids,
+        outside_runner_workspace_edit_ids=outside_runner_workspace_edit_ids,
+        outside_runner_workspace_panel_ids=outside_runner_workspace_panel_ids,
         non_git_limitation_present=non_git_limitation_present,
         git_metadata_required=git_metadata_required,
         is_git_repo=is_git_repo,
@@ -527,6 +536,7 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
         "workspace": {
             "is_git_repo": is_git_repo,
             "runner_workspace_configured": runner_workspace_configured,
+            "runner_workspace_root_hash": stable_text_hash(runner_workspace_root) if runner_workspace_root else None,
             "git_metadata_required": git_metadata_required,
             "non_git_without_git_metadata": not is_git_repo and not git_metadata_required,
         },
@@ -548,6 +558,8 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
             "missing_visible_edit_ids": missing_visible_edit_ids,
             "unexpected_visible_edit_ids": unexpected_visible_edit_ids,
             "stale_visible_edit_ids": stale_visible_edit_ids,
+            "outside_runner_workspace_edit_ids": outside_runner_workspace_edit_ids,
+            "outside_runner_workspace_panel_ids": outside_runner_workspace_panel_ids,
             "raw_paths_exported": False,
             "raw_contents_exported": False,
             "items": edit_results,
@@ -561,7 +573,7 @@ def evaluate_workspace_changes_panel(raw_input: dict[str, Any], *, source_path: 
     }
 
 
-def evaluate_workspace_change_edit(edit: Any) -> dict[str, Any]:
+def evaluate_workspace_change_edit(edit: Any, *, runner_workspace_root: str | None = None) -> dict[str, Any]:
     edit_data = edit if isinstance(edit, dict) else {}
     edit_id = optional_string(edit_data.get("edit_id")) or "workspace-edit"
     origin = optional_string(edit_data.get("origin")) or "unknown"
@@ -584,10 +596,11 @@ def evaluate_workspace_change_edit(edit: Any) -> dict[str, Any]:
         "requires_panel_visibility": requires_panel_visibility,
         "path_hash": stable_text_hash(path) if path else None,
         "content_hash": stable_text_hash(content) if content else None,
+        "inside_runner_workspace": workspace_path_is_inside(path, runner_workspace_root),
     }
 
 
-def evaluate_workspace_change_panel_entry(entry: Any) -> dict[str, Any]:
+def evaluate_workspace_change_panel_entry(entry: Any, *, runner_workspace_root: str | None = None) -> dict[str, Any]:
     entry_data = entry if isinstance(entry, dict) else {}
     path = optional_string(entry_data.get("path"))
     return {
@@ -595,7 +608,24 @@ def evaluate_workspace_change_panel_entry(entry: Any) -> dict[str, Any]:
         "kind": optional_string(entry_data.get("kind")) or "changed_file",
         "visible": truthy(entry_data.get("visible")),
         "path_hash": stable_text_hash(path) if path else None,
+        "inside_runner_workspace": workspace_path_is_inside(path, runner_workspace_root),
     }
+
+
+def workspace_path_is_inside(path: str | None, runner_workspace_root: str | None) -> bool | None:
+    if not path or not runner_workspace_root:
+        return None
+
+    normalized_path = normalize_workspace_path(path)
+    normalized_root = normalize_workspace_path(runner_workspace_root)
+    return normalized_path == normalized_root or normalized_path.startswith(f"{normalized_root}/")
+
+
+def normalize_workspace_path(path: str) -> str:
+    normalized = path.replace("\\", "/").rstrip("/")
+    while "//" in normalized:
+        normalized = normalized.replace("//", "/")
+    return normalized.casefold()
 
 
 def workspace_changes_stale_visible_edit_ids(
@@ -624,6 +654,25 @@ def workspace_changes_stale_visible_edit_ids(
     return sorted(stale_ids)
 
 
+def workspace_changes_outside_runner_workspace_edit_ids(edit_results: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        str(result["edit_id"])
+        for result in edit_results
+        if result["exists_on_disk"] and result["requires_panel_visibility"] and result["inside_runner_workspace"] is False
+    )
+
+
+def workspace_changes_outside_runner_workspace_panel_ids(panel_results: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        str(result["edit_id"])
+        for result in panel_results
+        if result["visible"]
+        and result["kind"] == "changed_file"
+        and result["edit_id"]
+        and result["inside_runner_workspace"] is False
+    )
+
+
 def workspace_changes_panel_failure_mode(
     *,
     runner_workspace_configured: bool,
@@ -631,6 +680,8 @@ def workspace_changes_panel_failure_mode(
     missing_visible_edit_ids: list[str],
     unexpected_visible_edit_ids: list[str],
     stale_visible_edit_ids: list[str],
+    outside_runner_workspace_edit_ids: list[str],
+    outside_runner_workspace_panel_ids: list[str],
     non_git_limitation_present: bool,
     git_metadata_required: bool,
     is_git_repo: bool,
@@ -645,6 +696,10 @@ def workspace_changes_panel_failure_mode(
         return "stale_visible_change_entries"
     if unexpected_visible_edit_ids:
         return "unexpected_visible_change_entries"
+    if outside_runner_workspace_edit_ids:
+        return "edit_outside_runner_workspace"
+    if outside_runner_workspace_panel_ids:
+        return "panel_entry_outside_runner_workspace"
     if not non_git_limitation_present:
         return "missing_non_git_tracking_limitation"
     if not is_git_repo and git_metadata_required:

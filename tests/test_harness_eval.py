@@ -1729,6 +1729,7 @@ def test_workspace_changes_panel_non_git_requires_visible_external_and_native_en
     assert output["workspace"] == {
         "is_git_repo": False,
         "runner_workspace_configured": True,
+        "runner_workspace_root_hash": None,
         "git_metadata_required": False,
         "non_git_without_git_metadata": True,
     }
@@ -1844,6 +1845,52 @@ def test_workspace_changes_panel_fails_unexpected_extra_visible_changed_file():
     assert "PRIVATE_EXPECTED_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_UNRELATED_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_EXPECTED_CONTENT_DO_NOT_EXPORT" not in serialized
+
+
+def test_workspace_changes_panel_fails_changed_file_outside_runner_workspace_without_exporting_paths():
+    output = evaluate_harness_behavior(
+        "workspace_changes_panel",
+        {
+            "task_id": "fixture-outside-runner-workspace-change-panel",
+            "workspace": {
+                "is_git_repo": True,
+                "runner_workspace_configured": True,
+                "runner_workspace_root": "PRIVATE_RUNNER_WORKSPACE_ROOT_DO_NOT_EXPORT",
+            },
+            "performed_edits": [
+                {
+                    "edit_id": "outside-runner-write",
+                    "origin": "native_harness",
+                    "path": "PRIVATE_OUTSIDE_RUNNER_WORKSPACE_PATH_DO_NOT_EXPORT.md",
+                    "content": "PRIVATE_OUTSIDE_RUNNER_WORKSPACE_CONTENT_DO_NOT_EXPORT",
+                    "exists_on_disk": True,
+                    "record_change_observed": True,
+                }
+            ],
+            "changes_panel": {
+                "available": True,
+                "entries": [
+                    {
+                        "edit_id": "outside-runner-write",
+                        "kind": "changed_file",
+                        "path": "PRIVATE_OUTSIDE_RUNNER_WORKSPACE_PATH_DO_NOT_EXPORT.md",
+                        "visible": True,
+                    }
+                ],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "workspace_changes_panel_outside_runner_workspace_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "edit_outside_runner_workspace"
+    assert output["workspace"]["runner_workspace_root_hash"].startswith("sha256:")
+    assert output["edits"]["outside_runner_workspace_edit_ids"] == ["outside-runner-write"]
+    assert output["edits"]["outside_runner_workspace_panel_ids"] == ["outside-runner-write"]
+    assert "PRIVATE_RUNNER_WORKSPACE_ROOT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OUTSIDE_RUNNER_WORKSPACE_PATH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OUTSIDE_RUNNER_WORKSPACE_CONTENT_DO_NOT_EXPORT" not in serialized
 
 
 def test_native_tool_call_policy_matrix_does_not_silently_allow_policy_hook_failures():
