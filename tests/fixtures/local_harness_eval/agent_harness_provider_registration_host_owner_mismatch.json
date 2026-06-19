@@ -1,0 +1,105 @@
+{
+  "name": "agent-harness-provider-registration-host-owner-mismatch",
+  "behavior": "agent_harness_provider_registration",
+  "input": {
+    "task_id": "fixture-provider-registration-host-owner-mismatch",
+    "required_provider": "omnigent-host",
+    "expected_harness": "omnigent-host-cli",
+    "providers": [
+      {
+        "name": "omnigent-host-cli",
+        "provider": "omnigent-host",
+        "priority": 10,
+        "required_commands": ["omnigent"]
+      }
+    ],
+    "runtime": {
+      "platform": "linux",
+      "available_commands": ["omnigent"],
+      "installed_modules": [],
+      "env_keys_present": []
+    },
+    "registration_state": {
+      "host_id": "PRIVATE_HOST_ID_DO_NOT_EXPORT",
+      "already_registered": true,
+      "existing_owner": "PRIVATE_EXISTING_OWNER_DO_NOT_EXPORT",
+      "authenticated_owner": "PRIVATE_AUTHENTICATED_OWNER_DO_NOT_EXPORT",
+      "registration_completed": false,
+      "connection_reported_success": true
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "host_registration_owner_mismatch"
+    },
+    {
+      "path": "selected_harness",
+      "equals": "omnigent-host-cli"
+    },
+    {
+      "path": "registration_state.host_id_present",
+      "equals": true
+    },
+    {
+      "path": "registration_state.owner_mismatch",
+      "equals": true
+    },
+    {
+      "path": "registration_state.registration_completed",
+      "equals": false
+    },
+    {
+      "path": "registration_state.connection_reported_success",
+      "equals": true
+    },
+    {
+      "path": "registration_state.success_state_allowed",
+      "equals": false
+    },
+    {
+      "path": "registration_state.raw_host_id_exported",
+      "equals": false
+    },
+    {
+      "path": "registration_state.raw_owner_values_exported",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "host_registration_owner_mismatch"
+    },
+    {
+      "path": "recovery_hints.0.scope",
+      "equals": "provider_host_registration"
+    },
+    {
+      "path": "activation_gate.decision",
+      "equals": "blocked_before_activation"
+    },
+    {
+      "path": "activation_gate.local_provider_registration_allowed",
+      "equals": false
+    },
+    {
+      "path": "activation_gate.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.host_id_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.owner_values_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.provider_launched",
+      "equals": false
+    }
+  ]
+}

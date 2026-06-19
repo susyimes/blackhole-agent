@@ -412,6 +412,7 @@ def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, s
     runtime = raw_input.get("runtime") if isinstance(raw_input.get("runtime"), dict) else {}
     required_provider = optional_string(raw_input.get("required_provider"))
     expected_harness = optional_string(raw_input.get("expected_harness"))
+    registration_state = provider_registration_state(raw_input.get("registration_state"))
     available_commands = set(string_list(runtime.get("available_commands")))
     installed_modules = set(string_list(runtime.get("installed_modules")))
     env_keys_present = set(string_list(runtime.get("env_keys_present")))
@@ -450,10 +451,14 @@ def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, s
         and required_status.available
         and (not expected_harness or required_status.harness.name == expected_harness)
     )
+    registration_state_blocked = bool(registration_state["blocked"])
 
     if not statuses:
         route_status = "blocked"
         failure_mode = "no_provider_harnesses_declared"
+    elif registration_state_blocked:
+        route_status = "blocked"
+        failure_mode = registration_state["failure_mode"]
     elif missing_required_config:
         route_status = "blocked"
         failure_mode = "required_provider_config_missing"
@@ -482,6 +487,8 @@ def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, s
         "expected_harness": expected_harness,
         "missing_required_config": missing_required_config,
         "missing_config_reasons": missing_config_reasons,
+        "registration_state": registration_state,
+        "recovery_hints": provider_registration_recovery_hints(registration_state),
         "statuses": [
             {
                 "name": status.harness.name,
@@ -507,9 +514,77 @@ def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, s
         "privacy": {
             "env_values_exported": False,
             "env_key_names_exported": False,
+            "host_id_exported": False,
+            "owner_values_exported": False,
             "provider_launched": False,
         },
     }
+
+
+def provider_registration_state(value: Any) -> dict[str, Any]:
+    """Normalize host registration metadata without exporting host or owner values."""
+
+    state = value if isinstance(value, dict) else {}
+    host_id = optional_string(state.get("host_id"))
+    existing_owner = optional_string(state.get("existing_owner"))
+    authenticated_owner = optional_string(state.get("authenticated_owner"))
+    same_owner = bool(existing_owner and authenticated_owner and existing_owner == authenticated_owner)
+    owner_mismatch = bool(existing_owner and authenticated_owner and existing_owner != authenticated_owner)
+    already_registered = truthy(state.get("already_registered")) or bool(existing_owner)
+    registration_completed = truthy(state.get("registration_completed"))
+    connection_reported_success = truthy(state.get("connection_reported_success"))
+
+    if owner_mismatch:
+        failure_mode = "host_registration_owner_mismatch"
+    elif already_registered and not same_owner and not authenticated_owner:
+        failure_mode = "host_registration_owner_unknown"
+    elif connection_reported_success and not registration_completed:
+        failure_mode = "host_registration_incomplete_success_state"
+    else:
+        failure_mode = "none"
+
+    blocked = failure_mode != "none"
+    return {
+        "present": bool(state),
+        "host_id_present": bool(host_id),
+        "host_id_hash": stable_text_hash(host_id) if host_id else None,
+        "existing_owner_hash": stable_text_hash(existing_owner) if existing_owner else None,
+        "authenticated_owner_hash": stable_text_hash(authenticated_owner) if authenticated_owner else None,
+        "owners_match": same_owner if existing_owner and authenticated_owner else None,
+        "owner_mismatch": owner_mismatch,
+        "already_registered": already_registered,
+        "registration_completed": registration_completed,
+        "connection_reported_success": connection_reported_success,
+        "success_state_allowed": not blocked,
+        "blocked": blocked,
+        "failure_mode": failure_mode,
+        "diagnostic_class": failure_mode,
+        "raw_host_id_exported": False,
+        "raw_owner_values_exported": False,
+    }
+
+
+def provider_registration_recovery_hints(registration_state: dict[str, Any]) -> list[dict[str, Any]]:
+    failure_mode = optional_string(registration_state.get("failure_mode")) or "none"
+    if failure_mode == "none":
+        return []
+    if failure_mode == "host_registration_owner_mismatch":
+        action = "refuse registration before reporting connected; reset the stale host id or remove the old host registration"
+    elif failure_mode == "host_registration_incomplete_success_state":
+        action = "treat incomplete registration as blocked instead of connected and retry only after registration succeeds"
+    else:
+        action = "verify host ownership metadata before allowing provider registration"
+    return [
+        {
+            "code": failure_mode,
+            "scope": "provider_host_registration",
+            "severity": "blocker",
+            "action": action,
+            "host_id_present": bool(registration_state.get("host_id_present")),
+            "owner_mismatch": bool(registration_state.get("owner_mismatch")),
+            "value_recorded": False,
+        }
+    ]
 
 
 def provider_harness_from_mapping(value: dict[str, Any]) -> Any:

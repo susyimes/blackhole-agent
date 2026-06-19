@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 42
-    assert payload["pass_count"] == 41
+    assert payload["fixture_count"] == 43
+    assert payload["pass_count"] == 42
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -121,6 +121,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-streamed-tool-boundary"]["passed"] is True
     assert results["agent-workflow-route-report-sections-missing"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
+    assert results["agent-harness-provider-registration-host-owner-mismatch"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["headless-tool-roundtrip-function-call"]["passed"] is True
@@ -175,6 +176,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REST_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REST_CONTENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HOST_NATIVE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HOST_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXISTING_OWNER_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AUTHENTICATED_OWNER_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HOST_NATIVE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_E2E_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_E2E_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
@@ -683,9 +687,41 @@ def test_agent_harness_provider_registration_blocks_qwencode_without_local_confi
     assert output["privacy"] == {
         "env_values_exported": False,
         "env_key_names_exported": False,
+        "host_id_exported": False,
+        "owner_values_exported": False,
         "provider_launched": False,
     }
     assert "QWENCODE_API_KEY" not in serialized
+
+
+def test_agent_harness_provider_registration_blocks_host_owner_mismatch_before_success_state():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_harness_provider_registration_host_owner_mismatch.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "host_registration_owner_mismatch"
+    assert output["selected_harness"] == "omnigent-host-cli"
+    assert output["registration_state"]["owner_mismatch"] is True
+    assert output["registration_state"]["registration_completed"] is False
+    assert output["registration_state"]["connection_reported_success"] is True
+    assert output["registration_state"]["success_state_allowed"] is False
+    assert output["activation_gate"]["decision"] == "blocked_before_activation"
+    assert output["activation_gate"]["local_provider_registration_allowed"] is False
+    assert output["activation_gate"]["provider_runtime_launch_allowed"] is False
+    assert output["recovery_hints"][0]["code"] == "host_registration_owner_mismatch"
+    assert output["recovery_hints"][0]["value_recorded"] is False
+    assert output["privacy"]["host_id_exported"] is False
+    assert output["privacy"]["owner_values_exported"] is False
+    assert "PRIVATE_HOST_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXISTING_OWNER_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_AUTHENTICATED_OWNER_DO_NOT_EXPORT" not in serialized
 
 
 def test_skill_route_discovery_lane_blocks_actionful_candidates():

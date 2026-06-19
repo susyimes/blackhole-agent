@@ -1,0 +1,15 @@
+Rollback point: 20260620T065348Z-host-registration-state-validation
+
+Original branch: codex/blackhole-evolve/20260619T225306.880561-add-a-local-validation-candidate-for-host-regist
+Original HEAD: 310266943f0d5383a5b54ce2bc12d84fe5c04515
+Local rollback ref: refs/rollback/20260620T065348Z-host-registration-state-validation
+
+Recovery commands:
+
+git switch codex/blackhole-evolve/20260619T225306.880561-add-a-local-validation-candidate-for-host-regist
+git reset --hard refs/rollback/20260620T065348Z-host-registration-state-validation
+
+Notes:
+
+- Rollback is explicit and destructive. A human operator or external supervisor policy must choose it before running the reset command.
+- This artifact records the pre-edit state for the provider runtime control pass focused on host registration state validation.
