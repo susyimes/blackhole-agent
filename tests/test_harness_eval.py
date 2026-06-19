@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 37
-    assert payload["pass_count"] == 36
+    assert payload["fixture_count"] == 38
+    assert payload["pass_count"] == 37
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -142,6 +142,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
+    assert results["provider-runtime-preflight-review-model-unavailable"]["passed"] is True
     assert results["provider-runtime-recovery-summary-blocked-and-degraded"]["passed"] is True
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
@@ -185,6 +186,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "127.0.0.1" not in serialized
     assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
@@ -2539,16 +2543,18 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
 
     assert output["route_status"] == "blocked"
     assert output["failure_mode"] == "provider_runtime_recovery_required"
-    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 2}
+    assert output["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 3}
     assert output["runner_invoked_count"] == 1
     assert output["blocked_failure_modes"] == [
         "native_terminal_timeout_risk",
+        "review_model_unavailable",
         "url_safety_preflight_failed",
     ]
     assert [hint["code"] for hint in output["recovery_hints"]] == [
         "browser_configure_checks_skipped",
         "mock_auth_placeholder_used",
         "native_terminal_timeout_risk",
+        "review_model_unavailable",
         "url_safety_preflight_failed",
     ]
     assert all(hint["value_recorded"] is False for hint in output["recovery_hints"])
@@ -2571,6 +2577,7 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     }
     assert "~/.local/bin/claude" not in serialized
     assert "127.0.0.1" not in serialized
+    assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
 
     command_gap = evaluate_harness_behavior(
         "provider_runtime_recovery_summary",

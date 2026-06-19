@@ -76,6 +76,45 @@
           "enabled": true,
           "auth_placeholder": true
         }
+      },
+      {
+        "task_id": "fixture-review-model-unavailable",
+        "provider": {
+          "name": "polly-review",
+          "harness": "omnigent-review",
+          "review_model_preflight_required": true,
+          "review_model_exercise_required": true,
+          "review_models": [
+            {
+              "provider": "anthropic",
+              "model_id": "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT_ANTHROPIC",
+              "available": true,
+              "supported": true,
+              "exercised": true
+            },
+            {
+              "provider": "openai",
+              "model_id": "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT_OPENAI",
+              "available": false,
+              "supported": true,
+              "exercised": false
+            }
+          ]
+        },
+        "runtime": {
+          "platform": "linux",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess"
+        },
+        "runner_env": {
+          "parent_env_keys": [
+            "PATH"
+          ],
+          "allowlist": [
+            "PATH"
+          ],
+          "passthrough": []
+        }
       }
     ]
   },
@@ -90,11 +129,11 @@
     },
     {
       "path": "preflight_count",
-      "equals": 3
+      "equals": 4
     },
     {
       "path": "status_counts.blocked",
-      "equals": 2
+      "equals": 3
     },
     {
       "path": "status_counts.degraded",
@@ -108,6 +147,7 @@
       "path": "blocked_failure_modes",
       "equals": [
         "native_terminal_timeout_risk",
+        "review_model_unavailable",
         "url_safety_preflight_failed"
       ]
     },
@@ -125,6 +165,10 @@
     },
     {
       "path": "recovery_hints.3.code",
+      "equals": "review_model_unavailable"
+    },
+    {
+      "path": "recovery_hints.4.code",
       "equals": "url_safety_preflight_failed"
     },
     {

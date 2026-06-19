@@ -1,0 +1,9 @@
+rollback_id: 20260619T161206Z-provider-review-model-preflight
+original_branch: codex/blackhole-evolve/20260619T161305.835034-add-or-extend-local-validation-for-provider-mode
+original_head: f8447b60b0d609ba69e88cef5a2fa9ea2f3a9fc1
+rollback_ref: refs/blackhole-agent/rollback/20260619T161206Z-provider-review-model-preflight
+recovery_commands:
+  git switch codex/blackhole-evolve/20260619T161305.835034-add-or-extend-local-validation-for-provider-mode
+  git reset --hard refs/blackhole-agent/rollback/20260619T161206Z-provider-review-model-preflight
+  git clean -fd
+notes: Created before provider review-model preflight self-modification. Rollback execution is explicit and destructive.

@@ -3528,6 +3528,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
+    review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -3593,6 +3594,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     blocked = (
         (incompatible_sandbox and not degraded)
         or native_terminal_timeout_risk
+        or not review_model_preflight["ok"]
         or not model_command_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
@@ -3611,6 +3613,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     )
     diagnostics.extend(browser_preflight["preflight"]["diagnostics"])
     diagnostics.extend(prompt_preflight["preflight"]["diagnostics"])
+    diagnostics.extend(review_model_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
@@ -3626,7 +3629,9 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     if blocked:
         route_status = "blocked"
         failure_mode = (
-            model_command_preflight["failure_mode"]
+            review_model_preflight["failure_mode"]
+            if not review_model_preflight["ok"]
+            else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
             else "provider_env_missing"
             if env_preflight_failed
@@ -3717,7 +3722,106 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "browser_tooling": browser_preflight["browser_tooling"],
         "url_safety": browser_preflight["url_safety"],
         "prompt_scan": prompt_preflight["prompt_scan"],
+        "review_model": review_model_preflight,
         "model_command": model_command_preflight,
+    }
+
+
+def evaluate_provider_review_model_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate review-model route metadata before review execution.
+
+    This checks opaque model configuration as metadata only. It never exports
+    prompt, review, stdout, stderr, token, or credential bodies.
+    """
+
+    raw_models = provider.get("review_models", runtime.get("review_models"))
+    models = [item for item in raw_models if isinstance(item, dict)] if isinstance(raw_models, list) else []
+    required = (
+        truthy(provider.get("review_model_preflight_required"))
+        or truthy(runtime.get("review_model_preflight_required"))
+        or bool(models)
+    )
+    require_exercised = truthy(provider.get("review_model_exercise_required")) or truthy(
+        runtime.get("review_model_exercise_required")
+    )
+    records = [normalize_review_model_record(item) for item in models]
+    required_records = [record for record in records if record["required"]]
+    missing = required and not required_records
+    missing_model_ids = [record for record in required_records if not record["model_id_configured"]]
+    unavailable = [record for record in required_records if record["model_id_configured"] and not record["available"]]
+    unsupported = [record for record in required_records if record["model_id_configured"] and not record["supported"]]
+    unexercised = [
+        record
+        for record in required_records
+        if require_exercised and record["model_id_configured"] and record["available"] and not record["exercised"]
+    ]
+
+    diagnostics: list[str] = []
+    if missing:
+        diagnostics.append("review model preflight is required but no required review models were configured")
+    for record in missing_model_ids:
+        diagnostics.append(f"review model id is missing for provider: {record['provider']}")
+    for record in unavailable:
+        diagnostics.append(f"configured review model is unavailable for provider: {record['provider']}")
+    for record in unsupported:
+        diagnostics.append(f"configured review model is unsupported for provider: {record['provider']}")
+    for record in unexercised:
+        diagnostics.append(f"configured review model was not exercised during validation: {record['provider']}")
+
+    if missing:
+        failure_mode = "review_model_config_missing"
+    elif missing_model_ids:
+        failure_mode = "review_model_id_missing"
+    elif unavailable:
+        failure_mode = "review_model_unavailable"
+    elif unsupported:
+        failure_mode = "review_model_unsupported"
+    elif unexercised:
+        failure_mode = "review_model_not_exercised"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "require_exercised": require_exercised,
+        "configured": bool(required_records),
+        "ok": not diagnostics,
+        "failure_mode": failure_mode,
+        "review_model_count": len(records),
+        "required_review_model_count": len(required_records),
+        "available_review_model_count": sum(1 for record in required_records if record["available"]),
+        "supported_review_model_count": sum(1 for record in required_records if record["supported"]),
+        "exercised_review_model_count": sum(1 for record in required_records if record["exercised"]),
+        "unavailable_provider_labels": sorted({record["provider"] for record in unavailable}),
+        "unsupported_provider_labels": sorted({record["provider"] for record in unsupported}),
+        "unexercised_provider_labels": sorted({record["provider"] for record in unexercised}),
+        "records": records,
+        "raw_review_bodies_exported": False,
+        "raw_model_ids_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_review_model_record(value: dict[str, Any]) -> dict[str, Any]:
+    provider_label = optional_string(value.get("provider") or value.get("provider_label")) or "unknown-review-provider"
+    model_id = optional_string(value.get("model_id") or value.get("model") or value.get("name"))
+    available = truthy(value.get("available", value.get("resolves", False)))
+    supported = truthy(value.get("supported", True))
+    exercised = truthy(value.get("exercised", value.get("validated", False)))
+    required = truthy(value.get("required", True))
+    return {
+        "provider": provider_label,
+        "required": required,
+        "model_id_configured": bool(model_id),
+        "model_id_hash": stable_text_hash(model_id) if model_id else None,
+        "model_id_recorded": False,
+        "available": available,
+        "supported": supported,
+        "exercised": exercised,
     }
 
 
@@ -3856,6 +3960,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     runner_env = preflight.get("runner_env") if isinstance(preflight.get("runner_env"), dict) else {}
     provider_auth = preflight.get("provider_auth") if isinstance(preflight.get("provider_auth"), dict) else {}
     browser_tooling = preflight.get("browser_tooling") if isinstance(preflight.get("browser_tooling"), dict) else {}
+    review_model = preflight.get("review_model") if isinstance(preflight.get("review_model"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
@@ -3932,6 +4037,27 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_required": bool(model_command.get("required")),
                 "command_configured": bool(model_command.get("configured")),
                 "command_arg_count": int(model_command.get("command_arg_count") or 0),
+            }
+        )
+    elif failure_mode in {
+        "review_model_config_missing",
+        "review_model_id_missing",
+        "review_model_not_exercised",
+        "review_model_unavailable",
+        "review_model_unsupported",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_review_model",
+                "severity": "blocker",
+                "action": "validate each configured review model route against its provider before review execution",
+                "required_review_model_count": int(review_model.get("required_review_model_count") or 0),
+                "available_review_model_count": int(review_model.get("available_review_model_count") or 0),
+                "supported_review_model_count": int(review_model.get("supported_review_model_count") or 0),
+                "exercised_review_model_count": int(review_model.get("exercised_review_model_count") or 0),
+                "raw_model_ids_exported": False,
             }
         )
 

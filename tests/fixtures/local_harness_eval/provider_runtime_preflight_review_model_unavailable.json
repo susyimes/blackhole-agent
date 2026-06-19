@@ -1,0 +1,103 @@
+{
+  "name": "provider-runtime-preflight-review-model-unavailable",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-review-model-unavailable",
+    "provider": {
+      "name": "polly-review",
+      "harness": "omnigent-review",
+      "review_model_preflight_required": true,
+      "review_model_exercise_required": true,
+      "review_models": [
+        {
+          "provider": "anthropic",
+          "model_id": "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT_ANTHROPIC",
+          "available": true,
+          "supported": true,
+          "exercised": true
+        },
+        {
+          "provider": "openai",
+          "model_id": "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT_OPENAI",
+          "available": false,
+          "supported": true,
+          "exercised": false
+        }
+      ]
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    },
+    "review": {
+      "prompt": "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT",
+      "output": "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "review_model_unavailable"
+    },
+    {
+      "path": "review_model.required",
+      "equals": true
+    },
+    {
+      "path": "review_model.require_exercised",
+      "equals": true
+    },
+    {
+      "path": "review_model.review_model_count",
+      "equals": 2
+    },
+    {
+      "path": "review_model.available_review_model_count",
+      "equals": 1
+    },
+    {
+      "path": "review_model.unavailable_provider_labels",
+      "equals": [
+        "openai"
+      ]
+    },
+    {
+      "path": "review_model.raw_review_bodies_exported",
+      "equals": false
+    },
+    {
+      "path": "review_model.raw_model_ids_exported",
+      "equals": false
+    },
+    {
+      "path": "review_model.records.1.model_id_recorded",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "preflight.blocked_before_launch",
+      "equals": true
+    }
+  ]
+}
