@@ -1,0 +1,14 @@
+Rollback point for github-growth-20260619T173206.989037Z
+
+Created: 2026-06-19T17:32:06Z
+Original branch: codex/blackhole-evolve/20260619T173342.470801-add-or-update-a-bounded-local-validation-lane-fo
+Original HEAD: b8111ab8d46b4d3b4f6fdffc314d8a13ba879449
+Rollback ref: refs/rollback/20260619T173206Z-runner-harness-control-pass1
+
+Recovery commands, destructive only when explicitly chosen by an operator:
+
+git switch codex/blackhole-evolve/20260619T173342.470801-add-or-update-a-bounded-local-validation-lane-fo
+git reset --hard refs/rollback/20260619T173206Z-runner-harness-control-pass1
+
+Scope note:
+This rollback point protects the runner-harness-control pass 1 self-modification run.

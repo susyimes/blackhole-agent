@@ -1,0 +1,209 @@
+{
+  "name": "agent-workflow-route-streamed-tool-boundary",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-streamed-tool-boundary",
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "invoke-runner",
+          "status": "completed"
+        },
+        {
+          "id": "capture-streamed-tool-boundary",
+          "status": "completed"
+        },
+        {
+          "id": "write-report",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "observations": [
+      {
+        "id": "streamed-tool-boundary-observed",
+        "phase": "midflight",
+        "load_bearing": true,
+        "reliable": true,
+        "observed": true
+      }
+    ],
+    "streamed_tool_boundaries": {
+      "required": true,
+      "allowed_item_ids": [
+        "omnigent-inline-tool-streaming"
+      ],
+      "expected_tool_call_ids": [
+        "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT"
+      ],
+      "events": [
+        {
+          "id": "PRIVATE_STREAM_EVENT_MESSAGE_DO_NOT_EXPORT",
+          "type": "message_delta",
+          "stream_state": "partial",
+          "content": "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT",
+          "source_url": "https://github.com/omnigent-ai/omnigent"
+        },
+        {
+          "id": "PRIVATE_STREAM_EVENT_CALL_DO_NOT_EXPORT",
+          "type": "function_call_delta",
+          "tool_call_id": "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT",
+          "stream_state": "partial",
+          "item_id": "omnigent-inline-tool-streaming",
+          "evidence_refs": [
+            "omnigent-inline-tool-streaming"
+          ],
+          "arguments": {
+            "query": "PRIVATE_STREAMED_TOOL_ARGUMENT_DO_NOT_EXPORT"
+          }
+        },
+        {
+          "id": "PRIVATE_STREAM_EVENT_RESULT_PARTIAL_DO_NOT_EXPORT",
+          "type": "tool_result_delta",
+          "tool_call_id": "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT",
+          "stream_state": "partial",
+          "item_id": "omnigent-inline-tool-streaming",
+          "result_json": "{\"status\""
+        },
+        {
+          "id": "PRIVATE_STREAM_EVENT_RESULT_COMPLETE_DO_NOT_EXPORT",
+          "type": "tool_result",
+          "tool_call_id": "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT",
+          "stream_state": "complete",
+          "item_id": "omnigent-inline-tool-streaming",
+          "evidence_refs": [
+            "omnigent-inline-tool-streaming"
+          ],
+          "result_json": "{\"status\":\"ok\",\"summary\":\"PRIVATE_STREAMED_TOOL_RESULT_DO_NOT_EXPORT\"}"
+        }
+      ]
+    },
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-stream-boundary",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-streamed-tool-boundary",
+      "artifact_path": "artifacts/rollback/fixture-route-streamed-tool-boundary.txt"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git reset --hard fixture-route-streamed-tool-boundary-head"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_streamed_tool_boundary"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/fixture-route-streamed-tool-boundary-report.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_streamed_tool_boundary.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "control_plane.complete",
+      "equals": true
+    },
+    {
+      "path": "control_plane.stages.midflight.ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.required",
+      "equals": true
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.event_count",
+      "equals": 4
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.partial_event_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.complete_event_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.invalid_json_event_count",
+      "equals": 0
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.url_ref_event_count",
+      "equals": 0
+    },
+    {
+      "path": "control_plane.stream_boundary_contract.unknown_ref_event_count",
+      "equals": 0
+    },
+    {
+      "path": "streamed_tool_boundaries.passed",
+      "equals": true
+    },
+    {
+      "path": "streamed_tool_boundaries.missing_result_count",
+      "equals": 0
+    },
+    {
+      "path": "streamed_tool_boundaries.policy.complete_tool_results_require_strict_json",
+      "equals": true
+    },
+    {
+      "path": "streamed_tool_boundaries.policy.url_refs_allowed",
+      "equals": false
+    },
+    {
+      "path": "streamed_tool_boundaries.items.3.item_id",
+      "equals": "omnigent-inline-tool-streaming"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

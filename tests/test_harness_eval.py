@@ -82,8 +82,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 38
-    assert payload["pass_count"] == 37
+    assert payload["fixture_count"] == 39
+    assert payload["pass_count"] == 38
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -116,6 +116,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
+    assert results["agent-workflow-route-streamed-tool-boundary"]["passed"] is True
     assert results["agent-workflow-route-report-sections-missing"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
@@ -186,6 +187,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "127.0.0.1" not in serialized
     assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STREAMED_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STREAMED_TOOL_RESULT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
@@ -193,6 +197,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "private-link-do-not-export" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/visa/visa-vulnerability-agentic-harness" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -369,6 +374,83 @@ def test_agent_harness_eval_lane_blocks_unbounded_or_weak_routes():
     assert weak["failure_mode"] == "weak_harness_evidence"
     assert weak["activation_gate"]["decision"] == "review_weak_evidence_before_activation"
     assert weak["activation_lanes"][0]["activation_ready"] is False
+
+
+def test_agent_workflow_route_blocks_invalid_streamed_tool_boundaries_without_exporting_bodies():
+    base = {
+        "task_id": "fixture-route-invalid-streamed-tool-boundary",
+        "plan": {"steps": [{"id": "intake"}, {"id": "invoke-runner"}]},
+        "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+        "validation": {"gate": "runner-harness-control-plane", "checks": [{"name": "stream-boundary", "returncode": 0}]},
+        "rollback": {
+            "created": True,
+            "ref": "refs/rollback/fixture-route-invalid-streamed-tool-boundary",
+            "artifact_path": "artifacts/rollback/fixture-route-invalid-streamed-tool-boundary.txt",
+        },
+        "recovery": {
+            "required": True,
+            "commands": ["git reset --hard PRIVATE_STREAM_ROLLBACK_DO_NOT_EXPORT"],
+            "replay_command": "pytest tests/test_harness_eval.py -q -k streamed_tool_boundaries",
+        },
+        "artifacts": {
+            "report_recorded": True,
+            "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+        },
+    }
+    url_ref = dict(base)
+    url_ref["streamed_tool_boundaries"] = {
+        "required": True,
+        "allowed_item_ids": ["omnigent-inline-tool-streaming"],
+        "events": [
+            {
+                "type": "tool_result",
+                "tool_call_id": "PRIVATE_STREAM_CALL_DO_NOT_EXPORT",
+                "stream_state": "complete",
+                "item_id": "omnigent-inline-tool-streaming",
+                "evidence_refs": ["https://github.com/omnigent-ai/omnigent"],
+                "result_json": {"status": "ok", "body": "PRIVATE_STREAM_RESULT_DO_NOT_EXPORT"},
+            }
+        ],
+    }
+    non_json = dict(base)
+    non_json["streamed_tool_boundaries"] = {
+        "required": True,
+        "events": [
+            {
+                "type": "tool_result",
+                "tool_call_id": "PRIVATE_STREAM_CALL_DO_NOT_EXPORT",
+                "stream_state": "complete",
+                "result_json": "PRIVATE_NOT_JSON_DO_NOT_EXPORT",
+            }
+        ],
+    }
+
+    url_output = evaluate_harness_behavior(
+        "agent_workflow_route",
+        url_ref,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_stream_url_ref_inline.json",
+    )
+    non_json_output = evaluate_harness_behavior(
+        "agent_workflow_route",
+        non_json,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_stream_non_json_inline.json",
+    )
+    serialized = json.dumps({"url": url_output, "non_json": non_json_output}, sort_keys=True)
+
+    assert url_output["route_status"] == "failed_recoverable"
+    assert url_output["failure_mode"] == "streamed_tool_boundary_url_ref"
+    assert url_output["control_plane"]["stream_boundary_contract"]["url_ref_event_count"] == 1
+    assert url_output["streamed_tool_boundaries"]["policy"]["url_refs_allowed"] is False
+
+    assert non_json_output["route_status"] == "failed_recoverable"
+    assert non_json_output["failure_mode"] == "streamed_tool_boundary_non_json_result"
+    assert non_json_output["control_plane"]["stream_boundary_contract"]["invalid_json_event_count"] == 1
+    assert non_json_output["rollback"]["available"] is True
+
+    assert "PRIVATE_STREAM_RESULT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_NOT_JSON_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STREAM_CALL_DO_NOT_EXPORT" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
 
 
 def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():

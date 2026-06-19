@@ -4456,6 +4456,11 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     observations = raw_input.get("observations") if isinstance(raw_input.get("observations"), list) else []
     report_artifacts = raw_input.get("artifacts") if isinstance(raw_input.get("artifacts"), dict) else {}
     recovery = raw_input.get("recovery") if isinstance(raw_input.get("recovery"), dict) else {}
+    stream_boundaries = (
+        raw_input.get("streamed_tool_boundaries")
+        if isinstance(raw_input.get("streamed_tool_boundaries"), dict)
+        else {}
+    )
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
@@ -4483,6 +4488,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         validation_checks=validation_checks,
     )
     observation_result = evaluate_agent_workflow_observations(observations)
+    stream_boundary_result = evaluate_agent_workflow_stream_boundaries(stream_boundaries)
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
         oneshot_marker_ready=marker_result["ready"],
@@ -4500,6 +4506,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             recovery_handoff_ready=bool(recovery_handoff["ready"]),
             observations_passed=observation_result["passed"],
             observations_failure_mode=observation_result["failure_mode"],
+            stream_boundaries_passed=stream_boundary_result["passed"],
+            stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
         ),
         rollback_available=rollback_available,
     )
@@ -4516,6 +4524,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         recovery_handoff_ready=bool(recovery_handoff["ready"]),
         observations_passed=observation_result["passed"],
         observations_failure_mode=observation_result["failure_mode"],
+        stream_boundaries_passed=stream_boundary_result["passed"],
+        stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
     )
     if failure_mode == "none":
         route_status = "passed"
@@ -4543,6 +4553,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         rollback_available=rollback_available,
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
+        stream_boundary_result=stream_boundary_result,
         report_artifacts=report_artifacts,
         source_path=source_path,
     )
@@ -4582,6 +4593,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         "oneshot_marker": marker_result,
         "lifecycle": lifecycle_result,
         "observations": observation_result,
+        "streamed_tool_boundaries": stream_boundary_result,
         "validation": {
             "gate": validation_gate,
             "gate_recorded": bool(validation_gate),
@@ -4611,6 +4623,8 @@ def agent_workflow_failure_mode(
     recovery_handoff_ready: bool = True,
     observations_passed: bool = True,
     observations_failure_mode: str = "none",
+    stream_boundaries_passed: bool = True,
+    stream_boundaries_failure_mode: str = "none",
 ) -> str:
     if not oneshot_marker_ready:
         return "oneshot_marker_missing"
@@ -4622,6 +4636,8 @@ def agent_workflow_failure_mode(
         return "nonzero_exit"
     if not observations_passed:
         return observations_failure_mode
+    if not stream_boundaries_passed:
+        return stream_boundaries_failure_mode
     if recovery_handoff_required and not recovery_handoff_ready:
         return "recovery_handoff_incomplete"
     if not lifecycle_passed:
@@ -4629,6 +4645,144 @@ def agent_workflow_failure_mode(
     if not validation_passed:
         return "validation_failed"
     return "none"
+
+
+def evaluate_agent_workflow_stream_boundaries(boundaries: dict[str, Any]) -> dict[str, Any]:
+    """Validate streamed tool-call/result boundaries without exporting event bodies."""
+
+    required = truthy(boundaries.get("required"))
+    raw_events = boundaries.get("events") if isinstance(boundaries.get("events"), list) else []
+    events = [event for event in raw_events if isinstance(event, dict)]
+    allowed_item_ids = set(string_list(boundaries.get("allowed_item_ids")))
+    allowed_call_ids = set(string_list(boundaries.get("expected_tool_call_ids")))
+    items: list[dict[str, Any]] = []
+    completed_call_ids: set[str] = set()
+    observed_call_ids: set[str] = set()
+
+    for index, event in enumerate(events, start=1):
+        event_id = optional_string(event.get("id") or event.get("event_id"))
+        call_id = optional_string(event.get("tool_call_id") or event.get("call_id"))
+        item_id = optional_string(event.get("item_id"))
+        phase = normalize_streamed_tool_boundary_phase(event.get("phase") or event.get("type"))
+        stream_state = normalize_streamed_tool_boundary_state(event.get("stream_state") or event.get("state"))
+        refs = string_list(event.get("evidence_refs"))
+        has_url_ref = any(is_url_like(ref) for ref in refs)
+        unknown_item_ref = bool(item_id and allowed_item_ids and item_id not in allowed_item_ids)
+        unknown_evidence_ref_count = sum(1 for ref in refs if allowed_item_ids and ref not in allowed_item_ids)
+        result_payload = event.get("result_json", event.get("result"))
+        strict_json = stream_state != "complete" or phase != "tool_result" or value_is_strict_json(result_payload)
+
+        if call_id:
+            observed_call_ids.add(call_id)
+        if phase == "tool_result" and stream_state == "complete" and call_id:
+            completed_call_ids.add(call_id)
+
+        if has_url_ref:
+            failure_mode = "streamed_tool_boundary_url_ref"
+        elif unknown_item_ref or unknown_evidence_ref_count:
+            failure_mode = "streamed_tool_boundary_unknown_item_ref"
+        elif not strict_json:
+            failure_mode = "streamed_tool_boundary_non_json_result"
+        else:
+            failure_mode = "none"
+
+        items.append(
+            {
+                "ordinal": index,
+                "event_id_hash": stable_text_hash(event_id) if event_id else None,
+                "tool_call_id_hash": stable_text_hash(call_id) if call_id else None,
+                "item_id": item_id,
+                "phase": phase,
+                "stream_state": stream_state,
+                "strict_json": strict_json,
+                "has_url_ref": has_url_ref,
+                "unknown_item_ref": unknown_item_ref,
+                "unknown_evidence_ref_count": unknown_evidence_ref_count,
+                "passed": failure_mode == "none",
+                "failure_mode": failure_mode,
+            }
+        )
+
+    missing_result_count = len(allowed_call_ids - completed_call_ids) if allowed_call_ids else 0
+    failed_items = [item for item in items if not item["passed"]]
+    if required and not events:
+        failure_mode = "streamed_tool_boundaries_missing"
+    elif failed_items:
+        failure_mode = str(failed_items[0]["failure_mode"])
+    elif missing_result_count:
+        failure_mode = "streamed_tool_result_missing"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "passed": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "event_count": len(items),
+        "partial_event_count": sum(1 for item in items if item["stream_state"] == "partial"),
+        "complete_event_count": sum(1 for item in items if item["stream_state"] == "complete"),
+        "tool_call_count": sum(1 for item in items if item["phase"] == "tool_call"),
+        "tool_result_count": sum(1 for item in items if item["phase"] == "tool_result"),
+        "observed_tool_call_count": len(observed_call_ids),
+        "completed_tool_call_count": len(completed_call_ids),
+        "expected_tool_call_count": len(allowed_call_ids),
+        "missing_result_count": missing_result_count,
+        "invalid_json_event_count": sum(1 for item in items if not item["strict_json"]),
+        "url_ref_event_count": sum(1 for item in items if item["has_url_ref"]),
+        "unknown_ref_event_count": sum(
+            1
+            for item in items
+            if item["unknown_item_ref"] or int(item["unknown_evidence_ref_count"]) > 0
+        ),
+        "items": items,
+        "policy": {
+            "complete_tool_results_require_strict_json": True,
+            "evidence_refs_must_be_item_ids": True,
+            "url_refs_allowed": False,
+            "raw_stream_events_exported": False,
+            "raw_tool_result_bodies_exported": False,
+        },
+    }
+
+
+def normalize_streamed_tool_boundary_phase(value: Any) -> str:
+    phase = (optional_string(value) or "message").strip().lower().replace("-", "_")
+    aliases = {
+        "function_call": "tool_call",
+        "function_call_delta": "tool_call",
+        "tool_call_delta": "tool_call",
+        "tool_result_delta": "tool_result",
+        "tool_output": "tool_result",
+        "message_delta": "message",
+    }
+    phase = aliases.get(phase, phase)
+    return phase if phase in {"message", "tool_call", "tool_result"} else "other"
+
+
+def normalize_streamed_tool_boundary_state(value: Any) -> str:
+    state = (optional_string(value) or "complete").strip().lower().replace("-", "_")
+    if state in {"delta", "partial", "streaming"}:
+        return "partial"
+    if state in {"complete", "completed", "final"}:
+        return "complete"
+    return "other"
+
+
+def value_is_strict_json(value: Any) -> bool:
+    if isinstance(value, (dict, list)):
+        return True
+    if not isinstance(value, str):
+        return False
+    try:
+        json.loads(value)
+    except json.JSONDecodeError:
+        return False
+    return True
+
+
+def is_url_like(value: str) -> bool:
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
 def evaluate_agent_workflow_observations(observations: list[Any]) -> dict[str, Any]:
@@ -4760,6 +4914,7 @@ def build_agent_workflow_control_plane(
     rollback_available: bool,
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
+    stream_boundary_result: dict[str, Any],
     report_artifacts: dict[str, Any],
     source_path: Path,
 ) -> dict[str, Any]:
@@ -4772,7 +4927,7 @@ def build_agent_workflow_control_plane(
         required=validation_gate == "runner-harness-control-plane",
     )
     intake_ready = bool(task_id and plan_steps)
-    midflight_ready = runner_invoked and bool(state_transitions)
+    midflight_ready = runner_invoked and bool(state_transitions) and bool(stream_boundary_result["passed"])
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
     replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
     report_ready = bool(report_contract["passed"])
@@ -4791,13 +4946,15 @@ def build_agent_workflow_control_plane(
         failure_mode = str(report_contract["failure_mode"])
     elif not observation_result["passed"]:
         failure_mode = str(observation_result["failure_mode"])
+    elif not stream_boundary_result["passed"]:
+        failure_mode = str(stream_boundary_result["failure_mode"])
     else:
         failure_mode = "none"
 
     return {
         "surface": "runner_harness_control_plane",
         "stage_count": len(stages),
-        "complete": not missing_stages and observation_result["passed"],
+        "complete": not missing_stages and observation_result["passed"] and stream_boundary_result["passed"],
         "failure_mode": failure_mode,
         "stages": {
             stage: {
@@ -4828,6 +4985,18 @@ def build_agent_workflow_control_plane(
             "flaky_observations_allowed_only_when_non_load_bearing": (
                 observation_result["failed_load_bearing_count"] == 0
             ),
+        },
+        "stream_boundary_contract": {
+            "required": stream_boundary_result["required"],
+            "passed": stream_boundary_result["passed"],
+            "failure_mode": stream_boundary_result["failure_mode"],
+            "event_count": stream_boundary_result["event_count"],
+            "partial_event_count": stream_boundary_result["partial_event_count"],
+            "complete_event_count": stream_boundary_result["complete_event_count"],
+            "missing_result_count": stream_boundary_result["missing_result_count"],
+            "invalid_json_event_count": stream_boundary_result["invalid_json_event_count"],
+            "url_ref_event_count": stream_boundary_result["url_ref_event_count"],
+            "unknown_ref_event_count": stream_boundary_result["unknown_ref_event_count"],
         },
     }
 
