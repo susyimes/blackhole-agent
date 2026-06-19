@@ -510,6 +510,44 @@ def test_push_commit_patterns_mark_generic_workflow_clusters_as_validation_gap()
     assert covered["push_pattern_evidence"]["status"] == "ready"
 
 
+def test_llm_interpreted_push_patterns_inherit_test_evidence_gap():
+    signal = GrowthSignal(
+        event_id="generic-workflow-push",
+        repo="omnigent-ai/omnigent",
+        kind="PushEvent",
+        title="workflow polish for session labels",
+        url="https://github.com/omnigent-ai/omnigent",
+        relevance_reason="push commit message names workflow polish without validation proof",
+        risk_flags=[],
+        recommended_action="cluster commit messages and keep only patterns with clear test evidence",
+        confidence=0.72,
+    )
+    proposals = github_growth.clamp_llm_candidates_to_proposals(
+        [
+            {
+                "proposal_id": "llm-generic-workflow-push",
+                "kind": "test",
+                "summary": "Treat the generic workflow push as a replay candidate.",
+                "evidence_refs": ["generic-workflow-push"],
+                "validation_task": "Run local tests for push-pattern metadata.",
+                "rationale": "The LLM route cites a push-derived pattern and must retain its evidence limits.",
+                "uncertainty": "The commit message lacks clear validation proof.",
+                "self_effect": "Prevents LLM interpretation from laundering a weak push pattern into ready status.",
+                "action_lane": "local_validation_candidate",
+            }
+        ],
+        [signal],
+    )
+
+    proposal = proposals[0]
+    preflight = proposal_validation_preflight(proposal)
+
+    assert proposal["push_pattern_evidence"]["status"] == "evidence_gap"
+    assert proposal["push_pattern_evidence"]["has_clear_test_evidence"] is False
+    assert preflight["status"] == "validation_gap"
+    assert preflight["validation_gaps"] == ["missing_push_pattern_test_evidence"]
+
+
 def test_extract_growth_signals_allows_remote_execution_sandboxes_for_local_validation():
     event = normalize_event(
         "example/repo",

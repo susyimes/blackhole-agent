@@ -34,6 +34,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
         "benign-agent-harness",
         "current-wake-agent-harness-validation",
         "fastcontext-budget-memory-pressure",
+        "omnigent-release-evidence-validation",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
         "security-adjacent-context-pressure",
@@ -45,10 +46,10 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 8
-    assert report.passed_count == 8
+    assert report.case_count == 9
+    assert report.passed_count == 9
     assert report.failed_count == 0
-    assert report.accepted_count == 11
+    assert report.accepted_count == 14
     assert report.rejected_count == 8
     assert report.failure_counts == {
         "schema_validity": 0,
@@ -71,6 +72,12 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
         .context_budget_preflight["evidence_truncation_uncertainty"]["missing_detail_risk"]
         is True
     )
+    release = results_by_name["omnigent-release-evidence-validation"]
+    assert release.proposal_validation_preflights["release-runbook-privacy-review"]["status"] == (
+        "blocked_by_safety_boundary"
+    )
+    assert release.proposal_validation_preflights["generic-release-workflow-push"]["status"] == "ready"
+    assert release.proposal_validation_preflights["tested-release-workflow-push"]["status"] == "ready"
     current = results_by_name["current-wake-agent-harness-validation"]
     assert current.proposal_validation_preflights["p1-local-agent-harness-validation"]["status"] == "ready"
     assert (
@@ -84,12 +91,13 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 8
+    assert report.case_count == 9
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
         "fastcontext-budget-memory-pressure",
         "omnigent-route-contract",
+        "omnigent-release-evidence-validation",
         "public-agent-trend-validation-harness",
         "current-wake-agent-harness-validation",
         "agent-codex-workflow-local-validation",
@@ -102,6 +110,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent",
+        "https://github.com/omnigent-ai/omnigent/pull/740",
         "https://github.com/samarailly51-pixel/opencode-harness",
         "https://github.com/visa/visa-vulnerability-agentic-harness",
     ]

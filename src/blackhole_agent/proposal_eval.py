@@ -627,7 +627,7 @@ def signals_from_digest_items(digest: dict[str, Any]) -> list[GrowthSignal]:
                 url=source_url,
                 relevance_reason=str(item.get("relevance_reason") or ""),
                 risk_flags=[str(flag) for flag in item.get("risk_flags", []) if str(flag).strip()],
-                recommended_action="replay frozen proposal case",
+                recommended_action=str(item.get("recommended_action") or "replay frozen proposal case"),
                 confidence=float(item.get("confidence") or 0.0),
             )
         )

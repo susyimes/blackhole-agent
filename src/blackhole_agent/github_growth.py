@@ -1188,26 +1188,60 @@ def clamp_llm_candidates_to_proposals(
             if risk_flags
             else str(candidate.get("validation_task") or validation_task_for_signal(representative))
         )
-        proposals.append(
-            {
-                "proposal_id": str(candidate.get("proposal_id") or f"llm-{index}"),
-                "proposal_source": "llm_interpretation",
-                "kind": kind,
-                "summary": str(candidate.get("summary") or representative.title),
-                "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
-                "evidence_urls": candidate.get("evidence_urls") or [signal.url for signal in referenced if signal.url],
-                "risk_flags": risk_flags,
-                "implementation_scope": implementation_scope_for_signal(representative, route=candidate),
-                "validation_gate": validation_gate_for_signal(representative, route=candidate),
-                "validation_task": validation_task,
-                "requires_approval": False,
-                "rationale": str(candidate.get("rationale") or ""),
-                "uncertainty": str(candidate.get("uncertainty") or ""),
-                "self_effect": str(candidate.get("self_effect") or ""),
-                "action_lane": str(candidate.get("action_lane") or ""),
-            }
-        )
+        proposal = {
+            "proposal_id": str(candidate.get("proposal_id") or f"llm-{index}"),
+            "proposal_source": "llm_interpretation",
+            "kind": kind,
+            "summary": str(candidate.get("summary") or representative.title),
+            "evidence_refs": [str(ref) for ref in candidate.get("evidence_refs", [])],
+            "evidence_urls": candidate.get("evidence_urls") or [signal.url for signal in referenced if signal.url],
+            "risk_flags": risk_flags,
+            "implementation_scope": implementation_scope_for_signal(representative, route=candidate),
+            "validation_gate": validation_gate_for_signal(representative, route=candidate),
+            "validation_task": validation_task,
+            "requires_approval": False,
+            "rationale": str(candidate.get("rationale") or ""),
+            "uncertainty": str(candidate.get("uncertainty") or ""),
+            "self_effect": str(candidate.get("self_effect") or ""),
+            "action_lane": str(candidate.get("action_lane") or ""),
+        }
+        pattern_evidence = push_pattern_evidence_for_signals(referenced)
+        if pattern_evidence is not None:
+            proposal["push_pattern_evidence"] = pattern_evidence
+        proposals.append(proposal)
     return proposals
+
+
+def push_pattern_evidence_for_signals(signals: list[GrowthSignal]) -> dict[str, Any] | None:
+    """Merge push-pattern evidence from cited signals for interpreted proposals."""
+
+    evidences = [
+        evidence
+        for signal in signals
+        if (evidence := push_pattern_evidence_for_signal(signal)) is not None
+    ]
+    if not evidences:
+        return None
+    clusters = sorted(
+        {
+            str(cluster)
+            for evidence in evidences
+            for cluster in evidence.get("clusters", [])
+            if str(cluster).strip()
+        }
+    )
+    has_clear_test_evidence = all(bool(evidence.get("has_clear_test_evidence")) for evidence in evidences)
+    matched_text_hash = stable_push_message_hash(
+        json.dumps([evidence.get("matched_text_hash", "") for evidence in evidences], sort_keys=True)
+    )
+    return {
+        "status": "ready" if clusters and has_clear_test_evidence else "evidence_gap",
+        "clusters": clusters,
+        "has_clear_test_evidence": has_clear_test_evidence,
+        "source": "push_commit_message_cluster",
+        "policy": "keep_push_patterns_only_when_commit_messages_include_clear_test_or_ci_evidence",
+        "matched_text_hash": matched_text_hash,
+    }
 
 
 def candidate_safety_text(candidate: dict[str, Any]) -> str:

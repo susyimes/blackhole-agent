@@ -1,0 +1,10 @@
+Rollback point: omnigent-release-evidence-validation
+Created at: 2026-06-19T01:13:06Z
+Original branch: codex/blackhole-evolve/20260619T011306.568426-borrow-cautiously-from-omnigent-ai-omnigent-crea
+Original HEAD: 5cdcc0e1d349af84dc07f33b78660722a711a609
+Rollback ref: refs/rollback/20260619T011306Z-omnigent-release-evidence-validation
+
+Recovery commands (destructive; operator-supervised only):
+  git switch codex/blackhole-evolve/20260619T011306.568426-borrow-cautiously-from-omnigent-ai-omnigent-crea
+  git reset --hard refs/rollback/20260619T011306Z-omnigent-release-evidence-validation
+  git clean -fd
