@@ -1,0 +1,13 @@
+Rollback point for rendered HTML validation self-evolution run
+
+Original branch: codex/blackhole-evolve/20260619T051301.949192-add-or-extend-local-validation-for-rendered-html
+Original HEAD: 8222c48406dae7209cecbc6a96be14029bb05566
+Rollback ref: refs/blackhole/rollback/20260619T051206Z-codex_blackhole-evolve_20260619T051301.949192-add-or-extend-local-validation-for-rendered-html
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T051301.949192-add-or-extend-local-validation-for-rendered-html
+git reset --hard 8222c48406dae7209cecbc6a96be14029bb05566
+git clean -fd
+
+Notes:
+Rollback execution is explicit and destructive; do not run these commands unless chosen by an operator or supervisor policy.

@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 23
-    assert payload["pass_count"] == 22
+    assert payload["fixture_count"] == 24
+    assert payload["pass_count"] == 23
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -89,6 +89,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "push_delivery_path",
         "provider_runtime_preflight",
         "proposal_interpretation",
+        "rendered_html_artifact_validation",
         "workspace_changes_panel",
     ]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -117,6 +118,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
+    assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -146,6 +148,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "Pattern 'sleeping' not found" not in serialized
     assert "OPENAI_API_KEY" not in serialized
+    assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
+    assert "private-link-do-not-export" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -156,6 +160,127 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_rendered_html_artifact_validation_covers_script_execution_and_link_targets():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "rendered_html_artifact_js_and_links.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["artifact"]["rendered_boundary"] == "rendered_html_artifact"
+    assert output["artifact"]["html_hash"].startswith("sha256:")
+    assert output["script_execution"] == {
+        "expected": True,
+        "observed": True,
+        "passed": True,
+    }
+    assert output["link_navigation"]["same_frame_anchor_count"] == 1
+    assert output["link_navigation"]["target_blank_anchor_count"] == 1
+    assert output["link_navigation"]["all_expected_new_frame"] is True
+    assert output["link_navigation"]["passed"] is True
+    assert all(probe["raw_href_exported"] is False for probe in output["link_navigation"]["probes"])
+    assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
+    assert "private-link-do-not-export" not in serialized
+
+
+def test_rendered_html_artifact_validation_blocks_when_scripts_do_not_execute():
+    raw_input = {
+        "task_id": "fixture-rendered-html-script-disabled",
+        "artifact": {
+            "kind": "html",
+            "rendered_boundary": "rendered_html_artifact",
+            "html_body": "PRIVATE_RENDERED_HTML_SCRIPT_BODY_DO_NOT_EXPORT",
+        },
+        "browser": {
+            "available": True,
+            "sandbox_allows_scripts": False,
+        },
+        "script_probe": {
+            "expected_execution": True,
+            "observed_execution": False,
+        },
+        "link_probes": [
+            {
+                "label": "plain-external-anchor",
+                "href": "https://example.com/private-script-blocked-link",
+                "declared_target": "",
+                "expected_navigation": "new_frame",
+                "observed_navigation": "new_frame",
+            },
+        ],
+    }
+
+    output = evaluate_harness_behavior(
+        "rendered_html_artifact_validation",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "rendered_html_script_disabled_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "rendered_html_script_execution_missing"
+    assert output["script_execution"]["passed"] is False
+    assert "PRIVATE_RENDERED_HTML_SCRIPT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "private-script-blocked-link" not in serialized
+
+
+def test_rendered_html_artifact_validation_blocks_same_frame_link_navigation():
+    raw_input = {
+        "task_id": "fixture-rendered-html-same-frame-link",
+        "artifact": {
+            "kind": "html",
+            "rendered_boundary": "rendered_html_artifact",
+            "html_body": "PRIVATE_RENDERED_HTML_LINK_BODY_DO_NOT_EXPORT",
+        },
+        "browser": {
+            "available": True,
+            "sandbox_allows_scripts": True,
+        },
+        "script_probe": {
+            "expected_execution": True,
+            "observed_execution": True,
+        },
+        "link_probes": [
+            {
+                "label": "plain-external-anchor",
+                "href": "https://example.com/private-same-frame-link",
+                "declared_target": "",
+                "expected_navigation": "new_frame",
+                "observed_navigation": "same_frame",
+            },
+            {
+                "label": "target-blank-external-anchor",
+                "href": "https://example.com/private-target-blank-link",
+                "declared_target": "_blank",
+                "expected_navigation": "new_frame",
+                "observed_navigation": "new_frame",
+            },
+        ],
+    }
+
+    output = evaluate_harness_behavior(
+        "rendered_html_artifact_validation",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "rendered_html_same_frame_link_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "rendered_html_link_navigation_mismatch"
+    assert output["link_navigation"]["same_frame_anchor_count"] == 1
+    assert output["link_navigation"]["target_blank_anchor_count"] == 1
+    assert output["link_navigation"]["passed"] is False
+    assert output["link_navigation"]["probes"][0]["observed_navigation"] == "same_frame"
+    assert "PRIVATE_RENDERED_HTML_LINK_BODY_DO_NOT_EXPORT" not in serialized
+    assert "private-same-frame-link" not in serialized
 
 
 def test_agent_workflow_route_fixture_records_state_validation_and_recovery():

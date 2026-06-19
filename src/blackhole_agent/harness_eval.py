@@ -47,6 +47,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "push_delivery_path",
     "provider_runtime_preflight",
     "proposal_interpretation",
+    "rendered_html_artifact_validation",
     "workspace_changes_panel",
 ]
 
@@ -317,9 +318,138 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_provider_runtime_preflight(raw_input, source_path=source_path)
     if behavior == "proposal_interpretation":
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
+    if behavior == "rendered_html_artifact_validation":
+        return evaluate_rendered_html_artifact_validation(raw_input, source_path=source_path)
     if behavior == "workspace_changes_panel":
         return evaluate_workspace_changes_panel(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate browser-observable rendered HTML behavior without exporting HTML or URLs."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    artifact = raw_input.get("artifact") if isinstance(raw_input.get("artifact"), dict) else {}
+    browser = raw_input.get("browser") if isinstance(raw_input.get("browser"), dict) else {}
+    script_probe = raw_input.get("script_probe") if isinstance(raw_input.get("script_probe"), dict) else {}
+    link_probes = raw_input.get("link_probes") if isinstance(raw_input.get("link_probes"), list) else []
+
+    artifact_kind = optional_string(artifact.get("kind")) or "html"
+    rendered_boundary = optional_string(artifact.get("rendered_boundary")) or "rendered_html_artifact"
+    html_body = optional_string(artifact.get("html_body")) or ""
+    html_hash = optional_string(artifact.get("html_hash")) or (stable_text_hash(html_body) if html_body else None)
+
+    browser_available = browser.get("available") is not False
+    sandbox_allows_scripts = truthy(browser.get("sandbox_allows_scripts")) or truthy(script_probe.get("sandbox_allows_scripts"))
+    script_expected = script_probe.get("expected_execution") is not False
+    script_observed = truthy(script_probe.get("observed_execution"))
+    script_passed = (not script_expected) or (browser_available and sandbox_allows_scripts and script_observed)
+
+    evaluated_links = [evaluate_rendered_html_link_probe(probe) for probe in link_probes]
+    same_frame_links = [link for link in evaluated_links if link["declared_target"] in {"", "_self"}]
+    new_frame_links = [link for link in evaluated_links if link["declared_target"] == "_blank"]
+    links_passed = bool(evaluated_links) and all(link["passed"] for link in evaluated_links)
+
+    failure_mode = rendered_html_validation_failure_mode(
+        artifact_kind=artifact_kind,
+        browser_available=browser_available,
+        script_expected=script_expected,
+        script_passed=script_passed,
+        links_present=bool(evaluated_links),
+        links_passed=links_passed,
+    )
+    route_status = "passed" if failure_mode == "none" else "blocked"
+
+    return {
+        "schema_version": 1,
+        "behavior": "rendered_html_artifact_validation",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "artifact": {
+            "kind": artifact_kind,
+            "rendered_boundary": rendered_boundary,
+            "html_hash": html_hash,
+            "html_body_exported": False,
+        },
+        "browser": {
+            "available": browser_available,
+            "sandbox_allows_scripts": sandbox_allows_scripts,
+            "raw_url_exported": False,
+        },
+        "script_execution": {
+            "expected": script_expected,
+            "observed": script_observed,
+            "passed": script_passed,
+        },
+        "link_navigation": {
+            "probe_count": len(evaluated_links),
+            "same_frame_anchor_count": len(same_frame_links),
+            "target_blank_anchor_count": len(new_frame_links),
+            "all_expected_new_frame": all(link["expected_navigation"] == "new_frame" for link in evaluated_links),
+            "passed": links_passed,
+            "probes": evaluated_links,
+        },
+        "privacy": {
+            "html_body_exported": False,
+            "raw_urls_exported": False,
+            "hashes_only": True,
+        },
+    }
+
+
+def evaluate_rendered_html_link_probe(probe: Any) -> dict[str, Any]:
+    probe_data = probe if isinstance(probe, dict) else {}
+    label = optional_string(probe_data.get("label")) or "link"
+    href = optional_string(probe_data.get("href")) or ""
+    declared_target = normalize_link_target(probe_data.get("declared_target") or probe_data.get("target"))
+    expected_navigation = normalize_rendered_html_navigation(probe_data.get("expected_navigation"), default="new_frame")
+    observed_navigation = normalize_rendered_html_navigation(probe_data.get("observed_navigation"), default="none")
+    return {
+        "label": label,
+        "href_hash": stable_text_hash(href) if href else None,
+        "declared_target": declared_target,
+        "expected_navigation": expected_navigation,
+        "observed_navigation": observed_navigation,
+        "passed": observed_navigation == expected_navigation,
+        "raw_href_exported": False,
+    }
+
+
+def normalize_link_target(value: Any) -> str:
+    target = (optional_string(value) or "").strip().lower()
+    if target in {"_blank", "_self", "_parent", "_top"}:
+        return target
+    return ""
+
+
+def normalize_rendered_html_navigation(value: Any, *, default: str) -> str:
+    navigation = (optional_string(value) or default).strip().lower().replace("-", "_")
+    if navigation in {"new_frame", "same_frame", "none", "blocked"}:
+        return navigation
+    return default
+
+
+def rendered_html_validation_failure_mode(
+    *,
+    artifact_kind: str,
+    browser_available: bool,
+    script_expected: bool,
+    script_passed: bool,
+    links_present: bool,
+    links_passed: bool,
+) -> str:
+    if artifact_kind != "html":
+        return "not_html_artifact"
+    if not browser_available:
+        return "browser_probe_unavailable"
+    if script_expected and not script_passed:
+        return "rendered_html_script_execution_missing"
+    if not links_present:
+        return "rendered_html_link_probe_missing"
+    if not links_passed:
+        return "rendered_html_link_navigation_mismatch"
+    return "none"
 
 
 def evaluate_push_delivery_path(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

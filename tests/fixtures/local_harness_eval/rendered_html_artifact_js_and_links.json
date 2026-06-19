@@ -1,0 +1,90 @@
+{
+  "name": "rendered-html-artifact-js-and-links",
+  "behavior": "rendered_html_artifact_validation",
+  "input": {
+    "task_id": "fixture-rendered-html-artifact-js-and-links",
+    "artifact": {
+      "kind": "html",
+      "rendered_boundary": "rendered_html_artifact",
+      "html_body": "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT"
+    },
+    "browser": {
+      "available": true,
+      "sandbox_allows_scripts": true
+    },
+    "script_probe": {
+      "expected_execution": true,
+      "observed_execution": true
+    },
+    "link_probes": [
+      {
+        "label": "plain-external-anchor",
+        "href": "https://example.com/private-link-do-not-export",
+        "declared_target": "",
+        "expected_navigation": "new_frame",
+        "observed_navigation": "new_frame"
+      },
+      {
+        "label": "target-blank-external-anchor",
+        "href": "https://example.com/private-blank-link-do-not-export",
+        "declared_target": "_blank",
+        "expected_navigation": "new_frame",
+        "observed_navigation": "new_frame"
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "artifact.rendered_boundary",
+      "equals": "rendered_html_artifact"
+    },
+    {
+      "path": "artifact.html_body_exported",
+      "equals": false
+    },
+    {
+      "path": "browser.sandbox_allows_scripts",
+      "equals": true
+    },
+    {
+      "path": "script_execution.passed",
+      "equals": true
+    },
+    {
+      "path": "link_navigation.probe_count",
+      "equals": 2
+    },
+    {
+      "path": "link_navigation.same_frame_anchor_count",
+      "equals": 1
+    },
+    {
+      "path": "link_navigation.target_blank_anchor_count",
+      "equals": 1
+    },
+    {
+      "path": "link_navigation.all_expected_new_frame",
+      "equals": true
+    },
+    {
+      "path": "link_navigation.passed",
+      "equals": true
+    },
+    {
+      "path": "privacy.html_body_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}
