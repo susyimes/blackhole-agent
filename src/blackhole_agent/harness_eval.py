@@ -128,6 +128,8 @@ SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = (
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
     "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
 )
+PROVIDER_RUNTIME_PREFLIGHT_COMMAND = "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"
+PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND = "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary"
 SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS = {
     "documentation": ("docs/skill-route-discovery.md",),
     "config": ("src/blackhole_agent/proposal_synthesis.py",),
@@ -1249,6 +1251,7 @@ def build_skill_route_discovery_activation_lanes(
                 "local_eval_only": True,
                 "external_harness_execution_allowed": False,
             },
+            "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
             "activation_ready": activation_allowed,
             "activation_blockers": activation_blockers,
             "recovery_hint_codes": [] if activation_allowed else recovery_hint_codes,
@@ -1257,6 +1260,22 @@ def build_skill_route_discovery_activation_lanes(
         }
         for proposal_kind, lanes in sorted(grouped.items())
     ]
+
+
+def skill_route_discovery_provider_runtime_preflight_contract() -> dict[str, Any]:
+    """Return local provider-runtime diagnostics required before activation."""
+
+    return {
+        "behavior": "provider_runtime_recovery_summary",
+        "required_validation": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_replay_only": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
 
 
 def skill_route_discovery_local_artifact_contract(proposal_kind: str) -> dict[str, Any]:
@@ -1288,6 +1307,7 @@ def skill_route_discovery_preactivation_trust_boundary(
 
     expected_validation = skill_route_discovery_preactivation_validation_commands()
     expected_preactivation_validation = [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+    expected_provider_runtime_preflight = skill_route_discovery_provider_runtime_preflight_contract()
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     diagnostics: list[str] = []
 
@@ -1353,6 +1373,26 @@ def skill_route_discovery_preactivation_trust_boundary(
         if preactivation_harness.get("external_harness_execution_allowed") is not False:
             diagnostics.append(f"{prefix}.external_harness_execution_must_be_false")
 
+        provider_runtime_preflight = lane.get("provider_runtime_preflight")
+        provider_runtime_preflight = (
+            provider_runtime_preflight if isinstance(provider_runtime_preflight, dict) else {}
+        )
+        if provider_runtime_preflight.get("behavior") != expected_provider_runtime_preflight["behavior"]:
+            diagnostics.append(f"{prefix}.provider_runtime_preflight_behavior_mismatch")
+        if (
+            provider_runtime_preflight.get("required_validation")
+            != expected_provider_runtime_preflight["required_validation"]
+        ):
+            diagnostics.append(f"{prefix}.provider_runtime_preflight_validation_mismatch")
+        if provider_runtime_preflight.get("local_replay_only") is not True:
+            diagnostics.append(f"{prefix}.provider_runtime_preflight_must_be_local_replay_only")
+        if provider_runtime_preflight.get("body_free_diagnostics_only") is not True:
+            diagnostics.append(f"{prefix}.provider_runtime_preflight_must_be_body_free")
+        if provider_runtime_preflight.get("provider_runtime_launch_allowed") is not False:
+            diagnostics.append(f"{prefix}.provider_runtime_launch_must_be_false")
+        if provider_runtime_preflight.get("remote_execution_allowed") is not False:
+            diagnostics.append(f"{prefix}.provider_runtime_remote_execution_must_be_false")
+
         activation_ready = lane.get("activation_ready") is True
         blockers = lane.get("activation_blockers")
         blockers = blockers if isinstance(blockers, list) else []
@@ -1367,6 +1407,8 @@ def skill_route_discovery_preactivation_trust_boundary(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
     }
 
 
@@ -1394,9 +1436,19 @@ def skill_route_discovery_supervisor_readiness(
         and lane["preactivation_harness"].get("external_harness_execution_allowed") is not False
         for lane in activation_lanes
     )
+    provider_runtime_preflight_present = all(
+        lane.get("provider_runtime_preflight") == skill_route_discovery_provider_runtime_preflight_contract()
+        for lane in activation_lanes
+    )
     validation_present = all(lane.get("required_validation") == validation_commands for lane in activation_lanes)
 
-    if activation_allowed and trust_boundary_passed and all_lanes_ready and validation_present:
+    if (
+        activation_allowed
+        and trust_boundary_passed
+        and all_lanes_ready
+        and validation_present
+        and provider_runtime_preflight_present
+    ):
         decision = "ready_for_supervisor_promotion"
     elif route_status == "degraded":
         decision = "review_before_supervisor_promotion"
@@ -1416,10 +1468,17 @@ def skill_route_discovery_supervisor_readiness(
         "replay_commands": replay_commands,
         "validation_present": validation_present,
         "trust_boundary_passed": trust_boundary_passed,
+        "provider_runtime_preflight_present": provider_runtime_preflight_present,
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
         "recovery_hint_codes": recovery_hint_codes,
         "runtime_action_allowed": runtime_actions != ["none"] if runtime_actions else False,
         "external_skill_activation_allowed": external_skill_allowed,
         "external_harness_execution_allowed": external_harness_allowed,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
         "raw_evidence_exported": False,
         "restart_or_remote_activation_required": False,
     }

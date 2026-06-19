@@ -1,0 +1,11 @@
+Run digest: github-growth-20260619T233207.458877Z
+Capability slice: provider-runtime-control, pass 3 of 4
+Original branch: codex/blackhole-evolve/20260619T233302.957687-add-or-extend-a-local-validation-lane-for-agent-
+Original HEAD: 3c233c68d9909eeb73fbc20c077e0fccb78974d6
+Rollback ref: refs/blackhole-rollback/20260619T233207Z-provider-runtime-control-pass3
+
+Recovery commands, if an external operator chooses destructive rollback:
+git reset --hard refs/blackhole-rollback/20260619T233207Z-provider-runtime-control-pass3
+git clean -fd
+
+This artifact was created before local source edits for this kernel run and must not be deleted by the run that created it.

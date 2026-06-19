@@ -5,6 +5,7 @@ from blackhole_agent.harness_eval import (
     build_harness_comparison_report,
     evaluate_harness_behavior,
     run_local_harness_eval,
+    skill_route_discovery_provider_runtime_preflight_contract,
     skill_route_discovery_preactivation_trust_boundary,
     skill_route_discovery_preactivation_validation_commands,
 )
@@ -559,6 +560,8 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
     }
     assert output["supervisor_readiness"] == {
         "decision": "ready_for_supervisor_promotion",
@@ -571,10 +574,17 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "replay_commands": skill_route_discovery_preactivation_validation_commands(),
         "validation_present": True,
         "trust_boundary_passed": True,
+        "provider_runtime_preflight_present": True,
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
         "recovery_hint_codes": [],
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
         "raw_evidence_exported": False,
         "restart_or_remote_activation_required": False,
     }
@@ -600,6 +610,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "local_eval_only": True,
             "external_harness_execution_allowed": False,
         }
+        assert lane["provider_runtime_preflight"] == skill_route_discovery_provider_runtime_preflight_contract()
         assert lane["activation_ready"] is True
         assert lane["activation_blockers"] == []
         assert lane["recovery_hint_codes"] == []
@@ -801,6 +812,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
             "activation_blockers": [],
             "runtime_action": "install",
             "external_skill_activation_allowed": True,
+            "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
         }
     ]
 
@@ -850,6 +862,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_ar
             "activation_blockers": [],
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
+            "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
         }
     ]
 
@@ -862,6 +875,68 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_ar
         "activation_lanes[0].external_skill_code_must_be_false",
         "activation_lanes[0].raw_upstream_body_must_be_false",
         "activation_lanes[0].local_artifact_contract_target_unbounded",
+    ]
+
+
+def test_skill_route_discovery_preactivation_trust_boundary_requires_provider_runtime_replay():
+    proposal_lanes = [
+        {
+            "candidate_name": "compass-skills",
+            "proposal_kind": "code_patch",
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+    ]
+    activation_lanes = [
+        {
+            "proposal_kind": "code_patch",
+            "candidate_count": 1,
+            "candidate_names": ["compass-skills"],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "local_artifact_contract": {
+                "proposal_kind": "code_patch",
+                "target_paths": [
+                    "src/blackhole_agent/skill_routing.py",
+                    "src/blackhole_agent/harness_eval.py",
+                ],
+                "required_review_surface": "changed_files_and_validation",
+                "local_only": True,
+                "external_skill_code_allowed": False,
+                "raw_upstream_body_allowed": False,
+            },
+            "preactivation_harness": {
+                "behavior": "agent_harness_eval_lane",
+                "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+                "local_eval_only": True,
+                "external_harness_execution_allowed": False,
+            },
+            "provider_runtime_preflight": {
+                "behavior": "provider_runtime_preflight",
+                "required_validation": ["pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"],
+                "local_replay_only": False,
+                "body_free_diagnostics_only": False,
+                "provider_runtime_launch_allowed": True,
+                "remote_execution_allowed": True,
+            },
+            "activation_ready": True,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        }
+    ]
+
+    preflight = skill_route_discovery_preactivation_trust_boundary(proposal_lanes, activation_lanes)
+
+    assert preflight["status"] == "blocked"
+    assert preflight["provider_runtime_launch_allowed"] is False
+    assert preflight["remote_execution_allowed"] is False
+    assert preflight["diagnostics"] == [
+        "activation_lanes[0].provider_runtime_preflight_behavior_mismatch",
+        "activation_lanes[0].provider_runtime_preflight_validation_mismatch",
+        "activation_lanes[0].provider_runtime_preflight_must_be_local_replay_only",
+        "activation_lanes[0].provider_runtime_preflight_must_be_body_free",
+        "activation_lanes[0].provider_runtime_launch_must_be_false",
+        "activation_lanes[0].provider_runtime_remote_execution_must_be_false",
     ]
 
 
@@ -971,6 +1046,7 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         assert lane["local_artifact_contract"]["external_skill_code_allowed"] is False
         assert lane["preactivation_harness"]["behavior"] == "agent_harness_eval_lane"
         assert lane["preactivation_harness"]["external_harness_execution_allowed"] is False
+        assert lane["provider_runtime_preflight"] == skill_route_discovery_provider_runtime_preflight_contract()
         assert lane["activation_ready"] is False
         assert lane["activation_blockers"] == ["weak_generic_upstream_evidence"]
         assert lane["recovery_hint_codes"] == ["skill_route_sparse_upstream_movement"]
@@ -1118,6 +1194,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
                 "local_eval_only": True,
                 "external_harness_execution_allowed": False,
             },
+            "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
             "activation_ready": False,
             "activation_blockers": ["unsupported_lanes_downgraded"],
             "recovery_hint_codes": ["skill_route_unsupported_lanes_downgraded"],

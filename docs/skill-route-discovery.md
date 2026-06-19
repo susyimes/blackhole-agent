@@ -259,6 +259,18 @@ external skill code. This gives a supervisor an operator-visible lane-to-file
 contract before activation while preserving the rule that discovery never
 imports, runs, or clones external skill packages.
 
+Each activation row also carries a `provider_runtime_preflight` contract. This
+does not launch a provider or execute a remote runner. It requires the local
+`provider_runtime_preflight` and `provider_runtime_recovery_summary` replay
+lanes before supervisor promotion, keeps diagnostics body-free, and records
+`provider_runtime_launch_allowed: false` and `remote_execution_allowed: false`.
+The pre-activation trust boundary rejects rows that omit this contract, weaken
+the replay commands, export non-body-free diagnostics, or allow provider runtime
+launch. This connects skill-route discovery to the provider/runtime control
+slice: public skill evidence can become local documentation, config, test, or
+code_patch work only after the same local provider diagnostic lane remains
+replayable.
+
 The activation rows now also include a pre-activation local harness check. Before
 promotion, the controller-visible validation set includes both the
 `skill_route_discovery_lane` replay, the `agent_harness_eval_lane` replay, and
@@ -298,6 +310,8 @@ documentation proposal is applied:
 pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane
 pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane
 pytest tests/test_harness_eval.py -q -k proposal_interpretation
+pytest tests/test_harness_eval.py -q -k provider_runtime_preflight
+pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary
 ```
 
 The proposal-interpretation smoke suite is required because it checks the
