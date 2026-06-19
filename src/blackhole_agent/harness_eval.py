@@ -48,6 +48,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "provider_runtime_preflight",
     "proposal_interpretation",
     "rendered_html_artifact_validation",
+    "skill_route_discovery_lane",
     "workspace_changes_panel",
 ]
 
@@ -320,9 +321,135 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return adapt_proposal_interpretation_fixture(raw_input, source_path=source_path)
     if behavior == "rendered_html_artifact_validation":
         return evaluate_rendered_html_artifact_validation(raw_input, source_path=source_path)
+    if behavior == "skill_route_discovery_lane":
+        return evaluate_skill_route_discovery_lane(raw_input, source_path=source_path)
     if behavior == "workspace_changes_panel":
         return evaluate_workspace_changes_panel(raw_input, source_path=source_path)
     raise ValueError(f"{source_path} has unsupported local harness behavior: {behavior}")
+
+
+def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate external skill-route evidence as bounded local lanes only."""
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        build_skill_route_discovery_proposal_lane_map,
+        build_skill_route_discovery_registry,
+        build_skill_route_discovery_registry_from_evidence_items,
+        build_skill_route_discovery_registry_from_summaries,
+    )
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    source_kind = optional_string(raw_input.get("source_kind")) or "evidence_items"
+    if source_kind == "evidence_items":
+        evidence_items = raw_input.get("evidence_items")
+        evidence_items = evidence_items if isinstance(evidence_items, list) else []
+        registry = build_skill_route_discovery_registry_from_evidence_items(evidence_items)
+    elif source_kind == "summaries":
+        summaries = raw_input.get("summaries")
+        summaries = summaries if isinstance(summaries, list) else []
+        registry = build_skill_route_discovery_registry_from_summaries(summaries)
+    elif source_kind == "candidates":
+        candidates = raw_input.get("candidates")
+        candidates = candidates if isinstance(candidates, list) else []
+        registry = build_skill_route_discovery_registry(candidates)
+    else:
+        registry = build_skill_route_discovery_registry([])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    proposal_lanes = lane_map["proposal_lanes"]
+    lane_runtime_safe = all(lane.get("runtime_action") == "none" for lane in proposal_lanes)
+    validation_required = all(lane.get("local_validation_required") is True for lane in proposal_lanes)
+    proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in proposal_lanes})
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    lanes_bounded = set(proposal_kinds) <= allowed_lanes
+
+    failure_mode = skill_route_discovery_lane_failure_mode(
+        proposal_lane_count=int(lane_map["proposal_lane_count"]),
+        rejected_candidate_count=int(lane_map["rejected_candidate_count"]),
+        downgraded_candidate_count=int(lane_map["downgraded_candidate_count"]),
+        lane_runtime_safe=lane_runtime_safe,
+        validation_required=validation_required,
+        lanes_bounded=lanes_bounded,
+    )
+    route_status = (
+        "passed"
+        if failure_mode == "none"
+        else "degraded"
+        if failure_mode == "unsupported_lanes_downgraded"
+        else "blocked"
+    )
+
+    return {
+        "schema_version": 1,
+        "behavior": "skill_route_discovery_lane",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "source_kind": source_kind,
+        "registry": {
+            "registry_status": registry["registry_status"],
+            "candidate_count": registry["candidate_count"],
+            "enabled_candidate_count": registry["enabled_candidate_count"],
+            "invalid_candidate_count": registry["invalid_candidate_count"],
+            "executable_skill_count": registry["executable_skill_count"],
+        },
+        "lane_map": {
+            "source_registry_status": lane_map["source_registry_status"],
+            "candidate_count": lane_map["candidate_count"],
+            "proposal_lane_count": lane_map["proposal_lane_count"],
+            "rejected_candidate_count": lane_map["rejected_candidate_count"],
+            "downgraded_candidate_count": lane_map["downgraded_candidate_count"],
+            "proposal_kinds": proposal_kinds,
+            "lanes_bounded": lanes_bounded,
+            "lane_runtime_safe": lane_runtime_safe,
+            "local_validation_required": validation_required,
+        },
+        "proposal_lanes": [
+            {
+                "candidate_name": str(lane.get("candidate_name") or ""),
+                "proposal_kind": str(lane.get("proposal_kind") or ""),
+                "route_hint": str(lane.get("route_hint") or ""),
+                "status": str(lane.get("status") or ""),
+                "runtime_action": str(lane.get("runtime_action") or ""),
+                "local_validation_required": lane.get("local_validation_required") is True,
+                "evidence_url_count": len(lane.get("evidence_urls") or []),
+                "evidence_url_hashes": [stable_text_hash(str(url)) for url in lane.get("evidence_urls") or []],
+                "evidence_item_ids": [str(item_id) for item_id in lane.get("evidence_item_ids") or []],
+            }
+            for lane in proposal_lanes
+        ],
+        "privacy": {
+            "raw_source_urls_exported": False,
+            "raw_evidence_urls_exported": False,
+            "evidence_urls_hashed": True,
+            "runtime_actions_executed": False,
+        },
+    }
+
+
+def skill_route_discovery_lane_failure_mode(
+    *,
+    proposal_lane_count: int,
+    rejected_candidate_count: int,
+    downgraded_candidate_count: int,
+    lane_runtime_safe: bool,
+    validation_required: bool,
+    lanes_bounded: bool,
+) -> str:
+    if not lane_runtime_safe:
+        return "runtime_action_requested"
+    if not validation_required:
+        return "local_validation_not_required"
+    if not lanes_bounded:
+        return "unbounded_proposal_lane"
+    if rejected_candidate_count:
+        return "rejected_candidates_present"
+    if not proposal_lane_count:
+        return "no_skill_route_lanes"
+    if downgraded_candidate_count:
+        return "unsupported_lanes_downgraded"
+    return "none"
 
 
 def evaluate_rendered_html_artifact_validation(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 24
-    assert payload["pass_count"] == 23
+    assert payload["fixture_count"] == 25
+    assert payload["pass_count"] == 24
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -90,6 +90,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "provider_runtime_preflight",
         "proposal_interpretation",
         "rendered_html_artifact_validation",
+        "skill_route_discovery_lane",
         "workspace_changes_panel",
     ]
     assert "PRIVATE_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -119,6 +120,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
+    assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -150,6 +152,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "OPENAI_API_KEY" not in serialized
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -189,6 +192,69 @@ def test_rendered_html_artifact_validation_covers_script_execution_and_link_targ
     assert all(probe["raw_href_exported"] is False for probe in output["link_navigation"]["probes"])
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
+
+
+def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"] == {
+        "registry_status": "classification_only",
+        "candidate_count": 1,
+        "enabled_candidate_count": 0,
+        "invalid_candidate_count": 0,
+        "executable_skill_count": 0,
+    }
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert output["lane_map"]["proposal_lane_count"] == 4
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert output["lane_map"]["lane_runtime_safe"] is True
+    assert output["lane_map"]["local_validation_required"] is True
+    assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
+    assert {lane["evidence_url_count"] for lane in output["proposal_lanes"]} == {3}
+    assert all(lane["evidence_url_hashes"] for lane in output["proposal_lanes"])
+    assert output["privacy"] == {
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "evidence_urls_hashed": True,
+        "runtime_actions_executed": False,
+    }
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+
+
+def test_skill_route_discovery_lane_blocks_actionful_candidates():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-actionful",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "actionful-skill",
+                    "source_url": "https://github.com/example/actionful-skill",
+                    "candidate_lanes": ["documentation", "code_patch"],
+                    "requested_actions": ["install"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_actionful_inline.json",
+    )
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "rejected_candidates_present"
+    assert output["registry"]["registry_status"] == "invalid_candidates_present"
+    assert output["registry"]["invalid_candidate_count"] == 1
+    assert output["lane_map"]["proposal_lane_count"] == 0
+    assert output["privacy"]["runtime_actions_executed"] is False
 
 
 def test_rendered_html_artifact_validation_blocks_when_scripts_do_not_execute():

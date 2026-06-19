@@ -168,6 +168,29 @@ ecosystems reveal reusable routing shapes, but upstream installers, scripts,
 scaffolds, profile stores, and QA helpers are evidence to inspect, not actions
 to perform during discovery.
 
+## Local Harness Lane
+
+`skill_route_discovery_lane` is the local harness behavior for replaying frozen
+skill-route evidence before activation. It accepts body-free evidence items,
+repository summaries, or pre-shaped candidates, builds the disabled discovery
+registry, and renders the proposal lane map through the same bounded lane
+contract: documentation, config, test, and code_patch.
+
+The harness output is metadata-only. It reports candidate counts, lane counts,
+proposal kinds, downgrade/rejection counts, whether every lane keeps
+`runtime_action: none`, and whether every lane requires local validation. Raw
+source and evidence URLs are hashed rather than exported. Requested activation
+actions such as install, enable, run, execute, clone-and-run, or local deletion
+block the harness lane as rejected candidates and do not execute.
+
+Use this lane when a digest proposes skill-route discovery work that should be
+validated by the controller surface before a code, config, test, or
+documentation proposal is applied:
+
+```bash
+pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane
+```
+
 ## Route-Hint Policy Preflight
 
 Before proposal interpretation accepts any implementation lane,

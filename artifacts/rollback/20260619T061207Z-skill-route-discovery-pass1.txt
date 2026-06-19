@@ -1,0 +1,11 @@
+Rollback point for github-growth-20260619T061207.055981Z
+
+Original branch: codex/blackhole-evolve/20260619T061313.060348-add-or-extend-local-validation-around-mock-e2e-r
+Original HEAD: 41aa3de703eab666e458500909f2f115c758851c
+Rollback ref: refs/rollback/20260619T061207Z-skill-route-discovery-pass1
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260619T061313.060348-add-or-extend-local-validation-around-mock-e2e-r
+git reset --hard 41aa3de703eab666e458500909f2f115c758851c
+git clean -fd
+

@@ -1,0 +1,71 @@
+{
+  "name": "skill-route-discovery-lane-fablecodex",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-lane",
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "item_id": "fablecodex-repo",
+        "item_kind": "repository",
+        "name": "codex-fable5",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "title": "FableCodex",
+        "summary": "Codex skill and workflow package with evidence gates, review ledgers, verification habits, localized documentation, and plugin routing docs.",
+        "topics": ["codex", "agent-skills", "workflow", "verification"],
+        "route_hints": ["skill_route_discovery"],
+        "suggested_lanes": ["documentation", "test", "runtime_execution"]
+      },
+      {
+        "item_id": "fablecodex-issue-15",
+        "item_kind": "issue",
+        "source_url": "https://github.com/baskduf/FableCodex/issues/15",
+        "title": "Strengthen localized README drift checks",
+        "summary": "Issue requests localized README drift checks for release tags, limitation warnings, command parity, and exact failing documentation evidence.",
+        "topics": ["documentation", "test", "workflow"],
+        "route_hints": ["skill_route_discovery"],
+        "suggested_lanes": ["documentation", "test", "execute"]
+      },
+      {
+        "item_id": "fablecodex-issue-18",
+        "item_kind": "issue",
+        "source_url": "https://github.com/baskduf/FableCodex/issues/18",
+        "title": "Add user-facing FableCodex workflow examples",
+        "summary": "Issue requests workflow examples with prompt text, expected workflow, command evidence snippets, README links, and honest limitation notes.",
+        "topics": ["documentation", "workflow", "examples"],
+        "route_hints": ["skill_route_discovery"],
+        "suggested_lanes": ["documentation", "code_patch", "install"]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 1
+    },
+    {
+      "path": "lane_map.proposal_lane_count",
+      "equals": 4
+    },
+    {
+      "path": "lane_map.lanes_bounded",
+      "equals": true
+    },
+    {
+      "path": "lane_map.lane_runtime_safe",
+      "equals": true
+    },
+    {
+      "path": "privacy.raw_evidence_urls_exported",
+      "equals": false
+    }
+  ]
+}
