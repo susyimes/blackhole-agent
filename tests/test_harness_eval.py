@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 25
-    assert payload["pass_count"] == 24
+    assert payload["fixture_count"] == 26
+    assert payload["pass_count"] == 25
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -105,6 +105,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-ask-boundary"]["passed"] is True
     assert results["mock-e2e-runner-tier-compaction-known-failure-repoint"]["passed"] is True
+    assert results["mock-llm-chat-completions-contract"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
@@ -150,6 +151,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "Pattern 'sleeping' not found" not in serialized
     assert "OPENAI_API_KEY" not in serialized
+    assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
@@ -776,6 +779,179 @@ def test_mock_llm_workflow_route_fails_instead_of_calling_external_provider():
     assert output["provider"]["external_calls_attempted"] is True
     assert output["mock_llm"]["call_count"] == 0
     assert output["failure_mode"] == "external_provider_required"
+
+
+def test_mock_llm_workflow_route_validates_chat_completions_contract_without_bodies():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_chat_completions_contract.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["mock_llm"]["call_count"] == 2
+    assert output["mock_llm"]["chat_completions"] == {
+        "enabled": True,
+        "ok": True,
+        "failure_mode": "none",
+        "endpoint": "/v1/chat/completions",
+        "request_count": 2,
+        "streaming_request_count": 1,
+        "non_streaming_request_count": 1,
+        "json_response_count": 1,
+        "sse_response_count": 1,
+        "provider_preflight": {
+            "ok": True,
+            "failure_mode": "none",
+            "token_required": True,
+            "token_present": False,
+            "base_url_present": True,
+            "mock_base_url": True,
+            "allow_mock_auth": True,
+            "diagnostics": [],
+            "secret_values_exported": False,
+        },
+        "model_echoed": True,
+        "format_mismatch_count": 0,
+        "diagnostics": [],
+        "request_bodies_exported": False,
+        "response_bodies_exported": False,
+    }
+    assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "http://127.0.0.1:12345" not in serialized
+
+
+def test_mock_llm_workflow_route_distinguishes_chat_completions_mock_contract_failure():
+    raw_input = {
+        "task_id": "fixture-mock-llm-chat-completions-format-drift",
+        "provider": {
+            "name": "openai-agents",
+            "enabled": False,
+            "protocol": "chat_completions",
+            "base_url": "http://127.0.0.1:12345/v1",
+            "mock_base_url": True,
+            "token_required": True,
+            "allow_mock_auth": True,
+        },
+        "mock_llm": {
+            "enabled": True,
+            "model": "mock-chat-model",
+            "responses": [
+                {
+                    "content": "PRIVATE_CHAT_RESPONSE_DO_NOT_EXPORT",
+                    "response_format": "sse",
+                }
+            ],
+        },
+        "mock_server_contract": {
+            "enabled": True,
+            "endpoint": "/v1/chat/completions",
+            "base_url": "http://127.0.0.1:12345/v1",
+            "mock_base_url": True,
+            "allow_mock_auth": True,
+            "requests": [
+                {
+                    "model": "mock-chat-model",
+                    "stream": False,
+                    "messages": "PRIVATE_CHAT_BODY_DO_NOT_EXPORT",
+                }
+            ],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "non-streaming-chat", "model": "mock-chat-model"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_chat_completions_format_drift_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "chat_completions_response_format_mismatch"
+    assert output["mock_llm"]["chat_completions"]["provider_preflight"]["ok"] is True
+    assert output["mock_llm"]["chat_completions"]["format_mismatch_count"] == 1
+    assert output["mock_llm"]["chat_completions"]["diagnostics"] == [
+        "chat/completions mock response format must match each stream flag"
+    ]
+    assert "PRIVATE_CHAT_RESPONSE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_distinguishes_chat_completions_provider_preflight_failure():
+    raw_input = {
+        "task_id": "fixture-mock-llm-chat-completions-provider-preflight",
+        "provider": {
+            "name": "openai-agents",
+            "enabled": False,
+            "protocol": "chat_completions",
+            "base_url": "http://127.0.0.1:12345/v1",
+            "mock_base_url": True,
+            "token_required": True,
+            "token_present": False,
+            "allow_mock_auth": False,
+        },
+        "mock_llm": {
+            "enabled": True,
+            "model": "mock-chat-model",
+            "responses": [{"content": "PRIVATE_CHAT_RESPONSE_DO_NOT_EXPORT"}],
+        },
+        "mock_server_contract": {
+            "enabled": True,
+            "endpoint": "/v1/chat/completions",
+            "base_url": "http://127.0.0.1:12345/v1",
+            "mock_base_url": True,
+            "token_required": True,
+            "allow_mock_auth": False,
+            "requests": [
+                {
+                    "model": "mock-chat-model",
+                    "stream": False,
+                    "messages": "PRIVATE_CHAT_BODY_DO_NOT_EXPORT",
+                }
+            ],
+        },
+        "workflow": {
+            "steps": [
+                {"id": "non-streaming-chat", "model": "mock-chat-model"},
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_chat_completions_provider_preflight_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "provider_token_preflight_failed"
+    assert output["mock_llm"]["chat_completions"]["format_mismatch_count"] == 0
+    assert output["mock_llm"]["chat_completions"]["provider_preflight"] == {
+        "ok": False,
+        "failure_mode": "provider_token_preflight_failed",
+        "token_required": True,
+        "token_present": False,
+        "base_url_present": True,
+        "mock_base_url": True,
+        "allow_mock_auth": False,
+        "diagnostics": ["provider token is required unless mock auth is explicitly allowed"],
+        "secret_values_exported": False,
+    }
+    assert "PRIVATE_CHAT_RESPONSE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CHAT_BODY_DO_NOT_EXPORT" not in serialized
+    assert "OPENAI_API_KEY" not in serialized
 
 
 def test_mock_llm_workflow_route_hard_fails_missing_model_image_input_before_execution():

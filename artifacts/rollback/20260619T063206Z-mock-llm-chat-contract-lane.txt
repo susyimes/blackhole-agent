@@ -1,0 +1,13 @@
+Rollback point for self-evolution run github-growth-20260619T063207.070653Z
+
+Original branch: codex/blackhole-evolve/20260619T063304.498768-create-or-strengthen-a-local-mock-llm-e2e-valida
+Original HEAD: f77425c67dcd0df8c355ec3a1857d47fe2639193
+Rollback ref: refs/rollback/blackhole-evolve-20260619T063206Z
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260619T063304.498768-create-or-strengthen-a-local-mock-llm-e2e-valida
+  git reset --hard refs/rollback/blackhole-evolve-20260619T063206Z
+
+Notes:
+  Created before local source edits for the mock LLM chat/completions contract lane.
+  Rollback execution is intentionally left to a human operator or external supervisor.

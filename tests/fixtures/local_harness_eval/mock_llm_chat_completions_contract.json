@@ -1,0 +1,125 @@
+{
+  "name": "mock-llm-chat-completions-contract",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-chat-completions-contract",
+    "provider": {
+      "name": "openai-agents",
+      "harness": "openai-agents",
+      "enabled": false,
+      "protocol": "chat_completions",
+      "base_url": "http://127.0.0.1:12345/v1",
+      "mock_base_url": true,
+      "token_required": true,
+      "token_present": false,
+      "allow_mock_auth": true
+    },
+    "mock_llm": {
+      "enabled": true,
+      "model": "mock-chat-model",
+      "responses": [
+        {
+          "content": "Mock chat completion accepted.",
+          "response_format": "json",
+          "usage": {
+            "input_tokens": 10,
+            "output_tokens": 5
+          }
+        },
+        {
+          "content": "Mock streaming chat completion accepted.",
+          "response_format": "sse",
+          "usage": {
+            "input_tokens": 12,
+            "output_tokens": 6
+          }
+        }
+      ]
+    },
+    "mock_server_contract": {
+      "enabled": true,
+      "protocol": "chat_completions",
+      "endpoint": "/v1/chat/completions",
+      "base_url": "http://127.0.0.1:12345/v1",
+      "mock_base_url": true,
+      "allow_mock_auth": true,
+      "require_model_echo": true,
+      "requests": [
+        {
+          "model": "mock-chat-model",
+          "stream": false,
+          "messages": "PRIVATE_CHAT_BODY_DO_NOT_EXPORT"
+        },
+        {
+          "model": "mock-chat-model",
+          "stream": true,
+          "messages": "PRIVATE_STREAMING_CHAT_BODY_DO_NOT_EXPORT"
+        }
+      ]
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "non-streaming-chat",
+          "model": "mock-chat-model",
+          "expect_contains": "accepted"
+        },
+        {
+          "id": "streaming-chat",
+          "model": "mock-chat-model",
+          "expect_contains": "streaming"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "mock_llm.chat_completions.enabled",
+      "equals": true
+    },
+    {
+      "path": "mock_llm.chat_completions.endpoint",
+      "equals": "/v1/chat/completions"
+    },
+    {
+      "path": "mock_llm.chat_completions.non_streaming_request_count",
+      "equals": 1
+    },
+    {
+      "path": "mock_llm.chat_completions.streaming_request_count",
+      "equals": 1
+    },
+    {
+      "path": "mock_llm.chat_completions.json_response_count",
+      "equals": 1
+    },
+    {
+      "path": "mock_llm.chat_completions.sse_response_count",
+      "equals": 1
+    },
+    {
+      "path": "mock_llm.chat_completions.provider_preflight.ok",
+      "equals": true
+    },
+    {
+      "path": "mock_llm.chat_completions.provider_preflight.secret_values_exported",
+      "equals": false
+    },
+    {
+      "path": "mock_llm.chat_completions.request_bodies_exported",
+      "equals": false
+    },
+    {
+      "path": "mock_llm.chat_completions.response_bodies_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

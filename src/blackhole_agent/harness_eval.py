@@ -1268,6 +1268,11 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     file_tools = raw_input.get("file_tools") if isinstance(raw_input.get("file_tools"), dict) else {}
     sub_agents = raw_input.get("sub_agents") if isinstance(raw_input.get("sub_agents"), dict) else {}
     native_tool_policy = raw_input.get("native_tool_policy") if isinstance(raw_input.get("native_tool_policy"), dict) else {}
+    mock_server_contract = (
+        raw_input.get("mock_server_contract")
+        if isinstance(raw_input.get("mock_server_contract"), dict)
+        else {}
+    )
     steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
     multimodal_preflight = evaluate_mock_multimodal_preflight(provider, steps)
     response_queues = build_mock_llm_response_queues(mock_llm)
@@ -1284,6 +1289,11 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
     anthropic_messages = evaluate_anthropic_messages_compatibility(
         provider,
         mock_llm,
+        response_results=response_results,
+    )
+    chat_completions = evaluate_chat_completions_mock_contract(
+        provider,
+        mock_server_contract,
         response_results=response_results,
     )
     enough_responses = len(response_results) >= len(steps)
@@ -1309,6 +1319,8 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
         enough_responses=enough_responses,
         expectations_passed=expectations_passed,
         anthropic_messages_ok=anthropic_messages["ok"],
+        chat_completions_ok=chat_completions["ok"],
+        chat_completions_failure_mode=optional_string(chat_completions["failure_mode"]) or "chat_completions_contract_failed",
         session_passed=session_result["isolation_passed"],
         interrupt_passed=interrupt_result["passed"],
         file_tools_passed=file_tool_result["all_operations_mocked"]
@@ -1341,6 +1353,7 @@ def evaluate_mock_llm_workflow_route(raw_input: dict[str, Any], *, source_path: 
             "exhausted": mock_enabled and not enough_responses,
             "usage": usage,
             "anthropic_messages": anthropic_messages,
+            "chat_completions": chat_completions,
         },
         "workflow": {
             "step_count": len(steps),
@@ -1477,6 +1490,7 @@ def build_mock_llm_response_results(
                 "request_key": request_key,
                 "response_key": queue_key,
                 "response_model": response_model,
+                "response_format": optional_string(response_data.get("response_format")),
                 "fallback_used": fallback_used,
                 "response_hash": stable_text_hash(content),
                 "expectation_passed": expect_contains is None or expect_contains in content,
@@ -1603,6 +1617,216 @@ def mock_llm_uses_anthropic_messages(provider: dict[str, Any], mock_llm: dict[st
     provider_name = (optional_string(provider.get("name")) or "").lower()
     harness = (optional_string(provider.get("harness")) or "").lower()
     return "claude" in provider_name or "claude" in harness or "anthropic" in provider_name or "anthropic" in harness
+
+
+def evaluate_chat_completions_mock_contract(
+    provider: dict[str, Any],
+    contract: dict[str, Any],
+    *,
+    response_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Validate OpenAI-compatible chat/completions mock server behavior without bodies."""
+
+    enabled = truthy(contract.get("enabled")) or chat_completions_contract_implied(provider, contract)
+    if not enabled:
+        return {
+            "enabled": False,
+            "ok": True,
+            "failure_mode": "none",
+            "endpoint": None,
+            "request_count": 0,
+            "streaming_request_count": 0,
+            "non_streaming_request_count": 0,
+            "json_response_count": 0,
+            "sse_response_count": 0,
+            "provider_preflight": {
+                "ok": True,
+                "failure_mode": "none",
+                "token_required": False,
+                "token_present": False,
+                "base_url_present": False,
+                "mock_base_url": False,
+                "diagnostics": [],
+                "secret_values_exported": False,
+            },
+            "diagnostics": [],
+            "request_bodies_exported": False,
+            "response_bodies_exported": False,
+        }
+
+    endpoint = optional_string(contract.get("endpoint")) or "/v1/chat/completions"
+    request_count = len(response_results)
+    requests = contract.get("requests") if isinstance(contract.get("requests"), list) else []
+    if requests:
+        request_count = len(requests)
+
+    stream_flags = chat_completions_stream_flags(contract, request_count=request_count)
+    observed_formats = chat_completions_observed_formats(contract, response_results, request_count=request_count)
+    expected_formats = ["sse" if stream else "json" for stream in stream_flags]
+    format_mismatch_count = sum(
+        1
+        for expected, observed in zip(expected_formats, observed_formats)
+        if expected != observed
+    )
+    model_echoed = chat_completions_models_echoed(contract, response_results)
+    provider_preflight = evaluate_mock_chat_provider_preflight(provider, contract)
+    diagnostics = list(provider_preflight["diagnostics"])
+    if endpoint != "/v1/chat/completions":
+        diagnostics.append("chat/completions mock contract must target /v1/chat/completions")
+    if request_count != len(response_results):
+        diagnostics.append("chat/completions request count must match consumed mock responses")
+    if format_mismatch_count:
+        diagnostics.append("chat/completions mock response format must match each stream flag")
+    if not model_echoed:
+        diagnostics.append("chat/completions mock responses must echo request model choices")
+
+    if not provider_preflight["ok"]:
+        failure_mode = str(provider_preflight["failure_mode"])
+    elif endpoint != "/v1/chat/completions":
+        failure_mode = "chat_completions_endpoint_mismatch"
+    elif request_count != len(response_results):
+        failure_mode = "chat_completions_request_count_mismatch"
+    elif format_mismatch_count:
+        failure_mode = "chat_completions_response_format_mismatch"
+    elif not model_echoed:
+        failure_mode = "chat_completions_model_mismatch"
+    else:
+        failure_mode = "none"
+
+    return {
+        "enabled": True,
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "endpoint": endpoint,
+        "request_count": request_count,
+        "streaming_request_count": sum(1 for stream in stream_flags if stream),
+        "non_streaming_request_count": sum(1 for stream in stream_flags if not stream),
+        "json_response_count": sum(1 for value in observed_formats if value == "json"),
+        "sse_response_count": sum(1 for value in observed_formats if value == "sse"),
+        "provider_preflight": provider_preflight,
+        "model_echoed": model_echoed,
+        "format_mismatch_count": format_mismatch_count,
+        "diagnostics": diagnostics,
+        "request_bodies_exported": False,
+        "response_bodies_exported": False,
+    }
+
+
+def chat_completions_contract_implied(provider: dict[str, Any], contract: dict[str, Any]) -> bool:
+    protocol = optional_string(contract.get("protocol")) or optional_string(provider.get("protocol"))
+    api = optional_string(contract.get("api")) or optional_string(provider.get("api"))
+    endpoint = optional_string(contract.get("endpoint"))
+    provider_name = (optional_string(provider.get("name")) or "").lower()
+    harness = (optional_string(provider.get("harness")) or "").lower()
+    values = {str(value).lower() for value in (protocol, api, endpoint) if value}
+    if values & {"chat_completions", "openai_chat_completions", "/v1/chat/completions"}:
+        return True
+    return "openai" in provider_name or "openai" in harness
+
+
+def chat_completions_stream_flags(contract: dict[str, Any], *, request_count: int) -> list[bool]:
+    requests = contract.get("requests") if isinstance(contract.get("requests"), list) else []
+    flags: list[bool] = []
+    for request in requests:
+        request_data = request if isinstance(request, dict) else {}
+        flags.append(truthy(request_data.get("stream")))
+    if flags:
+        return flags
+
+    raw_flags = contract.get("stream_flags") if isinstance(contract.get("stream_flags"), list) else []
+    flags = [truthy(flag) for flag in raw_flags]
+    if flags:
+        return flags
+
+    default_stream = truthy(contract.get("stream"))
+    return [default_stream for _ in range(request_count)]
+
+
+def chat_completions_observed_formats(
+    contract: dict[str, Any],
+    response_results: list[dict[str, Any]],
+    *,
+    request_count: int,
+) -> list[str]:
+    raw_formats = contract.get("observed_response_formats") if isinstance(contract.get("observed_response_formats"), list) else []
+    formats = [normal_chat_response_format(value) for value in raw_formats]
+    if formats:
+        return formats
+
+    formats = []
+    for result in response_results:
+        response_format = normal_chat_response_format(result.get("response_format"))
+        formats.append(response_format or "json")
+    if formats:
+        return formats
+    return ["json" for _ in range(request_count)]
+
+
+def normal_chat_response_format(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower()
+    if text in {"json", "application/json", "openai_json"}:
+        return "json"
+    if text in {"sse", "event_stream", "text/event-stream", "server_sent_events"}:
+        return "sse"
+    return text
+
+
+def chat_completions_models_echoed(contract: dict[str, Any], response_results: list[dict[str, Any]]) -> bool:
+    if not truthy(contract.get("require_model_echo")):
+        return True
+    request_models = string_list(contract.get("request_models"))
+    if not request_models:
+        requests = contract.get("requests") if isinstance(contract.get("requests"), list) else []
+        request_models = [
+            model
+            for model in (
+                optional_string(request.get("model"))
+                for request in requests
+                if isinstance(request, dict)
+            )
+            if model
+        ]
+    if not request_models:
+        request_models = [str(result["request_key"]) for result in response_results]
+    response_models = [str(result["response_model"]) for result in response_results]
+    return request_models == response_models
+
+
+def evaluate_mock_chat_provider_preflight(provider: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:
+    token_required = truthy(provider.get("token_required")) or truthy(contract.get("token_required"))
+    token_present = truthy(provider.get("token_present")) or truthy(contract.get("token_present"))
+    base_url_present = bool(optional_string(provider.get("base_url")) or optional_string(contract.get("base_url")))
+    mock_base_url = truthy(provider.get("mock_base_url")) or truthy(contract.get("mock_base_url"))
+    allow_mock_auth = truthy(provider.get("allow_mock_auth")) or truthy(contract.get("allow_mock_auth"))
+
+    diagnostics: list[str] = []
+    if token_required and not token_present and not allow_mock_auth:
+        diagnostics.append("provider token is required unless mock auth is explicitly allowed")
+    if not base_url_present:
+        diagnostics.append("mock chat/completions base_url must be configured")
+    elif not mock_base_url:
+        diagnostics.append("mock chat/completions base_url must point at the local mock server")
+
+    if token_required and not token_present and not allow_mock_auth:
+        failure_mode = "provider_token_preflight_failed"
+    elif not base_url_present:
+        failure_mode = "provider_base_url_preflight_failed"
+    elif not mock_base_url:
+        failure_mode = "provider_base_url_not_mock"
+    else:
+        failure_mode = "none"
+
+    return {
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "token_required": token_required,
+        "token_present": token_present,
+        "base_url_present": base_url_present,
+        "mock_base_url": mock_base_url,
+        "allow_mock_auth": allow_mock_auth,
+        "diagnostics": diagnostics,
+        "secret_values_exported": False,
+    }
 
 
 def evaluate_mock_session_route(session: dict[str, Any]) -> dict[str, Any]:
@@ -1955,6 +2179,8 @@ def mock_llm_workflow_failure_mode(
     enough_responses: bool,
     expectations_passed: bool,
     anthropic_messages_ok: bool,
+    chat_completions_ok: bool,
+    chat_completions_failure_mode: str,
     session_passed: bool,
     interrupt_passed: bool,
     file_tools_passed: bool,
@@ -1975,6 +2201,8 @@ def mock_llm_workflow_failure_mode(
         return "mock_llm_exhausted"
     if not anthropic_messages_ok:
         return "anthropic_messages_incompatible"
+    if not chat_completions_ok:
+        return chat_completions_failure_mode
     if not expectations_passed:
         return "expectation_failed"
     if not queue_consumed:
