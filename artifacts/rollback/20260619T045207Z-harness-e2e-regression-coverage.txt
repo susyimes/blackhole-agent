@@ -1,0 +1,12 @@
+Rollback point: harness e2e regression coverage
+Source digest: github-growth-20260619T045207.672454Z
+Original branch: codex/blackhole-evolve/20260619T045313.813717-use-the-observed-omnigent-mock-e2e-and-host-nati
+Original HEAD: 0213801c5abe47e5d5dcc119c17bf3df6057567c
+Rollback ref: refs/rollback/blackhole-agent/20260619T045207Z-harness-e2e-regression-coverage
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260619T045313.813717-use-the-observed-omnigent-mock-e2e-and-host-nati
+  git reset --hard refs/rollback/blackhole-agent/20260619T045207Z-harness-e2e-regression-coverage
+  git clean -fd
+
+Rollback execution is explicit and destructive; do not run these commands without operator approval.

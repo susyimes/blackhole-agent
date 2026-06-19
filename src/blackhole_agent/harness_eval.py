@@ -733,8 +733,12 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
     provider = raw_input.get("provider") if isinstance(raw_input.get("provider"), dict) else {}
     runner_tiers = raw_input.get("runner_tiers") if isinstance(raw_input.get("runner_tiers"), list) else []
     known_failure = raw_input.get("known_failure") if isinstance(raw_input.get("known_failure"), dict) else {}
+    approval_boundary_input = (
+        raw_input.get("approval_boundary") if isinstance(raw_input.get("approval_boundary"), dict) else {}
+    )
     tier_results = [evaluate_mock_e2e_runner_tier_item(tier) for tier in runner_tiers]
     known_failure_route = evaluate_mock_e2e_known_failure_route(known_failure)
+    approval_boundary = evaluate_mock_e2e_approval_boundary(approval_boundary_input, source_path=source_path)
 
     provider_enabled = truthy(provider.get("enabled"))
     mock_only = truthy(raw_input.get("mock_only")) or truthy(provider.get("mock_only")) or not provider_enabled
@@ -759,6 +763,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
         all_tiers_passed=all_tiers_passed,
         tool_boundaries_mocked=tool_boundaries_mocked,
         known_failure_route_passed=known_failure_route["passed"],
+        approval_boundary_passed=approval_boundary["passed"],
     )
 
     return {
@@ -784,6 +789,7 @@ def evaluate_mock_e2e_runner_tier(raw_input: dict[str, Any], *, source_path: Pat
             "tiers": tier_results,
         },
         "known_failure_route": known_failure_route,
+        "approval_boundary": approval_boundary,
         "privacy": {
             "raw_commands_exported": False,
             "raw_paths_exported": False,
@@ -858,6 +864,47 @@ def evaluate_mock_e2e_operation(operation: Any) -> dict[str, Any]:
     }
 
 
+def evaluate_mock_e2e_approval_boundary(approval_boundary: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Require a mocked e2e journey to preserve a native ASK/review path when declared."""
+
+    required = truthy(approval_boundary.get("required"))
+    if not required:
+        return {
+            "required": False,
+            "passed": True,
+            "route_status": "not_required",
+            "failure_mode": "none",
+            "ask_preserved": False,
+            "controller_surface": "none",
+            "tool_executed": False,
+            "raw_payload_exported": False,
+        }
+
+    policy_hook = approval_boundary.get("policy_hook") if isinstance(approval_boundary.get("policy_hook"), dict) else {}
+    tool_call = approval_boundary.get("tool_call") if isinstance(approval_boundary.get("tool_call"), dict) else {}
+    policy_output = evaluate_native_tool_call_policy(
+        {
+            "task_id": optional_string(approval_boundary.get("task_id")) or source_path.stem,
+            "policy_hook": policy_hook,
+            "tool_call": tool_call,
+        },
+        source_path=source_path,
+    )
+    ask_preserved = bool(policy_output.get("approval", {}).get("ask_preserved"))
+    tool_executed = truthy(policy_output.get("safety", {}).get("tool_executed"))
+    passed = policy_output.get("route_status") == "review_only" and ask_preserved and not tool_executed
+    return {
+        "required": True,
+        "passed": passed,
+        "route_status": policy_output.get("route_status"),
+        "failure_mode": "none" if passed else "approval_path_missing",
+        "ask_preserved": ask_preserved,
+        "controller_surface": optional_string(policy_output.get("approval", {}).get("controller_surface")) or "none",
+        "tool_executed": tool_executed,
+        "raw_payload_exported": False,
+    }
+
+
 def mock_e2e_runner_tier_failure_mode(
     *,
     tier_count: int,
@@ -870,6 +917,7 @@ def mock_e2e_runner_tier_failure_mode(
     all_tiers_passed: bool,
     tool_boundaries_mocked: bool,
     known_failure_route_passed: bool,
+    approval_boundary_passed: bool,
 ) -> str:
     if tier_count < 1:
         return "no_runner_tiers"
@@ -887,6 +935,8 @@ def mock_e2e_runner_tier_failure_mode(
         return "tier_not_mocked"
     if not tool_boundaries_mocked:
         return "unmocked_tool_boundary"
+    if not approval_boundary_passed:
+        return "approval_path_missing"
     if not all_tiers_passed:
         return "tier_expectation_failed"
     if not known_failure_route_passed:

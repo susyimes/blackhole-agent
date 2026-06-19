@@ -1,0 +1,125 @@
+{
+  "name": "mock-e2e-runner-tier-host-native-ask-boundary",
+  "behavior": "mock_e2e_runner_tier",
+  "input": {
+    "task_id": "fixture-mock-e2e-runner-tier-host-native-ask-boundary",
+    "mock_only": true,
+    "provider": {
+      "name": "external-agent-provider",
+      "enabled": false,
+      "credentials_required": false,
+      "network_required": false
+    },
+    "runner_tiers": [
+      {
+        "name": "host-native",
+        "lane": "host_native",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "prepare-host-runner",
+            "observed": "host-native mocked run reached a governed tool call before execution",
+            "expect_contains": "governed tool call"
+          }
+        ],
+        "operations": [
+          {
+            "name": "shell_command",
+            "command": "PRIVATE_HOST_NATIVE_ASK_COMMAND_DO_NOT_EXPORT",
+            "mocked": true,
+            "mock_content": "host-native operation stopped at mocked review boundary",
+            "expect_content_contains": "review boundary"
+          }
+        ]
+      },
+      {
+        "name": "miscellaneous",
+        "lane": "miscellaneous",
+        "mocked": true,
+        "steps": [
+          {
+            "id": "record-controller-surface",
+            "observed": "miscellaneous metadata recorded the interactive policy ask",
+            "expect_contains": "interactive policy ask"
+          }
+        ],
+        "operations": [
+          {
+            "name": "approval_metadata",
+            "path": "fixtures/private-approval.json",
+            "mocked": true,
+            "mock_content": "approval metadata stayed inside local fixture",
+            "expect_content_contains": "local fixture"
+          }
+        ]
+      }
+    ],
+    "approval_boundary": {
+      "required": true,
+      "policy_hook": {
+        "governed": true,
+        "session_id": "PRIVATE_E2E_POLICY_SESSION_DO_NOT_EXPORT",
+        "server_url_configured": true,
+        "event_phase": "TOOL_CALL",
+        "failure_mode": "none",
+        "verdict": {
+          "review_required": true,
+          "reason": "operator_ask"
+        }
+      },
+      "tool_call": {
+        "name": "Bash",
+        "transport": "native",
+        "arguments": {
+          "command": "PRIVATE_E2E_ASK_COMMAND_DO_NOT_EXPORT"
+        }
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "runner_tiers.host_native_count",
+      "equals": 1
+    },
+    {
+      "path": "runner_tiers.miscellaneous_count",
+      "equals": 1
+    },
+    {
+      "path": "approval_boundary.required",
+      "equals": true
+    },
+    {
+      "path": "approval_boundary.passed",
+      "equals": true
+    },
+    {
+      "path": "approval_boundary.route_status",
+      "equals": "review_only"
+    },
+    {
+      "path": "approval_boundary.ask_preserved",
+      "equals": true
+    },
+    {
+      "path": "approval_boundary.controller_surface",
+      "equals": "interactive_policy_ask"
+    },
+    {
+      "path": "approval_boundary.tool_executed",
+      "equals": false
+    },
+    {
+      "path": "approval_boundary.raw_payload_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

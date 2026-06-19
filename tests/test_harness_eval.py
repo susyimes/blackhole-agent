@@ -76,8 +76,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 22
-    assert payload["pass_count"] == 21
+    assert payload["fixture_count"] == 23
+    assert payload["pass_count"] == 22
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -101,6 +101,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
+    assert results["mock-e2e-runner-tier-host-native-ask-boundary"]["passed"] is True
     assert results["mock-e2e-runner-tier-compaction-known-failure-repoint"]["passed"] is True
     assert results["mock-llm-workflow-route-provider-disabled"]["passed"] is True
     assert results["mock-llm-multimodal-missing-image-input"]["passed"] is True
@@ -139,6 +140,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REST_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REST_CONTENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HOST_NATIVE_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HOST_NATIVE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_E2E_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_E2E_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_BOOT_PROBE_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "Pattern 'sleeping' not found" not in serialized
     assert "OPENAI_API_KEY" not in serialized
@@ -409,6 +413,66 @@ def test_mock_e2e_runner_tier_fails_when_required_tier_is_missing():
     assert output["runner_tiers"]["host_native_count"] == 0
     assert output["runner_tiers"]["miscellaneous_count"] == 1
     assert output["failure_mode"] == "host_native_tier_missing"
+
+
+def test_mock_e2e_runner_tier_fails_when_required_ask_boundary_is_missing():
+    output = evaluate_harness_behavior(
+        "mock_e2e_runner_tier",
+        {
+            "task_id": "fixture-mock-e2e-missing-ask-boundary",
+            "mock_only": True,
+            "provider": {"enabled": False},
+            "runner_tiers": [
+                {
+                    "name": "host-native",
+                    "lane": "host_native",
+                    "mocked": True,
+                    "steps": [{"id": "host", "observed": "host-native mocked journey"}],
+                    "operations": [{"name": "shell_command", "mocked": True}],
+                },
+                {
+                    "name": "miscellaneous",
+                    "lane": "miscellaneous",
+                    "mocked": True,
+                    "steps": [{"id": "misc", "observed": "miscellaneous mocked journey"}],
+                    "operations": [{"name": "metadata", "mocked": True}],
+                },
+            ],
+            "approval_boundary": {
+                "required": True,
+                "policy_hook": {
+                    "governed": True,
+                    "server_url_configured": True,
+                    "event_phase": "TOOL_CALL",
+                    "verdict": {
+                        "review_required": False,
+                        "reason": "operator_allow",
+                    },
+                },
+                "tool_call": {
+                    "name": "Bash",
+                    "transport": "native",
+                    "arguments": {"command": "PRIVATE_ALLOWED_COMMAND_DO_NOT_EXPORT"},
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_e2e_missing_ask_boundary_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["approval_boundary"] == {
+        "required": True,
+        "passed": False,
+        "route_status": "passed",
+        "failure_mode": "approval_path_missing",
+        "ask_preserved": False,
+        "controller_surface": "none",
+        "tool_executed": False,
+        "raw_payload_exported": False,
+    }
+    assert output["failure_mode"] == "approval_path_missing"
+    assert "PRIVATE_ALLOWED_COMMAND_DO_NOT_EXPORT" not in serialized
 
 
 def test_agent_workflow_route_fails_when_lifecycle_trace_misses_required_phase():
