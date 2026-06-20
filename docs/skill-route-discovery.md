@@ -440,6 +440,18 @@ runtime action and external skill activation denied. A ready triage plan means
 the lane can be locally reviewed and validated; supervisor handoff can still be
 blocked later when local artifact proof is missing.
 
+The discovery lane also emits a body-free `route_profile_catalog` and repeats
+bounded `route_profiles` on proposal and triage rows. Current profiles include
+`codex_workflow_gate` for FableCodex-style workflow gates,
+`skill_ecosystem_state_handoff` for COMPASS-style state, memory, profile, and
+handoff systems, `game_frontend_workflow` for Three.js or browser game director
+skills, and `generic_skill_workflow` when the evidence is too broad for a more
+specific profile. These profiles are triage metadata only: they count and group
+local validation candidates, keep `runtime_action: none`, require local
+validation, and do not create install, scaffold, asset-generation, browser-run,
+profile-writing, provider-launch, remote-execution, or external skill activation
+authority.
+
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked
 from supervisor handoff until it carries a body-free `local_artifact_proof` for

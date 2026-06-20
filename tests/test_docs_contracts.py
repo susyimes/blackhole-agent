@@ -255,6 +255,14 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "Running installer, scaffold, browser checker, asset generator, credential probe",
         "documentation, config, test, or code_patch",
         "recorded as rejected or downgraded evidence, never as an activation request",
+        "body-free `route_profile_catalog`",
+        "`codex_workflow_gate`",
+        "`skill_ecosystem_state_handoff`",
+        "`game_frontend_workflow`",
+        "`generic_skill_workflow`",
+        "These profiles are triage metadata only",
+        "do not create install, scaffold, asset-generation, browser-run,\n"
+        "profile-writing, provider-launch, remote-execution, or external skill activation",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

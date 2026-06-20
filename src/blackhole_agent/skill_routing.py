@@ -80,6 +80,35 @@ SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
         "workflow",
     ),
 }
+SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
+    "codex_workflow_gate": (
+        "codex",
+        "evidence gate",
+        "fablecodex",
+        "plugin",
+        "review ledger",
+        "verification habit",
+        "workflow gate",
+    ),
+    "game_frontend_workflow": (
+        "3d",
+        "browser game",
+        "gameplay",
+        "graphics",
+        "three.js",
+        "threejs",
+        "vite",
+    ),
+    "skill_ecosystem_state_handoff": (
+        "collaboration profile",
+        "compass",
+        "handoff",
+        "local memory",
+        "profile",
+        "skill ecosystem",
+        "task forest",
+    ),
+}
 
 VALIDATION_WEIGHTS: Mapping[str, int] = {
     "validated": 12,
@@ -207,6 +236,7 @@ class ExternalSkillRouteCandidate:
             "name": self.name,
             "related_source_urls": list(dict.fromkeys(self.related_source_urls)),
             "requested_actions": list(self.requested_actions),
+            "route_profiles": list(_skill_route_discovery_route_profiles(self)),
             "route_hints": list(self.route_hints),
             "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
             "source_url": self.source_url,
@@ -668,6 +698,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "candidate_name": name,
                     "source_url": source_url,
                     "proposal_kind": lane,
+                    "route_profiles": _string_list(candidate.get("route_profiles")),
                     "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
                     "status": SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
                     "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
@@ -689,6 +720,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "proposal_lane_count": len(proposal_lanes),
         "rejected_candidate_count": len(rejected_candidates),
         "downgraded_candidate_count": len(downgraded_candidates),
+        "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
         "proposal_lanes": proposal_lanes,
         "rejected_candidates": rejected_candidates,
         "downgraded_candidates": downgraded_candidates,
@@ -803,6 +835,46 @@ def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> t
     )
     lanes = tuple(dict.fromkeys((*suggested, *keyword_lanes)))
     return lanes or ("documentation",)
+
+
+def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate) -> tuple[str, ...]:
+    """Classify the shape of external skill evidence without enabling it."""
+
+    text = " ".join(
+        part
+        for part in (
+            candidate.name,
+            candidate.evidence_summary,
+            " ".join(candidate.candidate_lanes),
+        )
+        if part
+    ).casefold()
+    profiles = [
+        profile
+        for profile, keywords in SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS.items()
+        if any(keyword in text for keyword in keywords)
+    ]
+    return tuple(dict.fromkeys(profiles or ["generic_skill_workflow"]))
+
+
+def _skill_route_discovery_route_profile_catalog(proposal_lanes: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    profile_counts: dict[str, int] = {}
+    lane_counts: dict[str, int] = {}
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        for profile in _string_list(lane.get("route_profiles")):
+            profile_counts[profile] = profile_counts.get(profile, 0) + 1
+            if proposal_kind:
+                key = f"{profile}:{proposal_kind}"
+                lane_counts[key] = lane_counts.get(key, 0) + 1
+    return {
+        "body_free": True,
+        "profile_counts": dict(sorted(profile_counts.items())),
+        "profile_lane_counts": dict(sorted(lane_counts.items())),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+    }
 
 
 def _summary_lineage_key(summary: ExternalSkillRepositorySummary) -> str:

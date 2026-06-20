@@ -375,6 +375,10 @@ def test_skill_route_discovery_classifies_summaries_into_bounded_lanes():
     assert lanes_by_name["codex-fable5"] == ["documentation", "test", "config", "code_patch"]
     assert lanes_by_name["compass-skills"] == ["config", "test", "documentation", "code_patch"]
     assert lanes_by_name["threejs-game-skills"] == ["documentation", "code_patch", "test"]
+    profiles_by_name = {candidate["name"]: candidate["route_profiles"] for candidate in registry["candidates"]}
+    assert profiles_by_name["codex-fable5"] == ["codex_workflow_gate"]
+    assert profiles_by_name["compass-skills"] == ["skill_ecosystem_state_handoff"]
+    assert profiles_by_name["threejs-game-skills"] == ["game_frontend_workflow"]
 
 
 def test_skill_route_discovery_summary_classifier_defaults_to_documentation_only():
@@ -472,6 +476,7 @@ def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candi
         "fablecodex-issue-18",
     ]
     assert candidate["candidate_lanes"] == ["documentation", "test", "config", "code_patch"]
+    assert candidate["route_profiles"] == ["codex_workflow_gate"]
     assert set(candidate["candidate_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert candidate["requested_actions"] == []
     assert candidate["validation_errors"] == []
@@ -509,12 +514,37 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert lane_map["downgraded_candidate_count"] == 0
     assert lane_map["allowed_proposal_kinds"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert lane_map["proposal_lane_count"] == 11
+    assert lane_map["route_profile_catalog"] == {
+        "body_free": True,
+        "profile_counts": {
+            "codex_workflow_gate": 4,
+            "game_frontend_workflow": 3,
+            "skill_ecosystem_state_handoff": 4,
+        },
+        "profile_lane_counts": {
+            "codex_workflow_gate:code_patch": 1,
+            "codex_workflow_gate:config": 1,
+            "codex_workflow_gate:documentation": 1,
+            "codex_workflow_gate:test": 1,
+            "game_frontend_workflow:code_patch": 1,
+            "game_frontend_workflow:documentation": 1,
+            "game_frontend_workflow:test": 1,
+            "skill_ecosystem_state_handoff:code_patch": 1,
+            "skill_ecosystem_state_handoff:config": 1,
+            "skill_ecosystem_state_handoff:documentation": 1,
+            "skill_ecosystem_state_handoff:test": 1,
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+    }
     assert {
         lane["proposal_kind"]
         for lane in lane_map["proposal_lanes"]
     } <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert all(lane["route_hint"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
     assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["route_profiles"] for lane in lane_map["proposal_lanes"])
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
     assert all(lane["uncertainty"] for lane in lane_map["proposal_lanes"])
     assert all("unvalidated_external_skill_evidence" in lane["uncertainty_reasons"] for lane in lane_map["proposal_lanes"])

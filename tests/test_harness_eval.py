@@ -599,6 +599,19 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     }
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
     assert output["lane_map"]["proposal_lane_count"] == 4
+    assert output["lane_map"]["route_profile_catalog"] == {
+        "body_free": True,
+        "profile_counts": {"codex_workflow_gate": 4},
+        "profile_lane_counts": {
+            "codex_workflow_gate:code_patch": 1,
+            "codex_workflow_gate:config": 1,
+            "codex_workflow_gate:documentation": 1,
+            "codex_workflow_gate:test": 1,
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+    }
     assert output["lane_map"]["lanes_bounded"] is True
     assert output["lane_map"]["lane_runtime_safe"] is True
     assert output["lane_map"]["local_validation_required"] is True
@@ -898,6 +911,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     )
     assert all(entry["raw_source_url_exported"] is False for entry in output["discovery_checklist"])
     assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
+    assert {tuple(lane["route_profiles"]) for lane in output["proposal_lanes"]} == {("codex_workflow_gate",)}
     assert {lane["evidence_url_count"] for lane in output["proposal_lanes"]} == {3}
     assert all(lane["evidence_url_hashes"] for lane in output["proposal_lanes"])
     assert output["privacy"] == {
@@ -1001,6 +1015,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     for row in output["route_triage_plan"]["rows"]:
         assert row["triage_reason"] == expected_triage_reasons[row["proposal_kind"]]
         assert row["candidate_count"] == 1
+        assert row["route_profiles"] == ["codex_workflow_gate"]
         assert row["source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
         assert row["evidence_item_id_count"] == 3
         assert row["target_path_hashes"]
@@ -1113,6 +1128,7 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
             "proposal_kind": "documentation",
             "triage_reason": "record route lesson and operator acceptance criteria",
             "candidate_count": 1,
+            "route_profiles": ["skill_ecosystem_state_handoff"],
             "source_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
             "evidence_item_id_count": 0,
             "uncertainty_reasons": [

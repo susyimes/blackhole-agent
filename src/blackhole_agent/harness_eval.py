@@ -1104,6 +1104,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "proposal_lane_count": lane_map["proposal_lane_count"],
             "rejected_candidate_count": lane_map["rejected_candidate_count"],
             "downgraded_candidate_count": lane_map["downgraded_candidate_count"],
+            "route_profile_catalog": lane_map["route_profile_catalog"],
             "proposal_kinds": proposal_kinds,
             "lanes_bounded": lanes_bounded,
             "lane_runtime_safe": lane_runtime_safe,
@@ -1144,6 +1145,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
                 "route_hint": str(lane.get("route_hint") or ""),
                 "status": str(lane.get("status") or ""),
                 "runtime_action": str(lane.get("runtime_action") or ""),
+                "route_profiles": string_list(lane.get("route_profiles")),
                 "local_validation_required": lane.get("local_validation_required") is True,
                 "evidence_url_count": len(lane.get("evidence_urls") or []),
                 "evidence_url_hashes": [stable_text_hash(str(url)) for url in lane.get("evidence_urls") or []],
@@ -2339,9 +2341,11 @@ def skill_route_discovery_route_triage_plan(
         target_paths = artifact_contract.get("target_paths")
         target_paths = target_paths if isinstance(target_paths, list) else []
         evidence_item_ids: list[str] = []
+        route_profiles: list[str] = []
         uncertainty_reasons: list[str] = []
         for lane in lanes:
             evidence_item_ids.extend(string_list(lane.get("evidence_item_ids")))
+            route_profiles.extend(string_list(lane.get("route_profiles")))
             uncertainty_reasons.extend(string_list(lane.get("uncertainty_reasons")))
         artifact_proof = activation_lane.get("local_artifact_proof")
         artifact_proof = artifact_proof if isinstance(artifact_proof, dict) else {}
@@ -2354,6 +2358,7 @@ def skill_route_discovery_route_triage_plan(
                     "review bounded local route before implementation",
                 ),
                 "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
+                "route_profiles": sorted(dict.fromkeys(route_profiles)),
                 "source_hashes": sorted(
                     {
                         stable_text_hash(str(lane.get("source_url") or ""))
