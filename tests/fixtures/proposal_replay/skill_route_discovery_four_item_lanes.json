@@ -1,0 +1,217 @@
+{
+  "name": "skill-route-discovery-four-item-lanes",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 4,
+    "max_item_text_chars": 420
+  },
+  "digest": {
+    "digest_id": "github-growth-20260620T005207-skill-route-discovery-four-item-lanes",
+    "generated_at": "2026-06-20T00:52:07Z",
+    "items": [
+      {
+        "item_id": "fablecodex-workflow-skill-eval",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "event_kind": "RepositoryTrend",
+        "summary": "baskduf/FableCodex: Codex-style workflow skills for planning, inspecting evidence, and validating before completion",
+        "relevance_reason": "Supports a bounded skill_route_discovery lane for workflow-gate evidence and local proposal replay tests.",
+        "risk_flags": [],
+        "confidence": 0.9
+      },
+      {
+        "item_id": "compass-skills-local-lanes",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "dongshuyan/compass-skills: local AI agent skills for task clarification, task memory, handoff prompts, and collaboration profiles",
+        "relevance_reason": "Supports interpreting skill ecosystems as body-free local documentation, config, test, or code_patch candidates.",
+        "risk_flags": [],
+        "confidence": 0.88
+      },
+      {
+        "item_id": "threejs-game-skills-domain-director",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "majidmanzarpour/threejs-game-skills: agent skills for Three.js game direction, gameplay, UI, QA, and optional asset workflows",
+        "relevance_reason": "Supports recognizing domain-director skill bundles as route-shape evidence without running scaffolds, browser checks, or asset helpers.",
+        "risk_flags": [],
+        "confidence": 0.84
+      },
+      {
+        "item_id": "threejs-game-skills-fork-lineage",
+        "source_url": "https://github.com/xiaoguomeiyitian/threejs-game-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "xiaoguomeiyitian/threejs-game-skills: fork-lineage evidence for a Three.js game skill bundle with specialist workflow routing",
+        "relevance_reason": "Supports fork or mirror lineage as evidence pressure only; it must not amplify activation beyond bounded local skill_route_discovery lanes.",
+        "risk_flags": [],
+        "confidence": 0.78
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-20260620T005207-skill-route-discovery-four-item-lanes",
+    "run_interpretation": "Four public skill repositories map to bounded local discovery lanes and cite only selected item IDs.",
+    "self_model_reading": {
+      "status": "left_unchanged",
+      "reason": "The current self-model already favors rollback-backed local changes while keeping external skill activation out of discovery."
+    },
+    "proposals": [
+      {
+        "proposal_id": "p1-skill-route-doc-lane",
+        "kind": "documentation",
+        "summary": "Document how skill repositories become bounded local discovery candidates.",
+        "evidence_refs": [
+          "fablecodex-workflow-skill-eval"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run the local fixture and proposal replay unit tests, then inspect docs for the bounded lane contract.",
+        "rationale": "Workflow-skill evidence can improve local route interpretation without importing upstream behavior.",
+        "uncertainty": "Repository-level evidence leaves upstream implementation details unverified, so this is documentation-only local validation.",
+        "self_effect": "Keeps skill-route discovery legible for future proposal synthesis.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p2-skill-route-config-lane",
+        "kind": "config",
+        "summary": "Expose skill-route lane policy as inspectable configuration metadata.",
+        "evidence_refs": [
+          "compass-skills-local-lanes"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run proposal-generation unit tests that assert skill_route_discovery lanes remain bounded.",
+        "rationale": "Skill ecosystems are useful as route topology evidence when the controller keeps allowed lanes explicit.",
+        "uncertainty": "Repository-level evidence does not prove local runtime behavior; it only supports inspectable policy metadata.",
+        "self_effect": "Improves future route checks by keeping allowed lanes visible.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p3-skill-route-test-lane",
+        "kind": "test",
+        "summary": "Add replay coverage for skill repository item-id citations and lane bounds.",
+        "evidence_refs": [
+          "threejs-game-skills-domain-director"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run a fixture-driven unit test that checks allowed lanes and selected item_id evidence refs.",
+        "rationale": "Domain-director skill bundles are reusable route-shape evidence, but local tests must prove the boundary.",
+        "uncertainty": "README-level evidence leaves missing implementation details; the test validates only local routing behavior.",
+        "self_effect": "Hardens skill-route discovery against unbounded candidate lanes.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p4-skill-route-code-patch-lane",
+        "kind": "code_patch",
+        "summary": "Patch local route discovery only after replay coverage proves the bounded lane.",
+        "evidence_refs": [
+          "threejs-game-skills-fork-lineage"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run focused tests for proposal replay before accepting any skill_route_discovery code_patch.",
+        "rationale": "Fork-lineage skill evidence can justify local code only when replay tests prevent activation amplification.",
+        "uncertainty": "Fork movement may duplicate upstream evidence rather than add implementation detail, so validation stays local and bounded.",
+        "self_effect": "Allows code improvements while preserving the external skill activation boundary.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p5-skill-route-follow-up-escape",
+        "kind": "follow_up_issue",
+        "summary": "Incorrectly route skill discovery into an unbounded follow-up lane.",
+        "evidence_refs": [
+          "fablecodex-workflow-skill-eval"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving skill_route_discovery rejects lanes outside documentation, config, test, or code_patch.",
+        "rationale": "This candidate is intentionally malformed to exercise deterministic lane rejection.",
+        "uncertainty": "Malformed candidate; it should not be accepted.",
+        "self_effect": "Would weaken route discovery if accepted.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 4,
+    "rejected_count": 1,
+    "selected_item_ids": [
+      "fablecodex-workflow-skill-eval",
+      "compass-skills-local-lanes",
+      "threejs-game-skills-domain-director",
+      "threejs-game-skills-fork-lineage"
+    ],
+    "truncated_item_ids": [],
+    "accepted_evidence_refs": {
+      "p1-skill-route-doc-lane": [
+        "fablecodex-workflow-skill-eval"
+      ],
+      "p2-skill-route-config-lane": [
+        "compass-skills-local-lanes"
+      ],
+      "p3-skill-route-test-lane": [
+        "threejs-game-skills-domain-director"
+      ],
+      "p4-skill-route-code-patch-lane": [
+        "threejs-game-skills-fork-lineage"
+      ]
+    },
+    "rejected_error_substrings": [
+      "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
+    ],
+    "proposal_controls": {
+      "p1-skill-route-doc-lane": {
+        "kind": "documentation",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p2-skill-route-config-lane": {
+        "kind": "config",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p3-skill-route-test-lane": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p4-skill-route-code-patch-lane": {
+        "kind": "code_patch",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    },
+    "proposal_validation_preflights": {
+      "p1-skill-route-doc-lane": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p2-skill-route-config-lane": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p3-skill-route-test-lane": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p4-skill-route-code-patch-lane": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      }
+    }
+  }
+}

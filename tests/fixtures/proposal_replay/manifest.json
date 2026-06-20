@@ -6,13 +6,15 @@
     "https://github.com/NotPBShaw/burner-agents",
     "https://github.com/baskduf/FableCodex",
     "https://github.com/dongshuyan/compass-skills",
+    "https://github.com/majidmanzarpour/threejs-game-skills",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
     "https://github.com/omnigent-ai/omnigent/pull/590",
     "https://github.com/omnigent-ai/omnigent/pull/740",
     "https://github.com/omnigent-ai/omnigent/pull/779",
     "https://github.com/samarailly51-pixel/opencode-harness",
-    "https://github.com/visa/visa-vulnerability-agentic-harness"
+    "https://github.com/visa/visa-vulnerability-agentic-harness",
+    "https://github.com/xiaoguomeiyitian/threejs-game-skills"
   ],
   "cases": [
     {
@@ -104,6 +106,17 @@
       "evidence_urls": [
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "skill-route-discovery-four-item-lanes",
+      "file": "skill_route_discovery_four_item_lanes.json",
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/xiaoguomeiyitian/threejs-game-skills"
       ],
       "expected_review_status": "accepted"
     }

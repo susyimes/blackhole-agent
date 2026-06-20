@@ -1,0 +1,17 @@
+Rollback point for skill-route-discovery pass 3
+
+Created at: 2026-06-20T00:52:07Z
+Original branch: codex/blackhole-evolve/20260620T005306.377379-add-or-extend-local-tests-that-verify-skill-rout
+Original HEAD: f85d01169e751ccd05bf19f03397252478b9531b
+Rollback ref: refs/blackhole-rollback/20260620T005207Z-skill-route-discovery-pass3
+
+Recovery commands, if an external supervisor or human operator chooses rollback:
+
+git switch codex/blackhole-evolve/20260620T005306.377379-add-or-extend-local-tests-that-verify-skill-rout
+git reset --hard refs/blackhole-rollback/20260620T005207Z-skill-route-discovery-pass3
+
+Scope planned after this point:
+
+- Add fixture-driven proposal replay coverage for the four carried skill-route evidence items.
+- Keep skill_route_discovery proposals bounded to documentation, config, test, or code_patch.
+- Verify evidence refs cite selected item_id values only, without candidate-supplied URL expansion or truncated_item_ids.

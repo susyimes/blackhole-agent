@@ -40,6 +40,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
         "omnigent-release-evidence-validation",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
+        "skill-route-discovery-four-item-lanes",
         "security-adjacent-context-pressure",
         "skill-workflow-route-discovery",
     }
@@ -49,11 +50,11 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 10
-    assert report.passed_count == 10
+    assert report.case_count == 11
+    assert report.passed_count == 11
     assert report.failed_count == 0
-    assert report.accepted_count == 17
-    assert report.rejected_count == 8
+    assert report.accepted_count == 21
+    assert report.rejected_count == 9
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -108,7 +109,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 10
+    assert report.case_count == 11
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
@@ -120,12 +121,14 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "current-wake-agent-harness-validation",
         "agent-codex-workflow-local-validation",
         "skill-workflow-route-discovery",
+        "skill-route-discovery-four-item-lanes",
     ]
     assert report.evidence_urls == [
         "https://github.com/ApodexAI/AgentHarness",
         "https://github.com/NotPBShaw/burner-agents",
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent",
         "https://github.com/omnigent-ai/omnigent/pull/590",
@@ -133,6 +136,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/omnigent-ai/omnigent/pull/779",
         "https://github.com/samarailly51-pixel/opencode-harness",
         "https://github.com/visa/visa-vulnerability-agentic-harness",
+        "https://github.com/xiaoguomeiyitian/threejs-game-skills",
     ]
     assert report.to_dict()["failures"] == []
 
@@ -442,6 +446,87 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
     assert missing_uncertainty_review.status == "rejected"
     assert "uncertainty must record context_budget missing_detail_risk" in (
         missing_uncertainty_review.rejected_candidates[0]["errors"]
+    )
+
+
+def test_skill_route_discovery_four_item_fixture_stays_in_bounded_lanes():
+    case = load_proposal_replay_case(FIXTURE_DIR / "skill_route_discovery_four_item_lanes.json")
+    result = run_proposal_replay_case(case)
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+    selected_items_by_id = {str(item["item_id"]): item for item in evidence_package["items"]}
+    selected_item_ids = set(evidence_package["context_budget"]["selected_item_ids"])
+    truncated_item_ids = set(evidence_package["context_budget"]["truncated_item_ids"])
+    accepted_kinds = {controls["kind"] for controls in result.proposal_controls.values()}
+
+    assert result.passed is True
+    assert result.selected_item_ids == [
+        "fablecodex-workflow-skill-eval",
+        "compass-skills-local-lanes",
+        "threejs-game-skills-domain-director",
+        "threejs-game-skills-fork-lineage",
+    ]
+    assert result.truncated_item_ids == []
+    assert accepted_kinds == {"documentation", "config", "test", "code_patch"}
+    assert set(result.proposal_controls) == {
+        "p1-skill-route-doc-lane",
+        "p2-skill-route-config-lane",
+        "p3-skill-route-test-lane",
+        "p4-skill-route-code-patch-lane",
+    }
+    assert all(
+        controls["implementation_scope"] == "local_validation_candidate"
+        and controls["validation_gate"] == "focused-evidence-review"
+        for controls in result.proposal_controls.values()
+    )
+    assert all(
+        "skill_route_discovery" in item["route_hints"]
+        for item in selected_items_by_id.values()
+    )
+
+    review = review_llm_proposal_response(
+        json.dumps(case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+    assert review.status == "accepted"
+    for candidate in review.accepted_candidates:
+        refs = set(candidate["evidence_refs"])
+        assert refs <= selected_item_ids
+        assert not refs & truncated_item_ids
+        assert candidate["kind"] in {"documentation", "config", "test", "code_patch"}
+        assert "evidence_urls" not in next(
+            raw
+            for raw in case["raw_response"]["proposals"]
+            if raw["proposal_id"] == candidate["proposal_id"]
+        )
+        assert candidate["evidence_urls"] == sorted(
+            selected_items_by_id[item_id]["source_url"] for item_id in candidate["evidence_refs"]
+        )
+    assert "skill_route_discovery proposals must use one of: documentation, config, test, code_patch" in (
+        review.rejected_candidates[0]["errors"]
+    )
+
+    url_expansion_case = load_proposal_replay_case(FIXTURE_DIR / "skill_route_discovery_four_item_lanes.json")
+    url_expansion_case["raw_response"]["proposals"] = [
+        {
+            **url_expansion_case["raw_response"]["proposals"][0],
+            "proposal_id": "skill-route-candidate-supplied-url",
+            "evidence_urls": ["https://github.com/example/extra-skill-route"],
+        }
+    ]
+    url_expansion_review = review_llm_proposal_response(
+        json.dumps(url_expansion_case["raw_response"]),
+        evidence_package,
+        mode=url_expansion_case["mode"],
+    )
+    assert url_expansion_review.status == "rejected"
+    assert any(
+        "evidence_urls must be derived from frozen evidence_refs" in error
+        for error in url_expansion_review.rejected_candidates[0]["errors"]
     )
 
 

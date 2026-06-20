@@ -12,12 +12,16 @@ refined by `github-growth-20260618T171207.138935Z`, clarified by
 `github-growth-20260618T233207.218276Z`. The source digest
 `github-growth-20260619T001207.230597Z` rechecked the same route class and
 added the requirement that selected digest `item_id` values remain visible in
-item-derived lane maps. The bounded evidence reviewed for these runs:
+item-derived lane maps. Source digest `github-growth-20260620T005207.516587Z`
+extended the replay fixture to the current four carried skill evidence items,
+including fork-lineage evidence, while preserving selected `item_id` citations
+instead of URL citations. The bounded evidence reviewed for these runs:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
 - `https://github.com/majidmanzarpour/threejs-game-skills`
 - `https://github.com/pretinhuu1-boop/threejs-game-skills`
+- `https://github.com/xiaoguomeiyitian/threejs-game-skills`
 
 No upstream code, install scripts, prompts, or skill bodies were adopted.
 
