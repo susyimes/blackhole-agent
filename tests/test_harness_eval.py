@@ -1040,6 +1040,71 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["route_triage_plan"]["raw_evidence_exported"] is False
     assert output["route_triage_plan"]["raw_source_urls_exported"] is False
     assert output["route_triage_plan"]["raw_target_paths_exported"] is False
+    assert output["activation_manifest"]["controller_surface"] == "skill_route_discovery_activation_manifest"
+    assert output["activation_manifest"]["status"] == "ready"
+    assert output["activation_manifest"]["decision"] == "manifest_bounded_local_lanes"
+    assert output["activation_manifest"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert output["activation_manifest"]["lane_count"] == 4
+    assert (
+        output["activation_manifest"]["required_validation"]
+        == skill_route_discovery_preactivation_validation_commands()
+    )
+    assert output["activation_manifest"]["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert output["activation_manifest"]["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 1,
+        "related_source_count": 0,
+        "fork_or_mirror_lineage_collapsed": False,
+    }
+    assert output["activation_manifest"]["recovery_hint_codes"] == []
+    assert output["activation_manifest"]["diagnostics"] == []
+    assert output["activation_manifest"]["evidence_ref_mode"] == "selected_item_ids_only"
+    assert output["activation_manifest"]["local_validation_required"] is True
+    assert output["activation_manifest"]["runtime_action_allowed"] is False
+    assert output["activation_manifest"]["external_skill_activation_allowed"] is False
+    assert output["activation_manifest"]["external_harness_execution_allowed"] is False
+    assert output["activation_manifest"]["provider_runtime_launch_allowed"] is False
+    assert output["activation_manifest"]["remote_execution_allowed"] is False
+    assert output["activation_manifest"]["raw_evidence_urls_exported"] is False
+    assert output["activation_manifest"]["raw_source_urls_exported"] is False
+    assert output["activation_manifest"]["raw_target_paths_exported"] is False
+    assert output["activation_manifest"]["raw_upstream_body_exported"] is False
+    assert [row["proposal_kind"] for row in output["activation_manifest"]["manifest_lanes"]] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    for row in output["activation_manifest"]["manifest_lanes"]:
+        assert row["route_profiles"] == ["codex_workflow_gate"]
+        assert row["evidence_refs"] == [
+            "fablecodex-issue-15",
+            "fablecodex-issue-18",
+            "fablecodex-repo",
+        ]
+        assert row["candidate_count"] == 1
+        assert row["candidate_source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
+        assert row["target_path_hashes"]
+        assert row["local_artifact_proof_ready"] is True
+        assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert row["provider_runtime_next_action"] == "run_provider_runtime_replay_before_promotion"
+        assert row["activation_ready"] is True
+        assert row["activation_blockers"] == []
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 

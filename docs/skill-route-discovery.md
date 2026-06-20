@@ -452,6 +452,19 @@ validation, and do not create install, scaffold, asset-generation, browser-run,
 profile-writing, provider-launch, remote-execution, or external skill activation
 authority.
 
+Before supervisor promotion, the lane now emits
+`activation_manifest` as a compact replay surface for bounded local work. The
+manifest lists only the allowed local lane names, selected-item `evidence_refs`,
+route profiles, candidate source hashes, local target path hashes, local
+artifact proof readiness, required validation commands, provider-runtime replay
+commands, recovery hint codes, and activation blockers. Its
+`evidence_ref_mode` is `selected_item_ids_only`: public repository URLs remain
+source evidence in the frozen package, not manifest citations. A ready manifest
+means documentation, config, test, or code_patch lanes have enough local proof
+to replay; it still denies runtime action, external skill activation, external
+harness execution, provider launch, remote execution, raw evidence URLs, raw
+source URLs, raw target paths, and raw upstream bodies.
+
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked
 from supervisor handoff until it carries a body-free `local_artifact_proof` for

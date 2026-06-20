@@ -1079,6 +1079,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
         preactivation_trust_boundary=preactivation_trust_boundary,
     )
+    activation_manifest = skill_route_discovery_activation_manifest(
+        proposal_lanes=proposal_lanes,
+        activation_lanes=activation_lanes,
+        operator_handoff=operator_handoff,
+        source_lineage=source_lineage,
+        recovery_hints=recovery_hints,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1134,6 +1141,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
         "route_triage_plan": route_triage_plan,
+        "activation_manifest": activation_manifest,
         "supervisor_readiness": supervisor_readiness,
         "operator_handoff": operator_handoff,
         "activation_lanes": activation_lanes,
@@ -2185,6 +2193,125 @@ def skill_route_discovery_operator_handoff(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+    }
+
+
+def skill_route_discovery_activation_manifest(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    activation_lanes: list[dict[str, Any]],
+    operator_handoff: dict[str, Any],
+    source_lineage: dict[str, Any],
+    recovery_hints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Render a compact replay manifest for bounded local route activation."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    proposals_by_kind: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        if proposal_kind:
+            proposals_by_kind.setdefault(proposal_kind, []).append(lane)
+
+    manifest_lanes: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for activation_lane in activation_lanes:
+        proposal_kind = str(activation_lane.get("proposal_kind") or "")
+        lane_proposals = proposals_by_kind.get(proposal_kind, [])
+        evidence_refs: list[str] = []
+        route_profiles: list[str] = []
+        for proposal in lane_proposals:
+            evidence_refs.extend(string_list(proposal.get("evidence_item_ids")))
+            route_profiles.extend(string_list(proposal.get("route_profiles")))
+
+        artifact_contract = activation_lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        target_paths = artifact_contract.get("target_paths")
+        target_paths = target_paths if isinstance(target_paths, list) else []
+        artifact_proof = activation_lane.get("local_artifact_proof")
+        artifact_proof = artifact_proof if isinstance(artifact_proof, dict) else {}
+        provider_runtime_control = activation_lane.get("provider_runtime_control")
+        provider_runtime_control = (
+            provider_runtime_control if isinstance(provider_runtime_control, dict) else {}
+        )
+
+        if proposal_kind not in allowed_lanes:
+            diagnostics.append(f"{proposal_kind}:proposal_kind_unbounded")
+        if str(activation_lane.get("runtime_action") or "") != "none":
+            diagnostics.append(f"{proposal_kind}:runtime_action_must_be_none")
+        if activation_lane.get("external_skill_activation_allowed") is not False:
+            diagnostics.append(f"{proposal_kind}:external_skill_activation_must_be_false")
+        if artifact_proof.get("ready") is not True:
+            diagnostics.append(f"{proposal_kind}:local_artifact_proof_not_ready")
+        if not evidence_refs:
+            diagnostics.append(f"{proposal_kind}:evidence_refs_missing")
+
+        manifest_lanes.append(
+            {
+                "proposal_kind": proposal_kind,
+                "route_profiles": sorted(dict.fromkeys(route_profiles)),
+                "evidence_refs": sorted(dict.fromkeys(evidence_refs)),
+                "candidate_count": int(activation_lane.get("candidate_count") or 0),
+                "candidate_source_hashes": string_list(activation_lane.get("candidate_source_hashes")),
+                "target_path_hashes": [
+                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+                ],
+                "local_artifact_proof_ready": artifact_proof.get("ready") is True,
+                "required_validation": validation_commands,
+                "provider_runtime_next_action": str(provider_runtime_control.get("next_action") or ""),
+                "activation_ready": activation_lane.get("activation_ready") is True,
+                "activation_blockers": string_list(activation_lane.get("activation_blockers")),
+                "runtime_action": str(activation_lane.get("runtime_action") or "none"),
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        bool(manifest_lanes)
+        and not diagnostics
+        and operator_handoff.get("status") == "ready"
+        and all(lane["activation_ready"] for lane in manifest_lanes)
+    )
+    recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
+    return {
+        "controller_surface": "skill_route_discovery_activation_manifest",
+        "status": "ready" if ready else "blocked",
+        "decision": "manifest_bounded_local_lanes" if ready else "hold_manifest_for_review",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "lane_count": len(manifest_lanes),
+        "manifest_lanes": manifest_lanes,
+        "required_validation": validation_commands,
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "recovery_hint_codes": recovery_hint_codes,
+        "diagnostics": diagnostics,
+        "evidence_ref_mode": "selected_item_ids_only",
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
