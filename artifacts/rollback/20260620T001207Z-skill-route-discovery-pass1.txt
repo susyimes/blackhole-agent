@@ -1,0 +1,12 @@
+Run: github-growth-20260620T001207.508439Z
+Theme: skill-route-discovery
+Branch: codex/blackhole-evolve/20260620T001337.529092-evaluate-whether-compass-style-skill-routing-pat
+Original HEAD: abe194482cd0af90248b5b217f84a0e3350d912f
+Rollback ref: refs/blackhole-rollback/20260620T001207Z-skill-route-discovery-pass1
+
+Recovery commands:
+git fetch --all --prune
+git switch codex/blackhole-evolve/20260620T001337.529092-evaluate-whether-compass-style-skill-routing-pat
+git reset --hard refs/blackhole-rollback/20260620T001207Z-skill-route-discovery-pass1
+
+Rollback is explicit and destructive. Do not run the reset unless an operator or supervisor policy chooses rollback.

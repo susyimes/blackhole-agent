@@ -932,6 +932,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
 
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
     proposal_lanes = lane_map["proposal_lanes"]
+    source_lineage = skill_route_discovery_source_lineage_summary(registry)
     lane_runtime_safe = all(lane.get("runtime_action") == "none" for lane in proposal_lanes)
     validation_required = all(lane.get("local_validation_required") is True for lane in proposal_lanes)
     proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in proposal_lanes})
@@ -999,6 +1000,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         activation_lanes=activation_lanes,
         preactivation_trust_boundary=preactivation_trust_boundary,
         recovery_hints=recovery_hints,
+        source_lineage=source_lineage,
     )
 
     registry_summary = {
@@ -1032,6 +1034,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "uncertainty_reasons": uncertainty["reasons"],
         },
         "evidence_strength": evidence_strength,
+        "source_lineage": source_lineage,
         "uncertainty": uncertainty,
         "activation_gate": activation_gate,
         "diagnostics": {
@@ -1043,6 +1046,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "downgraded_candidate_count": lane_map["downgraded_candidate_count"],
             "uncertainty_reasons": uncertainty["reasons"],
             "body_free": True,
+            "source_lineage_mode": source_lineage["lineage_mode"],
         },
         "recovery_hints": recovery_hints,
         "preactivation_trust_boundary": preactivation_trust_boundary,
@@ -1067,8 +1071,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         ],
         "privacy": {
             "raw_source_urls_exported": False,
+            "source_urls_hashed": True,
             "raw_evidence_urls_exported": False,
             "evidence_urls_hashed": True,
+            "raw_related_source_urls_exported": False,
             "runtime_actions_executed": False,
         },
     }
@@ -1194,6 +1200,48 @@ def skill_route_discovery_recovery_hints(
     ]
 
 
+def skill_route_discovery_source_lineage_summary(registry: dict[str, Any]) -> dict[str, Any]:
+    """Summarize external source lineage without exporting raw URLs."""
+
+    candidates = registry.get("candidates")
+    candidates = candidates if isinstance(candidates, list) else []
+    source_url_hashes: list[str] = []
+    related_source_url_hashes: list[str] = []
+    evidence_item_id_count = 0
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        source_url = str(candidate.get("source_url") or "")
+        if source_url:
+            source_url_hashes.append(stable_text_hash(source_url))
+        related_source_urls = candidate.get("related_source_urls")
+        if isinstance(related_source_urls, list):
+            related_source_url_hashes.extend(
+                stable_text_hash(str(url)) for url in related_source_urls if str(url).strip()
+            )
+        evidence_item_ids = candidate.get("evidence_item_ids")
+        if isinstance(evidence_item_ids, list):
+            evidence_item_id_count += len([item_id for item_id in evidence_item_ids if str(item_id).strip()])
+
+    duplicate_summary_count = int(registry.get("duplicate_summary_count") or 0)
+    unique_source_hashes = sorted(dict.fromkeys(source_url_hashes))
+    unique_related_hashes = sorted(dict.fromkeys(related_source_url_hashes))
+    fork_or_mirror_lineage_collapsed = duplicate_summary_count > 0 or bool(unique_related_hashes)
+    return {
+        "body_free": True,
+        "lineage_mode": "collapsed_fork_or_mirror" if fork_or_mirror_lineage_collapsed else "single_or_independent_sources",
+        "candidate_source_count": len(unique_source_hashes),
+        "candidate_source_hashes": unique_source_hashes,
+        "related_source_count": len(unique_related_hashes),
+        "related_source_hashes": unique_related_hashes,
+        "duplicate_summary_count": duplicate_summary_count,
+        "evidence_item_id_count": evidence_item_id_count,
+        "fork_or_mirror_lineage_collapsed": fork_or_mirror_lineage_collapsed,
+        "raw_source_urls_exported": False,
+        "raw_related_source_urls_exported": False,
+    }
+
+
 def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Render proposal lanes as an operator checklist without exporting URLs."""
 
@@ -1213,6 +1261,7 @@ def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) 
             "runtime_action": str(lane.get("runtime_action") or ""),
             "external_skill_activation_allowed": False,
             "external_harness_execution_allowed": False,
+            "raw_source_url_exported": False,
         }
         for lane in proposal_lanes
     ]
@@ -1243,6 +1292,13 @@ def build_skill_route_discovery_activation_lanes(
             "proposal_kind": proposal_kind,
             "candidate_count": len(lanes),
             "candidate_names": sorted({str(lane.get("candidate_name") or "") for lane in lanes}),
+            "candidate_source_hashes": sorted(
+                {
+                    stable_text_hash(str(lane.get("source_url") or ""))
+                    for lane in lanes
+                    if str(lane.get("source_url") or "")
+                }
+            ),
             "required_validation": validation_commands,
             "local_artifact_contract": skill_route_discovery_local_artifact_contract(proposal_kind),
             "preactivation_harness": {
@@ -1257,6 +1313,7 @@ def build_skill_route_discovery_activation_lanes(
             "recovery_hint_codes": [] if activation_allowed else recovery_hint_codes,
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
+            "raw_source_urls_exported": False,
         }
         for proposal_kind, lanes in sorted(grouped.items())
     ]
@@ -1330,8 +1387,16 @@ def skill_route_discovery_preactivation_trust_boundary(
             diagnostics.append(f"{prefix}.runtime_action_must_be_none")
         if lane.get("external_skill_activation_allowed") is not False:
             diagnostics.append(f"{prefix}.external_skill_activation_must_be_false")
+        if lane.get("raw_source_urls_exported") is not False:
+            diagnostics.append(f"{prefix}.raw_source_urls_must_be_false")
         if lane.get("required_validation") != expected_validation:
             diagnostics.append(f"{prefix}.required_validation_mismatch")
+        candidate_source_hashes = lane.get("candidate_source_hashes")
+        candidate_source_hashes = candidate_source_hashes if isinstance(candidate_source_hashes, list) else []
+        if not candidate_source_hashes:
+            diagnostics.append(f"{prefix}.candidate_source_hashes_missing")
+        if any(not str(value).startswith("sha256:") for value in candidate_source_hashes):
+            diagnostics.append(f"{prefix}.candidate_source_hashes_must_be_hashes")
 
         artifact_contract = lane.get("local_artifact_contract")
         artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
@@ -1420,6 +1485,7 @@ def skill_route_discovery_supervisor_readiness(
     activation_lanes: list[dict[str, Any]],
     preactivation_trust_boundary: dict[str, Any],
     recovery_hints: list[dict[str, Any]],
+    source_lineage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Summarize whether a supervisor may promote only local route work."""
 
@@ -1457,6 +1523,7 @@ def skill_route_discovery_supervisor_readiness(
 
     replay_commands = list(validation_commands)
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
+    source_lineage = source_lineage if isinstance(source_lineage, dict) else {}
     return {
         "decision": decision,
         "reason": "none" if decision == "ready_for_supervisor_promotion" else failure_mode,
@@ -1474,6 +1541,16 @@ def skill_route_discovery_supervisor_readiness(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "recovery_hint_codes": recovery_hint_codes,
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "duplicate_summary_count": int(source_lineage.get("duplicate_summary_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+            "raw_source_urls_exported": False,
+            "raw_related_source_urls_exported": False,
+        },
         "runtime_action_allowed": runtime_actions != ["none"] if runtime_actions else False,
         "external_skill_activation_allowed": external_skill_allowed,
         "external_harness_execution_allowed": external_harness_allowed,

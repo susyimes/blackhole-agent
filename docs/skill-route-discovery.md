@@ -234,10 +234,23 @@ documentation, config, test, or code_patch, required tests include
 notes require a rollback ref and artifact before source changes, runtime action
 remains `none`, and external skill activation remains false.
 
+The harness now also emits a body-free `source_lineage` summary and carries a
+compact lineage view into supervisor readiness. This records candidate source
+counts, hashed candidate and related source URLs, duplicate summary counts,
+evidence item ID counts, and whether fork or mirror lineage was collapsed. It
+does not export raw source URLs or related source URLs. This keeps public
+skill-pack evidence such as COMPASS Skills, Three.js Game Skills, or FableCodex
+fork movement visible as lineage pressure while preserving the preactivation
+rule: forked or domain-specific skill repositories can justify bounded local
+documentation, config, test, or code_patch lanes, but they do not add install,
+clone, run, scaffold, profile, asset-generation, provider-launch, or remote
+execution authority.
+
 For controller handoff, the harness also emits `activation_lanes`. These rows
 group proposal lanes by local output kind and carry the required validation
-command, candidate names, readiness flag, blockers, body-free recovery hint
-codes, runtime action, and external activation flag. A lane is
+command, candidate names, hashed candidate sources, readiness flag, blockers,
+body-free recovery hint codes, runtime action, raw-source export denial, and
+external activation flag. A lane is
 `activation_ready: true` only when the overall gate is
 `ready_for_local_proposal_activation`; weak generic evidence, downgraded lanes,
 rejected candidates, unbounded lanes, missing validation, or requested runtime

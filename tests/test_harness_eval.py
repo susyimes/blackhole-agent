@@ -5,6 +5,7 @@ from blackhole_agent.harness_eval import (
     build_harness_comparison_report,
     evaluate_harness_behavior,
     run_local_harness_eval,
+    stable_text_hash,
     skill_route_discovery_provider_runtime_preflight_contract,
     skill_route_discovery_preactivation_trust_boundary,
     skill_route_discovery_preactivation_validation_commands,
@@ -548,6 +549,19 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     }
     assert output["evidence_strength"]["tier"] == "specific_route_or_validation_evidence"
     assert output["evidence_strength"]["activation_evidence_sufficient"] is True
+    assert output["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 1,
+        "candidate_source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        "related_source_count": 0,
+        "related_source_hashes": [],
+        "duplicate_summary_count": 0,
+        "evidence_item_id_count": 3,
+        "fork_or_mirror_lineage_collapsed": False,
+        "raw_source_urls_exported": False,
+        "raw_related_source_urls_exported": False,
+    }
     assert output["activation_gate"] == {
         "controller_surface": "skill_route_discovery_lane",
         "activation_scope": "local_proposal_only",
@@ -584,6 +598,16 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
         ],
         "recovery_hint_codes": [],
+        "source_lineage": {
+            "body_free": True,
+            "lineage_mode": "single_or_independent_sources",
+            "candidate_source_count": 1,
+            "related_source_count": 0,
+            "duplicate_summary_count": 0,
+            "fork_or_mirror_lineage_collapsed": False,
+            "raw_source_urls_exported": False,
+            "raw_related_source_urls_exported": False,
+        },
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
@@ -601,6 +625,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     for lane in output["activation_lanes"]:
         assert lane["candidate_count"] == 1
         assert lane["candidate_names"] == ["codex-fable5"]
+        assert lane["candidate_source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
         assert lane["required_validation"] == skill_route_discovery_preactivation_validation_commands()
         assert lane["local_artifact_contract"]["proposal_kind"] == lane["proposal_kind"]
         assert lane["local_artifact_contract"]["target_paths"]
@@ -620,6 +645,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert lane["recovery_hint_codes"] == []
         assert lane["runtime_action"] == "none"
         assert lane["external_skill_activation_allowed"] is False
+        assert lane["raw_source_urls_exported"] is False
     assert len(output["discovery_checklist"]) == 4
     assert {entry["capability"] for entry in output["discovery_checklist"]} == {"skill_route_discovery"}
     assert {entry["allowed_local_lane"] for entry in output["discovery_checklist"]} == {
@@ -653,16 +679,64 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         entry["rollback_note"] == "record rollback ref and artifact before applying local source changes"
         for entry in output["discovery_checklist"]
     )
+    assert all(entry["raw_source_url_exported"] is False for entry in output["discovery_checklist"])
     assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
     assert {lane["evidence_url_count"] for lane in output["proposal_lanes"]} == {3}
     assert all(lane["evidence_url_hashes"] for lane in output["proposal_lanes"])
     assert output["privacy"] == {
         "raw_source_urls_exported": False,
+        "source_urls_hashed": True,
         "raw_evidence_urls_exported": False,
         "evidence_urls_hashed": True,
+        "raw_related_source_urls_exported": False,
         "runtime_actions_executed": False,
     }
     assert "https://github.com/baskduf/FableCodex" not in serialized
+
+
+def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fork_lineage.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["duplicate_summary_count"] == 1
+    assert output["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "collapsed_fork_or_mirror",
+        "candidate_source_count": 1,
+        "candidate_source_hashes": [
+            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")
+        ],
+        "related_source_count": 2,
+        "related_source_hashes": sorted([
+            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+            stable_text_hash("https://github.com/pretinhuu1-boop/threejs-game-skills"),
+        ]),
+        "duplicate_summary_count": 1,
+        "evidence_item_id_count": 0,
+        "fork_or_mirror_lineage_collapsed": True,
+        "raw_source_urls_exported": False,
+        "raw_related_source_urls_exported": False,
+    }
+    assert output["supervisor_readiness"]["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "collapsed_fork_or_mirror",
+        "candidate_source_count": 1,
+        "related_source_count": 2,
+        "duplicate_summary_count": 1,
+        "fork_or_mirror_lineage_collapsed": True,
+        "raw_source_urls_exported": False,
+        "raw_related_source_urls_exported": False,
+    }
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+    assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
 
 
 def test_agent_harness_provider_registration_blocks_qwencode_without_local_config():
@@ -797,6 +871,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
             "proposal_kind": "documentation",
             "candidate_count": 1,
             "candidate_names": ["compass-skills"],
+            "candidate_source_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
             "local_artifact_contract": {
                 "proposal_kind": "documentation",
@@ -816,6 +891,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
             "activation_blockers": [],
             "runtime_action": "install",
             "external_skill_activation_allowed": True,
+            "raw_source_urls_exported": False,
             "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
         }
     ]
@@ -847,6 +923,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_ar
             "proposal_kind": "documentation",
             "candidate_count": 1,
             "candidate_names": ["compass-skills"],
+            "candidate_source_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
             "local_artifact_contract": {
                 "proposal_kind": "documentation",
@@ -866,6 +943,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_ar
             "activation_blockers": [],
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
+            "raw_source_urls_exported": False,
             "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
         }
     ]
@@ -896,6 +974,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_requires_provider_ru
             "proposal_kind": "code_patch",
             "candidate_count": 1,
             "candidate_names": ["compass-skills"],
+            "candidate_source_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
             "local_artifact_contract": {
                 "proposal_kind": "code_patch",
@@ -926,6 +1005,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_requires_provider_ru
             "activation_blockers": [],
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
+            "raw_source_urls_exported": False,
         }
     ]
 
@@ -985,6 +1065,7 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
             "generic_upstream_movement_requires_local_corroboration",
         ],
         "body_free": True,
+        "source_lineage_mode": "single_or_independent_sources",
     }
     assert output["uncertainty"] == {
         "body_free": True,
@@ -1183,6 +1264,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             "proposal_kind": "documentation",
             "candidate_count": 1,
             "candidate_names": ["overbroad-skill"],
+            "candidate_source_hashes": [stable_text_hash("https://github.com/example/overbroad-skill")],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
             "local_artifact_contract": {
                 "proposal_kind": "documentation",
@@ -1204,6 +1286,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             "recovery_hint_codes": ["skill_route_unsupported_lanes_downgraded"],
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
+            "raw_source_urls_exported": False,
         }
     ]
     assert output["supervisor_readiness"]["decision"] == "review_before_supervisor_promotion"
