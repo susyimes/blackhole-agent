@@ -804,6 +804,17 @@ action, external skill activation, external skill code, external harness
 execution, provider launch, remote execution, raw evidence URLs, raw source
 URLs, raw target paths, and upstream bodies.
 
+The harness also lifts that selected target into `current_action`, a compact
+supervisor row for the current scheduled pass. It repeats the selected bounded
+lane, validation scope, route profiles, selected item IDs, hashed candidate
+sources, required replay commands, next pass, and supervisor next action without
+exporting raw upstream URLs or bodies. A pass-3 skill-route window can therefore
+show "continue with the local test lane next pass" directly at the top level
+while preserving the same denials for runtime action, external skill
+activation, external skill code, external harness execution, provider launch,
+remote execution, raw evidence URLs, raw source URLs, raw target paths, and
+upstream bodies.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend

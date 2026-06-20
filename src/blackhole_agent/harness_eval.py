@@ -1309,6 +1309,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         route_discovery_catalog=route_discovery_catalog,
     )
+    current_action = skill_route_discovery_current_action(validation_lane_plan=validation_lane_plan)
     domain_validation_probe = skill_route_discovery_domain_validation_probe(
         validation_lane_plan=validation_lane_plan,
     )
@@ -1397,6 +1398,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_lane_selection": preactivation_lane_selection,
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
+        "current_action": current_action,
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "activation_manifest": activation_manifest,
@@ -3532,6 +3534,74 @@ def skill_route_discovery_next_validation_target(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "plan_basis": "highest_priority_grouped_validation_target",
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]) -> dict[str, Any]:
+    """Lift the selected bounded lane into a compact supervisor action row."""
+
+    next_target = validation_lane_plan.get("next_validation_target")
+    next_target = next_target if isinstance(next_target, dict) else {}
+    selected_lane = optional_string(next_target.get("selected_local_lane")) or "none"
+    status = "ready" if validation_lane_plan.get("status") == "ready" and selected_lane != "none" else "blocked"
+    has_next_pass = int(validation_lane_plan.get("remaining_pass_count") or 0) > 0
+    decision = (
+        "continue_selected_bounded_lane_next_pass"
+        if status == "ready" and has_next_pass
+        else "validate_selected_bounded_lane_for_handoff"
+        if status == "ready"
+        else "no_selected_bounded_lane_available"
+    )
+    supervisor_next_action = (
+        "continue_skill_route_discovery_window"
+        if status == "ready" and has_next_pass
+        else "handoff_completed_skill_route_slice_to_supervisor"
+        if status == "ready"
+        else "replay_skill_route_discovery_lane"
+    )
+    diagnostics = string_list(validation_lane_plan.get("diagnostics"))
+    if status != "ready" and not diagnostics:
+        diagnostics = ["next_validation_target_not_ready"]
+
+    return {
+        "controller_surface": "skill_route_discovery_current_action",
+        "status": status,
+        "decision": decision,
+        "supervisor_next_action": supervisor_next_action,
+        "theme": optional_string(validation_lane_plan.get("theme")) or "skill-route-discovery",
+        "current_pass": int(validation_lane_plan.get("current_pass") or 0),
+        "next_pass": int(validation_lane_plan.get("next_pass") or 0),
+        "total_passes": int(validation_lane_plan.get("total_passes") or 0),
+        "remaining_pass_count": int(validation_lane_plan.get("remaining_pass_count") or 0),
+        "selected_local_lane": selected_lane,
+        "validation_scope": optional_string(next_target.get("validation_scope")) or "none",
+        "route_profiles": string_list(next_target.get("route_profiles")),
+        "route_profile_count": int(next_target.get("route_profile_count") or 0),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_ids": string_list(next_target.get("evidence_item_ids")),
+        "evidence_item_id_count": int(next_target.get("evidence_item_id_count") or 0),
+        "candidate_source_hashes": string_list(next_target.get("candidate_source_hashes")),
+        "candidate_source_count": int(next_target.get("candidate_source_count") or 0),
+        "required_validation": string_list(validation_lane_plan.get("required_validation")),
+        "provider_runtime_replay_commands": string_list(
+            validation_lane_plan.get("provider_runtime_replay_commands")
+        ),
+        "plan_basis": "validation_lane_plan_next_validation_target",
+        "diagnostics": diagnostics,
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",

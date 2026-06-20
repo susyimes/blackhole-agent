@@ -230,6 +230,8 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "operator-visible workload for the next pass",
         "COMPASS-style state-handoff route can therefore remain a local\nconfig validation target",
         "FableCodex-style workflow gates and Three.js game\nskill routes share a local test validation target",
+        "`current_action`, a compact\nsupervisor row for the current scheduled pass",
+        "show \"continue with the local test lane next pass\" directly at the top level",
         "repeats the per-profile replay checklist through\n`profile_validation_replay`",
         "`summary_signal_audit` before activation",
         "accepted, ignored, or collapsed as duplicates",
