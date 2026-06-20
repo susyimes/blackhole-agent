@@ -1,0 +1,13 @@
+Rollback point for skill-route-discovery pass 2
+
+Run timestamp: 20260621T033357Z
+Original branch: codex/blackhole-evolve/20260620T193308.068345-add-or-extend-local-validation-for-skill-route-d
+Original HEAD: 1dc8c2d6c3579fb369d47f3b157e5fbc69ee5f9e
+Rollback ref: refs/rollback/20260621T033357Z-skill-route-discovery-pass2
+
+Recovery commands, if explicitly chosen by an operator:
+
+git switch codex/blackhole-evolve/20260620T193308.068345-add-or-extend-local-validation-for-skill-route-d
+git reset --hard refs/rollback/20260621T033357Z-skill-route-discovery-pass2
+
+This artifact is retained for the run that created it.

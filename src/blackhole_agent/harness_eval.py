@@ -1125,6 +1125,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
 
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
     proposal_lanes = lane_map["proposal_lanes"]
+    summary_signal_audit = skill_route_discovery_summary_signal_audit(
+        source_kind=source_kind,
+        registry=registry,
+        lane_map=lane_map,
+    )
     source_lineage = skill_route_discovery_source_lineage_summary(registry)
     lane_runtime_safe = all(lane.get("runtime_action") == "none" for lane in proposal_lanes)
     validation_required = all(lane.get("local_validation_required") is True for lane in proposal_lanes)
@@ -1327,6 +1332,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     }
     if int(registry.get("duplicate_summary_count") or 0):
         registry_summary["duplicate_summary_count"] = registry["duplicate_summary_count"]
+    for registry_count_key in ("summary_count", "ignored_summary_count", "duplicate_summary_count"):
+        if registry_count_key in registry:
+            registry_summary[registry_count_key] = int(registry.get(registry_count_key) or 0)
 
     return {
         "schema_version": 1,
@@ -1371,6 +1379,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
+        "summary_signal_audit": summary_signal_audit,
         "candidate_lane_intake": candidate_lane_intake,
         "term_route_review": term_route_review,
         "evidence_lane_matrix": evidence_lane_matrix,
@@ -1461,6 +1470,131 @@ def skill_route_discovery_uncertainty_message(reasons: list[str]) -> str:
     if reasons:
         return "Skill-route evidence is external and unvalidated; proposal lanes require local validation before activation."
     return "Skill-route evidence is bounded and locally validated before activation."
+
+
+def skill_route_discovery_summary_signal_audit(
+    *,
+    source_kind: str,
+    registry: dict[str, Any],
+    lane_map: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose summary-derived route signals before local lane activation."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    if source_kind != "summaries":
+        return {
+            "controller_surface": "skill_route_discovery_summary_signal_audit",
+            "status": "not_applicable",
+            "source_kind": source_kind,
+            "summary_count": 0,
+            "accepted_summary_count": 0,
+            "ignored_summary_count": 0,
+            "duplicate_summary_count": 0,
+            "rows": [],
+            "diagnostics": [],
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    inventory = lane_map.get("candidate_lane_inventory")
+    inventory = inventory if isinstance(inventory, list) else []
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for item in inventory:
+        if not isinstance(item, dict):
+            continue
+        proposal_kinds = [
+            lane
+            for lane in string_list(item.get("proposal_kinds"))
+            if lane in allowed_lanes
+        ]
+        route_profiles = string_list(item.get("route_profiles"))
+        matched_route_terms = string_list(item.get("matched_route_terms"))
+        row_diagnostics: list[str] = []
+        if not proposal_kinds:
+            row_diagnostics.append("proposal_kinds_missing")
+        if not route_profiles:
+            row_diagnostics.append("route_profiles_missing")
+        if not matched_route_terms:
+            row_diagnostics.append("matched_route_terms_missing")
+        if str(item.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if item.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        for diagnostic in row_diagnostics:
+            diagnostics.append(f"{stable_text_hash(str(item.get('candidate_name') or ''))}:{diagnostic}")
+
+        rows.append(
+            {
+                "candidate_name_hash": stable_text_hash(str(item.get("candidate_name") or "")),
+                "candidate_source_hash": stable_text_hash(str(item.get("source_url") or "")),
+                "proposal_kinds": proposal_kinds,
+                "route_profiles": route_profiles,
+                "matched_route_terms": matched_route_terms,
+                "discovery_event_kind": str(item.get("discovery_event_kind") or "unknown"),
+                "discovery_event_effect": str(item.get("discovery_event_effect") or "record_only"),
+                "evidence_item_id_count": len(string_list(item.get("evidence_item_ids"))),
+                "evidence_url_hashes": [
+                    stable_text_hash(url) for url in string_list(item.get("evidence_urls"))
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+                "diagnostics": row_diagnostics,
+            }
+        )
+
+    summary_count = int(registry.get("summary_count") or 0)
+    ignored_summary_count = int(registry.get("ignored_summary_count") or 0)
+    duplicate_summary_count = int(registry.get("duplicate_summary_count") or 0)
+    accepted_summary_count = int(lane_map.get("candidate_count") or 0)
+    if summary_count and accepted_summary_count + ignored_summary_count + duplicate_summary_count != summary_count:
+        diagnostics.append("summary_intake_counts_do_not_reconcile")
+
+    if rows and not diagnostics:
+        status = "ready"
+        decision = "summary_signals_bound_to_local_lanes"
+    elif rows:
+        status = "review"
+        decision = "repair_summary_signal_audit_before_activation"
+    else:
+        status = "blocked"
+        decision = "no_summary_signals_accepted"
+
+    return {
+        "controller_surface": "skill_route_discovery_summary_signal_audit",
+        "status": status,
+        "decision": decision,
+        "source_kind": source_kind,
+        "summary_count": summary_count,
+        "accepted_summary_count": accepted_summary_count,
+        "ignored_summary_count": ignored_summary_count,
+        "duplicate_summary_count": duplicate_summary_count,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
 
 def skill_route_discovery_recovery_hints(

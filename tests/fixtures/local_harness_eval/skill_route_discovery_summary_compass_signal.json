@@ -1,0 +1,110 @@
+{
+  "name": "skill-route-discovery-summary-compass-signal",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-summary-compass-signal",
+    "source_kind": "summaries",
+    "summaries": [
+      {
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "summary": "COMPASS Skills is a skill ecosystem for agent skills, task clarification, local memory handoff, workflow routing, collaboration profiles, and validation evidence.",
+        "topics": ["agent", "skill", "skills", "workflow", "handoff"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+        "discovery_event_kind": "repository_updated"
+      },
+      {
+        "name": "omnigent",
+        "source_url": "https://github.com/omnigent-ai/omnigent",
+        "summary": "General agent runtime and meta-harness without repository-level skill package evidence.",
+        "topics": ["agent", "runtime"],
+        "suggested_lanes": ["documentation", "test"],
+        "discovery_event_kind": "repository_updated"
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T033357Z-skill-route-discovery-pass2.txt",
+        "review_note": "Summary-source intake remains documentation-only until local validation proves a target."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T033357Z-skill-route-discovery-pass2.txt",
+        "review_note": "Summary-source intake is exposed as bounded local configuration metadata."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T033357Z-skill-route-discovery-pass2.txt",
+        "review_note": "Summary-source intake is covered by a focused local harness regression."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T033357Z-skill-route-discovery-pass2.txt",
+        "review_note": "Summary-source intake changes only local harness behavior and does not execute upstream code."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 1
+    },
+    {
+      "path": "registry.duplicate_summary_count",
+      "equals": 0
+    },
+    {
+      "path": "lane_map.proposal_lane_count",
+      "equals": 4
+    },
+    {
+      "path": "summary_signal_audit.status",
+      "equals": "ready"
+    },
+    {
+      "path": "summary_signal_audit.accepted_summary_count",
+      "equals": 1
+    },
+    {
+      "path": "summary_signal_audit.ignored_summary_count",
+      "equals": 1
+    },
+    {
+      "path": "summary_signal_audit.runtime_action_allowed",
+      "equals": false
+    }
+  ]
+}

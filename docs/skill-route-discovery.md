@@ -741,6 +741,18 @@ repositories as installable or executable workflows. The plan repeats the same
 runtime, external activation, provider launch, remote execution, raw evidence
 URL, raw source URL, raw target path, and upstream body denials.
 
+For `source_kind: summaries`, the harness emits
+`summary_signal_audit` before activation. This panel shows how many repository
+summaries were accepted, ignored, or collapsed as duplicates, then lists only
+hashed candidate names, hashed candidate sources, matched route terms, route
+profiles, bounded proposal kinds, and hashed evidence URLs. A COMPASS-style
+summary with agent, skill, skills, workflow, handoff, and validation signals is
+therefore visible as a local `skill_ecosystem_state_handoff` lane candidate,
+while a generic agent-runtime summary remains ignored by this route. The audit
+does not export raw source URLs or upstream bodies and does not allow runtime
+action, external skill activation, external harness execution, provider launch,
+or remote execution.
+
 The same plan also groups selected profiles into `lane_validation_targets`.
 These rows are the operator-visible workload for the next pass: each row names
 one bounded local lane, the route profiles it covers, selected item IDs, hashed

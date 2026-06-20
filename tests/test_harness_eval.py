@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 49
-    assert payload["pass_count"] == 48
+    assert payload["fixture_count"] == 50
+    assert payload["pass_count"] == 49
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -2166,6 +2166,66 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_skill_route_discovery_summary_signal_audit_bounds_compass_summary_intake():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_summary_compass_signal.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    audit = output["summary_signal_audit"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["source_kind"] == "summaries"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["lane_map"]["proposal_lane_count"] == 4
+    assert audit["controller_surface"] == "skill_route_discovery_summary_signal_audit"
+    assert audit["status"] == "ready"
+    assert audit["decision"] == "summary_signals_bound_to_local_lanes"
+    assert audit["summary_count"] == 2
+    assert audit["accepted_summary_count"] == 1
+    assert audit["ignored_summary_count"] == 1
+    assert audit["duplicate_summary_count"] == 0
+    assert audit["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert audit["diagnostics"] == []
+    assert audit["runtime_action_allowed"] is False
+    assert audit["external_skill_activation_allowed"] is False
+    assert audit["external_skill_code_allowed"] is False
+    assert audit["external_harness_execution_allowed"] is False
+    assert audit["provider_runtime_launch_allowed"] is False
+    assert audit["remote_execution_allowed"] is False
+    assert audit["raw_source_urls_exported"] is False
+    assert audit["raw_upstream_body_exported"] is False
+
+    assert audit["rows"] == [
+        {
+            "candidate_name_hash": stable_text_hash("compass-skills"),
+            "candidate_source_hash": stable_text_hash("https://github.com/dongshuyan/compass-skills"),
+            "proposal_kinds": ["documentation", "config", "test", "code_patch"],
+            "route_profiles": ["skill_ecosystem_state_handoff"],
+            "matched_route_terms": ["agent", "skill", "skills", "workflow"],
+            "discovery_event_kind": "repository_updated",
+            "discovery_event_effect": "record_only",
+            "evidence_item_id_count": 0,
+            "evidence_url_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_upstream_body_exported": False,
+            "diagnostics": [],
+        }
+    ]
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
+    assert "COMPASS Skills" not in serialized
 
 
 def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sample():
