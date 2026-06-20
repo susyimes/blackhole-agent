@@ -2013,6 +2013,23 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         ("game_frontend_workflow", "test", "local_test_lane_only"),
         ("skill_ecosystem_state_handoff", "config", "local_config_lane_only"),
     ]
+    assert validation_plan["lane_validation_target_count"] == 2
+    assert [
+        (target["selected_local_lane"], target["route_profiles"], target["validation_scope"])
+        for target in validation_plan["lane_validation_targets"]
+    ] == [
+        ("config", ["skill_ecosystem_state_handoff"], "local_config_lane_only"),
+        ("test", ["codex_workflow_gate", "game_frontend_workflow"], "local_test_lane_only"),
+    ]
+    assert all(
+        target["plan_basis"] == "selected_lane_grouped_route_profiles_and_hashed_candidate_sources"
+        for target in validation_plan["lane_validation_targets"]
+    )
+    assert all(target["runtime_action"] == "none" for target in validation_plan["lane_validation_targets"])
+    assert all(
+        target["external_skill_activation_allowed"] is False
+        for target in validation_plan["lane_validation_targets"]
+    )
     assert [row["evidence_item_ids"] for row in validation_plan["rows"]] == [
         ["p1-skill-route-discovery-index"],
         ["p1-skill-route-discovery-fixtures"],
@@ -2161,6 +2178,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
         source_path=fixture_path,
     )
     selection = output["preactivation_lane_selection"]
+    validation_plan = output["validation_lane_plan"]
     serialized = json.dumps(output, sort_keys=True)
 
     assert output["route_status"] == "passed"
@@ -2178,6 +2196,72 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert [row["selection_status"] for row in selection["rows"]] == ["ready", "ready", "ready"]
     assert all(row["runtime_action"] == "none" for row in selection["rows"])
     assert all(row["external_skill_activation_allowed"] is False for row in selection["rows"])
+    assert validation_plan["lane_validation_targets"] == [
+        {
+            "selected_local_lane": "config",
+            "validation_scope": "local_config_lane_only",
+            "route_profiles": ["skill_ecosystem_state_handoff"],
+            "route_profile_count": 1,
+            "evidence_item_ids": ["p1-skill-route-discovery-compass"],
+            "evidence_item_id_count": 1,
+            "candidate_source_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
+            "candidate_source_count": 1,
+            "candidate_count": 1,
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "provider_runtime_replay_commands": [
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+            ],
+            "plan_basis": "selected_lane_grouped_route_profiles_and_hashed_candidate_sources",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        {
+            "selected_local_lane": "test",
+            "validation_scope": "local_test_lane_only",
+            "route_profiles": ["codex_workflow_gate", "game_frontend_workflow"],
+            "route_profile_count": 2,
+            "evidence_item_ids": [
+                "p2-skill-route-discovery-threejs-game",
+                "p3-skill-route-discovery-fablecodex",
+            ],
+            "evidence_item_id_count": 2,
+            "candidate_source_hashes": [
+                stable_text_hash("https://github.com/baskduf/FableCodex"),
+                stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+            ],
+            "candidate_source_count": 2,
+            "candidate_count": 2,
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "provider_runtime_replay_commands": [
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+            ],
+            "plan_basis": "selected_lane_grouped_route_profiles_and_hashed_candidate_sources",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+    ]
     assert selection["runtime_action_allowed"] is False
     assert selection["external_skill_activation_allowed"] is False
     assert selection["provider_runtime_launch_allowed"] is False

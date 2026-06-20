@@ -720,6 +720,17 @@ repositories as installable or executable workflows. The plan repeats the same
 runtime, external activation, provider launch, remote execution, raw evidence
 URL, raw source URL, raw target path, and upstream body denials.
 
+The same plan also groups selected profiles into `lane_validation_targets`.
+These rows are the operator-visible workload for the next pass: each row names
+one bounded local lane, the route profiles it covers, selected item IDs, hashed
+candidate sources, required validation commands, and provider-runtime replay
+commands. A COMPASS-style state-handoff route can therefore remain a local
+config validation target while FableCodex-style workflow gates and Three.js game
+skill routes share a local test validation target. The grouping does not add
+lanes and does not authorize upstream install, clone, execution, scaffold
+generation, provider launch, remote execution, raw source URL export, raw target
+path export, or upstream body export.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,

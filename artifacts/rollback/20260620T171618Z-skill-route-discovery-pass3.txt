@@ -1,0 +1,11 @@
+Rollback point for skill-route-discovery pass 3
+
+Original branch: codex/blackhole-evolve/20260620T171321.169865-add-or-exercise-a-local-skill-route-discovery-va
+Original HEAD: 3c689e5aa0ada13659ee25ce58463c8f41d291f1
+Rollback ref: refs/blackhole-rollback/20260620T171618Z-skill-route-discovery-pass3
+Artifact path: artifacts/rollback/20260620T171618Z-skill-route-discovery-pass3.txt
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260620T171321.169865-add-or-exercise-a-local-skill-route-discovery-va
+  git reset --hard refs/blackhole-rollback/20260620T171618Z-skill-route-discovery-pass3
+  git clean -fd
