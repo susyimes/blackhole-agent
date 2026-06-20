@@ -3265,32 +3265,47 @@ def skill_route_discovery_route_profile_review(
         )
         for missing in metadata_coverage["missing_metadata"]:
             diagnostics.append(f"{profile}:metadata_missing:{missing}")
-
-        rows.append(
-            {
-                "route_profile": profile,
-                "proposal_kinds": proposal_kinds,
-                "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
-                "evidence_item_id_count": len(set(evidence_item_ids)),
-                "recognition_signals": list(contract["recognition_signals"]),
-                "expected_metadata": list(contract["expected_metadata"]),
-                "metadata_coverage": metadata_coverage,
-                "metadata_complete": metadata_coverage["complete"],
-                "safe_local_tests": list(contract["safe_local_tests"]),
-                "rejection_conditions": list(contract["rejection_conditions"]),
-                "local_lane_contracts": local_lane_contracts,
-                "uncertainty_reasons": sorted(dict.fromkeys(uncertainty_reasons)),
-                "runtime_action": "none" if runtime_safe else "review",
-                "local_validation_required": validation_required,
-                "local_artifact_proof_required": True,
-                "external_skill_activation_allowed": False,
-                "external_skill_code_allowed": False,
-                "raw_evidence_exported": False,
-                "raw_source_urls_exported": False,
-                "raw_target_paths_exported": False,
-                "raw_upstream_body_exported": False,
-            }
+        state_handoff_preflight = (
+            skill_route_discovery_state_handoff_preflight(
+                raw_input=raw_input,
+                metadata_coverage=metadata_coverage,
+                lanes=lanes,
+            )
+            if profile == "skill_ecosystem_state_handoff"
+            else None
         )
+        if state_handoff_preflight is not None and state_handoff_preflight["status"] != "ready":
+            diagnostics.extend(
+                f"{profile}:state_handoff_preflight:{diagnostic}"
+                for diagnostic in state_handoff_preflight["diagnostics"]
+            )
+
+        row = {
+            "route_profile": profile,
+            "proposal_kinds": proposal_kinds,
+            "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
+            "evidence_item_id_count": len(set(evidence_item_ids)),
+            "recognition_signals": list(contract["recognition_signals"]),
+            "expected_metadata": list(contract["expected_metadata"]),
+            "metadata_coverage": metadata_coverage,
+            "metadata_complete": metadata_coverage["complete"],
+            "safe_local_tests": list(contract["safe_local_tests"]),
+            "rejection_conditions": list(contract["rejection_conditions"]),
+            "local_lane_contracts": local_lane_contracts,
+            "uncertainty_reasons": sorted(dict.fromkeys(uncertainty_reasons)),
+            "runtime_action": "none" if runtime_safe else "review",
+            "local_validation_required": validation_required,
+            "local_artifact_proof_required": True,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        if state_handoff_preflight is not None:
+            row["state_handoff_preflight"] = state_handoff_preflight
+        rows.append(row)
 
     if rows and not diagnostics:
         status = "ready"
@@ -3410,6 +3425,74 @@ def skill_route_discovery_profile_metadata_coverage(
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_state_handoff_preflight(
+    *,
+    raw_input: dict[str, Any],
+    metadata_coverage: dict[str, Any],
+    lanes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Check COMPASS-style state/profile routes before local activation.
+
+    Repository evidence about local memory, profiles, or handoff is useful route
+    pressure, but it must not imply local writes or private context retention.
+    """
+
+    boundary = raw_input.get("state_handoff_boundary")
+    boundary = boundary if isinstance(boundary, dict) else {}
+    diagnostics: list[str] = []
+    satisfied_metadata = set(string_list(metadata_coverage.get("satisfied_metadata")))
+    missing_metadata = set(string_list(metadata_coverage.get("missing_metadata")))
+    proposal_kinds = sorted(
+        {str(lane.get("proposal_kind") or "") for lane in lanes if str(lane.get("proposal_kind") or "")}
+    )
+
+    state_metadata_present = {
+        "state_retention_and_privacy_boundary": "state_retention_and_privacy_boundary" in satisfied_metadata,
+        "local_memory_or_profile_target_if_any": "local_memory_or_profile_target_if_any" in satisfied_metadata,
+    }
+    if "state_retention_and_privacy_boundary" in missing_metadata:
+        diagnostics.append("state_retention_and_privacy_boundary_missing")
+    if "local_memory_or_profile_target_if_any" in missing_metadata:
+        diagnostics.append("local_memory_or_profile_target_missing")
+
+    explicit_boundary = {
+        "retention_policy_documented": truthy(boundary.get("retention_policy_documented")),
+        "privacy_boundary_documented": truthy(boundary.get("privacy_boundary_documented")),
+        "local_target_metadata_only": truthy(boundary.get("local_target_metadata_only")),
+        "upstream_presence_grants_write": truthy(boundary.get("upstream_presence_grants_write")),
+    }
+    if not explicit_boundary["retention_policy_documented"]:
+        diagnostics.append("retention_policy_not_documented")
+    if not explicit_boundary["privacy_boundary_documented"]:
+        diagnostics.append("privacy_boundary_not_documented")
+    if not explicit_boundary["local_target_metadata_only"]:
+        diagnostics.append("local_target_metadata_only_not_confirmed")
+    if explicit_boundary["upstream_presence_grants_write"]:
+        diagnostics.append("upstream_presence_must_not_grant_state_writes")
+
+    status = "ready" if not diagnostics else "review"
+    return {
+        "controller_surface": "skill_route_discovery_state_handoff_preflight",
+        "status": status,
+        "decision": "state_profile_route_ready_for_local_review"
+        if status == "ready"
+        else "resolve_state_profile_boundary",
+        "proposal_kinds": proposal_kinds,
+        "state_metadata_present": state_metadata_present,
+        "explicit_boundary": explicit_boundary,
+        "diagnostics": diagnostics,
+        "runtime_action": "none",
+        "state_write_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "external_skill_activation_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "private_context_exported": False,
     }
 
 

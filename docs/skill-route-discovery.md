@@ -532,6 +532,17 @@ profile metadata changes the review panel to `review` with
 profile-write, memory-write, scaffold, browser-run, asset-generation,
 provider-launch, remote-execution, or external skill activation authority.
 
+For COMPASS-style `skill_ecosystem_state_handoff` routes, profile review now
+also emits `state_handoff_preflight`. This preflight is required before a
+state/profile route can be ready: the local input must explicitly record that
+retention policy is documented, privacy boundaries are documented, and any
+local memory or profile target is metadata-only. Repository presence, README
+claims, install instructions, or skill names never grant state, memory, or
+profile write authority. If the explicit boundary is absent or claims upstream
+presence grants writes, the profile review stays in `review` with
+`state_handoff_preflight` diagnostics while keeping runtime action, external
+skill activation, raw upstream body export, and private context export denied.
+
 The profile review now also renders `local_lane_contracts` for each bounded
 proposal kind present in the profile. These contracts expose only hashed local
 artifact targets, target counts, required local artifact proof fields, and the

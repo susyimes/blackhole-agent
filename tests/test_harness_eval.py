@@ -2016,6 +2016,110 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
     ]
 
 
+def test_skill_route_discovery_compass_state_handoff_preflight_requires_explicit_boundary():
+    base_input = {
+        "task_id": "fixture-skill-route-discovery-compass-state-handoff",
+        "source_kind": "candidates",
+        "candidates": [
+            {
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "evidence_summary": (
+                    "Specific skill ecosystem with task clarification, repo-local task memory, "
+                    "handoff prompts, local collaboration profile, privacy boundary notes, "
+                    "route metadata, and validation evidence."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+            }
+        ],
+        "local_artifact_proofs": [
+            {
+                "proposal_kind": "documentation",
+                "changed_files": ["docs/skill-route-discovery.md"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T121207Z-skill-route-discovery-compass-pass4.txt",
+                "review_note": "COMPASS state handoff documentation remains metadata-only.",
+            },
+            {
+                "proposal_kind": "config",
+                "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T121207Z-skill-route-discovery-compass-pass4.txt",
+                "review_note": "COMPASS route config keeps upstream profile writes disabled.",
+            },
+            {
+                "proposal_kind": "test",
+                "changed_files": ["tests/test_harness_eval.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T121207Z-skill-route-discovery-compass-pass4.txt",
+                "review_note": "COMPASS state handoff preflight has local regression coverage.",
+            },
+            {
+                "proposal_kind": "code_patch",
+                "changed_files": ["src/blackhole_agent/harness_eval.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T121207Z-skill-route-discovery-compass-pass4.txt",
+                "review_note": "COMPASS state handoff preflight is local-only harness code.",
+            },
+        ],
+    }
+
+    missing_boundary = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        base_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_compass_state_handoff_inline.json",
+    )
+    missing_review = missing_boundary["route_profile_review"]
+    missing_preflight = missing_review["rows"][0]["state_handoff_preflight"]
+
+    assert missing_review["status"] == "review"
+    assert missing_review["diagnostics"] == [
+        "skill_ecosystem_state_handoff:state_handoff_preflight:retention_policy_not_documented",
+        "skill_ecosystem_state_handoff:state_handoff_preflight:privacy_boundary_not_documented",
+        "skill_ecosystem_state_handoff:state_handoff_preflight:local_target_metadata_only_not_confirmed",
+    ]
+    assert missing_preflight["status"] == "review"
+    assert missing_preflight["state_metadata_present"] == {
+        "state_retention_and_privacy_boundary": True,
+        "local_memory_or_profile_target_if_any": True,
+    }
+    assert missing_preflight["state_write_allowed"] is False
+    assert missing_preflight["profile_write_allowed"] is False
+    assert missing_preflight["memory_write_allowed"] is False
+
+    ready_input = json.loads(json.dumps(base_input))
+    ready_input["state_handoff_boundary"] = {
+        "retention_policy_documented": True,
+        "privacy_boundary_documented": True,
+        "local_target_metadata_only": True,
+        "upstream_presence_grants_write": False,
+    }
+    ready = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        ready_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_compass_state_handoff_ready_inline.json",
+    )
+    ready_review = ready["route_profile_review"]
+    ready_preflight = ready_review["rows"][0]["state_handoff_preflight"]
+    serialized = json.dumps(ready, sort_keys=True)
+
+    assert ready_review["status"] == "ready"
+    assert ready_review["diagnostics"] == []
+    assert ready_preflight["status"] == "ready"
+    assert ready_preflight["decision"] == "state_profile_route_ready_for_local_review"
+    assert ready_preflight["explicit_boundary"] == {
+        "retention_policy_documented": True,
+        "privacy_boundary_documented": True,
+        "local_target_metadata_only": True,
+        "upstream_presence_grants_write": False,
+    }
+    assert ready_preflight["runtime_action"] == "none"
+    assert ready_preflight["external_skill_activation_allowed"] is False
+    assert ready_preflight["raw_source_urls_exported"] is False
+    assert ready_preflight["private_context_exported"] is False
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+
+
 def test_skill_route_discovery_trust_boundary_requires_inspection_requirements():
     output = evaluate_harness_behavior(
         "skill_route_discovery_lane",

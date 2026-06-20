@@ -1,0 +1,15 @@
+Rollback point for github-growth-20260620T121207.698524Z
+
+Original branch: codex/blackhole-evolve/20260620T121311.435765-run-bounded-skill-route-discovery-against-compas
+Original HEAD: 08f14d5713e7de8524c938384c3ac777b1bf7aaf
+Local rollback ref: refs/rollback/github-growth-20260620T121207.698524Z
+
+Recovery commands, to be run only by an operator or supervisor policy that has chosen destructive rollback:
+
+git switch codex/blackhole-evolve/20260620T121311.435765-run-bounded-skill-route-discovery-against-compas
+git reset --hard 08f14d5713e7de8524c938384c3ac777b1bf7aaf
+
+Context:
+- Capability theme: skill-route-discovery, pass 4 of 4.
+- Source digest: github-growth-20260620T121207.698524Z.
+- Planned focus: bounded compass-skills route discovery and local validation/activation path.
