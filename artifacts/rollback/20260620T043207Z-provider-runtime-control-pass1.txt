@@ -1,0 +1,12 @@
+Rollback point for github-growth-20260620T043207.577928Z
+
+Original branch: codex/blackhole-evolve/20260620T043321.846840-add-a-local-validation-lane-that-samples-compass
+Original HEAD: 5945f85aca8eba40251bcf7f05f658fd4a919711
+Local rollback ref: refs/blackhole-rollback/20260620T043207Z-provider-runtime-control-pass1
+
+Recovery commands (destructive; operator/supervisor only):
+  git switch codex/blackhole-evolve/20260620T043321.846840-add-a-local-validation-lane-that-samples-compass
+  git reset --hard refs/blackhole-rollback/20260620T043207Z-provider-runtime-control-pass1
+
+Notes:
+  Created before provider-runtime-control pass 1 edits.

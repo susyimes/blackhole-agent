@@ -331,6 +331,17 @@ activation. Checklist rows expose the same `preactivation_harness` value and
 external-harness denial so an operator can distinguish local replay from remote
 or upstream harness execution.
 
+When a skill-route fixture carries `provider_runtime_preflight_samples`, the
+local lane also samples the provider/runtime recovery summary before activation.
+The sample is metadata-only: it exports preflight counts, status counts,
+blocked failure modes, recovery hint codes and hashes, supervisor decision, and
+replay commands, but not raw preflight inputs, diagnostics, source URLs, paths,
+environment keys, credentials, provider bodies, or upstream skill bodies. A
+blocked or degraded provider/runtime replay sample blocks local skill-route
+promotion with `provider_runtime_replay_not_ready` until the recovery hints are
+resolved and `provider_runtime_preflight` plus
+`provider_runtime_recovery_summary` are replayed.
+
 The harness also emits a `preactivation_trust_boundary` result. This is a
 second, runtime-facing guard over the generated activation rows: it rechecks
 that every lane remains one of documentation, config, test, or code_patch; that

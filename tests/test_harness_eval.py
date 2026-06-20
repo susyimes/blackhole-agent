@@ -502,7 +502,10 @@ def test_agent_workflow_route_blocks_invalid_streamed_tool_boundaries_without_ex
         "task_id": "fixture-route-invalid-streamed-tool-boundary",
         "plan": {"steps": [{"id": "intake"}, {"id": "invoke-runner"}]},
         "runner": {"invoked": True, "returncode": 0, "timed_out": False},
-        "validation": {"gate": "runner-harness-control-plane", "checks": [{"name": "stream-boundary", "returncode": 0}]},
+        "validation": {
+            "gate": "runner-harness-control-plane",
+            "checks": [{"name": "stream-boundary", "returncode": 0}],
+        },
         "rollback": {
             "created": True,
             "ref": "refs/rollback/fixture-route-invalid-streamed-tool-boundary",
@@ -711,7 +714,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["operator_handoff"]["local_artifact_proof_ready"] is True
     assert output["operator_handoff"]["implementation_intake_status"] == "ready"
     assert output["operator_handoff"]["supervisor_decision"] == "ready_for_supervisor_promotion"
-    assert output["operator_handoff"]["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+    assert (
+        output["operator_handoff"]["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+    )
     assert output["operator_handoff"]["provider_runtime_replay_commands"] == [
         "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
         "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
@@ -775,9 +780,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert lane["local_artifact_contract"]["local_only"] is True
         assert lane["local_artifact_contract"]["external_skill_code_allowed"] is False
         assert lane["local_artifact_contract"]["raw_upstream_body_allowed"] is False
-        assert lane["inspection_requirements"] == skill_route_discovery_inspection_requirements(
-            lane["proposal_kind"]
-        )
+        assert lane["inspection_requirements"] == skill_route_discovery_inspection_requirements(lane["proposal_kind"])
         assert lane["local_artifact_proof"]["ready"] is True
         assert lane["local_artifact_proof"]["provided"] is True
         assert lane["local_artifact_proof"]["target_paths_matched"] is True
@@ -823,9 +826,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         for entry in output["discovery_checklist"]
     )
     assert all(
-        entry["inspection_requirements"] == skill_route_discovery_inspection_requirements(
-            entry["allowed_local_lane"]
-        )
+        entry["inspection_requirements"] == skill_route_discovery_inspection_requirements(entry["allowed_local_lane"])
         for entry in output["discovery_checklist"]
     )
     assert {entry["runtime_action"] for entry in output["discovery_checklist"]} == {"none"}
@@ -835,9 +836,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         entry["required_tests"] == skill_route_discovery_preactivation_validation_commands()
         for entry in output["discovery_checklist"]
     )
-    assert {entry["preactivation_harness"] for entry in output["discovery_checklist"]} == {
-        "agent_harness_eval_lane"
-    }
+    assert {entry["preactivation_harness"] for entry in output["discovery_checklist"]} == {"agent_harness_eval_lane"}
     assert all(entry["external_harness_execution_allowed"] is False for entry in output["discovery_checklist"])
     assert all(
         entry["rollback_note"] == "record rollback ref and artifact before applying local source changes"
@@ -899,9 +898,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
         assert row["evidence_item_id_count"] == 3
         assert row["target_path_hashes"]
-        assert row["inspection_requirements"] == skill_route_discovery_inspection_requirements(
-            row["proposal_kind"]
-        )
+        assert row["inspection_requirements"] == skill_route_discovery_inspection_requirements(row["proposal_kind"])
         assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
         assert row["provider_runtime_control"] == skill_route_discovery_provider_runtime_control(
             activation_ready=True,
@@ -935,14 +932,14 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
         "body_free": True,
         "lineage_mode": "collapsed_fork_or_mirror",
         "candidate_source_count": 1,
-        "candidate_source_hashes": [
-            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")
-        ],
+        "candidate_source_hashes": [stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")],
         "related_source_count": 2,
-        "related_source_hashes": sorted([
-            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
-            stable_text_hash("https://github.com/pretinhuu1-boop/threejs-game-skills"),
-        ]),
+        "related_source_hashes": sorted(
+            [
+                stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+                stable_text_hash("https://github.com/pretinhuu1-boop/threejs-game-skills"),
+            ]
+        ),
         "duplicate_summary_count": 1,
         "evidence_item_id_count": 0,
         "fork_or_mirror_lineage_collapsed": True,
@@ -1180,9 +1177,7 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "raw_target_paths_exported": False,
         "diagnostics": [],
     }
-    assert output["supervisor_readiness"]["recovery_hint_codes"] == [
-        "skill_route_rejected_candidates_present"
-    ]
+    assert output["supervisor_readiness"]["recovery_hint_codes"] == ["skill_route_rejected_candidates_present"]
     assert output["local_lane_intake"] == {
         "status": "blocked",
         "decision": "no_bounded_local_lanes",
@@ -1257,6 +1252,82 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
     ]
     assert output["supervisor_readiness"]["raw_evidence_exported"] is False
     assert output["privacy"]["runtime_actions_executed"] is False
+
+
+def test_skill_route_discovery_lane_blocks_on_provider_runtime_replay_sample_without_exporting_bodies():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-provider-runtime-sample",
+            "source_kind": "summaries",
+            "summaries": [
+                {
+                    "name": "compass-skills",
+                    "source_url": "https://github.com/dongshuyan/compass-skills",
+                    "summary": "SKILL.md skill ecosystem with documentation, config metadata, validation, and local workflow helpers.",
+                    "topics": ["agent-skills", "workflow", "skill.md"],
+                    "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+                },
+                {
+                    "name": "threejs-game-skills",
+                    "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                    "summary": "Agent skill director for Three.js game workflow, QA validation, and code helper routing.",
+                    "topics": ["agent-skills", "threejs", "qa"],
+                    "suggested_lanes": ["documentation", "test", "code_patch"],
+                },
+                {
+                    "name": "FableCodex",
+                    "source_url": "https://github.com/baskduf/FableCodex",
+                    "summary": "Codex workflow skill package with evidence gates, review ledgers, and verification habits.",
+                    "topics": ["codex", "workflow", "verification"],
+                    "suggested_lanes": ["documentation", "test", "code_patch"],
+                },
+            ],
+            "provider_runtime_preflight_samples": [
+                {
+                    "provider": {
+                        "name": "openai-agents",
+                        "harness": "openai-agents",
+                        "auth_env_key": "OPENAI_API_KEY",
+                        "required_env_keys": ["OPENAI_API_KEY"],
+                    },
+                    "runtime": {
+                        "platform": "linux",
+                        "cli_resolved_in_runner": True,
+                        "launch_transport": "subprocess",
+                    },
+                    "runner_env": {
+                        "parent_env_keys": ["PATH"],
+                        "allowlist": ["PATH"],
+                    },
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_provider_runtime_sample_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_runtime_replay_not_ready"
+    assert output["activation_gate"]["decision"] == "blocked_before_activation"
+    assert output["provider_runtime_replay_sample"]["route_status"] == "blocked"
+    assert output["provider_runtime_replay_sample"]["failure_mode"] == "provider_runtime_recovery_required"
+    assert output["provider_runtime_replay_sample"]["recovery_hint_codes"] == ["provider_env_missing"]
+    assert output["provider_runtime_replay_sample"]["raw_preflight_inputs_exported"] is False
+    assert output["provider_runtime_replay_sample"]["raw_diagnostics_exported"] is False
+    assert output["provider_runtime_replay_sample"]["provider_runtime_launch_allowed"] is False
+    assert output["provider_runtime_replay_sample"]["remote_execution_allowed"] is False
+    assert [hint["code"] for hint in output["recovery_hints"]] == [
+        "skill_route_provider_runtime_replay_not_ready",
+        "provider_runtime_replay_not_ready",
+    ]
+    assert output["operator_handoff"]["lane_rows"][0]["provider_runtime_replay_sample"]["route_status"] == "blocked"
+    assert output["local_lane_intake"]["lane_rows"][0]["provider_runtime_replay_sample"]["route_status"] == "blocked"
+    assert output["preactivation_trust_boundary"]["provider_runtime_launch_allowed"] is False
+    assert "OPENAI_API_KEY" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
 def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_runtime_activation():
@@ -1734,9 +1805,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
         "activation_lanes[0].activation_not_ready",
         "activation_lanes[0].local_artifact_proof_not_ready",
     ]
-    assert output["supervisor_readiness"]["recovery_hint_codes"] == [
-        "skill_route_unsupported_lanes_downgraded"
-    ]
+    assert output["supervisor_readiness"]["recovery_hint_codes"] == ["skill_route_unsupported_lanes_downgraded"]
     assert output["operator_handoff"]["status"] == "blocked"
     assert output["operator_handoff"]["decision"] == "hold_for_review_or_replay"
     assert output["operator_handoff"]["ready_lane_count"] == 0
@@ -1744,9 +1813,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     assert output["operator_handoff"]["local_artifact_proof_ready"] is False
     assert output["operator_handoff"]["implementation_intake_status"] == "blocked"
     assert output["operator_handoff"]["supervisor_decision"] == "review_before_supervisor_promotion"
-    assert output["operator_handoff"]["recovery_hint_codes"] == [
-        "skill_route_unsupported_lanes_downgraded"
-    ]
+    assert output["operator_handoff"]["recovery_hint_codes"] == ["skill_route_unsupported_lanes_downgraded"]
     assert output["operator_handoff"]["lane_rows"] == [
         {
             "proposal_kind": "documentation",

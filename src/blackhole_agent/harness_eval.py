@@ -122,9 +122,7 @@ AGENT_HARNESS_EVAL_DETAIL_MARKERS = (
     "validation",
 )
 SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
-SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = (
-    "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
-)
+SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
     "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
 )
@@ -592,7 +590,9 @@ def provider_registration_recovery_hints(registration_state: dict[str, Any]) -> 
     if failure_mode == "host_registration_owner_mismatch":
         action = "refuse registration before reporting connected; reset the stale host id or remove the old host registration"
     elif failure_mode == "host_registration_incomplete_success_state":
-        action = "treat incomplete registration as blocked instead of connected and retry only after registration succeeds"
+        action = (
+            "treat incomplete registration as blocked instead of connected and retry only after registration succeeds"
+        )
     else:
         action = "verify host ownership metadata before allowing provider registration"
     return [
@@ -959,6 +959,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     lanes_bounded = set(proposal_kinds) <= allowed_lanes
     evidence_strength = skill_route_discovery_evidence_strength(raw_input, source_kind=source_kind)
     uncertainty = skill_route_discovery_lane_uncertainty(proposal_lanes, evidence_strength=evidence_strength)
+    provider_runtime_replay_sample = skill_route_discovery_provider_runtime_replay_sample(
+        raw_input,
+        source_path=source_path,
+    )
 
     failure_mode = skill_route_discovery_lane_failure_mode(
         proposal_lane_count=int(lane_map["proposal_lane_count"]),
@@ -969,6 +973,12 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         lanes_bounded=lanes_bounded,
         weak_generic_evidence_only=evidence_strength["tier"] == "weak_generic_upstream_movement",
     )
+    if (
+        failure_mode == "none"
+        and provider_runtime_replay_sample.get("provided") is True
+        and provider_runtime_replay_sample.get("ready_for_local_replay") is not True
+    ):
+        failure_mode = "provider_runtime_replay_not_ready"
     route_status = (
         "passed"
         if failure_mode == "none"
@@ -982,6 +992,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         lane_map=lane_map,
     )
+    recovery_hints.extend(skill_route_discovery_provider_runtime_replay_recovery_hints(provider_runtime_replay_sample))
     discovery_checklist = build_skill_route_discovery_checklist(proposal_lanes)
     activation_lanes = build_skill_route_discovery_activation_lanes(
         proposal_lanes,
@@ -989,6 +1000,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         failure_mode=failure_mode,
         recovery_hints=recovery_hints,
         local_artifact_proofs=skill_route_discovery_local_artifact_proofs(raw_input),
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
     )
     preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
         proposal_lanes,
@@ -1009,6 +1021,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             failure_mode=failure_mode,
             recovery_hints=recovery_hints,
             local_artifact_proofs=skill_route_discovery_local_artifact_proofs(raw_input),
+            provider_runtime_replay_sample=provider_runtime_replay_sample,
         )
         preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
             proposal_lanes,
@@ -1088,6 +1101,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "source_lineage_mode": source_lineage["lineage_mode"],
         },
         "recovery_hints": recovery_hints,
+        "provider_runtime_replay_sample": provider_runtime_replay_sample,
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
@@ -1142,7 +1156,10 @@ def skill_route_discovery_lane_uncertainty(
         reasons.append("generic_upstream_movement_requires_local_corroboration")
 
     reasons = list(dict.fromkeys(reasons))
-    missing_detail_risk = "missing_detail_risk" in reasons or evidence_tier in {"empty", "weak_generic_upstream_movement"}
+    missing_detail_risk = "missing_detail_risk" in reasons or evidence_tier in {
+        "empty",
+        "weak_generic_upstream_movement",
+    }
     return {
         "body_free": True,
         "missing_detail_risk": missing_detail_risk,
@@ -1193,9 +1210,7 @@ def skill_route_discovery_recovery_hints(
                     "repository movement into documentation, config, test, or code_patch work."
                 ),
                 "evidence_tier": str(evidence_strength.get("tier") or ""),
-                "local_corroborating_signal_count": int(
-                    evidence_strength.get("local_corroborating_signal_count") or 0
-                ),
+                "local_corroborating_signal_count": int(evidence_strength.get("local_corroborating_signal_count") or 0),
             }
         ]
     if failure_mode == "unsupported_lanes_downgraded":
@@ -1271,7 +1286,9 @@ def skill_route_discovery_source_lineage_summary(registry: dict[str, Any]) -> di
     fork_or_mirror_lineage_collapsed = duplicate_summary_count > 0 or bool(unique_related_hashes)
     return {
         "body_free": True,
-        "lineage_mode": "collapsed_fork_or_mirror" if fork_or_mirror_lineage_collapsed else "single_or_independent_sources",
+        "lineage_mode": "collapsed_fork_or_mirror"
+        if fork_or_mirror_lineage_collapsed
+        else "single_or_independent_sources",
         "candidate_source_count": len(unique_source_hashes),
         "candidate_source_hashes": unique_source_hashes,
         "related_source_count": len(unique_related_hashes),
@@ -1325,12 +1342,16 @@ def build_skill_route_discovery_activation_lanes(
     failure_mode: str,
     recovery_hints: list[dict[str, Any]] | None = None,
     local_artifact_proofs: dict[str, dict[str, Any]] | None = None,
+    provider_runtime_replay_sample: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Group discovered proposal lanes into controller-ready activation checks."""
 
     validation_commands = skill_route_discovery_preactivation_validation_commands()
     recovery_hints = recovery_hints or []
     local_artifact_proofs = local_artifact_proofs or {}
+    provider_runtime_replay_sample = (
+        provider_runtime_replay_sample if isinstance(provider_runtime_replay_sample, dict) else {}
+    )
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for lane in proposal_lanes:
@@ -1340,8 +1361,9 @@ def build_skill_route_discovery_activation_lanes(
         grouped.setdefault(proposal_kind, []).append(lane)
 
     activation_blockers = [] if activation_allowed else [failure_mode or "activation_gate_not_ready"]
-    return [
-        {
+    activation_lanes: list[dict[str, Any]] = []
+    for proposal_kind, lanes in sorted(grouped.items()):
+        lane = {
             "proposal_kind": proposal_kind,
             "candidate_count": len(lanes),
             "candidate_names": sorted({str(lane.get("candidate_name") or "") for lane in lanes}),
@@ -1377,8 +1399,10 @@ def build_skill_route_discovery_activation_lanes(
             "external_skill_activation_allowed": False,
             "raw_source_urls_exported": False,
         }
-        for proposal_kind, lanes in sorted(grouped.items())
-    ]
+        if provider_runtime_replay_sample.get("provided") is True:
+            lane["provider_runtime_replay_sample"] = provider_runtime_replay_sample
+        activation_lanes.append(lane)
+    return activation_lanes
 
 
 def skill_route_discovery_local_artifact_proofs(raw_input: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -1516,6 +1540,105 @@ def skill_route_discovery_provider_runtime_control(
     }
 
 
+def skill_route_discovery_provider_runtime_replay_sample(
+    raw_input: dict[str, Any],
+    *,
+    source_path: Path,
+) -> dict[str, Any]:
+    """Summarize optional provider/runtime replay samples without exporting bodies."""
+
+    samples = raw_input.get("provider_runtime_preflight_samples")
+    samples = [sample for sample in samples if isinstance(sample, dict)] if isinstance(samples, list) else []
+    if not samples:
+        return {
+            "provided": False,
+            "required": True,
+            "behavior": "provider_runtime_recovery_summary",
+            "replay_commands": [
+                PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+            ],
+            "body_free_diagnostics_only": True,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_preflight_inputs_exported": False,
+            "raw_diagnostics_exported": False,
+        }
+
+    summary = evaluate_provider_runtime_recovery_summary(
+        {
+            "task_id": optional_string(raw_input.get("task_id")) or source_path.stem,
+            "preflights": samples,
+        },
+        source_path=source_path,
+    )
+    recovery_hint_codes = [
+        str(hint.get("code") or "") for hint in summary.get("recovery_hints", []) if str(hint.get("code") or "")
+    ]
+    supervisor_readiness = (
+        summary.get("supervisor_readiness") if isinstance(summary.get("supervisor_readiness"), dict) else {}
+    )
+    operator_plan = (
+        summary.get("operator_recovery_plan") if isinstance(summary.get("operator_recovery_plan"), dict) else {}
+    )
+    route_status = str(summary.get("route_status") or "blocked")
+    return {
+        "provided": True,
+        "required": True,
+        "behavior": "provider_runtime_recovery_summary",
+        "route_status": route_status,
+        "ready_for_local_replay": route_status == "passed",
+        "failure_mode": str(summary.get("failure_mode") or "none"),
+        "preflight_count": int(summary.get("preflight_count") or 0),
+        "status_counts": dict(summary.get("status_counts") or {}),
+        "blocked_failure_modes": list(summary.get("blocked_failure_modes") or []),
+        "degraded_provider_count": int(summary.get("degraded_provider_count") or 0),
+        "runner_invoked_count": int(summary.get("runner_invoked_count") or 0),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
+        "operator_next_action": str(operator_plan.get("next_action") or ""),
+        "replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_replay_recovery_hints(
+    provider_runtime_replay_sample: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Translate sampled provider/runtime replay status into skill-route recovery hints."""
+
+    if provider_runtime_replay_sample.get("provided") is not True:
+        return []
+    if provider_runtime_replay_sample.get("ready_for_local_replay") is True:
+        return []
+    recovery_hint_codes = string_list(provider_runtime_replay_sample.get("recovery_hint_codes"))
+    return [
+        {
+            "code": "provider_runtime_replay_not_ready",
+            "scope": "provider_runtime_control",
+            "severity": "blocker",
+            "action": "resolve sampled provider-runtime recovery hints, then replay provider_runtime_preflight and provider_runtime_recovery_summary before promoting skill-route lanes",
+            "affected_preflight_count": int(provider_runtime_replay_sample.get("preflight_count") or 0),
+            "provider_harnesses": [],
+            "sample_route_status": str(provider_runtime_replay_sample.get("route_status") or ""),
+            "sample_failure_mode": str(provider_runtime_replay_sample.get("failure_mode") or ""),
+            "sample_recovery_hint_count": len(recovery_hint_codes),
+            "sample_recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+            "value_recorded": False,
+        }
+    ]
+
+
 def skill_route_discovery_local_artifact_contract(proposal_kind: str) -> dict[str, Any]:
     """Return the bounded local artifact target for a skill-route proposal lane."""
 
@@ -1625,9 +1748,7 @@ def skill_route_discovery_preactivation_trust_boundary(
             diagnostics.append(f"{prefix}.external_harness_execution_must_be_false")
 
         provider_runtime_preflight = lane.get("provider_runtime_preflight")
-        provider_runtime_preflight = (
-            provider_runtime_preflight if isinstance(provider_runtime_preflight, dict) else {}
-        )
+        provider_runtime_preflight = provider_runtime_preflight if isinstance(provider_runtime_preflight, dict) else {}
         if provider_runtime_preflight.get("behavior") != expected_provider_runtime_preflight["behavior"]:
             diagnostics.append(f"{prefix}.provider_runtime_preflight_behavior_mismatch")
         if (
@@ -1653,6 +1774,26 @@ def skill_route_discovery_preactivation_trust_boundary(
         provider_runtime_control = provider_runtime_control if isinstance(provider_runtime_control, dict) else {}
         if provider_runtime_control != expected_provider_runtime_control:
             diagnostics.append(f"{prefix}.provider_runtime_control_mismatch")
+
+        provider_runtime_replay_sample = lane.get("provider_runtime_replay_sample")
+        if isinstance(provider_runtime_replay_sample, dict):
+            if provider_runtime_replay_sample.get("behavior") != "provider_runtime_recovery_summary":
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_behavior_mismatch")
+            if provider_runtime_replay_sample.get("body_free_diagnostics_only") is not True:
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_must_be_body_free")
+            if provider_runtime_replay_sample.get("provider_runtime_launch_allowed") is not False:
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_launch_must_be_false")
+            if provider_runtime_replay_sample.get("remote_execution_allowed") is not False:
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_remote_execution_must_be_false")
+            if provider_runtime_replay_sample.get("raw_preflight_inputs_exported") is not False:
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_raw_inputs_must_be_false")
+            if provider_runtime_replay_sample.get("raw_diagnostics_exported") is not False:
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_raw_diagnostics_must_be_false")
+            if provider_runtime_replay_sample.get("replay_commands") != [
+                PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+            ]:
+                diagnostics.append(f"{prefix}.provider_runtime_replay_sample_commands_mismatch")
 
         blockers = lane.get("activation_blockers")
         blockers = blockers if isinstance(blockers, list) else []
@@ -1766,31 +1907,32 @@ def skill_route_discovery_operator_handoff(
         artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
         target_paths = artifact_contract.get("target_paths")
         target_paths = target_paths if isinstance(target_paths, list) else []
-        lane_rows.append(
-            {
-                "proposal_kind": str(lane.get("proposal_kind") or ""),
-                "candidate_count": int(lane.get("candidate_count") or 0),
-                "activation_ready": lane.get("activation_ready") is True,
-                "local_artifact_proof_ready": isinstance(lane.get("local_artifact_proof"), dict)
-                and lane["local_artifact_proof"].get("ready") is True,
-                "target_path_hashes": [
-                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
-                ],
-                "required_validation": validation_commands,
-                "provider_runtime_replay_commands": provider_runtime_commands,
-                "provider_runtime_control": lane.get("provider_runtime_control")
-                if isinstance(lane.get("provider_runtime_control"), dict)
-                else skill_route_discovery_provider_runtime_control(
-                    activation_ready=lane.get("activation_ready") is True,
-                    recovery_hint_codes=string_list(lane.get("recovery_hint_codes")),
-                ),
-                "runtime_action": str(lane.get("runtime_action") or ""),
-                "external_skill_activation_allowed": False,
-                "external_harness_execution_allowed": False,
-                "raw_target_paths_exported": False,
-                "raw_source_urls_exported": False,
-            }
-        )
+        row = {
+            "proposal_kind": str(lane.get("proposal_kind") or ""),
+            "candidate_count": int(lane.get("candidate_count") or 0),
+            "activation_ready": lane.get("activation_ready") is True,
+            "local_artifact_proof_ready": isinstance(lane.get("local_artifact_proof"), dict)
+            and lane["local_artifact_proof"].get("ready") is True,
+            "target_path_hashes": [
+                stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+            ],
+            "required_validation": validation_commands,
+            "provider_runtime_replay_commands": provider_runtime_commands,
+            "provider_runtime_control": lane.get("provider_runtime_control")
+            if isinstance(lane.get("provider_runtime_control"), dict)
+            else skill_route_discovery_provider_runtime_control(
+                activation_ready=lane.get("activation_ready") is True,
+                recovery_hint_codes=string_list(lane.get("recovery_hint_codes")),
+            ),
+            "runtime_action": str(lane.get("runtime_action") or ""),
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "raw_target_paths_exported": False,
+            "raw_source_urls_exported": False,
+        }
+        if isinstance(lane.get("provider_runtime_replay_sample"), dict):
+            row["provider_runtime_replay_sample"] = lane["provider_runtime_replay_sample"]
+        lane_rows.append(row)
 
     ready_lane_count = sum(1 for row in lane_rows if row["activation_ready"])
     blocked_lane_count = len(lane_rows) - ready_lane_count
@@ -1798,7 +1940,9 @@ def skill_route_discovery_operator_handoff(
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
     implementation_ready = implementation_intake_preflight.get("status") == "ready"
     supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
-    handoff_ready = implementation_ready and supervisor_ready and blocked_lane_count == 0 and proof_ready and bool(lane_rows)
+    handoff_ready = (
+        implementation_ready and supervisor_ready and blocked_lane_count == 0 and proof_ready and bool(lane_rows)
+    )
     return {
         "status": "ready" if handoff_ready else "blocked",
         "decision": "handoff_local_artifact_lanes" if handoff_ready else "hold_for_review_or_replay",
@@ -1854,9 +1998,7 @@ def skill_route_discovery_local_lane_intake(
     )
 
     activation_by_kind = {
-        str(lane.get("proposal_kind") or ""): lane
-        for lane in activation_lanes
-        if str(lane.get("proposal_kind") or "")
+        str(lane.get("proposal_kind") or ""): lane for lane in activation_lanes if str(lane.get("proposal_kind") or "")
     }
     grouped: dict[str, list[dict[str, Any]]] = {}
     for lane in proposal_lanes:
@@ -1876,46 +2018,47 @@ def skill_route_discovery_local_lane_intake(
         for lane in lanes:
             evidence_item_ids.extend(string_list(lane.get("evidence_item_ids")))
 
-        lane_rows.append(
-            {
-                "proposal_kind": proposal_kind,
-                "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
-                "candidate_name_hashes": sorted(
-                    {
-                        stable_text_hash(str(lane.get("candidate_name") or ""))
-                        for lane in lanes
-                        if str(lane.get("candidate_name") or "")
-                    }
-                ),
-                "source_hashes": sorted(
-                    {
-                        stable_text_hash(str(lane.get("source_url") or ""))
-                        for lane in lanes
-                        if str(lane.get("source_url") or "")
-                    }
-                ),
-                "evidence_item_id_count": len(set(evidence_item_ids)),
-                "target_path_hashes": [
-                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
-                ],
-                "inspection_requirements": skill_route_discovery_inspection_requirements(proposal_kind),
-                "required_validation": skill_route_discovery_preactivation_validation_commands(),
-                "local_validation_required": all(lane.get("local_validation_required") is True for lane in lanes),
-                "activation_ready": activation_lane.get("activation_ready") is True,
-                "activation_blockers": string_list(activation_lane.get("activation_blockers")),
-                "provider_runtime_control": activation_lane.get("provider_runtime_control")
-                if isinstance(activation_lane.get("provider_runtime_control"), dict)
-                else skill_route_discovery_provider_runtime_control(
-                    activation_ready=activation_lane.get("activation_ready") is True,
-                    recovery_hint_codes=string_list(activation_lane.get("recovery_hint_codes")),
-                ),
-                "runtime_action": str(activation_lane.get("runtime_action") or "none"),
-                "external_skill_activation_allowed": False,
-                "external_skill_code_allowed": False,
-                "raw_source_urls_exported": False,
-                "raw_target_paths_exported": False,
-            }
-        )
+        row = {
+            "proposal_kind": proposal_kind,
+            "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
+            "candidate_name_hashes": sorted(
+                {
+                    stable_text_hash(str(lane.get("candidate_name") or ""))
+                    for lane in lanes
+                    if str(lane.get("candidate_name") or "")
+                }
+            ),
+            "source_hashes": sorted(
+                {
+                    stable_text_hash(str(lane.get("source_url") or ""))
+                    for lane in lanes
+                    if str(lane.get("source_url") or "")
+                }
+            ),
+            "evidence_item_id_count": len(set(evidence_item_ids)),
+            "target_path_hashes": [
+                stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+            ],
+            "inspection_requirements": skill_route_discovery_inspection_requirements(proposal_kind),
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "local_validation_required": all(lane.get("local_validation_required") is True for lane in lanes),
+            "activation_ready": activation_lane.get("activation_ready") is True,
+            "activation_blockers": string_list(activation_lane.get("activation_blockers")),
+            "provider_runtime_control": activation_lane.get("provider_runtime_control")
+            if isinstance(activation_lane.get("provider_runtime_control"), dict)
+            else skill_route_discovery_provider_runtime_control(
+                activation_ready=activation_lane.get("activation_ready") is True,
+                recovery_hint_codes=string_list(activation_lane.get("recovery_hint_codes")),
+            ),
+            "runtime_action": str(activation_lane.get("runtime_action") or "none"),
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+        }
+        if isinstance(activation_lane.get("provider_runtime_replay_sample"), dict):
+            row["provider_runtime_replay_sample"] = activation_lane["provider_runtime_replay_sample"]
+        lane_rows.append(row)
 
     lane_kinds = {row["proposal_kind"] for row in lane_rows}
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
@@ -1976,7 +2119,9 @@ def skill_route_discovery_supervisor_readiness(
     blocked_lanes = [lane for lane in activation_lanes if lane.get("activation_ready") is not True]
     all_lanes_ready = bool(activation_lanes) and len(ready_lanes) == len(activation_lanes)
     runtime_actions = sorted({str(lane.get("runtime_action") or "") for lane in activation_lanes})
-    external_skill_allowed = any(lane.get("external_skill_activation_allowed") is not False for lane in activation_lanes)
+    external_skill_allowed = any(
+        lane.get("external_skill_activation_allowed") is not False for lane in activation_lanes
+    )
     external_harness_allowed = any(
         isinstance(lane.get("preactivation_harness"), dict)
         and lane["preactivation_harness"].get("external_harness_execution_allowed") is not False
@@ -1988,13 +2133,11 @@ def skill_route_discovery_supervisor_readiness(
     )
     validation_present = all(lane.get("required_validation") == validation_commands for lane in activation_lanes)
     local_artifact_proof_present = all(
-        isinstance(lane.get("local_artifact_proof"), dict)
-        and lane["local_artifact_proof"].get("provided") is True
+        isinstance(lane.get("local_artifact_proof"), dict) and lane["local_artifact_proof"].get("provided") is True
         for lane in activation_lanes
     )
     local_artifact_proof_ready = all(
-        isinstance(lane.get("local_artifact_proof"), dict)
-        and lane["local_artifact_proof"].get("ready") is True
+        isinstance(lane.get("local_artifact_proof"), dict) and lane["local_artifact_proof"].get("ready") is True
         for lane in activation_lanes
     )
 
@@ -4213,10 +4356,7 @@ def evaluate_mock_named_sub_agent_resolution(
     reconstructed_on_miss = truthy(resolution.get("reconstructed_on_miss"))
     blocked_before_spawn = truthy(resolution.get("blocked_before_spawn"))
     fallback_to_parent = bool(
-        resolver_miss
-        and parent_name
-        and resolved_agent_name == parent_name
-        and name != parent_name
+        resolver_miss and parent_name and resolved_agent_name == parent_name and name != parent_name
     )
     fail_closed_required = resolver_miss and not reconstructed_on_miss
     fail_closed_applied = fail_closed_required and blocked_before_spawn and not fallback_to_parent
@@ -4341,9 +4481,9 @@ def evaluate_approval_output_poll(poll: dict[str, Any]) -> dict[str, Any]:
 
     for index, sample in enumerate(samples[:poll_attempt_count]):
         sample_data = sample if isinstance(sample, dict) else {}
-        output = optional_string(
-            sample_data.get("output") or sample_data.get("text") or sample_data.get("content")
-        ) or ""
+        output = (
+            optional_string(sample_data.get("output") or sample_data.get("text") or sample_data.get("content")) or ""
+        )
         sample_hashes.append(stable_text_hash(output))
         if expected_contains and expected_contains in output:
             matched_sample_index = index
@@ -4943,7 +5083,9 @@ def evaluate_provider_usage_limit_preflight(
     if near_limit_windows and not exhausted:
         diagnostics.append("provider usage-limit headers report low remaining headroom")
     if exhausted and pool_configured:
-        diagnostics.append("credential-pool failover is review-only because credential labels and tokens are privacy-sensitive")
+        diagnostics.append(
+            "credential-pool failover is review-only because credential labels and tokens are privacy-sensitive"
+        )
 
     return {
         "observed": observed,
@@ -5166,8 +5308,7 @@ def evaluate_provider_model_command_preflight(
     command_configured = command_value is not None
     command_parts = command_value if isinstance(command_value, list) else None
     command_shape_valid = bool(
-        command_parts
-        and all(isinstance(part, str) and bool(part.strip()) for part in command_parts)
+        command_parts and all(isinstance(part, str) and bool(part.strip()) for part in command_parts)
     )
     malformed = command_configured and not command_shape_valid
     missing = required and not command_configured
@@ -5216,13 +5357,7 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
         "blocked": sum(1 for preflight in preflights if preflight["route_status"] == "blocked"),
     }
     recovery_hints = provider_runtime_recovery_hints(preflights)
-    route_status = (
-        "blocked"
-        if status_counts["blocked"]
-        else "degraded"
-        if status_counts["degraded"]
-        else "passed"
-    )
+    route_status = "blocked" if status_counts["blocked"] else "degraded" if status_counts["degraded"] else "passed"
     failure_mode = "provider_runtime_recovery_required" if status_counts["blocked"] else "none"
     supervisor_readiness = provider_runtime_supervisor_readiness(
         preflights,
@@ -5239,11 +5374,7 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
         "preflight_count": len(preflights),
         "status_counts": status_counts,
         "blocked_failure_modes": sorted(
-            {
-                str(preflight["failure_mode"])
-                for preflight in preflights
-                if preflight["route_status"] == "blocked"
-            }
+            {str(preflight["failure_mode"]) for preflight in preflights if preflight["route_status"] == "blocked"}
         ),
         "degraded_provider_count": status_counts["degraded"],
         "runner_invoked_count": sum(1 for preflight in preflights if preflight["runtime"]["runner_invoked"]),
@@ -5406,11 +5537,7 @@ def provider_runtime_supervisor_readiness(
         "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
     ]
     blocked_failure_modes = sorted(
-        {
-            str(preflight["failure_mode"])
-            for preflight in preflights
-            if preflight["route_status"] == "blocked"
-        }
+        {str(preflight["failure_mode"]) for preflight in preflights if preflight["route_status"] == "blocked"}
     )
     recovery_hint_codes = sorted(
         {str(hint.get("code")) for hint in recovery_hints if str(hint.get("code") or "").strip()}
@@ -6111,21 +6238,15 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     checks = validation.get("checks") if isinstance(validation.get("checks"), list) else []
     rollback = raw_input.get("rollback") if isinstance(raw_input.get("rollback"), dict) else {}
     lifecycle = raw_input.get("lifecycle") if isinstance(raw_input.get("lifecycle"), dict) else {}
-    oneshot_marker = (
-        raw_input.get("oneshot_marker") if isinstance(raw_input.get("oneshot_marker"), dict) else {}
-    )
+    oneshot_marker = raw_input.get("oneshot_marker") if isinstance(raw_input.get("oneshot_marker"), dict) else {}
     observations = raw_input.get("observations") if isinstance(raw_input.get("observations"), list) else []
     report_artifacts = raw_input.get("artifacts") if isinstance(raw_input.get("artifacts"), dict) else {}
     recovery = raw_input.get("recovery") if isinstance(raw_input.get("recovery"), dict) else {}
     stream_boundaries = (
-        raw_input.get("streamed_tool_boundaries")
-        if isinstance(raw_input.get("streamed_tool_boundaries"), dict)
-        else {}
+        raw_input.get("streamed_tool_boundaries") if isinstance(raw_input.get("streamed_tool_boundaries"), dict) else {}
     )
     orchestrator_inbox = (
-        raw_input.get("orchestrator_inbox")
-        if isinstance(raw_input.get("orchestrator_inbox"), dict)
-        else {}
+        raw_input.get("orchestrator_inbox") if isinstance(raw_input.get("orchestrator_inbox"), dict) else {}
     )
 
     runner_invoked = truthy(runner.get("invoked"))
@@ -6344,11 +6465,7 @@ def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[st
         for index, turn in enumerate(raw_child_turns, start=1)
         if isinstance(turn, dict)
     ]
-    lifecycle = (
-        inbox.get("child_lifecycle")
-        if isinstance(inbox.get("child_lifecycle"), dict)
-        else {}
-    )
+    lifecycle = inbox.get("child_lifecycle") if isinstance(inbox.get("child_lifecycle"), dict) else {}
     recovery = inbox.get("recovery") if isinstance(inbox.get("recovery"), dict) else {}
     completion_count = sum(1 for message in messages if message["completion"])
     transcript_only_count = sum(1 for turn in child_turns if turn["transcript_only"])
@@ -6356,12 +6473,13 @@ def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[st
     sub_agent_name_present = truthy(lifecycle.get("sub_agent_name_present", not required))
     send_handle_degraded = truthy(lifecycle.get("send_handle_degraded"))
     close_supported = truthy(lifecycle.get("close_supported", not required))
-    lifecycle_degraded = required and (
-        not sub_agent_name_present or send_handle_degraded or not close_supported
+    lifecycle_degraded = required and (not sub_agent_name_present or send_handle_degraded or not close_supported)
+    transcript_polling_available = (
+        truthy(
+            recovery.get("transcript_polling_available"),
+        )
+        or transcript_only_count > 0
     )
-    transcript_polling_available = truthy(
-        recovery.get("transcript_polling_available"),
-    ) or transcript_only_count > 0
     transcript_polling_required = required and completion_count < expected_count and transcript_polling_available
     cleanup_required = required and lifecycle_degraded
     cleanup_supported = close_supported and not send_handle_degraded
@@ -6573,9 +6691,7 @@ def evaluate_agent_workflow_stream_boundaries(boundaries: dict[str, Any]) -> dic
         "invalid_json_event_count": sum(1 for item in items if not item["strict_json"]),
         "url_ref_event_count": sum(1 for item in items if item["has_url_ref"]),
         "unknown_ref_event_count": sum(
-            1
-            for item in items
-            if item["unknown_item_ref"] or int(item["unknown_evidence_ref_count"]) > 0
+            1 for item in items if item["unknown_item_ref"] or int(item["unknown_evidence_ref_count"]) > 0
         ),
         "items": items,
         "policy": {
@@ -6659,9 +6775,7 @@ def evaluate_agent_workflow_observations(observations: list[Any]) -> dict[str, A
         )
 
     failed_load_bearing = [item for item in items if item["load_bearing"] and not item["passed"]]
-    unreliable_non_load_bearing = [
-        item for item in items if not item["load_bearing"] and not item["reliable"]
-    ]
+    unreliable_non_load_bearing = [item for item in items if not item["load_bearing"] and not item["reliable"]]
     if not failed_load_bearing:
         failure_mode = "none"
     elif any(item["failure_mode"] == "unreliable_load_bearing_observation" for item in failed_load_bearing):
@@ -6712,9 +6826,7 @@ def evaluate_agent_workflow_recovery_handoff(
     operator_required = truthy(recovery.get("operator_required", True))
     commands = string_list(recovery.get("commands"))
     replay_command = optional_string(recovery.get("replay_command"))
-    validation_command_names = [
-        str(check["name"]) for check in validation_checks if optional_string(check.get("name"))
-    ]
+    validation_command_names = [str(check["name"]) for check in validation_checks if optional_string(check.get("name"))]
     command_count = len(commands)
     replay_ready = bool(replay_command or validation_command_names)
     ready = rollback_available and (not required or (command_count > 0 and replay_ready))
@@ -6893,9 +7005,7 @@ def evaluate_agent_workflow_report_contract(
         else []
     )
     missing_sections = (
-        [section for section in AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS if section not in sections]
-        if required
-        else []
+        [section for section in AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS if section not in sections] if required else []
     )
     passed = (not required) or (report_recorded and not missing_sections)
     if required and not report_recorded:
