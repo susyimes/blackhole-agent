@@ -1596,11 +1596,23 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
         "proposal_kinds"
     ] == ["documentation", "test"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
+        "recommended_local_lane_order"
+    ] == ["test", "documentation"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
+        "lane_selection_reason"
+    ] == "workflow_gate_routes_start_with_replay_or_documented_gate_review"
+    assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
         "downgraded_lanes"
     ] == ["runtime_execution"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
         "route_profiles"
     ] == ["skill_ecosystem_state_handoff"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
+        "recommended_local_lane_order"
+    ] == ["config", "test"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
+        "lane_selection_reason"
+    ] == "state_handoff_routes_start_with_metadata_and_boundary_review"
     assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
         "downgraded_lanes"
     ] == ["install"]
@@ -1608,9 +1620,16 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
         "route_profiles"
     ] == ["game_frontend_workflow"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
+        "recommended_local_lane_order"
+    ] == ["documentation", "code_patch"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
+        "lane_selection_reason"
+    ] == "game_skill_routes_start_with_validation_and_boundary_review"
+    assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
         "downgraded_lanes"
     ] == ["execute"]
     for row in intake["rows"]:
+        assert row["lane_selection_review_required"] is True
         assert row["lanes_bounded"] is True
         assert row["local_validation_required"] is True
         assert row["runtime_action"] == "none"

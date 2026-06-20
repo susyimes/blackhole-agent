@@ -3183,6 +3183,12 @@ def skill_route_discovery_candidate_lane_intake(
             diagnostics.append(f"{stable_text_hash(candidate_name or source_url)}:candidate_rejected")
 
         evidence_urls = string_list(candidate.get("evidence_urls"))
+        lane_selection = skill_route_discovery_profile_lane_selection(
+            proposal_kinds=proposal_kinds,
+            route_profiles=string_list(candidate.get("route_profiles")),
+            downgraded_lanes=downgraded_lanes,
+            rejected=bool(rejected),
+        )
         rows.append(
             {
                 "candidate_name_hash": stable_text_hash(candidate_name),
@@ -3190,6 +3196,9 @@ def skill_route_discovery_candidate_lane_intake(
                 "proposal_kinds": proposal_kinds,
                 "proposal_kind_count": len(proposal_kinds),
                 "route_profiles": string_list(candidate.get("route_profiles")),
+                "recommended_local_lane_order": lane_selection["recommended_local_lane_order"],
+                "lane_selection_reason": lane_selection["lane_selection_reason"],
+                "lane_selection_review_required": lane_selection["lane_selection_review_required"],
                 "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                 "discovery_event_effect": str(candidate.get("discovery_event_effect") or "record_only"),
                 "evidence_item_ids": string_list(candidate.get("evidence_item_ids")),
@@ -3254,6 +3263,47 @@ def skill_route_discovery_candidate_lane_intake(
         "raw_source_urls_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_profile_lane_selection(
+    *,
+    proposal_kinds: list[str],
+    route_profiles: list[str],
+    downgraded_lanes: list[str],
+    rejected: bool,
+) -> dict[str, Any]:
+    """Recommend a bounded local lane order for operator selection.
+
+    The recommendation never adds lanes. It only sorts lanes already produced by
+    the local discovery map so profile evidence can guide the next validation
+    artifact without enabling upstream skill packages.
+    """
+
+    bounded_kinds = [kind for kind in proposal_kinds if kind in {"documentation", "config", "test", "code_patch"}]
+    profiles = set(route_profiles)
+    if "skill_ecosystem_state_handoff" in profiles:
+        preferred_order = ["config", "documentation", "test", "code_patch"]
+        reason = "state_handoff_routes_start_with_metadata_and_boundary_review"
+    elif "game_frontend_workflow" in profiles:
+        preferred_order = ["test", "documentation", "code_patch", "config"]
+        reason = "game_skill_routes_start_with_validation_and_boundary_review"
+    elif "codex_workflow_gate" in profiles:
+        preferred_order = ["test", "documentation", "code_patch", "config"]
+        reason = "workflow_gate_routes_start_with_replay_or_documented_gate_review"
+    else:
+        preferred_order = ["documentation", "test", "config", "code_patch"]
+        reason = "generic_skill_routes_start_with_documented_local_contract"
+
+    ordered = [kind for kind in preferred_order if kind in bounded_kinds]
+    ordered.extend(kind for kind in bounded_kinds if kind not in ordered)
+    return {
+        "recommended_local_lane_order": ordered,
+        "lane_selection_reason": reason,
+        "lane_selection_review_required": bool(downgraded_lanes or rejected),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
     }
 
 

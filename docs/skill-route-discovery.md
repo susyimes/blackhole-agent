@@ -236,6 +236,17 @@ validation lane. The intake always keeps `runtime_action_allowed: false`,
 `external_skill_activation_allowed: false`, `external_skill_code_allowed: false`,
 and raw source or evidence URLs out of the harness result.
 
+Each intake row also includes `recommended_local_lane_order`, a profile-specific
+ordering of only the lanes already present for that candidate. FableCodex-style
+workflow gates prefer replay/test or documented-gate work first; COMPASS-style
+state handoff routes prefer config or documentation boundary metadata before
+tests or code patches; Three.js-style game director routes prefer validation
+and documentation before local code changes. The recommendation never adds a
+lane, never overrides downgraded or rejected upstream pressure, and never
+permits install, enable, run, execute, clone-and-run, scaffold, asset
+generation, provider launch, profile writes, memory writes, or external skill
+activation.
+
 Unsupported lane hints are downgraded by removing the unsupported lanes and
 recording them in `downgraded_candidates`. Candidates that request install,
 enable, run, execute, clone-and-run, local deletion, private/non-plain source
