@@ -2634,6 +2634,29 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
         "raw_diagnostics_exported": False,
         "raw_provider_values_exported": False,
     }
+    current_preflight = output["current_action_provider_runtime_preflight"]
+    assert current_preflight["controller_surface"] == "current_action_provider_runtime_preflight"
+    assert current_preflight["status"] == "blocked"
+    assert current_preflight["decision"] == "provider_runtime_preflight_sample_required"
+    assert current_preflight["next_action"] == "add_body_free_provider_runtime_preflight_sample_then_replay"
+    assert current_preflight["theme"] == "provider-runtime-control"
+    assert current_preflight["selected_local_lane"] == "test"
+    assert current_preflight["provider_runtime_sample_provided"] is False
+    assert current_preflight["provider_runtime_sample_route_status"] == "missing"
+    assert current_preflight["provider_runtime_sample_ready_for_local_replay"] is False
+    assert current_preflight["provider_runtime_sample_ready_for_supervisor_promotion"] is False
+    assert current_preflight["success_claim_allowed"] is False
+    assert current_preflight["recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+    assert current_preflight["diagnostics"] == ["provider_runtime_preflight_sample_missing"]
+    assert current_preflight["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert current_preflight["body_free_diagnostics_only"] is True
+    assert current_preflight["provider_runtime_launch_allowed"] is False
+    assert current_preflight["remote_execution_allowed"] is False
+    assert current_preflight["raw_preflight_inputs_exported"] is False
+    assert current_preflight["raw_provider_values_exported"] is False
     assert completion["completion_recovery"]["decision"] == "replay_provider_runtime_preflight"
     assert completion["completion_recovery"]["recovery_hint_codes"] == [
         "provider_runtime_preflight_sample_missing"
@@ -2674,6 +2697,7 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     )
     completion = output["capability_window_completion"]
     sample_gate = completion["provider_runtime_sample_gate"]
+    current_preflight = output["current_action_provider_runtime_preflight"]
 
     assert output["route_status"] == "passed"
     assert output["failure_mode"] == "none"
@@ -2684,6 +2708,21 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     assert sample_gate["decision"] == "provider_runtime_preflight_sample_ready"
     assert sample_gate["provider_runtime_launch_allowed"] is False
     assert sample_gate["remote_execution_allowed"] is False
+    assert current_preflight["status"] == "ready"
+    assert current_preflight["decision"] == "provider_runtime_preflight_ready_for_current_action"
+    assert current_preflight["next_action"] == "continue_selected_bounded_lane_after_provider_runtime_replay"
+    assert current_preflight["theme"] == "provider-runtime-control"
+    assert current_preflight["selected_local_lane"] == "test"
+    assert current_preflight["provider_runtime_sample_provided"] is True
+    assert current_preflight["provider_runtime_sample_route_status"] == "passed"
+    assert current_preflight["provider_runtime_sample_ready_for_local_replay"] is True
+    assert current_preflight["provider_runtime_sample_ready_for_supervisor_promotion"] is True
+    assert current_preflight["success_claim_allowed"] is True
+    assert current_preflight["recovery_hint_codes"] == []
+    assert current_preflight["diagnostics"] == []
+    assert current_preflight["body_free_diagnostics_only"] is True
+    assert current_preflight["provider_runtime_launch_allowed"] is False
+    assert current_preflight["remote_execution_allowed"] is False
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]

@@ -1314,6 +1314,12 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         route_discovery_catalog=route_discovery_catalog,
     )
     current_action = skill_route_discovery_current_action(validation_lane_plan=validation_lane_plan)
+    current_action_provider_runtime_preflight = skill_route_discovery_current_action_provider_runtime_preflight(
+        raw_input=raw_input,
+        current_action=current_action,
+        provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+    )
     validation_readiness_summary = skill_route_discovery_validation_readiness_summary(
         current_action=current_action,
         validation_lane_plan=validation_lane_plan,
@@ -1412,6 +1418,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
         "current_action": current_action,
+        "current_action_provider_runtime_preflight": current_action_provider_runtime_preflight,
         "validation_readiness_summary": validation_readiness_summary,
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
@@ -3641,6 +3648,126 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
         "raw_evidence_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_current_action_provider_runtime_preflight(
+    *,
+    raw_input: dict[str, Any],
+    current_action: dict[str, Any],
+    provider_runtime_diagnostic_panel: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+) -> dict[str, Any]:
+    """Attach provider-runtime replay state to the current scheduled action."""
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    theme = optional_string(window.get("theme")) or "skill-route-discovery"
+    replay_commands = [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    sample_provided = provider_runtime_replay_sample.get("provided") is True
+    sample_route_status = optional_string(provider_runtime_replay_sample.get("route_status")) or "missing"
+    sample_ready_for_local_replay = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    sample_ready_for_supervisor_promotion = (
+        provider_runtime_replay_sample.get("ready_for_supervisor_promotion") is True
+    )
+    sample_degraded = provider_runtime_replay_sample.get("degraded_replay_only") is True
+    sample_blocked = provider_runtime_replay_sample.get("blocked_before_local_replay") is True
+    sample_success_claim_allowed = provider_runtime_replay_sample.get("success_claim_allowed") is True
+    sample_recovery_codes = string_list(provider_runtime_replay_sample.get("recovery_hint_codes"))
+
+    diagnostics: list[str] = []
+    recovery_hint_codes: list[str] = []
+    if theme != "provider-runtime-control":
+        status = "not_applicable"
+        decision = "provider_runtime_preflight_not_required_for_current_theme"
+        next_action = "continue_selected_bounded_lane"
+    else:
+        if not sample_provided:
+            diagnostics.append("provider_runtime_preflight_sample_missing")
+            recovery_hint_codes.append("provider_runtime_preflight_sample_missing")
+            status = "blocked"
+            decision = "provider_runtime_preflight_sample_required"
+            next_action = "add_body_free_provider_runtime_preflight_sample_then_replay"
+        elif sample_blocked:
+            diagnostics.append("provider_runtime_replay_not_ready")
+            recovery_hint_codes.append("provider_runtime_replay_not_ready")
+            recovery_hint_codes.extend(sample_recovery_codes)
+            status = "blocked"
+            decision = "resolve_provider_runtime_recovery_hints_before_current_action"
+            next_action = "resolve_provider_runtime_recovery_hints_then_replay_preflight"
+        elif sample_degraded:
+            diagnostics.append("provider_runtime_degraded_replay_only")
+            recovery_hint_codes.extend(sample_recovery_codes)
+            status = "review"
+            decision = "provider_runtime_degraded_replay_available_without_success_claim"
+            next_action = "operator_review_degraded_provider_runtime_replay_before_promotion"
+        elif sample_ready_for_supervisor_promotion:
+            status = "ready"
+            decision = "provider_runtime_preflight_ready_for_current_action"
+            next_action = "continue_selected_bounded_lane_after_provider_runtime_replay"
+        else:
+            diagnostics.append("provider_runtime_replay_incomplete")
+            recovery_hint_codes.extend(sample_recovery_codes)
+            status = "blocked"
+            decision = "replay_provider_runtime_preflight_before_current_action"
+            next_action = "replay_provider_runtime_preflight_and_recovery_summary"
+
+    recovery_hint_codes = sorted(dict.fromkeys(code for code in recovery_hint_codes if code))
+    diagnostics = sorted(dict.fromkeys(diagnostic for diagnostic in diagnostics if diagnostic))
+    return {
+        "controller_surface": "current_action_provider_runtime_preflight",
+        "status": status,
+        "decision": decision,
+        "next_action": next_action,
+        "theme": theme,
+        "current_action_status": optional_string(current_action.get("status")) or "",
+        "selected_local_lane": optional_string(current_action.get("selected_local_lane")) or "none",
+        "validation_scope": optional_string(current_action.get("validation_scope")) or "none",
+        "current_pass": int(current_action.get("current_pass") or 0),
+        "next_pass": int(current_action.get("next_pass") or 0),
+        "total_passes": int(current_action.get("total_passes") or 0),
+        "route_profiles": string_list(current_action.get("route_profiles")),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_ids": string_list(current_action.get("evidence_item_ids")),
+        "evidence_item_id_count": int(current_action.get("evidence_item_id_count") or 0),
+        "candidate_source_hashes": string_list(current_action.get("candidate_source_hashes")),
+        "provider_runtime_sample_provided": sample_provided,
+        "provider_runtime_sample_route_status": sample_route_status,
+        "provider_runtime_sample_ready_for_local_replay": sample_ready_for_local_replay,
+        "provider_runtime_sample_ready_for_supervisor_promotion": sample_ready_for_supervisor_promotion,
+        "provider_runtime_degraded_replay_only": sample_degraded,
+        "success_claim_allowed": sample_success_claim_allowed,
+        "provider_runtime_diagnostic_status": optional_string(provider_runtime_diagnostic_panel.get("status")) or "",
+        "provider_runtime_diagnostic_decision": optional_string(
+            provider_runtime_diagnostic_panel.get("decision")
+        )
+        or "",
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "diagnostics": diagnostics,
+        "required_validation": string_list(current_action.get("required_validation")),
+        "provider_runtime_replay_commands": replay_commands,
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }

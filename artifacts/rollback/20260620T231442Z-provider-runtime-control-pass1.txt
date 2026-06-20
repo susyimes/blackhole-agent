@@ -1,0 +1,13 @@
+Rollback point for provider-runtime-control pass 1.
+
+Original branch: codex/blackhole-evolve/20260620T231359.303387-add-a-local-skill-route-discovery-probe-for-comp
+Original HEAD: e8491ccf6a8422735fc04405f3e2ede02de7d817
+Rollback ref: refs/rollback/20260620T231442Z-provider-runtime-control-pass1
+Source digest: github-growth-20260620T231207.758191Z
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260620T231359.303387-add-a-local-skill-route-discovery-probe-for-comp
+git reset --hard refs/rollback/20260620T231442Z-provider-runtime-control-pass1
+
+This run must not delete this artifact.

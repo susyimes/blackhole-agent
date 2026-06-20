@@ -834,6 +834,20 @@ supervisor to infer it from raw repository URLs or README claims. Mixed
 Codex/workflow/skill evidence remains `skill_route_discovery_first`; secondary
 agent-harness evaluation stays blocked until local corroboration.
 
+For `provider-runtime-control` windows the harness also emits
+`current_action_provider_runtime_preflight`. This panel joins the selected
+current action to provider-runtime replay state so pass-1 supervisors can see
+the next safe recovery step without inspecting provider bodies. Missing
+provider-runtime samples block with
+`provider_runtime_preflight_sample_missing`; blocked samples carry only hashed
+recovery hint codes; degraded samples are reviewable replay evidence but do not
+allow success claims; passed samples mark the current action ready for the
+bounded local lane. The panel repeats the provider-runtime preflight and
+recovery-summary replay commands and keeps runtime action, external skill
+activation, external harness execution, provider launch, remote execution, raw
+preflight inputs, raw diagnostics, raw provider values, raw source URLs, raw
+target paths, and upstream bodies denied.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend
