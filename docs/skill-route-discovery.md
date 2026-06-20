@@ -681,6 +681,16 @@ surface: it repeats local validation requirements and denies runtime action,
 external skill activation, external harness execution, provider launch, remote
 execution, raw evidence URLs, raw source URLs, and upstream bodies.
 
+The harness also emits `route_discovery_catalog`, an operator-visible catalog
+that connects each observed route profile to the bounded local lane selected for
+review. Catalog rows carry selected item IDs, hashed candidate sources,
+allowed local lanes, the chosen local lane, required validation commands, and
+provider-runtime replay commands. In `provider-runtime-control` windows the
+catalog requires a body-free provider-runtime preflight sample before it can be
+ready. The catalog is not a permission surface: it keeps runtime action,
+external skill activation, external harness execution, provider launch, remote
+execution, raw source URLs, raw target paths, and upstream bodies denied.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,

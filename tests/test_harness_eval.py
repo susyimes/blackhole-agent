@@ -2091,6 +2091,87 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
 
 
+def test_skill_route_discovery_catalog_links_profiles_to_provider_runtime_replay():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass3_selection.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["theme"] = "provider-runtime-control"
+    input_payload["capability_window"]["capability_slice"] = (
+        "Turn provider and runtime configuration problems into body-free diagnostics, "
+        "recovery hints, and locally replayable validation."
+    )
+    input_payload["provider_runtime_preflight_samples"] = [
+        {
+            "provider": {
+                "name": "local-dry-run-provider",
+                "harness": "local-dry-run-provider",
+            },
+            "runtime": {
+                "platform": "linux",
+                "cli_resolved_in_runner": True,
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        }
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    catalog = output["route_discovery_catalog"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert catalog["status"] == "ready"
+    assert catalog["decision"] == "catalog_ready_for_bounded_local_replay"
+    assert catalog["theme"] == "provider-runtime-control"
+    assert catalog["provider_runtime_preflight_required"] is True
+    assert catalog["provider_runtime_sample_gate"]["status"] == "ready"
+    assert catalog["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert catalog["selected_lane_count"] == 3
+    assert [
+        (row["route_profile"], row["selected_local_lane"], row["provider_runtime_preflight_required"])
+        for row in catalog["rows"]
+    ] == [
+        ("codex_workflow_gate", "test", True),
+        ("game_frontend_workflow", "test", True),
+        ("skill_ecosystem_state_handoff", "config", True),
+    ]
+    assert [row["allowed_local_lanes"] for row in catalog["rows"]] == [
+        ["code_patch", "config", "documentation", "test"],
+        ["code_patch", "config", "documentation", "test"],
+        ["code_patch", "config", "documentation", "test"],
+    ]
+    assert [row["evidence_item_ids"] for row in catalog["rows"]] == [
+        ["p3-skill-route-discovery-fablecodex"],
+        ["p2-skill-route-discovery-threejs-game"],
+        ["p1-skill-route-discovery-compass"],
+    ]
+    assert [row["candidate_source_hashes"] for row in catalog["rows"]] == [
+        [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        [stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")],
+        [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
+    ]
+    assert all(row["runtime_action"] == "none" for row in catalog["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in catalog["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in catalog["rows"])
+    assert catalog["runtime_action_allowed"] is False
+    assert catalog["external_skill_activation_allowed"] is False
+    assert catalog["provider_runtime_launch_allowed"] is False
+    assert catalog["remote_execution_allowed"] is False
+    assert "OPENAI_API_KEY" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
 def test_skill_route_discovery_completion_blocks_missing_required_profiles():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

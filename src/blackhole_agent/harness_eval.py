@@ -1284,6 +1284,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         activation_manifest=activation_manifest,
         candidate_lane_intake=candidate_lane_intake,
     )
+    route_discovery_catalog = skill_route_discovery_route_discovery_catalog(
+        raw_input=raw_input,
+        candidate_lane_intake=candidate_lane_intake,
+        route_profile_review=route_profile_review,
+        preactivation_lane_selection=preactivation_lane_selection,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -1356,6 +1363,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_profile_review": route_profile_review,
         "activity_signal_panel": activity_signal_panel,
         "preactivation_lane_selection": preactivation_lane_selection,
+        "route_discovery_catalog": route_discovery_catalog,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -2801,6 +2809,182 @@ def skill_route_discovery_preactivation_lane_selection(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_route_discovery_catalog(
+    *,
+    raw_input: dict[str, Any],
+    candidate_lane_intake: dict[str, Any],
+    route_profile_review: dict[str, Any],
+    preactivation_lane_selection: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+) -> dict[str, Any]:
+    """Render an operator catalog from skill-route evidence to bounded local work."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    theme = optional_string(window.get("theme")) or "skill-route-discovery"
+    capability_slice = optional_string(window.get("capability_slice")) or (
+        "Convert skill and route evidence into bounded local lanes that can be validated before activation."
+    )
+    sample_gate = skill_route_discovery_provider_runtime_sample_gate(
+        window=window,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+    )
+    selection_rows = preactivation_lane_selection.get("rows")
+    selection_rows = selection_rows if isinstance(selection_rows, list) else []
+    selection_by_profile = {
+        str(row.get("route_profile") or ""): row
+        for row in selection_rows
+        if isinstance(row, dict) and str(row.get("route_profile") or "")
+    }
+    candidate_rows = candidate_lane_intake.get("rows")
+    candidate_rows = candidate_rows if isinstance(candidate_rows, list) else []
+    review_rows = route_profile_review.get("rows")
+    review_rows = review_rows if isinstance(review_rows, list) else []
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for review_row in review_rows:
+        if not isinstance(review_row, dict):
+            continue
+        route_profile = str(review_row.get("route_profile") or "generic_skill_workflow")
+        matching_candidates = [
+            row
+            for row in candidate_rows
+            if isinstance(row, dict) and route_profile in string_list(row.get("route_profiles"))
+        ]
+        proposal_kinds = sorted(
+            {
+                kind
+                for candidate in matching_candidates
+                for kind in string_list(candidate.get("proposal_kinds"))
+                if kind in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            }
+            or {
+                kind
+                for kind in string_list(review_row.get("proposal_kinds"))
+                if kind in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            }
+        )
+        selection = selection_by_profile.get(route_profile, {})
+        selected_lane = optional_string(selection.get("selected_local_lane")) or ""
+        recommended_order = [
+            lane
+            for lane in string_list(selection.get("recommended_local_lane_order"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        if not recommended_order:
+            recommended_order = [
+                lane
+                for lane in string_list(review_row.get("proposal_kinds"))
+                if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            ]
+        row_diagnostics: list[str] = []
+        if not proposal_kinds:
+            row_diagnostics.append("no_bounded_local_lanes")
+        if not selected_lane:
+            row_diagnostics.append("selected_local_lane_not_ready")
+        if review_row.get("metadata_complete") is not True:
+            row_diagnostics.append("profile_metadata_not_complete")
+        if sample_gate["status"] != "ready":
+            row_diagnostics.append(str(sample_gate["diagnostic"]))
+        for diagnostic in row_diagnostics:
+            diagnostics.append(f"{route_profile}:{diagnostic}")
+
+        source_hashes = sorted(
+            {
+                str(candidate.get("source_hash") or "")
+                for candidate in matching_candidates
+                if str(candidate.get("source_hash") or "")
+            }
+        )
+        evidence_item_ids = sorted(
+            {
+                item_id
+                for candidate in matching_candidates
+                for item_id in string_list(candidate.get("evidence_item_ids"))
+            }
+        )
+        rows.append(
+            {
+                "route_profile": route_profile,
+                "allowed_local_lanes": proposal_kinds,
+                "selected_local_lane": selected_lane,
+                "recommended_local_lane_order": recommended_order,
+                "selection_status": "ready" if selected_lane and not row_diagnostics else "review",
+                "candidate_count": len(matching_candidates),
+                "candidate_source_hashes": source_hashes,
+                "evidence_item_ids": evidence_item_ids,
+                "evidence_item_id_count": len(evidence_item_ids),
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_preflight_required": sample_gate["required"],
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        bool(rows)
+        and not diagnostics
+        and candidate_lane_intake.get("status") == "ready"
+        and route_profile_review.get("status") == "ready"
+        and preactivation_lane_selection.get("status") == "ready"
+        and sample_gate["status"] == "ready"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_catalog",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "catalog_ready_for_bounded_local_replay"
+        if ready
+        else "review_catalog_before_bounded_local_replay",
+        "theme": theme,
+        "capability_slice": capability_slice,
+        "current_pass": int(window.get("current_pass") or window.get("planned_pass") or 0),
+        "total_passes": int(window.get("total_passes") or 0),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "route_profile_count": len(rows),
+        "candidate_count": sum(row["candidate_count"] for row in rows),
+        "selected_lane_count": sum(1 for row in rows if row["selected_local_lane"]),
+        "provider_runtime_sample_gate": sample_gate,
+        "provider_runtime_preflight_required": sample_gate["required"],
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
