@@ -1,0 +1,6 @@
+rollback_point=20260620T113206Z-skill-route-discovery-pass2
+original_branch=codex/blackhole-evolve/20260620T113300.256523-create-a-local-agent-harness-evaluation-lane-for
+head=6c0f2beb8780abb1ff60dc2c41fc6eb248723f82
+local_ref=refs/rollback/20260620T113206Z-skill-route-discovery-pass2
+recovery_commands=git reset --hard 6c0f2beb8780abb1ff60dc2c41fc6eb248723f82 ; git clean -fd
+note=Created before local self-modification for skill-route-discovery pass 2.

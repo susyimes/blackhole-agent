@@ -694,6 +694,18 @@ harness evaluation before a behavior change, but cannot become a skill
 discovery candidate unless the selected evidence also shows skill/workflow
 signals.
 
+The `agent_harness_eval_lane` replay now carries a body-free
+`claim_evaluation` matrix for this general-agent path. Each recognized public
+record can contribute behavior claims such as multi-agent orchestration, policy
+or sandbox control, provider configuration, conversation state, or local data
+grounding. Claims that map to existing local controller or runner capabilities
+name their focused validation commands; claims without a local capability remain
+`unmapped_evidence_only`. The matrix does not export raw repository URLs or
+upstream bodies, does not execute external projects, and does not grant external
+agent activation. This is the intended lane for comparing Omnigent-style
+meta-harness evidence with domain-agent evidence such as xuefeng-agent before
+any local behavior change is proposed.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,

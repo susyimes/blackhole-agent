@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 45
-    assert payload["pass_count"] == 44
+    assert payload["fixture_count"] == 46
+    assert payload["pass_count"] == 45
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -119,6 +119,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
+    assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
@@ -450,6 +451,50 @@ def test_agent_harness_eval_lane_turns_public_harness_evidence_into_local_eval_l
         "offensive_behavior_local_execution": False,
     }
     assert "https://github.com/visa/visa-vulnerability-agentic-harness" not in serialized
+
+
+def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activation():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_general_agent_projects.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["activation_gate"]["local_eval_activation_allowed"] is True
+    assert output["activation_gate"]["external_harness_execution_allowed"] is False
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation", "test"]
+    assert output["claim_evaluation"]["controller_surface"] == "agent_harness_claim_mapping"
+    assert output["claim_evaluation"]["mapping_status"] == "partial"
+    assert output["claim_evaluation"]["mapped_claim_ids"] == [
+        "conversation_state_or_memory",
+        "multi_agent_orchestration",
+        "policy_or_sandbox_control",
+        "provider_configuration_surface",
+    ]
+    assert output["claim_evaluation"]["unmapped_claim_ids"] == ["local_data_grounding"]
+    assert output["claim_evaluation"]["runtime_action"] == "none"
+    assert output["claim_evaluation"]["external_agent_activation_allowed"] is False
+
+    rows_by_claim = {
+        (row["item_id"], row["claim_id"]): row
+        for row in output["claim_evaluation"]["rows"]
+    }
+    assert rows_by_claim[
+        ("omnigent-general-agent-framework", "multi_agent_orchestration")
+    ]["local_capabilities"] == ["agent_workflow_route"]
+    assert rows_by_claim[
+        ("omnigent-general-agent-framework", "policy_or_sandbox_control")
+    ]["required_validation"] == ["pytest tests/test_harness_eval.py -q -k native_tool_call_policy"]
+    assert rows_by_claim[
+        ("xuefeng-agent-domain-advisor", "local_data_grounding")
+    ]["status"] == "unmapped_evidence_only"
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
+    assert "https://github.com/ziqihe10-droid/xuefeng-agent" not in serialized
 
 
 def test_agent_harness_eval_lane_blocks_unbounded_or_weak_routes():

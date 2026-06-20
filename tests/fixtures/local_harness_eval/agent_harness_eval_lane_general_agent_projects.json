@@ -1,0 +1,82 @@
+{
+  "name": "agent-harness-eval-lane-general-agent-projects",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-general-agent-projects",
+    "evidence_items": [
+      {
+        "item_id": "omnigent-general-agent-framework",
+        "source_url": "https://github.com/omnigent-ai/omnigent",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public general agent framework and meta-harness evidence with multiple agents, policy controls, sandboxing, provider coordination, and session state.",
+        "relevance_reason": "Map behavior claims to existing local controller and runner checks before any behavior change.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "xuefeng-agent-domain-advisor",
+        "source_url": "https://github.com/ziqihe10-droid/xuefeng-agent",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public domain advisor agent evidence with local database lookup, source citation, browser session conversation state, and API settings for model selection.",
+        "relevance_reason": "Record which domain-agent claims map to existing local validation and which remain evidence-only.",
+        "suggested_lanes": ["documentation", "test"],
+        "risk_flags": []
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "lane_map.proposal_kinds",
+      "equals": ["code_patch", "documentation", "test"]
+    },
+    {
+      "path": "claim_evaluation.claim_count",
+      "equals": 7
+    },
+    {
+      "path": "claim_evaluation.mapped_claim_count",
+      "equals": 6
+    },
+    {
+      "path": "claim_evaluation.unmapped_claim_count",
+      "equals": 1
+    },
+    {
+      "path": "claim_evaluation.mapping_status",
+      "equals": "partial"
+    },
+    {
+      "path": "claim_evaluation.mapped_claim_ids",
+      "equals": [
+        "conversation_state_or_memory",
+        "multi_agent_orchestration",
+        "policy_or_sandbox_control",
+        "provider_configuration_surface"
+      ]
+    },
+    {
+      "path": "claim_evaluation.unmapped_claim_ids",
+      "equals": ["local_data_grounding"]
+    },
+    {
+      "path": "claim_evaluation.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "claim_evaluation.external_agent_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_source_urls_exported",
+      "equals": false
+    }
+  ]
+}

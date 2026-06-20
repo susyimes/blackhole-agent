@@ -121,6 +121,33 @@ AGENT_HARNESS_EVAL_DETAIL_MARKERS = (
     "triage artifact",
     "validation",
 )
+AGENT_HARNESS_EVAL_CLAIM_PATTERNS: dict[str, dict[str, Any]] = {
+    "multi_agent_orchestration": {
+        "markers": ("agent framework", "meta-harness", "multiple agents", "orchestrate", "sub-agents"),
+        "capabilities": ("agent_workflow_route",),
+        "validation": ("pytest tests/test_harness_eval.py -q -k agent_workflow_route",),
+    },
+    "policy_or_sandbox_control": {
+        "markers": ("approval", "govern", "policy", "sandbox", "tool limit"),
+        "capabilities": ("native_tool_call_policy",),
+        "validation": ("pytest tests/test_harness_eval.py -q -k native_tool_call_policy",),
+    },
+    "provider_configuration_surface": {
+        "markers": ("api setting", "api settings", "base url", "model", "provider"),
+        "capabilities": ("provider_runtime_preflight",),
+        "validation": ("pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",),
+    },
+    "conversation_state_or_memory": {
+        "markers": ("context memory", "conversation", "local memory", "multi-turn", "session", "state"),
+        "capabilities": ("local_memory",),
+        "validation": ("pytest tests/test_local_memory.py -q",),
+    },
+    "local_data_grounding": {
+        "markers": ("data source", "database", "local data", "official data", "source citation"),
+        "capabilities": (),
+        "validation": (),
+    },
+}
 SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
 SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
@@ -736,6 +763,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     lane_records: list[dict[str, Any]] = []
     review_notes: list[dict[str, Any]] = []
     unsupported_lanes: list[str] = []
+    claim_rows: list[dict[str, Any]] = []
     recognized_count = 0
     detailed_count = 0
 
@@ -753,6 +781,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
             detailed_count += 1
         item_id = optional_string(record.get("item_id")) or f"item-{index}"
         source_url = optional_string(record.get("source_url")) or ""
+        claim_rows.extend(agent_harness_eval_claim_rows(item_id=item_id, text=text))
         lanes = string_list(record.get("suggested_lanes")) or ["test"]
         allowed_lanes = [lane for lane in lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES]
         rejected_lanes = sorted(set(lanes) - set(AGENT_HARNESS_EVAL_ALLOWED_LANES))
@@ -831,6 +860,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         },
         "activation_gate": activation_gate,
         "activation_lanes": activation_lanes,
+        "claim_evaluation": build_agent_harness_eval_claim_evaluation(claim_rows),
         "review_notes": review_notes,
         "proposal_lanes": [
             {
@@ -864,6 +894,56 @@ def agent_harness_eval_record_text(record: dict[str, Any]) -> str:
         if isinstance(value, list):
             parts.extend(str(item) for item in value)
     return " ".join(parts).casefold()
+
+
+def agent_harness_eval_claim_rows(*, item_id: str, text: str) -> list[dict[str, Any]]:
+    """Extract body-free behavior claims and map them to existing local checks."""
+
+    rows: list[dict[str, Any]] = []
+    for claim_id, pattern in AGENT_HARNESS_EVAL_CLAIM_PATTERNS.items():
+        markers = tuple(str(marker) for marker in pattern.get("markers", ()))
+        if not any(marker in text for marker in markers):
+            continue
+        capabilities = tuple(str(capability) for capability in pattern.get("capabilities", ()))
+        validation = tuple(str(command) for command in pattern.get("validation", ()))
+        rows.append(
+            {
+                "item_id": item_id,
+                "claim_id": claim_id,
+                "mapped": bool(capabilities),
+                "local_capabilities": list(capabilities),
+                "required_validation": list(validation),
+                "status": "mapped_to_existing_capability" if capabilities else "unmapped_evidence_only",
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+            }
+        )
+    return rows
+
+
+def build_agent_harness_eval_claim_evaluation(claim_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize claim mapping without exporting upstream bodies or URLs."""
+
+    mapped_count = sum(1 for row in claim_rows if row["mapped"])
+    unmapped_count = len(claim_rows) - mapped_count
+    claim_ids = sorted({str(row["claim_id"]) for row in claim_rows})
+    mapped_claim_ids = sorted({str(row["claim_id"]) for row in claim_rows if row["mapped"]})
+    unmapped_claim_ids = sorted({str(row["claim_id"]) for row in claim_rows if not row["mapped"]})
+    return {
+        "controller_surface": "agent_harness_claim_mapping",
+        "claim_count": len(claim_rows),
+        "mapped_claim_count": mapped_count,
+        "unmapped_claim_count": unmapped_count,
+        "claim_ids": claim_ids,
+        "mapped_claim_ids": mapped_claim_ids,
+        "unmapped_claim_ids": unmapped_claim_ids,
+        "mapping_status": "all_mapped" if claim_rows and not unmapped_count else "partial" if claim_rows else "empty",
+        "local_validation_required": mapped_count > 0,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "raw_claim_bodies_exported": False,
+        "rows": claim_rows,
+    }
 
 
 def safety_review_gate_for_flags(flags: list[str]) -> str:
