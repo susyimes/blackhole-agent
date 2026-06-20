@@ -133,6 +133,15 @@ movement, the policy can become `locally_corroborated_generic_context`; even
 then, the lane remains limited to documentation, config, test, or code_patch
 and keeps external skill activation denied.
 
+The harness also emits `generic_validation_prompt` for that state. It is an
+operator-facing prompt, not a proposal proof: it lists the low-detail PR rows,
+accepted local corroboration signal kinds, replay commands, and the current
+activation decision while denying runtime action, external skill activation,
+external harness execution, provider launch, remote execution, raw evidence URL
+export, source URL export, and upstream body export. This keeps Omnigent-style
+generic PR movement useful as a validation target without treating an untitled
+pull request as behavior-change evidence.
+
 ## Review Notes
 
 The evidence is repository-level and README-level. That is enough to preserve a

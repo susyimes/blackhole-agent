@@ -16,6 +16,7 @@ SKILL_ROUTE_DISCOVERY_HINT = "skill_route_discovery"
 SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
 SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS = ("github.com", "www.github.com")
 SKILL_ROUTE_DISCOVERY_ALLOWED_EVENTS = (
+    "pull_request",
     "repository_created",
     "repository_updated",
     "repository_deleted",
@@ -1020,6 +1021,8 @@ def _contains_explicit_skill_name(text: str, name: str) -> bool:
 
 def _normalize_discovery_event(value: Any) -> str:
     event_kind = str(value or "unknown").strip().lower().replace("-", "_")
+    if event_kind in {"pullrequestevent", "pull_request_event", "pullrequest", "pull_request", "pr"}:
+        return "pull_request"
     if event_kind in {"pushevent", "push_event", "push"}:
         return "push"
     if event_kind in {"releaseevent", "release_event", "release"}:

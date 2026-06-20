@@ -1269,6 +1269,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
+    generic_validation_prompt = skill_route_discovery_generic_validation_prompt(
+        activity_signal_panel=activity_signal_panel,
+        activation_gate=activation_gate,
+        evidence_strength=evidence_strength,
+    )
     operator_recovery_plan = skill_route_discovery_operator_recovery_plan(
         route_status=route_status,
         failure_mode=failure_mode,
@@ -1372,6 +1377,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
         "activity_signal_panel": activity_signal_panel,
+        "generic_validation_prompt": generic_validation_prompt,
         "preactivation_lane_selection": preactivation_lane_selection,
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
@@ -5030,6 +5036,80 @@ def skill_route_discovery_activity_signal_panel(
         "diagnostics": diagnostics,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_generic_validation_prompt(
+    *,
+    activity_signal_panel: dict[str, Any],
+    activation_gate: dict[str, Any],
+    evidence_strength: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose low-detail generic PR movement as local validation work, not proof."""
+
+    weak_generic_count = int(evidence_strength.get("weak_generic_movement_count") or 0)
+    local_corroborating_signal_count = int(evidence_strength.get("local_corroborating_signal_count") or 0)
+    prompt_required = weak_generic_count > 0 and local_corroborating_signal_count == 0
+    locally_corroborated = weak_generic_count > 0 and local_corroborating_signal_count > 0
+    rows = activity_signal_panel.get("rows") if isinstance(activity_signal_panel.get("rows"), list) else []
+    low_detail_rows = [
+        {
+            "event_kind": str(row.get("event_kind") or ""),
+            "proposal_kind": str(row.get("proposal_kind") or ""),
+            "activity_interpretation": str(row.get("activity_interpretation") or ""),
+            "required_validation": string_list(row.get("required_validation")),
+            "weak_generic_supporting_context_only": row.get("weak_generic_supporting_context_only") is True,
+            "local_corroboration_required": row.get("local_corroboration_required") is True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+        }
+        for row in rows
+        if row.get("local_corroboration_required") is True
+    ]
+    if prompt_required:
+        status = "review"
+        decision = "collect_local_corroboration_before_activation"
+        supervisor_next_action = "add_focused_fixture_or_operator_review_note"
+    elif locally_corroborated:
+        status = "ready"
+        decision = "generic_movement_locally_corroborated_for_bounded_lane"
+        supervisor_next_action = "replay_bounded_local_validation"
+    else:
+        status = "not_required"
+        decision = "no_generic_validation_prompt_required"
+        supervisor_next_action = "continue_standard_skill_route_review"
+
+    return {
+        "controller_surface": "skill_route_discovery_generic_validation_prompt",
+        "status": status,
+        "decision": decision,
+        "prompt_required": prompt_required,
+        "prompt_count": len(low_detail_rows) if prompt_required else 0,
+        "weak_generic_movement_count": weak_generic_count,
+        "local_corroborating_signal_count": local_corroborating_signal_count,
+        "generic_movement_policy": str(activity_signal_panel.get("generic_movement_policy") or ""),
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "local_proposal_activation_allowed": activation_gate.get("local_proposal_activation_allowed") is True,
+        "accepted_corroboration_signal_kinds": [
+            "failing_local_test",
+            "focused_fixture",
+            "local_validation",
+            "operator_review_note",
+            "replay_fixture",
+        ],
+        "supervisor_next_action": supervisor_next_action,
+        "replay_commands": skill_route_discovery_preactivation_validation_commands(),
+        "low_detail_rows": low_detail_rows,
+        "local_validation_required": weak_generic_count > 0,
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,

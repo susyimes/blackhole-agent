@@ -7705,6 +7705,50 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert all(assertion["passed"] for assertion in current_wake["assertions"])
 
 
+def test_skill_route_discovery_generic_pull_request_prompts_for_local_validation():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-low-detail-pr-prompt",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "omnigent-generic-pr",
+                    "source_url": "https://github.com/omnigent-ai/omnigent",
+                    "discovery_event_kind": "PullRequestEvent",
+                    "evidence_summary": (
+                        "Generic untitled pull request lifecycle signal with missing PR detail; "
+                        "route hint and test words are insufficient without local corroboration."
+                    ),
+                    "candidate_lanes": ["test"],
+                    "evidence_item_ids": ["omnigent-generic-pr"],
+                    "evidence_urls": ["https://github.com/omnigent-ai/omnigent"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_low_detail_pr_prompt_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "weak_generic_upstream_evidence"
+    assert output["lane_map"]["proposal_lane_count"] == 1
+    assert output["activity_signal_panel"]["generic_movement_policy"] == (
+        "supporting_context_only_until_local_corroboration"
+    )
+    assert output["activity_signal_panel"]["rows"][0]["event_kind"] == "pull_request"
+    assert output["activity_signal_panel"]["rows"][0]["weak_generic_supporting_context_only"] is True
+    assert output["generic_validation_prompt"]["status"] == "review"
+    assert output["generic_validation_prompt"]["decision"] == "collect_local_corroboration_before_activation"
+    assert output["generic_validation_prompt"]["prompt_required"] is True
+    assert output["generic_validation_prompt"]["prompt_count"] == 1
+    assert output["generic_validation_prompt"]["low_detail_rows"][0]["proposal_kind"] == "test"
+    assert output["generic_validation_prompt"]["local_proposal_activation_allowed"] is False
+    assert output["generic_validation_prompt"]["runtime_action_allowed"] is False
+    assert output["generic_validation_prompt"]["external_skill_activation_allowed"] is False
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
 def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_ids():
     from blackhole_agent.harness_eval import evaluate_harness_behavior, load_json_object
 

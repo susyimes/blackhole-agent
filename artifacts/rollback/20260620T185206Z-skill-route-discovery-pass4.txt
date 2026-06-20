@@ -1,0 +1,19 @@
+Rollback point for source digest github-growth-20260620T185207.793510Z.
+
+Original branch:
+codex/blackhole-evolve/20260620T185258.885134-add-local-agent-harness-evaluation-fixtures-for-
+
+Original HEAD:
+fdf6d25f07115f268fa340788100726977b8b31c
+
+Local rollback ref:
+refs/blackhole/rollback/20260620T185206Z-skill-route-discovery-pass4
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+git reset --hard refs/blackhole/rollback/20260620T185206Z-skill-route-discovery-pass4
+git clean -fd
+
+Scope note:
+This run is expected to modify only local controller, test, documentation, or
+artifact files for skill-route discovery pass 4. Do not delete this rollback
+artifact during the run that created it.
