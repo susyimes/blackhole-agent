@@ -268,6 +268,18 @@ lanes, cite new evidence URLs, or make install, enable, run, execute,
 clone-and-run, scaffold, profile-write, provider-launch, or external skill
 activation requests valid.
 
+The harness now emits `mixed_local_lane_probe` for candidate rows that combine
+Codex, skill or skills, and workflow terms, with agent or agents marking a full
+mixed signal. The probe selects `skill_route_discovery` as the primary route
+before any secondary harness evaluation, repeats only documentation, config,
+test, and code_patch lanes, and marks
+`agent_harness_eval_after_local_corroboration` as blocked until local
+corroboration exists. It is still body-free: it exports selected item IDs,
+hashed candidate/source identifiers, bounded lane order, route profiles, and
+the same denials for runtime action, external skill activation, external agent
+activation, external harness execution, provider launch, remote execution, raw
+source URLs, raw evidence URLs, and upstream bodies.
+
 Unsupported lane hints are downgraded by removing the unsupported lanes and
 recording them in `downgraded_candidates`. Candidates that request install,
 enable, run, execute, clone-and-run, local deletion, private/non-plain source

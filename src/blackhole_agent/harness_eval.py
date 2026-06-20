@@ -1250,6 +1250,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         candidate_lane_intake=candidate_lane_intake,
         activation_gate=activation_gate,
     )
+    mixed_local_lane_probe = skill_route_discovery_mixed_local_lane_probe(
+        candidate_lane_intake=candidate_lane_intake,
+        activation_gate=activation_gate,
+    )
     provider_runtime_diagnostic_panel = skill_route_discovery_provider_runtime_diagnostic_panel(
         activation_lanes=activation_lanes,
         recovery_hints=recovery_hints,
@@ -1398,6 +1402,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "summary_signal_audit": summary_signal_audit,
         "candidate_lane_intake": candidate_lane_intake,
         "term_route_review": term_route_review,
+        "mixed_local_lane_probe": mixed_local_lane_probe,
         "evidence_lane_matrix": evidence_lane_matrix,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
@@ -5382,6 +5387,113 @@ def skill_route_discovery_term_route_review(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_mixed_local_lane_probe(
+    *,
+    candidate_lane_intake: dict[str, Any],
+    activation_gate: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose mixed Codex/agent skill-workflow evidence as a first skill-route lane."""
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        SKILL_ROUTE_DISCOVERY_HINT,
+    )
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    rows_input = candidate_lane_intake.get("rows")
+    rows_input = rows_input if isinstance(rows_input, list) else []
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for index, raw_row in enumerate(rows_input):
+        row = raw_row if isinstance(raw_row, dict) else {}
+        matched_terms = set(string_list(row.get("matched_route_terms")))
+        proposal_kinds = [kind for kind in string_list(row.get("proposal_kinds")) if kind in allowed_lanes]
+        has_skill_term = bool({"skill", "skills"} & matched_terms)
+        has_agent_term = bool({"agent", "agents"} & matched_terms)
+        mixed_signal = (
+            "codex" in matched_terms
+            and "workflow" in matched_terms
+            and has_skill_term
+        )
+        if not mixed_signal:
+            continue
+
+        if not has_agent_term:
+            diagnostics.append(f"rows[{index}].agent_term_missing_for_full_mixed_signal")
+        if not proposal_kinds:
+            diagnostics.append(f"rows[{index}].bounded_local_lanes_missing")
+        if row.get("local_validation_required") is not True:
+            diagnostics.append(f"rows[{index}].local_validation_required_missing")
+        if str(row.get("runtime_action") or "none") != "none":
+            diagnostics.append(f"rows[{index}].runtime_action_must_be_none")
+        if row.get("external_skill_activation_allowed") is not False:
+            diagnostics.append(f"rows[{index}].external_skill_activation_must_be_false")
+
+        rows.append(
+            {
+                "candidate_name_hash": str(row.get("candidate_name_hash") or ""),
+                "source_hash": str(row.get("source_hash") or ""),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_probe_decision": "skill_route_discovery_first",
+                "secondary_lane": "agent_harness_eval_after_local_corroboration",
+                "secondary_lane_status": "blocked_until_local_corroboration",
+                "matched_route_terms": sorted(matched_terms),
+                "full_mixed_signal": has_agent_term,
+                "proposal_kinds": proposal_kinds,
+                "recommended_local_lane_order": [
+                    lane for lane in string_list(row.get("recommended_local_lane_order")) if lane in proposal_kinds
+                ],
+                "route_profiles": string_list(row.get("route_profiles")),
+                "evidence_item_ids": string_list(row.get("evidence_item_ids")),
+                "evidence_item_id_count": int(row.get("evidence_item_id_count") or 0),
+                "local_validation_required": row.get("local_validation_required") is True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    activation_allowed = activation_gate.get("local_proposal_activation_allowed") is True
+    full_signal_ready = bool(rows) and all(row["full_mixed_signal"] for row in rows)
+    ready = full_signal_ready and not diagnostics and activation_allowed
+    return {
+        "controller_surface": "skill_route_discovery_mixed_local_lane_probe",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "mixed_skill_workflow_routes_skill_discovery_first"
+        if ready
+        else "review_mixed_skill_workflow_signal_before_secondary_lane",
+        "candidate_count": len(rows),
+        "full_mixed_signal_count": sum(1 for row in rows if row["full_mixed_signal"]),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+        "secondary_lane": "agent_harness_eval_after_local_corroboration",
+        "secondary_lane_status": "blocked_until_local_corroboration",
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_evidence_urls_exported": False,

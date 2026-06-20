@@ -2108,6 +2108,7 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
         assert row["external_skill_activation_allowed"] is False
         assert row["raw_source_url_exported"] is False
         assert row["raw_evidence_urls_exported"] is False
+
         assert row["raw_upstream_body_exported"] is False
 
     matrix = output["evidence_lane_matrix"]
@@ -2155,6 +2156,72 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_mixed_local_lane_probe_prefers_skill_route_first():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "skill-route-discovery-mixed-local-lane-probe",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "codex-agent-skills-workflow",
+                    "source_url": "https://github.com/baskduf/FableCodex",
+                    "evidence_summary": (
+                        "Agent Codex skill and skills workflow package with verification gates, "
+                        "routing docs, examples, tests, and local replay habits."
+                    ),
+                    "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    "evidence_item_ids": ["p3-mixed-skill-workflow-routing"],
+                    "evidence_urls": ["https://github.com/baskduf/FableCodex"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_mixed_local_lane_probe_inline.json",
+    )
+    serialized = json.dumps(output["mixed_local_lane_probe"], sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+
+    probe = output["mixed_local_lane_probe"]
+    assert probe["controller_surface"] == "skill_route_discovery_mixed_local_lane_probe"
+    assert probe["status"] == "ready"
+    assert probe["decision"] == "mixed_skill_workflow_routes_skill_discovery_first"
+    assert probe["candidate_count"] == 1
+    assert probe["full_mixed_signal_count"] == 1
+    assert probe["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert probe["primary_route"] == "skill_route_discovery"
+    assert probe["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+    assert probe["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert probe["diagnostics"] == []
+    assert probe["runtime_action_allowed"] is False
+    assert probe["external_skill_activation_allowed"] is False
+    assert probe["external_agent_activation_allowed"] is False
+    assert probe["external_harness_execution_allowed"] is False
+    assert probe["provider_runtime_launch_allowed"] is False
+    assert probe["raw_source_urls_exported"] is False
+    assert probe["raw_evidence_urls_exported"] is False
+    assert probe["raw_upstream_body_exported"] is False
+
+    row = probe["rows"][0]
+    assert row["source_hash"] == stable_text_hash("https://github.com/baskduf/FableCodex")
+    assert row["route_hint"] == "skill_route_discovery"
+    assert row["route_probe_decision"] == "skill_route_discovery_first"
+    assert row["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert row["matched_route_terms"] == ["agent", "codex", "skill", "skills", "workflow"]
+    assert row["proposal_kinds"] == ["documentation", "config", "test", "code_patch"]
+    assert row["recommended_local_lane_order"] == ["test", "documentation", "code_patch", "config"]
+    assert row["evidence_item_ids"] == ["p3-mixed-skill-workflow-routing"]
+    assert row["local_validation_required"] is True
+    assert row["runtime_action"] == "none"
+    assert row["external_skill_activation_allowed"] is False
+    assert row["external_agent_activation_allowed"] is False
+    assert row["raw_source_url_exported"] is False
+    assert row["raw_evidence_urls_exported"] is False
+    assert row["raw_upstream_body_exported"] is False
+    assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
 def test_skill_route_discovery_capability_window_reports_in_progress_before_final_pass():

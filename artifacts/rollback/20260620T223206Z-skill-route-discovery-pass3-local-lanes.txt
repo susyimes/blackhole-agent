@@ -1,0 +1,9 @@
+Rollback point: 20260620T223206Z skill-route-discovery-pass3-local-lanes
+Original branch: codex/blackhole-evolve/20260620T223311.537024-add-a-local-skill-route-discovery-validation-cas
+Original HEAD: efb6aa490023b8bc5417e7d5d250d971df393a9e
+Local rollback ref: refs/rollback/20260620T223206Z-skill-route-discovery-pass3-local-lanes
+
+Recovery commands (destructive; run only by explicit operator decision):
+  git switch codex/blackhole-evolve/20260620T223311.537024-add-a-local-skill-route-discovery-validation-cas
+  git reset --hard refs/rollback/20260620T223206Z-skill-route-discovery-pass3-local-lanes
+  git clean -fd
