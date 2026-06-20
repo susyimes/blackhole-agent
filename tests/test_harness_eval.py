@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 46
-    assert payload["pass_count"] == 45
+    assert payload["fixture_count"] == 47
+    assert payload["pass_count"] == 46
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -160,6 +160,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["rendered-html-artifact-js-and-links"]["passed"] is True
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
     assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
+    assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -1850,6 +1851,52 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
     assert completion["raw_evidence_urls_exported"] is False
     assert completion["raw_source_urls_exported"] is False
     assert completion["raw_upstream_body_exported"] is False
+
+
+def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_handoff():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass2_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    completion = output["capability_window_completion"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["lane_map"]["proposal_lane_count"] == 12
+    assert output["route_profile_review"]["profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert completion["status"] == "in_progress"
+    assert completion["decision"] == "continue_capability_window_before_completion"
+    assert completion["current_pass"] == 2
+    assert completion["total_passes"] == 4
+    assert completion["profile_completion_check"]["status"] == "ready"
+    assert completion["next_pass_handoff"]["status"] == "ready"
+    assert completion["next_pass_handoff"]["next_pass"] == 3
+    assert completion["next_pass_handoff"]["remaining_pass_count"] == 2
+    assert completion["next_pass_handoff"]["supervisor_next_action"] == "continue_skill_route_discovery_window"
+    assert set(completion["next_pass_handoff"]["recommended_local_lane_order"]) == {
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    }
+    assert completion["runtime_action_allowed"] is False
+    assert completion["external_skill_activation_allowed"] is False
+    assert completion["provider_runtime_launch_allowed"] is False
+    assert completion["remote_execution_allowed"] is False
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
 
 
 def test_skill_route_discovery_completion_blocks_missing_required_profiles():
