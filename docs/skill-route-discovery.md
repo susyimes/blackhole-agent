@@ -109,6 +109,16 @@ more likely to survive context budgeting, but it does not create install,
 enable, clone, run, execute, deletion, provider launch, remote execution, or
 external skill activation authority.
 
+The local harness also exposes that movement as `activity_signal_panel`.
+GitHub `PushEvent` values are normalized to `push` and interpreted only as
+validation pressure for the four bounded local lanes. A COMPASS Skills-style
+push can therefore produce documentation, config, test, and code_patch rows,
+but every row keeps `runtime_action: none`, requires the normal local replay
+commands, hashes source metadata, and denies external skill activation,
+external harness execution, provider launch, remote execution, and raw upstream
+body export. Push movement never means install, enable, execute, clone, profile
+write, memory write, or deletion.
+
 ## Review Notes
 
 The evidence is repository-level and README-level. That is enough to preserve a

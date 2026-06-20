@@ -1363,6 +1363,76 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
     assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
 
 
+def test_skill_route_discovery_activity_signal_panel_bounds_compass_push_event():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-compass-push",
+            "source_kind": "evidence_items",
+            "evidence_items": [
+                {
+                    "item_id": "compass-push",
+                    "item_kind": "repository",
+                    "name": "compass-skills",
+                    "source_url": "https://github.com/dongshuyan/compass-skills",
+                    "title": "COMPASS Skills PushEvent",
+                    "summary": (
+                        "PushEvent movement for a skill ecosystem with task clarification, local memory, "
+                        "handoff prompts, collaboration profiles, and validation notes."
+                    ),
+                    "discovery_event_kind": "PushEvent",
+                    "route_hints": ["skill_route_discovery"],
+                    "topics": ["agent-skills", "workflow", "validation"],
+                    "suggested_lanes": ["documentation", "config", "test", "code_patch", "execute"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_compass_push_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["lane_map"]["proposal_lane_count"] == 4
+    assert {lane["discovery_event_kind"] for lane in output["proposal_lanes"]} == {"push"}
+    assert {lane["discovery_event_effect"] for lane in output["proposal_lanes"]} == {"record_only"}
+    assert {lane["proposal_kind"] for lane in output["proposal_lanes"]} == {
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    }
+    assert {lane["runtime_action"] for lane in output["proposal_lanes"]} == {"none"}
+    assert output["activity_signal_panel"]["controller_surface"] == "skill_route_discovery_activity_signal_panel"
+    assert output["activity_signal_panel"]["status"] == "ready"
+    assert output["activity_signal_panel"]["decision"] == "interpret_activity_as_bounded_validation_pressure"
+    assert output["activity_signal_panel"]["event_kinds"] == ["push"]
+    assert output["activity_signal_panel"]["push_signal_count"] == 4
+    assert output["activity_signal_panel"]["lane_count"] == 4
+    assert output["activity_signal_panel"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert output["activity_signal_panel"]["diagnostics"] == []
+    assert output["activity_signal_panel"]["runtime_action_allowed"] is False
+    assert output["activity_signal_panel"]["external_skill_activation_allowed"] is False
+    assert output["activity_signal_panel"]["raw_source_urls_exported"] is False
+    for row in output["activity_signal_panel"]["rows"]:
+        assert row["event_kind"] == "push"
+        assert row["proposal_kind"] in {"documentation", "config", "test", "code_patch"}
+        assert row["route_profiles"] == ["skill_ecosystem_state_handoff"]
+        assert row["event_effects"] == ["record_only"]
+        assert row["allowed_local_lane"] is True
+        assert row["activity_interpretation"] == "movement_supports_local_validation_lane"
+        assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_evidence_exported"] is False
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+
+
 def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
     output = evaluate_harness_behavior(
         "skill_route_discovery_lane",

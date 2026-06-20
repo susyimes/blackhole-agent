@@ -550,6 +550,43 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert all("unvalidated_external_skill_evidence" in lane["uncertainty_reasons"] for lane in lane_map["proposal_lanes"])
 
 
+def test_skill_route_discovery_normalizes_push_event_to_bounded_proposal_lanes():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            {
+                "item_id": "compass-push",
+                "item_kind": "repository",
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "title": "COMPASS Skills PushEvent",
+                "summary": (
+                    "PushEvent movement for a skill ecosystem with task clarification, local memory, "
+                    "handoff prompts, profile state, route metadata, and validation notes."
+                ),
+                "discovery_event_kind": "PushEvent",
+                "route_hints": ["skill_route_discovery"],
+                "topics": ["agent-skills", "workflow", "validation"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            }
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["candidate_count"] == 1
+    assert registry["candidates"][0]["discovery_event_kind"] == "push"
+    assert registry["candidates"][0]["discovery_event_effect"] == "record_only"
+    assert lane_map["proposal_lane_count"] == 4
+    assert {lane["proposal_kind"] for lane in lane_map["proposal_lanes"]} == {
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    }
+    assert {lane["discovery_event_kind"] for lane in lane_map["proposal_lanes"]} == {"push"}
+    assert {lane["runtime_action"] for lane in lane_map["proposal_lanes"]} == {"none"}
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+
+
 def test_skill_route_discovery_proposal_lane_map_cites_only_item_evidence_urls():
     fixture_path = (
         Path(__file__).parent

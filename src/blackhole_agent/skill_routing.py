@@ -696,6 +696,8 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             proposal_lanes.append(
                 {
                     "candidate_name": name,
+                    "discovery_event_effect": str(candidate.get("discovery_event_effect") or "record_only"),
+                    "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                     "source_url": source_url,
                     "proposal_kind": lane,
                     "route_profiles": _string_list(candidate.get("route_profiles")),
@@ -983,6 +985,10 @@ def _contains_explicit_skill_name(text: str, name: str) -> bool:
 
 def _normalize_discovery_event(value: Any) -> str:
     event_kind = str(value or "unknown").strip().lower().replace("-", "_")
+    if event_kind in {"pushevent", "push_event", "push"}:
+        return "push"
+    if event_kind in {"releaseevent", "release_event", "release"}:
+        return "release"
     if event_kind in {"create", "created", "repository_create", "repositorycreated"}:
         return "repository_created"
     if event_kind in {"delete", "deleted", "repository_delete", "repositorydeleted"}:

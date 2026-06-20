@@ -1165,6 +1165,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
         evidence_strength=evidence_strength,
     )
+    activity_signal_panel = skill_route_discovery_activity_signal_panel(
+        proposal_lanes=proposal_lanes,
+        activation_gate=activation_gate,
+        source_lineage=source_lineage,
+    )
     operator_recovery_plan = skill_route_discovery_operator_recovery_plan(
         route_status=route_status,
         failure_mode=failure_mode,
@@ -1245,6 +1250,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "local_lane_intake": local_lane_intake,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
+        "activity_signal_panel": activity_signal_panel,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -1254,6 +1260,8 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "proposal_lanes": [
             {
                 "candidate_name": str(lane.get("candidate_name") or ""),
+                "discovery_event_kind": str(lane.get("discovery_event_kind") or "unknown"),
+                "discovery_event_effect": str(lane.get("discovery_event_effect") or "record_only"),
                 "proposal_kind": str(lane.get("proposal_kind") or ""),
                 "route_hint": str(lane.get("route_hint") or ""),
                 "status": str(lane.get("status") or ""),
@@ -2860,6 +2868,115 @@ def skill_route_discovery_route_profile_review(
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_activity_signal_panel(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    activation_gate: dict[str, Any],
+    source_lineage: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize repository activity as bounded validation pressure only."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    diagnostics: list[str] = []
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        event_kind = str(lane.get("discovery_event_kind") or "unknown")
+        grouped.setdefault((event_kind, proposal_kind), []).append(lane)
+        if proposal_kind not in allowed_lanes:
+            diagnostics.append(f"{event_kind}:{proposal_kind}:proposal_kind_unbounded")
+        if str(lane.get("runtime_action") or "") != "none":
+            diagnostics.append(f"{event_kind}:{proposal_kind}:runtime_action_must_be_none")
+        if lane.get("local_validation_required") is not True:
+            diagnostics.append(f"{event_kind}:{proposal_kind}:local_validation_required")
+
+    rows: list[dict[str, Any]] = []
+    for (event_kind, proposal_kind), lanes in sorted(grouped.items()):
+        evidence_item_ids: list[str] = []
+        route_profiles: list[str] = []
+        candidate_names: set[str] = set()
+        source_urls: set[str] = set()
+        for lane in lanes:
+            evidence_item_ids.extend(string_list(lane.get("evidence_item_ids")))
+            route_profiles.extend(string_list(lane.get("route_profiles")))
+            if str(lane.get("candidate_name") or ""):
+                candidate_names.add(str(lane.get("candidate_name") or ""))
+            if str(lane.get("source_url") or ""):
+                source_urls.add(str(lane.get("source_url") or ""))
+        event_effects = sorted(
+            {
+                str(lane.get("discovery_event_effect") or "record_only")
+                for lane in lanes
+            }
+        )
+        rows.append(
+            {
+                "event_kind": event_kind,
+                "proposal_kind": proposal_kind,
+                "candidate_count": len(candidate_names),
+                "candidate_name_hashes": [stable_text_hash(name) for name in sorted(candidate_names)],
+                "source_hashes": [stable_text_hash(source_url) for source_url in sorted(source_urls)],
+                "route_profiles": sorted(dict.fromkeys(route_profiles)),
+                "evidence_item_id_count": len(set(evidence_item_ids)),
+                "event_effects": event_effects,
+                "allowed_local_lane": proposal_kind in allowed_lanes,
+                "activity_interpretation": (
+                    "movement_supports_local_validation_lane"
+                    if event_kind == "push"
+                    else "repository_activity_record_only"
+                ),
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_evidence_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    event_kinds = sorted({row["event_kind"] for row in rows})
+    push_signal_count = sum(1 for row in rows if row["event_kind"] == "push")
+    rows_bounded = bool(rows) and all(row["allowed_local_lane"] for row in rows)
+    ready = (
+        bool(rows)
+        and not diagnostics
+        and rows_bounded
+        and activation_gate.get("local_proposal_activation_allowed") is True
+    )
+    return {
+        "controller_surface": "skill_route_discovery_activity_signal_panel",
+        "status": "ready" if ready else "blocked" if not rows else "review",
+        "decision": "interpret_activity_as_bounded_validation_pressure"
+        if ready
+        else "hold_activity_signal_for_review",
+        "event_kinds": event_kinds,
+        "push_signal_count": push_signal_count,
+        "lane_count": len(rows),
+        "rows": rows,
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "diagnostics": diagnostics,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 
