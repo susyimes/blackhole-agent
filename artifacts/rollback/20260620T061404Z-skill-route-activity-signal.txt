@@ -1,0 +1,13 @@
+Rollback point for skill-route activity signal pass
+
+Created at: 2026-06-20T06:14:04Z
+Original branch: codex/blackhole-evolve/20260620T061321.378691-add-or-update-local-documentation-describing-how
+Original HEAD: d9478ae8d53a7acf15b36346b0c5bd23192a5151
+Rollback ref: refs/rollback/20260620T061404Z-skill-route-activity-signal
+
+Recovery commands (explicit/destructive; supervisor or human must choose):
+  git reset --hard refs/rollback/20260620T061404Z-skill-route-activity-signal
+  git clean -fd
+
+Scope intent:
+  Continue skill-route-discovery pass 2 by making repeated public skill repository activity visible as bounded local validation pressure without expanding lanes or runtime activation.

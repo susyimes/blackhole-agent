@@ -465,8 +465,8 @@ def test_skill_route_discovery_four_item_fixture_stays_in_bounded_lanes():
     assert result.passed is True
     assert result.selected_item_ids == [
         "fablecodex-workflow-skill-eval",
-        "compass-skills-local-lanes",
         "threejs-game-skills-domain-director",
+        "compass-skills-local-lanes",
         "threejs-game-skills-fork-lineage",
     ]
     assert result.truncated_item_ids == []
@@ -559,6 +559,14 @@ def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
     assert lane_map["permission_effect"] == "none"
     assert lane_map["evidence_url_effect"] == "none"
     assert lane_map["runtime_action"] == "none"
+    assert lane_map["route_activity_pressure"] == {
+        "controller_surface": "skill_route_activity_pressure",
+        "repeated_project_count": 0,
+        "repeated_projects": [],
+        "allowed_lanes": ["documentation", "config", "test", "code_patch"],
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+    }
     assert skill_entry["validation_lanes"] == ["documentation", "config", "test", "code_patch"]
     assert [lane["proposal_kind"] for lane in skill_entry["proposal_lanes"]] == [
         "documentation",

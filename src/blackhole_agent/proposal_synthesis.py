@@ -59,6 +59,11 @@ SKILL_WORKFLOW_CONTEXT_TERMS = (
     "workflow gates",
     "workflow routing",
 )
+SKILL_ROUTE_ACTIVITY_EVENT_KINDS = {
+    "ForkEvent",
+    "PushEvent",
+    "RepositoryTrend",
+}
 GENERAL_AGENT_PROJECT_ROUTE_TERMS = (
     "agent",
     "agents",
@@ -410,13 +415,22 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
     )
     route_class_counts: dict[str, int] = {}
     route_classifier_rows: list[dict[str, Any]] = []
-    for item in evidence_package.get("items", []):
+    package_items = evidence_package.get("items", [])
+    package_items = package_items if isinstance(package_items, list) else []
+    skill_route_activity_counts = digest_skill_route_activity_counts(package_items)
+    for item in package_items:
         if not isinstance(item, dict):
             continue
         classification = item.get("route_classification")
         if not isinstance(classification, dict):
             classification = route_metadata_for_digest_item(item)["route_classification"]
         route_class = str(classification.get("route_class") or "unclassified")
+        activity_key = digest_skill_route_project_key(item)
+        repeated_activity_count = (
+            skill_route_activity_counts.get(activity_key, 0)
+            if route_class == "skill_workflow"
+            else 0
+        )
         route_class_counts[route_class] = route_class_counts.get(route_class, 0) + 1
         route_classifier_rows.append(
             {
@@ -425,6 +439,8 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
                 "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
                 "allowed_lanes": [str(lane) for lane in classification.get("allowed_lanes", [])],
                 "reasons": [str(reason) for reason in classification.get("reasons", [])],
+                "repeated_skill_activity_count": repeated_activity_count,
+                "repeated_skill_activity_signal": repeated_activity_count >= 2,
             }
         )
 
@@ -487,6 +503,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "configured_route_hints": sorted(configured_hints),
         "route_class_counts": dict(sorted(route_class_counts.items())),
         "route_classifier": route_classifier_rows,
+        "route_activity_pressure": build_skill_route_activity_pressure(package_items),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -494,6 +511,53 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "evidence_url_effect": "none",
         "runtime_action": "none",
         "diagnostics": diagnostics,
+    }
+
+
+def build_skill_route_activity_pressure(items: list[Any]) -> dict[str, Any]:
+    """Summarize repeated skill repository movement without exporting source URLs."""
+
+    counts = digest_skill_route_activity_counts(items)
+    event_kinds_by_key: dict[str, set[str]] = {}
+    item_ids_by_key: dict[str, list[str]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+        if classification.get("route_class") != "skill_workflow":
+            continue
+        if str(item.get("event_kind") or "") not in SKILL_ROUTE_ACTIVITY_EVENT_KINDS:
+            continue
+        key = digest_skill_route_project_key(item)
+        if not key:
+            continue
+        event_kinds_by_key.setdefault(key, set()).add(str(item.get("event_kind") or ""))
+        item_id = str(item.get("item_id") or "")
+        if item_id:
+            item_ids_by_key.setdefault(key, []).append(item_id)
+
+    repeated_projects = [
+        {
+            "project_key_hash": stable_hash({"project_key": key}),
+            "activity_count": count,
+            "event_kinds": sorted(event_kinds_by_key.get(key, set())),
+            "item_ids": list(dict.fromkeys(item_ids_by_key.get(key, []))),
+            "allowed_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+        for key, count in sorted(counts.items())
+        if count >= 2
+    ]
+    return {
+        "controller_surface": "skill_route_activity_pressure",
+        "repeated_project_count": len(repeated_projects),
+        "repeated_projects": repeated_projects,
+        "allowed_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
     }
 
 
@@ -600,6 +664,7 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
         return []
 
     review_activity_by_repo = digest_review_activity_counts(items)
+    skill_route_activity_by_project = digest_skill_route_activity_counts(items)
     generic_pr_cluster_counts = digest_generic_pr_cluster_counts(items)
     generic_pr_cluster_seen: dict[str, int] = {}
     ranked: list[tuple[tuple[int, int, float, int], int, dict[str, Any]]] = []
@@ -618,6 +683,9 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
         adjusted_confidence = confidence + digest_review_activity_confidence_bonus(
             item,
             review_activity_by_repo=review_activity_by_repo,
+        ) + digest_skill_route_activity_confidence_bonus(
+            item,
+            skill_route_activity_by_project=skill_route_activity_by_project,
         ) - digest_generic_pr_duplicate_penalty(
             item,
             generic_pr_cluster_counts=generic_pr_cluster_counts,
@@ -666,6 +734,52 @@ def digest_review_activity_confidence_bonus(
     if not digest_item_is_review_validation_or_test_route(item):
         return 0.0
     return min(0.24, 0.08 * (review_activity_count - 1))
+
+
+def digest_skill_route_activity_counts(items: list[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("event_kind") or "") not in SKILL_ROUTE_ACTIVITY_EVENT_KINDS:
+            continue
+        classification = classify_digest_item_route(item)
+        if classification.get("route_class") != "skill_workflow":
+            continue
+        project_key = digest_skill_route_project_key(item)
+        if project_key:
+            counts[project_key] = counts.get(project_key, 0) + 1
+    return counts
+
+
+def digest_skill_route_activity_confidence_bonus(
+    item: dict[str, Any],
+    *,
+    skill_route_activity_by_project: dict[str, int],
+) -> float:
+    if str(item.get("event_kind") or "") not in SKILL_ROUTE_ACTIVITY_EVENT_KINDS:
+        return 0.0
+    classification = classify_digest_item_route(item)
+    if classification.get("route_class") != "skill_workflow":
+        return 0.0
+    activity_count = skill_route_activity_by_project.get(digest_skill_route_project_key(item), 0)
+    if activity_count < 2:
+        return 0.0
+    return min(0.18, 0.06 * (activity_count - 1))
+
+
+def digest_skill_route_project_key(item: dict[str, Any]) -> str:
+    repo = digest_item_repo(item).lower()
+    if "/" in repo:
+        repo_name = repo.rsplit("/", 1)[-1]
+        if repo_name:
+            return repo_name
+    text = f"{item.get('source_url') or ''} {item.get('summary') or ''}".lower()
+    match = re.search(r"github\.com/[^/\s]+/([^/\s#?]+)", text)
+    if match:
+        return match.group(1)
+    name_match = re.search(r"\b([a-z0-9_.-]*skills[a-z0-9_.-]*)\b", text)
+    return name_match.group(1) if name_match else repo
 
 
 def digest_generic_pr_cluster_counts(items: list[Any]) -> dict[str, int]:

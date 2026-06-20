@@ -95,6 +95,20 @@ readiness of a local proposal. This keeps a repeated public skill package from
 amplifying one lesson merely because it appears under more than one repository
 owner.
 
+Repeated public activity around the same skill repository name can now affect
+only local discovery selection and metadata. Repository trend, fork, and push
+items that classify as `skill_workflow` are grouped by a body-free project key
+before context truncation. When two or more selected activities point at the
+same project, the selector gives that skill-route evidence a small bounded
+confidence bump and `build_route_hint_lane_map` reports a
+`route_activity_pressure` summary with hashed project keys, item IDs, event
+kinds, allowed lanes, local validation requirement, and `runtime_action: none`.
+This is intended for repeated COMPASS Skills-style trend, fork, and push
+pressure: it can make documentation, config, test, or code_patch investigation
+more likely to survive context budgeting, but it does not create install,
+enable, clone, run, execute, deletion, provider launch, remote execution, or
+external skill activation authority.
+
 ## Review Notes
 
 The evidence is repository-level and README-level. That is enough to preserve a

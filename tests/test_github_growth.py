@@ -37,6 +37,7 @@ from blackhole_agent.github_growth import (
 )
 from blackhole_agent.persona import PERSONA_VERSION, render_persona_layer
 from blackhole_agent.proposal_synthesis import (
+    build_route_hint_lane_map,
     build_context_budget_preflight,
     build_provider_routing_preflight,
     build_proposal_evidence_package,
@@ -1428,6 +1429,77 @@ def test_route_classifier_distinguishes_skill_workflow_from_general_agent_projec
     assert general_classification["route_hints"] == []
     assert general_classification["allowed_lanes"] == []
     assert general_classification["runtime_action"] == "none"
+
+
+def test_skill_route_discovery_boosts_repeated_trend_fork_and_push_activity():
+    digest = {
+        "digest_id": "github-growth-skill-route-activity-pressure",
+        "generated_at": "2026-06-20T06:12:07Z",
+        "items": [
+            {
+                "item_id": "general-agent-runtime",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "omnigent-ai/omnigent: general AI agent runtime with provider activity.",
+                "relevance_reason": "Useful agent project movement without a skill workflow route signal.",
+                "risk_flags": [],
+                "confidence": 0.56,
+            },
+            {
+                "item_id": "compass-skills-trend",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "dongshuyan/compass-skills: task routing skills and workflow guidance.",
+                "relevance_reason": "Skill repository trend evidence should map to bounded local lanes.",
+                "risk_flags": [],
+                "confidence": 0.50,
+            },
+            {
+                "item_id": "compass-skills-fork",
+                "source_url": "https://github.com/lineCode/compass-skills",
+                "event_kind": "ForkEvent",
+                "summary": "lineCode/compass-skills fork keeps the same skill workflow package visible.",
+                "relevance_reason": "Fork movement is lineage pressure for skill route discovery only.",
+                "risk_flags": [],
+                "confidence": 0.50,
+            },
+            {
+                "item_id": "compass-skills-push",
+                "source_url": "https://github.com/dongshuyan/compass-skills/commit/abc123",
+                "event_kind": "PushEvent",
+                "summary": "push to main: update skill workflow routing notes.",
+                "relevance_reason": "Push activity supports a stronger bounded skill route discovery candidate.",
+                "risk_flags": [],
+                "confidence": 0.50,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=260)
+    lane_map = build_route_hint_lane_map(evidence_package)
+
+    assert evidence_package["context_budget"]["selected_item_ids"] == [
+        "compass-skills-push",
+        "compass-skills-trend",
+    ]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == [
+        "compass-skills-fork",
+        "general-agent-runtime",
+    ]
+    assert lane_map["route_activity_pressure"]["repeated_project_count"] == 1
+    repeated_project = lane_map["route_activity_pressure"]["repeated_projects"][0]
+    assert repeated_project["activity_count"] == 2
+    assert repeated_project["event_kinds"] == ["PushEvent", "RepositoryTrend"]
+    assert repeated_project["item_ids"] == ["compass-skills-push", "compass-skills-trend"]
+    assert repeated_project["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert repeated_project["runtime_action"] == "none"
+    assert repeated_project["local_validation_required"] is True
+    assert lane_map["route_activity_pressure"]["external_skill_activation_allowed"] is False
+    assert all(
+        row["repeated_skill_activity_signal"] is True
+        for row in lane_map["route_classifier"]
+        if row["route_class"] == "skill_workflow"
+    )
 
 
 def test_skill_route_discovery_accepts_only_bounded_repository_trend_lanes():

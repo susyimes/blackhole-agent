@@ -135,8 +135,8 @@
     "rejected_count": 1,
     "selected_item_ids": [
       "fablecodex-workflow-skill-eval",
-      "compass-skills-local-lanes",
       "threejs-game-skills-domain-director",
+      "compass-skills-local-lanes",
       "threejs-game-skills-fork-lineage"
     ],
     "truncated_item_ids": [],
