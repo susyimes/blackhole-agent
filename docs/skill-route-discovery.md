@@ -390,6 +390,16 @@ export, raw source URL export, and raw target path export. A blocked handoff
 keeps the discovery useful as evidence but requires review or replay before any
 local implementation lane is promoted.
 
+The same lane also emits `operator_recovery_plan`, a compact replay decision for
+blocked or degraded skill-route diagnostics. It converts recovery hints into
+body-free recovery steps, stable hint-code hashes, local replay commands, and
+the next safe action for an operator or supervisor. The plan never exports raw
+evidence, source URLs, upstream bodies, target paths, credentials, provider
+diagnostics, or command bodies, and it continues to deny runtime action,
+external skill activation, external harness execution, provider launch, and
+remote execution. A ready plan means local replay may continue; a blocked plan
+means the recovery hints must be resolved before promotion.
+
 Before that final handoff, the harness now emits `local_lane_intake`. This is
 the operator-visible inventory of bounded local work inferred from external
 skill evidence. It groups proposal rows by documentation, config, test, or

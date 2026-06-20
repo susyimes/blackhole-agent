@@ -635,6 +635,35 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "local_proposal_activation_allowed": True,
         "external_skill_activation_allowed": False,
     }
+    assert output["operator_recovery_plan"] == {
+        "controller_surface": "skill_route_discovery_operator_recovery_plan",
+        "decision": "ready_for_local_replay",
+        "reason": "none",
+        "route_status": "passed",
+        "activation_decision": "ready_for_local_proposal_activation",
+        "trust_boundary_passed": True,
+        "recovery_required": False,
+        "next_action": "run_skill_route_replay_before_promotion",
+        "replay_commands": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "recovery_step_count": 0,
+        "recovery_hint_codes": [],
+        "recovery_hint_code_hashes": [],
+        "recovery_steps": [],
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["preactivation_trust_boundary"] == {
         "status": "passed",
         "diagnostics": [],
@@ -1203,6 +1232,27 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "diagnostics": [],
     }
     assert output["supervisor_readiness"]["recovery_hint_codes"] == ["skill_route_rejected_candidates_present"]
+    assert output["operator_recovery_plan"]["decision"] == "blocked_recovery_required"
+    assert output["operator_recovery_plan"]["reason"] == "rejected_candidates_present"
+    assert output["operator_recovery_plan"]["recovery_required"] is True
+    assert output["operator_recovery_plan"]["next_action"] == "resolve_recovery_steps_then_replay_skill_route_lane"
+    assert (
+        output["operator_recovery_plan"]["replay_commands"]
+        == skill_route_discovery_preactivation_validation_commands()
+    )
+    assert output["operator_recovery_plan"]["recovery_hint_codes"] == ["skill_route_rejected_candidates_present"]
+    assert output["operator_recovery_plan"]["recovery_hint_code_hashes"] == [
+        stable_text_hash("skill_route_rejected_candidates_present")
+    ]
+    assert output["operator_recovery_plan"]["recovery_steps"][0]["code"] == "skill_route_rejected_candidates_present"
+    assert output["operator_recovery_plan"]["recovery_steps"][0]["raw_evidence_exported"] is False
+    assert output["operator_recovery_plan"]["recovery_steps"][0]["raw_source_urls_exported"] is False
+    assert output["operator_recovery_plan"]["runtime_action_allowed"] is False
+    assert output["operator_recovery_plan"]["external_skill_activation_allowed"] is False
+    assert output["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
+    assert output["operator_recovery_plan"]["remote_execution_allowed"] is False
+    assert output["operator_recovery_plan"]["raw_evidence_exported"] is False
+    assert output["operator_recovery_plan"]["raw_source_urls_exported"] is False
     assert output["local_lane_intake"] == {
         "status": "blocked",
         "decision": "no_bounded_local_lanes",

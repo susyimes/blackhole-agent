@@ -1059,6 +1059,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
         preactivation_trust_boundary=preactivation_trust_boundary,
     )
+    operator_recovery_plan = skill_route_discovery_operator_recovery_plan(
+        route_status=route_status,
+        failure_mode=failure_mode,
+        activation_gate=activation_gate,
+        recovery_hints=recovery_hints,
+        preactivation_trust_boundary=preactivation_trust_boundary,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1106,6 +1113,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "source_lineage_mode": source_lineage["lineage_mode"],
         },
         "recovery_hints": recovery_hints,
+        "operator_recovery_plan": operator_recovery_plan,
         "provider_runtime_replay_sample": provider_runtime_replay_sample,
         "provider_runtime_diagnostic_panel": provider_runtime_diagnostic_panel,
         "preactivation_trust_boundary": preactivation_trust_boundary,
@@ -1261,6 +1269,78 @@ def skill_route_discovery_recovery_hints(
             "safe_action": "Inspect body-free diagnostics, correct the local fixture metadata, and replay validation.",
         }
     ]
+
+
+def skill_route_discovery_operator_recovery_plan(
+    *,
+    route_status: str,
+    failure_mode: str,
+    activation_gate: dict[str, Any],
+    recovery_hints: list[dict[str, Any]],
+    preactivation_trust_boundary: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a compact body-free recovery plan for skill-route diagnostics."""
+
+    replay_commands = skill_route_discovery_preactivation_validation_commands()
+    recovery_steps = [
+        {
+            "code": str(hint.get("code") or ""),
+            "scope": str(hint.get("scope") or "skill_route_discovery_lane"),
+            "safe_action": str(hint.get("safe_action") or ""),
+            "required_validation": string_list(hint.get("required_validation")) or replay_commands,
+            "raw_evidence_exported": False,
+            "raw_source_urls_exported": False,
+            "value_recorded": False,
+        }
+        for hint in recovery_hints
+        if isinstance(hint, dict) and str(hint.get("code") or "")
+    ]
+    recovery_hint_codes = [step["code"] for step in recovery_steps]
+    activation_decision = str(activation_gate.get("decision") or "")
+    trust_boundary_passed = preactivation_trust_boundary.get("status") == "passed"
+
+    if route_status == "passed" and not recovery_steps and trust_boundary_passed:
+        decision = "ready_for_local_replay"
+        next_action = "run_skill_route_replay_before_promotion"
+        recovery_required = False
+    elif route_status == "degraded":
+        decision = "review_recovery_before_local_replay"
+        next_action = "review_recovery_steps_then_replay_skill_route_lane"
+        recovery_required = True
+    else:
+        decision = "blocked_recovery_required"
+        next_action = "resolve_recovery_steps_then_replay_skill_route_lane"
+        recovery_required = True
+
+    return {
+        "controller_surface": "skill_route_discovery_operator_recovery_plan",
+        "decision": decision,
+        "reason": "none" if not recovery_required else failure_mode,
+        "route_status": route_status,
+        "activation_decision": activation_decision,
+        "trust_boundary_passed": trust_boundary_passed,
+        "recovery_required": recovery_required,
+        "next_action": next_action,
+        "replay_commands": replay_commands,
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "recovery_step_count": len(recovery_steps),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "recovery_steps": recovery_steps,
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
 
 def skill_route_discovery_source_lineage_summary(registry: dict[str, Any]) -> dict[str, Any]:

@@ -1,0 +1,10 @@
+Rollback point for skill-route-recovery-summary
+Created: 20260620T053206Z
+Original branch: codex/blackhole-evolve/20260620T053303.636996-add-or-refresh-a-local-skill-route-discovery-not
+HEAD: 2cf3417ee311be9880e549cffba45aa6fea80458
+Rollback ref: refs/rollback/20260620T053206Z-skill-route-recovery-summary
+
+Recovery commands (destructive; operator-supervised only):
+  git switch codex/blackhole-evolve/20260620T053303.636996-add-or-refresh-a-local-skill-route-discovery-not
+  git reset --hard refs/rollback/20260620T053206Z-skill-route-recovery-summary
+  git clean -fd
