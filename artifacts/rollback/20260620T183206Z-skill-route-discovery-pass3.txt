@@ -1,0 +1,16 @@
+Rollback point for skill-route-discovery pass 3.
+
+Original branch: codex/blackhole-evolve/20260620T183311.212536-add-or-run-a-bounded-skill-route-discovery-valid
+Original HEAD: 7f424f831d842c8c0fd56151e2dd5bcbb4ab640e
+Local rollback ref: refs/rollback/20260620T183206Z-skill-route-discovery-pass3
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260620T183311.212536-add-or-run-a-bounded-skill-route-discovery-valid
+git reset --hard 7f424f831d842c8c0fd56151e2dd5bcbb4ab640e
+
+Scope note:
+This run is expected to modify only bounded skill route discovery behavior,
+tests, documentation, and run artifacts. External skill repositories remain
+evidence only; no install, clone, run, enable, profile write, memory write,
+provider launch, or remote execution is authorized by this rollback record.

@@ -81,6 +81,20 @@ MIXED_SKILL_ROUTE_PROBE_COMMANDS = [
     "pytest tests/test_github_growth.py -q -k mixed_skill_workflow",
     "pytest tests/test_proposal_eval.py -q -k route_hint_lane_map",
 ]
+MIXED_SKILL_ROUTE_PROBE_LANE_ORDER = ["test", "documentation", "config", "code_patch"]
+MIXED_SKILL_ROUTE_PROBE_DENIED_ACTIONS = [
+    "install",
+    "enable",
+    "run",
+    "execute",
+    "clone_and_run",
+    "profile_write",
+    "memory_write",
+    "provider_launch",
+    "remote_execution",
+    "raw_source_url_export",
+    "upstream_body_export",
+]
 PROVIDER_CONFIG_ROUTE_TERMS = (
     "api key",
     "api keys",
@@ -551,11 +565,19 @@ def build_mixed_skill_workflow_probe(items: list[Any]) -> dict[str, Any]:
                 "route_probe_decision": "skill_route_discovery_first",
                 "primary_lane": "skill_route_discovery",
                 "secondary_lane": "agent_harness_eval_after_local_corroboration",
+                "secondary_lane_status": "blocked_until_local_corroboration",
+                "activation_gate": "local_skill_route_validation_before_secondary_harness_eval",
                 "allowed_local_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+                "recommended_local_lane_order": [
+                    lane
+                    for lane in MIXED_SKILL_ROUTE_PROBE_LANE_ORDER
+                    if lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+                ],
                 "required_local_validation": list(MIXED_SKILL_ROUTE_PROBE_COMMANDS),
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
                 "external_agent_activation_allowed": False,
+                "denied_actions": list(MIXED_SKILL_ROUTE_PROBE_DENIED_ACTIONS),
             }
         )
 
@@ -565,12 +587,20 @@ def build_mixed_skill_workflow_probe(items: list[Any]) -> dict[str, Any]:
         "candidates": candidates,
         "decision_policy": "skill_route_discovery_first_for_skill_or_workflow_specific_evidence",
         "agent_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+        "secondary_lane_status": "blocked_until_local_corroboration",
+        "activation_gate": "local_skill_route_validation_before_secondary_harness_eval",
         "allowed_local_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "recommended_local_lane_order": [
+            lane
+            for lane in MIXED_SKILL_ROUTE_PROBE_LANE_ORDER
+            if lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+        ],
         "required_local_validation": list(MIXED_SKILL_ROUTE_PROBE_COMMANDS),
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,
         "raw_source_url_export_allowed": False,
+        "denied_actions": list(MIXED_SKILL_ROUTE_PROBE_DENIED_ACTIONS),
     }
 
 

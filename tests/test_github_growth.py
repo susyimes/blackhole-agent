@@ -1556,10 +1556,27 @@ def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first()
     assert mixed_probe["candidate_count"] == 1
     assert mixed_probe["decision_policy"] == "skill_route_discovery_first_for_skill_or_workflow_specific_evidence"
     assert mixed_probe["agent_harness_eval_allowed_after"] == "local_corroboration_or_general_agent_project_claim"
+    assert mixed_probe["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert mixed_probe["activation_gate"] == "local_skill_route_validation_before_secondary_harness_eval"
+    assert mixed_probe["recommended_local_lane_order"] == ["test", "documentation", "config", "code_patch"]
+    assert set(mixed_probe["recommended_local_lane_order"]) == set(mixed_probe["allowed_local_lanes"])
     assert mixed_probe["runtime_action"] == "none"
     assert mixed_probe["external_skill_activation_allowed"] is False
     assert mixed_probe["external_agent_activation_allowed"] is False
     assert mixed_probe["raw_source_url_export_allowed"] is False
+    assert mixed_probe["denied_actions"] == [
+        "install",
+        "enable",
+        "run",
+        "execute",
+        "clone_and_run",
+        "profile_write",
+        "memory_write",
+        "provider_launch",
+        "remote_execution",
+        "raw_source_url_export",
+        "upstream_body_export",
+    ]
     assert mixed_probe["candidates"] == [
         {
             "item_id": "fablecodex-workflow-skill-probe",
@@ -1568,7 +1585,10 @@ def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first()
             "route_probe_decision": "skill_route_discovery_first",
             "primary_lane": "skill_route_discovery",
             "secondary_lane": "agent_harness_eval_after_local_corroboration",
+            "secondary_lane_status": "blocked_until_local_corroboration",
+            "activation_gate": "local_skill_route_validation_before_secondary_harness_eval",
             "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+            "recommended_local_lane_order": ["test", "documentation", "config", "code_patch"],
             "required_local_validation": [
                 "pytest tests/test_github_growth.py -q -k mixed_skill_workflow",
                 "pytest tests/test_proposal_eval.py -q -k route_hint_lane_map",
@@ -1576,6 +1596,19 @@ def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first()
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
             "external_agent_activation_allowed": False,
+            "denied_actions": [
+                "install",
+                "enable",
+                "run",
+                "execute",
+                "clone_and_run",
+                "profile_write",
+                "memory_write",
+                "provider_launch",
+                "remote_execution",
+                "raw_source_url_export",
+                "upstream_body_export",
+            ],
         }
     ]
 

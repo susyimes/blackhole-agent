@@ -901,6 +901,16 @@ external skill activation, external agent activation, raw source URL export,
 upstream body export, install, enable, run, execute, clone-and-run, profile
 write, and memory write remain denied.
 
+The mixed probe now carries an explicit activation gate:
+`local_skill_route_validation_before_secondary_harness_eval`. Candidate rows
+mark the secondary lane as `blocked_until_local_corroboration` and expose a
+recommended local lane order of test, documentation, config, then code_patch.
+That order is advisory only and is filtered to the already allowed
+skill-route lanes; it cannot add follow-up issue, runtime execution, install,
+provider launch, remote execution, profile-write, memory-write, raw source URL
+export, or upstream body export authority. The required validation commands
+remain the local mixed-skill and route-hint lane-map tests.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy
