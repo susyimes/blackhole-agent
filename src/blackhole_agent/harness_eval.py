@@ -1310,6 +1310,14 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         route_discovery_catalog=route_discovery_catalog,
     )
     current_action = skill_route_discovery_current_action(validation_lane_plan=validation_lane_plan)
+    validation_readiness_summary = skill_route_discovery_validation_readiness_summary(
+        current_action=current_action,
+        validation_lane_plan=validation_lane_plan,
+        route_profile_review=route_profile_review,
+        activity_signal_panel=activity_signal_panel,
+        generic_validation_prompt=generic_validation_prompt,
+        supervisor_readiness=supervisor_readiness,
+    )
     domain_validation_probe = skill_route_discovery_domain_validation_probe(
         validation_lane_plan=validation_lane_plan,
     )
@@ -1399,6 +1407,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
         "current_action": current_action,
+        "validation_readiness_summary": validation_readiness_summary,
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "activation_manifest": activation_manifest,
@@ -3615,6 +3624,116 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
         ),
         "plan_basis": "validation_lane_plan_next_validation_target",
         "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_validation_readiness_summary(
+    *,
+    current_action: dict[str, Any],
+    validation_lane_plan: dict[str, Any],
+    route_profile_review: dict[str, Any],
+    activity_signal_panel: dict[str, Any],
+    generic_validation_prompt: dict[str, Any],
+    supervisor_readiness: dict[str, Any],
+) -> dict[str, Any]:
+    """Condense skill-route validation readiness into an operator-facing panel."""
+
+    route_profiles = string_list(current_action.get("route_profiles"))
+    selected_lane = optional_string(current_action.get("selected_local_lane")) or "none"
+    plan_targets = validation_lane_plan.get("lane_validation_targets")
+    plan_targets = plan_targets if isinstance(plan_targets, list) else []
+    profile_rows = route_profile_review.get("rows")
+    profile_rows = profile_rows if isinstance(profile_rows, list) else []
+    activity_rows = activity_signal_panel.get("rows")
+    activity_rows = activity_rows if isinstance(activity_rows, list) else []
+    plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
+    current_action_diagnostics = string_list(current_action.get("diagnostics"))
+    supervisor_decision = optional_string(supervisor_readiness.get("decision")) or ""
+    generic_prompt_required = generic_validation_prompt.get("prompt_required") is True
+
+    profile_rows_by_name = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in profile_rows
+        if isinstance(row, dict)
+    }
+    readiness_rows: list[dict[str, Any]] = []
+    for profile in route_profiles:
+        profile_row = profile_rows_by_name.get(profile, {})
+        readiness_rows.append(
+            {
+                "route_profile": profile,
+                "selected_local_lane": selected_lane,
+                "metadata_complete": profile_row.get("metadata_complete") is True,
+                "local_validation_required": True,
+                "evidence_item_id_count": int(profile_row.get("evidence_item_id_count") or 0),
+                "candidate_count": int(profile_row.get("candidate_count") or 0),
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_source_urls_exported": False,
+            }
+        )
+
+    ready = (
+        current_action.get("status") == "ready"
+        and validation_lane_plan.get("status") == "ready"
+        and route_profile_review.get("status") == "ready"
+        and supervisor_decision == "ready_for_supervisor_promotion"
+        and selected_lane != "none"
+        and not plan_diagnostics
+        and not current_action_diagnostics
+        and not generic_prompt_required
+    )
+    if ready:
+        status = "ready"
+        decision = "operator_can_replay_selected_bounded_validation_lane"
+    elif generic_prompt_required:
+        status = "review"
+        decision = "collect_local_corroboration_before_replay"
+    elif selected_lane != "none":
+        status = "review"
+        decision = "resolve_readiness_diagnostics_before_replay"
+    else:
+        status = "blocked"
+        decision = "no_selected_validation_lane"
+
+    return {
+        "controller_surface": "skill_route_discovery_validation_readiness_summary",
+        "status": status,
+        "decision": decision,
+        "selected_local_lane": selected_lane,
+        "validation_scope": optional_string(current_action.get("validation_scope")) or "none",
+        "route_profiles": route_profiles,
+        "route_profile_count": len(route_profiles),
+        "selected_profile_count": len(readiness_rows),
+        "lane_validation_target_count": len(plan_targets),
+        "activity_lane_count": len(activity_rows),
+        "evidence_item_ids": string_list(current_action.get("evidence_item_ids")),
+        "evidence_item_id_count": int(current_action.get("evidence_item_id_count") or 0),
+        "candidate_source_hashes": string_list(current_action.get("candidate_source_hashes")),
+        "candidate_source_count": int(current_action.get("candidate_source_count") or 0),
+        "required_validation": string_list(current_action.get("required_validation")),
+        "provider_runtime_replay_commands": string_list(current_action.get("provider_runtime_replay_commands")),
+        "supervisor_decision": supervisor_decision,
+        "supervisor_next_action": optional_string(current_action.get("supervisor_next_action")) or "",
+        "generic_prompt_required": generic_prompt_required,
+        "generic_movement_policy": optional_string(generic_validation_prompt.get("generic_movement_policy")) or "",
+        "profile_rows": readiness_rows,
+        "diagnostics": sorted(dict.fromkeys([*plan_diagnostics, *current_action_diagnostics])),
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",

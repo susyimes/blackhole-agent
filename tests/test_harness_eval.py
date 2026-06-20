@@ -8213,6 +8213,38 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert all(assertion["passed"] for assertion in current_wake["assertions"])
 
 
+def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_lane_without_urls():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass2_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["validation_readiness_summary"], sort_keys=True)
+
+    summary = output["validation_readiness_summary"]
+    assert summary["status"] == "ready"
+    assert summary["decision"] == "operator_can_replay_selected_bounded_validation_lane"
+    assert summary["selected_local_lane"] == "test"
+    assert summary["validation_scope"] == "local_test_lane_only"
+    assert summary["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
+    assert summary["route_profile_count"] == 2
+    assert summary["selected_profile_count"] == 2
+    assert summary["lane_validation_target_count"] == 2
+    assert summary["activity_lane_count"] == 4
+    assert summary["supervisor_decision"] == "ready_for_supervisor_promotion"
+    assert summary["generic_prompt_required"] is False
+    assert summary["runtime_action_allowed"] is False
+    assert summary["external_skill_activation_allowed"] is False
+    assert summary["external_harness_execution_allowed"] is False
+    assert summary["provider_runtime_launch_allowed"] is False
+    assert summary["remote_execution_allowed"] is False
+    assert summary["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
 def test_skill_route_discovery_generic_pull_request_prompts_for_local_validation():
     output = evaluate_harness_behavior(
         "skill_route_discovery_lane",
@@ -8254,6 +8286,11 @@ def test_skill_route_discovery_generic_pull_request_prompts_for_local_validation
     assert output["generic_validation_prompt"]["local_proposal_activation_allowed"] is False
     assert output["generic_validation_prompt"]["runtime_action_allowed"] is False
     assert output["generic_validation_prompt"]["external_skill_activation_allowed"] is False
+    assert output["validation_readiness_summary"]["status"] == "review"
+    assert output["validation_readiness_summary"]["decision"] == "collect_local_corroboration_before_replay"
+    assert output["validation_readiness_summary"]["generic_prompt_required"] is True
+    assert output["validation_readiness_summary"]["runtime_action_allowed"] is False
+    assert output["validation_readiness_summary"]["external_skill_activation_allowed"] is False
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
 
 

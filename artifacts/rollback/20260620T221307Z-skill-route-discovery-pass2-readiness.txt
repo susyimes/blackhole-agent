@@ -1,0 +1,14 @@
+Rollback point for skill-route-discovery pass 2 readiness summary
+
+Original branch: codex/blackhole-evolve/20260620T221307.630009-create-a-local-agent-harness-evaluation-lane-for
+Original HEAD: 0720cbc75877c222b5fa078c16b3b85bb3b53520
+Local rollback ref: refs/rollback/20260620T221307Z-skill-route-discovery-pass2-readiness
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260620T221307.630009-create-a-local-agent-harness-evaluation-lane-for
+  git reset --hard 0720cbc75877c222b5fa078c16b3b85bb3b53520
+  git clean -fd
+
+Notes:
+  Created before modifying local harness skill-route discovery readiness behavior.
+  Rollback execution is explicit and destructive; do not run the recovery commands unless selected by a human operator or supervisor policy.
