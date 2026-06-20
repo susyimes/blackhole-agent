@@ -2464,6 +2464,14 @@ def skill_route_discovery_capability_window_completion(
     route_profile_rows = route_profile_rows if isinstance(route_profile_rows, list) else []
     proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in manifest_lanes})
     route_profiles = sorted({str(row.get("route_profile") or "") for row in route_profile_rows})
+    selected_evidence_refs = sorted(
+        {
+            str(ref)
+            for lane in manifest_lanes
+            for ref in string_list(lane.get("evidence_refs"))
+            if str(ref)
+        }
+    )
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     lanes_bounded = bool(proposal_kinds) and set(proposal_kinds) <= allowed_lanes
     manifest_ready = activation_manifest.get("status") == "ready"
@@ -2496,12 +2504,39 @@ def skill_route_discovery_capability_window_completion(
     if ready:
         status = "ready"
         decision = "complete_slice_for_supervisor_handoff"
+        completion_next_action = "handoff_completed_skill_route_slice_to_supervisor"
     elif waiting_for_planned_pass:
         status = "in_progress"
         decision = "continue_capability_window_before_completion"
+        completion_next_action = "continue_capability_window_before_completion"
     else:
         status = "blocked"
         decision = "continue_or_replay_before_completion"
+        completion_next_action = "replay_or_repair_before_supervisor_handoff"
+    completion_handoff = {
+        "status": status,
+        "decision": decision,
+        "supervisor_next_action": completion_next_action,
+        "final_pass_required": bool(total_passes),
+        "final_pass_observed": planned_window_complete,
+        "selected_evidence_ref_count": len(selected_evidence_refs),
+        "selected_evidence_refs": selected_evidence_refs,
+        "completion_blockers": diagnostics,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     return {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": status,
@@ -2525,6 +2560,7 @@ def skill_route_discovery_capability_window_completion(
         "operator_handoff_ready": handoff_ready,
         "supervisor_ready": supervisor_ready,
         "provider_runtime_replay_ready": provider_replay_ready,
+        "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,

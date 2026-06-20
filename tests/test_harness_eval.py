@@ -1318,6 +1318,34 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "operator_handoff_ready": True,
         "supervisor_ready": True,
         "provider_runtime_replay_ready": True,
+        "completion_handoff": {
+            "status": "ready",
+            "decision": "complete_slice_for_supervisor_handoff",
+            "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+            "final_pass_required": True,
+            "final_pass_observed": True,
+            "selected_evidence_ref_count": 3,
+            "selected_evidence_refs": [
+                "fablecodex-issue-15",
+                "fablecodex-issue-18",
+                "fablecodex-repo",
+            ],
+            "completion_blockers": [],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "provider_runtime_replay_commands": [
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+            ],
+            "local_validation_required": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -1365,6 +1393,23 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
     assert completion["operator_handoff_ready"] is True
     assert completion["supervisor_ready"] is True
     assert completion["provider_runtime_replay_ready"] is True
+    assert completion["completion_handoff"]["status"] == "in_progress"
+    assert (
+        completion["completion_handoff"]["supervisor_next_action"]
+        == "continue_capability_window_before_completion"
+    )
+    assert completion["completion_handoff"]["final_pass_required"] is True
+    assert completion["completion_handoff"]["final_pass_observed"] is False
+    assert completion["completion_handoff"]["completion_blockers"] == [
+        "capability_window_not_at_final_pass"
+    ]
+    assert completion["completion_handoff"]["selected_evidence_refs"] == [
+        "fablecodex-issue-15",
+        "fablecodex-issue-18",
+        "fablecodex-repo",
+    ]
+    assert completion["completion_handoff"]["runtime_action_allowed"] is False
+    assert completion["completion_handoff"]["raw_evidence_urls_exported"] is False
     assert completion["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
     assert completion["runtime_action_allowed"] is False
     assert completion["external_skill_activation_allowed"] is False
@@ -1373,6 +1418,47 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
     assert completion["raw_evidence_urls_exported"] is False
     assert completion["raw_source_urls_exported"] is False
     assert completion["raw_upstream_body_exported"] is False
+
+
+def test_skill_route_discovery_capability_window_handoff_reports_final_blockers():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["local_artifact_proofs"] = [
+        proof for proof in input_payload["local_artifact_proofs"] if proof["proposal_kind"] != "test"
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+
+    completion = output["capability_window_completion"]
+    handoff = completion["completion_handoff"]
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "blocked"
+    assert completion["decision"] == "continue_or_replay_before_completion"
+    assert handoff["status"] == "blocked"
+    assert handoff["supervisor_next_action"] == "replay_or_repair_before_supervisor_handoff"
+    assert handoff["final_pass_required"] is True
+    assert handoff["final_pass_observed"] is True
+    assert handoff["selected_evidence_ref_count"] == 3
+    assert handoff["selected_evidence_refs"] == [
+        "fablecodex-issue-15",
+        "fablecodex-issue-18",
+        "fablecodex-repo",
+    ]
+    assert "activation_manifest_not_ready" in handoff["completion_blockers"]
+    assert "operator_handoff_not_ready" in handoff["completion_blockers"]
+    assert handoff["runtime_action_allowed"] is False
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_source_urls_exported"] is False
+    assert handoff["raw_upstream_body_exported"] is False
 
 
 def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata():

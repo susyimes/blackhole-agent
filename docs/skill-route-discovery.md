@@ -544,6 +544,18 @@ external skill activation, external harness execution, provider launch, remote
 execution, raw evidence URL export, raw source URL export, or upstream body
 export.
 
+The same panel includes `completion_handoff`, a compact supervisor-facing
+contract for the final slice state. It repeats the completion status and
+decision, names a `supervisor_next_action`, records whether the final planned
+pass was observed, lists selected item-id evidence refs, and carries any
+completion blockers. Ready handoffs use
+`handoff_completed_skill_route_slice_to_supervisor`; non-final clean passes use
+`continue_capability_window_before_completion`; blocked final passes use
+`replay_or_repair_before_supervisor_handoff`. The handoff remains body-free:
+selected item IDs are allowed, while raw evidence URLs, source URLs, upstream
+bodies, runtime action, external skill activation, provider launch, and remote
+execution remain denied.
+
 Before the final planned pass, the same panel reports `status: in_progress`
 when all bounded lane surfaces are otherwise ready but the capability window has
 not reached its planned completion count. That state carries
