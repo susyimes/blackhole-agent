@@ -647,6 +647,17 @@ not export raw evidence URLs, raw source URLs, raw target paths, or upstream
 bodies, and it continues to deny runtime action, external skill activation,
 external harness execution, provider launch, and remote execution.
 
+Provider-runtime-control capability windows now also require a body-free
+`provider_runtime_preflight_samples` replay before the completion panel can
+continue. Missing samples produce `provider_runtime_preflight_sample_missing`
+and route recovery to the local provider-runtime preflight and recovery-summary
+commands. A ready sample is still metadata-only: it reports counts, statuses,
+failure classes, hashes, and replay commands while denying provider launch,
+remote execution, raw preflight input export, diagnostics export, and provider
+value export. Skill-route-only windows keep the sample optional so older
+discovery passes remain replayable unless a window explicitly opts into
+provider-runtime control.
+
 Before the final planned pass, the same panel reports `status: in_progress`
 when all bounded lane surfaces are otherwise ready but the capability window has
 not reached its planned completion count. That state carries

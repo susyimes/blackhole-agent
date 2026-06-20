@@ -1294,6 +1294,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         operator_handoff=operator_handoff,
         supervisor_readiness=supervisor_readiness,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
     )
 
     registry_summary = {
@@ -2817,6 +2818,7 @@ def skill_route_discovery_capability_window_completion(
     operator_handoff: dict[str, Any],
     supervisor_readiness: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
 ) -> dict[str, Any]:
     """Summarize completion readiness for a multi-pass skill-route slice."""
 
@@ -2857,6 +2859,10 @@ def skill_route_discovery_capability_window_completion(
     handoff_ready = operator_handoff.get("status") == "ready"
     supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
     provider_replay_ready = provider_runtime_diagnostic_panel.get("status") == "ready"
+    provider_runtime_sample_gate = skill_route_discovery_provider_runtime_sample_gate(
+        window=window,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+    )
     planned_window_complete = bool(current_pass and total_passes and current_pass >= total_passes)
     profile_completion_check = skill_route_discovery_profile_completion_check(
         required_route_profiles=required_route_profiles,
@@ -2879,6 +2885,8 @@ def skill_route_discovery_capability_window_completion(
         diagnostics.append("supervisor_readiness_not_ready")
     if not provider_replay_ready:
         diagnostics.append("provider_runtime_replay_not_ready")
+    if provider_runtime_sample_gate["status"] != "ready":
+        diagnostics.append(str(provider_runtime_sample_gate["diagnostic"]))
     if profile_completion_check["status"] != "ready":
         diagnostics.append(
             "required_route_profiles_missing:"
@@ -2937,6 +2945,7 @@ def skill_route_discovery_capability_window_completion(
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
+        "provider_runtime_sample_gate": provider_runtime_sample_gate,
         "profile_completion_check": profile_completion_check,
         "completion_recovery": completion_recovery,
         "next_pass_handoff": next_pass_handoff,
@@ -2973,6 +2982,7 @@ def skill_route_discovery_capability_window_completion(
         "operator_handoff_ready": handoff_ready,
         "supervisor_ready": supervisor_ready,
         "provider_runtime_replay_ready": provider_replay_ready,
+        "provider_runtime_sample_gate": provider_runtime_sample_gate,
         "profile_completion_check": profile_completion_check,
         "next_pass_handoff": next_pass_handoff,
         "completion_recovery": completion_recovery,
@@ -3041,11 +3051,18 @@ def skill_route_discovery_completion_recovery(
             primary_recovery_lane = lane_order[0] if lane_order else "test"
             recovery_hint_codes = ["local_artifact_proof_not_ready"]
             replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
-        elif "provider_runtime_replay_not_ready" in diagnostics:
+        elif (
+            "provider_runtime_replay_not_ready" in diagnostics
+            or "provider_runtime_preflight_sample_missing" in diagnostics
+        ):
             recovery_decision = "replay_provider_runtime_preflight"
             supervisor_next_action = "replay_provider_runtime_before_supervisor_handoff"
             primary_recovery_lane = "test"
-            recovery_hint_codes = ["provider_runtime_replay_not_ready"]
+            recovery_hint_codes = [
+                "provider_runtime_preflight_sample_missing"
+                if "provider_runtime_preflight_sample_missing" in diagnostics
+                else "provider_runtime_replay_not_ready"
+            ]
             replay_commands = [
                 PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
                 PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
@@ -3088,6 +3105,68 @@ def skill_route_discovery_completion_recovery(
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_sample_gate(
+    *,
+    window: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+) -> dict[str, Any]:
+    """Require a replayable provider/runtime sample for provider-runtime-control windows."""
+
+    theme = (optional_string(window.get("theme")) or "").lower()
+    capability_slice = (optional_string(window.get("capability_slice")) or "").lower()
+    required = (
+        truthy(window.get("require_provider_runtime_preflight_sample"))
+        or theme == "provider-runtime-control"
+        or "provider and runtime preflight" in capability_slice
+    )
+    provided = provider_runtime_replay_sample.get("provided") is True
+    sample_ready = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    if not required:
+        status = "ready"
+        decision = "sample_optional_for_this_window"
+        diagnostic = "none"
+        next_action = "continue_skill_route_discovery_window"
+    elif not provided:
+        status = "blocked"
+        decision = "provider_runtime_preflight_sample_required"
+        diagnostic = "provider_runtime_preflight_sample_missing"
+        next_action = "add_body_free_provider_runtime_preflight_sample_then_replay"
+    elif sample_ready:
+        status = "ready"
+        decision = "provider_runtime_preflight_sample_ready"
+        diagnostic = "none"
+        next_action = "continue_skill_route_discovery_window"
+    else:
+        status = "blocked"
+        decision = "provider_runtime_preflight_sample_not_ready"
+        diagnostic = "provider_runtime_replay_not_ready"
+        next_action = "resolve_sample_recovery_hints_then_replay_preflight"
+
+    return {
+        "controller_surface": "provider_runtime_sample_gate",
+        "status": status,
+        "decision": decision,
+        "diagnostic": diagnostic,
+        "next_action": next_action,
+        "required": required,
+        "provided": provided,
+        "ready_for_local_replay": sample_ready,
+        "sample_failure_mode": str(provider_runtime_replay_sample.get("failure_mode") or "none"),
+        "sample_recovery_hint_count": len(string_list(provider_runtime_replay_sample.get("recovery_hint_codes"))),
+        "replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
     }
 
 

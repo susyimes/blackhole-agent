@@ -1503,6 +1503,29 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    provider_runtime_sample_gate = {
+        "controller_surface": "provider_runtime_sample_gate",
+        "status": "ready",
+        "decision": "sample_optional_for_this_window",
+        "diagnostic": "none",
+        "next_action": "continue_skill_route_discovery_window",
+        "required": False,
+        "provided": False,
+        "ready_for_local_replay": False,
+        "sample_failure_mode": "none",
+        "sample_recovery_hint_count": 0,
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+    }
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -1537,6 +1560,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "operator_handoff_ready": True,
         "supervisor_ready": True,
         "provider_runtime_replay_ready": True,
+        "provider_runtime_sample_gate": provider_runtime_sample_gate,
         "profile_completion_check": {
             "controller_surface": "skill_route_discovery_profile_completion_check",
             "status": "ready",
@@ -1577,6 +1601,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
             ],
+            "provider_runtime_sample_gate": provider_runtime_sample_gate,
             "profile_completion_check": {
                 "controller_surface": "skill_route_discovery_profile_completion_check",
                 "status": "ready",
@@ -1925,6 +1950,108 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sample():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass2_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["theme"] = "provider-runtime-control"
+    input_payload["capability_window"]["capability_slice"] = (
+        "Turn provider and runtime configuration problems into body-free diagnostics, "
+        "recovery hints, and locally replayable validation."
+    )
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    completion = output["capability_window_completion"]
+    sample_gate = completion["provider_runtime_sample_gate"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "blocked"
+    assert completion["decision"] == "continue_or_replay_before_completion"
+    assert "provider_runtime_preflight_sample_missing" in completion["diagnostics"]
+    assert sample_gate == {
+        "controller_surface": "provider_runtime_sample_gate",
+        "status": "blocked",
+        "decision": "provider_runtime_preflight_sample_required",
+        "diagnostic": "provider_runtime_preflight_sample_missing",
+        "next_action": "add_body_free_provider_runtime_preflight_sample_then_replay",
+        "required": True,
+        "provided": False,
+        "ready_for_local_replay": False,
+        "sample_failure_mode": "none",
+        "sample_recovery_hint_count": 0,
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+    }
+    assert completion["completion_recovery"]["decision"] == "replay_provider_runtime_preflight"
+    assert completion["completion_recovery"]["recovery_hint_codes"] == [
+        "provider_runtime_preflight_sample_missing"
+    ]
+    assert "OPENAI_API_KEY" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_provider_runtime_control_pass_continues_with_ready_sample():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass2_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["theme"] = "provider-runtime-control"
+    input_payload["provider_runtime_preflight_samples"] = [
+        {
+            "provider": {
+                "name": "local-dry-run-provider",
+                "harness": "local-dry-run-provider",
+            },
+            "runtime": {
+                "platform": "linux",
+                "cli_resolved_in_runner": True,
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        }
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    completion = output["capability_window_completion"]
+    sample_gate = completion["provider_runtime_sample_gate"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["provider_runtime_replay_sample"]["route_status"] == "passed"
+    assert sample_gate["required"] is True
+    assert sample_gate["provided"] is True
+    assert sample_gate["status"] == "ready"
+    assert sample_gate["decision"] == "provider_runtime_preflight_sample_ready"
+    assert sample_gate["provider_runtime_launch_allowed"] is False
+    assert sample_gate["remote_execution_allowed"] is False
+    assert completion["status"] == "in_progress"
+    assert completion["decision"] == "continue_capability_window_before_completion"
+    assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]
 
 
 def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
