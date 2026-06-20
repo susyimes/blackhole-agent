@@ -1,0 +1,17 @@
+Rollback point for provider-runtime-control pass 1
+
+Source digest: github-growth-20260620T031207.527037Z
+Original branch: codex/blackhole-evolve/20260620T031259.548543-add-or-update-a-local-skill-route-discovery-note
+Original HEAD: d6a5334941bace7687d08c3495ea1818b7cb7d4b
+Rollback ref: refs/rollback/20260620T031207Z-provider-runtime-control-pass1
+
+Recovery commands:
+
+git fetch . refs/rollback/20260620T031207Z-provider-runtime-control-pass1
+git reset --hard refs/rollback/20260620T031207Z-provider-runtime-control-pass1
+
+Notes:
+
+- Rollback is explicit and destructive; it must be chosen by a human operator
+  or external supervisor policy.
+- This artifact must remain in place for the run that created it.

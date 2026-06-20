@@ -310,6 +310,13 @@ slice: public skill evidence can become local documentation, config, test, or
 code_patch work only after the same local provider diagnostic lane remains
 replayable.
 
+Activation rows also expose `provider_runtime_control`, a compact replay
+handoff for the same contract. It records the provider/runtime controller
+surface, replay commands, readiness decision, and recovery hint codes without
+exporting raw preflight inputs or diagnostics. A ready local artifact lane may
+be replayed locally, but provider launch and remote execution remain denied; a
+blocked lane keeps the same recovery hint codes visible for operator review.
+
 The activation rows now also include a pre-activation local harness check. Before
 promotion, the controller-visible validation set includes both the
 `skill_route_discovery_lane` replay, the `agent_harness_eval_lane` replay, and

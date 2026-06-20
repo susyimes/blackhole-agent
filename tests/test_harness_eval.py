@@ -7,6 +7,7 @@ from blackhole_agent.harness_eval import (
     run_local_harness_eval,
     stable_text_hash,
     skill_route_discovery_inspection_requirements,
+    skill_route_discovery_provider_runtime_control,
     skill_route_discovery_provider_runtime_preflight_contract,
     skill_route_discovery_preactivation_trust_boundary,
     skill_route_discovery_preactivation_validation_commands,
@@ -715,6 +716,10 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
         "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
     ]
+    assert output["operator_handoff"]["provider_runtime_control"] == skill_route_discovery_provider_runtime_control(
+        activation_ready=True,
+        recovery_hint_codes=[],
+    )
     assert output["operator_handoff"]["recovery_hint_codes"] == []
     assert output["operator_handoff"]["source_lineage"] == {
         "body_free": True,
@@ -783,6 +788,10 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "external_harness_execution_allowed": False,
         }
         assert lane["provider_runtime_preflight"] == skill_route_discovery_provider_runtime_preflight_contract()
+        assert lane["provider_runtime_control"] == skill_route_discovery_provider_runtime_control(
+            activation_ready=True,
+            recovery_hint_codes=[],
+        )
         assert lane["activation_ready"] is True
         assert lane["activation_blockers"] == []
         assert lane["recovery_hint_codes"] == []
@@ -889,6 +898,10 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             row["proposal_kind"]
         )
         assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert row["provider_runtime_control"] == skill_route_discovery_provider_runtime_control(
+            activation_ready=True,
+            recovery_hint_codes=[],
+        )
         assert row["local_validation_required"] is True
         assert row["activation_ready"] is True
         assert row["activation_blockers"] == []
@@ -990,6 +1003,10 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
             ],
+            "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+                activation_ready=True,
+                recovery_hint_codes=[],
+            ),
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
             "external_harness_execution_allowed": False,
@@ -1205,6 +1222,10 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
             "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
         ],
+        "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+            activation_ready=False,
+            recovery_hint_codes=["skill_route_rejected_candidates_present"],
+        ),
         "recovery_hint_codes": ["skill_route_rejected_candidates_present"],
         "source_lineage": {
             "body_free": True,
@@ -1263,6 +1284,10 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
             "external_skill_activation_allowed": True,
             "raw_source_urls_exported": False,
             "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
+            "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+                activation_ready=True,
+                recovery_hint_codes=[],
+            ),
         }
     ]
 
@@ -1316,6 +1341,10 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_ar
             "external_skill_activation_allowed": False,
             "raw_source_urls_exported": False,
             "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
+            "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+                activation_ready=True,
+                recovery_hint_codes=[],
+            ),
         }
     ]
 
@@ -1393,6 +1422,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_requires_provider_ru
         "activation_lanes[0].provider_runtime_preflight_must_be_body_free",
         "activation_lanes[0].provider_runtime_launch_must_be_false",
         "activation_lanes[0].provider_runtime_remote_execution_must_be_false",
+        "activation_lanes[0].provider_runtime_control_mismatch",
     ]
 
 
@@ -1669,6 +1699,10 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
                 "external_harness_execution_allowed": False,
             },
             "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
+            "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+                activation_ready=False,
+                recovery_hint_codes=["skill_route_unsupported_lanes_downgraded"],
+            ),
             "activation_ready": False,
             "activation_blockers": ["unsupported_lanes_downgraded"],
             "recovery_hint_codes": ["skill_route_unsupported_lanes_downgraded"],
@@ -1713,6 +1747,10 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
             ],
+            "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+                activation_ready=False,
+                recovery_hint_codes=["skill_route_unsupported_lanes_downgraded"],
+            ),
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
             "external_harness_execution_allowed": False,

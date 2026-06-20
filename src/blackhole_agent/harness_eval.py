@@ -1366,6 +1366,10 @@ def build_skill_route_discovery_activation_lanes(
                 "external_harness_execution_allowed": False,
             },
             "provider_runtime_preflight": skill_route_discovery_provider_runtime_preflight_contract(),
+            "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+                activation_ready=activation_allowed,
+                recovery_hint_codes=[] if activation_allowed else recovery_hint_codes,
+            ),
             "activation_ready": activation_allowed,
             "activation_blockers": activation_blockers,
             "recovery_hint_codes": [] if activation_allowed else recovery_hint_codes,
@@ -1475,6 +1479,32 @@ def skill_route_discovery_provider_runtime_preflight_contract() -> dict[str, Any
         "body_free_diagnostics_only": True,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_control(
+    *,
+    activation_ready: bool,
+    recovery_hint_codes: list[str],
+) -> dict[str, Any]:
+    """Return operator-visible replay control for provider/runtime diagnostics."""
+
+    replay_commands = [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    return {
+        "controller_surface": "provider_runtime_control",
+        "decision": "ready_for_local_replay" if activation_ready else "blocked_before_local_replay",
+        "reason": "none" if activation_ready else "skill_route_discovery_activation_not_ready",
+        "recovery_hint_codes": sorted(dict.fromkeys(recovery_hint_codes)),
+        "replay_commands": replay_commands,
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
     }
 
 
@@ -1607,6 +1637,15 @@ def skill_route_discovery_preactivation_trust_boundary(
             diagnostics.append(f"{prefix}.provider_runtime_remote_execution_must_be_false")
 
         activation_ready = lane.get("activation_ready") is True
+        expected_provider_runtime_control = skill_route_discovery_provider_runtime_control(
+            activation_ready=activation_ready,
+            recovery_hint_codes=string_list(lane.get("recovery_hint_codes")),
+        )
+        provider_runtime_control = lane.get("provider_runtime_control")
+        provider_runtime_control = provider_runtime_control if isinstance(provider_runtime_control, dict) else {}
+        if provider_runtime_control != expected_provider_runtime_control:
+            diagnostics.append(f"{prefix}.provider_runtime_control_mismatch")
+
         blockers = lane.get("activation_blockers")
         blockers = blockers if isinstance(blockers, list) else []
         if activation_ready and blockers:
@@ -1731,6 +1770,12 @@ def skill_route_discovery_operator_handoff(
                 ],
                 "required_validation": validation_commands,
                 "provider_runtime_replay_commands": provider_runtime_commands,
+                "provider_runtime_control": lane.get("provider_runtime_control")
+                if isinstance(lane.get("provider_runtime_control"), dict)
+                else skill_route_discovery_provider_runtime_control(
+                    activation_ready=lane.get("activation_ready") is True,
+                    recovery_hint_codes=string_list(lane.get("recovery_hint_codes")),
+                ),
                 "runtime_action": str(lane.get("runtime_action") or ""),
                 "external_skill_activation_allowed": False,
                 "external_harness_execution_allowed": False,
@@ -1757,6 +1802,10 @@ def skill_route_discovery_operator_handoff(
         "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
         "required_validation": validation_commands,
         "provider_runtime_replay_commands": provider_runtime_commands,
+        "provider_runtime_control": skill_route_discovery_provider_runtime_control(
+            activation_ready=handoff_ready,
+            recovery_hint_codes=recovery_hint_codes,
+        ),
         "recovery_hint_codes": recovery_hint_codes,
         "source_lineage": {
             "body_free": source_lineage.get("body_free") is True,
@@ -1846,6 +1895,12 @@ def skill_route_discovery_local_lane_intake(
                 "local_validation_required": all(lane.get("local_validation_required") is True for lane in lanes),
                 "activation_ready": activation_lane.get("activation_ready") is True,
                 "activation_blockers": string_list(activation_lane.get("activation_blockers")),
+                "provider_runtime_control": activation_lane.get("provider_runtime_control")
+                if isinstance(activation_lane.get("provider_runtime_control"), dict)
+                else skill_route_discovery_provider_runtime_control(
+                    activation_ready=activation_lane.get("activation_ready") is True,
+                    recovery_hint_codes=string_list(activation_lane.get("recovery_hint_codes")),
+                ),
                 "runtime_action": str(activation_lane.get("runtime_action") or "none"),
                 "external_skill_activation_allowed": False,
                 "external_skill_code_allowed": False,
