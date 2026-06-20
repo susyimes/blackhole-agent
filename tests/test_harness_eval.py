@@ -1040,6 +1040,69 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["route_triage_plan"]["raw_evidence_exported"] is False
     assert output["route_triage_plan"]["raw_source_urls_exported"] is False
     assert output["route_triage_plan"]["raw_target_paths_exported"] is False
+    assert output["route_profile_review"] == {
+        "controller_surface": "skill_route_discovery_route_profile_review",
+        "status": "ready",
+        "decision": "review_profile_contracts_before_local_activation",
+        "profile_count": 1,
+        "profiles": ["codex_workflow_gate"],
+        "rows": [
+            {
+                "route_profile": "codex_workflow_gate",
+                "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+                "candidate_count": 1,
+                "evidence_item_id_count": 3,
+                "recognition_signals": [
+                    "codex_or_agent_workflow_language",
+                    "evidence_gate_or_review_ledger",
+                    "verification_or_coverage_habit",
+                ],
+                "expected_metadata": [
+                    "selected_digest_item_ids",
+                    "body_free_workflow_summary",
+                    "local_gate_or_test_target",
+                ],
+                "safe_local_tests": [
+                    "pytest tests/test_skill_routing.py -q",
+                    "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+                    "pytest tests/test_harness_eval.py -q -k proposal_interpretation",
+                ],
+                "rejection_conditions": [
+                    "upstream_workflow_install_requested",
+                    "url_or_repository_name_used_as_proposal_evidence_ref",
+                    "readme_claim_treated_as_local_gate_parity",
+                ],
+                "uncertainty_reasons": [
+                    "missing_detail_risk",
+                    "unvalidated_external_skill_evidence",
+                ],
+                "runtime_action": "none",
+                "local_validation_required": True,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        ],
+        "evidence_tier": "specific_route_or_validation_evidence",
+        "source_lineage": {
+            "body_free": True,
+            "lineage_mode": "single_or_independent_sources",
+            "candidate_source_count": 1,
+            "related_source_count": 0,
+            "fork_or_mirror_lineage_collapsed": False,
+        },
+        "diagnostics": [],
+        "body_free": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["activation_manifest"]["controller_surface"] == "skill_route_discovery_activation_manifest"
     assert output["activation_manifest"]["status"] == "ready"
     assert output["activation_manifest"]["decision"] == "manifest_bounded_local_lanes"
@@ -1149,6 +1212,21 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
         "raw_source_urls_exported": False,
         "raw_related_source_urls_exported": False,
     }
+    assert output["route_profile_review"]["status"] == "ready"
+    assert output["route_profile_review"]["profiles"] == ["game_frontend_workflow"]
+    profile_row = output["route_profile_review"]["rows"][0]
+    assert profile_row["recognition_signals"] == [
+        "threejs_or_browser_game_language",
+        "director_or_specialist_skill_bundle",
+        "qa_browser_screenshot_or_canvas_validation_language",
+    ]
+    assert profile_row["rejection_conditions"] == [
+        "upstream_scaffold_or_browser_checker_requested",
+        "credential_probe_or_provider_launch_requested",
+        "asset_generation_requested_without_local_capability_path",
+    ]
+    assert profile_row["runtime_action"] == "none"
+    assert profile_row["raw_source_urls_exported"] is False
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
 

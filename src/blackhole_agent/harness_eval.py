@@ -146,6 +146,94 @@ SKILL_ROUTE_DISCOVERY_TRIAGE_REASONS = {
     "test": "replay route evidence through local regression coverage",
     "code_patch": "change only local classifier, harness, or controller behavior",
 }
+SKILL_ROUTE_DISCOVERY_PROFILE_REVIEW_CONTRACTS = {
+    "codex_workflow_gate": {
+        "recognition_signals": (
+            "codex_or_agent_workflow_language",
+            "evidence_gate_or_review_ledger",
+            "verification_or_coverage_habit",
+        ),
+        "expected_metadata": (
+            "selected_digest_item_ids",
+            "body_free_workflow_summary",
+            "local_gate_or_test_target",
+        ),
+        "safe_local_tests": (
+            "pytest tests/test_skill_routing.py -q",
+            "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+            "pytest tests/test_harness_eval.py -q -k proposal_interpretation",
+        ),
+        "rejection_conditions": (
+            "upstream_workflow_install_requested",
+            "url_or_repository_name_used_as_proposal_evidence_ref",
+            "readme_claim_treated_as_local_gate_parity",
+        ),
+    },
+    "game_frontend_workflow": {
+        "recognition_signals": (
+            "threejs_or_browser_game_language",
+            "director_or_specialist_skill_bundle",
+            "qa_browser_screenshot_or_canvas_validation_language",
+        ),
+        "expected_metadata": (
+            "body_free_game_skill_summary",
+            "local_frontend_validation_target",
+            "asset_or_provider_boundary_note",
+        ),
+        "safe_local_tests": (
+            "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+            "pytest tests/test_harness_eval.py -q -k rendered_html_artifact_validation",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        ),
+        "rejection_conditions": (
+            "upstream_scaffold_or_browser_checker_requested",
+            "credential_probe_or_provider_launch_requested",
+            "asset_generation_requested_without_local_capability_path",
+        ),
+    },
+    "skill_ecosystem_state_handoff": {
+        "recognition_signals": (
+            "skill_ecosystem_or_multiple_skills",
+            "task_memory_profile_or_handoff_language",
+            "clarification_or_alignment_gate",
+        ),
+        "expected_metadata": (
+            "body_free_skill_ecosystem_summary",
+            "state_retention_and_privacy_boundary",
+            "local_memory_or_profile_target_if_any",
+        ),
+        "safe_local_tests": (
+            "pytest tests/test_skill_routing.py -q",
+            "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+            "pytest tests/test_local_memory.py -q",
+        ),
+        "rejection_conditions": (
+            "profile_or_memory_write_from_repository_presence",
+            "private_context_or_secret_storage_requested",
+            "manual_install_or_enable_requested",
+        ),
+    },
+    "generic_skill_workflow": {
+        "recognition_signals": (
+            "skill_or_workflow_language",
+            "public_repository_summary",
+        ),
+        "expected_metadata": (
+            "selected_digest_item_ids_or_frozen_digest_evidence",
+            "body_free_repository_summary",
+            "local_artifact_target",
+        ),
+        "safe_local_tests": (
+            "pytest tests/test_skill_routing.py -q",
+            "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+        ),
+        "rejection_conditions": (
+            "missing_route_hint",
+            "unbounded_lane_requested",
+            "runtime_action_requested",
+        ),
+    },
+}
 SKILL_ROUTE_DISCOVERY_INSPECTION_EVIDENCE = (
     "selected_digest_item_ids_or_frozen_digest_evidence",
     "body_free_repository_summary",
@@ -1072,6 +1160,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
+    route_profile_review = skill_route_discovery_route_profile_review(
+        proposal_lanes=proposal_lanes,
+        source_lineage=source_lineage,
+        evidence_strength=evidence_strength,
+    )
     operator_recovery_plan = skill_route_discovery_operator_recovery_plan(
         route_status=route_status,
         failure_mode=failure_mode,
@@ -1141,6 +1234,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
         "route_triage_plan": route_triage_plan,
+        "route_profile_review": route_profile_review,
         "activation_manifest": activation_manifest,
         "supervisor_readiness": supervisor_readiness,
         "operator_handoff": operator_handoff,
@@ -2551,6 +2645,98 @@ def skill_route_discovery_route_triage_plan(
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+    }
+
+
+def skill_route_discovery_route_profile_review(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    source_lineage: dict[str, Any],
+    evidence_strength: dict[str, Any],
+) -> dict[str, Any]:
+    """Render profile-specific inspection lanes before local activation."""
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        for profile in string_list(lane.get("route_profiles")) or ["generic_skill_workflow"]:
+            grouped.setdefault(profile, []).append(lane)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for profile in sorted(grouped):
+        lanes = grouped[profile]
+        contract = SKILL_ROUTE_DISCOVERY_PROFILE_REVIEW_CONTRACTS.get(
+            profile,
+            SKILL_ROUTE_DISCOVERY_PROFILE_REVIEW_CONTRACTS["generic_skill_workflow"],
+        )
+        proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in lanes})
+        evidence_item_ids: list[str] = []
+        uncertainty_reasons: list[str] = []
+        for lane in lanes:
+            evidence_item_ids.extend(string_list(lane.get("evidence_item_ids")))
+            uncertainty_reasons.extend(string_list(lane.get("uncertainty_reasons")))
+        runtime_safe = all(str(lane.get("runtime_action") or "") == "none" for lane in lanes)
+        validation_required = all(lane.get("local_validation_required") is True for lane in lanes)
+        if not runtime_safe:
+            diagnostics.append(f"{profile}:runtime_action_must_be_none")
+        if not validation_required:
+            diagnostics.append(f"{profile}:local_validation_required")
+
+        rows.append(
+            {
+                "route_profile": profile,
+                "proposal_kinds": proposal_kinds,
+                "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
+                "evidence_item_id_count": len(set(evidence_item_ids)),
+                "recognition_signals": list(contract["recognition_signals"]),
+                "expected_metadata": list(contract["expected_metadata"]),
+                "safe_local_tests": list(contract["safe_local_tests"]),
+                "rejection_conditions": list(contract["rejection_conditions"]),
+                "uncertainty_reasons": sorted(dict.fromkeys(uncertainty_reasons)),
+                "runtime_action": "none" if runtime_safe else "review",
+                "local_validation_required": validation_required,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    if rows and not diagnostics:
+        status = "ready"
+        decision = "review_profile_contracts_before_local_activation"
+    elif rows:
+        status = "review"
+        decision = "resolve_profile_contract_diagnostics"
+    else:
+        status = "blocked"
+        decision = "no_route_profiles_to_review"
+
+    return {
+        "controller_surface": "skill_route_discovery_route_profile_review",
+        "status": status,
+        "decision": decision,
+        "profile_count": len(rows),
+        "profiles": [row["route_profile"] for row in rows],
+        "rows": rows,
+        "evidence_tier": str(evidence_strength.get("tier") or ""),
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "diagnostics": diagnostics,
+        "body_free": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

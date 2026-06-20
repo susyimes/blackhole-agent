@@ -1,0 +1,7 @@
+rollback point: 20260620T075206Z-skill-route-discovery-pass3
+original branch: codex/blackhole-evolve/20260620T075317.714008-run-a-bounded-skill-route-discovery-validation-f
+head: f233b520ffcf6750f3d19800163f60be6be6af85
+rollback ref: refs/rollback/20260620T075206Z-skill-route-discovery-pass3
+recover: git reset --hard f233b520ffcf6750f3d19800163f60be6be6af85
+recover via ref: git reset --hard refs/rollback/20260620T075206Z-skill-route-discovery-pass3
+note: destructive rollback requires explicit operator approval

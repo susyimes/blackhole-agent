@@ -452,6 +452,35 @@ validation, and do not create install, scaffold, asset-generation, browser-run,
 profile-writing, provider-launch, remote-execution, or external skill activation
 authority.
 
+The harness also emits `route_profile_review` before supervisor promotion. This
+panel groups the proposal lanes by profile and records profile-specific
+recognition signals, expected metadata, safe local tests, and rejection
+conditions without exporting raw source URLs or upstream skill bodies. It is an
+operator-facing inspection surface for deciding whether a route profile has
+enough local evidence to become documentation, config, test, or code_patch work.
+
+The current profile contracts are:
+
+- `codex_workflow_gate`: FableCodex-style Codex workflow evidence. It expects
+  selected digest item IDs, a body-free workflow summary, and a local gate or
+  test target. It rejects upstream workflow installation, URL-based proposal
+  citations, and README claims treated as local gate parity.
+- `game_frontend_workflow`: Three.js game director and specialist-skill
+  evidence. It recognizes browser-game, director, QA, screenshot, and canvas
+  validation signals, but rejects upstream scaffolds, browser checkers,
+  credential probes, provider launch, and asset generation without a separate
+  local capability path.
+- `skill_ecosystem_state_handoff`: COMPASS-style task clarification, memory,
+  handoff, and profile systems. It expects a body-free ecosystem summary plus
+  state-retention and privacy boundaries, and rejects profile or memory writes
+  inferred only from repository presence.
+
+A ready `route_profile_review` means the local route profile has an inspectable
+contract for bounded local work. It still keeps `runtime_action: none`, requires
+local validation, denies external skill activation, and does not import, run,
+clone, install, scaffold, probe credentials, launch providers, or generate
+assets from the upstream repository.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,
