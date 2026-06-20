@@ -848,6 +848,18 @@ activation, external harness execution, provider launch, remote execution, raw
 preflight inputs, raw diagnostics, raw provider values, raw source URLs, raw
 target paths, and upstream bodies denied.
 
+`validation_readiness_summary` consumes that current-action provider-runtime
+preflight before it reports a selected lane as replay-ready. In
+`provider-runtime-control` windows, a missing or blocked preflight changes the
+summary decision to `resolve_provider_runtime_preflight_before_replay`; a
+degraded replay remains review-only; and only a ready or not-applicable
+preflight can preserve `operator_can_replay_selected_bounded_validation_lane`.
+The embedded `provider_runtime_preflight` row is body-free: it exposes status,
+decision, next-action code, sample readiness booleans, replay commands,
+recovery hint codes and hashes, and diagnostics while denying provider launch,
+remote execution, raw preflight input export, raw diagnostics export, and raw
+provider-value export.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend

@@ -2657,6 +2657,22 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert current_preflight["remote_execution_allowed"] is False
     assert current_preflight["raw_preflight_inputs_exported"] is False
     assert current_preflight["raw_provider_values_exported"] is False
+    readiness = output["validation_readiness_summary"]
+    readiness_preflight = readiness["provider_runtime_preflight"]
+    assert readiness["status"] == "blocked"
+    assert readiness["decision"] == "resolve_provider_runtime_preflight_before_replay"
+    assert readiness_preflight["status"] == "blocked"
+    assert readiness_preflight["decision"] == "provider_runtime_preflight_sample_required"
+    assert readiness_preflight["next_action"] == "add_body_free_provider_runtime_preflight_sample_then_replay"
+    assert readiness_preflight["sample_provided"] is False
+    assert readiness_preflight["sample_ready_for_local_replay"] is False
+    assert readiness_preflight["success_claim_allowed"] is False
+    assert readiness_preflight["recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+    assert readiness_preflight["diagnostics"] == ["provider_runtime_preflight_sample_missing"]
+    assert readiness_preflight["body_free_diagnostics_only"] is True
+    assert readiness_preflight["provider_runtime_launch_allowed"] is False
+    assert readiness_preflight["raw_preflight_inputs_exported"] is False
+    assert readiness_preflight["raw_provider_values_exported"] is False
     assert completion["completion_recovery"]["decision"] == "replay_provider_runtime_preflight"
     assert completion["completion_recovery"]["recovery_hint_codes"] == [
         "provider_runtime_preflight_sample_missing"
@@ -2723,6 +2739,21 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     assert current_preflight["body_free_diagnostics_only"] is True
     assert current_preflight["provider_runtime_launch_allowed"] is False
     assert current_preflight["remote_execution_allowed"] is False
+    readiness = output["validation_readiness_summary"]
+    readiness_preflight = readiness["provider_runtime_preflight"]
+    assert readiness["status"] == "ready"
+    assert readiness["decision"] == "operator_can_replay_selected_bounded_validation_lane"
+    assert readiness_preflight["status"] == "ready"
+    assert readiness_preflight["decision"] == "provider_runtime_preflight_ready_for_current_action"
+    assert readiness_preflight["next_action"] == "continue_selected_bounded_lane_after_provider_runtime_replay"
+    assert readiness_preflight["sample_provided"] is True
+    assert readiness_preflight["sample_ready_for_local_replay"] is True
+    assert readiness_preflight["sample_ready_for_supervisor_promotion"] is True
+    assert readiness_preflight["success_claim_allowed"] is True
+    assert readiness_preflight["recovery_hint_codes"] == []
+    assert readiness_preflight["provider_runtime_launch_allowed"] is False
+    assert readiness_preflight["raw_preflight_inputs_exported"] is False
+    assert readiness_preflight["raw_provider_values_exported"] is False
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]
@@ -8348,6 +8379,9 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert summary["provider_runtime_launch_allowed"] is False
     assert summary["remote_execution_allowed"] is False
     assert summary["raw_source_urls_exported"] is False
+    assert summary["provider_runtime_preflight"]["status"] == "not_applicable"
+    assert summary["provider_runtime_preflight"]["provider_runtime_launch_allowed"] is False
+    assert summary["provider_runtime_preflight"]["raw_preflight_inputs_exported"] is False
     assert "https://github.com/" not in serialized
 
 

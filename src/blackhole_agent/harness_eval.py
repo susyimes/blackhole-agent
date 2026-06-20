@@ -1322,6 +1322,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     )
     validation_readiness_summary = skill_route_discovery_validation_readiness_summary(
         current_action=current_action,
+        current_action_provider_runtime_preflight=current_action_provider_runtime_preflight,
         validation_lane_plan=validation_lane_plan,
         route_profile_review=route_profile_review,
         activity_signal_panel=activity_signal_panel,
@@ -3776,6 +3777,7 @@ def skill_route_discovery_current_action_provider_runtime_preflight(
 def skill_route_discovery_validation_readiness_summary(
     *,
     current_action: dict[str, Any],
+    current_action_provider_runtime_preflight: dict[str, Any],
     validation_lane_plan: dict[str, Any],
     route_profile_review: dict[str, Any],
     activity_signal_panel: dict[str, Any],
@@ -3796,6 +3798,24 @@ def skill_route_discovery_validation_readiness_summary(
     current_action_diagnostics = string_list(current_action.get("diagnostics"))
     supervisor_decision = optional_string(supervisor_readiness.get("decision")) or ""
     generic_prompt_required = generic_validation_prompt.get("prompt_required") is True
+    provider_preflight_status = (
+        optional_string(current_action_provider_runtime_preflight.get("status")) or "not_applicable"
+    )
+    provider_preflight_decision = optional_string(
+        current_action_provider_runtime_preflight.get("decision")
+    ) or ""
+    provider_preflight_next_action = optional_string(
+        current_action_provider_runtime_preflight.get("next_action")
+    ) or ""
+    provider_recovery_hint_codes = string_list(
+        current_action_provider_runtime_preflight.get("recovery_hint_codes")
+    )
+    provider_preflight_diagnostics = string_list(
+        current_action_provider_runtime_preflight.get("diagnostics")
+    )
+    provider_preflight_blocks_replay = provider_preflight_status == "blocked"
+    provider_preflight_needs_review = provider_preflight_status == "review"
+    provider_preflight_ready = provider_preflight_status in {"ready", "not_applicable"}
 
     profile_rows_by_name = {
         optional_string(row.get("route_profile")) or "generic_skill_workflow": row
@@ -3825,6 +3845,7 @@ def skill_route_discovery_validation_readiness_summary(
         and validation_lane_plan.get("status") == "ready"
         and route_profile_review.get("status") == "ready"
         and supervisor_decision == "ready_for_supervisor_promotion"
+        and provider_preflight_ready
         and selected_lane != "none"
         and not plan_diagnostics
         and not current_action_diagnostics
@@ -3833,6 +3854,12 @@ def skill_route_discovery_validation_readiness_summary(
     if ready:
         status = "ready"
         decision = "operator_can_replay_selected_bounded_validation_lane"
+    elif provider_preflight_blocks_replay:
+        status = "blocked"
+        decision = "resolve_provider_runtime_preflight_before_replay"
+    elif provider_preflight_needs_review:
+        status = "review"
+        decision = "operator_review_provider_runtime_preflight_before_replay"
     elif generic_prompt_required:
         status = "review"
         decision = "collect_local_corroboration_before_replay"
@@ -3860,12 +3887,52 @@ def skill_route_discovery_validation_readiness_summary(
         "candidate_source_count": int(current_action.get("candidate_source_count") or 0),
         "required_validation": string_list(current_action.get("required_validation")),
         "provider_runtime_replay_commands": string_list(current_action.get("provider_runtime_replay_commands")),
+        "provider_runtime_preflight": {
+            "status": provider_preflight_status,
+            "decision": provider_preflight_decision,
+            "next_action": provider_preflight_next_action,
+            "sample_provided": current_action_provider_runtime_preflight.get(
+                "provider_runtime_sample_provided"
+            )
+            is True,
+            "sample_ready_for_local_replay": current_action_provider_runtime_preflight.get(
+                "provider_runtime_sample_ready_for_local_replay"
+            )
+            is True,
+            "sample_ready_for_supervisor_promotion": current_action_provider_runtime_preflight.get(
+                "provider_runtime_sample_ready_for_supervisor_promotion"
+            )
+            is True,
+            "degraded_replay_only": current_action_provider_runtime_preflight.get(
+                "provider_runtime_degraded_replay_only"
+            )
+            is True,
+            "success_claim_allowed": current_action_provider_runtime_preflight.get(
+                "success_claim_allowed"
+            )
+            is True,
+            "recovery_hint_codes": provider_recovery_hint_codes,
+            "recovery_hint_code_hashes": [stable_text_hash(code) for code in provider_recovery_hint_codes],
+            "diagnostics": provider_preflight_diagnostics,
+            "replay_commands": string_list(
+                current_action_provider_runtime_preflight.get("provider_runtime_replay_commands")
+            ),
+            "body_free": True,
+            "body_free_diagnostics_only": True,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_preflight_inputs_exported": False,
+            "raw_diagnostics_exported": False,
+            "raw_provider_values_exported": False,
+        },
         "supervisor_decision": supervisor_decision,
         "supervisor_next_action": optional_string(current_action.get("supervisor_next_action")) or "",
         "generic_prompt_required": generic_prompt_required,
         "generic_movement_policy": optional_string(generic_validation_prompt.get("generic_movement_policy")) or "",
         "profile_rows": readiness_rows,
-        "diagnostics": sorted(dict.fromkeys([*plan_diagnostics, *current_action_diagnostics])),
+        "diagnostics": sorted(
+            dict.fromkeys([*plan_diagnostics, *current_action_diagnostics, *provider_preflight_diagnostics])
+        ),
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",
