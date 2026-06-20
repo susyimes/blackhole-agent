@@ -2648,6 +2648,26 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert current_preflight["success_claim_allowed"] is False
     assert current_preflight["recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
     assert current_preflight["diagnostics"] == ["provider_runtime_preflight_sample_missing"]
+    recovery_packet = current_preflight["recovery_replay_packet"]
+    assert recovery_packet["controller_surface"] == "provider_runtime_recovery_replay_packet"
+    assert recovery_packet["status"] == "blocked"
+    assert recovery_packet["decision"] == "repair_then_replay_provider_runtime_preflight"
+    assert recovery_packet["provider_runtime_sample"]["provided"] is False
+    assert recovery_packet["provider_runtime_sample"]["route_status"] == "missing"
+    assert recovery_packet["recovery_steps"] == [
+        {
+            "code": "provider_runtime_preflight_sample_missing",
+            "code_hash": stable_text_hash("provider_runtime_preflight_sample_missing"),
+            "scope": "provider_runtime_control",
+            "severity": "blocker",
+            "replay_step": "add_body_free_sample",
+            "value_recorded": False,
+            "raw_provider_value_exported": False,
+        }
+    ]
+    assert recovery_packet["provider_runtime_launch_allowed"] is False
+    assert recovery_packet["raw_preflight_inputs_exported"] is False
+    assert recovery_packet["raw_provider_values_exported"] is False
     assert current_preflight["provider_runtime_replay_commands"] == [
         "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
         "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
@@ -2669,6 +2689,7 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert readiness_preflight["success_claim_allowed"] is False
     assert readiness_preflight["recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
     assert readiness_preflight["diagnostics"] == ["provider_runtime_preflight_sample_missing"]
+    assert readiness_preflight["recovery_replay_packet"] == recovery_packet
     assert readiness_preflight["body_free_diagnostics_only"] is True
     assert readiness_preflight["provider_runtime_launch_allowed"] is False
     assert readiness_preflight["raw_preflight_inputs_exported"] is False
@@ -2736,6 +2757,13 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     assert current_preflight["success_claim_allowed"] is True
     assert current_preflight["recovery_hint_codes"] == []
     assert current_preflight["diagnostics"] == []
+    assert current_preflight["recovery_replay_packet"]["status"] == "ready"
+    assert current_preflight["recovery_replay_packet"]["decision"] == (
+        "replay_commands_available_for_operator_handoff"
+    )
+    assert current_preflight["recovery_replay_packet"]["recovery_steps"] == []
+    assert current_preflight["recovery_replay_packet"]["provider_runtime_sample"]["route_status"] == "passed"
+    assert current_preflight["recovery_replay_packet"]["provider_runtime_launch_allowed"] is False
     assert current_preflight["body_free_diagnostics_only"] is True
     assert current_preflight["provider_runtime_launch_allowed"] is False
     assert current_preflight["remote_execution_allowed"] is False
@@ -2757,6 +2785,53 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]
+
+
+def test_skill_route_discovery_provider_runtime_control_pass_surfaces_degraded_recovery_packet():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_provider_runtime_degraded_sample.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    current_preflight = output["current_action_provider_runtime_preflight"]
+    recovery_packet = current_preflight["recovery_replay_packet"]
+    readiness_preflight = output["validation_readiness_summary"]["provider_runtime_preflight"]
+
+    assert current_preflight["status"] == "review"
+    assert current_preflight["decision"] == "provider_runtime_degraded_replay_available_without_success_claim"
+    assert current_preflight["next_action"] == "operator_review_degraded_provider_runtime_replay_before_promotion"
+    assert current_preflight["provider_runtime_degraded_replay_only"] is True
+    assert current_preflight["success_claim_allowed"] is False
+    assert current_preflight["recovery_hint_codes"] == ["mock_auth_placeholder_used"]
+    assert recovery_packet["status"] == "review"
+    assert recovery_packet["decision"] == "review_degraded_replay_before_success_claim"
+    assert recovery_packet["provider_runtime_sample"]["route_status"] == "degraded"
+    assert recovery_packet["provider_runtime_sample"]["ready_for_local_replay"] is True
+    assert recovery_packet["provider_runtime_sample"]["ready_for_supervisor_promotion"] is False
+    assert recovery_packet["provider_runtime_sample"]["degraded_replay_only"] is True
+    assert recovery_packet["provider_runtime_sample"]["success_claim_allowed"] is False
+    assert recovery_packet["recovery_steps"] == [
+        {
+            "code": "mock_auth_placeholder_used",
+            "code_hash": stable_text_hash("mock_auth_placeholder_used"),
+            "scope": "provider_runtime_auth",
+            "severity": "notice",
+            "replay_step": "review_mock_auth_placeholder",
+            "value_recorded": False,
+            "raw_provider_value_exported": False,
+        }
+    ]
+    assert recovery_packet["provider_runtime_launch_allowed"] is False
+    assert recovery_packet["remote_execution_allowed"] is False
+    assert recovery_packet["raw_preflight_inputs_exported"] is False
+    assert recovery_packet["raw_provider_values_exported"] is False
+    assert readiness_preflight["recovery_replay_packet"] == recovery_packet
+    assert "OPENAI_API_KEY" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
 def test_skill_route_discovery_pass1_exposes_current_action_for_mixed_skill_routes():

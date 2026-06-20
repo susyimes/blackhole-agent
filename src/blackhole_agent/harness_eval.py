@@ -3751,6 +3751,16 @@ def skill_route_discovery_current_action_provider_runtime_preflight(
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
         "diagnostics": diagnostics,
+        "recovery_replay_packet": skill_route_discovery_provider_runtime_recovery_replay_packet(
+            status=status,
+            decision=decision,
+            next_action=next_action,
+            current_action=current_action,
+            provider_runtime_replay_sample=provider_runtime_replay_sample,
+            recovery_hint_codes=recovery_hint_codes,
+            diagnostics=diagnostics,
+            replay_commands=replay_commands,
+        ),
         "required_validation": string_list(current_action.get("required_validation")),
         "provider_runtime_replay_commands": replay_commands,
         "local_validation_required": True,
@@ -3771,6 +3781,183 @@ def skill_route_discovery_current_action_provider_runtime_preflight(
         "raw_provider_values_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_recovery_replay_packet(
+    *,
+    status: str,
+    decision: str,
+    next_action: str,
+    current_action: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+    recovery_hint_codes: list[str],
+    diagnostics: list[str],
+    replay_commands: list[str],
+) -> dict[str, Any]:
+    """Return a body-free replay packet for provider-runtime recovery handoff."""
+
+    sample_provided = provider_runtime_replay_sample.get("provided") is True
+    sample_route_status = optional_string(provider_runtime_replay_sample.get("route_status")) or "missing"
+    sample_ready_for_local_replay = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    sample_ready_for_supervisor_promotion = (
+        provider_runtime_replay_sample.get("ready_for_supervisor_promotion") is True
+    )
+    sample_degraded = provider_runtime_replay_sample.get("degraded_replay_only") is True
+    sample_success_claim_allowed = provider_runtime_replay_sample.get("success_claim_allowed") is True
+    hint_steps = [
+        skill_route_discovery_provider_runtime_recovery_step(code)
+        for code in recovery_hint_codes
+        if code
+    ]
+    blocked = status == "blocked"
+    review = status == "review"
+
+    if blocked:
+        packet_decision = "repair_then_replay_provider_runtime_preflight"
+    elif review:
+        packet_decision = "review_degraded_replay_before_success_claim"
+    elif status == "ready":
+        packet_decision = "replay_commands_available_for_operator_handoff"
+    else:
+        packet_decision = "provider_runtime_replay_not_required_for_theme"
+
+    return {
+        "controller_surface": "provider_runtime_recovery_replay_packet",
+        "status": status,
+        "decision": packet_decision,
+        "current_preflight_decision": decision,
+        "next_action": next_action,
+        "selected_local_lane": optional_string(current_action.get("selected_local_lane")) or "none",
+        "validation_scope": optional_string(current_action.get("validation_scope")) or "none",
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_id_count": int(current_action.get("evidence_item_id_count") or 0),
+        "candidate_source_hashes": string_list(current_action.get("candidate_source_hashes")),
+        "provider_runtime_sample": {
+            "provided": sample_provided,
+            "route_status": sample_route_status,
+            "ready_for_local_replay": sample_ready_for_local_replay,
+            "ready_for_supervisor_promotion": sample_ready_for_supervisor_promotion,
+            "degraded_replay_only": sample_degraded,
+            "success_claim_allowed": sample_success_claim_allowed,
+            "failure_mode": optional_string(provider_runtime_replay_sample.get("failure_mode")) or "none",
+            "preflight_count": int(provider_runtime_replay_sample.get("preflight_count") or 0),
+            "blocked_failure_mode_count": len(
+                string_list(provider_runtime_replay_sample.get("blocked_failure_modes"))
+            ),
+            "degraded_provider_count": int(provider_runtime_replay_sample.get("degraded_provider_count") or 0),
+            "runner_invoked_count": int(provider_runtime_replay_sample.get("runner_invoked_count") or 0),
+        },
+        "recovery_step_count": len(hint_steps),
+        "recovery_steps": hint_steps,
+        "recovery_hint_codes": list(recovery_hint_codes),
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "diagnostics": list(diagnostics),
+        "replay_commands": list(replay_commands),
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_recovery_step(code: str) -> dict[str, Any]:
+    """Map recovery codes to replayable, body-free operator steps."""
+
+    catalog = {
+        "provider_runtime_preflight_sample_missing": (
+            "provider_runtime_control",
+            "blocker",
+            "add_body_free_sample",
+        ),
+        "provider_runtime_replay_not_ready": (
+            "provider_runtime_control",
+            "blocker",
+            "resolve_sampled_hints",
+        ),
+        "provider_env_missing": ("provider_runtime_env", "blocker", "configure_env_or_mock_auth"),
+        "sandbox_runtime_preflight_failed": (
+            "provider_runtime_sandbox",
+            "blocker",
+            "repair_sandbox_policy",
+        ),
+        "native_terminal_timeout_risk": (
+            "provider_runtime_launch",
+            "blocker",
+            "repair_native_cli_resolution",
+        ),
+        "prompt_scan_timeout_risk": (
+            "provider_prompt_scan",
+            "blocker",
+            "increase_prompt_scan_window",
+        ),
+        "url_safety_preflight_failed": (
+            "provider_url_safety",
+            "blocker",
+            "replace_unsafe_provider_url",
+        ),
+        "provider_usage_limit_exhausted": (
+            "provider_usage_limit",
+            "blocker",
+            "wait_or_privacy_review_failover",
+        ),
+        "provider_model_command_missing": (
+            "provider_model_command",
+            "blocker",
+            "configure_model_command",
+        ),
+        "provider_model_command_malformed": (
+            "provider_model_command",
+            "blocker",
+            "repair_model_command",
+        ),
+        "provider_install_linkage_unresolved": (
+            "provider_install_linkage",
+            "blocker",
+            "repair_install_linkage",
+        ),
+        "review_model_unavailable": (
+            "provider_review_model",
+            "blocker",
+            "repair_review_model_selection",
+        ),
+        "browser_configure_checks_skipped": (
+            "provider_browser_tooling",
+            "notice",
+            "install_or_skip_browser_replay",
+        ),
+        "mock_auth_placeholder_used": (
+            "provider_runtime_auth",
+            "notice",
+            "review_mock_auth_placeholder",
+        ),
+    }
+    scope, severity, replay_step = catalog.get(
+        code,
+        ("provider_runtime_control", "notice", "review_provider_runtime_hint"),
+    )
+    return {
+        "code": code,
+        "code_hash": stable_text_hash(code),
+        "scope": scope,
+        "severity": severity,
+        "replay_step": replay_step,
+        "value_recorded": False,
+        "raw_provider_value_exported": False,
     }
 
 
@@ -3812,6 +3999,10 @@ def skill_route_discovery_validation_readiness_summary(
     )
     provider_preflight_diagnostics = string_list(
         current_action_provider_runtime_preflight.get("diagnostics")
+    )
+    provider_recovery_replay_packet = current_action_provider_runtime_preflight.get("recovery_replay_packet")
+    provider_recovery_replay_packet = (
+        provider_recovery_replay_packet if isinstance(provider_recovery_replay_packet, dict) else {}
     )
     provider_preflight_blocks_replay = provider_preflight_status == "blocked"
     provider_preflight_needs_review = provider_preflight_status == "review"
@@ -3914,6 +4105,7 @@ def skill_route_discovery_validation_readiness_summary(
             "recovery_hint_codes": provider_recovery_hint_codes,
             "recovery_hint_code_hashes": [stable_text_hash(code) for code in provider_recovery_hint_codes],
             "diagnostics": provider_preflight_diagnostics,
+            "recovery_replay_packet": provider_recovery_replay_packet,
             "replay_commands": string_list(
                 current_action_provider_runtime_preflight.get("provider_runtime_replay_commands")
             ),

@@ -860,6 +860,19 @@ recovery hint codes and hashes, and diagnostics while denying provider launch,
 remote execution, raw preflight input export, raw diagnostics export, and raw
 provider-value export.
 
+The same row now carries `recovery_replay_packet`, an operator replay packet for
+the selected skill-route action. It translates provider-runtime recovery hint
+codes into scoped replay steps such as adding a body-free sample, repairing
+model-command config, reviewing a mock-auth placeholder, or resolving sampled
+recovery hints before re-running the local preflight commands. The packet is not
+a provider launch plan: it repeats selected item ID mode, candidate source
+hashes, sample readiness booleans, replay commands, recovery code hashes, and
+denials for runtime action, provider launch, remote execution, raw preflight
+inputs, raw diagnostics, raw provider values, raw source URLs, raw target paths,
+and upstream bodies. Blocked packets require repair before local replay;
+degraded packets are replayable for local validation but remain review-only
+before any success claim.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend
