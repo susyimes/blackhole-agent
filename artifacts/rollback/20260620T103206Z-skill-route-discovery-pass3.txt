@@ -1,0 +1,9 @@
+Rollback point for skill-route-discovery pass 3
+
+Original branch: codex/blackhole-evolve/20260620T103315.977202-add-or-extend-local-validation-around-skill-rout
+Original HEAD: 4b421e09a37852bbfc34bbaa93f8d30f5bb23a8e
+Rollback ref: refs/rollback/20260620T103206Z-skill-route-discovery-pass3
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260620T103315.977202-add-or-extend-local-validation-around-skill-rout
+git reset --hard refs/rollback/20260620T103206Z-skill-route-discovery-pass3

@@ -2491,11 +2491,21 @@ def skill_route_discovery_capability_window_completion(
     if total_passes and not planned_window_complete:
         diagnostics.append("capability_window_not_at_final_pass")
 
+    waiting_for_planned_pass = diagnostics == ["capability_window_not_at_final_pass"] and bool(manifest_lanes)
     ready = not diagnostics and bool(manifest_lanes)
+    if ready:
+        status = "ready"
+        decision = "complete_slice_for_supervisor_handoff"
+    elif waiting_for_planned_pass:
+        status = "in_progress"
+        decision = "continue_capability_window_before_completion"
+    else:
+        status = "blocked"
+        decision = "continue_or_replay_before_completion"
     return {
         "controller_surface": "skill_route_discovery_capability_window_completion",
-        "status": "ready" if ready else "blocked",
-        "decision": "complete_slice_for_supervisor_handoff" if ready else "continue_or_replay_before_completion",
+        "status": status,
+        "decision": decision,
         "theme": theme,
         "capability_slice": capability_slice,
         "current_pass": current_pass,

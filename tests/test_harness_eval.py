@@ -1338,6 +1338,43 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
+def test_skill_route_discovery_capability_window_reports_in_progress_before_final_pass():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["current_pass"] = 3
+    input_payload["capability_window"]["total_passes"] = 4
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+
+    completion = output["capability_window_completion"]
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "in_progress"
+    assert completion["decision"] == "continue_capability_window_before_completion"
+    assert completion["current_pass"] == 3
+    assert completion["total_passes"] == 4
+    assert completion["planned_window_complete"] is False
+    assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]
+    assert completion["manifest_ready"] is True
+    assert completion["profile_review_ready"] is True
+    assert completion["operator_handoff_ready"] is True
+    assert completion["supervisor_ready"] is True
+    assert completion["provider_runtime_replay_ready"] is True
+    assert completion["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert completion["runtime_action_allowed"] is False
+    assert completion["external_skill_activation_allowed"] is False
+    assert completion["provider_runtime_launch_allowed"] is False
+    assert completion["remote_execution_allowed"] is False
+    assert completion["raw_evidence_urls_exported"] is False
+    assert completion["raw_source_urls_exported"] is False
+    assert completion["raw_upstream_body_exported"] is False
+
+
 def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fork_lineage.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

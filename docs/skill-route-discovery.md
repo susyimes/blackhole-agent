@@ -544,6 +544,17 @@ external skill activation, external harness execution, provider launch, remote
 execution, raw evidence URL export, raw source URL export, or upstream body
 export.
 
+Before the final planned pass, the same panel reports `status: in_progress`
+when all bounded lane surfaces are otherwise ready but the capability window has
+not reached its planned completion count. That state carries
+`capability_window_not_at_final_pass` as the only diagnostic and uses
+`continue_capability_window_before_completion` as the decision, so supervisors
+can keep the slice active without mistaking a healthy pass-3 replay for a
+blocked route. It preserves the same documentation, config, test, and
+code_patch lane bounds and the same denials for runtime action, external skill
+activation, provider launch, remote execution, raw evidence URLs, raw source
+URLs, and upstream bodies.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,
