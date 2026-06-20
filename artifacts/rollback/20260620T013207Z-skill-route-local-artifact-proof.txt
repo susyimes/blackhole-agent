@@ -1,0 +1,16 @@
+Rollback point for source digest github-growth-20260620T013207.501454Z
+
+Original branch:
+codex/blackhole-evolve/20260620T013325.229208-document-a-bounded-local-discovery-lane-for-code
+
+Original HEAD:
+de28daac8dab293333cb70e7cef5aa9e0a164d7e
+
+Local rollback ref:
+refs/rollback/20260620T013207Z-skill-route-local-artifact-proof
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260620T013325.229208-document-a-bounded-local-discovery-lane-for-code
+git reset --hard refs/rollback/20260620T013207Z-skill-route-local-artifact-proof
+
+Rollback execution is explicit and destructive; do not run these commands unless an operator or supervisor policy chooses rollback.

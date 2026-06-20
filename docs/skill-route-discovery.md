@@ -342,6 +342,17 @@ export, raw source URL export, and raw target path export. A blocked handoff
 keeps the discovery useful as evidence but requires review or replay before any
 local implementation lane is promoted.
 
+Activation rows now distinguish bounded upstream evidence from proof that a
+local artifact exists for the lane. A clean discovery lane can still be blocked
+from supervisor handoff until it carries a body-free `local_artifact_proof` for
+each proposal kind. That proof records only changed-file hashes, rollback
+artifact hash, validation-command match, target-contract match, and a review-note
+presence flag. It must not export raw upstream bodies, raw source URLs, secrets,
+or external skill code, and it does not execute any upstream package. This keeps
+repositories such as FableCodex, COMPASS Skills, and Three.js Game Skills useful
+as route evidence while requiring an operator-visible local docs/config/test/code
+artifact before promotion.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:

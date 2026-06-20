@@ -615,6 +615,8 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "replay_commands": skill_route_discovery_preactivation_validation_commands(),
         "validation_present": True,
+        "local_artifact_proof_present": True,
+        "local_artifact_proof_ready": True,
         "trust_boundary_passed": True,
         "provider_runtime_preflight_present": True,
         "provider_runtime_replay_commands": [
@@ -644,6 +646,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["operator_handoff"]["decision"] == "handoff_local_artifact_lanes"
     assert output["operator_handoff"]["ready_lane_count"] == 4
     assert output["operator_handoff"]["blocked_lane_count"] == 0
+    assert output["operator_handoff"]["local_artifact_proof_ready"] is True
     assert output["operator_handoff"]["implementation_intake_status"] == "ready"
     assert output["operator_handoff"]["supervisor_decision"] == "ready_for_supervisor_promotion"
     assert output["operator_handoff"]["required_validation"] == skill_route_discovery_preactivation_validation_commands()
@@ -674,6 +677,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "test",
     ]
     assert all(row["activation_ready"] is True for row in output["operator_handoff"]["lane_rows"])
+    assert all(row["local_artifact_proof_ready"] is True for row in output["operator_handoff"]["lane_rows"])
     assert all(row["target_path_hashes"] for row in output["operator_handoff"]["lane_rows"])
     assert all(row["runtime_action"] == "none" for row in output["operator_handoff"]["lane_rows"])
     assert all(
@@ -700,6 +704,14 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert lane["local_artifact_contract"]["local_only"] is True
         assert lane["local_artifact_contract"]["external_skill_code_allowed"] is False
         assert lane["local_artifact_contract"]["raw_upstream_body_allowed"] is False
+        assert lane["local_artifact_proof"]["ready"] is True
+        assert lane["local_artifact_proof"]["provided"] is True
+        assert lane["local_artifact_proof"]["target_paths_matched"] is True
+        assert lane["local_artifact_proof"]["validation_matched"] is True
+        assert lane["local_artifact_proof"]["rollback_recorded"] is True
+        assert lane["local_artifact_proof"]["review_note_recorded"] is True
+        assert lane["local_artifact_proof"]["raw_changed_files_exported"] is False
+        assert lane["local_artifact_proof"]["raw_rollback_artifact_exported"] is False
         assert lane["preactivation_harness"] == {
             "behavior": "agent_harness_eval_lane",
             "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -725,6 +737,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         entry["local_artifact_contract"]["proposal_kind"] == entry["allowed_local_lane"]
         for entry in output["discovery_checklist"]
     )
+    assert all(entry["required_local_artifact_proof"] for entry in output["discovery_checklist"])
     assert all(entry["local_artifact_contract"]["target_paths"] for entry in output["discovery_checklist"])
     assert all(entry["local_artifact_contract"]["local_only"] is True for entry in output["discovery_checklist"])
     assert all(
@@ -804,6 +817,60 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
     }
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-clean-without-proof",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "compass-skills",
+                    "source_url": "https://github.com/dongshuyan/compass-skills",
+                    "evidence_summary": (
+                        "Specific skill ecosystem with task clarification, local memory, handoff prompts, "
+                        "profile state, route metadata, and validation notes."
+                    ),
+                    "candidate_lanes": ["documentation"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_missing_artifact_proof_inline.json",
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["activation_gate"]["decision"] == "ready_for_local_proposal_activation"
+    assert output["implementation_intake_preflight"]["status"] == "blocked"
+    assert output["implementation_intake_preflight"]["diagnostics"] == [
+        "activation_lanes[0].local_artifact_proof_not_ready"
+    ]
+    assert output["supervisor_readiness"]["decision"] == "blocked_before_supervisor_promotion"
+    assert output["supervisor_readiness"]["reason"] == "local_artifact_proof_not_ready"
+    assert output["supervisor_readiness"]["local_artifact_proof_present"] is False
+    assert output["supervisor_readiness"]["local_artifact_proof_ready"] is False
+    assert output["operator_handoff"]["status"] == "blocked"
+    assert output["operator_handoff"]["local_artifact_proof_ready"] is False
+    assert output["operator_handoff"]["lane_rows"] == [
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "activation_ready": True,
+            "local_artifact_proof_ready": False,
+            "target_path_hashes": [stable_text_hash("docs/skill-route-discovery.md")],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "provider_runtime_replay_commands": [
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+            ],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "raw_target_paths_exported": False,
+            "raw_source_urls_exported": False,
+        }
+    ]
 
 
 def test_agent_harness_provider_registration_blocks_qwencode_without_local_config():
@@ -942,6 +1009,7 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "decision": "hold_for_review_or_replay",
         "ready_lane_count": 0,
         "blocked_lane_count": 0,
+        "local_artifact_proof_ready": False,
         "lane_rows": [],
         "implementation_intake_status": "blocked",
         "supervisor_decision": "blocked_before_supervisor_promotion",
@@ -1388,6 +1456,21 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
                 "external_skill_code_allowed": False,
                 "raw_upstream_body_allowed": False,
             },
+            "local_artifact_proof": {
+                "provided": False,
+                "ready": False,
+                "proposal_kind": "documentation",
+                "changed_file_count": 0,
+                "changed_file_hashes": [],
+                "target_paths_matched": False,
+                "validation_matched": False,
+                "rollback_recorded": False,
+                "rollback_artifact_hash": None,
+                "review_note_recorded": False,
+                "diagnostics": ["local_artifact_proof_missing"],
+                "raw_changed_files_exported": False,
+                "raw_rollback_artifact_exported": False,
+            },
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -1411,7 +1494,8 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     assert output["implementation_intake_preflight"]["status"] == "blocked"
     assert output["implementation_intake_preflight"]["implementation_allowed"] is False
     assert output["implementation_intake_preflight"]["diagnostics"] == [
-        "activation_lanes[0].activation_not_ready"
+        "activation_lanes[0].activation_not_ready",
+        "activation_lanes[0].local_artifact_proof_not_ready",
     ]
     assert output["supervisor_readiness"]["recovery_hint_codes"] == [
         "skill_route_unsupported_lanes_downgraded"
@@ -1420,6 +1504,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     assert output["operator_handoff"]["decision"] == "hold_for_review_or_replay"
     assert output["operator_handoff"]["ready_lane_count"] == 0
     assert output["operator_handoff"]["blocked_lane_count"] == 1
+    assert output["operator_handoff"]["local_artifact_proof_ready"] is False
     assert output["operator_handoff"]["implementation_intake_status"] == "blocked"
     assert output["operator_handoff"]["supervisor_decision"] == "review_before_supervisor_promotion"
     assert output["operator_handoff"]["recovery_hint_codes"] == [
@@ -1430,6 +1515,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
             "proposal_kind": "documentation",
             "candidate_count": 1,
             "activation_ready": False,
+            "local_artifact_proof_ready": False,
             "target_path_hashes": [stable_text_hash("docs/skill-route-discovery.md")],
             "required_validation": skill_route_discovery_preactivation_validation_commands(),
             "provider_runtime_replay_commands": [

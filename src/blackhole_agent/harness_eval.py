@@ -969,6 +969,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         activation_allowed=activation_gate["local_proposal_activation_allowed"] is True,
         failure_mode=failure_mode,
         recovery_hints=recovery_hints,
+        local_artifact_proofs=skill_route_discovery_local_artifact_proofs(raw_input),
     )
     preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
         proposal_lanes,
@@ -988,6 +989,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             activation_allowed=False,
             failure_mode=failure_mode,
             recovery_hints=recovery_hints,
+            local_artifact_proofs=skill_route_discovery_local_artifact_proofs(raw_input),
         )
         preactivation_trust_boundary = skill_route_discovery_preactivation_trust_boundary(
             proposal_lanes,
@@ -1268,6 +1270,12 @@ def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) 
             "local_artifact_contract": skill_route_discovery_local_artifact_contract(
                 str(lane.get("proposal_kind") or "")
             ),
+            "required_local_artifact_proof": {
+                "changed_files": "at least one local contract target for this lane",
+                "validation_commands": validation_commands,
+                "rollback_artifact": "local rollback artifact recorded before source changes",
+                "review_note": "operator-visible note explaining the local artifact evidence",
+            },
             "required_tests": validation_commands,
             "preactivation_harness": "agent_harness_eval_lane",
             "rollback_note": "record rollback ref and artifact before applying local source changes",
@@ -1286,11 +1294,13 @@ def build_skill_route_discovery_activation_lanes(
     activation_allowed: bool,
     failure_mode: str,
     recovery_hints: list[dict[str, Any]] | None = None,
+    local_artifact_proofs: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Group discovered proposal lanes into controller-ready activation checks."""
 
     validation_commands = skill_route_discovery_preactivation_validation_commands()
     recovery_hints = recovery_hints or []
+    local_artifact_proofs = local_artifact_proofs or {}
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for lane in proposal_lanes:
@@ -1314,6 +1324,10 @@ def build_skill_route_discovery_activation_lanes(
             ),
             "required_validation": validation_commands,
             "local_artifact_contract": skill_route_discovery_local_artifact_contract(proposal_kind),
+            "local_artifact_proof": skill_route_discovery_local_artifact_proof(
+                proposal_kind,
+                local_artifact_proofs.get(proposal_kind),
+            ),
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
@@ -1330,6 +1344,69 @@ def build_skill_route_discovery_activation_lanes(
         }
         for proposal_kind, lanes in sorted(grouped.items())
     ]
+
+
+def skill_route_discovery_local_artifact_proofs(raw_input: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Normalize implementation proof records by bounded proposal kind."""
+
+    proofs = raw_input.get("local_artifact_proofs")
+    proofs = proofs if isinstance(proofs, list) else []
+    normalized: dict[str, dict[str, Any]] = {}
+    for proof in proofs:
+        if not isinstance(proof, dict):
+            continue
+        proposal_kind = optional_string(proof.get("proposal_kind"))
+        if not proposal_kind:
+            continue
+        normalized[proposal_kind] = proof
+    return normalized
+
+
+def skill_route_discovery_local_artifact_proof(
+    proposal_kind: str,
+    proof: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return body-free proof that a lane has a local artifact to review."""
+
+    proof = proof if isinstance(proof, dict) else {}
+    changed_files = string_list(proof.get("changed_files"))
+    validation_commands = string_list(proof.get("validation_commands"))
+    rollback_artifact = optional_string(proof.get("rollback_artifact"))
+    review_note = optional_string(proof.get("review_note"))
+    expected_validation = skill_route_discovery_preactivation_validation_commands()
+    expected_targets = set(SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS.get(proposal_kind, ()))
+    changed_file_set = set(changed_files)
+    target_paths_matched = bool(expected_targets & changed_file_set)
+    validation_matched = validation_commands == expected_validation
+    rollback_recorded = bool(rollback_artifact)
+    review_note_recorded = bool(review_note)
+    ready = bool(proof) and target_paths_matched and validation_matched and rollback_recorded and review_note_recorded
+    diagnostics: list[str] = []
+    if not proof:
+        diagnostics.append("local_artifact_proof_missing")
+    if proof and not target_paths_matched:
+        diagnostics.append("changed_files_do_not_match_lane_contract")
+    if proof and not validation_matched:
+        diagnostics.append("validation_commands_mismatch")
+    if proof and not rollback_recorded:
+        diagnostics.append("rollback_artifact_missing")
+    if proof and not review_note_recorded:
+        diagnostics.append("review_note_missing")
+    return {
+        "provided": bool(proof),
+        "ready": ready,
+        "proposal_kind": proposal_kind,
+        "changed_file_count": len(changed_files),
+        "changed_file_hashes": [stable_text_hash(path) for path in sorted(dict.fromkeys(changed_files))],
+        "target_paths_matched": target_paths_matched,
+        "validation_matched": validation_matched,
+        "rollback_recorded": rollback_recorded,
+        "rollback_artifact_hash": stable_text_hash(rollback_artifact) if rollback_artifact else None,
+        "review_note_recorded": review_note_recorded,
+        "diagnostics": diagnostics,
+        "raw_changed_files_exported": False,
+        "raw_rollback_artifact_exported": False,
+    }
 
 
 def skill_route_discovery_provider_runtime_preflight_contract() -> dict[str, Any]:
@@ -1520,6 +1597,15 @@ def skill_route_discovery_implementation_intake_preflight(
         if lane.get("external_skill_activation_allowed") is not False:
             diagnostics.append(f"{prefix}.external_skill_activation_must_be_false")
 
+        artifact_proof = lane.get("local_artifact_proof")
+        artifact_proof = artifact_proof if isinstance(artifact_proof, dict) else {}
+        if artifact_proof.get("ready") is not True:
+            diagnostics.append(f"{prefix}.local_artifact_proof_not_ready")
+        if artifact_proof.get("raw_changed_files_exported") is not False:
+            diagnostics.append(f"{prefix}.local_artifact_proof_raw_changed_files_must_be_false")
+        if artifact_proof.get("raw_rollback_artifact_exported") is not False:
+            diagnostics.append(f"{prefix}.local_artifact_proof_raw_rollback_must_be_false")
+
         artifact_contract = lane.get("local_artifact_contract")
         artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
         if artifact_contract.get("local_only") is not True:
@@ -1580,6 +1666,8 @@ def skill_route_discovery_operator_handoff(
                 "proposal_kind": str(lane.get("proposal_kind") or ""),
                 "candidate_count": int(lane.get("candidate_count") or 0),
                 "activation_ready": lane.get("activation_ready") is True,
+                "local_artifact_proof_ready": isinstance(lane.get("local_artifact_proof"), dict)
+                and lane["local_artifact_proof"].get("ready") is True,
                 "target_path_hashes": [
                     stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
                 ],
@@ -1595,15 +1683,17 @@ def skill_route_discovery_operator_handoff(
 
     ready_lane_count = sum(1 for row in lane_rows if row["activation_ready"])
     blocked_lane_count = len(lane_rows) - ready_lane_count
+    proof_ready = bool(lane_rows) and all(row["local_artifact_proof_ready"] for row in lane_rows)
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
     implementation_ready = implementation_intake_preflight.get("status") == "ready"
     supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
-    handoff_ready = implementation_ready and supervisor_ready and blocked_lane_count == 0 and bool(lane_rows)
+    handoff_ready = implementation_ready and supervisor_ready and blocked_lane_count == 0 and proof_ready and bool(lane_rows)
     return {
         "status": "ready" if handoff_ready else "blocked",
         "decision": "handoff_local_artifact_lanes" if handoff_ready else "hold_for_review_or_replay",
         "ready_lane_count": ready_lane_count,
         "blocked_lane_count": blocked_lane_count,
+        "local_artifact_proof_ready": proof_ready,
         "lane_rows": lane_rows,
         "implementation_intake_status": str(implementation_intake_preflight.get("status") or ""),
         "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
@@ -1658,6 +1748,16 @@ def skill_route_discovery_supervisor_readiness(
         for lane in activation_lanes
     )
     validation_present = all(lane.get("required_validation") == validation_commands for lane in activation_lanes)
+    local_artifact_proof_present = all(
+        isinstance(lane.get("local_artifact_proof"), dict)
+        and lane["local_artifact_proof"].get("provided") is True
+        for lane in activation_lanes
+    )
+    local_artifact_proof_ready = all(
+        isinstance(lane.get("local_artifact_proof"), dict)
+        and lane["local_artifact_proof"].get("ready") is True
+        for lane in activation_lanes
+    )
 
     if (
         activation_allowed
@@ -1665,6 +1765,7 @@ def skill_route_discovery_supervisor_readiness(
         and all_lanes_ready
         and validation_present
         and provider_runtime_preflight_present
+        and local_artifact_proof_ready
     ):
         decision = "ready_for_supervisor_promotion"
     elif route_status == "degraded":
@@ -1673,11 +1774,16 @@ def skill_route_discovery_supervisor_readiness(
         decision = "blocked_before_supervisor_promotion"
 
     replay_commands = list(validation_commands)
+    readiness_reason = failure_mode
+    if decision == "ready_for_supervisor_promotion":
+        readiness_reason = "none"
+    elif failure_mode == "none" and not local_artifact_proof_ready:
+        readiness_reason = "local_artifact_proof_not_ready"
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
     source_lineage = source_lineage if isinstance(source_lineage, dict) else {}
     return {
         "decision": decision,
-        "reason": "none" if decision == "ready_for_supervisor_promotion" else failure_mode,
+        "reason": readiness_reason,
         "activation_lane_count": len(activation_lanes),
         "ready_lane_count": len(ready_lanes),
         "blocked_lane_count": len(blocked_lanes),
@@ -1685,6 +1791,8 @@ def skill_route_discovery_supervisor_readiness(
         "required_validation": validation_commands,
         "replay_commands": replay_commands,
         "validation_present": validation_present,
+        "local_artifact_proof_present": local_artifact_proof_present,
+        "local_artifact_proof_ready": local_artifact_proof_ready,
         "trust_boundary_passed": trust_boundary_passed,
         "provider_runtime_preflight_present": provider_runtime_preflight_present,
         "provider_runtime_replay_commands": [
