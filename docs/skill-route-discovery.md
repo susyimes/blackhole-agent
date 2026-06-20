@@ -347,6 +347,17 @@ promotion with `provider_runtime_replay_not_ready` until the recovery hints are
 resolved and `provider_runtime_preflight` plus
 `provider_runtime_recovery_summary` are replayed.
 
+The harness also emits a top-level `provider_runtime_diagnostic_panel`. This is
+the operator-visible replay summary for the provider/runtime control slice. It
+counts ready and blocked activation lanes, checks that every lane still carries
+the provider/runtime preflight contract, repeats the local replay commands,
+hashes recovery hint codes, and records whether diagnostics remain body-free.
+The panel never exports raw provider inputs, diagnostics, source URLs, target
+paths, credentials, or upstream skill bodies. A ready panel means the local
+replay commands are the next validation step before promotion; it does not
+permit provider launch, remote execution, external skill activation, or
+installation.
+
 The harness also emits a `preactivation_trust_boundary` result. This is a
 second, runtime-facing guard over the generated activation rows: it rechecks
 that every lane remains one of documentation, config, test, or code_patch; that

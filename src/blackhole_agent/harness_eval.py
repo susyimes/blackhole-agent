@@ -1054,6 +1054,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
+    provider_runtime_diagnostic_panel = skill_route_discovery_provider_runtime_diagnostic_panel(
+        activation_lanes=activation_lanes,
+        recovery_hints=recovery_hints,
+        preactivation_trust_boundary=preactivation_trust_boundary,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1102,6 +1107,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "recovery_hints": recovery_hints,
         "provider_runtime_replay_sample": provider_runtime_replay_sample,
+        "provider_runtime_diagnostic_panel": provider_runtime_diagnostic_panel,
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
@@ -1541,6 +1547,107 @@ def skill_route_discovery_provider_runtime_control(
         "replay_commands": replay_commands,
         "local_validation_required": True,
         "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_diagnostic_panel(
+    *,
+    activation_lanes: list[dict[str, Any]],
+    recovery_hints: list[dict[str, Any]],
+    preactivation_trust_boundary: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize provider/runtime replay readiness without exporting bodies."""
+
+    replay_commands = [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    recovery_hint_codes = sorted(
+        {
+            str(hint.get("code") or "")
+            for hint in recovery_hints
+            if isinstance(hint, dict) and str(hint.get("code") or "")
+        }
+    )
+    lane_controls = [
+        lane.get("provider_runtime_control")
+        for lane in activation_lanes
+        if isinstance(lane.get("provider_runtime_control"), dict)
+    ]
+    lane_preflights = [
+        lane.get("provider_runtime_preflight")
+        for lane in activation_lanes
+        if isinstance(lane.get("provider_runtime_preflight"), dict)
+    ]
+    expected_preflight = skill_route_discovery_provider_runtime_preflight_contract()
+    ready_lane_count = sum(1 for lane in activation_lanes if lane.get("activation_ready") is True)
+    blocked_lane_count = len(activation_lanes) - ready_lane_count
+    contract_present = bool(activation_lanes) and len(lane_preflights) == len(activation_lanes)
+    contract_valid = contract_present and all(preflight == expected_preflight for preflight in lane_preflights)
+    control_present = bool(activation_lanes) and len(lane_controls) == len(activation_lanes)
+    local_replay_only = contract_valid and all(
+        control.get("local_validation_required") is True for control in lane_controls
+    )
+    body_free = contract_valid and all(
+        control.get("body_free_diagnostics_only") is True
+        and control.get("raw_preflight_inputs_exported") is False
+        and control.get("raw_diagnostics_exported") is False
+        for control in lane_controls
+    )
+    launch_denied = contract_valid and all(
+        control.get("provider_runtime_launch_allowed") is False
+        and control.get("remote_execution_allowed") is False
+        for control in lane_controls
+    )
+    diagnostics: list[str] = []
+    if not activation_lanes:
+        diagnostics.append("no_activation_lanes")
+    if not contract_valid:
+        diagnostics.append("provider_runtime_preflight_contract_missing_or_mismatched")
+    if not control_present:
+        diagnostics.append("provider_runtime_control_missing")
+    if preactivation_trust_boundary.get("status") != "passed":
+        diagnostics.append("preactivation_trust_boundary_not_passed")
+    if recovery_hint_codes:
+        diagnostics.append("recovery_hints_present")
+    if blocked_lane_count:
+        diagnostics.append("activation_lanes_blocked")
+
+    ready = (
+        bool(activation_lanes)
+        and blocked_lane_count == 0
+        and contract_valid
+        and control_present
+        and local_replay_only
+        and body_free
+        and launch_denied
+        and preactivation_trust_boundary.get("status") == "passed"
+        and not recovery_hint_codes
+    )
+
+    return {
+        "controller_surface": "provider_runtime_control",
+        "status": "ready" if ready else "blocked",
+        "decision": "replay_provider_runtime_preflight_before_promotion"
+        if ready
+        else "resolve_recovery_hints_before_provider_runtime_replay",
+        "activation_lane_count": len(activation_lanes),
+        "ready_lane_count": ready_lane_count,
+        "blocked_lane_count": blocked_lane_count,
+        "provider_runtime_preflight_contract_present": contract_present,
+        "provider_runtime_preflight_contract_valid": contract_valid,
+        "provider_runtime_control_present": control_present,
+        "replay_commands": replay_commands,
+        "recovery_hint_count": len(recovery_hint_codes),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "diagnostics": diagnostics,
+        "local_replay_only": local_replay_only,
+        "body_free_diagnostics_only": body_free,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_preflight_inputs_exported": False,

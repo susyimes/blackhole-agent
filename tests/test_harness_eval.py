@@ -730,6 +730,31 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     )
     assert output["operator_handoff"]["provider_runtime_control"]["recovery_hint_count"] == 0
     assert output["operator_handoff"]["provider_runtime_control"]["recovery_hint_code_hashes"] == []
+    assert output["provider_runtime_diagnostic_panel"] == {
+        "controller_surface": "provider_runtime_control",
+        "status": "ready",
+        "decision": "replay_provider_runtime_preflight_before_promotion",
+        "activation_lane_count": 4,
+        "ready_lane_count": 4,
+        "blocked_lane_count": 0,
+        "provider_runtime_preflight_contract_present": True,
+        "provider_runtime_preflight_contract_valid": True,
+        "provider_runtime_control_present": True,
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "recovery_hint_count": 0,
+        "recovery_hint_codes": [],
+        "recovery_hint_code_hashes": [],
+        "diagnostics": [],
+        "local_replay_only": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+    }
     assert output["operator_handoff"]["recovery_hint_codes"] == []
     assert output["operator_handoff"]["source_lineage"] == {
         "body_free": True,
@@ -1336,6 +1361,37 @@ def test_skill_route_discovery_lane_blocks_on_provider_runtime_replay_sample_wit
     assert output["operator_handoff"]["provider_runtime_control"]["provider_runtime_replay_blocked"] is True
     assert output["local_lane_intake"]["lane_rows"][0]["provider_runtime_replay_sample"]["route_status"] == "blocked"
     assert output["local_lane_intake"]["lane_rows"][0]["provider_runtime_control"]["provider_runtime_replay_blocked"] is True
+    assert output["provider_runtime_diagnostic_panel"] == {
+        "controller_surface": "provider_runtime_control",
+        "status": "blocked",
+        "decision": "resolve_recovery_hints_before_provider_runtime_replay",
+        "activation_lane_count": 4,
+        "ready_lane_count": 0,
+        "blocked_lane_count": 4,
+        "provider_runtime_preflight_contract_present": True,
+        "provider_runtime_preflight_contract_valid": True,
+        "provider_runtime_control_present": True,
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "recovery_hint_count": 2,
+        "recovery_hint_codes": [
+            "provider_runtime_replay_not_ready",
+            "skill_route_provider_runtime_replay_not_ready",
+        ],
+        "recovery_hint_code_hashes": [
+            stable_text_hash("provider_runtime_replay_not_ready"),
+            stable_text_hash("skill_route_provider_runtime_replay_not_ready"),
+        ],
+        "diagnostics": ["recovery_hints_present", "activation_lanes_blocked"],
+        "local_replay_only": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+    }
     assert output["preactivation_trust_boundary"]["provider_runtime_launch_allowed"] is False
     assert "OPENAI_API_KEY" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized

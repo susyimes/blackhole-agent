@@ -1,0 +1,15 @@
+Rollback point for provider-runtime-control pass 3
+
+Source digest: github-growth-20260620T051208.342288Z
+Original branch: codex/blackhole-evolve/20260620T051306.548214-add-or-update-local-documentation-that-defines-a
+Original HEAD: c37ed20d97889104d20d6c551e6e8c6400a79574
+Local rollback ref: refs/rollback/20260620T051206Z-provider-runtime-control-pass3
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+```bash
+git fetch . refs/rollback/20260620T051206Z-provider-runtime-control-pass3
+git reset --hard refs/rollback/20260620T051206Z-provider-runtime-control-pass3
+```
+
+This artifact must not be deleted by the run that created it.
