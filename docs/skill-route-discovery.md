@@ -119,6 +119,20 @@ external harness execution, provider launch, remote execution, and raw upstream
 body export. Push movement never means install, enable, execute, clone, profile
 write, memory write, or deletion.
 
+Low-detail pull request movement is visible in the same panel only as weak
+supporting context until a separate local corroboration record exists. Generic
+or untitled `PullRequestEvent` evidence, missing PR details, lifecycle-only
+summaries, route hints, CI words, and candidate lane names are not enough to
+make a lane activation-ready. The panel records
+`generic_movement_policy: supporting_context_only_until_local_corroboration`,
+`weak_generic_movement_count`, and row-level
+`weak_generic_supporting_context_only: true` while the activation gate remains
+`review_weak_evidence_before_activation`. When a focused fixture, local
+validation command, artifact, or operator review note corroborates the generic
+movement, the policy can become `locally_corroborated_generic_context`; even
+then, the lane remains limited to documentation, config, test, or code_patch
+and keeps external skill activation denied.
+
 ## Review Notes
 
 The evidence is repository-level and README-level. That is enough to preserve a

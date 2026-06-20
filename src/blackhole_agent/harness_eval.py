@@ -1168,6 +1168,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     activity_signal_panel = skill_route_discovery_activity_signal_panel(
         proposal_lanes=proposal_lanes,
         activation_gate=activation_gate,
+        evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
     operator_recovery_plan = skill_route_discovery_operator_recovery_plan(
@@ -2876,6 +2877,7 @@ def skill_route_discovery_activity_signal_panel(
     *,
     proposal_lanes: list[dict[str, Any]],
     activation_gate: dict[str, Any],
+    evidence_strength: dict[str, Any],
     source_lineage: dict[str, Any],
 ) -> dict[str, Any]:
     """Summarize repository activity as bounded validation pressure only."""
@@ -2885,6 +2887,13 @@ def skill_route_discovery_activity_signal_panel(
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     diagnostics: list[str] = []
+    evidence_tier = str(evidence_strength.get("tier") or "")
+    weak_generic_movement = evidence_tier == "weak_generic_upstream_movement"
+    generic_with_corroboration = evidence_tier == "generic_upstream_movement_with_local_corroboration"
+    weak_generic_count = int(evidence_strength.get("weak_generic_movement_count") or 0)
+    local_corroborating_signal_count = int(evidence_strength.get("local_corroborating_signal_count") or 0)
+    if weak_generic_movement:
+        diagnostics.append("generic_upstream_movement_requires_local_corroboration")
     for lane in proposal_lanes:
         proposal_kind = str(lane.get("proposal_kind") or "")
         event_kind = str(lane.get("discovery_event_kind") or "unknown")
@@ -2915,6 +2924,14 @@ def skill_route_discovery_activity_signal_panel(
                 for lane in lanes
             }
         )
+        if event_kind == "push" and not weak_generic_movement:
+            activity_interpretation = "movement_supports_local_validation_lane"
+        elif weak_generic_movement:
+            activity_interpretation = "low_detail_generic_movement_supporting_context_only"
+        elif generic_with_corroboration:
+            activity_interpretation = "generic_movement_locally_corroborated"
+        else:
+            activity_interpretation = "repository_activity_record_only"
         rows.append(
             {
                 "event_kind": event_kind,
@@ -2926,11 +2943,10 @@ def skill_route_discovery_activity_signal_panel(
                 "evidence_item_id_count": len(set(evidence_item_ids)),
                 "event_effects": event_effects,
                 "allowed_local_lane": proposal_kind in allowed_lanes,
-                "activity_interpretation": (
-                    "movement_supports_local_validation_lane"
-                    if event_kind == "push"
-                    else "repository_activity_record_only"
-                ),
+                "activity_interpretation": activity_interpretation,
+                "weak_generic_supporting_context_only": weak_generic_movement,
+                "local_corroboration_required": weak_generic_count > 0,
+                "local_corroborating_signal_count": local_corroborating_signal_count,
                 "required_validation": skill_route_discovery_preactivation_validation_commands(),
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -2957,6 +2973,15 @@ def skill_route_discovery_activity_signal_panel(
         else "hold_activity_signal_for_review",
         "event_kinds": event_kinds,
         "push_signal_count": push_signal_count,
+        "weak_generic_movement_count": weak_generic_count,
+        "local_corroborating_signal_count": local_corroborating_signal_count,
+        "generic_movement_policy": (
+            "supporting_context_only_until_local_corroboration"
+            if weak_generic_movement
+            else "locally_corroborated_generic_context"
+            if generic_with_corroboration
+            else "not_generic_low_detail_movement"
+        ),
         "lane_count": len(rows),
         "rows": rows,
         "source_lineage": {

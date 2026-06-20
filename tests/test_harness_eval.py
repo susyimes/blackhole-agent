@@ -2200,6 +2200,17 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         "local_proposal_activation_allowed": False,
         "external_skill_activation_allowed": False,
     }
+    assert output["activity_signal_panel"]["status"] == "review"
+    assert output["activity_signal_panel"]["decision"] == "hold_activity_signal_for_review"
+    assert output["activity_signal_panel"]["weak_generic_movement_count"] == 1
+    assert output["activity_signal_panel"]["local_corroborating_signal_count"] == 0
+    assert (
+        output["activity_signal_panel"]["generic_movement_policy"]
+        == "supporting_context_only_until_local_corroboration"
+    )
+    assert output["activity_signal_panel"]["diagnostics"] == [
+        "generic_upstream_movement_requires_local_corroboration"
+    ]
     assert [lane["proposal_kind"] for lane in output["activation_lanes"]] == ["code_patch", "documentation"]
     for lane in output["activation_lanes"]:
         assert lane["candidate_count"] == 1
@@ -2216,6 +2227,11 @@ def test_skill_route_discovery_lane_keeps_generic_pr_push_clusters_review_only()
         assert lane["recovery_hint_codes"] == ["skill_route_sparse_upstream_movement"]
         assert lane["runtime_action"] == "none"
         assert lane["external_skill_activation_allowed"] is False
+    for row in output["activity_signal_panel"]["rows"]:
+        assert row["activity_interpretation"] == "low_detail_generic_movement_supporting_context_only"
+        assert row["weak_generic_supporting_context_only"] is True
+        assert row["local_corroboration_required"] is True
+        assert row["local_corroborating_signal_count"] == 0
     assert all("missing_detail_risk" in lane["uncertainty_reasons"] for lane in output["proposal_lanes"])
 
 
@@ -2259,6 +2275,15 @@ def test_skill_route_discovery_lane_requires_local_corroboration_for_generic_pr_
     }
     assert output["activation_gate"]["decision"] == "review_weak_evidence_before_activation"
     assert output["activation_gate"]["local_proposal_activation_allowed"] is False
+    assert output["activity_signal_panel"]["generic_movement_policy"] == (
+        "supporting_context_only_until_local_corroboration"
+    )
+    assert output["activity_signal_panel"]["weak_generic_movement_count"] == 1
+    assert output["activity_signal_panel"]["local_corroborating_signal_count"] == 0
+    for row in output["activity_signal_panel"]["rows"]:
+        assert row["activity_interpretation"] == "low_detail_generic_movement_supporting_context_only"
+        assert row["weak_generic_supporting_context_only"] is True
+        assert row["local_corroboration_required"] is True
 
 
 def test_skill_route_discovery_lane_allows_generic_pr_only_with_local_corroboration():
@@ -2307,6 +2332,14 @@ def test_skill_route_discovery_lane_allows_generic_pr_only_with_local_corroborat
         "local_proposal_activation_allowed": True,
         "external_skill_activation_allowed": False,
     }
+    assert output["activity_signal_panel"]["generic_movement_policy"] == "locally_corroborated_generic_context"
+    assert output["activity_signal_panel"]["weak_generic_movement_count"] == 1
+    assert output["activity_signal_panel"]["local_corroborating_signal_count"] == 1
+    for row in output["activity_signal_panel"]["rows"]:
+        assert row["activity_interpretation"] == "movement_supports_local_validation_lane"
+        assert row["weak_generic_supporting_context_only"] is False
+        assert row["local_corroboration_required"] is True
+        assert row["local_corroborating_signal_count"] == 1
 
 
 def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():

@@ -1,0 +1,11 @@
+Rollback point: 20260620T095345Z-skill-route-discovery-pass1
+Original branch: codex/blackhole-evolve/20260620T095309.462351-document-the-intended-interpretation-of-skill-wo
+Original HEAD: c5a8c16819efc3071863a1f389536b6a0419fffe
+Rollback ref: refs/rollback/20260620T095345Z-skill-route-discovery-pass1
+
+Recovery commands (destructive; operator/supervisor only):
+git switch codex/blackhole-evolve/20260620T095309.462351-document-the-intended-interpretation-of-skill-wo
+git reset --hard refs/rollback/20260620T095345Z-skill-route-discovery-pass1
+
+Notes:
+Created before local self-modification for source digest github-growth-20260620T095207.635285Z.
