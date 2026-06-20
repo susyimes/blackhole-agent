@@ -581,6 +581,30 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
     }
+    assert output["implementation_intake_preflight"] == {
+        "status": "ready",
+        "implementation_allowed": True,
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+        "activation_lane_count": 4,
+        "target_path_count": 6,
+        "target_path_hashes": [
+            stable_text_hash("docs/skill-route-discovery.md"),
+            stable_text_hash("src/blackhole_agent/harness_eval.py"),
+            stable_text_hash("src/blackhole_agent/proposal_synthesis.py"),
+            stable_text_hash("src/blackhole_agent/skill_routing.py"),
+            stable_text_hash("tests/test_harness_eval.py"),
+            stable_text_hash("tests/test_skill_routing.py"),
+        ],
+        "changed_file_review_required": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_upstream_body_allowed": False,
+        "raw_target_paths_exported": False,
+        "diagnostics": [],
+    }
     assert output["supervisor_readiness"] == {
         "decision": "ready_for_supervisor_promotion",
         "reason": "none",
@@ -850,6 +874,23 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
     assert output["supervisor_readiness"]["activation_lane_count"] == 0
     assert output["supervisor_readiness"]["ready_lane_count"] == 0
     assert output["supervisor_readiness"]["blocked_lane_count"] == 0
+    assert output["implementation_intake_preflight"] == {
+        "status": "blocked",
+        "implementation_allowed": False,
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "proposal_kinds": [],
+        "activation_lane_count": 0,
+        "target_path_count": 0,
+        "target_path_hashes": [],
+        "changed_file_review_required": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_upstream_body_allowed": False,
+        "raw_target_paths_exported": False,
+        "diagnostics": [],
+    }
     assert output["supervisor_readiness"]["recovery_hint_codes"] == [
         "skill_route_rejected_candidates_present"
     ]
@@ -1294,6 +1335,11 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     assert output["supervisor_readiness"]["activation_lane_count"] == 1
     assert output["supervisor_readiness"]["ready_lane_count"] == 0
     assert output["supervisor_readiness"]["blocked_lane_count"] == 1
+    assert output["implementation_intake_preflight"]["status"] == "blocked"
+    assert output["implementation_intake_preflight"]["implementation_allowed"] is False
+    assert output["implementation_intake_preflight"]["diagnostics"] == [
+        "activation_lanes[0].activation_not_ready"
+    ]
     assert output["supervisor_readiness"]["recovery_hint_codes"] == [
         "skill_route_unsupported_lanes_downgraded"
     ]

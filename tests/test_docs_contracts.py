@@ -205,6 +205,11 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "required tests include\n`pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane`",
         "rollback\nnotes require a rollback ref and artifact before source changes",
         "runtime action\nremains `none`, and external skill activation remains false",
+        "`implementation_intake_preflight` before supervisor\npromotion",
+        "reports `ready` only when the preactivation trust boundary\npassed",
+        "exports target paths only as hashes",
+        "keeps runtime action, external\nskill activation, external skill code, and raw upstream bodies denied",
+        "not yet a local implementation lane",
         "\"evidence_refs\": [\"fablecodex-codex-skill-workflow\"]",
         "\"evidence_refs\": [\"https://github.com/baskduf/FableCodex\"]",
     ]

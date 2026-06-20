@@ -1,0 +1,12 @@
+Rollback point: 20260620T003206Z-skill-route-discovery-pass2
+Original branch: codex/blackhole-evolve/20260620T003306.238917-add-or-extend-local-tests-that-exercise-subagent
+Original HEAD: d77499fcfd0b211f3672f6e0da6385364d8c0a4e
+Rollback ref: refs/blackhole-rollback/20260620T003206Z-skill-route-discovery-pass2
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260620T003306.238917-add-or-extend-local-tests-that-exercise-subagent
+  git reset --hard refs/blackhole-rollback/20260620T003206Z-skill-route-discovery-pass2
+
+Notes:
+  Created before self-modification for source digest github-growth-20260620T003207.483394Z.
+  Rollback execution is explicit and destructive; do not run it unless selected by an operator or supervisor policy.

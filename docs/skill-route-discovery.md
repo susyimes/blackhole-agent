@@ -272,6 +272,17 @@ external skill code. This gives a supervisor an operator-visible lane-to-file
 contract before activation while preserving the rule that discovery never
 imports, runs, or clones external skill packages.
 
+The harness also emits an `implementation_intake_preflight` before supervisor
+promotion. This preflight is the implementation-facing summary of the
+activation rows: it reports `ready` only when the preactivation trust boundary
+passed, every activation lane is ready, every proposal kind remains one of
+documentation, config, test, or code_patch, and each lane still points at a
+local artifact contract. It exports target paths only as hashes, requires
+changed-file review and local validation, and keeps runtime action, external
+skill activation, external skill code, and raw upstream bodies denied. A
+blocked intake preflight means route discovery may remain useful evidence, but
+it is not yet a local implementation lane.
+
 Each activation row also carries a `provider_runtime_preflight` contract. This
 does not launch a provider or execute a remote runner. It requires the local
 `provider_runtime_preflight` and `provider_runtime_recovery_summary` replay

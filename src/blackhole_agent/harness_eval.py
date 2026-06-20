@@ -1002,6 +1002,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
         source_lineage=source_lineage,
     )
+    implementation_intake_preflight = skill_route_discovery_implementation_intake_preflight(
+        activation_lanes,
+        preactivation_trust_boundary=preactivation_trust_boundary,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1050,6 +1054,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         },
         "recovery_hints": recovery_hints,
         "preactivation_trust_boundary": preactivation_trust_boundary,
+        "implementation_intake_preflight": implementation_intake_preflight,
         "supervisor_readiness": supervisor_readiness,
         "activation_lanes": activation_lanes,
         "discovery_checklist": discovery_checklist,
@@ -1474,6 +1479,70 @@ def skill_route_discovery_preactivation_trust_boundary(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+    }
+
+
+def skill_route_discovery_implementation_intake_preflight(
+    activation_lanes: list[dict[str, Any]],
+    *,
+    preactivation_trust_boundary: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize whether route-discovery rows may become local implementation work."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    diagnostics: list[str] = []
+    target_paths: list[str] = []
+    proposal_kinds: list[str] = []
+
+    if preactivation_trust_boundary.get("status") != "passed":
+        diagnostics.append("preactivation_trust_boundary_not_passed")
+
+    for index, lane in enumerate(activation_lanes):
+        prefix = f"activation_lanes[{index}]"
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        proposal_kinds.append(proposal_kind)
+        if proposal_kind not in allowed_lanes:
+            diagnostics.append(f"{prefix}.proposal_kind_unbounded:{proposal_kind}")
+        if lane.get("activation_ready") is not True:
+            diagnostics.append(f"{prefix}.activation_not_ready")
+        if str(lane.get("runtime_action") or "") != "none":
+            diagnostics.append(f"{prefix}.runtime_action_must_be_none")
+        if lane.get("external_skill_activation_allowed") is not False:
+            diagnostics.append(f"{prefix}.external_skill_activation_must_be_false")
+
+        artifact_contract = lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        if artifact_contract.get("local_only") is not True:
+            diagnostics.append(f"{prefix}.artifact_contract_must_be_local_only")
+        if artifact_contract.get("external_skill_code_allowed") is not False:
+            diagnostics.append(f"{prefix}.external_skill_code_must_be_false")
+        if artifact_contract.get("raw_upstream_body_allowed") is not False:
+            diagnostics.append(f"{prefix}.raw_upstream_body_must_be_false")
+
+        contract_targets = artifact_contract.get("target_paths")
+        contract_targets = contract_targets if isinstance(contract_targets, list) else []
+        target_paths.extend(str(target) for target in contract_targets if str(target).strip())
+
+    target_path_hashes = [stable_text_hash(path) for path in sorted(dict.fromkeys(target_paths))]
+    implementation_allowed = bool(activation_lanes) and not diagnostics
+    return {
+        "status": "ready" if implementation_allowed else "blocked",
+        "implementation_allowed": implementation_allowed,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "proposal_kinds": sorted(dict.fromkeys(proposal_kinds)),
+        "activation_lane_count": len(activation_lanes),
+        "target_path_count": len(target_path_hashes),
+        "target_path_hashes": target_path_hashes,
+        "changed_file_review_required": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_upstream_body_allowed": False,
+        "raw_target_paths_exported": False,
+        "diagnostics": diagnostics,
     }
 
 
