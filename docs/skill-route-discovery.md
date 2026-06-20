@@ -869,6 +869,28 @@ harness evaluation before a behavior change, but cannot become a skill
 discovery candidate unless the selected evidence also shows skill/workflow
 signals.
 
+Mixed Codex/workflow/skill repositories now get an explicit local probe before
+that split becomes ambiguous. When a selected item has skill-route evidence and
+also mentions Codex, plugins, examples, tests, evals, replay, harness, or other
+validation signals, `build_route_hint_lane_map` emits
+`mixed_skill_workflow_probe` and marks the classifier row with
+`route_probe_decision: skill_route_discovery_first`. This is the FableCodex
+procedure for source digest `github-growth-20260620T175208.289414Z`: public
+evidence showed a Codex workflow plugin with verification habits, examples,
+tests/evals, and routing docs, so the local first lane is still
+`skill_route_discovery`, not upstream plugin install and not automatic
+agent-harness activation.
+
+The probe is body-free and cites only selected item IDs plus source URL hashes.
+Its secondary lane is
+`agent_harness_eval_after_local_corroboration`, meaning harness evaluation can
+be selected later when the proposal names a general agent-project claim or when
+local fixtures prove a harness-specific gap. Until then, the allowed local
+outputs remain documentation, config, test, and code_patch; runtime action,
+external skill activation, external agent activation, raw source URL export,
+upstream body export, install, enable, run, execute, clone-and-run, profile
+write, and memory write remain denied.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

@@ -1,0 +1,15 @@
+Rollback point for skill-route mixed probe wake
+
+Source digest: github-growth-20260620T175208.289414Z
+Original branch: codex/blackhole-evolve/20260620T175309.339359-document-a-local-probe-procedure-for-repositorie
+Original HEAD: e7e00f5f52092d97ffb482264c47dad5ab929324
+Local rollback ref: refs/rollback/20260620T175206Z-skill-route-mixed-probe
+
+Recovery commands, if an operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260620T175309.339359-document-a-local-probe-procedure-for-repositorie
+git reset --hard refs/rollback/20260620T175206Z-skill-route-mixed-probe
+
+Notes:
+- This artifact must not be deleted by the run that created it.
+- Rollback execution is explicit and destructive; it is not performed by this kernel.

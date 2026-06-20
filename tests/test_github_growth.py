@@ -1507,6 +1507,85 @@ def test_general_agent_project_eval_lane_requires_harness_evaluation_without_ski
     ]
 
 
+def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():
+    digest = {
+        "digest_id": "github-growth-mixed-skill-workflow-probe",
+        "generated_at": "2026-06-20T17:52:08Z",
+        "items": [
+            {
+                "item_id": "fablecodex-workflow-skill-probe",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "FableCodex: Codex plugin with skill workflow gates, examples, tests, evals, "
+                    "verification habits, and local routing docs."
+                ),
+                "relevance_reason": (
+                    "Mixed codex, workflow, skill, plugin, and eval signals should be classified "
+                    "before deciding whether agent harness evaluation is needed."
+                ),
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "omnigent-general-agent-project",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "omnigent-ai/omnigent: general AI agent framework and meta-harness.",
+                "relevance_reason": "General agent project movement requires harness evaluation first.",
+                "risk_flags": [],
+                "confidence": 0.74,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    mixed_probe = lane_map["mixed_skill_workflow_probe"]
+    general_eval = lane_map["general_agent_project_eval"]
+    fable_row = next(row for row in lane_map["route_classifier"] if row["item_id"] == "fablecodex-workflow-skill-probe")
+    omnigent_row = next(row for row in lane_map["route_classifier"] if row["item_id"] == "omnigent-general-agent-project")
+
+    assert fable_row["route_class"] == "skill_workflow"
+    assert fable_row["route_hints"] == ["skill_route_discovery", "agent_harness_eval"]
+    assert fable_row["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert fable_row["evaluation_lane"] == "skill_route_discovery_first"
+    assert fable_row["route_probe_decision"] == "skill_route_discovery_first"
+    assert "mixed_skill_workflow_probe" in fable_row["reasons"]
+
+    assert mixed_probe["candidate_count"] == 1
+    assert mixed_probe["decision_policy"] == "skill_route_discovery_first_for_skill_or_workflow_specific_evidence"
+    assert mixed_probe["agent_harness_eval_allowed_after"] == "local_corroboration_or_general_agent_project_claim"
+    assert mixed_probe["runtime_action"] == "none"
+    assert mixed_probe["external_skill_activation_allowed"] is False
+    assert mixed_probe["external_agent_activation_allowed"] is False
+    assert mixed_probe["raw_source_url_export_allowed"] is False
+    assert mixed_probe["candidates"] == [
+        {
+            "item_id": "fablecodex-workflow-skill-probe",
+            "source_url_hash": stable_hash({"source_url": "https://github.com/baskduf/FableCodex"}),
+            "route_class": "skill_workflow",
+            "route_probe_decision": "skill_route_discovery_first",
+            "primary_lane": "skill_route_discovery",
+            "secondary_lane": "agent_harness_eval_after_local_corroboration",
+            "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+            "required_local_validation": [
+                "pytest tests/test_github_growth.py -q -k mixed_skill_workflow",
+                "pytest tests/test_proposal_eval.py -q -k route_hint_lane_map",
+            ],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+        }
+    ]
+
+    assert omnigent_row["route_class"] == "general_agent_project"
+    assert omnigent_row["route_probe_decision"] == ""
+    assert general_eval["candidate_count"] == 1
+    assert general_eval["candidates"][0]["item_id"] == "omnigent-general-agent-project"
+    assert general_eval["skill_route_discovery_inherited"] is False
+
+
 def test_skill_route_discovery_boosts_repeated_trend_fork_and_push_activity():
     digest = {
         "digest_id": "github-growth-skill-route-activity-pressure",
