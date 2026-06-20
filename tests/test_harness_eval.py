@@ -1690,7 +1690,7 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
                 "name": "threejs-game-skills",
                 "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
                 "evidence_summary": (
-                    "Director skill package for Three.js games with gameplay, graphics, "
+                    "Agent director skill package for Three.js games with gameplay, graphics, "
                     "UI, debug, QA, scaffold helpers, and install commands."
                 ),
                 "candidate_lanes": ["documentation", "code_patch", "execute"],
@@ -1733,6 +1733,9 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
         "proposal_kinds"
     ] == ["documentation", "test"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
+        "matched_route_terms"
+    ] == ["codex", "skill", "workflow"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
         "recommended_local_lane_order"
     ] == ["test", "documentation"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
@@ -1744,6 +1747,9 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
     assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
         "route_profiles"
     ] == ["skill_ecosystem_state_handoff"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
+        "matched_route_terms"
+    ] == ["agents", "skill", "skills"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
         "recommended_local_lane_order"
     ] == ["config", "test"]
@@ -1757,6 +1763,9 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
         "route_profiles"
     ] == ["game_frontend_workflow"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
+        "matched_route_terms"
+    ] == ["agent", "skill", "skills"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
         "recommended_local_lane_order"
     ] == ["documentation", "code_patch"]
     assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
@@ -1767,6 +1776,46 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
     ] == ["execute"]
     for row in intake["rows"]:
         assert row["lane_selection_review_required"] is True
+        assert row["lanes_bounded"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    term_review = output["term_route_review"]
+    assert term_review["controller_surface"] == "skill_route_discovery_term_route_review"
+    assert term_review["status"] == "review"
+    assert term_review["decision"] == "review_term_triggered_routes_before_activation"
+    assert term_review["trigger_terms"] == ["agent", "agents", "codex", "skill", "skills", "workflow"]
+    assert term_review["matched_term_counts"] == {
+        "agent": 1,
+        "agents": 1,
+        "codex": 1,
+        "skill": 3,
+        "skills": 2,
+        "workflow": 1,
+    }
+    assert term_review["candidate_count"] == 3
+    assert term_review["diagnostics"] == []
+    assert term_review["activation_decision"] == "review_degraded_lane_before_activation"
+    assert term_review["runtime_action_allowed"] is False
+    assert term_review["external_skill_activation_allowed"] is False
+    assert term_review["raw_source_urls_exported"] is False
+    assert term_review["raw_evidence_urls_exported"] is False
+    rows_by_source = {row["source_hash"]: row for row in term_review["rows"]}
+    assert rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
+        "proposal_kinds"
+    ] == ["documentation", "test"]
+    assert rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
+        "proposal_kinds"
+    ] == ["config", "test"]
+    assert rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
+        "proposal_kinds"
+    ] == ["documentation", "code_patch"]
+    for row in term_review["rows"]:
+        assert row["matched_route_terms"]
         assert row["lanes_bounded"] is True
         assert row["local_validation_required"] is True
         assert row["runtime_action"] == "none"

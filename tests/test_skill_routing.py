@@ -670,6 +670,7 @@ def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
             "source_url": "https://github.com/example/lane-overreach",
             "proposal_kinds": ["documentation"],
             "route_profiles": ["generic_skill_workflow"],
+            "matched_route_terms": [],
             "discovery_event_kind": "unknown",
             "discovery_event_effect": "record_only",
             "evidence_item_ids": [],

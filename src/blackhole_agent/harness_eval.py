@@ -1241,6 +1241,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
+    term_route_review = skill_route_discovery_term_route_review(
+        candidate_lane_intake=candidate_lane_intake,
+        activation_gate=activation_gate,
+    )
     provider_runtime_diagnostic_panel = skill_route_discovery_provider_runtime_diagnostic_panel(
         activation_lanes=activation_lanes,
         recovery_hints=recovery_hints,
@@ -1358,6 +1362,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
         "candidate_lane_intake": candidate_lane_intake,
+        "term_route_review": term_route_review,
         "evidence_lane_matrix": evidence_lane_matrix,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
@@ -1380,6 +1385,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
                 "status": str(lane.get("status") or ""),
                 "runtime_action": str(lane.get("runtime_action") or ""),
                 "route_profiles": string_list(lane.get("route_profiles")),
+                "matched_route_terms": string_list(lane.get("matched_route_terms")),
                 "local_validation_required": lane.get("local_validation_required") is True,
                 "evidence_url_count": len(lane.get("evidence_urls") or []),
                 "evidence_url_hashes": [stable_text_hash(str(url)) for url in lane.get("evidence_urls") or []],
@@ -3880,6 +3886,7 @@ def skill_route_discovery_candidate_lane_intake(
                 "proposal_kinds": proposal_kinds,
                 "proposal_kind_count": len(proposal_kinds),
                 "route_profiles": string_list(candidate.get("route_profiles")),
+                "matched_route_terms": string_list(candidate.get("matched_route_terms")),
                 "recommended_local_lane_order": lane_selection["recommended_local_lane_order"],
                 "lane_selection_reason": lane_selection["lane_selection_reason"],
                 "lane_selection_review_required": lane_selection["lane_selection_review_required"],
@@ -3943,6 +3950,89 @@ def skill_route_discovery_candidate_lane_intake(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_term_route_review(
+    *,
+    candidate_lane_intake: dict[str, Any],
+    activation_gate: dict[str, Any],
+) -> dict[str, Any]:
+    """Show which skill/workflow route terms produced bounded local lanes."""
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        SKILL_ROUTE_DISCOVERY_TRIGGER_TERMS,
+    )
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    rows_input = candidate_lane_intake.get("rows")
+    rows_input = rows_input if isinstance(rows_input, list) else []
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    term_counts: dict[str, int] = {term: 0 for term in SKILL_ROUTE_DISCOVERY_TRIGGER_TERMS}
+
+    for index, raw_row in enumerate(rows_input):
+        row = raw_row if isinstance(raw_row, dict) else {}
+        matched_terms = [term for term in string_list(row.get("matched_route_terms")) if term in term_counts]
+        proposal_kinds = string_list(row.get("proposal_kinds"))
+        lanes_bounded = bool(proposal_kinds) and set(proposal_kinds) <= allowed_lanes
+        runtime_action = str(row.get("runtime_action") or "none")
+        local_validation_required = row.get("local_validation_required") is True
+
+        if not matched_terms:
+            diagnostics.append(f"rows[{index}].matched_route_terms_missing")
+        if not lanes_bounded:
+            diagnostics.append(f"rows[{index}].proposal_kinds_unbounded")
+        if runtime_action != "none":
+            diagnostics.append(f"rows[{index}].runtime_action_must_be_none")
+        if local_validation_required is not True:
+            diagnostics.append(f"rows[{index}].local_validation_required_missing")
+        if row.get("external_skill_activation_allowed") is not False:
+            diagnostics.append(f"rows[{index}].external_skill_activation_must_be_false")
+
+        for term in matched_terms:
+            term_counts[term] += 1
+
+        rows.append(
+            {
+                "candidate_name_hash": str(row.get("candidate_name_hash") or ""),
+                "source_hash": str(row.get("source_hash") or ""),
+                "matched_route_terms": matched_terms,
+                "proposal_kinds": proposal_kinds,
+                "lanes_bounded": lanes_bounded,
+                "local_validation_required": local_validation_required,
+                "runtime_action": runtime_action,
+                "external_skill_activation_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    activation_allowed = activation_gate.get("local_proposal_activation_allowed") is True
+    ready = bool(rows) and not diagnostics and activation_allowed
+    active_term_counts = {term: count for term, count in term_counts.items() if count}
+    return {
+        "controller_surface": "skill_route_discovery_term_route_review",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "term_triggered_routes_bounded_for_local_validation"
+        if ready
+        else "review_term_triggered_routes_before_activation",
+        "trigger_terms": list(SKILL_ROUTE_DISCOVERY_TRIGGER_TERMS),
+        "matched_term_counts": active_term_counts,
+        "candidate_count": len(rows),
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_evidence_urls_exported": False,

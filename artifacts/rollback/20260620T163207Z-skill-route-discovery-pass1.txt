@@ -1,0 +1,11 @@
+Rollback point for blackhole-agent self-evolution run
+
+Run source digest: github-growth-20260620T163207.697678Z
+Capability theme: skill-route-discovery
+Original branch: codex/blackhole-evolve/20260620T163309.490538-add-or-extend-local-tests-for-skill-workflow-rou
+Original HEAD: 28510c856aaf06f8ca450ea6d902603c5b230982
+Rollback ref: refs/rollback/20260620T163207Z-skill-route-discovery-pass1
+
+Recovery commands (destructive; operator/supervisor only):
+git switch codex/blackhole-evolve/20260620T163309.490538-add-or-extend-local-tests-for-skill-workflow-rou
+git reset --hard refs/rollback/20260620T163207Z-skill-route-discovery-pass1

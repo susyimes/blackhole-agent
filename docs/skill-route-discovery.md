@@ -247,6 +247,18 @@ permits install, enable, run, execute, clone-and-run, scaffold, asset
 generation, provider launch, profile writes, memory writes, or external skill
 activation.
 
+The harness also emits `term_route_review`, a compact body-free panel for the
+literal route-trigger terms `agent`, `agents`, `codex`, `skill`, `skills`, and
+`workflow`. Each row is keyed by hashed candidate and source identifiers,
+reports the matched terms and already-bounded proposal kinds, and rechecks that
+local validation is required, `runtime_action` is `none`, external skill
+activation is false, and raw source, evidence, or upstream bodies are not
+exported. This panel is diagnostic only: repository popularity or term matches
+can explain why evidence entered skill-route discovery, but they do not add
+lanes, cite new evidence URLs, or make install, enable, run, execute,
+clone-and-run, scaffold, profile-write, provider-launch, or external skill
+activation requests valid.
+
 Unsupported lane hints are downgraded by removing the unsupported lanes and
 recording them in `downgraded_candidates`. Candidates that request install,
 enable, run, execute, clone-and-run, local deletion, private/non-plain source

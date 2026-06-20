@@ -31,6 +31,7 @@ SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS = (
     "install",
     "run",
 )
+SKILL_ROUTE_DISCOVERY_TRIGGER_TERMS = ("agent", "agents", "codex", "skill", "skills", "workflow")
 SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
 SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE = "proposal_lane"
@@ -238,6 +239,9 @@ class ExternalSkillRouteCandidate:
             "requested_actions": list(self.requested_actions),
             "route_profiles": list(_skill_route_discovery_route_profiles(self)),
             "route_hints": list(self.route_hints),
+            "matched_route_terms": list(
+                _skill_route_discovery_matched_terms(self.name, self.evidence_summary, " ".join(self.candidate_lanes))
+            ),
             "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
             "source_url": self.source_url,
             "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
@@ -699,6 +703,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "source_url": source_url,
                 "proposal_kinds": list(dict.fromkeys(allowed_lanes)),
                 "route_profiles": _string_list(candidate.get("route_profiles")),
+                "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
                 "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                 "discovery_event_effect": str(candidate.get("discovery_event_effect") or "record_only"),
                 "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
@@ -721,6 +726,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "source_url": source_url,
                     "proposal_kind": lane,
                     "route_profiles": _string_list(candidate.get("route_profiles")),
+                    "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
                     "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
                     "status": SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
                     "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
@@ -878,6 +884,14 @@ def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate
         if any(keyword in text for keyword in keywords)
     ]
     return tuple(dict.fromkeys(profiles or ["generic_skill_workflow"]))
+
+
+def _skill_route_discovery_matched_terms(*parts: str) -> tuple[str, ...]:
+    """Return route-trigger terms found in public, body-free candidate metadata."""
+
+    text = " ".join(part for part in parts if part).casefold()
+    text = re.sub(r"[-_/]+", " ", text)
+    return tuple(term for term in SKILL_ROUTE_DISCOVERY_TRIGGER_TERMS if _contains_term(text, term))
 
 
 def _skill_route_discovery_route_profile_catalog(proposal_lanes: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
