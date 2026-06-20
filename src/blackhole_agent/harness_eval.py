@@ -1161,6 +1161,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
     )
     route_profile_review = skill_route_discovery_route_profile_review(
+        raw_input=raw_input,
         proposal_lanes=proposal_lanes,
         source_lineage=source_lineage,
         evidence_strength=evidence_strength,
@@ -2774,6 +2775,7 @@ def skill_route_discovery_route_triage_plan(
 
 def skill_route_discovery_route_profile_review(
     *,
+    raw_input: dict[str, Any],
     proposal_lanes: list[dict[str, Any]],
     source_lineage: dict[str, Any],
     evidence_strength: dict[str, Any],
@@ -2810,6 +2812,14 @@ def skill_route_discovery_route_profile_review(
             skill_route_discovery_route_profile_lane_contract(proposal_kind)
             for proposal_kind in proposal_kinds
         ]
+        metadata_coverage = skill_route_discovery_profile_metadata_coverage(
+            raw_input=raw_input,
+            profile=profile,
+            lanes=lanes,
+            expected_metadata=contract["expected_metadata"],
+        )
+        for missing in metadata_coverage["missing_metadata"]:
+            diagnostics.append(f"{profile}:metadata_missing:{missing}")
 
         rows.append(
             {
@@ -2819,6 +2829,8 @@ def skill_route_discovery_route_profile_review(
                 "evidence_item_id_count": len(set(evidence_item_ids)),
                 "recognition_signals": list(contract["recognition_signals"]),
                 "expected_metadata": list(contract["expected_metadata"]),
+                "metadata_coverage": metadata_coverage,
+                "metadata_complete": metadata_coverage["complete"],
                 "safe_local_tests": list(contract["safe_local_tests"]),
                 "rejection_conditions": list(contract["rejection_conditions"]),
                 "local_lane_contracts": local_lane_contracts,
@@ -2871,6 +2883,116 @@ def skill_route_discovery_route_profile_review(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_profile_metadata_coverage(
+    *,
+    raw_input: dict[str, Any],
+    profile: str,
+    lanes: list[dict[str, Any]],
+    expected_metadata: tuple[str, ...],
+) -> dict[str, Any]:
+    """Check profile-specific evidence shape without exporting evidence bodies."""
+
+    records = skill_route_discovery_profile_evidence_records(raw_input)
+    combined_text = " ".join(record["text"] for record in records).casefold()
+    proposal_kinds = {str(lane.get("proposal_kind") or "") for lane in lanes}
+    evidence_item_ids = {
+        evidence_item_id
+        for lane in lanes
+        for evidence_item_id in string_list(lane.get("evidence_item_ids"))
+    }
+    local_artifact_proofs = skill_route_discovery_local_artifact_proofs(raw_input)
+    proof_kinds = set(local_artifact_proofs)
+
+    checks: dict[str, bool] = {
+        "selected_digest_item_ids": bool(evidence_item_ids),
+        "selected_digest_item_ids_or_frozen_digest_evidence": bool(evidence_item_ids or records),
+        "body_free_workflow_summary": bool(records)
+        and any(marker in combined_text for marker in ("codex", "workflow", "gate", "verification", "ledger")),
+        "local_gate_or_test_target": bool(proof_kinds & {"test", "code_patch"} or proposal_kinds & {"test", "code_patch"})
+        and any(marker in combined_text for marker in ("gate", "test", "verification", "workflow", "coverage")),
+        "body_free_game_skill_summary": bool(records)
+        and any(marker in combined_text for marker in ("threejs", "three.js", "game", "browser", "director")),
+        "local_frontend_validation_target": bool(proposal_kinds & {"test", "code_patch"})
+        and any(marker in combined_text for marker in ("qa", "validation", "browser", "screenshot", "canvas")),
+        "asset_or_provider_boundary_note": any(
+            marker in combined_text
+            for marker in ("asset", "provider", "credential", "generation", "helper script", "scaffold")
+        ),
+        "body_free_skill_ecosystem_summary": bool(records)
+        and any(marker in combined_text for marker in ("skill", "ecosystem", "clarification", "handoff")),
+        "state_retention_and_privacy_boundary": any(
+            marker in combined_text for marker in ("local memory", "repo-local", "profile", "handoff", "privacy", "secret")
+        ),
+        "local_memory_or_profile_target_if_any": any(
+            marker in combined_text for marker in ("memory", "profile", "handoff", "task graph", "task forest")
+        ),
+        "body_free_repository_summary": bool(records),
+        "local_artifact_target": bool(proposal_kinds),
+    }
+
+    satisfied = [metadata for metadata in expected_metadata if checks.get(metadata) is True]
+    missing = [metadata for metadata in expected_metadata if checks.get(metadata) is not True]
+    source_hashes = sorted(
+        {
+            stable_text_hash(record["source_url"])
+            for record in records
+            if record["source_url"]
+        }
+    )
+    text_hashes = sorted(
+        {
+            stable_text_hash(record["text"])
+            for record in records
+            if record["text"]
+        }
+    )
+    return {
+        "profile": profile,
+        "expected_count": len(expected_metadata),
+        "satisfied_count": len(satisfied),
+        "missing_count": len(missing),
+        "satisfied_metadata": satisfied,
+        "missing_metadata": missing,
+        "evidence_record_count": len(records),
+        "evidence_item_id_count": len(evidence_item_ids),
+        "local_artifact_proof_count": len(proof_kinds),
+        "source_hashes": source_hashes,
+        "evidence_text_hashes": text_hashes,
+        "complete": not missing,
+        "body_free": True,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_profile_evidence_records(raw_input: dict[str, Any]) -> list[dict[str, str]]:
+    """Return local-only profile evidence records used for body-free coverage checks."""
+
+    records: list[dict[str, str]] = []
+    for key in ("evidence_items", "summaries", "candidates"):
+        values = raw_input.get(key)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not isinstance(value, dict):
+                continue
+            source_url = optional_string(value.get("source_url") or value.get("url")) or ""
+            text = " ".join(
+                part
+                for part in (
+                    optional_string(value.get("name")),
+                    optional_string(value.get("title")),
+                    optional_string(value.get("summary") or value.get("evidence_summary")),
+                    " ".join(string_list(value.get("topics"))),
+                )
+                if part
+            ).strip()
+            if text or source_url:
+                records.append({"source_url": source_url, "text": text})
+    return records
 
 
 def skill_route_discovery_activity_signal_panel(

@@ -1062,6 +1062,49 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                     "body_free_workflow_summary",
                     "local_gate_or_test_target",
                 ],
+                "metadata_coverage": {
+                    "profile": "codex_workflow_gate",
+                    "expected_count": 3,
+                    "satisfied_count": 3,
+                    "missing_count": 0,
+                    "satisfied_metadata": [
+                        "selected_digest_item_ids",
+                        "body_free_workflow_summary",
+                        "local_gate_or_test_target",
+                    ],
+                    "missing_metadata": [],
+                    "evidence_record_count": 3,
+                    "evidence_item_id_count": 3,
+                    "local_artifact_proof_count": 4,
+                    "source_hashes": [
+                        stable_text_hash("https://github.com/baskduf/FableCodex/issues/18"),
+                        stable_text_hash("https://github.com/baskduf/FableCodex"),
+                        stable_text_hash("https://github.com/baskduf/FableCodex/issues/15"),
+                    ],
+                    "evidence_text_hashes": [
+                        stable_text_hash(
+                            "Add user-facing FableCodex workflow examples "
+                            "Issue requests workflow examples with prompt text, expected workflow, command evidence "
+                            "snippets, README links, and honest limitation notes. documentation workflow examples"
+                        ),
+                        stable_text_hash(
+                            "Strengthen localized README drift checks Issue requests localized README drift checks "
+                            "for release tags, limitation warnings, command parity, and exact failing documentation "
+                            "evidence. documentation test workflow"
+                        ),
+                        stable_text_hash(
+                            "codex-fable5 FableCodex Codex skill and workflow package with evidence gates, review "
+                            "ledgers, verification habits, localized documentation, and plugin routing docs. "
+                            "codex agent-skills workflow verification"
+                        ),
+                    ],
+                    "complete": True,
+                    "body_free": True,
+                    "raw_evidence_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_upstream_body_exported": False,
+                },
+                "metadata_complete": True,
                 "safe_local_tests": [
                     "pytest tests/test_skill_routing.py -q",
                     "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
@@ -1361,6 +1404,55 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
     assert profile_row["raw_target_paths_exported"] is False
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_profile_review_reports_missing_metadata_before_activation():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-profile-metadata-missing",
+            "source_kind": "evidence_items",
+            "evidence_items": [
+                {
+                    "item_kind": "repository",
+                    "name": "codex-fable5",
+                    "source_url": "https://github.com/baskduf/FableCodex",
+                    "title": "FableCodex",
+                    "summary": "Plugin package.",
+                    "topics": ["codex"],
+                    "route_hints": ["skill_route_discovery"],
+                    "suggested_lanes": ["documentation"],
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_profile_metadata_missing_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    review = output["route_profile_review"]
+    assert review["status"] == "review"
+    assert review["decision"] == "resolve_profile_contract_diagnostics"
+    assert review["diagnostics"] == [
+        "codex_workflow_gate:metadata_missing:selected_digest_item_ids",
+        "codex_workflow_gate:metadata_missing:local_gate_or_test_target",
+    ]
+    coverage = review["rows"][0]["metadata_coverage"]
+    assert coverage["complete"] is False
+    assert coverage["satisfied_metadata"] == ["body_free_workflow_summary"]
+    assert coverage["missing_metadata"] == [
+        "selected_digest_item_ids",
+        "local_gate_or_test_target",
+    ]
+    assert coverage["evidence_record_count"] == 1
+    assert coverage["evidence_item_id_count"] == 0
+    assert coverage["local_artifact_proof_count"] == 0
+    assert coverage["body_free"] is True
+    assert coverage["raw_evidence_exported"] is False
+    assert coverage["raw_source_urls_exported"] is False
+    assert coverage["raw_upstream_body_exported"] is False
+    assert review["rows"][0]["metadata_complete"] is False
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "Plugin package" not in serialized
 
 
 def test_skill_route_discovery_activity_signal_panel_bounds_compass_push_event():

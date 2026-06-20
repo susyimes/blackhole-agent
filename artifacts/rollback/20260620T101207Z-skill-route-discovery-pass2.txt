@@ -1,0 +1,7 @@
+original_branch: codex/blackhole-evolve/20260620T101322.298239-add-or-run-a-bounded-skill-route-discovery-valid
+head: f4c85791a9fb13110a2e659b73ff899dbae581c8
+rollback_ref: refs/rollback/20260620T101207Z-skill-route-discovery-pass2
+recovery_commands:
+  git switch codex/blackhole-evolve/20260620T101322.298239-add-or-run-a-bounded-skill-route-discovery-valid
+  git reset --hard refs/rollback/20260620T101207Z-skill-route-discovery-pass2
+  git clean -fd

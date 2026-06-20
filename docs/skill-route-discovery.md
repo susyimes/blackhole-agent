@@ -505,6 +505,21 @@ local validation, denies external skill activation, and does not import, run,
 clone, install, scaffold, probe credentials, launch providers, or generate
 assets from the upstream repository.
 
+The profile review also checks body-free metadata coverage for each profile
+before activation review. A FableCodex-style workflow gate must show selected
+digest item IDs, a body-free workflow summary, and a local gate or test target.
+A Three.js game workflow must show a body-free game-skill summary, a local
+frontend validation target, and an asset/provider boundary note. A
+COMPASS-style state handoff route must show a body-free skill ecosystem
+summary, state-retention and privacy boundary evidence, and any local memory or
+profile target as metadata only. The panel exports counts and stable hashes for
+evidence records and source references, but not raw evidence text, raw source
+URLs, raw target paths, upstream skill bodies, or install commands. Missing
+profile metadata changes the review panel to `review` with
+`metadata_missing` diagnostics; it does not create install, enable, run,
+profile-write, memory-write, scaffold, browser-run, asset-generation,
+provider-launch, remote-execution, or external skill activation authority.
+
 The profile review now also renders `local_lane_contracts` for each bounded
 proposal kind present in the profile. These contracts expose only hashed local
 artifact targets, target counts, required local artifact proof fields, and the
