@@ -1,0 +1,13 @@
+Rollback point for skill-route-discovery pass 4 operator lane
+
+Created: 2026-06-20T21:33:59Z
+Original branch: codex/blackhole-evolve/20260620T213311.601020-create-or-extend-a-local-agent-harness-evaluatio
+Original HEAD: f22d8819dc300ad6f3d392de152ef29c5bf77423
+Rollback ref: refs/heads/codex/blackhole-evolve/20260620T213311.601020-create-or-extend-a-local-agent-harness-evaluatio at f22d8819dc300ad6f3d392de152ef29c5bf77423
+
+Recovery commands, for explicit human or supervisor use only:
+
+git switch codex/blackhole-evolve/20260620T213311.601020-create-or-extend-a-local-agent-harness-evaluatio
+git reset --hard f22d8819dc300ad6f3d392de152ef29c5bf77423
+
+No rollback command was executed during this run.

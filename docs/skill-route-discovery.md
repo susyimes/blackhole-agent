@@ -861,6 +861,18 @@ raw target path export, and upstream body export. The sequence is a replay
 surface only; it does not install, clone, execute, scaffold, generate assets, or
 activate upstream skill code.
 
+The validated activation packet now includes `operator_activation_lane`, a
+compact supervisor queue derived from the manifest rows. It reports only bounded
+local proposal kinds, route profiles, selected evidence counts, candidate source
+hash counts, local target hash counts, proof readiness, and replay commands. A
+ready operator lane means every listed documentation, config, test, or
+code_patch row already has local artifact proof and the packet has no completion
+diagnostics. A blocked operator lane points the supervisor back to local repair
+before replay. It repeats the same denials for runtime action, external skill
+activation, external skill code, external harness execution, provider launch,
+remote execution, raw evidence URL export, raw source URL export, raw target
+path export, and upstream body export.
+
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked
 from supervisor handoff until it carries a body-free `local_artifact_proof` for

@@ -2913,6 +2913,11 @@ def skill_route_discovery_validated_activation_packet(
             for ref in string_list(row.get("evidence_refs"))
         }
     )
+    operator_activation_lane = skill_route_discovery_operator_activation_lane(
+        rows=rows,
+        packet_ready=packet_ready,
+        diagnostics=diagnostics,
+    )
     return {
         "controller_surface": "skill_route_discovery_validated_activation_packet",
         "status": "ready" if packet_ready else "blocked",
@@ -2933,6 +2938,7 @@ def skill_route_discovery_validated_activation_packet(
         ),
         "selected_evidence_ref_count": len(selected_evidence_refs),
         "selected_evidence_refs": selected_evidence_refs,
+        "operator_activation_lane": operator_activation_lane,
         "diagnostics": diagnostics,
         "required_validation": validation_commands,
         "provider_runtime_replay_commands": [
@@ -4090,6 +4096,110 @@ def skill_route_discovery_capability_window_completion(
         "remote_execution_allowed": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_operator_activation_lane(
+    *,
+    rows: list[dict[str, Any]],
+    packet_ready: bool,
+    diagnostics: list[str],
+) -> dict[str, Any]:
+    """Summarize validated local lanes as the supervisor's bounded activation queue."""
+
+    ready_rows = [
+        row
+        for row in rows
+        if row.get("activation_ready") is True
+        and row.get("local_artifact_proof_ready") is True
+        and not string_list(row.get("activation_blockers"))
+    ]
+    lane_rows: list[dict[str, Any]] = []
+    for row in rows:
+        activation_blockers = string_list(row.get("activation_blockers"))
+        lane_ready = row in ready_rows and packet_ready and not diagnostics
+        lane_rows.append(
+            {
+                "proposal_kind": str(row.get("proposal_kind") or ""),
+                "route_profiles": string_list(row.get("route_profiles")),
+                "evidence_ref_count": int(row.get("evidence_ref_count") or 0),
+                "candidate_count": int(row.get("candidate_count") or 0),
+                "candidate_source_count": len(string_list(row.get("candidate_source_hashes"))),
+                "target_path_count": len(string_list(row.get("target_path_hashes"))),
+                "local_artifact_proof_ready": row.get("local_artifact_proof_ready") is True,
+                "activation_ready": row.get("activation_ready") is True,
+                "operator_lane_ready": lane_ready,
+                "activation_blocker_count": len(activation_blockers),
+                "activation_blocker_hashes": [stable_text_hash(blocker) for blocker in activation_blockers],
+                "supervisor_replay_step": str(row.get("supervisor_replay_step") or ""),
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "runtime_action": "none",
+                "local_validation_required": True,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready_lane_count = sum(1 for row in lane_rows if row["operator_lane_ready"])
+    status = "ready" if packet_ready and ready_lane_count == len(lane_rows) and lane_rows else "blocked"
+    decision = (
+        "operator_lane_ready_for_supervisor_replay"
+        if status == "ready"
+        else "operator_lane_waiting_for_local_repair"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_operator_activation_lane",
+        "status": status,
+        "decision": decision,
+        "supervisor_next_action": (
+            "replay_validated_local_lanes_then_handoff"
+            if status == "ready"
+            else "repair_local_lane_proof_before_replay"
+        ),
+        "lane_count": len(lane_rows),
+        "ready_lane_count": ready_lane_count,
+        "blocked_lane_count": len(lane_rows) - ready_lane_count,
+        "proposal_kinds": sorted({row["proposal_kind"] for row in lane_rows if row["proposal_kind"]}),
+        "route_profiles": sorted(
+            {
+                profile
+                for row in lane_rows
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "diagnostic_count": len(diagnostics),
+        "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in diagnostics],
+        "lanes": lane_rows,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 

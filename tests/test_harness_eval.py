@@ -3048,6 +3048,29 @@ def test_skill_route_discovery_completion_accepts_required_profile_coverage():
         "fablecodex-repo",
         "threejs-repo",
     ]
+    operator_lane = completion["activation_packet"]["operator_activation_lane"]
+    assert operator_lane["controller_surface"] == "skill_route_discovery_operator_activation_lane"
+    assert operator_lane["status"] == "ready"
+    assert operator_lane["decision"] == "operator_lane_ready_for_supervisor_replay"
+    assert operator_lane["supervisor_next_action"] == "replay_validated_local_lanes_then_handoff"
+    assert operator_lane["lane_count"] == 4
+    assert operator_lane["ready_lane_count"] == 4
+    assert operator_lane["blocked_lane_count"] == 0
+    assert operator_lane["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert operator_lane["route_profiles"] == completion["route_profiles"]
+    assert operator_lane["diagnostic_count"] == 0
+    assert operator_lane["runtime_action_allowed"] is False
+    assert operator_lane["external_skill_activation_allowed"] is False
+    assert operator_lane["external_skill_code_allowed"] is False
+    assert operator_lane["provider_runtime_launch_allowed"] is False
+    assert operator_lane["raw_evidence_urls_exported"] is False
+    assert operator_lane["raw_source_urls_exported"] is False
+    assert operator_lane["raw_target_paths_exported"] is False
+    assert operator_lane["raw_upstream_body_exported"] is False
+    assert all(row["operator_lane_ready"] is True for row in operator_lane["lanes"])
+    assert all(row["runtime_action"] == "none" for row in operator_lane["lanes"])
+    assert all(row["local_validation_required"] is True for row in operator_lane["lanes"])
+    assert all(row["external_skill_activation_allowed"] is False for row in operator_lane["lanes"])
     assert {row["supervisor_replay_step"] for row in completion["activation_packet"]["rows"]} == {
         "review_and_replay_bounded_local_lane"
     }
@@ -3106,6 +3129,24 @@ def test_skill_route_discovery_capability_window_handoff_reports_final_blockers(
     assert handoff["completion_recovery"]["raw_target_paths_exported"] is False
     assert handoff["activation_packet"]["status"] == "blocked"
     assert handoff["activation_packet"]["decision"] == "hold_packet_for_repair_or_replay"
+    operator_lane = handoff["activation_packet"]["operator_activation_lane"]
+    assert operator_lane["status"] == "blocked"
+    assert operator_lane["decision"] == "operator_lane_waiting_for_local_repair"
+    assert operator_lane["supervisor_next_action"] == "repair_local_lane_proof_before_replay"
+    assert operator_lane["lane_count"] == 4
+    assert operator_lane["ready_lane_count"] == 0
+    assert operator_lane["blocked_lane_count"] == 4
+    assert operator_lane["diagnostic_count"] >= 1
+    assert any(row["operator_lane_ready"] is False for row in operator_lane["lanes"])
+    assert any(row["local_artifact_proof_ready"] is False for row in operator_lane["lanes"])
+    assert operator_lane["runtime_action_allowed"] is False
+    assert operator_lane["external_skill_activation_allowed"] is False
+    assert operator_lane["external_skill_code_allowed"] is False
+    assert operator_lane["provider_runtime_launch_allowed"] is False
+    assert operator_lane["raw_evidence_urls_exported"] is False
+    assert operator_lane["raw_source_urls_exported"] is False
+    assert operator_lane["raw_target_paths_exported"] is False
+    assert operator_lane["raw_upstream_body_exported"] is False
     assert any(
         row["supervisor_replay_step"] == "repair_bounded_local_lane_before_replay"
         for row in handoff["activation_packet"]["rows"]
