@@ -640,6 +640,49 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_evidence_exported": False,
         "restart_or_remote_activation_required": False,
     }
+    assert output["operator_handoff"]["status"] == "ready"
+    assert output["operator_handoff"]["decision"] == "handoff_local_artifact_lanes"
+    assert output["operator_handoff"]["ready_lane_count"] == 4
+    assert output["operator_handoff"]["blocked_lane_count"] == 0
+    assert output["operator_handoff"]["implementation_intake_status"] == "ready"
+    assert output["operator_handoff"]["supervisor_decision"] == "ready_for_supervisor_promotion"
+    assert output["operator_handoff"]["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+    assert output["operator_handoff"]["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert output["operator_handoff"]["recovery_hint_codes"] == []
+    assert output["operator_handoff"]["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 1,
+        "related_source_count": 0,
+        "fork_or_mirror_lineage_collapsed": False,
+    }
+    assert output["operator_handoff"]["raw_evidence_exported"] is False
+    assert output["operator_handoff"]["raw_source_urls_exported"] is False
+    assert output["operator_handoff"]["raw_target_paths_exported"] is False
+    assert output["operator_handoff"]["runtime_action_allowed"] is False
+    assert output["operator_handoff"]["external_skill_activation_allowed"] is False
+    assert output["operator_handoff"]["external_harness_execution_allowed"] is False
+    assert output["operator_handoff"]["provider_runtime_launch_allowed"] is False
+    assert output["operator_handoff"]["remote_execution_allowed"] is False
+    assert [row["proposal_kind"] for row in output["operator_handoff"]["lane_rows"]] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    assert all(row["activation_ready"] is True for row in output["operator_handoff"]["lane_rows"])
+    assert all(row["target_path_hashes"] for row in output["operator_handoff"]["lane_rows"])
+    assert all(row["runtime_action"] == "none" for row in output["operator_handoff"]["lane_rows"])
+    assert all(
+        row["external_skill_activation_allowed"] is False
+        and row["external_harness_execution_allowed"] is False
+        and row["raw_target_paths_exported"] is False
+        and row["raw_source_urls_exported"] is False
+        for row in output["operator_handoff"]["lane_rows"]
+    )
     assert [lane["proposal_kind"] for lane in output["activation_lanes"]] == [
         "code_patch",
         "config",
@@ -894,6 +937,36 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
     assert output["supervisor_readiness"]["recovery_hint_codes"] == [
         "skill_route_rejected_candidates_present"
     ]
+    assert output["operator_handoff"] == {
+        "status": "blocked",
+        "decision": "hold_for_review_or_replay",
+        "ready_lane_count": 0,
+        "blocked_lane_count": 0,
+        "lane_rows": [],
+        "implementation_intake_status": "blocked",
+        "supervisor_decision": "blocked_before_supervisor_promotion",
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "recovery_hint_codes": ["skill_route_rejected_candidates_present"],
+        "source_lineage": {
+            "body_free": True,
+            "lineage_mode": "single_or_independent_sources",
+            "candidate_source_count": 1,
+            "related_source_count": 0,
+            "fork_or_mirror_lineage_collapsed": False,
+        },
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
     assert output["supervisor_readiness"]["raw_evidence_exported"] is False
     assert output["privacy"]["runtime_actions_executed"] is False
 
@@ -1342,6 +1415,33 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     ]
     assert output["supervisor_readiness"]["recovery_hint_codes"] == [
         "skill_route_unsupported_lanes_downgraded"
+    ]
+    assert output["operator_handoff"]["status"] == "blocked"
+    assert output["operator_handoff"]["decision"] == "hold_for_review_or_replay"
+    assert output["operator_handoff"]["ready_lane_count"] == 0
+    assert output["operator_handoff"]["blocked_lane_count"] == 1
+    assert output["operator_handoff"]["implementation_intake_status"] == "blocked"
+    assert output["operator_handoff"]["supervisor_decision"] == "review_before_supervisor_promotion"
+    assert output["operator_handoff"]["recovery_hint_codes"] == [
+        "skill_route_unsupported_lanes_downgraded"
+    ]
+    assert output["operator_handoff"]["lane_rows"] == [
+        {
+            "proposal_kind": "documentation",
+            "candidate_count": 1,
+            "activation_ready": False,
+            "target_path_hashes": [stable_text_hash("docs/skill-route-discovery.md")],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "provider_runtime_replay_commands": [
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+            ],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "raw_target_paths_exported": False,
+            "raw_source_urls_exported": False,
+        }
     ]
     assert output["supervisor_readiness"]["runtime_action_allowed"] is False
     assert output["supervisor_readiness"]["external_skill_activation_allowed"] is False

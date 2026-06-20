@@ -1006,6 +1006,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         activation_lanes,
         preactivation_trust_boundary=preactivation_trust_boundary,
     )
+    operator_handoff = skill_route_discovery_operator_handoff(
+        activation_lanes=activation_lanes,
+        implementation_intake_preflight=implementation_intake_preflight,
+        supervisor_readiness=supervisor_readiness,
+        source_lineage=source_lineage,
+        recovery_hints=recovery_hints,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1056,6 +1063,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
         "supervisor_readiness": supervisor_readiness,
+        "operator_handoff": operator_handoff,
         "activation_lanes": activation_lanes,
         "discovery_checklist": discovery_checklist,
         "proposal_lanes": [
@@ -1543,6 +1551,80 @@ def skill_route_discovery_implementation_intake_preflight(
         "raw_upstream_body_allowed": False,
         "raw_target_paths_exported": False,
         "diagnostics": diagnostics,
+    }
+
+
+def skill_route_discovery_operator_handoff(
+    *,
+    activation_lanes: list[dict[str, Any]],
+    implementation_intake_preflight: dict[str, Any],
+    supervisor_readiness: dict[str, Any],
+    source_lineage: dict[str, Any],
+    recovery_hints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Render the final body-free operator view for local implementation lanes."""
+
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    provider_runtime_commands = [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    lane_rows: list[dict[str, Any]] = []
+    for lane in activation_lanes:
+        artifact_contract = lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        target_paths = artifact_contract.get("target_paths")
+        target_paths = target_paths if isinstance(target_paths, list) else []
+        lane_rows.append(
+            {
+                "proposal_kind": str(lane.get("proposal_kind") or ""),
+                "candidate_count": int(lane.get("candidate_count") or 0),
+                "activation_ready": lane.get("activation_ready") is True,
+                "target_path_hashes": [
+                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+                ],
+                "required_validation": validation_commands,
+                "provider_runtime_replay_commands": provider_runtime_commands,
+                "runtime_action": str(lane.get("runtime_action") or ""),
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "raw_target_paths_exported": False,
+                "raw_source_urls_exported": False,
+            }
+        )
+
+    ready_lane_count = sum(1 for row in lane_rows if row["activation_ready"])
+    blocked_lane_count = len(lane_rows) - ready_lane_count
+    recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
+    implementation_ready = implementation_intake_preflight.get("status") == "ready"
+    supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
+    handoff_ready = implementation_ready and supervisor_ready and blocked_lane_count == 0 and bool(lane_rows)
+    return {
+        "status": "ready" if handoff_ready else "blocked",
+        "decision": "handoff_local_artifact_lanes" if handoff_ready else "hold_for_review_or_replay",
+        "ready_lane_count": ready_lane_count,
+        "blocked_lane_count": blocked_lane_count,
+        "lane_rows": lane_rows,
+        "implementation_intake_status": str(implementation_intake_preflight.get("status") or ""),
+        "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
+        "required_validation": validation_commands,
+        "provider_runtime_replay_commands": provider_runtime_commands,
+        "recovery_hint_codes": recovery_hint_codes,
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
     }
 
 

@@ -330,6 +330,18 @@ only lane counts, proposal kinds, recovery hint codes, and replay commands; it
 does not export raw evidence URLs or upstream skill bodies, and it does not
 request restart, remote activation, installation, cloning, or execution.
 
+The final local handoff view is `operator_handoff`. It is derived from
+`implementation_intake_preflight`, `supervisor_readiness`, activation lanes, and
+body-free source lineage. It groups ready local artifact lanes by proposal kind,
+exports only target path hashes and source counts, repeats the required replay
+commands, and carries recovery hint codes for blocked or degraded lanes. A ready
+handoff means the supervisor may review local documentation, config, test, or
+code_patch artifacts; it still denies runtime action, external skill activation,
+external harness execution, provider launch, remote execution, raw evidence
+export, raw source URL export, and raw target path export. A blocked handoff
+keeps the discovery useful as evidence but requires review or replay before any
+local implementation lane is promoted.
+
 Use this lane when a digest proposes skill-route discovery work that should be
 validated by the controller surface before a code, config, test, or
 documentation proposal is applied:
