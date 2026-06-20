@@ -1,0 +1,9 @@
+Rollback point for provider-runtime-control pass 2
+
+Original branch: codex/blackhole-evolve/20260620T033320.509201-add-or-extend-local-fixtures-tests-that-verify-r
+Original HEAD: 6a5571036275516bd0c798de9efbca0d9aa69b9f
+Rollback ref: refs/rollback/20260620T033207Z-provider-runtime-control-pass2
+
+Recovery commands (destructive, explicit operator action required):
+git reset --hard refs/rollback/20260620T033207Z-provider-runtime-control-pass2
+git clean -fd

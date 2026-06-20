@@ -720,6 +720,11 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         activation_ready=True,
         recovery_hint_codes=[],
     )
+    assert output["operator_handoff"]["provider_runtime_control"]["next_action"] == (
+        "run_provider_runtime_replay_before_promotion"
+    )
+    assert output["operator_handoff"]["provider_runtime_control"]["recovery_hint_count"] == 0
+    assert output["operator_handoff"]["provider_runtime_control"]["recovery_hint_code_hashes"] == []
     assert output["operator_handoff"]["recovery_hint_codes"] == []
     assert output["operator_handoff"]["source_lineage"] == {
         "body_free": True,
@@ -1243,6 +1248,13 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
     }
+    assert output["operator_handoff"]["provider_runtime_control"]["next_action"] == (
+        "resolve_recovery_hints_then_replay_provider_runtime_preflight"
+    )
+    assert output["operator_handoff"]["provider_runtime_control"]["recovery_hint_count"] == 1
+    assert output["operator_handoff"]["provider_runtime_control"]["recovery_hint_code_hashes"] == [
+        stable_text_hash("skill_route_rejected_candidates_present")
+    ]
     assert output["supervisor_readiness"]["raw_evidence_exported"] is False
     assert output["privacy"]["runtime_actions_executed"] is False
 
