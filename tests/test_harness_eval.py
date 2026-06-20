@@ -5371,8 +5371,8 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
 
     assert reparsed == payload
     assert payload["suite_name"] == "fixture-harness-adapter"
-    assert payload["fixture_count"] == 9
-    assert payload["pass_count"] == 9
+    assert payload["fixture_count"] == 10
+    assert payload["pass_count"] == 10
     assert payload["fail_count"] == 0
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert "fixture-agent-harness-adapter" not in serialized
@@ -5384,6 +5384,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     accepted = results["proposal-interpretation-accepts-item-refs"]
     malformed_json = results["proposal-interpretation-rejects-malformed-json"]
     rejected = results["proposal-interpretation-rejects-url-refs"]
+    skill_route = results["proposal-interpretation-skill-route-provider-runtime-control"]
     truncated = results["proposal-interpretation-rejects-truncated-refs"]
     boundary = results["proposal-interpretation-policy-boundary"]
     max_proposals = results["proposal-interpretation-rejects-too-many-proposals"]
@@ -5394,6 +5395,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert accepted["passed"] is True
     assert malformed_json["passed"] is True
     assert rejected["passed"] is True
+    assert skill_route["passed"] is True
     assert truncated["passed"] is True
     assert boundary["passed"] is True
     assert max_proposals["passed"] is True
@@ -5403,6 +5405,7 @@ def test_local_harness_adapter_runs_proposal_interpretation_fixtures_as_strict_j
     assert all(assertion["passed"] for assertion in accepted["assertions"])
     assert all(assertion["passed"] for assertion in malformed_json["assertions"])
     assert all(assertion["passed"] for assertion in rejected["assertions"])
+    assert all(assertion["passed"] for assertion in skill_route["assertions"])
     assert all(assertion["passed"] for assertion in truncated["assertions"])
     assert all(assertion["passed"] for assertion in boundary["assertions"])
     assert all(assertion["passed"] for assertion in max_proposals["assertions"])
@@ -5437,6 +5440,7 @@ def test_proposal_interpretation_adapter_limits_evidence_refs_to_supplied_item_i
         "evidence_ref_policy",
         "route_hint_policy",
         "safety_boundary",
+        "provider_runtime_control",
         "accepted_candidates",
         "evidence_ref_violations",
         "proposal_controls",

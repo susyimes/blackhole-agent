@@ -7009,6 +7009,15 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
     proposals = raw_response.get("proposals") if isinstance(raw_response, dict) else []
     proposal_count = len(proposals) if isinstance(proposals, list) else 0
     max_proposals = int(evidence_package.get("policy", {}).get("max_proposals") or 5)
+    selected_route_hints = sorted(
+        {
+            str(route_hint)
+            for item in evidence_package.get("items", [])
+            if str(item.get("item_id") or "") in selected_item_ids
+            for route_hint in item.get("route_hints", [])
+            if str(route_hint).strip()
+        }
+    )
 
     return {
         "schema_version": 1,
@@ -7043,17 +7052,15 @@ def adapt_proposal_interpretation_fixture(raw_input: dict[str, Any], *, source_p
                 .get("route_hint_validation_lanes", {})
                 .items()
             },
-            "selected_route_hints": sorted(
-                {
-                    str(route_hint)
-                    for item in evidence_package.get("items", [])
-                    if str(item.get("item_id") or "") in selected_item_ids
-                    for route_hint in item.get("route_hints", [])
-                    if str(route_hint).strip()
-                }
-            ),
+            "selected_route_hints": selected_route_hints,
         },
         "safety_boundary": summarize_proposal_safety_boundary(result.proposal_controls),
+        "provider_runtime_control": summarize_proposal_provider_runtime_control(
+            passed=passed,
+            selected_route_hints=selected_route_hints,
+            proposal_controls=result.proposal_controls,
+            proposal_validation_preflights=result.proposal_validation_preflights,
+        ),
         "accepted_candidates": accepted_candidates,
         "evidence_ref_violations": evidence_ref_violations,
         "proposal_controls": result.proposal_controls,
@@ -7124,6 +7131,63 @@ def summarize_proposal_safety_boundary(proposal_controls: dict[str, dict[str, An
         "unsafe_drift_proposal_ids": sorted(unsafe_drift_ids),
         "unsafe_drift_count": len(unsafe_drift_ids),
         "offensive_behavior_local_execution": False,
+    }
+
+
+def summarize_proposal_provider_runtime_control(
+    *,
+    passed: bool,
+    selected_route_hints: list[str],
+    proposal_controls: dict[str, dict[str, Any]],
+    proposal_validation_preflights: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Return body-free provider/runtime replay control for accepted proposal lanes."""
+
+    boundary = summarize_proposal_safety_boundary(proposal_controls)
+    accepted_local_ids = sorted(
+        proposal_id
+        for proposal_id, controls in proposal_controls.items()
+        if str(controls.get("implementation_scope") or "") == "local_validation_candidate"
+    )
+    validation_gap_ids = sorted(
+        proposal_id
+        for proposal_id, preflight in proposal_validation_preflights.items()
+        if str(preflight.get("status") or "") != "ready"
+    )
+    selected_route_hints = sorted(dict.fromkeys(selected_route_hints))
+    unsafe_drift = int(boundary["unsafe_drift_count"]) > 0
+    ready_for_local_replay = passed and bool(accepted_local_ids) and not validation_gap_ids and not unsafe_drift
+    recovery_hint_codes: list[str] = []
+    if not passed:
+        recovery_hint_codes.append("proposal_interpretation_failed")
+    if validation_gap_ids:
+        recovery_hint_codes.append("proposal_validation_gap")
+    if unsafe_drift:
+        recovery_hint_codes.append("proposal_safety_boundary_drift")
+
+    return {
+        "controller_surface": "proposal_interpretation_provider_runtime_control",
+        "decision": "ready_for_local_replay" if ready_for_local_replay else "blocked_before_local_replay",
+        "reason": "none" if ready_for_local_replay else "proposal_interpretation_not_ready",
+        "accepted_local_validation_candidate_count": len(accepted_local_ids),
+        "accepted_local_validation_candidate_ids": accepted_local_ids,
+        "validation_gap_proposal_ids": validation_gap_ids,
+        "selected_route_hints": selected_route_hints,
+        "provider_runtime_preflight_required": bool(
+            accepted_local_ids and set(selected_route_hints) & {"agent_harness_eval", "skill_route_discovery"}
+        ),
+        "recovery_hint_codes": recovery_hint_codes,
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k proposal_interpretation",
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
     }
 
 

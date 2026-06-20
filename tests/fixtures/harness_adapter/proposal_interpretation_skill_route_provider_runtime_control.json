@@ -1,0 +1,195 @@
+{
+  "name": "proposal-interpretation-skill-route-provider-runtime-control",
+  "behavior": "proposal_interpretation",
+  "input": {
+    "name": "adapter-skill-route-provider-runtime-control",
+    "mode": "hybrid",
+    "options": {
+      "max_items": 3,
+      "max_item_text_chars": 360
+    },
+    "digest": {
+      "digest_id": "fixture-skill-route-provider-runtime-control",
+      "generated_at": "2026-06-20T03:52:07Z",
+      "items": [
+        {
+          "item_id": "fablecodex-workflow-skill-eval",
+          "source_url": "https://github.com/baskduf/FableCodex",
+          "event_kind": "RepositoryTrend",
+          "summary": "baskduf/FableCodex: Codex workflow skills for inspection, evidence ledgers, and validation before completion.",
+          "relevance_reason": "Supports bounded skill_route_discovery interpretation before any import or runtime activation.",
+          "risk_flags": [],
+          "confidence": 0.9
+        },
+        {
+          "item_id": "compass-skills-local-lanes",
+          "source_url": "https://github.com/dongshuyan/compass-skills",
+          "event_kind": "RepositoryTrend",
+          "summary": "dongshuyan/compass-skills: task-oriented agent skills and routing profiles.",
+          "relevance_reason": "Supports local lane inventory for skill ecosystems without executing upstream skill code.",
+          "risk_flags": [],
+          "confidence": 0.86
+        },
+        {
+          "item_id": "threejs-game-skills-domain-director",
+          "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+          "event_kind": "RepositoryTrend",
+          "summary": "majidmanzarpour/threejs-game-skills: domain skill bundle for Three.js game building and QA workflows.",
+          "relevance_reason": "Supports treating domain skill bundles as route-shape evidence with local validation only.",
+          "risk_flags": [],
+          "confidence": 0.84
+        }
+      ]
+    },
+    "raw_response": {
+      "schema_version": 1,
+      "input_digest_id": "fixture-skill-route-provider-runtime-control",
+      "run_interpretation": "Public skill repositories justify bounded local skill-route proposal lanes plus provider/runtime replay diagnostics before promotion.",
+      "self_model_reading": {
+        "status": "left_unchanged",
+        "reason": "The self-model already favors rollback-backed local validation while keeping external skill activation out of scope."
+      },
+      "proposals": [
+        {
+          "proposal_id": "p1-skill-route-doc-lane",
+          "kind": "documentation",
+          "summary": "Document how trending skill repositories become local discovery candidates.",
+          "evidence_refs": [
+            "fablecodex-workflow-skill-eval"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Run proposal_interpretation and provider_runtime_preflight local tests before promoting the lane.",
+          "rationale": "Workflow-skill evidence can improve local route interpretation without importing upstream behavior.",
+          "uncertainty": "Repository-level evidence leaves upstream implementation details summary-only, so activation must remain local and replay-backed.",
+          "self_effect": "Keeps skill-route discovery legible for future proposal synthesis.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p2-skill-route-config-lane",
+          "kind": "config",
+          "summary": "Expose skill-route lane policy as inspectable local metadata.",
+          "evidence_refs": [
+            "compass-skills-local-lanes"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Run proposal_interpretation and provider_runtime_preflight local tests before promotion.",
+          "rationale": "Skill ecosystems are useful as route topology evidence when allowed lanes stay explicit.",
+          "uncertainty": "Repository-level evidence is summary-only and does not prove local runtime behavior.",
+          "self_effect": "Improves future route checks by keeping allowed lanes visible.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p3-skill-route-test-lane",
+          "kind": "test",
+          "summary": "Add replay coverage for skill repository item-id citations and lane bounds.",
+          "evidence_refs": [
+            "threejs-game-skills-domain-director"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Run proposal_interpretation and provider_runtime_preflight local tests before promotion.",
+          "rationale": "Domain-director skill bundles are reusable route-shape evidence, but local tests must prove the boundary.",
+          "uncertainty": "README-level evidence leaves missing implementation details; the test validates only local routing behavior.",
+          "self_effect": "Hardens skill-route discovery against unbounded candidate lanes.",
+          "action_lane": "local_validation_candidate"
+        },
+        {
+          "proposal_id": "p4-skill-route-follow-up-escape",
+          "kind": "follow_up_issue",
+          "summary": "Incorrectly route skill discovery into an unbounded follow-up lane.",
+          "evidence_refs": [
+            "fablecodex-workflow-skill-eval"
+          ],
+          "added_risk_flags": [],
+          "validation_task": "Negative fixture proving skill_route_discovery rejects lanes outside documentation, config, test, or code_patch.",
+          "rationale": "This candidate is intentionally malformed to exercise deterministic lane rejection.",
+          "uncertainty": "Malformed candidate; it should not be accepted.",
+          "self_effect": "Would weaken route discovery if accepted.",
+          "action_lane": "local_validation_candidate"
+        }
+      ],
+      "rejected_items": []
+    },
+    "expected": {
+      "status": "accepted",
+      "accepted_count": 3,
+      "rejected_count": 1,
+      "accepted_evidence_refs": {
+        "p1-skill-route-doc-lane": [
+          "fablecodex-workflow-skill-eval"
+        ],
+        "p2-skill-route-config-lane": [
+          "compass-skills-local-lanes"
+        ],
+        "p3-skill-route-test-lane": [
+          "threejs-game-skills-domain-director"
+        ]
+      },
+      "rejected_error_substrings": [
+        "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
+      ],
+      "proposal_controls": {
+        "p1-skill-route-doc-lane": {
+          "kind": "documentation",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        },
+        "p2-skill-route-config-lane": {
+          "kind": "config",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        },
+        "p3-skill-route-test-lane": {
+          "kind": "test",
+          "risk_flags": [],
+          "implementation_scope": "local_validation_candidate",
+          "validation_gate": "focused-evidence-review"
+        }
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "passed",
+      "equals": true
+    },
+    {
+      "path": "accepted_count",
+      "equals": 3
+    },
+    {
+      "path": "rejected_count",
+      "equals": 1
+    },
+    {
+      "path": "route_hint_policy.validation_lanes.skill_route_discovery",
+      "equals": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch"
+      ]
+    },
+    {
+      "path": "provider_runtime_control.decision",
+      "equals": "ready_for_local_replay"
+    },
+    {
+      "path": "provider_runtime_control.provider_runtime_preflight_required",
+      "equals": true
+    },
+    {
+      "path": "provider_runtime_control.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "provider_runtime_control.raw_preflight_inputs_exported",
+      "equals": false
+    },
+    {
+      "path": "provider_runtime_control.raw_diagnostics_exported",
+      "equals": false
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+Rollback point for provider-runtime-control pass 3.
+
+Created: 2026-06-20T03:53:35Z
+Original branch: codex/blackhole-evolve/20260620T035259.766774-document-a-local-skill-route-discovery-lane-that
+Original HEAD: df9e88706a3df940c8ca1fca38483601ccc2653c
+Working tree before edits: clean
+
+Recovery commands, destructive and for explicit operator use only:
+
+git switch codex/blackhole-evolve/20260620T035259.766774-document-a-local-skill-route-discovery-lane-that
+git reset --hard df9e88706a3df940c8ca1fca38483601ccc2653c
+
+Run intent:
+
+Advance provider/runtime preflight control by adding a locally replayable,
+body-free diagnostic path for skill-route proposal interpretation before any
+runtime or import activation.
