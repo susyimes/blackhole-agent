@@ -709,6 +709,17 @@ ready. The catalog is not a permission surface: it keeps runtime action,
 external skill activation, external harness execution, provider launch, remote
 execution, raw source URLs, raw target paths, and upstream bodies denied.
 
+The evaluator also emits `validation_lane_plan`, a pass-to-pass operator panel
+derived from the catalog. It turns each cataloged route profile into the next
+bounded local validation lane, records the selected item IDs and hashed
+candidate sources that justify the lane, and sets a local-only validation scope
+such as `local_test_lane_only` or `local_config_lane_only`. Non-final passes use
+`continue_bounded_local_validation_lane` so the supervisor can continue the
+skill-route window with a concrete lane target instead of treating public skill
+repositories as installable or executable workflows. The plan repeats the same
+runtime, external activation, provider launch, remote execution, raw evidence
+URL, raw source URL, raw target path, and upstream body denials.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,

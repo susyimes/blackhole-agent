@@ -1,0 +1,19 @@
+Rollback Point
+
+Run: github-growth-20260620T165207.706688Z
+Created: 2026-06-20T16:52:07Z
+Original branch: codex/blackhole-evolve/20260620T165456.847873-add-local-validation-fixtures-for-skill-route-di
+Original HEAD: ab472b90dda431062542b854db3ca86c193302a6
+Rollback ref: refs/blackhole-rollback/20260620T165207.706688Z
+
+Recovery commands:
+
+git reset --hard ab472b90dda431062542b854db3ca86c193302a6
+git clean -fd
+git switch codex/blackhole-evolve/20260620T165456.847873-add-local-validation-fixtures-for-skill-route-di
+
+Ref-based recovery:
+
+git reset --hard refs/blackhole-rollback/20260620T165207.706688Z
+
+Rollback is explicit and destructive; only a human operator or external supervisor policy should execute it.

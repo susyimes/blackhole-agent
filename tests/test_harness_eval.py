@@ -1971,6 +1971,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     )
     serialized = json.dumps(output, sort_keys=True)
     completion = output["capability_window_completion"]
+    validation_plan = output["validation_lane_plan"]
 
     assert output["route_status"] == "passed"
     assert output["failure_mode"] == "none"
@@ -1996,6 +1997,44 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "test",
         "code_patch",
     }
+    assert validation_plan["controller_surface"] == "skill_route_discovery_validation_lane_plan"
+    assert validation_plan["status"] == "ready"
+    assert validation_plan["decision"] == "continue_bounded_local_validation_lane"
+    assert validation_plan["current_pass"] == 2
+    assert validation_plan["next_pass"] == 3
+    assert validation_plan["remaining_pass_count"] == 2
+    assert validation_plan["catalog_status"] == "ready"
+    assert validation_plan["route_profile_count"] == 3
+    assert [
+        (row["route_profile"], row["selected_local_lane"], row["validation_scope"])
+        for row in validation_plan["rows"]
+    ] == [
+        ("codex_workflow_gate", "test", "local_test_lane_only"),
+        ("game_frontend_workflow", "test", "local_test_lane_only"),
+        ("skill_ecosystem_state_handoff", "config", "local_config_lane_only"),
+    ]
+    assert [row["evidence_item_ids"] for row in validation_plan["rows"]] == [
+        ["p1-skill-route-discovery-index"],
+        ["p1-skill-route-discovery-fixtures"],
+        ["p2-skill-growth-docs"],
+    ]
+    assert all(row["candidate_source_hashes"] for row in validation_plan["rows"])
+    assert all(
+        row["plan_basis"] == "route_profile_selected_item_ids_and_hashed_candidate_sources"
+        for row in validation_plan["rows"]
+    )
+    assert all(
+        row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        for row in validation_plan["rows"]
+    )
+    assert validation_plan["runtime_action_allowed"] is False
+    assert validation_plan["external_skill_activation_allowed"] is False
+    assert validation_plan["external_harness_execution_allowed"] is False
+    assert validation_plan["provider_runtime_launch_allowed"] is False
+    assert validation_plan["remote_execution_allowed"] is False
+    assert validation_plan["raw_evidence_urls_exported"] is False
+    assert validation_plan["raw_source_urls_exported"] is False
+    assert validation_plan["raw_target_paths_exported"] is False
     assert completion["runtime_action_allowed"] is False
     assert completion["external_skill_activation_allowed"] is False
     assert completion["provider_runtime_launch_allowed"] is False
