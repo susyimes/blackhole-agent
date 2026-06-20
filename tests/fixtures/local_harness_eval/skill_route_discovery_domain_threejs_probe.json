@@ -1,0 +1,93 @@
+{
+  "name": "skill-route-discovery-domain-threejs-probe",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-domain-threejs-probe",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert game or Three.js skill-route evidence into a bounded local test lane before activation.",
+      "current_pass": 2,
+      "total_passes": 4,
+      "required_route_profiles": ["game_frontend_workflow"],
+      "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "evidence_summary": "Three.js browser game director skill bundle with gameplay, graphics, UI, debug, QA, screenshot validation, canvas checks, asset/provider boundaries, and scaffold helpers.",
+        "candidate_lanes": ["documentation", "test", "code_patch"],
+        "evidence_item_ids": ["p3-threejs-skill-local-validation"],
+        "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k rendered_html_artifact_validation",
+          "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260620T205206Z-skill-route-domain-validation-probe.txt",
+        "review_note": "Three.js skill evidence is classified as a local test validation probe only; upstream scaffold, browser checker, asset generation, provider launch, and external activation remain denied."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "route_profile_review.profile_count",
+      "equals": 1
+    },
+    {
+      "path": "domain_validation_probe.status",
+      "equals": "ready"
+    },
+    {
+      "path": "domain_validation_probe.domain_profile_count",
+      "equals": 1
+    },
+    {
+      "path": "domain_validation_probe.rows.0.domain",
+      "equals": "threejs_browser_game"
+    },
+    {
+      "path": "domain_validation_probe.rows.0.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "domain_validation_probe.rows.0.classification_checks.non_execution_behavior",
+      "equals": true
+    },
+    {
+      "path": "domain_validation_probe.rows.0.upstream_scaffold_allowed",
+      "equals": false
+    },
+    {
+      "path": "domain_validation_probe.rows.0.asset_generation_allowed",
+      "equals": false
+    },
+    {
+      "path": "domain_validation_probe.rows.0.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "domain_validation_probe.rows.0.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_source_urls_exported",
+      "equals": false
+    }
+  ]
+}

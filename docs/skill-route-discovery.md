@@ -804,6 +804,17 @@ action, external skill activation, external skill code, external harness
 execution, provider launch, remote execution, raw evidence URLs, raw source
 URLs, raw target paths, and upstream bodies.
 
+For domain-specific skill bundles such as Three.js game workflows, the harness
+also emits `domain_validation_probe`. This panel is derived from the same
+body-free validation lane plan and becomes ready only when the game/frontend
+route profile maps to a local `test` lane with selected digest item evidence.
+It lists the focused local replay commands and repeats that runtime action,
+external skill activation, external skill code, upstream scaffold execution,
+upstream browser checkers, asset generation, provider launch, remote execution,
+raw source URLs, raw target paths, and upstream bodies remain denied. The probe
+is an operator-visible pre-activation check for local test validation, not a
+domain skill activation path.
+
 `capability_window_completion` now repeats those grouped targets through
 `validation_target_handoff` and repeats the per-profile replay checklist through
 `profile_validation_replay`. This makes the next supervisor action visible from

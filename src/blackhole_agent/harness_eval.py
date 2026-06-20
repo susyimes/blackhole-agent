@@ -1309,6 +1309,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         route_discovery_catalog=route_discovery_catalog,
     )
+    domain_validation_probe = skill_route_discovery_domain_validation_probe(
+        validation_lane_plan=validation_lane_plan,
+    )
     profile_validation_replay = skill_route_discovery_profile_validation_replay(
         validation_lane_plan=validation_lane_plan,
     )
@@ -1394,6 +1397,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_lane_selection": preactivation_lane_selection,
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
+        "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
@@ -3535,6 +3539,124 @@ def skill_route_discovery_next_validation_target(
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
         "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_domain_validation_probe(
+    *,
+    validation_lane_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Surface domain-specific skill routes as local validation lanes only."""
+
+    plan_rows = validation_lane_plan.get("rows")
+    plan_rows = plan_rows if isinstance(plan_rows, list) else []
+    domain_profiles = {"game_frontend_workflow"}
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for plan_row in plan_rows:
+        if not isinstance(plan_row, dict):
+            continue
+        route_profile = optional_string(plan_row.get("route_profile")) or "generic_skill_workflow"
+        if route_profile not in domain_profiles:
+            continue
+
+        selected_lane = optional_string(plan_row.get("selected_local_lane")) or ""
+        recommended_order = string_list(plan_row.get("recommended_local_lane_order"))
+        probe_lane = selected_lane or ("test" if "test" in recommended_order else "")
+        row_diagnostics = [
+            diagnostic
+            for diagnostic in string_list(plan_row.get("diagnostics"))
+            if diagnostic not in {"selected_local_lane_not_bounded", "selected_local_lane_not_ready"}
+            or not probe_lane
+        ]
+        if probe_lane != "test":
+            row_diagnostics.append("domain_skill_requires_local_test_lane")
+        if int(plan_row.get("evidence_item_id_count") or 0) <= 0:
+            row_diagnostics.append("selected_digest_item_id_missing")
+        if plan_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(plan_row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if plan_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if plan_row.get("external_skill_code_allowed") is not False:
+            row_diagnostics.append("external_skill_code_not_denied")
+
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        diagnostics.extend(f"{route_profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "route_profile": route_profile,
+                "domain": "threejs_browser_game",
+                "selected_local_lane": probe_lane,
+                "validation_scope": optional_string(plan_row.get("validation_scope"))
+                or (f"local_{probe_lane}_lane_only" if probe_lane else "none"),
+                "probe_status": "ready" if not row_diagnostics else "review",
+                "candidate_count": int(plan_row.get("candidate_count") or 0),
+                "evidence_item_ids": string_list(plan_row.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(plan_row.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(plan_row.get("candidate_source_hashes")),
+                "required_validation": [
+                    SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
+                    "pytest tests/test_harness_eval.py -q -k rendered_html_artifact_validation",
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                ],
+                "classification_checks": {
+                    "domain_profile_matched": True,
+                    "local_test_lane_selected": probe_lane == "test",
+                    "non_execution_behavior": True,
+                    "body_free": True,
+                },
+                "activation_gate": "local_test_validation_before_domain_skill_activation",
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "upstream_scaffold_allowed": False,
+                "upstream_browser_checker_allowed": False,
+                "asset_generation_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_domain_validation_probe",
+        "status": "ready" if ready else "review" if rows else "not_applicable",
+        "decision": "domain_skill_route_ready_for_local_test_replay"
+        if ready
+        else "review_domain_skill_route_before_local_replay"
+        if rows
+        else "no_domain_skill_route_present",
+        "domain_profile_count": len(rows),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": bool(rows),
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "upstream_scaffold_allowed": False,
+        "upstream_browser_checker_allowed": False,
+        "asset_generation_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_evidence_exported": False,

@@ -1,0 +1,15 @@
+# Rollback Point
+
+- Created: 20260620T205206Z
+- Original branch: codex/blackhole-evolve/20260620T205308.998389-create-or-extend-a-local-agent-harness-evaluatio
+- Original HEAD: b6badf2e8188f7de3c78f6767de1b815c31bdd07
+- Rollback ref: refs/blackhole-rollback/20260620T205206Z-skill-route-domain-validation-probe
+
+## Recovery Commands
+
+```powershell
+git switch codex/blackhole-evolve/20260620T205308.998389-create-or-extend-a-local-agent-harness-evaluatio
+git reset --hard refs/blackhole-rollback/20260620T205206Z-skill-route-domain-validation-probe
+```
+
+Rollback execution is explicit and destructive; use only under supervisor or operator direction.
