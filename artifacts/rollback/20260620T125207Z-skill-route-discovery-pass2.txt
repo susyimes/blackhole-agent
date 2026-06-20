@@ -1,0 +1,12 @@
+Rollback point: 20260620T125207Z-skill-route-discovery-pass2
+Original branch: codex/blackhole-evolve/20260620T125320.105738-create-a-local-validation-lane-for-discovering-w
+Original HEAD: 5094c3f1b532473da36e104cb4f600f9de3c211b
+Rollback ref: refs/rollback/20260620T125207Z-skill-route-discovery-pass2
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260620T125320.105738-create-a-local-validation-lane-for-discovering-w
+git reset --hard refs/rollback/20260620T125207Z-skill-route-discovery-pass2
+
+Notes:
+- Created before self-modification for source digest github-growth-20260620T125207.685479Z.
+- Do not delete this artifact during the run that created it.

@@ -222,6 +222,20 @@ When the source registry was built from selected evidence items, each lane also
 exports the preserved `evidence_item_ids`; these ids are provenance only and do
 not add new evidence or actions.
 
+The harness exposes that inventory as `candidate_lane_intake` before the
+expanded lane matrix. This is an operator-facing candidate selection surface,
+not an activation surface. Each row hashes the candidate name and source,
+reports bounded local proposal kinds, route profiles, selected digest item IDs,
+evidence URL hashes, downgraded lane pressure such as `install`, `execute`, or
+`runtime_execution`, and rejection counts. A `ready` intake means every candidate
+mapped cleanly to documentation, config, test, or code_patch lanes and the
+activation gate is already open for local proposal work. A `review` intake means
+the candidate inventory remains body-free and locally bounded but downgraded or
+rejected upstream pressure must be reviewed before a supervisor selects a local
+validation lane. The intake always keeps `runtime_action_allowed: false`,
+`external_skill_activation_allowed: false`, `external_skill_code_allowed: false`,
+and raw source or evidence URLs out of the harness result.
+
 Unsupported lane hints are downgraded by removing the unsupported lanes and
 recording them in `downgraded_candidates`. Candidates that request install,
 enable, run, execute, clone-and-run, local deletion, private/non-plain source

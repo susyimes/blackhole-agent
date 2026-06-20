@@ -1573,6 +1573,52 @@ def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candida
     assert output["activation_gate"]["decision"] == "review_degraded_lane_before_activation"
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
 
+    intake = output["candidate_lane_intake"]
+    assert intake["controller_surface"] == "skill_route_discovery_candidate_lane_intake"
+    assert intake["status"] == "review"
+    assert intake["decision"] == "review_candidate_inventory_before_lane_selection"
+    assert intake["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert intake["candidate_count"] == 3
+    assert intake["proposal_kind_count"] == 6
+    assert intake["downgraded_candidate_count"] == 3
+    assert intake["rejected_candidate_count"] == 0
+    assert intake["inventory_bounded"] is True
+    assert intake["activation_decision"] == "review_degraded_lane_before_activation"
+    assert intake["runtime_action_allowed"] is False
+    assert intake["external_skill_activation_allowed"] is False
+    assert intake["external_skill_code_allowed"] is False
+    assert intake["raw_source_urls_exported"] is False
+    assert intake["raw_evidence_urls_exported"] is False
+    assert intake["raw_upstream_body_exported"] is False
+
+    intake_rows_by_source = {row["source_hash"]: row for row in intake["rows"]}
+    assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
+        "proposal_kinds"
+    ] == ["documentation", "test"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")][
+        "downgraded_lanes"
+    ] == ["runtime_execution"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
+        "route_profiles"
+    ] == ["skill_ecosystem_state_handoff"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")][
+        "downgraded_lanes"
+    ] == ["install"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
+        "route_profiles"
+    ] == ["game_frontend_workflow"]
+    assert intake_rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")][
+        "downgraded_lanes"
+    ] == ["execute"]
+    for row in intake["rows"]:
+        assert row["lanes_bounded"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
     matrix = output["evidence_lane_matrix"]
     assert matrix["controller_surface"] == "skill_route_discovery_evidence_lane_matrix"
     assert matrix["status"] == "review"
