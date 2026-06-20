@@ -319,6 +319,11 @@ be replayed locally, but provider launch and remote execution remain denied; a
 blocked lane keeps the same recovery hint codes visible for operator review and
 points the operator toward resolving those hints before replaying provider
 runtime preflight.
+When the block came from a sampled provider/runtime replay, the same control
+object uses `reason: provider_runtime_replay_not_ready`,
+`provider_runtime_replay_blocked: true`, and a provider-replay-specific next
+action so the operator can distinguish runtime diagnostic recovery from a
+generic skill-route evidence or artifact blocker without seeing provider bodies.
 
 The activation rows now also include a pre-activation local harness check. Before
 promotion, the controller-visible validation set includes both the

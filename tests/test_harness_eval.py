@@ -1317,12 +1317,25 @@ def test_skill_route_discovery_lane_blocks_on_provider_runtime_replay_sample_wit
     assert output["provider_runtime_replay_sample"]["raw_diagnostics_exported"] is False
     assert output["provider_runtime_replay_sample"]["provider_runtime_launch_allowed"] is False
     assert output["provider_runtime_replay_sample"]["remote_execution_allowed"] is False
+    assert output["activation_lanes"][0]["provider_runtime_control"]["reason"] == (
+        "provider_runtime_replay_not_ready"
+    )
+    assert output["activation_lanes"][0]["provider_runtime_control"]["next_action"] == (
+        "resolve_provider_runtime_replay_hints_then_replay_preflight"
+    )
+    assert output["activation_lanes"][0]["provider_runtime_control"]["provider_runtime_replay_blocked"] is True
     assert [hint["code"] for hint in output["recovery_hints"]] == [
         "skill_route_provider_runtime_replay_not_ready",
         "provider_runtime_replay_not_ready",
     ]
     assert output["operator_handoff"]["lane_rows"][0]["provider_runtime_replay_sample"]["route_status"] == "blocked"
+    assert output["operator_handoff"]["lane_rows"][0]["provider_runtime_control"]["reason"] == (
+        "provider_runtime_replay_not_ready"
+    )
+    assert output["operator_handoff"]["provider_runtime_control"]["reason"] == "provider_runtime_replay_not_ready"
+    assert output["operator_handoff"]["provider_runtime_control"]["provider_runtime_replay_blocked"] is True
     assert output["local_lane_intake"]["lane_rows"][0]["provider_runtime_replay_sample"]["route_status"] == "blocked"
+    assert output["local_lane_intake"]["lane_rows"][0]["provider_runtime_control"]["provider_runtime_replay_blocked"] is True
     assert output["preactivation_trust_boundary"]["provider_runtime_launch_allowed"] is False
     assert "OPENAI_API_KEY" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized

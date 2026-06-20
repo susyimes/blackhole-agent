@@ -1518,15 +1518,23 @@ def skill_route_discovery_provider_runtime_control(
         PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
     ]
     recovery_hint_codes = sorted(dict.fromkeys(recovery_hint_codes))
+    provider_runtime_blocked = "provider_runtime_replay_not_ready" in recovery_hint_codes
+    if activation_ready:
+        reason = "none"
+        next_action = "run_provider_runtime_replay_before_promotion"
+    elif provider_runtime_blocked:
+        reason = "provider_runtime_replay_not_ready"
+        next_action = "resolve_provider_runtime_replay_hints_then_replay_preflight"
+    else:
+        reason = "skill_route_discovery_activation_not_ready"
+        next_action = "resolve_recovery_hints_then_replay_provider_runtime_preflight"
+
     return {
         "controller_surface": "provider_runtime_control",
         "decision": "ready_for_local_replay" if activation_ready else "blocked_before_local_replay",
-        "reason": "none" if activation_ready else "skill_route_discovery_activation_not_ready",
-        "next_action": (
-            "run_provider_runtime_replay_before_promotion"
-            if activation_ready
-            else "resolve_recovery_hints_then_replay_provider_runtime_preflight"
-        ),
+        "reason": reason,
+        "next_action": next_action,
+        "provider_runtime_replay_blocked": provider_runtime_blocked,
         "recovery_hint_count": len(recovery_hint_codes),
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],

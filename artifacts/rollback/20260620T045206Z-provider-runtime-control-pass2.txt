@@ -1,0 +1,7 @@
+rollback point: 20260620T045206Z
+original_branch: codex/blackhole-evolve/20260620T045313.253065-add-or-extend-local-tests-for-skill-workflow-rou
+head: 3d148e1883af8e79aa429803e8b5e3b0effb3f2d
+local_ref: refs/blackhole-rollback/20260620T045206Z-provider-runtime-control-pass2
+recovery_commands:
+  git reset --hard 3d148e1883af8e79aa429803e8b5e3b0effb3f2d
+  git clean -fd
