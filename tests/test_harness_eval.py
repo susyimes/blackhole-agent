@@ -1442,6 +1442,40 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["raw_source_urls_exported"] is False
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
+    next_pass_handoff = {
+        "controller_surface": "skill_route_discovery_next_pass_handoff",
+        "status": "complete",
+        "decision": "no_next_pass_required",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "current_pass": 4,
+        "next_pass": 4,
+        "total_passes": 4,
+        "remaining_pass_count": 0,
+        "candidate_count": 1,
+        "candidate_name_hashes": [stable_text_hash("codex-fable5")],
+        "source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        "recommended_local_lane_order": ["test", "documentation", "code_patch", "config"],
+        "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+        "route_profiles": ["codex_workflow_gate"],
+        "selected_evidence_ref_count": 3,
+        "selected_evidence_refs": [
+            "fablecodex-issue-15",
+            "fablecodex-issue-18",
+            "fablecodex-repo",
+        ],
+        "completion_blockers": [],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -1537,6 +1571,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                 "raw_source_urls_exported": False,
                 "raw_upstream_body_exported": False,
             },
+            "next_pass_handoff": next_pass_handoff,
             "local_validation_required": True,
             "runtime_action_allowed": False,
             "external_skill_activation_allowed": False,
@@ -1547,6 +1582,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "raw_source_urls_exported": False,
             "raw_upstream_body_exported": False,
         },
+        "next_pass_handoff": next_pass_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -1764,6 +1800,41 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
     assert completion["completion_handoff"]["completion_blockers"] == [
         "capability_window_not_at_final_pass"
     ]
+    assert completion["next_pass_handoff"] == {
+        "controller_surface": "skill_route_discovery_next_pass_handoff",
+        "status": "ready",
+        "decision": "continue_bounded_lane_validation_next_pass",
+        "supervisor_next_action": "continue_skill_route_discovery_window",
+        "current_pass": 3,
+        "next_pass": 4,
+        "total_passes": 4,
+        "remaining_pass_count": 1,
+        "candidate_count": 1,
+        "candidate_name_hashes": [stable_text_hash("codex-fable5")],
+        "source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        "recommended_local_lane_order": ["test", "documentation", "code_patch", "config"],
+        "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+        "route_profiles": ["codex_workflow_gate"],
+        "selected_evidence_ref_count": 3,
+        "selected_evidence_refs": [
+            "fablecodex-issue-15",
+            "fablecodex-issue-18",
+            "fablecodex-repo",
+        ],
+        "completion_blockers": ["capability_window_not_at_final_pass"],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    assert completion["completion_handoff"]["next_pass_handoff"] == completion["next_pass_handoff"]
     assert completion["completion_handoff"]["selected_evidence_refs"] == [
         "fablecodex-issue-15",
         "fablecodex-issue-18",

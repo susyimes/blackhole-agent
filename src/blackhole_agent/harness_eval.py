@@ -1285,6 +1285,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         failure_mode=failure_mode,
         route_profile_review=route_profile_review,
         activation_manifest=activation_manifest,
+        candidate_lane_intake=candidate_lane_intake,
         operator_handoff=operator_handoff,
         supervisor_readiness=supervisor_readiness,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
@@ -2664,6 +2665,7 @@ def skill_route_discovery_capability_window_completion(
     failure_mode: str,
     route_profile_review: dict[str, Any],
     activation_manifest: dict[str, Any],
+    candidate_lane_intake: dict[str, Any],
     operator_handoff: dict[str, Any],
     supervisor_readiness: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
@@ -2751,6 +2753,17 @@ def skill_route_discovery_capability_window_completion(
         status = "blocked"
         decision = "continue_or_replay_before_completion"
         completion_next_action = "replay_or_repair_before_supervisor_handoff"
+    next_pass_handoff = skill_route_discovery_next_pass_handoff(
+        status=status,
+        decision=decision,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        diagnostics=diagnostics,
+        proposal_kinds=proposal_kinds,
+        route_profiles=route_profiles,
+        selected_evidence_refs=selected_evidence_refs,
+        candidate_lane_intake=candidate_lane_intake,
+    )
     completion_handoff = {
         "status": status,
         "decision": decision,
@@ -2771,6 +2784,7 @@ def skill_route_discovery_capability_window_completion(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "profile_completion_check": profile_completion_check,
+        "next_pass_handoff": next_pass_handoff,
         "local_validation_required": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
@@ -2805,6 +2819,7 @@ def skill_route_discovery_capability_window_completion(
         "supervisor_ready": supervisor_ready,
         "provider_runtime_replay_ready": provider_replay_ready,
         "profile_completion_check": profile_completion_check,
+        "next_pass_handoff": next_pass_handoff,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
@@ -2812,6 +2827,92 @@ def skill_route_discovery_capability_window_completion(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_next_pass_handoff(
+    *,
+    status: str,
+    decision: str,
+    current_pass: int,
+    total_passes: int,
+    diagnostics: list[str],
+    proposal_kinds: list[str],
+    route_profiles: list[str],
+    selected_evidence_refs: list[str],
+    candidate_lane_intake: dict[str, Any],
+) -> dict[str, Any]:
+    """Describe the bounded local work a supervisor can continue on the next pass."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    rows = candidate_lane_intake.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    lane_order: list[str] = []
+    candidate_hashes: list[str] = []
+    source_hashes: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        candidate_hash = optional_string(row.get("candidate_name_hash"))
+        source_hash = optional_string(row.get("source_hash"))
+        if candidate_hash:
+            candidate_hashes.append(candidate_hash)
+        if source_hash:
+            source_hashes.append(source_hash)
+        for lane in string_list(row.get("recommended_local_lane_order")):
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES and lane not in lane_order:
+                lane_order.append(lane)
+    for lane in proposal_kinds:
+        if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES and lane not in lane_order:
+            lane_order.append(lane)
+
+    has_next_pass = bool(current_pass and total_passes and current_pass < total_passes)
+    blocked = status == "blocked"
+    if has_next_pass and not blocked:
+        handoff_status = "ready"
+        handoff_decision = "continue_bounded_lane_validation_next_pass"
+        supervisor_next_action = "continue_skill_route_discovery_window"
+    elif has_next_pass:
+        handoff_status = "blocked"
+        handoff_decision = "repair_current_pass_before_continuing"
+        supervisor_next_action = "replay_or_repair_before_next_pass"
+    else:
+        handoff_status = "complete" if status == "ready" else "blocked"
+        handoff_decision = "no_next_pass_required" if status == "ready" else "repair_before_completion"
+        supervisor_next_action = "handoff_completed_skill_route_slice_to_supervisor" if status == "ready" else (
+            "replay_or_repair_before_supervisor_handoff"
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_next_pass_handoff",
+        "status": handoff_status,
+        "decision": handoff_decision,
+        "supervisor_next_action": supervisor_next_action,
+        "current_pass": current_pass,
+        "next_pass": current_pass + 1 if has_next_pass else current_pass,
+        "total_passes": total_passes,
+        "remaining_pass_count": max(total_passes - current_pass, 0) if total_passes else 0,
+        "candidate_count": len(rows),
+        "candidate_name_hashes": sorted(dict.fromkeys(candidate_hashes)),
+        "source_hashes": sorted(dict.fromkeys(source_hashes)),
+        "recommended_local_lane_order": lane_order,
+        "proposal_kinds": proposal_kinds,
+        "route_profiles": route_profiles,
+        "selected_evidence_ref_count": len(selected_evidence_refs),
+        "selected_evidence_refs": selected_evidence_refs,
+        "completion_blockers": diagnostics,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "local_validation_required": True,
         "body_free": True,
         "runtime_action_allowed": False,

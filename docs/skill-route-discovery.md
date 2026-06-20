@@ -634,6 +634,18 @@ code_patch lane bounds and the same denials for runtime action, external skill
 activation, provider launch, remote execution, raw evidence URLs, raw source
 URLs, and upstream bodies.
 
+The completion panel also emits `next_pass_handoff` for pass-to-pass
+continuity. This body-free handoff records the current pass, next pass,
+remaining pass count, hashed candidate and source identifiers, selected item-id
+evidence refs, observed route profiles, proposal kinds, and a
+`recommended_local_lane_order` derived only from already bounded local lanes.
+Clean non-final passes use `continue_bounded_lane_validation_next_pass` and
+`continue_skill_route_discovery_window`; blocked passes use
+`repair_current_pass_before_continuing`. The handoff is not an activation
+surface: it repeats local validation requirements and denies runtime action,
+external skill activation, external harness execution, provider launch, remote
+execution, raw evidence URLs, raw source URLs, and upstream bodies.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,
