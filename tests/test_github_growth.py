@@ -1428,7 +1428,83 @@ def test_route_classifier_distinguishes_skill_workflow_from_general_agent_projec
     assert general_classification["route_class"] == "general_agent_project"
     assert general_classification["route_hints"] == []
     assert general_classification["allowed_lanes"] == []
+    assert general_classification["evaluation_lane"] == "agent_harness_eval_required"
     assert general_classification["runtime_action"] == "none"
+
+
+def test_general_agent_project_eval_lane_requires_harness_evaluation_without_skill_lanes():
+    digest = {
+        "digest_id": "github-growth-general-agent-eval-lane",
+        "generated_at": "2026-06-20T06:52:07Z",
+        "items": [
+            {
+                "item_id": "omnigent-general-agent-project",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "omnigent-ai/omnigent: general AI agent framework and meta-harness with policy and sandboxing.",
+                "relevance_reason": "General agent project movement requires local harness evaluation before behavior changes.",
+                "risk_flags": [],
+                "confidence": 0.74,
+            },
+            {
+                "item_id": "compass-skills-system",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "dongshuyan/compass-skills: agent skills for task clarification and workflow routing.",
+                "relevance_reason": "Skill package evidence maps to bounded skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.72,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=280)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    eval_lane = lane_map["general_agent_project_eval"]
+
+    general_row = next(
+        row
+        for row in lane_map["route_classifier"]
+        if row["item_id"] == "omnigent-general-agent-project"
+    )
+    skill_row = next(
+        row
+        for row in lane_map["route_classifier"]
+        if row["item_id"] == "compass-skills-system"
+    )
+
+    assert general_row["route_class"] == "general_agent_project"
+    assert "skill_route_discovery" not in general_row["route_hints"]
+    assert general_row["allowed_lanes"] == []
+    assert general_row["evaluation_lane"] == "agent_harness_eval_required"
+    assert skill_row["route_class"] == "skill_workflow"
+    assert skill_row["route_hints"] == ["skill_route_discovery"]
+    assert eval_lane["candidate_count"] == 1
+    assert eval_lane["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert eval_lane["required_local_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+        "pytest tests/test_proposal_eval.py -q -k omnigent",
+    ]
+    assert eval_lane["skill_route_discovery_inherited"] is False
+    assert eval_lane["runtime_action"] == "none"
+    assert eval_lane["external_agent_activation_allowed"] is False
+    assert eval_lane["raw_source_url_export_allowed"] is False
+    assert eval_lane["candidates"] == [
+        {
+            "item_id": "omnigent-general-agent-project",
+            "source_url_hash": stable_hash({"source_url": "https://github.com/omnigent-ai/omnigent"}),
+            "route_class": "general_agent_project",
+            "evaluation_lane": "agent_harness_eval_required",
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "required_local_validation": [
+                "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+                "pytest tests/test_proposal_eval.py -q -k omnigent",
+            ],
+            "skill_route_discovery_inherited": False,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+        }
+    ]
 
 
 def test_skill_route_discovery_boosts_repeated_trend_fork_and_push_activity():

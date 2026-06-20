@@ -72,6 +72,11 @@ GENERAL_AGENT_PROJECT_ROUTE_TERMS = (
     "multi-agent",
     "runtime",
 )
+GENERAL_AGENT_PROJECT_EVAL_LANES = ["documentation", "test", "code_patch"]
+GENERAL_AGENT_PROJECT_EVAL_COMMANDS = [
+    "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+    "pytest tests/test_proposal_eval.py -q -k omnigent",
+]
 PROVIDER_CONFIG_ROUTE_TERMS = (
     "api key",
     "api keys",
@@ -438,6 +443,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
                 "route_class": route_class,
                 "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
                 "allowed_lanes": [str(lane) for lane in classification.get("allowed_lanes", [])],
+                "evaluation_lane": str(classification.get("evaluation_lane") or ""),
                 "reasons": [str(reason) for reason in classification.get("reasons", [])],
                 "repeated_skill_activity_count": repeated_activity_count,
                 "repeated_skill_activity_signal": repeated_activity_count >= 2,
@@ -504,6 +510,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "route_class_counts": dict(sorted(route_class_counts.items())),
         "route_classifier": route_classifier_rows,
         "route_activity_pressure": build_skill_route_activity_pressure(package_items),
+        "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -511,6 +518,47 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "evidence_url_effect": "none",
         "runtime_action": "none",
         "diagnostics": diagnostics,
+    }
+
+
+def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
+    """Summarize general agent-project evidence without giving it skill lanes."""
+
+    eval_items: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+        if classification.get("route_class") != "general_agent_project":
+            continue
+        item_id = str(item.get("item_id") or "")
+        source_url = str(item.get("source_url") or "")
+        eval_items.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": stable_hash({"source_url": source_url}) if source_url else "",
+                "route_class": "general_agent_project",
+                "evaluation_lane": "agent_harness_eval_required",
+                "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "required_local_validation": list(GENERAL_AGENT_PROJECT_EVAL_COMMANDS),
+                "skill_route_discovery_inherited": False,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+            }
+        )
+
+    return {
+        "controller_surface": "general_agent_project_eval",
+        "candidate_count": len(eval_items),
+        "candidates": eval_items,
+        "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "required_local_validation": list(GENERAL_AGENT_PROJECT_EVAL_COMMANDS),
+        "skill_route_discovery_inherited": False,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "raw_source_url_export_allowed": False,
     }
 
 
@@ -599,6 +647,7 @@ def classify_digest_item_route(item: dict[str, Any]) -> dict[str, Any]:
             "route_class": "general_agent_project",
             "route_hints": route_hints,
             "allowed_lanes": [],
+            "evaluation_lane": "agent_harness_eval_required",
             "reasons": ["agent_project_without_skill_workflow_signal"],
             "runtime_action": "none",
             "local_validation_required": True,

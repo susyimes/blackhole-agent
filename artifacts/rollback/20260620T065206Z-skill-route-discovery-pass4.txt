@@ -1,0 +1,13 @@
+# Rollback Point
+
+Run: github-growth-20260620T065207.920895Z
+Created: 20260620T065206Z
+Original branch: codex/blackhole-evolve/20260620T065311.413331-create-or-update-a-local-skill-route-discovery-n
+Original HEAD: ad71be233850446b65ce551eb2630e2b7603bcea
+Rollback ref: refs/rollback/skill-route-discovery-pass4-20260620T065206Z
+
+Recovery commands:
+```powershell
+git switch codex/blackhole-evolve/20260620T065311.413331-create-or-update-a-local-skill-route-discovery-n
+git reset --hard refs/rollback/skill-route-discovery-pass4-20260620T065206Z
+```

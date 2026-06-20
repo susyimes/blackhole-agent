@@ -530,6 +530,18 @@ class, route hints, allowed local lanes, and classifier reasons only. They do
 not export raw upstream bodies, add evidence URLs, grant permissions, install
 packages, or request runtime action.
 
+For general agent projects such as Omnigent-style agent frameworks or
+meta-harnesses, the same lane map emits `general_agent_project_eval`. This is
+an evaluation lane, not a skill-route lane: it records selected item IDs, hashed
+source URLs, `agent_harness_eval_required`, allowed local lanes of
+documentation, test, or code_patch, and replay commands for the local harness
+and proposal tests. It keeps `skill_route_discovery_inherited: false`,
+`runtime_action: none`, raw source URL export denied, and external agent
+activation denied. A general agent framework can therefore justify local
+harness evaluation before a behavior change, but cannot become a skill
+discovery candidate unless the selected evidence also shows skill/workflow
+signals.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,
