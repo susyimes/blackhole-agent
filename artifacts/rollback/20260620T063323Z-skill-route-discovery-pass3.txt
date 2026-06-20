@@ -1,0 +1,8 @@
+rollback_point: 20260620T063323Z-skill-route-discovery-pass3
+original_branch: codex/blackhole-evolve/20260620T063323.789788-document-a-local-skill-route-discovery-lane-for-
+original_head: 07ac1ec3532f96dbc1b6d00aa1a52f90b7634146
+local_rollback_ref: refs/rollback/20260620T063323Z-skill-route-discovery-pass3
+recovery_commands:
+  git switch codex/blackhole-evolve/20260620T063323.789788-document-a-local-skill-route-discovery-lane-for-
+  git reset --hard 07ac1ec3532f96dbc1b6d00aa1a52f90b7634146
+  git clean -fd

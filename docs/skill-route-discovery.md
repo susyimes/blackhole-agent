@@ -426,6 +426,20 @@ install, enable, run, execute, clone-and-run, and deletion authority denied.
 Empty or actionful evidence therefore produces no intake rows even when the
 upstream repository looked like a useful skill package.
 
+The harness also emits `route_triage_plan`, a body-free lane planning view for
+operators. It converts external skill evidence into the four permitted local
+lanes and records why each lane exists: documentation records route lessons and
+acceptance criteria, config registers bounded policy or proposal mapping, tests
+replay the route evidence locally, and code_patch changes only local
+classifier, harness, or controller behavior. Each row carries hashed source
+URLs, evidence item counts, uncertainty reasons, local artifact contracts,
+inspection requirements, required validation commands, activation readiness, and
+local artifact proof readiness. It does not export raw evidence, raw source
+URLs, raw target paths, upstream skill bodies, or external code, and it keeps
+runtime action and external skill activation denied. A ready triage plan means
+the lane can be locally reviewed and validated; supervisor handoff can still be
+blocked later when local artifact proof is missing.
+
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked
 from supervisor handoff until it carries a body-free `local_artifact_proof` for

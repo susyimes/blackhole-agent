@@ -140,6 +140,12 @@ SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS = {
         "src/blackhole_agent/harness_eval.py",
     ),
 }
+SKILL_ROUTE_DISCOVERY_TRIAGE_REASONS = {
+    "documentation": "record route lesson and operator acceptance criteria",
+    "config": "register bounded route policy or proposal mapping",
+    "test": "replay route evidence through local regression coverage",
+    "code_patch": "change only local classifier, harness, or controller behavior",
+}
 SKILL_ROUTE_DISCOVERY_INSPECTION_EVIDENCE = (
     "selected_digest_item_ids_or_frozen_digest_evidence",
     "body_free_repository_summary",
@@ -1059,6 +1065,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
         preactivation_trust_boundary=preactivation_trust_boundary,
     )
+    route_triage_plan = skill_route_discovery_route_triage_plan(
+        proposal_lanes=proposal_lanes,
+        activation_lanes=activation_lanes,
+        activation_gate=activation_gate,
+        evidence_strength=evidence_strength,
+        source_lineage=source_lineage,
+    )
     operator_recovery_plan = skill_route_discovery_operator_recovery_plan(
         route_status=route_status,
         failure_mode=failure_mode,
@@ -1119,6 +1132,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
+        "route_triage_plan": route_triage_plan,
         "supervisor_readiness": supervisor_readiness,
         "operator_handoff": operator_handoff,
         "activation_lanes": activation_lanes,
@@ -2286,6 +2300,119 @@ def skill_route_discovery_local_lane_intake(
             "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
         },
         "blocked_discovery_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS),
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+    }
+
+
+def skill_route_discovery_route_triage_plan(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    activation_lanes: list[dict[str, Any]],
+    activation_gate: dict[str, Any],
+    evidence_strength: dict[str, Any],
+    source_lineage: dict[str, Any],
+) -> dict[str, Any]:
+    """Render lane triage as body-free local work planning metadata."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    activation_by_kind = {
+        str(lane.get("proposal_kind") or ""): lane for lane in activation_lanes if str(lane.get("proposal_kind") or "")
+    }
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        if proposal_kind:
+            grouped.setdefault(proposal_kind, []).append(lane)
+
+    rows: list[dict[str, Any]] = []
+    for proposal_kind in sorted(grouped):
+        lanes = grouped[proposal_kind]
+        activation_lane = activation_by_kind.get(proposal_kind, {})
+        artifact_contract = activation_lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        target_paths = artifact_contract.get("target_paths")
+        target_paths = target_paths if isinstance(target_paths, list) else []
+        evidence_item_ids: list[str] = []
+        uncertainty_reasons: list[str] = []
+        for lane in lanes:
+            evidence_item_ids.extend(string_list(lane.get("evidence_item_ids")))
+            uncertainty_reasons.extend(string_list(lane.get("uncertainty_reasons")))
+        artifact_proof = activation_lane.get("local_artifact_proof")
+        artifact_proof = artifact_proof if isinstance(artifact_proof, dict) else {}
+
+        rows.append(
+            {
+                "proposal_kind": proposal_kind,
+                "triage_reason": SKILL_ROUTE_DISCOVERY_TRIAGE_REASONS.get(
+                    proposal_kind,
+                    "review bounded local route before implementation",
+                ),
+                "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
+                "source_hashes": sorted(
+                    {
+                        stable_text_hash(str(lane.get("source_url") or ""))
+                        for lane in lanes
+                        if str(lane.get("source_url") or "")
+                    }
+                ),
+                "evidence_item_id_count": len(set(evidence_item_ids)),
+                "uncertainty_reasons": sorted(dict.fromkeys(uncertainty_reasons)),
+                "target_path_hashes": [
+                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+                ],
+                "local_artifact_contract": artifact_contract,
+                "inspection_requirements": skill_route_discovery_inspection_requirements(proposal_kind),
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "activation_ready": activation_lane.get("activation_ready") is True,
+                "local_artifact_proof_ready": artifact_proof.get("ready") is True,
+                "activation_blockers": string_list(activation_lane.get("activation_blockers")),
+                "runtime_action": str(activation_lane.get("runtime_action") or "none"),
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+            }
+        )
+
+    row_kinds = {row["proposal_kind"] for row in rows}
+    lanes_bounded = row_kinds <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    all_rows_ready = bool(rows) and all(row["activation_ready"] for row in rows)
+    if activation_gate.get("local_proposal_activation_allowed") is True and all_rows_ready and lanes_bounded:
+        status = "ready"
+        decision = "triage_bounded_lanes_to_local_artifacts"
+    elif rows:
+        status = "review"
+        decision = "hold_triage_for_replay_or_artifact_proof"
+    else:
+        status = "blocked"
+        decision = "no_lanes_to_triage"
+
+    return {
+        "controller_surface": "skill_route_discovery_route_triage",
+        "status": status,
+        "decision": decision,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "lane_count": len(rows),
+        "lanes_bounded": lanes_bounded,
+        "evidence_tier": str(evidence_strength.get("tier") or ""),
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "rows": rows,
+        "local_validation_required": True,
+        "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,

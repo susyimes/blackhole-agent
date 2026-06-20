@@ -966,6 +966,65 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["external_skill_code_allowed"] is False
         assert row["raw_source_urls_exported"] is False
         assert row["raw_target_paths_exported"] is False
+    assert output["route_triage_plan"]["controller_surface"] == "skill_route_discovery_route_triage"
+    assert output["route_triage_plan"]["status"] == "ready"
+    assert output["route_triage_plan"]["decision"] == "triage_bounded_lanes_to_local_artifacts"
+    assert output["route_triage_plan"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert output["route_triage_plan"]["lane_count"] == 4
+    assert output["route_triage_plan"]["lanes_bounded"] is True
+    assert output["route_triage_plan"]["evidence_tier"] == "specific_route_or_validation_evidence"
+    assert output["route_triage_plan"]["activation_decision"] == "ready_for_local_proposal_activation"
+    assert output["route_triage_plan"]["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 1,
+        "related_source_count": 0,
+        "fork_or_mirror_lineage_collapsed": False,
+    }
+    assert [row["proposal_kind"] for row in output["route_triage_plan"]["rows"]] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    expected_triage_reasons = {
+        "code_patch": "change only local classifier, harness, or controller behavior",
+        "config": "register bounded route policy or proposal mapping",
+        "documentation": "record route lesson and operator acceptance criteria",
+        "test": "replay route evidence through local regression coverage",
+    }
+    for row in output["route_triage_plan"]["rows"]:
+        assert row["triage_reason"] == expected_triage_reasons[row["proposal_kind"]]
+        assert row["candidate_count"] == 1
+        assert row["source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
+        assert row["evidence_item_id_count"] == 3
+        assert row["target_path_hashes"]
+        assert row["local_artifact_contract"]["proposal_kind"] == row["proposal_kind"]
+        assert row["local_artifact_contract"]["local_only"] is True
+        assert row["inspection_requirements"] == skill_route_discovery_inspection_requirements(row["proposal_kind"])
+        assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert row["activation_ready"] is True
+        assert row["local_artifact_proof_ready"] is True
+        assert row["activation_blockers"] == []
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_skill_code_allowed"] is False
+        assert row["raw_evidence_exported"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+    assert output["route_triage_plan"]["local_validation_required"] is True
+    assert output["route_triage_plan"]["body_free"] is True
+    assert output["route_triage_plan"]["runtime_action_allowed"] is False
+    assert output["route_triage_plan"]["external_skill_activation_allowed"] is False
+    assert output["route_triage_plan"]["external_skill_code_allowed"] is False
+    assert output["route_triage_plan"]["raw_evidence_exported"] is False
+    assert output["route_triage_plan"]["raw_source_urls_exported"] is False
+    assert output["route_triage_plan"]["raw_target_paths_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
@@ -1047,6 +1106,42 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
     assert output["supervisor_readiness"]["local_artifact_proof_ready"] is False
     assert output["operator_handoff"]["status"] == "blocked"
     assert output["operator_handoff"]["local_artifact_proof_ready"] is False
+    assert output["route_triage_plan"]["status"] == "ready"
+    assert output["route_triage_plan"]["decision"] == "triage_bounded_lanes_to_local_artifacts"
+    assert output["route_triage_plan"]["rows"] == [
+        {
+            "proposal_kind": "documentation",
+            "triage_reason": "record route lesson and operator acceptance criteria",
+            "candidate_count": 1,
+            "source_hashes": [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
+            "evidence_item_id_count": 0,
+            "uncertainty_reasons": [
+                "no_selected_digest_item_ids",
+                "single_repository_level_source",
+                "unvalidated_external_skill_evidence",
+            ],
+            "target_path_hashes": [stable_text_hash("docs/skill-route-discovery.md")],
+            "local_artifact_contract": {
+                "proposal_kind": "documentation",
+                "target_paths": ["docs/skill-route-discovery.md"],
+                "required_review_surface": "changed_files_and_validation",
+                "local_only": True,
+                "external_skill_code_allowed": False,
+                "raw_upstream_body_allowed": False,
+            },
+            "inspection_requirements": skill_route_discovery_inspection_requirements("documentation"),
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "activation_ready": True,
+            "local_artifact_proof_ready": False,
+            "activation_blockers": [],
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+        }
+    ]
     assert output["operator_handoff"]["lane_rows"] == [
         {
             "proposal_kind": "documentation",
