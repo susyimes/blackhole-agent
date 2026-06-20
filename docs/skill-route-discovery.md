@@ -694,6 +694,19 @@ memory-write, scaffold, asset generation, provider launch, remote execution,
 raw evidence URL export, raw source URL export, raw target path export, or
 upstream body export.
 
+Pass-4 completion also emits `final_slice_closure`, a single body-free closure
+decision for the supervisor. It gathers the required and observed route
+profiles, selected item-id evidence refs, selected local lanes, profile replay
+rows, activation manifest status, activation packet status, and recovery
+decision into one panel. A complete FableCodex, COMPASS Skills, and Three.js
+Game Skills window can therefore close with FableCodex and Three.js replaying
+through the local test lane while COMPASS remains a local config lane. Blocked
+closures point back to the bounded recovery selector instead of widening the
+route. The panel does not add lanes, install skills, run upstream code, execute
+browser/game helpers, write profiles, launch providers, perform remote
+execution, export raw evidence URLs, export raw source URLs, export raw target
+paths, or export upstream bodies.
+
 Provider-runtime-control capability windows now also require a body-free
 `provider_runtime_preflight_samples` replay before the completion panel can
 continue. Missing samples produce `provider_runtime_preflight_sample_missing`

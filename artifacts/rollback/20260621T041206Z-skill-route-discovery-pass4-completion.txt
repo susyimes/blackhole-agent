@@ -1,0 +1,15 @@
+Rollback point for skill-route-discovery pass 4 completion
+
+Original branch: codex/blackhole-evolve/20260620T201313.584669-add-a-local-skill-route-discovery-validation-for
+Original HEAD: 49644298439afec8a0bc6729bd140cc1fe8d56e7
+Local rollback ref: refs/blackhole-rollback/20260621T041206Z-skill-route-discovery-pass4-completion
+Source digest: github-growth-20260620T201207.739989Z
+Created at: 20260621T041206Z
+
+Recovery commands (destructive; operator/supervisor only):
+  git switch codex/blackhole-evolve/20260620T201313.584669-add-a-local-skill-route-discovery-validation-for
+  git reset --hard refs/blackhole-rollback/20260621T041206Z-skill-route-discovery-pass4-completion
+  git clean -fd
+
+Notes:
+  Created before modifying local route-discovery completion behavior, tests, docs, or run artifacts.

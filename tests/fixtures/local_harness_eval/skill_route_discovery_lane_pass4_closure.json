@@ -1,0 +1,149 @@
+{
+  "name": "skill-route-discovery-lane-pass4-closure",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-pass4-closure",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs-game",
+        "p3-skill-workflow-first-fablecodex"
+      ],
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "codex-fable5",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "evidence_summary": "Codex workflow skill package with evidence gates, review ledger, verification habit, plugin routing docs, examples, tests, evals, replay, and local test target notes.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p3-skill-workflow-first-fablecodex"],
+        "evidence_urls": ["https://github.com/baskduf/FableCodex"]
+      },
+      {
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "evidence_summary": "COMPASS skill ecosystem with task clarification, repo-local task memory, handoff prompts, collaboration profile, privacy boundary, route metadata, and validation evidence.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p1-skill-route-discovery-compass"],
+        "evidence_urls": ["https://github.com/dongshuyan/compass-skills"]
+      },
+      {
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "evidence_summary": "Three.js browser game director skill bundle with QA validation, screenshot checks, canvas checks, scaffold boundaries, asset/provider boundary notes, credential safeguards, and generation limits.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p2-skill-route-discovery-threejs-game"],
+        "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T041206Z-skill-route-discovery-pass4-completion.txt",
+        "review_note": "Pass-4 documentation lane records final closure semantics for the skill-route window."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T041206Z-skill-route-discovery-pass4-completion.txt",
+        "review_note": "Pass-4 config lane keeps final closure body-free and bounded to local metadata."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T041206Z-skill-route-discovery-pass4-completion.txt",
+        "review_note": "Pass-4 test lane validates complete slice closure across required route profiles."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T041206Z-skill-route-discovery-pass4-completion.txt",
+        "review_note": "Pass-4 code patch adds only local completion metadata and no upstream execution."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "capability_window_completion.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.decision",
+      "equals": "close_skill_route_discovery_slice"
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.supervisor_handoff_ready",
+      "equals": true
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.selected_local_lanes",
+      "equals": ["config", "test"]
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.missing_route_profiles",
+      "equals": []
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.activation_packet_status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.final_slice_closure.external_skill_activation_allowed",
+      "equals": false
+    }
+  ]
+}
