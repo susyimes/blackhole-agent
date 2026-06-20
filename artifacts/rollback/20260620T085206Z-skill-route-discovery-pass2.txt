@@ -1,0 +1,14 @@
+Rollback point for skill route discovery pass 2
+
+Original branch: codex/blackhole-evolve/20260620T085315.421232-add-a-local-skill-route-discovery-validation-cas
+Original HEAD: c23995c9bcd0f66af3af0ed72c2194a13ab61c1a
+Local rollback ref: refs/rollback/20260620T085206Z-skill-route-discovery-pass2
+Created at: 2026-06-20T08:52:06Z
+Source digest: github-growth-20260620T085207.697019Z
+
+Recovery commands (explicit/destructive; run only by operator policy):
+  git switch codex/blackhole-evolve/20260620T085315.421232-add-a-local-skill-route-discovery-validation-cas
+  git reset --hard refs/rollback/20260620T085206Z-skill-route-discovery-pass2
+
+Notes:
+  This rollback point was created before local self-modification in this kernel run.

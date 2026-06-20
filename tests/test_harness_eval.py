@@ -1072,16 +1072,88 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                     "url_or_repository_name_used_as_proposal_evidence_ref",
                     "readme_claim_treated_as_local_gate_parity",
                 ],
+                "local_lane_contracts": [
+                    {
+                        "proposal_kind": "code_patch",
+                        "target_path_hashes": [
+                            stable_text_hash("src/blackhole_agent/skill_routing.py"),
+                            stable_text_hash("src/blackhole_agent/harness_eval.py"),
+                        ],
+                        "target_count": 2,
+                        "required_local_artifact_proof": {
+                            "changed_file_review": True,
+                            "focused_local_validation": True,
+                            "rollback_artifact": True,
+                            "review_note": True,
+                        },
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "external_skill_code_allowed": False,
+                        "raw_target_paths_exported": False,
+                    },
+                    {
+                        "proposal_kind": "config",
+                        "target_path_hashes": [
+                            stable_text_hash("src/blackhole_agent/proposal_synthesis.py"),
+                        ],
+                        "target_count": 1,
+                        "required_local_artifact_proof": {
+                            "changed_file_review": True,
+                            "focused_local_validation": True,
+                            "rollback_artifact": True,
+                            "review_note": True,
+                        },
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "external_skill_code_allowed": False,
+                        "raw_target_paths_exported": False,
+                    },
+                    {
+                        "proposal_kind": "documentation",
+                        "target_path_hashes": [stable_text_hash("docs/skill-route-discovery.md")],
+                        "target_count": 1,
+                        "required_local_artifact_proof": {
+                            "changed_file_review": True,
+                            "focused_local_validation": True,
+                            "rollback_artifact": True,
+                            "review_note": True,
+                        },
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "external_skill_code_allowed": False,
+                        "raw_target_paths_exported": False,
+                    },
+                    {
+                        "proposal_kind": "test",
+                        "target_path_hashes": [
+                            stable_text_hash("tests/test_skill_routing.py"),
+                            stable_text_hash("tests/test_harness_eval.py"),
+                        ],
+                        "target_count": 2,
+                        "required_local_artifact_proof": {
+                            "changed_file_review": True,
+                            "focused_local_validation": True,
+                            "rollback_artifact": True,
+                            "review_note": True,
+                        },
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "external_skill_code_allowed": False,
+                        "raw_target_paths_exported": False,
+                    },
+                ],
                 "uncertainty_reasons": [
                     "missing_detail_risk",
                     "unvalidated_external_skill_evidence",
                 ],
                 "runtime_action": "none",
                 "local_validation_required": True,
+                "local_artifact_proof_required": True,
                 "external_skill_activation_allowed": False,
                 "external_skill_code_allowed": False,
                 "raw_evidence_exported": False,
                 "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
                 "raw_upstream_body_exported": False,
             }
         ],
@@ -1101,6 +1173,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "external_skill_code_allowed": False,
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
     assert output["activation_manifest"]["controller_surface"] == "skill_route_discovery_activation_manifest"
@@ -1276,8 +1349,16 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
         "credential_probe_or_provider_launch_requested",
         "asset_generation_requested_without_local_capability_path",
     ]
+    assert [contract["proposal_kind"] for contract in profile_row["local_lane_contracts"]] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    assert all(contract["raw_target_paths_exported"] is False for contract in profile_row["local_lane_contracts"])
     assert profile_row["runtime_action"] == "none"
     assert profile_row["raw_source_urls_exported"] is False
+    assert profile_row["raw_target_paths_exported"] is False
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
 
@@ -1315,6 +1396,25 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
     assert output["supervisor_readiness"]["local_artifact_proof_ready"] is False
     assert output["operator_handoff"]["status"] == "blocked"
     assert output["operator_handoff"]["local_artifact_proof_ready"] is False
+    assert output["route_profile_review"]["profiles"] == ["skill_ecosystem_state_handoff"]
+    assert output["route_profile_review"]["rows"][0]["local_lane_contracts"] == [
+        {
+            "proposal_kind": "documentation",
+            "target_path_hashes": [stable_text_hash("docs/skill-route-discovery.md")],
+            "target_count": 1,
+            "required_local_artifact_proof": {
+                "changed_file_review": True,
+                "focused_local_validation": True,
+                "rollback_artifact": True,
+                "review_note": True,
+            },
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "raw_target_paths_exported": False,
+        }
+    ]
+    assert output["route_profile_review"]["rows"][0]["local_artifact_proof_required"] is True
     assert output["route_triage_plan"]["status"] == "ready"
     assert output["route_triage_plan"]["decision"] == "triage_bounded_lanes_to_local_artifacts"
     assert output["route_triage_plan"]["rows"] == [

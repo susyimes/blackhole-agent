@@ -481,6 +481,17 @@ local validation, denies external skill activation, and does not import, run,
 clone, install, scaffold, probe credentials, launch providers, or generate
 assets from the upstream repository.
 
+The profile review now also renders `local_lane_contracts` for each bounded
+proposal kind present in the profile. These contracts expose only hashed local
+artifact targets, target counts, required local artifact proof fields, and the
+same runtime/external-skill denials. They are the operator-visible bridge from
+profile evidence to local work: FableCodex-style workflow gates, COMPASS-style
+state handoff systems, and Three.js-style director bundles can point reviewers
+toward local documentation, config, test, or code_patch files, but the review
+surface still withholds raw target paths and upstream bodies and requires
+changed-file review, focused local validation, rollback artifact, and review
+note proof before supervisor handoff.
+
 On final scheduled passes for this capability slice, the harness emits
 `capability_window_completion`. This panel consumes the route profile review,
 activation manifest, operator handoff, supervisor readiness, and

@@ -2797,6 +2797,11 @@ def skill_route_discovery_route_profile_review(
         if not validation_required:
             diagnostics.append(f"{profile}:local_validation_required")
 
+        local_lane_contracts = [
+            skill_route_discovery_route_profile_lane_contract(proposal_kind)
+            for proposal_kind in proposal_kinds
+        ]
+
         rows.append(
             {
                 "route_profile": profile,
@@ -2807,13 +2812,16 @@ def skill_route_discovery_route_profile_review(
                 "expected_metadata": list(contract["expected_metadata"]),
                 "safe_local_tests": list(contract["safe_local_tests"]),
                 "rejection_conditions": list(contract["rejection_conditions"]),
+                "local_lane_contracts": local_lane_contracts,
                 "uncertainty_reasons": sorted(dict.fromkeys(uncertainty_reasons)),
                 "runtime_action": "none" if runtime_safe else "review",
                 "local_validation_required": validation_required,
+                "local_artifact_proof_required": True,
                 "external_skill_activation_allowed": False,
                 "external_skill_code_allowed": False,
                 "raw_evidence_exported": False,
                 "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
                 "raw_upstream_body_exported": False,
             }
         )
@@ -2851,7 +2859,29 @@ def skill_route_discovery_route_profile_review(
         "external_skill_code_allowed": False,
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_route_profile_lane_contract(proposal_kind: str) -> dict[str, Any]:
+    """Return a body-free artifact target contract for one profile review lane."""
+
+    target_paths = SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS.get(proposal_kind, ())
+    return {
+        "proposal_kind": proposal_kind,
+        "target_path_hashes": [stable_text_hash(path) for path in target_paths],
+        "target_count": len(target_paths),
+        "required_local_artifact_proof": {
+            "changed_file_review": True,
+            "focused_local_validation": True,
+            "rollback_artifact": True,
+            "review_note": True,
+        },
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_target_paths_exported": False,
     }
 
 
