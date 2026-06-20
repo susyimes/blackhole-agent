@@ -1531,6 +1531,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_diagnostics_exported": False,
         "raw_provider_values_exported": False,
     }
+    activation_packet = output["capability_window_completion"]["activation_packet"]
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -1630,6 +1631,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             },
             "completion_recovery": completion_recovery,
             "next_pass_handoff": next_pass_handoff,
+            "activation_packet": activation_packet,
             "local_validation_required": True,
             "runtime_action_allowed": False,
             "external_skill_activation_allowed": False,
@@ -1642,6 +1644,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         },
         "next_pass_handoff": next_pass_handoff,
         "completion_recovery": completion_recovery,
+        "activation_packet": activation_packet,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -1659,6 +1662,21 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+    assert activation_packet["controller_surface"] == "skill_route_discovery_validated_activation_packet"
+    assert activation_packet["status"] == "ready"
+    assert activation_packet["decision"] == "packet_ready_for_supervisor_replay"
+    assert activation_packet["row_count"] == 4
+    assert activation_packet["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert activation_packet["selected_evidence_refs"] == [
+        "fablecodex-issue-15",
+        "fablecodex-issue-18",
+        "fablecodex-repo",
+    ]
+    assert {row["supervisor_replay_step"] for row in activation_packet["rows"]} == {
+        "review_and_replay_bounded_local_lane"
+    }
+    assert all(row["runtime_action_allowed"] is False for row in activation_packet["rows"])
+    assert activation_packet["external_skill_activation_allowed"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
@@ -2510,6 +2528,17 @@ def test_skill_route_discovery_completion_accepts_required_profile_coverage():
     assert completion["completion_handoff"]["supervisor_next_action"] == (
         "handoff_completed_skill_route_slice_to_supervisor"
     )
+    assert completion["activation_packet"]["status"] == "ready"
+    assert completion["activation_packet"]["route_profiles"] == completion["route_profiles"]
+    assert completion["completion_handoff"]["activation_packet"] == completion["activation_packet"]
+    assert completion["activation_packet"]["selected_evidence_refs"] == [
+        "compass-repo",
+        "fablecodex-repo",
+        "threejs-repo",
+    ]
+    assert {row["supervisor_replay_step"] for row in completion["activation_packet"]["rows"]} == {
+        "review_and_replay_bounded_local_lane"
+    }
     assert completion["runtime_action_allowed"] is False
     assert completion["external_skill_activation_allowed"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
@@ -2563,6 +2592,12 @@ def test_skill_route_discovery_capability_window_handoff_reports_final_blockers(
     assert handoff["completion_recovery"]["external_skill_activation_allowed"] is False
     assert handoff["completion_recovery"]["provider_runtime_launch_allowed"] is False
     assert handoff["completion_recovery"]["raw_target_paths_exported"] is False
+    assert handoff["activation_packet"]["status"] == "blocked"
+    assert handoff["activation_packet"]["decision"] == "hold_packet_for_repair_or_replay"
+    assert any(
+        row["supervisor_replay_step"] == "repair_bounded_local_lane_before_replay"
+        for row in handoff["activation_packet"]["rows"]
+    )
     assert completion["completion_recovery"] == handoff["completion_recovery"]
     assert handoff["runtime_action_allowed"] is False
     assert handoff["external_skill_activation_allowed"] is False

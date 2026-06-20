@@ -659,6 +659,18 @@ not export raw evidence URLs, raw source URLs, raw target paths, or upstream
 bodies, and it continues to deny runtime action, external skill activation,
 external harness execution, provider launch, and remote execution.
 
+Final-pass completion now also emits `activation_packet`, a body-free supervisor
+replay packet derived from the activation manifest. The packet lists only
+bounded local proposal kinds, route profiles, selected item-id evidence refs,
+hashed candidate sources, hashed local target paths, local artifact proof
+readiness, required validation commands, and provider-runtime replay commands.
+Ready packets mark each row for bounded local review and replay; blocked
+packets mark rows for repair before replay. The packet does not add lanes and
+does not permit install, enable, run, execute, clone-and-run, profile-write,
+memory-write, scaffold, asset generation, provider launch, remote execution,
+raw evidence URL export, raw source URL export, raw target path export, or
+upstream body export.
+
 Provider-runtime-control capability windows now also require a body-free
 `provider_runtime_preflight_samples` replay before the completion panel can
 continue. Missing samples produce `provider_runtime_preflight_sample_missing`

@@ -2696,6 +2696,111 @@ def skill_route_discovery_activation_sequence(
     }
 
 
+def skill_route_discovery_validated_activation_packet(
+    *,
+    activation_manifest: dict[str, Any],
+    status: str,
+    diagnostics: list[str],
+) -> dict[str, Any]:
+    """Render final-pass local replay work without exposing upstream bodies."""
+
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    manifest_lanes = activation_manifest.get("manifest_lanes")
+    manifest_lanes = manifest_lanes if isinstance(manifest_lanes, list) else []
+    rows: list[dict[str, Any]] = []
+    for lane in manifest_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        route_profiles = string_list(lane.get("route_profiles"))
+        evidence_refs = string_list(lane.get("evidence_refs"))
+        activation_blockers = string_list(lane.get("activation_blockers"))
+        rows.append(
+            {
+                "proposal_kind": proposal_kind,
+                "route_profiles": route_profiles,
+                "evidence_ref_count": len(evidence_refs),
+                "evidence_refs": evidence_refs,
+                "candidate_count": int(lane.get("candidate_count") or 0),
+                "candidate_source_hashes": string_list(lane.get("candidate_source_hashes")),
+                "target_path_hashes": string_list(lane.get("target_path_hashes")),
+                "local_artifact_proof_ready": lane.get("local_artifact_proof_ready") is True,
+                "required_validation": validation_commands,
+                "provider_runtime_next_action": str(lane.get("provider_runtime_next_action") or ""),
+                "activation_ready": lane.get("activation_ready") is True,
+                "activation_blockers": activation_blockers,
+                "supervisor_replay_step": (
+                    "review_and_replay_bounded_local_lane"
+                    if status == "ready"
+                    and not diagnostics
+                    and lane.get("activation_ready") is True
+                    and not activation_blockers
+                    else "repair_bounded_local_lane_before_replay"
+                ),
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    packet_ready = (
+        status == "ready"
+        and activation_manifest.get("status") == "ready"
+        and bool(rows)
+        and all(row["activation_ready"] and row["local_artifact_proof_ready"] for row in rows)
+        and not diagnostics
+    )
+    selected_evidence_refs = sorted(
+        {
+            ref
+            for row in rows
+            for ref in string_list(row.get("evidence_refs"))
+        }
+    )
+    return {
+        "controller_surface": "skill_route_discovery_validated_activation_packet",
+        "status": "ready" if packet_ready else "blocked",
+        "decision": (
+            "packet_ready_for_supervisor_replay"
+            if packet_ready
+            else "hold_packet_for_repair_or_replay"
+        ),
+        "row_count": len(rows),
+        "rows": rows,
+        "proposal_kinds": sorted({row["proposal_kind"] for row in rows if row["proposal_kind"]}),
+        "route_profiles": sorted(
+            {
+                profile
+                for row in rows
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "selected_evidence_ref_count": len(selected_evidence_refs),
+        "selected_evidence_refs": selected_evidence_refs,
+        "diagnostics": diagnostics,
+        "required_validation": validation_commands,
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def skill_route_discovery_preactivation_lane_selection(
     *,
     route_profile_review: dict[str, Any],
@@ -3321,6 +3426,11 @@ def skill_route_discovery_capability_window_completion(
         profile_completion_check=profile_completion_check,
         next_pass_handoff=next_pass_handoff,
     )
+    activation_packet = skill_route_discovery_validated_activation_packet(
+        activation_manifest=activation_manifest,
+        status=status,
+        diagnostics=diagnostics,
+    )
     completion_handoff = {
         "status": status,
         "decision": decision,
@@ -3344,6 +3454,7 @@ def skill_route_discovery_capability_window_completion(
         "profile_completion_check": profile_completion_check,
         "completion_recovery": completion_recovery,
         "next_pass_handoff": next_pass_handoff,
+        "activation_packet": activation_packet,
         "local_validation_required": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
@@ -3381,6 +3492,7 @@ def skill_route_discovery_capability_window_completion(
         "profile_completion_check": profile_completion_check,
         "next_pass_handoff": next_pass_handoff,
         "completion_recovery": completion_recovery,
+        "activation_packet": activation_packet,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
