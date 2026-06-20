@@ -238,6 +238,17 @@ documentation, config, test, or code_patch, required tests include
 notes require a rollback ref and artifact before source changes, runtime action
 remains `none`, and external skill activation remains false.
 
+Each checklist row and activation row also carries
+`inspection_requirements`. This is the bounded local inspection contract for
+mapping a public skill repository into work: selected digest item IDs or frozen
+digest evidence, body-free repository summaries, source-lineage metadata, local
+artifact targets, changed-file review, focused local validation, rollback
+artifact, and review note. The same contract records blocked shortcuts:
+installing upstream skills, running upstream skill code, clone-and-run behavior,
+trusting a README as local implementation parity, or exporting raw upstream
+bodies. The preactivation trust boundary rejects activation rows that omit or
+weaken this inspection contract.
+
 The harness now also emits a body-free `source_lineage` summary and carries a
 compact lineage view into supervisor readiness. This records candidate source
 counts, hashed candidate and related source URLs, duplicate summary counts,
@@ -346,13 +357,13 @@ Before that final handoff, the harness now emits `local_lane_intake`. This is
 the operator-visible inventory of bounded local work inferred from external
 skill evidence. It groups proposal rows by documentation, config, test, or
 code_patch, exposes only hashed candidate names, hashed source URLs, hashed
-local target paths, evidence item counts, required local validation commands,
-activation blockers, source-lineage counts, and the discovery actions that stay
-blocked. It does not export raw URLs, raw target paths, raw evidence, upstream
-skill bodies, or external code, and it keeps install, enable, run, execute,
-clone-and-run, and deletion authority denied. Empty or actionful evidence
-therefore produces no intake rows even when the upstream repository looked like
-a useful skill package.
+local target paths, evidence item counts, inspection requirements, required
+local validation commands, activation blockers, source-lineage counts, and the
+discovery actions that stay blocked. It does not export raw URLs, raw target
+paths, raw evidence, upstream skill bodies, or external code, and it keeps
+install, enable, run, execute, clone-and-run, and deletion authority denied.
+Empty or actionful evidence therefore produces no intake rows even when the
+upstream repository looked like a useful skill package.
 
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked

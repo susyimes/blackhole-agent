@@ -142,6 +142,25 @@ SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS = {
         "src/blackhole_agent/harness_eval.py",
     ),
 }
+SKILL_ROUTE_DISCOVERY_INSPECTION_EVIDENCE = (
+    "selected_digest_item_ids_or_frozen_digest_evidence",
+    "body_free_repository_summary",
+    "source_lineage_metadata",
+)
+SKILL_ROUTE_DISCOVERY_INSPECTION_REVIEW = (
+    "local_artifact_contract_target",
+    "changed_file_review",
+    "focused_local_validation",
+    "rollback_artifact",
+    "review_note",
+)
+SKILL_ROUTE_DISCOVERY_INSPECTION_BLOCKED_SHORTCUTS = (
+    "install_upstream_skill",
+    "run_upstream_skill_code",
+    "clone_and_run_repository",
+    "trust_readme_as_local_parity",
+    "export_raw_upstream_body",
+)
 AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS = (
     "changed_files",
     "validation",
@@ -1278,6 +1297,9 @@ def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) 
             "local_artifact_contract": skill_route_discovery_local_artifact_contract(
                 str(lane.get("proposal_kind") or "")
             ),
+            "inspection_requirements": skill_route_discovery_inspection_requirements(
+                str(lane.get("proposal_kind") or "")
+            ),
             "required_local_artifact_proof": {
                 "changed_files": "at least one local contract target for this lane",
                 "validation_commands": validation_commands,
@@ -1332,6 +1354,7 @@ def build_skill_route_discovery_activation_lanes(
             ),
             "required_validation": validation_commands,
             "local_artifact_contract": skill_route_discovery_local_artifact_contract(proposal_kind),
+            "inspection_requirements": skill_route_discovery_inspection_requirements(proposal_kind),
             "local_artifact_proof": skill_route_discovery_local_artifact_proof(
                 proposal_kind,
                 local_artifact_proofs.get(proposal_kind),
@@ -1414,6 +1437,28 @@ def skill_route_discovery_local_artifact_proof(
         "diagnostics": diagnostics,
         "raw_changed_files_exported": False,
         "raw_rollback_artifact_exported": False,
+    }
+
+
+def skill_route_discovery_inspection_requirements(proposal_kind: str) -> dict[str, Any]:
+    """Return the local inspection checklist required before mapping a lane to work."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    return {
+        "proposal_kind": proposal_kind,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "required_evidence": list(SKILL_ROUTE_DISCOVERY_INSPECTION_EVIDENCE),
+        "required_local_review": list(SKILL_ROUTE_DISCOVERY_INSPECTION_REVIEW),
+        "blocked_shortcuts": list(SKILL_ROUTE_DISCOVERY_INSPECTION_BLOCKED_SHORTCUTS),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "body_free": True,
+        "local_only": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_allowed": False,
     }
 
 
@@ -1508,6 +1553,11 @@ def skill_route_discovery_preactivation_trust_boundary(
             diagnostics.append(f"{prefix}.external_skill_code_must_be_false")
         if artifact_contract.get("raw_upstream_body_allowed") is not False:
             diagnostics.append(f"{prefix}.raw_upstream_body_must_be_false")
+
+        inspection_requirements = lane.get("inspection_requirements")
+        expected_inspection_requirements = skill_route_discovery_inspection_requirements(proposal_kind)
+        if inspection_requirements != expected_inspection_requirements:
+            diagnostics.append(f"{prefix}.inspection_requirements_mismatch")
 
         target_paths = artifact_contract.get("target_paths")
         target_paths = target_paths if isinstance(target_paths, list) else []
@@ -1791,6 +1841,7 @@ def skill_route_discovery_local_lane_intake(
                 "target_path_hashes": [
                     stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
                 ],
+                "inspection_requirements": skill_route_discovery_inspection_requirements(proposal_kind),
                 "required_validation": skill_route_discovery_preactivation_validation_commands(),
                 "local_validation_required": all(lane.get("local_validation_required") is True for lane in lanes),
                 "activation_ready": activation_lane.get("activation_ready") is True,

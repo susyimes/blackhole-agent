@@ -1,0 +1,9 @@
+Run: github-growth-20260620T021207.555191Z
+Theme: skill-route-discovery pass 3
+Original branch: codex/blackhole-evolve/20260620T021415.121459-create-or-update-a-local-skill-route-discovery-n
+Original HEAD: f1f85d7ca9c8fdaeeada197b00730069fc01fdde
+Local rollback ref: refs/blackhole-rollback/20260620T021207Z-skill-route-discovery-pass3
+
+Recovery commands (destructive; operator/supervisor only):
+git reset --hard refs/blackhole-rollback/20260620T021207Z-skill-route-discovery-pass3
+git clean -fd

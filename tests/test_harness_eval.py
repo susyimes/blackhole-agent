@@ -6,6 +6,7 @@ from blackhole_agent.harness_eval import (
     evaluate_harness_behavior,
     run_local_harness_eval,
     stable_text_hash,
+    skill_route_discovery_inspection_requirements,
     skill_route_discovery_provider_runtime_preflight_contract,
     skill_route_discovery_preactivation_trust_boundary,
     skill_route_discovery_preactivation_validation_commands,
@@ -704,6 +705,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert lane["local_artifact_contract"]["local_only"] is True
         assert lane["local_artifact_contract"]["external_skill_code_allowed"] is False
         assert lane["local_artifact_contract"]["raw_upstream_body_allowed"] is False
+        assert lane["inspection_requirements"] == skill_route_discovery_inspection_requirements(
+            lane["proposal_kind"]
+        )
         assert lane["local_artifact_proof"]["ready"] is True
         assert lane["local_artifact_proof"]["provided"] is True
         assert lane["local_artifact_proof"]["target_paths_matched"] is True
@@ -742,6 +746,12 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert all(entry["local_artifact_contract"]["local_only"] is True for entry in output["discovery_checklist"])
     assert all(
         entry["local_artifact_contract"]["external_skill_code_allowed"] is False
+        for entry in output["discovery_checklist"]
+    )
+    assert all(
+        entry["inspection_requirements"] == skill_route_discovery_inspection_requirements(
+            entry["allowed_local_lane"]
+        )
         for entry in output["discovery_checklist"]
     )
     assert {entry["runtime_action"] for entry in output["discovery_checklist"]} == {"none"}
@@ -815,6 +825,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
         assert row["evidence_item_id_count"] == 3
         assert row["target_path_hashes"]
+        assert row["inspection_requirements"] == skill_route_discovery_inspection_requirements(
+            row["proposal_kind"]
+        )
         assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
         assert row["local_validation_required"] is True
         assert row["activation_ready"] is True
@@ -924,6 +937,37 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
             "raw_source_urls_exported": False,
         }
     ]
+
+
+def test_skill_route_discovery_trust_boundary_requires_inspection_requirements():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-inspection-requirements",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "skill-route-doc",
+                    "source_url": "https://github.com/example/skill-route-doc",
+                    "candidate_lanes": ["documentation"],
+                    "route_hints": ["skill_route_discovery"],
+                    "disabled": True,
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_inspection_requirements_inline.json",
+    )
+
+    activation_lanes = [dict(output["activation_lanes"][0])]
+    activation_lanes[0].pop("inspection_requirements")
+
+    boundary = skill_route_discovery_preactivation_trust_boundary(
+        output["proposal_lanes"],
+        activation_lanes,
+    )
+
+    assert boundary["status"] == "blocked"
+    assert boundary["diagnostics"] == ["activation_lanes[0].inspection_requirements_mismatch"]
 
 
 def test_agent_harness_provider_registration_blocks_qwencode_without_local_config():
@@ -1146,6 +1190,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_tampered_run
                 "external_skill_code_allowed": False,
                 "raw_upstream_body_allowed": False,
             },
+            "inspection_requirements": skill_route_discovery_inspection_requirements("documentation"),
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -1198,6 +1243,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_rejects_unbounded_ar
                 "external_skill_code_allowed": True,
                 "raw_upstream_body_allowed": True,
             },
+            "inspection_requirements": skill_route_discovery_inspection_requirements("documentation"),
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -1252,6 +1298,7 @@ def test_skill_route_discovery_preactivation_trust_boundary_requires_provider_ru
                 "external_skill_code_allowed": False,
                 "raw_upstream_body_allowed": False,
             },
+            "inspection_requirements": skill_route_discovery_inspection_requirements("code_patch"),
             "preactivation_harness": {
                 "behavior": "agent_harness_eval_lane",
                 "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
@@ -1539,6 +1586,7 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
                 "external_skill_code_allowed": False,
                 "raw_upstream_body_allowed": False,
             },
+            "inspection_requirements": skill_route_discovery_inspection_requirements("documentation"),
             "local_artifact_proof": {
                 "provided": False,
                 "ready": False,
