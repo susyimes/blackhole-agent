@@ -1445,6 +1445,44 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["raw_source_urls_exported"] is False
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
+    next_validation_target = {
+        "controller_surface": "skill_route_discovery_next_validation_target",
+        "status": "ready",
+        "decision": "validate_selected_final_bounded_target",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "selected_local_lane": "test",
+        "validation_scope": "local_test_lane_only",
+        "route_profiles": ["codex_workflow_gate"],
+        "route_profile_count": 1,
+        "evidence_item_ids": [
+            "fablecodex-issue-15",
+            "fablecodex-issue-18",
+            "fablecodex-repo",
+        ],
+        "evidence_item_id_count": 3,
+        "candidate_source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        "candidate_source_count": 1,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "plan_basis": "highest_priority_grouped_validation_target",
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     next_pass_handoff = {
         "controller_surface": "skill_route_discovery_next_pass_handoff",
         "status": "complete",
@@ -1458,6 +1496,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "candidate_name_hashes": [stable_text_hash("codex-fable5")],
         "source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
         "recommended_local_lane_order": ["test", "documentation", "code_patch", "config"],
+        "next_validation_target": next_validation_target,
         "proposal_kinds": ["code_patch", "config", "documentation", "test"],
         "route_profiles": ["codex_workflow_gate"],
         "selected_evidence_ref_count": 3,
@@ -1539,6 +1578,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "validation_plan_status": "ready",
         "validation_plan_decision": "validate_final_bounded_local_lane_before_handoff",
         "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "next_validation_target": next_validation_target,
         "target_count": 1,
         "selected_local_lanes": ["test"],
         "route_profiles": ["codex_workflow_gate"],
@@ -1602,6 +1642,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "validation_plan_status": "ready",
         "validation_plan_decision": "validate_final_bounded_local_lane_before_handoff",
         "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "next_validation_target": next_validation_target,
         "profile_count": 1,
         "selected_local_lanes": ["test"],
         "rows": [
@@ -2151,6 +2192,44 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
     assert completion["completion_handoff"]["completion_blockers"] == [
         "capability_window_not_at_final_pass"
     ]
+    next_validation_target = {
+        "controller_surface": "skill_route_discovery_next_validation_target",
+        "status": "ready",
+        "decision": "continue_with_selected_bounded_validation_target",
+        "supervisor_next_action": "continue_skill_route_discovery_window",
+        "selected_local_lane": "test",
+        "validation_scope": "local_test_lane_only",
+        "route_profiles": ["codex_workflow_gate"],
+        "route_profile_count": 1,
+        "evidence_item_ids": [
+            "fablecodex-issue-15",
+            "fablecodex-issue-18",
+            "fablecodex-repo",
+        ],
+        "evidence_item_id_count": 3,
+        "candidate_source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        "candidate_source_count": 1,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "plan_basis": "highest_priority_grouped_validation_target",
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert completion["next_pass_handoff"] == {
         "controller_surface": "skill_route_discovery_next_pass_handoff",
         "status": "ready",
@@ -2164,6 +2243,7 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
         "candidate_name_hashes": [stable_text_hash("codex-fable5")],
         "source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
         "recommended_local_lane_order": ["test", "documentation", "code_patch", "config"],
+        "next_validation_target": next_validation_target,
         "proposal_kinds": ["code_patch", "config", "documentation", "test"],
         "route_profiles": ["codex_workflow_gate"],
         "selected_evidence_ref_count": 3,
@@ -2280,6 +2360,52 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         ("skill_ecosystem_state_handoff", "config", "local_config_lane_only"),
     ]
     assert validation_plan["lane_validation_target_count"] == 2
+    assert validation_plan["next_validation_target"] == {
+        "controller_surface": "skill_route_discovery_next_validation_target",
+        "status": "ready",
+        "decision": "continue_with_selected_bounded_validation_target",
+        "supervisor_next_action": "continue_skill_route_discovery_window",
+        "selected_local_lane": "test",
+        "validation_scope": "local_test_lane_only",
+        "route_profiles": ["codex_workflow_gate", "game_frontend_workflow"],
+        "route_profile_count": 2,
+        "evidence_item_ids": ["p1-skill-route-discovery-fixtures", "p1-skill-route-discovery-index"],
+        "evidence_item_id_count": 2,
+        "candidate_source_hashes": [
+            stable_text_hash("https://github.com/baskduf/FableCodex"),
+            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+        ],
+        "candidate_source_count": 2,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "plan_basis": "highest_priority_grouped_validation_target",
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    assert completion["next_pass_handoff"]["next_validation_target"] == (
+        validation_plan["next_validation_target"]
+    )
+    assert completion["validation_target_handoff"]["next_validation_target"] == (
+        validation_plan["next_validation_target"]
+    )
+    assert output["profile_validation_replay"]["next_validation_target"] == (
+        validation_plan["next_validation_target"]
+    )
     assert [
         (target["selected_local_lane"], target["route_profiles"], target["validation_scope"])
         for target in validation_plan["lane_validation_targets"]

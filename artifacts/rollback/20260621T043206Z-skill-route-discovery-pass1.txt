@@ -1,0 +1,17 @@
+Rollback point for skill-route-discovery pass 1
+
+Created at: 2026-06-21T04:32:06Z
+Repository: C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260620T203206Z
+Original branch: codex/blackhole-evolve/20260620T203305.384320-run-a-local-skill-route-discovery-validation-for
+Original HEAD: 174b1ae4b0ccffd6ec4850a4337e64df900744e7
+Rollback ref: refs/rollback/20260621T043206Z-skill-route-discovery-pass1
+
+Recovery commands:
+
+```powershell
+git switch codex/blackhole-evolve/20260620T203305.384320-run-a-local-skill-route-discovery-validation-for
+git reset --hard refs/rollback/20260621T043206Z-skill-route-discovery-pass1
+```
+
+The reset command is destructive and must be chosen explicitly by a human
+operator or external supervisor policy.

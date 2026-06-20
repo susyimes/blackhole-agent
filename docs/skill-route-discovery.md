@@ -791,6 +791,19 @@ lanes and does not authorize upstream install, clone, execution, scaffold
 generation, provider launch, remote execution, raw source URL export, raw target
 path export, or upstream body export.
 
+The plan also emits `next_validation_target`, a single bounded lane selected
+from the grouped targets for the next scheduled pass. The selector prefers a
+local `test` replay when workflow or game-skill route evidence is present, then
+`config` for COMPASS-style state handoff, then documentation and code_patch.
+This field is repeated through `profile_validation_replay`,
+`validation_target_handoff`, and `next_pass_handoff` so a pass-1 or pass-2
+supervisor does not have to infer the next local lane from raw upstream
+repositories. It still exports only selected item IDs and candidate source
+hashes, requires the focused local validation commands, and denies runtime
+action, external skill activation, external skill code, external harness
+execution, provider launch, remote execution, raw evidence URLs, raw source
+URLs, raw target paths, and upstream bodies.
+
 `capability_window_completion` now repeats those grouped targets through
 `validation_target_handoff` and repeats the per-profile replay checklist through
 `profile_validation_replay`. This makes the next supervisor action visible from
