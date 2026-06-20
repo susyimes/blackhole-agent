@@ -636,6 +636,17 @@ selected item IDs are allowed, while raw evidence URLs, source URLs, upstream
 bodies, runtime action, external skill activation, provider launch, and remote
 execution remain denied.
 
+The completion handoff also carries `completion_recovery`, a body-free repair
+selector for final-pass failures. It maps existing completion diagnostics to the
+next bounded local action: continue the window when the planned pass is not
+complete, repair missing required route profiles, repair local artifact proof,
+replay provider-runtime preflight, repair profile metadata, or replay the
+bounded skill-route lane. The selector records only bounded lane names, missing
+route profile names, blocker hashes, hint codes, and replay commands. It does
+not export raw evidence URLs, raw source URLs, raw target paths, or upstream
+bodies, and it continues to deny runtime action, external skill activation,
+external harness execution, provider launch, and remote execution.
+
 Before the final planned pass, the same panel reports `status: in_progress`
 when all bounded lane surfaces are otherwise ready but the capability window has
 not reached its planned completion count. That state carries

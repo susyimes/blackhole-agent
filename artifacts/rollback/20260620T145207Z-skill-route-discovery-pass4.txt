@@ -1,0 +1,12 @@
+Rollback point for skill-route-discovery pass 4
+
+Source digest: github-growth-20260620T145207.691168Z
+Original branch: codex/blackhole-evolve/20260620T145305.367224-add-a-bounded-local-validation-lane-for-discover
+Original HEAD: 9c6310ef59ee6a3f1ae0dd8ceee252d5df09ead8
+Rollback ref: refs/rollback/20260620T145207Z-skill-route-discovery-pass4
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260620T145305.367224-add-a-bounded-local-validation-lane-for-discover
+  git reset --hard refs/rollback/20260620T145207Z-skill-route-discovery-pass4
+
+Rollback execution is explicit and destructive; do not run these commands unless selected by operator or supervisor policy.

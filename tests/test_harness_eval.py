@@ -1477,6 +1477,32 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+    completion_recovery = {
+        "controller_surface": "skill_route_discovery_completion_recovery",
+        "status": "ready",
+        "decision": "no_recovery_required",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "primary_recovery_lane": "none",
+        "recommended_local_lane_order": ["test", "documentation", "code_patch", "config"],
+        "missing_route_profiles": [],
+        "completion_blocker_count": 0,
+        "completion_blocker_hashes": [],
+        "recovery_hint_codes": [],
+        "recovery_hint_code_hashes": [],
+        "replay_commands": [],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -1572,6 +1598,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                 "raw_source_urls_exported": False,
                 "raw_upstream_body_exported": False,
             },
+            "completion_recovery": completion_recovery,
             "next_pass_handoff": next_pass_handoff,
             "local_validation_required": True,
             "runtime_action_allowed": False,
@@ -1584,6 +1611,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "raw_upstream_body_exported": False,
         },
         "next_pass_handoff": next_pass_handoff,
+        "completion_recovery": completion_recovery,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -2132,6 +2160,21 @@ def test_skill_route_discovery_capability_window_handoff_reports_final_blockers(
     ]
     assert "activation_manifest_not_ready" in handoff["completion_blockers"]
     assert "operator_handoff_not_ready" in handoff["completion_blockers"]
+    assert handoff["completion_recovery"]["status"] == "blocked"
+    assert handoff["completion_recovery"]["decision"] == "repair_local_artifact_proof"
+    assert handoff["completion_recovery"]["supervisor_next_action"] == (
+        "repair_local_artifact_proof_before_supervisor_handoff"
+    )
+    assert handoff["completion_recovery"]["primary_recovery_lane"] == "test"
+    assert handoff["completion_recovery"]["recovery_hint_codes"] == ["local_artifact_proof_not_ready"]
+    assert handoff["completion_recovery"]["replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    ]
+    assert handoff["completion_recovery"]["runtime_action_allowed"] is False
+    assert handoff["completion_recovery"]["external_skill_activation_allowed"] is False
+    assert handoff["completion_recovery"]["provider_runtime_launch_allowed"] is False
+    assert handoff["completion_recovery"]["raw_target_paths_exported"] is False
+    assert completion["completion_recovery"] == handoff["completion_recovery"]
     assert handoff["runtime_action_allowed"] is False
     assert handoff["external_skill_activation_allowed"] is False
     assert handoff["provider_runtime_launch_allowed"] is False

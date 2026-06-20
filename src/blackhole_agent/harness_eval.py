@@ -2912,6 +2912,12 @@ def skill_route_discovery_capability_window_completion(
         selected_evidence_refs=selected_evidence_refs,
         candidate_lane_intake=candidate_lane_intake,
     )
+    completion_recovery = skill_route_discovery_completion_recovery(
+        status=status,
+        diagnostics=diagnostics,
+        profile_completion_check=profile_completion_check,
+        next_pass_handoff=next_pass_handoff,
+    )
     completion_handoff = {
         "status": status,
         "decision": decision,
@@ -2932,6 +2938,7 @@ def skill_route_discovery_capability_window_completion(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "profile_completion_check": profile_completion_check,
+        "completion_recovery": completion_recovery,
         "next_pass_handoff": next_pass_handoff,
         "local_validation_required": True,
         "runtime_action_allowed": False,
@@ -2968,6 +2975,7 @@ def skill_route_discovery_capability_window_completion(
         "provider_runtime_replay_ready": provider_replay_ready,
         "profile_completion_check": profile_completion_check,
         "next_pass_handoff": next_pass_handoff,
+        "completion_recovery": completion_recovery,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
@@ -2984,6 +2992,101 @@ def skill_route_discovery_capability_window_completion(
         "remote_execution_allowed": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_recovery(
+    *,
+    status: str,
+    diagnostics: list[str],
+    profile_completion_check: dict[str, Any],
+    next_pass_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    """Choose the next bounded replay lane for completion handoff repair."""
+
+    lane_order = [
+        lane
+        for lane in string_list(next_pass_handoff.get("recommended_local_lane_order"))
+        if lane in {"documentation", "config", "test", "code_patch"}
+    ]
+    missing_profiles = string_list(profile_completion_check.get("missing_route_profiles"))
+    diagnostics = sorted(dict.fromkeys(str(diagnostic) for diagnostic in diagnostics if str(diagnostic)))
+
+    if status == "ready":
+        recovery_status = "ready"
+        recovery_decision = "no_recovery_required"
+        supervisor_next_action = "handoff_completed_skill_route_slice_to_supervisor"
+        primary_recovery_lane = "none"
+        recovery_hint_codes: list[str] = []
+        replay_commands = []
+    elif diagnostics == ["capability_window_not_at_final_pass"]:
+        recovery_status = "in_progress"
+        recovery_decision = "continue_capability_window"
+        supervisor_next_action = "continue_skill_route_discovery_window"
+        primary_recovery_lane = lane_order[0] if lane_order else "test"
+        recovery_hint_codes = ["capability_window_not_at_final_pass"]
+        replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
+    else:
+        recovery_status = "blocked"
+        if missing_profiles:
+            recovery_decision = "replay_required_route_profiles"
+            supervisor_next_action = "repair_missing_route_profiles_before_supervisor_handoff"
+            primary_recovery_lane = "test"
+            recovery_hint_codes = ["required_route_profiles_missing"]
+            replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
+        elif "activation_manifest_not_ready" in diagnostics or "operator_handoff_not_ready" in diagnostics:
+            recovery_decision = "repair_local_artifact_proof"
+            supervisor_next_action = "repair_local_artifact_proof_before_supervisor_handoff"
+            primary_recovery_lane = lane_order[0] if lane_order else "test"
+            recovery_hint_codes = ["local_artifact_proof_not_ready"]
+            replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
+        elif "provider_runtime_replay_not_ready" in diagnostics:
+            recovery_decision = "replay_provider_runtime_preflight"
+            supervisor_next_action = "replay_provider_runtime_before_supervisor_handoff"
+            primary_recovery_lane = "test"
+            recovery_hint_codes = ["provider_runtime_replay_not_ready"]
+            replay_commands = [
+                PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+            ]
+        elif "route_profile_review_not_ready" in diagnostics:
+            recovery_decision = "repair_route_profile_review"
+            supervisor_next_action = "repair_profile_metadata_before_supervisor_handoff"
+            primary_recovery_lane = "documentation"
+            recovery_hint_codes = ["route_profile_review_not_ready"]
+            replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
+        else:
+            recovery_decision = "replay_bounded_skill_route_lane"
+            supervisor_next_action = "replay_or_repair_before_supervisor_handoff"
+            primary_recovery_lane = lane_order[0] if lane_order else "test"
+            recovery_hint_codes = ["skill_route_completion_blocked"]
+            replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
+
+    return {
+        "controller_surface": "skill_route_discovery_completion_recovery",
+        "status": recovery_status,
+        "decision": recovery_decision,
+        "supervisor_next_action": supervisor_next_action,
+        "primary_recovery_lane": primary_recovery_lane,
+        "recommended_local_lane_order": lane_order,
+        "missing_route_profiles": missing_profiles,
+        "completion_blocker_count": len(diagnostics),
+        "completion_blocker_hashes": [stable_text_hash(diagnostic) for diagnostic in diagnostics],
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "replay_commands": replay_commands,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 
