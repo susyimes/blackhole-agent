@@ -3563,7 +3563,14 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
     next_target = validation_lane_plan.get("next_validation_target")
     next_target = next_target if isinstance(next_target, dict) else {}
     selected_lane = optional_string(next_target.get("selected_local_lane")) or "none"
-    status = "ready" if validation_lane_plan.get("status") == "ready" and selected_lane != "none" else "blocked"
+    plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
+    status = (
+        "ready"
+        if next_target.get("status") == "ready"
+        and selected_lane != "none"
+        and not plan_diagnostics
+        else "blocked"
+    )
     has_next_pass = int(validation_lane_plan.get("remaining_pass_count") or 0) > 0
     decision = (
         "continue_selected_bounded_lane_next_pass"
@@ -3579,7 +3586,7 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
         if status == "ready"
         else "replay_skill_route_discovery_lane"
     )
-    diagnostics = string_list(validation_lane_plan.get("diagnostics"))
+    diagnostics = plan_diagnostics
     if status != "ready" and not diagnostics:
         diagnostics = ["next_validation_target_not_ready"]
 

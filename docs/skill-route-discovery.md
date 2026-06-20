@@ -815,6 +815,13 @@ activation, external skill code, external harness execution, provider launch,
 remote execution, raw evidence URLs, raw source URLs, raw target paths, and
 upstream bodies.
 
+Pass-1 windows use the same row. A COMPASS, Three.js Game Skills, and
+FableCodex-style discovery window should expose the first concrete local replay
+target as `current_action.selected_local_lane` instead of requiring the
+supervisor to infer it from raw repository URLs or README claims. Mixed
+Codex/workflow/skill evidence remains `skill_route_discovery_first`; secondary
+agent-harness evaluation stays blocked until local corroboration.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend

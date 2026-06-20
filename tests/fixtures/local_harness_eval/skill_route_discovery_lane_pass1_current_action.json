@@ -1,0 +1,152 @@
+{
+  "name": "skill-route-discovery-lane-pass1-current-action",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-pass1-current-action",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs",
+        "p3-mixed-skill-workflow-routing",
+        "p4-agent-harness-eval-general-projects",
+        "p5-provider-and-controller-preflight-opportunity"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/omnigent-ai/omnigent"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "evidence_summary": "COMPASS skill ecosystem with task clarification, repo-local task memory, handoff prompts, collaboration profile, local route metadata, validation evidence, and privacy boundary notes.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p1-skill-route-discovery-compass"],
+        "evidence_urls": ["https://github.com/dongshuyan/compass-skills"]
+      },
+      {
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "evidence_summary": "Three.js game director skill bundle with specialist skills, QA validation, browser checks, scaffold boundaries, asset/provider boundary notes, credential safeguards, and local test target signals.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p2-skill-route-discovery-threejs"],
+        "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
+      },
+      {
+        "name": "codex-fable5",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "evidence_summary": "Mixed Codex plugin, skill, workflow gate, review ledger, examples, tests, evals, and verification habit evidence requiring skill_route_discovery_first before any secondary harness lane.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p3-mixed-skill-workflow-routing"],
+        "evidence_urls": ["https://github.com/baskduf/FableCodex"]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260620T215206Z-skill-route-discovery-pass1.txt",
+        "review_note": "Pass-1 documentation lane records the skill-route discovery contract for specialized skill repositories."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["tests/fixtures/local_harness_eval/skill_route_discovery_lane_pass1_current_action.json"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260620T215206Z-skill-route-discovery-pass1.txt",
+        "review_note": "Pass-1 config lane is represented as a bounded local harness fixture, not a profile or memory write."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260620T215206Z-skill-route-discovery-pass1.txt",
+        "review_note": "Pass-1 test lane verifies current_action selects a local validation target for mixed skill/workflow evidence."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260620T215206Z-skill-route-discovery-pass1.txt",
+        "review_note": "Pass-1 code-patch lane remains local controller behavior; upstream skill code is not imported or executed."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "current_action.status",
+      "equals": "ready"
+    },
+    {
+      "path": "current_action.current_pass",
+      "equals": 1
+    },
+    {
+      "path": "current_action.next_pass",
+      "equals": 2
+    },
+    {
+      "path": "current_action.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "current_action.route_profiles",
+      "equals": ["codex_workflow_gate", "game_frontend_workflow"]
+    },
+    {
+      "path": "current_action.supervisor_next_action",
+      "equals": "continue_skill_route_discovery_window"
+    },
+    {
+      "path": "current_action.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "current_action.external_skill_activation_allowed",
+      "equals": false
+    }
+  ]
+}

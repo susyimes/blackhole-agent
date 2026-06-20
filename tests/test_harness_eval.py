@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 52
-    assert payload["pass_count"] == 51
+    assert payload["fixture_count"] == 53
+    assert payload["pass_count"] == 52
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -161,6 +161,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
     assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
     assert results["skill-route-discovery-lane-pass4-closure"]["passed"] is True
+    assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
@@ -2619,6 +2620,48 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]
+
+
+def test_skill_route_discovery_pass1_exposes_current_action_for_mixed_skill_routes():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass1_current_action.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    current_action = output["current_action"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["capability_window_completion"]["status"] == "blocked"
+    assert "capability_window_not_at_final_pass" in output["capability_window_completion"]["diagnostics"]
+    assert output["validation_lane_plan"]["next_validation_target"]["selected_local_lane"] == "test"
+    assert current_action["status"] == "ready"
+    assert current_action["decision"] == "continue_selected_bounded_lane_next_pass"
+    assert current_action["current_pass"] == 1
+    assert current_action["next_pass"] == 2
+    assert current_action["remaining_pass_count"] == 3
+    assert current_action["selected_local_lane"] == "test"
+    assert current_action["validation_scope"] == "local_test_lane_only"
+    assert current_action["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
+    assert current_action["evidence_item_ids"] == [
+        "p2-skill-route-discovery-threejs",
+        "p3-mixed-skill-workflow-routing",
+    ]
+    assert current_action["runtime_action"] == "none"
+    assert current_action["external_skill_activation_allowed"] is False
+    assert current_action["external_skill_code_allowed"] is False
+    assert current_action["raw_evidence_urls_exported"] is False
+    assert "codex" in output["term_route_review"]["rows"][0]["matched_route_terms"]
+    assert output["term_route_review"]["runtime_action_allowed"] is False
+    assert output["term_route_review"]["external_skill_activation_allowed"] is False
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
 
 
 def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
