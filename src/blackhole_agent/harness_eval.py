@@ -1279,6 +1279,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
         recovery_hints=recovery_hints,
     )
+    preactivation_lane_selection = skill_route_discovery_preactivation_lane_selection(
+        route_profile_review=route_profile_review,
+        activation_manifest=activation_manifest,
+        candidate_lane_intake=candidate_lane_intake,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -1349,6 +1354,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
         "activity_signal_panel": activity_signal_panel,
+        "preactivation_lane_selection": preactivation_lane_selection,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -2648,6 +2654,148 @@ def skill_route_discovery_activation_sequence(
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_preactivation_lane_selection(
+    *,
+    route_profile_review: dict[str, Any],
+    activation_manifest: dict[str, Any],
+    candidate_lane_intake: dict[str, Any],
+) -> dict[str, Any]:
+    """Select one bounded local lane per route profile before activation handoff."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    manifest_lanes = activation_manifest.get("manifest_lanes")
+    manifest_lanes = manifest_lanes if isinstance(manifest_lanes, list) else []
+    manifest_by_kind = {
+        str(lane.get("proposal_kind") or ""): lane
+        for lane in manifest_lanes
+        if isinstance(lane, dict) and str(lane.get("proposal_kind") or "")
+    }
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    review_rows = route_profile_review.get("rows")
+    review_rows = review_rows if isinstance(review_rows, list) else []
+
+    for profile_row in review_rows:
+        if not isinstance(profile_row, dict):
+            continue
+        profile = str(profile_row.get("route_profile") or "generic_skill_workflow")
+        proposal_kinds = [
+            kind
+            for kind in string_list(profile_row.get("proposal_kinds"))
+            if kind in allowed_lanes
+        ]
+        lane_selection = skill_route_discovery_profile_lane_selection(
+            proposal_kinds=proposal_kinds,
+            route_profiles=[profile],
+            downgraded_lanes=[],
+            rejected=False,
+        )
+        recommended_order = string_list(lane_selection.get("recommended_local_lane_order"))
+        eligible_lanes = [
+            lane
+            for lane in recommended_order
+            if manifest_by_kind.get(lane, {}).get("activation_ready") is True
+            and manifest_by_kind.get(lane, {}).get("local_artifact_proof_ready") is True
+            and str(manifest_by_kind.get(lane, {}).get("runtime_action") or "none") == "none"
+            and manifest_by_kind.get(lane, {}).get("external_skill_activation_allowed") is False
+        ]
+        profile_ready = (
+            profile_row.get("metadata_complete") is True
+            and profile_row.get("local_validation_required") is True
+            and str(profile_row.get("runtime_action") or "none") == "none"
+        )
+        state_handoff_preflight = profile_row.get("state_handoff_preflight")
+        if isinstance(state_handoff_preflight, dict) and state_handoff_preflight.get("status") != "ready":
+            profile_ready = False
+
+        selected_lane = eligible_lanes[0] if profile_ready and eligible_lanes else ""
+        row_diagnostics: list[str] = []
+        if not proposal_kinds:
+            row_diagnostics.append("no_bounded_profile_lanes")
+        if not profile_ready:
+            row_diagnostics.append("profile_review_not_ready")
+        if not eligible_lanes:
+            row_diagnostics.append("local_artifact_proof_not_ready")
+        for diagnostic in row_diagnostics:
+            diagnostics.append(f"{profile}:{diagnostic}")
+
+        rows.append(
+            {
+                "route_profile": profile,
+                "selected_local_lane": selected_lane,
+                "recommended_local_lane_order": recommended_order,
+                "eligible_local_lanes": eligible_lanes,
+                "proposal_kinds": proposal_kinds,
+                "selection_status": "ready" if selected_lane else "review",
+                "selection_reason": lane_selection["lane_selection_reason"]
+                if selected_lane
+                else "resolve_profile_review_or_artifact_proof_before_lane_selection",
+                "metadata_complete": profile_row.get("metadata_complete") is True,
+                "local_artifact_proof_ready": bool(eligible_lanes),
+                "state_handoff_preflight_ready": (
+                    state_handoff_preflight.get("status") == "ready"
+                    if isinstance(state_handoff_preflight, dict)
+                    else True
+                ),
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        bool(rows)
+        and not diagnostics
+        and route_profile_review.get("status") == "ready"
+        and activation_manifest.get("status") == "ready"
+        and candidate_lane_intake.get("status") == "ready"
+        and all(row["selected_local_lane"] in allowed_lanes for row in rows)
+    )
+    return {
+        "controller_surface": "skill_route_discovery_preactivation_lane_selection",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "select_bounded_local_lane_per_profile"
+        if ready
+        else "resolve_profile_or_manifest_before_lane_selection",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "profile_count": len(rows),
+        "selected_profile_count": sum(1 for row in rows if row["selected_local_lane"]),
+        "selected_lanes": [
+            {
+                "route_profile": row["route_profile"],
+                "selected_local_lane": row["selected_local_lane"],
+            }
+            for row in rows
+            if row["selected_local_lane"]
+        ],
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,

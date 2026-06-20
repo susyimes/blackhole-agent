@@ -586,6 +586,19 @@ surface still withholds raw target paths and upstream bodies and requires
 changed-file review, focused local validation, rollback artifact, and review
 note proof before supervisor handoff.
 
+Pass-3 replay also emits `preactivation_lane_selection`, a compact selector
+that chooses one bounded local lane per ready route profile from the lanes
+already present in the activation manifest. FableCodex-style workflow gates and
+Three.js game director routes prefer the replay/test lane first, while
+COMPASS-style state handoff routes prefer config metadata before documentation,
+tests, or code patches. The selector never adds a lane, never selects a profile
+whose metadata review or state-handoff preflight is not ready, and never selects
+without local artifact proof. It exports only route profile names and bounded
+lane names, keeps `runtime_action_allowed: false`, and continues to deny
+external skill activation, external skill code, external harness execution,
+provider launch, remote execution, raw source URLs, raw target paths, and
+upstream bodies.
+
 On final scheduled passes for this capability slice, the harness emits
 `capability_window_completion`. This panel consumes the route profile review,
 activation manifest, operator handoff, supervisor readiness, and

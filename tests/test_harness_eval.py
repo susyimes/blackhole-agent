@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 47
-    assert payload["pass_count"] == 46
+    assert payload["fixture_count"] == 48
+    assert payload["pass_count"] == 47
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -1893,6 +1893,43 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert completion["external_skill_activation_allowed"] is False
     assert completion["provider_runtime_launch_allowed"] is False
     assert completion["remote_execution_allowed"] is False
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass3_selection.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    selection = output["preactivation_lane_selection"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["route_profile_review"]["status"] == "ready"
+    assert output["activation_manifest"]["status"] == "ready"
+    assert selection["status"] == "ready"
+    assert selection["decision"] == "select_bounded_local_lane_per_profile"
+    assert selection["profile_count"] == 3
+    assert selection["selected_lanes"] == [
+        {"route_profile": "codex_workflow_gate", "selected_local_lane": "test"},
+        {"route_profile": "game_frontend_workflow", "selected_local_lane": "test"},
+        {"route_profile": "skill_ecosystem_state_handoff", "selected_local_lane": "config"},
+    ]
+    assert [row["selection_status"] for row in selection["rows"]] == ["ready", "ready", "ready"]
+    assert all(row["runtime_action"] == "none" for row in selection["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in selection["rows"])
+    assert selection["runtime_action_allowed"] is False
+    assert selection["external_skill_activation_allowed"] is False
+    assert selection["provider_runtime_launch_allowed"] is False
+    assert selection["remote_execution_allowed"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
