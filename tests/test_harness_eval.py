@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 48
-    assert payload["pass_count"] == 47
+    assert payload["fixture_count"] == 49
+    assert payload["pass_count"] == 48
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -161,6 +161,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
     assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
+    assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -1512,6 +1513,10 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "required": False,
         "provided": False,
         "ready_for_local_replay": False,
+        "ready_for_supervisor_promotion": False,
+        "degraded_replay_only": False,
+        "success_claim_allowed": False,
+        "success_status_label": "",
         "sample_failure_mode": "none",
         "sample_recovery_hint_count": 0,
         "replay_commands": [
@@ -1985,6 +1990,10 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
         "required": True,
         "provided": False,
         "ready_for_local_replay": False,
+        "ready_for_supervisor_promotion": False,
+        "degraded_replay_only": False,
+        "success_claim_allowed": False,
+        "success_status_label": "",
         "sample_failure_mode": "none",
         "sample_recovery_hint_count": 0,
         "replay_commands": [

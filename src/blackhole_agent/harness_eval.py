@@ -1150,7 +1150,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     if (
         failure_mode == "none"
         and provider_runtime_replay_sample.get("provided") is True
-        and provider_runtime_replay_sample.get("ready_for_local_replay") is not True
+        and provider_runtime_replay_sample.get("blocked_before_local_replay") is True
     ):
         failure_mode = "provider_runtime_replay_not_ready"
     route_status = (
@@ -2027,12 +2027,22 @@ def skill_route_discovery_provider_runtime_replay_sample(
         summary.get("operator_recovery_plan") if isinstance(summary.get("operator_recovery_plan"), dict) else {}
     )
     route_status = str(summary.get("route_status") or "blocked")
+    sample_blocked = route_status == "blocked"
+    degraded_replay_only = route_status == "degraded"
+    success_status = (
+        supervisor_readiness.get("success_status")
+        if isinstance(supervisor_readiness.get("success_status"), dict)
+        else {}
+    )
     return {
         "provided": True,
         "required": True,
         "behavior": "provider_runtime_recovery_summary",
         "route_status": route_status,
-        "ready_for_local_replay": route_status == "passed",
+        "ready_for_local_replay": not sample_blocked,
+        "blocked_before_local_replay": sample_blocked,
+        "ready_for_supervisor_promotion": route_status == "passed",
+        "degraded_replay_only": degraded_replay_only,
         "failure_mode": str(summary.get("failure_mode") or "none"),
         "preflight_count": int(summary.get("preflight_count") or 0),
         "status_counts": dict(summary.get("status_counts") or {}),
@@ -2042,6 +2052,8 @@ def skill_route_discovery_provider_runtime_replay_sample(
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
         "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
+        "success_status_label": str(success_status.get("status_label") or ""),
+        "success_claim_allowed": success_status.get("success_claim_allowed") is True,
         "operator_next_action": str(operator_plan.get("next_action") or ""),
         "replay_commands": [
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
@@ -2064,7 +2076,7 @@ def skill_route_discovery_provider_runtime_replay_recovery_hints(
 
     if provider_runtime_replay_sample.get("provided") is not True:
         return []
-    if provider_runtime_replay_sample.get("ready_for_local_replay") is True:
+    if provider_runtime_replay_sample.get("blocked_before_local_replay") is not True:
         return []
     recovery_hint_codes = string_list(provider_runtime_replay_sample.get("recovery_hint_codes"))
     return [
@@ -3308,6 +3320,8 @@ def skill_route_discovery_provider_runtime_sample_gate(
     )
     provided = provider_runtime_replay_sample.get("provided") is True
     sample_ready = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    promotion_ready = provider_runtime_replay_sample.get("ready_for_supervisor_promotion") is True
+    degraded_replay_only = provider_runtime_replay_sample.get("degraded_replay_only") is True
     if not required:
         status = "ready"
         decision = "sample_optional_for_this_window"
@@ -3338,6 +3352,10 @@ def skill_route_discovery_provider_runtime_sample_gate(
         "required": required,
         "provided": provided,
         "ready_for_local_replay": sample_ready,
+        "ready_for_supervisor_promotion": promotion_ready,
+        "degraded_replay_only": degraded_replay_only,
+        "success_claim_allowed": provider_runtime_replay_sample.get("success_claim_allowed") is True,
+        "success_status_label": str(provider_runtime_replay_sample.get("success_status_label") or ""),
         "sample_failure_mode": str(provider_runtime_replay_sample.get("failure_mode") or "none"),
         "sample_recovery_hint_count": len(string_list(provider_runtime_replay_sample.get("recovery_hint_codes"))),
         "replay_commands": [

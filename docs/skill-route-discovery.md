@@ -654,9 +654,15 @@ and route recovery to the local provider-runtime preflight and recovery-summary
 commands. A ready sample is still metadata-only: it reports counts, statuses,
 failure classes, hashes, and replay commands while denying provider launch,
 remote execution, raw preflight input export, diagnostics export, and provider
-value export. Skill-route-only windows keep the sample optional so older
-discovery passes remain replayable unless a window explicitly opts into
-provider-runtime control.
+value export. A degraded-only sample, such as a mock provider path using
+placeholder auth, is ready for local replay but not ready for supervisor
+promotion; the sample gate records `degraded_replay_only: true`,
+`ready_for_supervisor_promotion: false`, and `success_claim_allowed: false` so
+operators can replay recovery without mistaking a degraded provider diagnostic
+for activation success. Blocked samples still stop completion as
+`provider_runtime_replay_not_ready`. Skill-route-only windows keep the sample
+optional so older discovery passes remain replayable unless a window explicitly
+opts into provider-runtime control.
 
 Before the final planned pass, the same panel reports `status: in_progress`
 when all bounded lane surfaces are otherwise ready but the capability window has

@@ -1,0 +1,129 @@
+{
+  "name": "skill-route-discovery-provider-runtime-degraded-sample",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-provider-runtime-degraded-sample",
+    "capability_window": {
+      "theme": "provider-runtime-control",
+      "capability_slice": "Turn provider and runtime configuration problems into body-free diagnostics, recovery hints, and locally replayable validation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p4-provider-tool-roundtrip-preflight",
+        "p5-provider-branch-preflight-probe",
+        "p3-skill-route-discovery-fablecodex"
+      ],
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "codex-fable5",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "evidence_summary": "Codex skill workflow package with evidence gates, review ledgers, verification habits, and provider/runtime control surface notes.",
+        "candidate_lanes": ["test"],
+        "evidence_item_ids": ["p3-skill-route-discovery-fablecodex"],
+        "evidence_urls": ["https://github.com/baskduf/FableCodex"]
+      }
+    ],
+    "provider_runtime_preflight_samples": [
+      {
+        "task_id": "fixture-openai-agents-mock-auth-degraded-sample",
+        "provider": {
+          "name": "openai-agents",
+          "harness": "openai-agents",
+          "auth_env_key": "OPENAI_API_KEY",
+          "required_env_keys": ["OPENAI_API_KEY"],
+          "degrade_on_incompatible_sandbox": false
+        },
+        "runtime": {
+          "platform": "linux",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess"
+        },
+        "runner_env": {
+          "parent_env_keys": ["PATH"],
+          "allowlist": ["PATH"],
+          "passthrough": []
+        },
+        "mock_llm": {
+          "enabled": true,
+          "auth_placeholder": true
+        }
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260620T161206Z-provider-runtime-skill-route-control.txt",
+        "review_note": "Degraded-only provider-runtime diagnostics remain replayable but cannot be claimed as supervisor promotion success."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "provider_runtime_replay_sample.route_status",
+      "equals": "degraded"
+    },
+    {
+      "path": "provider_runtime_replay_sample.ready_for_local_replay",
+      "equals": true
+    },
+    {
+      "path": "provider_runtime_replay_sample.blocked_before_local_replay",
+      "equals": false
+    },
+    {
+      "path": "provider_runtime_replay_sample.ready_for_supervisor_promotion",
+      "equals": false
+    },
+    {
+      "path": "provider_runtime_replay_sample.degraded_replay_only",
+      "equals": true
+    },
+    {
+      "path": "provider_runtime_replay_sample.success_status_label",
+      "equals": "provider_runtime_degraded_replay_only"
+    },
+    {
+      "path": "provider_runtime_replay_sample.success_claim_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_sample_gate.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_sample_gate.degraded_replay_only",
+      "equals": true
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_sample_gate.success_claim_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.status",
+      "equals": "ready"
+    },
+    {
+      "path": "privacy.raw_evidence_urls_exported",
+      "equals": false
+    }
+  ]
+}
