@@ -1,0 +1,16 @@
+# Rollback Point
+
+- source_digest: github-growth-20260620T041207.556739Z
+- created_at: 20260620T041422Z
+- original_branch: codex/blackhole-evolve/20260620T041305.093400-create-a-bounded-local-discovery-note-or-invento
+- original_head: 94b56ce3050239d4f2a771c5e2c1e29784f8de11
+- rollback_ref: refs/rollback/20260620T041422Z-provider-runtime-control-pass4-local
+
+## Recovery Commands
+
+```powershell
+git switch codex/blackhole-evolve/20260620T041305.093400-create-a-bounded-local-discovery-note-or-invento
+git reset --hard refs/rollback/20260620T041422Z-provider-runtime-control-pass4-local
+```
+
+Rollback is explicit and destructive; do not run these commands unless a human operator or supervisor policy chooses rollback.

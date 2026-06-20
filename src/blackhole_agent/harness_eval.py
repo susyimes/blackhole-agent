@@ -4799,6 +4799,17 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     }
     recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
     output["recovery_hints"] = recovery_hints
+    output["operator_recovery_plan"] = provider_runtime_operator_recovery_plan(
+        route_status=route_status,
+        failure_mode=failure_mode,
+        preflight_count=1,
+        status_counts={
+            "passed": int(route_status == "passed"),
+            "degraded": int(route_status == "degraded"),
+            "blocked": int(route_status == "blocked"),
+        },
+        recovery_hints=recovery_hints,
+    )
     output["supervisor_replay"] = provider_runtime_preflight_supervisor_replay(
         output,
         recovery_hints=recovery_hints,
@@ -5237,6 +5248,13 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
         "degraded_provider_count": status_counts["degraded"],
         "runner_invoked_count": sum(1 for preflight in preflights if preflight["runtime"]["runner_invoked"]),
         "recovery_hints": recovery_hints,
+        "operator_recovery_plan": provider_runtime_operator_recovery_plan(
+            route_status=route_status,
+            failure_mode=failure_mode,
+            preflight_count=len(preflights),
+            status_counts=status_counts,
+            recovery_hints=recovery_hints,
+        ),
         "supervisor_readiness": supervisor_readiness,
         "activation_gate": {
             "controller_surface": "provider_runtime_recovery_summary",
@@ -5294,6 +5312,84 @@ def provider_runtime_preflight_supervisor_replay(
         "raw_preflight_input_exported": False,
         "raw_diagnostics_exported": False,
         "degraded_replay_only": degraded,
+    }
+
+
+def provider_runtime_operator_recovery_plan(
+    *,
+    route_status: str,
+    failure_mode: str,
+    preflight_count: int,
+    status_counts: dict[str, int],
+    recovery_hints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return a compact, body-free recovery plan for provider runtime diagnostics."""
+
+    replay_commands = [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    recovery_steps = [
+        {
+            "code": str(hint.get("code") or ""),
+            "scope": str(hint.get("scope") or "provider_runtime"),
+            "severity": str(hint.get("severity") or "notice"),
+            "affected_preflight_count": int(hint.get("affected_preflight_count") or 0),
+            "provider_harness_count": len(string_list(hint.get("provider_harnesses"))),
+            "action": str(hint.get("action") or ""),
+            "privacy_review_required": bool(
+                hint.get("failover_review_only")
+                or (
+                    isinstance(hint.get("failover_review_plan"), dict)
+                    and str(hint["failover_review_plan"].get("status") or "") == "privacy_review_required"
+                )
+            ),
+            "value_recorded": False,
+        }
+        for hint in recovery_hints
+        if str(hint.get("code") or "").strip()
+    ]
+    recovery_hint_codes = [step["code"] for step in recovery_steps]
+    blocked = route_status == "blocked"
+    degraded = route_status == "degraded"
+    no_preflights = preflight_count <= 0
+
+    if no_preflights:
+        decision = "blocked_no_provider_runtime_preflights"
+        next_action = "add_provider_runtime_preflight_fixture_then_replay"
+        reason = "no_provider_runtime_preflights"
+    elif blocked:
+        decision = "blocked_recovery_required"
+        next_action = "resolve_recovery_steps_then_replay"
+        reason = failure_mode
+    elif degraded:
+        decision = "degraded_local_replay_only"
+        next_action = "review_degraded_steps_then_replay"
+        reason = "degraded_provider_runtime_replay_only"
+    else:
+        decision = "ready_for_local_replay"
+        next_action = "replay_provider_runtime_preflight"
+        reason = "none"
+
+    return {
+        "controller_surface": "provider_runtime_operator_recovery_plan",
+        "decision": decision,
+        "reason": reason,
+        "next_action": next_action,
+        "preflight_count": preflight_count,
+        "status_counts": dict(status_counts),
+        "recovery_step_count": len(recovery_steps),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "recovery_steps": recovery_steps,
+        "replay_commands": replay_commands,
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "body_free_diagnostics_only": True,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
     }
 
 

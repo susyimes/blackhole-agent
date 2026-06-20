@@ -2788,6 +2788,24 @@ def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or
     ]
     assert output["supervisor_replay"]["decision"] == "blocked_before_provider_launch"
     assert output["supervisor_replay"]["provider_runtime_launch_allowed"] is False
+    assert output["operator_recovery_plan"]["decision"] == "blocked_recovery_required"
+    assert output["operator_recovery_plan"]["next_action"] == "resolve_recovery_steps_then_replay"
+    assert output["operator_recovery_plan"]["recovery_hint_codes"] == ["provider_usage_limit_exhausted"]
+    assert output["operator_recovery_plan"]["recovery_steps"] == [
+        {
+            "code": "provider_usage_limit_exhausted",
+            "scope": "provider_usage_limit",
+            "severity": "blocker",
+            "affected_preflight_count": 1,
+            "provider_harness_count": 1,
+            "action": "wait for the provider usage window reset or route credential-pool failover through privacy review before retry",
+            "privacy_review_required": True,
+            "value_recorded": False,
+        }
+    ]
+    assert output["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
+    assert output["operator_recovery_plan"]["remote_execution_allowed"] is False
+    assert output["operator_recovery_plan"]["raw_preflight_inputs_exported"] is False
     assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
@@ -4057,6 +4075,29 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         "raw_preflight_inputs_exported": False,
         "raw_diagnostics_exported": False,
     }
+    assert output["operator_recovery_plan"]["decision"] == "blocked_recovery_required"
+    assert output["operator_recovery_plan"]["reason"] == "provider_runtime_recovery_required"
+    assert output["operator_recovery_plan"]["next_action"] == "resolve_recovery_steps_then_replay"
+    assert output["operator_recovery_plan"]["preflight_count"] == 6
+    assert output["operator_recovery_plan"]["status_counts"] == {"passed": 0, "degraded": 1, "blocked": 5}
+    assert output["operator_recovery_plan"]["recovery_step_count"] == 7
+    assert output["operator_recovery_plan"]["recovery_hint_codes"] == [
+        "browser_configure_checks_skipped",
+        "mock_auth_placeholder_used",
+        "native_terminal_timeout_risk",
+        "provider_install_linkage_unresolved",
+        "provider_usage_limit_exhausted",
+        "review_model_unavailable",
+        "url_safety_preflight_failed",
+    ]
+    assert output["operator_recovery_plan"]["recovery_hint_code_hashes"] == [
+        stable_text_hash(code) for code in output["operator_recovery_plan"]["recovery_hint_codes"]
+    ]
+    assert output["operator_recovery_plan"]["recovery_steps"][4]["privacy_review_required"] is True
+    assert all(step["value_recorded"] is False for step in output["operator_recovery_plan"]["recovery_steps"])
+    assert output["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
+    assert output["operator_recovery_plan"]["remote_execution_allowed"] is False
+    assert output["operator_recovery_plan"]["raw_provider_values_exported"] is False
     assert output["privacy"] == {
         "raw_preflight_inputs_exported": False,
         "raw_diagnostics_exported": False,
@@ -4158,6 +4199,10 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     assert degraded_only["supervisor_readiness"]["ready_for_supervisor_local_replay"] is True
     assert degraded_only["supervisor_readiness"]["decision"] == "ready_for_supervisor_degraded_local_replay"
     assert degraded_only["supervisor_readiness"]["reason"] == "degraded_provider_runtime_replay_only"
+    assert degraded_only["operator_recovery_plan"]["decision"] == "degraded_local_replay_only"
+    assert degraded_only["operator_recovery_plan"]["next_action"] == "review_degraded_steps_then_replay"
+    assert degraded_only["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
+    assert degraded_only["operator_recovery_plan"]["remote_execution_allowed"] is False
     assert degraded_only["supervisor_readiness"]["success_status"] == {
         "misleading_success_guardrail": True,
         "status_label": "provider_runtime_degraded_replay_only",
