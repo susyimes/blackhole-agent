@@ -4202,9 +4202,15 @@ def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, 
             "passive_or_denied": True,
             "tool_executed": False,
             "arguments_exported": False,
+            "approval_output_poll": evaluate_approval_output_poll({}),
         }
 
     policy_result = evaluate_native_tool_call_policy(native_tool_policy, source_path=source_path)
+    output_poll = evaluate_approval_output_poll(
+        native_tool_policy.get("approval_output_poll")
+        if isinstance(native_tool_policy.get("approval_output_poll"), dict)
+        else {}
+    )
     decision = str(policy_result["permission"]["decision"])
     tool_executed = bool(policy_result["safety"]["tool_executed"])
     approval_expected = truthy(native_tool_policy.get("approval_expected"))
@@ -4213,6 +4219,8 @@ def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, 
     failure_mode = str(policy_result["failure_mode"])
     if not approval_contract_passed:
         failure_mode = "approval_path_missing"
+    elif not output_poll["passed"]:
+        failure_mode = str(output_poll["failure_mode"])
     return {
         "declared": True,
         "route_status": policy_result["route_status"],
@@ -4228,12 +4236,77 @@ def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, 
             "tool_executed": tool_executed,
             "arguments_exported": False,
         },
+        "approval_output_poll": output_poll,
         "fail_closed_applied": policy_result["policy_hook"]["fail_closed_applied"],
         "passive_or_denied": approval_contract_passed
+        and output_poll["passed"]
         and decision in {"deny", "review_required", "no_opinion"}
         and not tool_executed,
         "tool_executed": tool_executed,
         "arguments_exported": False,
+    }
+
+
+def evaluate_approval_output_poll(poll: dict[str, Any]) -> dict[str, Any]:
+    """Replay bounded approval-output polling without exporting transcript text."""
+
+    required = truthy(poll.get("required"))
+    if not required:
+        return {
+            "required": False,
+            "passed": True,
+            "failure_mode": "none",
+            "expected_output_observed": False,
+            "sample_count": 0,
+            "poll_attempt_count": 0,
+            "matched_sample_index": None,
+            "timeout_ms": 0,
+            "interval_ms": 0,
+            "bounded": True,
+            "raw_output_exported": False,
+            "sample_hashes": [],
+        }
+
+    expected_contains = optional_string(poll.get("expected_contains")) or ""
+    samples = poll.get("samples") if isinstance(poll.get("samples"), list) else []
+    timeout_ms = max(0, optional_int(poll.get("timeout_ms")) or 0)
+    interval_ms = max(1, optional_int(poll.get("interval_ms")) or 1)
+    max_attempts = max(1, (timeout_ms // interval_ms) + 1) if timeout_ms else len(samples)
+    poll_attempt_count = min(len(samples), max_attempts)
+    matched_sample_index: int | None = None
+    sample_hashes: list[str] = []
+
+    for index, sample in enumerate(samples[:poll_attempt_count]):
+        sample_data = sample if isinstance(sample, dict) else {}
+        output = optional_string(
+            sample_data.get("output") or sample_data.get("text") or sample_data.get("content")
+        ) or ""
+        sample_hashes.append(stable_text_hash(output))
+        if expected_contains and expected_contains in output:
+            matched_sample_index = index
+            break
+
+    expected_output_observed = matched_sample_index is not None
+    if not expected_contains:
+        failure_mode = "approval_output_expectation_missing"
+    elif expected_output_observed:
+        failure_mode = "none"
+    else:
+        failure_mode = "approval_output_poll_timeout"
+
+    return {
+        "required": True,
+        "passed": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "expected_output_observed": expected_output_observed,
+        "sample_count": len(samples),
+        "poll_attempt_count": poll_attempt_count,
+        "matched_sample_index": matched_sample_index,
+        "timeout_ms": timeout_ms,
+        "interval_ms": interval_ms,
+        "bounded": timeout_ms > 0 and interval_ms > 0,
+        "raw_output_exported": False,
+        "sample_hashes": sample_hashes,
     }
 
 

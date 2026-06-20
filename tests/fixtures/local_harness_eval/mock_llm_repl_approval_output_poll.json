@@ -1,0 +1,113 @@
+{
+  "name": "mock-llm-repl-approval-output-poll",
+  "behavior": "mock_llm_workflow_route",
+  "input": {
+    "task_id": "fixture-mock-llm-repl-approval-output-poll",
+    "provider": {
+      "name": "external-chat-provider",
+      "enabled": false
+    },
+    "native_tool_policy": {
+      "task_id": "fixture-mock-llm-repl-approval-output-poll",
+      "approval_expected": true,
+      "policy_hook": {
+        "governed": true,
+        "session_id": "PRIVATE_REPL_APPROVAL_SESSION_DO_NOT_EXPORT",
+        "server_url_configured": true,
+        "event_phase": "TOOL_CALL",
+        "failure_mode": "none",
+        "verdict": {
+          "review_required": true,
+          "reason": "operator_ask"
+        }
+      },
+      "tool_call": {
+        "name": "Bash",
+        "transport": "native",
+        "arguments": {
+          "command": "PRIVATE_REPL_APPROVAL_COMMAND_DO_NOT_EXPORT"
+        }
+      },
+      "approval_output_poll": {
+        "required": true,
+        "timeout_ms": 750,
+        "interval_ms": 250,
+        "expected_contains": "approval required",
+        "samples": [
+          {
+            "elapsed_ms": 0,
+            "output": "PRIVATE_REPL_OUTPUT_STALE_DO_NOT_EXPORT"
+          },
+          {
+            "elapsed_ms": 250,
+            "output": "PRIVATE_REPL_OUTPUT approval required DO_NOT_EXPORT"
+          }
+        ]
+      }
+    },
+    "mock_llm": {
+      "enabled": true,
+      "model": "shared-model",
+      "responses": [
+        {
+          "content": "mock route reached approval boundary",
+          "tool_calls": [
+            {
+              "name": "Bash"
+            }
+          ]
+        }
+      ]
+    },
+    "workflow": {
+      "steps": [
+        {
+          "id": "approval-turn",
+          "expect_contains": "approval boundary"
+        }
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "native_tool_policy.approval_path.expected",
+      "equals": true
+    },
+    {
+      "path": "native_tool_policy.approval_path.declared",
+      "equals": true
+    },
+    {
+      "path": "native_tool_policy.approval_output_poll.required",
+      "equals": true
+    },
+    {
+      "path": "native_tool_policy.approval_output_poll.expected_output_observed",
+      "equals": true
+    },
+    {
+      "path": "native_tool_policy.approval_output_poll.poll_attempt_count",
+      "equals": 2
+    },
+    {
+      "path": "native_tool_policy.approval_output_poll.matched_sample_index",
+      "equals": 1
+    },
+    {
+      "path": "native_tool_policy.approval_output_poll.raw_output_exported",
+      "equals": false
+    },
+    {
+      "path": "native_tool_policy.passive_or_denied",
+      "equals": true
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

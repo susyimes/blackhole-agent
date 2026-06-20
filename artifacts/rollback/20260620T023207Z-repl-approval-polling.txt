@@ -1,0 +1,7 @@
+Run: github-growth-20260620T023207.556414Z
+Original branch: codex/blackhole-evolve/20260620T023306.771561-add-or-adapt-a-local-test-validation-lane-for-re
+Original HEAD: 36f7b29e2d72906f35174086db89bc003df4ac51
+Local rollback ref: refs/blackhole-rollback/20260620T023207Z-repl-approval-polling
+Recovery commands, to be run only after explicit human or supervisor approval:
+git reset --hard refs/blackhole-rollback/20260620T023207Z-repl-approval-polling
+git clean -fd

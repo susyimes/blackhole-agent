@@ -85,8 +85,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 44
-    assert payload["pass_count"] == 43
+    assert payload["fixture_count"] == 45
+    assert payload["pass_count"] == 44
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -139,6 +139,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["mock-llm-multimodal-text-encoded-blocks"]["passed"] is True
     assert results["mock-llm-interrupt-rebuild-replay"]["passed"] is True
     assert results["mock-llm-named-subagent-policy-route"]["passed"] is True
+    assert results["mock-llm-repl-approval-output-poll"]["passed"] is True
     assert results["mock-llm-session-file-tool-route"]["passed"] is True
     assert results["native-skill-session-title-slash-command"]["passed"] is True
     assert results["native-tool-call-policy-fail-closed"]["passed"] is True
@@ -171,6 +172,10 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_AGENT_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CONVERSATION_BEFORE_INTERRUPT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_POLICY_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REPL_APPROVAL_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REPL_APPROVAL_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REPL_OUTPUT_STALE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_REPL_OUTPUT approval required DO_NOT_EXPORT" not in serialized
     assert "native-ask-session-fixture-do-not-export" not in serialized
     assert "PRIVATE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_NATIVE_PATH_DO_NOT_EXPORT" not in serialized
@@ -229,6 +234,61 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_mock_llm_repl_approval_output_poll_times_out_without_single_sample_pass():
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        {
+            "task_id": "fixture-mock-llm-repl-approval-output-timeout",
+            "provider": {"enabled": False},
+            "native_tool_policy": {
+                "approval_expected": True,
+                "policy_hook": {
+                    "governed": True,
+                    "session_id": "PRIVATE_TIMEOUT_SESSION_DO_NOT_EXPORT",
+                    "server_url_configured": True,
+                    "event_phase": "TOOL_CALL",
+                    "failure_mode": "none",
+                    "verdict": {"review_required": True, "reason": "operator_ask"},
+                },
+                "tool_call": {
+                    "name": "Bash",
+                    "transport": "native",
+                    "arguments": {"command": "PRIVATE_TIMEOUT_COMMAND_DO_NOT_EXPORT"},
+                },
+                "approval_output_poll": {
+                    "required": True,
+                    "timeout_ms": 250,
+                    "interval_ms": 250,
+                    "expected_contains": "approval required",
+                    "samples": [
+                        {"output": "PRIVATE_TIMEOUT_STALE_OUTPUT_DO_NOT_EXPORT"},
+                    ],
+                },
+            },
+            "mock_llm": {
+                "enabled": True,
+                "responses": [
+                    {
+                        "content": "mock route reached approval boundary",
+                        "tool_calls": [{"name": "Bash"}],
+                    }
+                ],
+            },
+            "workflow": {"steps": [{"id": "approval-turn", "expect_contains": "approval boundary"}]},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_repl_approval_output_timeout_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "native_policy_route_failed"
+    assert output["native_tool_policy"]["failure_mode"] == "approval_output_poll_timeout"
+    assert output["native_tool_policy"]["approval_output_poll"]["passed"] is False
+    assert output["native_tool_policy"]["approval_output_poll"]["poll_attempt_count"] == 1
+    assert output["native_tool_policy"]["approval_output_poll"]["raw_output_exported"] is False
+    assert "PRIVATE_TIMEOUT_STALE_OUTPUT_DO_NOT_EXPORT" not in serialized
 
 
 def test_native_skill_session_title_blocks_generic_provider_fallback_without_exporting_context():
