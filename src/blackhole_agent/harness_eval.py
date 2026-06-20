@@ -1179,6 +1179,16 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
         recovery_hints=recovery_hints,
     )
+    capability_window_completion = skill_route_discovery_capability_window_completion(
+        raw_input=raw_input,
+        route_status=route_status,
+        failure_mode=failure_mode,
+        route_profile_review=route_profile_review,
+        activation_manifest=activation_manifest,
+        operator_handoff=operator_handoff,
+        supervisor_readiness=supervisor_readiness,
+        provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1236,6 +1246,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
         "activation_manifest": activation_manifest,
+        "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
         "operator_handoff": operator_handoff,
         "activation_lanes": activation_lanes,
@@ -2405,6 +2416,110 @@ def skill_route_discovery_activation_manifest(
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_capability_window_completion(
+    *,
+    raw_input: dict[str, Any],
+    route_status: str,
+    failure_mode: str,
+    route_profile_review: dict[str, Any],
+    activation_manifest: dict[str, Any],
+    operator_handoff: dict[str, Any],
+    supervisor_readiness: dict[str, Any],
+    provider_runtime_diagnostic_panel: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize completion readiness for a multi-pass skill-route slice."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    theme = optional_string(window.get("theme")) or "skill-route-discovery"
+    capability_slice = optional_string(window.get("capability_slice")) or (
+        "Convert skill and route evidence into bounded local lanes that can be validated before activation."
+    )
+    current_pass = int(window.get("current_pass") or window.get("planned_pass") or 0)
+    total_passes = int(window.get("total_passes") or 0)
+    anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    evidence_url_hashes = [
+        stable_text_hash(url) for url in string_list(window.get("evidence_urls"))
+    ]
+
+    manifest_lanes = activation_manifest.get("manifest_lanes")
+    manifest_lanes = manifest_lanes if isinstance(manifest_lanes, list) else []
+    route_profile_rows = route_profile_review.get("rows")
+    route_profile_rows = route_profile_rows if isinstance(route_profile_rows, list) else []
+    proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in manifest_lanes})
+    route_profiles = sorted({str(row.get("route_profile") or "") for row in route_profile_rows})
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    lanes_bounded = bool(proposal_kinds) and set(proposal_kinds) <= allowed_lanes
+    manifest_ready = activation_manifest.get("status") == "ready"
+    profile_review_ready = route_profile_review.get("status") == "ready"
+    handoff_ready = operator_handoff.get("status") == "ready"
+    supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
+    provider_replay_ready = provider_runtime_diagnostic_panel.get("status") == "ready"
+    planned_window_complete = bool(current_pass and total_passes and current_pass >= total_passes)
+
+    diagnostics: list[str] = []
+    if route_status != "passed" or failure_mode != "none":
+        diagnostics.append(f"route_not_passed:{failure_mode or route_status}")
+    if not lanes_bounded:
+        diagnostics.append("manifest_lanes_not_bounded")
+    if not profile_review_ready:
+        diagnostics.append("route_profile_review_not_ready")
+    if not manifest_ready:
+        diagnostics.append("activation_manifest_not_ready")
+    if not handoff_ready:
+        diagnostics.append("operator_handoff_not_ready")
+    if not supervisor_ready:
+        diagnostics.append("supervisor_readiness_not_ready")
+    if not provider_replay_ready:
+        diagnostics.append("provider_runtime_replay_not_ready")
+    if total_passes and not planned_window_complete:
+        diagnostics.append("capability_window_not_at_final_pass")
+
+    ready = not diagnostics and bool(manifest_lanes)
+    return {
+        "controller_surface": "skill_route_discovery_capability_window_completion",
+        "status": "ready" if ready else "blocked",
+        "decision": "complete_slice_for_supervisor_handoff" if ready else "continue_or_replay_before_completion",
+        "theme": theme,
+        "capability_slice": capability_slice,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "planned_window_complete": planned_window_complete,
+        "anchoring_proposal_count": len(anchoring_proposals),
+        "anchoring_proposal_hashes": [stable_text_hash(proposal) for proposal in anchoring_proposals],
+        "evidence_url_count": len(evidence_url_hashes),
+        "evidence_url_hashes": evidence_url_hashes,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "proposal_kinds": proposal_kinds,
+        "route_profiles": route_profiles,
+        "lane_count": len(manifest_lanes),
+        "route_profile_count": len(route_profiles),
+        "manifest_ready": manifest_ready,
+        "profile_review_ready": profile_review_ready,
+        "operator_handoff_ready": handoff_ready,
+        "supervisor_ready": supervisor_ready,
+        "provider_runtime_replay_ready": provider_replay_ready,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 

@@ -1168,6 +1168,57 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["raw_source_urls_exported"] is False
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
+    assert output["capability_window_completion"] == {
+        "controller_surface": "skill_route_discovery_capability_window_completion",
+        "status": "ready",
+        "decision": "complete_slice_for_supervisor_handoff",
+        "theme": "skill-route-discovery",
+        "capability_slice": (
+            "Convert skill and route evidence into bounded local lanes that can be validated before activation."
+        ),
+        "current_pass": 4,
+        "total_passes": 4,
+        "planned_window_complete": True,
+        "anchoring_proposal_count": 4,
+        "anchoring_proposal_hashes": [
+            stable_text_hash("proposal_skill_route_discovery_compass"),
+            stable_text_hash("proposal_skill_route_discovery_threejs_game"),
+            stable_text_hash("proposal_skill_route_discovery_fablecodex"),
+            stable_text_hash("proposal_unified_skill_route_regression"),
+        ],
+        "evidence_url_count": 3,
+        "evidence_url_hashes": [
+            stable_text_hash("https://github.com/dongshuyan/compass-skills"),
+            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+            stable_text_hash("https://github.com/baskduf/FableCodex"),
+        ],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+        "route_profiles": ["codex_workflow_gate"],
+        "lane_count": 4,
+        "route_profile_count": 1,
+        "manifest_ready": True,
+        "profile_review_ready": True,
+        "operator_handoff_ready": True,
+        "supervisor_ready": True,
+        "provider_runtime_replay_ready": True,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "diagnostics": [],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 

@@ -481,6 +481,19 @@ local validation, denies external skill activation, and does not import, run,
 clone, install, scaffold, probe credentials, launch providers, or generate
 assets from the upstream repository.
 
+On final scheduled passes for this capability slice, the harness emits
+`capability_window_completion`. This panel consumes the route profile review,
+activation manifest, operator handoff, supervisor readiness, and
+provider-runtime diagnostic panel, then reports whether the skill-route
+discovery window is complete enough for supervisor handoff. It records the
+theme, current and total pass counts, hashed anchoring proposals, hashed
+evidence URLs, bounded proposal kinds, route profiles, required validation, and
+provider-runtime replay commands. A ready completion panel means the four-pass
+slice has an operator-visible local result; it does not grant runtime action,
+external skill activation, external harness execution, provider launch, remote
+execution, raw evidence URL export, raw source URL export, or upstream body
+export.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,

@@ -3,6 +3,23 @@
   "behavior": "skill_route_discovery_lane",
   "input": {
     "task_id": "fixture-skill-route-discovery-lane",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "proposal_skill_route_discovery_compass",
+        "proposal_skill_route_discovery_threejs_game",
+        "proposal_skill_route_discovery_fablecodex",
+        "proposal_unified_skill_route_regression"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/baskduf/FableCodex"
+      ]
+    },
     "source_kind": "evidence_items",
     "evidence_items": [
       {
