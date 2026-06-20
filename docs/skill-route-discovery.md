@@ -743,6 +743,16 @@ lanes and does not authorize upstream install, clone, execution, scaffold
 generation, provider launch, remote execution, raw source URL export, raw target
 path export, or upstream body export.
 
+`capability_window_completion` now repeats those grouped targets through
+`validation_target_handoff`. This makes the next supervisor action visible from
+the completion surface itself: a non-final pass can carry a local config target
+for COMPASS-style state handoff and a local test target for FableCodex-style or
+game-skill workflow evidence without requiring operators to infer the route from
+raw upstream URLs. The handoff remains body-free and keeps the same denials for
+runtime action, external skill activation, external harness execution, provider
+launch, remote execution, raw evidence URLs, raw source URLs, raw target paths,
+and upstream bodies.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,

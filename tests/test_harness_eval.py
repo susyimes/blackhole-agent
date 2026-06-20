@@ -1531,6 +1531,69 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_diagnostics_exported": False,
         "raw_provider_values_exported": False,
     }
+    validation_target_handoff = {
+        "controller_surface": "skill_route_discovery_validation_target_handoff",
+        "status": "ready",
+        "decision": "continue_with_bounded_validation_targets",
+        "validation_plan_status": "ready",
+        "validation_plan_decision": "validate_final_bounded_local_lane_before_handoff",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "target_count": 1,
+        "selected_local_lanes": ["test"],
+        "route_profiles": ["codex_workflow_gate"],
+        "targets": [
+            {
+                "selected_local_lane": "test",
+                "validation_scope": "local_test_lane_only",
+                "route_profiles": ["codex_workflow_gate"],
+                "route_profile_count": 1,
+                "evidence_item_ids": [
+                    "fablecodex-issue-15",
+                    "fablecodex-issue-18",
+                    "fablecodex-repo",
+                ],
+                "evidence_item_id_count": 3,
+                "candidate_source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+                "candidate_source_count": 1,
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                    "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+                ],
+                "plan_basis": "completion_handoff_from_grouped_validation_targets",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        ],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     activation_packet = output["capability_window_completion"]["activation_packet"]
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
@@ -1567,6 +1630,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "supervisor_ready": True,
         "provider_runtime_replay_ready": True,
         "provider_runtime_sample_gate": provider_runtime_sample_gate,
+        "validation_target_handoff": validation_target_handoff,
         "profile_completion_check": {
             "controller_surface": "skill_route_discovery_profile_completion_check",
             "status": "ready",
@@ -1608,6 +1672,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
             ],
             "provider_runtime_sample_gate": provider_runtime_sample_gate,
+            "validation_target_handoff": validation_target_handoff,
             "profile_completion_check": {
                 "controller_surface": "skill_route_discovery_profile_completion_check",
                 "status": "ready",
@@ -2015,6 +2080,29 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "test",
         "code_patch",
     }
+    assert completion["validation_target_handoff"]["controller_surface"] == (
+        "skill_route_discovery_validation_target_handoff"
+    )
+    assert completion["validation_target_handoff"]["status"] == "ready"
+    assert completion["validation_target_handoff"]["decision"] == (
+        "continue_with_bounded_validation_targets"
+    )
+    assert completion["validation_target_handoff"]["selected_local_lanes"] == ["config", "test"]
+    assert completion["validation_target_handoff"]["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert [
+        (target["selected_local_lane"], target["route_profiles"], target["validation_scope"])
+        for target in completion["validation_target_handoff"]["targets"]
+    ] == [
+        ("config", ["skill_ecosystem_state_handoff"], "local_config_lane_only"),
+        ("test", ["codex_workflow_gate", "game_frontend_workflow"], "local_test_lane_only"),
+    ]
+    assert completion["completion_handoff"]["validation_target_handoff"] == (
+        completion["validation_target_handoff"]
+    )
     assert validation_plan["controller_surface"] == "skill_route_discovery_validation_lane_plan"
     assert validation_plan["status"] == "ready"
     assert validation_plan["decision"] == "continue_bounded_local_validation_lane"
