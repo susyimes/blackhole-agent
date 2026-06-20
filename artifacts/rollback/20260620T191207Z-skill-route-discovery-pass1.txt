@@ -1,0 +1,14 @@
+Rollback point for skill-route-discovery pass 1
+
+Source digest: github-growth-20260620T191207.732215Z
+Original branch: codex/blackhole-evolve/20260620T191303.378811-add-or-extend-local-tests-for-skill-route-discov
+Original HEAD: cb18fe7295e6a41d39abb8b3f51512ea89d757d1
+Rollback ref: refs/rollback/20260620T191207Z-skill-route-discovery-pass1
+
+Recovery commands:
+
+git switch codex/blackhole-evolve/20260620T191303.378811-add-or-extend-local-tests-for-skill-route-discov
+git reset --hard refs/rollback/20260620T191207Z-skill-route-discovery-pass1
+
+Rollback execution is explicit and destructive. A human operator or external
+supervisor policy must choose it before reset or clean commands run.

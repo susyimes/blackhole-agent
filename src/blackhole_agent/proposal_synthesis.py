@@ -81,6 +81,10 @@ MIXED_SKILL_ROUTE_PROBE_COMMANDS = [
     "pytest tests/test_github_growth.py -q -k mixed_skill_workflow",
     "pytest tests/test_proposal_eval.py -q -k route_hint_lane_map",
 ]
+SKILL_ROUTE_LOCAL_LANE_COMMANDS = [
+    "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+    "pytest tests/test_proposal_eval.py -q -k skill_route_discovery",
+]
 MIXED_SKILL_ROUTE_PROBE_LANE_ORDER = ["test", "documentation", "config", "code_patch"]
 MIXED_SKILL_ROUTE_PROBE_DENIED_ACTIONS = [
     "install",
@@ -529,6 +533,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "route_class_counts": dict(sorted(route_class_counts.items())),
         "route_classifier": route_classifier_rows,
         "route_activity_pressure": build_skill_route_activity_pressure(package_items),
+        "skill_route_local_lane_candidates": build_skill_route_local_lane_candidates(package_items),
         "mixed_skill_workflow_probe": build_mixed_skill_workflow_probe(package_items),
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
@@ -538,6 +543,83 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "evidence_url_effect": "none",
         "runtime_action": "none",
         "diagnostics": diagnostics,
+    }
+
+
+def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
+    """Expose skill/workflow evidence as bounded local lanes before activation."""
+
+    rows: list[dict[str, Any]] = []
+    allowed_lanes = ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+        if classification.get("route_class") != "skill_workflow":
+            continue
+
+        item_id = str(item.get("item_id") or "")
+        source_url = str(item.get("source_url") or "")
+        local_lanes = [
+            str(lane)
+            for lane in classification.get("allowed_lanes", [])
+            if str(lane) in allowed_lanes and str(lane) in ROUTE_HINT_PROPOSAL_LANES
+        ]
+        route_probe_decision = str(classification.get("route_probe_decision") or "")
+        mixed_probe = route_probe_decision == "skill_route_discovery_first"
+        rows.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": stable_hash({"source_url": source_url}) if source_url else "",
+                "route_class": "skill_workflow",
+                "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
+                "local_lanes": local_lanes,
+                "lanes_bounded": bool(local_lanes) and set(local_lanes).issubset(allowed_lanes),
+                "route_probe_decision": route_probe_decision,
+                "secondary_lane_status": (
+                    "blocked_until_local_corroboration"
+                    if mixed_probe
+                    else "not_requested"
+                ),
+                "activation_gate": (
+                    "local_skill_route_validation_before_secondary_harness_eval"
+                    if mixed_probe
+                    else "local_validation_before_activation"
+                ),
+                "required_local_validation": (
+                    list(MIXED_SKILL_ROUTE_PROBE_COMMANDS)
+                    if mixed_probe
+                    else list(SKILL_ROUTE_LOCAL_LANE_COMMANDS)
+                ),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "raw_source_url_export_allowed": False,
+                "upstream_body_export_allowed": False,
+            }
+        )
+
+    rows_bounded = all(row["lanes_bounded"] for row in rows)
+    return {
+        "controller_surface": "skill_route_local_lane_candidates",
+        "candidate_count": len(rows),
+        "rows": rows,
+        "allowed_local_lanes": list(allowed_lanes),
+        "rows_bounded": rows_bounded,
+        "local_validation_required": True,
+        "activation_gate": (
+            "local_validation_before_activation"
+            if rows_bounded
+            else "blocked_before_activation"
+        ),
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
     }
 
 

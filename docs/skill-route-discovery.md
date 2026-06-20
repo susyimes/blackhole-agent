@@ -876,6 +876,16 @@ class, route hints, allowed local lanes, and classifier reasons only. They do
 not export raw upstream bodies, add evidence URLs, grant permissions, install
 packages, or request runtime action.
 
+The same route-hint map also emits `skill_route_local_lane_candidates`, a
+bounded pre-activation panel derived directly from selected skill/workflow
+items. FableCodex, COMPASS Skills, and Three.js Game Skills-style rows expose
+only documentation, config, test, and code_patch as `local_lanes`, require local
+validation, hash source URLs, and deny runtime action, external skill
+activation, external agent activation, and upstream body export. Mixed
+FableCodex-style rows keep the secondary harness lane blocked until local
+corroboration, while general agent projects such as Omnigent do not appear in
+this panel.
+
 For general agent projects such as Omnigent-style agent frameworks or
 meta-harnesses, the same lane map emits `general_agent_project_eval`. This is
 an evaluation lane, not a skill-route lane: it records selected item IDs, hashed

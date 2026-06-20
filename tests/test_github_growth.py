@@ -1507,6 +1507,111 @@ def test_general_agent_project_eval_lane_requires_harness_evaluation_without_ski
     ]
 
 
+def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_activation():
+    digest = {
+        "digest_id": "github-growth-20260620T191207.732215Z",
+        "generated_at": "2026-06-20T19:12:07Z",
+        "items": [
+            {
+                "item_id": "fablecodex-workflow-skill",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "FableCodex: Codex plugin with skill workflow gates, examples, tests, "
+                    "evals, and verification ledgers."
+                ),
+                "relevance_reason": "Mixed skill and harness signals should enter skill-route discovery first.",
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "compass-skills-state",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "COMPASS Skills: agent skills for clarification, task memory, and workflow routing.",
+                "relevance_reason": "Skill ecosystem state handoff evidence maps to bounded local lanes.",
+                "risk_flags": [],
+                "confidence": 0.72,
+            },
+            {
+                "item_id": "threejs-game-skills-director",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "Three.js Game Skills: director skill with specialist skills, QA, and workflow checks.",
+                "relevance_reason": "Domain director skills should become local validation lanes only.",
+                "risk_flags": [],
+                "confidence": 0.70,
+            },
+            {
+                "item_id": "omnigent-general-agent-project",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "Omnigent: general AI agent runtime and meta-harness.",
+                "relevance_reason": "General agent movement requires harness evaluation rather than route-package lanes.",
+                "risk_flags": [],
+                "confidence": 0.68,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    candidate_panel = lane_map["skill_route_local_lane_candidates"]
+
+    assert candidate_panel["controller_surface"] == "skill_route_local_lane_candidates"
+    assert candidate_panel["candidate_count"] == 3
+    assert candidate_panel["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert candidate_panel["rows_bounded"] is True
+    assert candidate_panel["local_validation_required"] is True
+    assert candidate_panel["runtime_action"] == "none"
+    assert candidate_panel["external_skill_activation_allowed"] is False
+    assert candidate_panel["external_agent_activation_allowed"] is False
+    assert candidate_panel["raw_source_url_export_allowed"] is False
+    assert candidate_panel["upstream_body_export_allowed"] is False
+
+    rows_by_id = {row["item_id"]: row for row in candidate_panel["rows"]}
+    assert sorted(rows_by_id) == [
+        "compass-skills-state",
+        "fablecodex-workflow-skill",
+        "threejs-game-skills-director",
+    ]
+    assert "omnigent-general-agent-project" not in rows_by_id
+
+    for item_id, row in rows_by_id.items():
+        assert row["route_class"] == "skill_workflow"
+        assert "skill_route_discovery" in row["route_hints"]
+        assert row["local_lanes"] == ["documentation", "config", "test", "code_patch"]
+        assert row["lanes_bounded"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["raw_source_url_export_allowed"] is False
+        assert row["upstream_body_export_allowed"] is False
+        assert row["source_url_hash"]
+        assert "https://github.com" not in json.dumps(row, sort_keys=True)
+
+    assert rows_by_id["fablecodex-workflow-skill"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert rows_by_id["fablecodex-workflow-skill"]["activation_gate"] == (
+        "local_skill_route_validation_before_secondary_harness_eval"
+    )
+    assert rows_by_id["fablecodex-workflow-skill"]["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert rows_by_id["fablecodex-workflow-skill"]["required_local_validation"] == [
+        "pytest tests/test_github_growth.py -q -k mixed_skill_workflow",
+        "pytest tests/test_proposal_eval.py -q -k route_hint_lane_map",
+    ]
+
+    assert rows_by_id["compass-skills-state"]["activation_gate"] == "local_validation_before_activation"
+    assert rows_by_id["threejs-game-skills-director"]["activation_gate"] == "local_validation_before_activation"
+    assert rows_by_id["compass-skills-state"]["required_local_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+        "pytest tests/test_proposal_eval.py -q -k skill_route_discovery",
+    ]
+    assert rows_by_id["threejs-game-skills-director"]["source_url_hash"] == stable_hash(
+        {"source_url": "https://github.com/majidmanzarpour/threejs-game-skills"}
+    )
+
+
 def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():
     digest = {
         "digest_id": "github-growth-mixed-skill-workflow-probe",
