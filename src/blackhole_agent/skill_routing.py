@@ -625,6 +625,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
     proposal_lanes: list[dict[str, Any]] = []
     rejected_candidates: list[dict[str, Any]] = []
     downgraded_candidates: list[dict[str, Any]] = []
+    candidate_lane_inventory: list[dict[str, Any]] = []
     for raw_candidate in candidates:
         if not isinstance(raw_candidate, Mapping):
             rejected_candidates.append(
@@ -691,8 +692,27 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             )
             continue
 
+        uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
+        candidate_lane_inventory.append(
+            {
+                "candidate_name": name,
+                "source_url": source_url,
+                "proposal_kinds": list(dict.fromkeys(allowed_lanes)),
+                "route_profiles": _string_list(candidate.get("route_profiles")),
+                "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
+                "discovery_event_effect": str(candidate.get("discovery_event_effect") or "record_only"),
+                "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
+                "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "activation_gate": "local_validation_before_activation",
+                "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
+                "uncertainty_reasons": uncertainty_reasons,
+            }
+        )
+
         for lane in allowed_lanes:
-            uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
             proposal_lanes.append(
                 {
                     "candidate_name": name,
@@ -723,6 +743,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "rejected_candidate_count": len(rejected_candidates),
         "downgraded_candidate_count": len(downgraded_candidates),
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
+        "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
         "rejected_candidates": rejected_candidates,
         "downgraded_candidates": downgraded_candidates,

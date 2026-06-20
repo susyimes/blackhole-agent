@@ -1,0 +1,17 @@
+Rollback point for skill-route-discovery pass 1
+
+Source digest: github-growth-20260620T123207.645183Z
+Prepared branch: codex/blackhole-evolve/20260620T123405.094420-add-or-extend-local-tests-for-skill-route-discov
+Original branch: codex/blackhole-evolve/20260620T123405.094420-add-or-extend-local-tests-for-skill-route-discov
+Original HEAD: 645a5a878fb7e51211b586d531f249e18620fa33
+Rollback ref: refs/rollback/20260620T123206Z-skill-route-discovery-pass1
+
+Recovery commands, for an explicit operator-approved destructive rollback only:
+
+git switch codex/blackhole-evolve/20260620T123405.094420-add-or-extend-local-tests-for-skill-route-discov
+git reset --hard refs/rollback/20260620T123206Z-skill-route-discovery-pass1
+
+Run notes:
+
+- Created before source edits for the 2026-06-20 skill-route-discovery pass.
+- Do not delete this artifact during the run that created it.

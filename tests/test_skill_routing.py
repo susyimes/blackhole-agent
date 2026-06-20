@@ -514,6 +514,26 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert lane_map["downgraded_candidate_count"] == 0
     assert lane_map["allowed_proposal_kinds"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert lane_map["proposal_lane_count"] == 11
+    assert [row["candidate_name"] for row in lane_map["candidate_lane_inventory"]] == [
+        "codex-fable5",
+        "compass-skills",
+        "threejs-game-skills",
+    ]
+    assert {
+        lane
+        for row in lane_map["candidate_lane_inventory"]
+        for lane in row["proposal_kinds"]
+    } <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(row["runtime_action"] == "none" for row in lane_map["candidate_lane_inventory"])
+    assert all(row["local_validation_required"] is True for row in lane_map["candidate_lane_inventory"])
+    assert all(
+        row["external_skill_activation_allowed"] is False
+        for row in lane_map["candidate_lane_inventory"]
+    )
+    assert all(
+        row["activation_gate"] == "local_validation_before_activation"
+        for row in lane_map["candidate_lane_inventory"]
+    )
     assert lane_map["route_profile_catalog"] == {
         "body_free": True,
         "profile_counts": {
@@ -644,6 +664,31 @@ def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
     assert lane_map["proposal_lane_count"] == 1
     assert lane_map["proposal_lanes"][0]["proposal_kind"] == "documentation"
     assert lane_map["proposal_lanes"][0]["runtime_action"] == "none"
+    assert lane_map["candidate_lane_inventory"] == [
+        {
+            "candidate_name": "lane-overreach",
+            "source_url": "https://github.com/example/lane-overreach",
+            "proposal_kinds": ["documentation"],
+            "route_profiles": ["generic_skill_workflow"],
+            "discovery_event_kind": "unknown",
+            "discovery_event_effect": "record_only",
+            "evidence_item_ids": [],
+            "evidence_urls": ["https://github.com/example/lane-overreach"],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "activation_gate": "local_validation_before_activation",
+            "uncertainty": (
+                "External skill evidence is unvalidated repository-level routing evidence; keep proposals local, "
+                "bounded, and separately validated."
+            ),
+            "uncertainty_reasons": [
+                "unvalidated_external_skill_evidence",
+                "single_repository_level_source",
+                "no_selected_digest_item_ids",
+            ],
+        }
+    ]
     assert lane_map["rejected_candidate_count"] == 0
     assert lane_map["downgraded_candidate_count"] == 1
     assert lane_map["downgraded_candidates"][0] == {

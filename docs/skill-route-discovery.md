@@ -206,6 +206,13 @@ The disabled discovery registry can now be rendered into a proposal-lane map.
 This is the controller-facing form for local growth planning: each recognized
 skill project can produce only documentation, config, test, or code_patch
 proposal kinds, each with `runtime_action: none` and local validation required.
+The lane map also carries `candidate_lane_inventory`, one compact row per
+recognized or downgraded candidate, so an operator can inspect which bounded
+local lanes came from each public skill repository before reading the expanded
+proposal rows. Inventory rows repeat the activation boundary:
+`local_validation_required: true`, `runtime_action: none`,
+`external_skill_activation_allowed: false`, and
+`activation_gate: local_validation_before_activation`.
 Each lane also carries body-free uncertainty text and `uncertainty_reasons` so
 review can distinguish repository-level trend evidence, sparse selected-item
 evidence, fork or mirror amplification, and `missing_detail_risk` from locally
