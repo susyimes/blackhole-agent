@@ -2681,6 +2681,7 @@ def skill_route_discovery_capability_window_completion(
     current_pass = int(window.get("current_pass") or window.get("planned_pass") or 0)
     total_passes = int(window.get("total_passes") or 0)
     anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    required_route_profiles = sorted(dict.fromkeys(string_list(window.get("required_route_profiles"))))
     evidence_url_hashes = [
         stable_text_hash(url) for url in string_list(window.get("evidence_urls"))
     ]
@@ -2707,6 +2708,11 @@ def skill_route_discovery_capability_window_completion(
     supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
     provider_replay_ready = provider_runtime_diagnostic_panel.get("status") == "ready"
     planned_window_complete = bool(current_pass and total_passes and current_pass >= total_passes)
+    profile_completion_check = skill_route_discovery_profile_completion_check(
+        required_route_profiles=required_route_profiles,
+        observed_route_profiles=route_profiles,
+        planned_window_complete=planned_window_complete,
+    )
 
     diagnostics: list[str] = []
     if route_status != "passed" or failure_mode != "none":
@@ -2723,6 +2729,11 @@ def skill_route_discovery_capability_window_completion(
         diagnostics.append("supervisor_readiness_not_ready")
     if not provider_replay_ready:
         diagnostics.append("provider_runtime_replay_not_ready")
+    if profile_completion_check["status"] != "ready":
+        diagnostics.append(
+            "required_route_profiles_missing:"
+            + ",".join(profile_completion_check["missing_route_profiles"])
+        )
     if total_passes and not planned_window_complete:
         diagnostics.append("capability_window_not_at_final_pass")
 
@@ -2759,6 +2770,7 @@ def skill_route_discovery_capability_window_completion(
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
+        "profile_completion_check": profile_completion_check,
         "local_validation_required": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
@@ -2792,6 +2804,7 @@ def skill_route_discovery_capability_window_completion(
         "operator_handoff_ready": handoff_ready,
         "supervisor_ready": supervisor_ready,
         "provider_runtime_replay_ready": provider_replay_ready,
+        "profile_completion_check": profile_completion_check,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
@@ -2800,6 +2813,44 @@ def skill_route_discovery_capability_window_completion(
         ],
         "diagnostics": diagnostics,
         "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_profile_completion_check(
+    *,
+    required_route_profiles: list[str],
+    observed_route_profiles: list[str],
+    planned_window_complete: bool,
+) -> dict[str, Any]:
+    """Check final-pass route-profile coverage without exporting source evidence."""
+
+    required = sorted(dict.fromkeys(required_route_profiles))
+    observed = sorted(dict.fromkeys(observed_route_profiles))
+    missing = sorted(set(required) - set(observed))
+    enforced = planned_window_complete and bool(required)
+    ready = not enforced or not missing
+    return {
+        "controller_surface": "skill_route_discovery_profile_completion_check",
+        "status": "ready" if ready else "blocked",
+        "decision": "profile_requirements_satisfied"
+        if ready
+        else "replay_missing_route_profiles_before_completion",
+        "required_route_profiles": required,
+        "observed_route_profiles": observed,
+        "missing_route_profiles": missing,
+        "required_profile_count": len(required),
+        "observed_profile_count": len(observed),
+        "planned_window_complete": planned_window_complete,
+        "enforced": enforced,
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,

@@ -1,0 +1,13 @@
+Rollback point for skill-route-discovery pass 4.
+
+Original branch: codex/blackhole-evolve/20260620T133315.835305-run-a-bounded-local-skill-route-discovery-evalua
+Original HEAD: f853bdf377a046d8b254907f619438b88860c5da
+Rollback ref: refs/rollback/20260620T213351Z-skill-route-discovery-pass4
+
+Recovery commands:
+
+git switch codex/blackhole-evolve/20260620T133315.835305-run-a-bounded-local-skill-route-discovery-evalua
+git reset --hard refs/rollback/20260620T213351Z-skill-route-discovery-pass4
+
+Rollback execution is destructive and must be chosen explicitly by a human
+operator or external supervisor policy.

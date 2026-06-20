@@ -599,6 +599,17 @@ external skill activation, external harness execution, provider launch, remote
 execution, raw evidence URL export, raw source URL export, or upstream body
 export.
 
+Final passes may also declare `required_route_profiles` in the capability
+window. When present, completion checks those required profiles against the
+body-free profiles actually replayed in the local harness. A pass that cites or
+anchors FableCodex, COMPASS Skills, and Three.js Game Skills can therefore
+require `codex_workflow_gate`, `skill_ecosystem_state_handoff`, and
+`game_frontend_workflow` before supervisor handoff. Missing profiles block only
+the completion handoff; they do not grant install, enable, run, execute,
+clone-and-run, profile-write, memory-write, scaffold, asset-generation,
+provider-launch, remote-execution, raw evidence export, raw source URL export,
+or upstream body export authority.
+
 The same panel includes `completion_handoff`, a compact supervisor-facing
 contract for the final slice state. It repeats the completion status and
 decision, names a `supervisor_next_action`, records the

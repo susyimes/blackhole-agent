@@ -1476,6 +1476,27 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "operator_handoff_ready": True,
         "supervisor_ready": True,
         "provider_runtime_replay_ready": True,
+        "profile_completion_check": {
+            "controller_surface": "skill_route_discovery_profile_completion_check",
+            "status": "ready",
+            "decision": "profile_requirements_satisfied",
+            "required_route_profiles": [],
+            "observed_route_profiles": ["codex_workflow_gate"],
+            "missing_route_profiles": [],
+            "required_profile_count": 0,
+            "observed_profile_count": 1,
+            "planned_window_complete": True,
+            "enforced": False,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "completion_handoff": {
             "status": "ready",
             "decision": "complete_slice_for_supervisor_handoff",
@@ -1495,6 +1516,27 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
                 "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
             ],
+            "profile_completion_check": {
+                "controller_surface": "skill_route_discovery_profile_completion_check",
+                "status": "ready",
+                "decision": "profile_requirements_satisfied",
+                "required_route_profiles": [],
+                "observed_route_profiles": ["codex_workflow_gate"],
+                "missing_route_profiles": [],
+                "required_profile_count": 0,
+                "observed_profile_count": 1,
+                "planned_window_complete": True,
+                "enforced": False,
+                "body_free": True,
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            },
             "local_validation_required": True,
             "runtime_action_allowed": False,
             "external_skill_activation_allowed": False,
@@ -1737,6 +1779,170 @@ def test_skill_route_discovery_capability_window_reports_in_progress_before_fina
     assert completion["raw_evidence_urls_exported"] is False
     assert completion["raw_source_urls_exported"] is False
     assert completion["raw_upstream_body_exported"] is False
+
+
+def test_skill_route_discovery_completion_blocks_missing_required_profiles():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["required_route_profiles"] = [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    completion = output["capability_window_completion"]
+    check = completion["profile_completion_check"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "blocked"
+    assert completion["decision"] == "continue_or_replay_before_completion"
+    assert check["status"] == "blocked"
+    assert check["decision"] == "replay_missing_route_profiles_before_completion"
+    assert check["required_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert check["observed_route_profiles"] == ["codex_workflow_gate"]
+    assert check["missing_route_profiles"] == [
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert check["enforced"] is True
+    assert (
+        "required_route_profiles_missing:game_frontend_workflow,skill_ecosystem_state_handoff"
+        in completion["diagnostics"]
+    )
+    assert completion["completion_handoff"]["profile_completion_check"] == check
+    assert completion["runtime_action_allowed"] is False
+    assert completion["external_skill_activation_allowed"] is False
+    assert completion["raw_evidence_urls_exported"] is False
+
+
+def test_skill_route_discovery_completion_accepts_required_profile_coverage():
+    input_payload = {
+        "task_id": "fixture-skill-route-discovery-profile-completion",
+        "capability_window": {
+            "theme": "skill-route-discovery",
+            "current_pass": 4,
+            "total_passes": 4,
+            "required_route_profiles": [
+                "codex_workflow_gate",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            ],
+        },
+        "source_kind": "candidates",
+        "candidates": [
+            {
+                "name": "codex-fable5",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "evidence_summary": (
+                    "Codex skill workflow gate with review ledger, verification habit, "
+                    "plugin routing docs, and test coverage notes."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "evidence_item_ids": ["fablecodex-repo"],
+            },
+            {
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "evidence_summary": (
+                    "Skill ecosystem with task clarification, repo-local local memory, handoff prompts, "
+                    "collaboration profile, route metadata, validation evidence, and privacy boundary notes."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "evidence_item_ids": ["compass-repo"],
+            },
+            {
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "evidence_summary": (
+                    "Three.js browser game director skill bundle with QA validation, screenshot and canvas checks, "
+                    "asset/provider boundary notes, credential safeguards, and generation limits."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "evidence_item_ids": ["threejs-repo"],
+            },
+        ],
+        "state_handoff_boundary": {
+            "retention_policy_documented": True,
+            "privacy_boundary_documented": True,
+            "local_target_metadata_only": True,
+            "upstream_presence_grants_write": False,
+        },
+        "local_artifact_proofs": [
+            {
+                "proposal_kind": "documentation",
+                "changed_files": ["docs/skill-route-discovery.md"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T213351Z-skill-route-discovery-pass4.txt",
+                "review_note": "Documented final profile completion coverage for skill-route discovery.",
+            },
+            {
+                "proposal_kind": "config",
+                "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T213351Z-skill-route-discovery-pass4.txt",
+                "review_note": "Config lane remains bounded to local proposal mapping.",
+            },
+            {
+                "proposal_kind": "test",
+                "changed_files": ["tests/test_harness_eval.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T213351Z-skill-route-discovery-pass4.txt",
+                "review_note": "Tests replay profile completion coverage.",
+            },
+            {
+                "proposal_kind": "code_patch",
+                "changed_files": ["src/blackhole_agent/harness_eval.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260620T213351Z-skill-route-discovery-pass4.txt",
+                "review_note": "Harness completion code checks required route profiles.",
+            },
+        ],
+    }
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        input_payload,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_profile_completion_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    completion = output["capability_window_completion"]
+    check = completion["profile_completion_check"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "ready"
+    assert completion["decision"] == "complete_slice_for_supervisor_handoff"
+    assert completion["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert check["status"] == "ready"
+    assert check["required_route_profiles"] == completion["route_profiles"]
+    assert check["observed_route_profiles"] == completion["route_profiles"]
+    assert check["missing_route_profiles"] == []
+    assert check["enforced"] is True
+    assert completion["diagnostics"] == []
+    assert completion["completion_handoff"]["profile_completion_check"] == check
+    assert completion["completion_handoff"]["supervisor_next_action"] == (
+        "handoff_completed_skill_route_slice_to_supervisor"
+    )
+    assert completion["runtime_action_allowed"] is False
+    assert completion["external_skill_activation_allowed"] is False
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
 def test_skill_route_discovery_capability_window_handoff_reports_final_blockers():
