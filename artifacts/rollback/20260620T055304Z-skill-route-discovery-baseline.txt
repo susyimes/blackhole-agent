@@ -1,0 +1,26 @@
+Rollback point for skill route discovery baseline.
+
+Created: 2026-06-20T13:53:30+08:00
+Source digest: github-growth-20260620T055207.730587Z
+Branch: codex/blackhole-evolve/20260620T055304.896914-add-or-update-a-local-validation-test-that-check
+Original HEAD: 04dbdedbbc21fe9095d21137b673a552bd048d0f
+Rollback ref: refs/rollback/20260620T055304Z-skill-route-discovery-baseline
+
+Recovery commands, for an explicit human or supervisor rollback only:
+
+```bash
+git switch codex/blackhole-evolve/20260620T055304.896914-add-or-update-a-local-validation-test-that-check
+git reset --hard refs/rollback/20260620T055304Z-skill-route-discovery-baseline
+```
+
+Material actions during this run:
+
+- Read `docs/self-model.md` and left it unchanged because it already matches the rollback-backed local-evolution policy for this slice.
+- Created rollback ref `refs/rollback/20260620T055304Z-skill-route-discovery-baseline` at the original HEAD.
+- Patched proposal route classification and skill-route-discovery validation/docs.
+- Added run notes at `artifacts/self-evolution/github-growth-20260620T055207.730587Z-codex-run-notes.md`.
+- Validation passed:
+  - `pytest tests/test_github_growth.py -q -k "skill_route or route_classifier or skill_workflow"`
+  - `pytest tests/test_proposal_eval.py -q -k "skill_route_discovery or route_hint_lane_map"`
+  - `pytest tests/test_github_growth.py tests/test_proposal_eval.py tests/test_skill_routing.py -q`
+  - `ruff check src\blackhole_agent\proposal_synthesis.py tests\test_github_growth.py tests\test_proposal_eval.py`

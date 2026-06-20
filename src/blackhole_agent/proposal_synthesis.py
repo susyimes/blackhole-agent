@@ -39,19 +39,33 @@ SKILL_WORKFLOW_ROUTE_TERMS = (
     "agent skills",
     "codex skill",
     "codex skills",
-    "mcp",
-    "plugin",
-    "plugins",
     "skill",
     "skill-route",
     "skill routing",
     "skills",
+    "workflow skill",
+    "workflow skills",
+)
+SKILL_WORKFLOW_CONTEXT_TERMS = (
+    "director",
+    "gate",
+    "gates",
+    "mcp",
+    "plugin",
+    "plugins",
     "tool integration",
     "tool integrations",
-    "workflow",
     "workflow gate",
     "workflow gates",
     "workflow routing",
+)
+GENERAL_AGENT_PROJECT_ROUTE_TERMS = (
+    "agent",
+    "agents",
+    "ai agent",
+    "llm agent",
+    "multi-agent",
+    "runtime",
 )
 PROVIDER_CONFIG_ROUTE_TERMS = (
     "api key",
@@ -252,7 +266,7 @@ def build_proposal_evidence_package(
                 "relevance_reason": relevance_reason,
                 "rule_risk_flags": [str(flag) for flag in item.get("risk_flags", [])],
                 "rule_confidence": float(item.get("confidence") or 0.0),
-                "route_hints": route_hints_for_digest_item(
+                **route_metadata_for_digest_item(
                     {
                         **item,
                         "summary": summary,
@@ -394,6 +408,25 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             if str(route_hint).strip()
         }
     )
+    route_class_counts: dict[str, int] = {}
+    route_classifier_rows: list[dict[str, Any]] = []
+    for item in evidence_package.get("items", []):
+        if not isinstance(item, dict):
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+        route_class = str(classification.get("route_class") or "unclassified")
+        route_class_counts[route_class] = route_class_counts.get(route_class, 0) + 1
+        route_classifier_rows.append(
+            {
+                "item_id": str(item.get("item_id") or ""),
+                "route_class": route_class,
+                "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
+                "allowed_lanes": [str(lane) for lane in classification.get("allowed_lanes", [])],
+                "reasons": [str(reason) for reason in classification.get("reasons", [])],
+            }
+        )
 
     diagnostics: list[str] = []
     expected_policy_lanes = {
@@ -452,6 +485,8 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "route_hint_count": len(selected_route_hints),
         "selected_route_hints": selected_route_hints,
         "configured_route_hints": sorted(configured_hints),
+        "route_class_counts": dict(sorted(route_class_counts.items())),
+        "route_classifier": route_classifier_rows,
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -462,6 +497,58 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
     }
 
 
+def route_metadata_for_digest_item(item: dict[str, Any]) -> dict[str, Any]:
+    """Return body-free route metadata for a digest item."""
+
+    classification = classify_digest_item_route(item)
+    return {
+        "route_hints": list(classification["route_hints"]),
+        "route_classification": classification,
+    }
+
+
+def classify_digest_item_route(item: dict[str, Any]) -> dict[str, Any]:
+    """Classify public digest evidence before proposal lanes are chosen.
+
+    Skill/workflow-specific evidence is allowed to expose only the bounded
+    skill-route discovery lanes. General agent-project movement remains visible
+    as trend evidence but does not inherit the skill-route lane merely because
+    it mentions agents or generic workflow activity.
+    """
+
+    text = " ".join(
+        str(item.get(key) or "")
+        for key in ("event_kind", "summary", "relevance_reason", "recommended_action")
+    ).lower()
+    route_hints = _route_hints_from_text(text)
+    if "skill_route_discovery" in route_hints:
+        return {
+            "route_class": "skill_workflow",
+            "route_hints": route_hints,
+            "allowed_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+            "reasons": _skill_workflow_route_reasons(text),
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+    if any(term in text for term in GENERAL_AGENT_PROJECT_ROUTE_TERMS):
+        return {
+            "route_class": "general_agent_project",
+            "route_hints": route_hints,
+            "allowed_lanes": [],
+            "reasons": ["agent_project_without_skill_workflow_signal"],
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+    return {
+        "route_class": "unclassified",
+        "route_hints": route_hints,
+        "allowed_lanes": [],
+        "reasons": [],
+        "runtime_action": "none",
+        "local_validation_required": True,
+    }
+
+
 def route_hints_for_digest_item(item: dict[str, Any]) -> list[str]:
     """Return deterministic proposal lanes suggested by non-sensitive item text."""
 
@@ -469,8 +556,12 @@ def route_hints_for_digest_item(item: dict[str, Any]) -> list[str]:
         str(item.get(key) or "")
         for key in ("event_kind", "summary", "relevance_reason", "recommended_action")
     ).lower()
+    return _route_hints_from_text(text)
+
+
+def _route_hints_from_text(text: str) -> list[str]:
     hints: list[str] = []
-    if any(term in text for term in SKILL_WORKFLOW_ROUTE_TERMS):
+    if _has_skill_workflow_route_signal(text):
         hints.append("skill_route_discovery")
     if any(term in text for term in PROVIDER_CONFIG_ROUTE_TERMS):
         hints.append("provider_config_preflight")
@@ -479,6 +570,21 @@ def route_hints_for_digest_item(item: dict[str, Any]) -> list[str]:
     if any(term in text for term in GOVERNANCE_POLICY_ROUTE_TERMS):
         hints.append("governance_policy")
     return hints
+
+
+def _has_skill_workflow_route_signal(text: str) -> bool:
+    if any(term in text for term in SKILL_WORKFLOW_ROUTE_TERMS):
+        return True
+    return "workflow" in text and any(term in text for term in SKILL_WORKFLOW_CONTEXT_TERMS)
+
+
+def _skill_workflow_route_reasons(text: str) -> list[str]:
+    reasons: list[str] = []
+    if any(term in text for term in SKILL_WORKFLOW_ROUTE_TERMS):
+        reasons.append("skill_term")
+    if "workflow" in text and any(term in text for term in SKILL_WORKFLOW_CONTEXT_TERMS):
+        reasons.append("workflow_context_term")
+    return reasons or ["skill_workflow_route_signal"]
 
 
 def rank_digest_items_for_context_budget(items: Any) -> list[dict[str, Any]]:

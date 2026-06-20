@@ -40,6 +40,7 @@ from blackhole_agent.proposal_synthesis import (
     build_context_budget_preflight,
     build_provider_routing_preflight,
     build_proposal_evidence_package,
+    classify_digest_item_route,
     review_llm_proposal_response,
     stable_hash,
 )
@@ -1033,6 +1034,14 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
             "rule_risk_flags": [],
             "rule_confidence": 0.91,
             "route_hints": [],
+            "route_classification": {
+                "route_class": "unclassified",
+                "route_hints": [],
+                "allowed_lanes": [],
+                "reasons": [],
+                "runtime_action": "none",
+                "local_validation_required": True,
+            },
         }
     ]
     assert first["allowed_evidence_urls"] == ["https://github.com/microsoft/fastcontext/issues/123?query=preserve"]
@@ -1381,6 +1390,44 @@ def test_proposal_evidence_package_marks_skill_workflow_route_hints():
         ["skill_route_discovery"],
         ["skill_route_discovery"],
     ]
+    assert [item["route_classification"]["route_class"] for item in evidence_package["items"]] == [
+        "skill_workflow",
+        "skill_workflow",
+    ]
+    assert all(
+        item["route_classification"]["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+        for item in evidence_package["items"]
+    )
+
+
+def test_route_classifier_distinguishes_skill_workflow_from_general_agent_project():
+    skill_item = {
+        "item_id": "threejs-game-skills-domain-director",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "threejs-game-skills: agent skills for Three.js direction, QA, and workflow routing.",
+        "relevance_reason": "Domain-director skill bundles should map only into bounded local validation lanes.",
+    }
+    general_item = {
+        "item_id": "omnigent-general-agent-project",
+        "source_url": "https://github.com/omnigent-ai/omnigent",
+        "event_kind": "RepositoryTrend",
+        "summary": "omnigent-ai/omnigent: general AI agent runtime with repository activity and release movement.",
+        "relevance_reason": "Useful upstream agent-project movement, but not a reusable route package signal.",
+    }
+
+    skill_classification = classify_digest_item_route(skill_item)
+    general_classification = classify_digest_item_route(general_item)
+
+    assert skill_classification["route_class"] == "skill_workflow"
+    assert skill_classification["route_hints"] == ["skill_route_discovery"]
+    assert skill_classification["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert skill_classification["runtime_action"] == "none"
+
+    assert general_classification["route_class"] == "general_agent_project"
+    assert general_classification["route_hints"] == []
+    assert general_classification["allowed_lanes"] == []
+    assert general_classification["runtime_action"] == "none"
 
 
 def test_skill_route_discovery_accepts_only_bounded_repository_trend_lanes():

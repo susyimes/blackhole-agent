@@ -547,6 +547,15 @@ def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
 
     assert lane_map["ok"] is True
     assert lane_map["allowed_proposal_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert lane_map["route_class_counts"] == {"skill_workflow": 2}
+    assert [row["route_class"] for row in lane_map["route_classifier"]] == [
+        "skill_workflow",
+        "skill_workflow",
+    ]
+    assert all(
+        row["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+        for row in lane_map["route_classifier"]
+    )
     assert lane_map["permission_effect"] == "none"
     assert lane_map["evidence_url_effect"] == "none"
     assert lane_map["runtime_action"] == "none"

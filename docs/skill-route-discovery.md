@@ -485,6 +485,23 @@ repository scripts, grant permissions, or add new evidence URLs. This makes
 route-hint drift visible even when an LLM candidate would otherwise be rejected
 later by the per-candidate lane check.
 
+The proposal evidence package now also records a body-free route classification
+beside each selected item. Public repositories that show reusable skills,
+skill packs, director skills, workflow gates, workflow routing, plugins, or
+tool integrations are classified as `skill_workflow` and may expose only the
+bounded `skill_route_discovery` lanes: documentation, config, test, and
+code_patch. General agent-project movement remains visible as
+`general_agent_project` when it names agents or runtimes but lacks a skill or
+workflow-specific route signal. That class does not inherit
+`skill_route_discovery` lanes merely from repository popularity or generic
+agent activity.
+
+`build_route_hint_lane_map` summarizes those classifier rows through
+`route_class_counts` and `route_classifier`. The rows carry item IDs, route
+class, route hints, allowed local lanes, and classifier reasons only. They do
+not export raw upstream bodies, add evidence URLs, grant permissions, install
+packages, or request runtime action.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,
