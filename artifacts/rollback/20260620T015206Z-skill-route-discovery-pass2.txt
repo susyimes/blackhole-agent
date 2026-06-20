@@ -1,0 +1,12 @@
+# Rollback point: skill-route-discovery-pass2
+
+- Created: 20260620T015206Z
+- Original branch: codex/blackhole-evolve/20260620T015359.147586-add-or-improve-a-local-skill-route-discovery-lan
+- Original HEAD: b79bb957e14adcad6b04168e50a408ede6fbb9ab
+- Rollback ref: refs/rollback/skill-route-discovery-pass2-20260620T015206Z
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260620T015359.147586-add-or-improve-a-local-skill-route-discovery-lan
+git reset --hard refs/rollback/skill-route-discovery-pass2-20260620T015206Z
+
+Rollback is explicit and destructive; do not run recovery commands without operator approval.

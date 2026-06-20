@@ -342,6 +342,18 @@ export, raw source URL export, and raw target path export. A blocked handoff
 keeps the discovery useful as evidence but requires review or replay before any
 local implementation lane is promoted.
 
+Before that final handoff, the harness now emits `local_lane_intake`. This is
+the operator-visible inventory of bounded local work inferred from external
+skill evidence. It groups proposal rows by documentation, config, test, or
+code_patch, exposes only hashed candidate names, hashed source URLs, hashed
+local target paths, evidence item counts, required local validation commands,
+activation blockers, source-lineage counts, and the discovery actions that stay
+blocked. It does not export raw URLs, raw target paths, raw evidence, upstream
+skill bodies, or external code, and it keeps install, enable, run, execute,
+clone-and-run, and deletion authority denied. Empty or actionful evidence
+therefore produces no intake rows even when the upstream repository looked like
+a useful skill package.
+
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked
 from supervisor handoff until it carries a body-free `local_artifact_proof` for

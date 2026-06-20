@@ -771,6 +771,59 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_related_source_urls_exported": False,
         "runtime_actions_executed": False,
     }
+    assert output["local_lane_intake"]["status"] == "ready"
+    assert output["local_lane_intake"]["decision"] == "validate_bounded_local_lanes"
+    assert output["local_lane_intake"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert output["local_lane_intake"]["lane_count"] == 4
+    assert output["local_lane_intake"]["evidence_tier"] == "specific_route_or_validation_evidence"
+    assert output["local_lane_intake"]["activation_decision"] == "ready_for_local_proposal_activation"
+    assert output["local_lane_intake"]["blocked_discovery_actions"] == [
+        "clone_and_run",
+        "delete_local_skill",
+        "enable",
+        "execute",
+        "install",
+        "run",
+    ]
+    assert output["local_lane_intake"]["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 1,
+        "related_source_count": 0,
+        "fork_or_mirror_lineage_collapsed": False,
+    }
+    assert output["local_lane_intake"]["runtime_action_allowed"] is False
+    assert output["local_lane_intake"]["external_skill_activation_allowed"] is False
+    assert output["local_lane_intake"]["external_skill_code_allowed"] is False
+    assert output["local_lane_intake"]["raw_evidence_exported"] is False
+    assert output["local_lane_intake"]["raw_source_urls_exported"] is False
+    assert output["local_lane_intake"]["raw_target_paths_exported"] is False
+    assert [row["proposal_kind"] for row in output["local_lane_intake"]["lane_rows"]] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    for row in output["local_lane_intake"]["lane_rows"]:
+        assert row["candidate_count"] == 1
+        assert row["candidate_name_hashes"] == [stable_text_hash("codex-fable5")]
+        assert row["source_hashes"] == [stable_text_hash("https://github.com/baskduf/FableCodex")]
+        assert row["evidence_item_id_count"] == 3
+        assert row["target_path_hashes"]
+        assert row["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+        assert row["local_validation_required"] is True
+        assert row["activation_ready"] is True
+        assert row["activation_blockers"] == []
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_skill_code_allowed"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 
@@ -1004,6 +1057,36 @@ def test_skill_route_discovery_lane_blocks_actionful_candidates():
     assert output["supervisor_readiness"]["recovery_hint_codes"] == [
         "skill_route_rejected_candidates_present"
     ]
+    assert output["local_lane_intake"] == {
+        "status": "blocked",
+        "decision": "no_bounded_local_lanes",
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "lane_count": 0,
+        "lane_rows": [],
+        "evidence_tier": "specific_route_or_validation_evidence",
+        "activation_decision": "blocked_before_activation",
+        "source_lineage": {
+            "body_free": True,
+            "lineage_mode": "single_or_independent_sources",
+            "candidate_source_count": 1,
+            "related_source_count": 0,
+            "fork_or_mirror_lineage_collapsed": False,
+        },
+        "blocked_discovery_actions": [
+            "clone_and_run",
+            "delete_local_skill",
+            "enable",
+            "execute",
+            "install",
+            "run",
+        ],
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+    }
     assert output["operator_handoff"] == {
         "status": "blocked",
         "decision": "hold_for_review_or_replay",

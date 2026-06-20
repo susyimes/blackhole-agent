@@ -1015,6 +1015,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
         recovery_hints=recovery_hints,
     )
+    local_lane_intake = skill_route_discovery_local_lane_intake(
+        proposal_lanes=proposal_lanes,
+        activation_lanes=activation_lanes,
+        activation_gate=activation_gate,
+        evidence_strength=evidence_strength,
+        source_lineage=source_lineage,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -1064,6 +1071,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "recovery_hints": recovery_hints,
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
+        "local_lane_intake": local_lane_intake,
         "supervisor_readiness": supervisor_readiness,
         "operator_handoff": operator_handoff,
         "activation_lanes": activation_lanes,
@@ -1715,6 +1723,123 @@ def skill_route_discovery_operator_handoff(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+    }
+
+
+def skill_route_discovery_local_lane_intake(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    activation_lanes: list[dict[str, Any]],
+    activation_gate: dict[str, Any],
+    evidence_strength: dict[str, Any],
+    source_lineage: dict[str, Any],
+) -> dict[str, Any]:
+    """Render bounded implementation lanes before any supervisor activation.
+
+    This is the operator-visible intake contract for public skill repositories:
+    external evidence may name local documentation, config, test, or code_patch
+    work, but the handoff exports only hashes and local validation requirements.
+    """
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS,
+    )
+
+    activation_by_kind = {
+        str(lane.get("proposal_kind") or ""): lane
+        for lane in activation_lanes
+        if str(lane.get("proposal_kind") or "")
+    }
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        if proposal_kind:
+            grouped.setdefault(proposal_kind, []).append(lane)
+
+    lane_rows: list[dict[str, Any]] = []
+    for proposal_kind in sorted(grouped):
+        lanes = grouped[proposal_kind]
+        activation_lane = activation_by_kind.get(proposal_kind, {})
+        artifact_contract = activation_lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        target_paths = artifact_contract.get("target_paths")
+        target_paths = target_paths if isinstance(target_paths, list) else []
+        evidence_item_ids: list[str] = []
+        for lane in lanes:
+            evidence_item_ids.extend(string_list(lane.get("evidence_item_ids")))
+
+        lane_rows.append(
+            {
+                "proposal_kind": proposal_kind,
+                "candidate_count": len({str(lane.get("candidate_name") or "") for lane in lanes}),
+                "candidate_name_hashes": sorted(
+                    {
+                        stable_text_hash(str(lane.get("candidate_name") or ""))
+                        for lane in lanes
+                        if str(lane.get("candidate_name") or "")
+                    }
+                ),
+                "source_hashes": sorted(
+                    {
+                        stable_text_hash(str(lane.get("source_url") or ""))
+                        for lane in lanes
+                        if str(lane.get("source_url") or "")
+                    }
+                ),
+                "evidence_item_id_count": len(set(evidence_item_ids)),
+                "target_path_hashes": [
+                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+                ],
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "local_validation_required": all(lane.get("local_validation_required") is True for lane in lanes),
+                "activation_ready": activation_lane.get("activation_ready") is True,
+                "activation_blockers": string_list(activation_lane.get("activation_blockers")),
+                "runtime_action": str(activation_lane.get("runtime_action") or "none"),
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+            }
+        )
+
+    lane_kinds = {row["proposal_kind"] for row in lane_rows}
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    local_activation_allowed = activation_gate.get("local_proposal_activation_allowed") is True
+    all_rows_ready = bool(lane_rows) and all(row["activation_ready"] for row in lane_rows)
+    all_rows_bounded = lane_kinds <= allowed_lanes
+    if local_activation_allowed and all_rows_ready and all_rows_bounded:
+        status = "ready"
+        decision = "validate_bounded_local_lanes"
+    elif lane_rows:
+        status = "review"
+        decision = "hold_lanes_for_review_or_corroboration"
+    else:
+        status = "blocked"
+        decision = "no_bounded_local_lanes"
+
+    return {
+        "status": status,
+        "decision": decision,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "lane_count": len(lane_rows),
+        "lane_rows": lane_rows,
+        "evidence_tier": str(evidence_strength.get("tier") or ""),
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "blocked_discovery_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS),
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
     }
 
 
