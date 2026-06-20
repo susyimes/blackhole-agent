@@ -2483,6 +2483,12 @@ def skill_route_discovery_activation_manifest(
         and all(lane["activation_ready"] for lane in manifest_lanes)
     )
     recovery_hint_codes = [str(hint.get("code") or "") for hint in recovery_hints if str(hint.get("code") or "")]
+    activation_sequence = skill_route_discovery_activation_sequence(
+        manifest_lanes=manifest_lanes,
+        manifest_ready=ready,
+        operator_handoff=operator_handoff,
+        source_lineage=source_lineage,
+    )
     return {
         "controller_surface": "skill_route_discovery_activation_manifest",
         "status": "ready" if ready else "blocked",
@@ -2490,6 +2496,7 @@ def skill_route_discovery_activation_manifest(
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "lane_count": len(manifest_lanes),
         "manifest_lanes": manifest_lanes,
+        "activation_sequence": activation_sequence,
         "required_validation": validation_commands,
         "provider_runtime_replay_commands": [
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
@@ -2512,6 +2519,131 @@ def skill_route_discovery_activation_manifest(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_activation_sequence(
+    *,
+    manifest_lanes: list[dict[str, Any]],
+    manifest_ready: bool,
+    operator_handoff: dict[str, Any],
+    source_lineage: dict[str, Any],
+) -> dict[str, Any]:
+    """Render a body-free ordered preactivation sequence for supervisors."""
+
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    provider_runtime_commands = [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    lane_count = len(manifest_lanes)
+    lane_names = [str(lane.get("proposal_kind") or "") for lane in manifest_lanes]
+    bounded_lanes_ready = bool(lane_count) and all(
+        str(lane.get("runtime_action") or "none") == "none"
+        and lane.get("external_skill_activation_allowed") is False
+        and not string_list(lane.get("activation_blockers"))
+        for lane in manifest_lanes
+    )
+    artifact_proofs_ready = bool(lane_count) and all(
+        lane.get("local_artifact_proof_ready") is True for lane in manifest_lanes
+    )
+    validation_ready = bool(lane_count) and all(
+        lane.get("required_validation") == validation_commands for lane in manifest_lanes
+    )
+    provider_replay_ready = bool(lane_count) and all(
+        str(lane.get("provider_runtime_next_action") or "")
+        == "run_provider_runtime_replay_before_promotion"
+        for lane in manifest_lanes
+    )
+    lineage_ready = source_lineage.get("body_free") is True and int(
+        source_lineage.get("candidate_source_count") or 0
+    ) > 0
+    handoff_ready = operator_handoff.get("status") == "ready"
+
+    step_specs = [
+        (
+            "inspect_body_free_source_lineage",
+            lineage_ready,
+            "source_lineage",
+            [],
+            [],
+        ),
+        (
+            "verify_bounded_local_lanes",
+            bounded_lanes_ready,
+            "manifest_lanes",
+            lane_names,
+            [],
+        ),
+        (
+            "prove_local_artifacts",
+            artifact_proofs_ready,
+            "local_artifact_proof",
+            lane_names,
+            [],
+        ),
+        (
+            "run_required_local_validation",
+            validation_ready,
+            "required_validation",
+            lane_names,
+            validation_commands,
+        ),
+        (
+            "replay_provider_runtime_preflight",
+            provider_replay_ready,
+            "provider_runtime_control",
+            lane_names,
+            provider_runtime_commands,
+        ),
+        (
+            "handoff_to_supervisor",
+            handoff_ready and manifest_ready,
+            "operator_handoff",
+            lane_names,
+            [],
+        ),
+    ]
+    steps = [
+        {
+            "order": index,
+            "step": step,
+            "status": "ready" if ready else "blocked",
+            "source": source,
+            "proposal_kinds": sorted(dict.fromkeys(proposal_kinds)),
+            "required_validation": commands,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for index, (step, ready, source, proposal_kinds, commands) in enumerate(step_specs, start=1)
+    ]
+    sequence_ready = bool(steps) and all(step["status"] == "ready" for step in steps)
+    return {
+        "controller_surface": "skill_route_discovery_activation_sequence",
+        "status": "ready" if sequence_ready else "blocked",
+        "decision": "sequence_ready_for_supervisor_replay" if sequence_ready else "hold_sequence_for_replay",
+        "step_count": len(steps),
+        "steps": steps,
+        "required_validation": validation_commands,
+        "provider_runtime_replay_commands": provider_runtime_commands,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
@@ -2605,6 +2737,11 @@ def skill_route_discovery_capability_window_completion(
         "status": status,
         "decision": decision,
         "supervisor_next_action": completion_next_action,
+        "activation_sequence_status": str(
+            activation_manifest.get("activation_sequence", {}).get("status")
+            if isinstance(activation_manifest.get("activation_sequence"), dict)
+            else ""
+        ),
         "final_pass_required": bool(total_passes),
         "final_pass_observed": planned_window_complete,
         "selected_evidence_ref_count": len(selected_evidence_refs),

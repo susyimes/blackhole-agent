@@ -1361,6 +1361,50 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["activation_manifest"]["recovery_hint_codes"] == []
     assert output["activation_manifest"]["diagnostics"] == []
     assert output["activation_manifest"]["evidence_ref_mode"] == "selected_item_ids_only"
+    assert output["activation_manifest"]["activation_sequence"]["controller_surface"] == (
+        "skill_route_discovery_activation_sequence"
+    )
+    assert output["activation_manifest"]["activation_sequence"]["status"] == "ready"
+    assert output["activation_manifest"]["activation_sequence"]["decision"] == "sequence_ready_for_supervisor_replay"
+    assert output["activation_manifest"]["activation_sequence"]["step_count"] == 6
+    assert [step["step"] for step in output["activation_manifest"]["activation_sequence"]["steps"]] == [
+        "inspect_body_free_source_lineage",
+        "verify_bounded_local_lanes",
+        "prove_local_artifacts",
+        "run_required_local_validation",
+        "replay_provider_runtime_preflight",
+        "handoff_to_supervisor",
+    ]
+    assert {step["status"] for step in output["activation_manifest"]["activation_sequence"]["steps"]} == {"ready"}
+    assert all(
+        step["runtime_action_allowed"] is False
+        and step["external_skill_activation_allowed"] is False
+        and step["external_harness_execution_allowed"] is False
+        and step["provider_runtime_launch_allowed"] is False
+        and step["remote_execution_allowed"] is False
+        and step["raw_evidence_exported"] is False
+        and step["raw_source_urls_exported"] is False
+        and step["raw_target_paths_exported"] is False
+        and step["raw_upstream_body_exported"] is False
+        for step in output["activation_manifest"]["activation_sequence"]["steps"]
+    )
+    assert output["activation_manifest"]["activation_sequence"]["required_validation"] == (
+        skill_route_discovery_preactivation_validation_commands()
+    )
+    assert output["activation_manifest"]["activation_sequence"]["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert output["activation_manifest"]["activation_sequence"]["body_free"] is True
+    assert output["activation_manifest"]["activation_sequence"]["runtime_action_allowed"] is False
+    assert output["activation_manifest"]["activation_sequence"]["external_skill_activation_allowed"] is False
+    assert output["activation_manifest"]["activation_sequence"]["external_harness_execution_allowed"] is False
+    assert output["activation_manifest"]["activation_sequence"]["provider_runtime_launch_allowed"] is False
+    assert output["activation_manifest"]["activation_sequence"]["remote_execution_allowed"] is False
+    assert output["activation_manifest"]["activation_sequence"]["raw_evidence_exported"] is False
+    assert output["activation_manifest"]["activation_sequence"]["raw_source_urls_exported"] is False
+    assert output["activation_manifest"]["activation_sequence"]["raw_target_paths_exported"] is False
+    assert output["activation_manifest"]["activation_sequence"]["raw_upstream_body_exported"] is False
     assert output["activation_manifest"]["local_validation_required"] is True
     assert output["activation_manifest"]["runtime_action_allowed"] is False
     assert output["activation_manifest"]["external_skill_activation_allowed"] is False
@@ -1436,6 +1480,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "status": "ready",
             "decision": "complete_slice_for_supervisor_handoff",
             "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+            "activation_sequence_status": "ready",
             "final_pass_required": True,
             "final_pass_observed": True,
             "selected_evidence_ref_count": 3,

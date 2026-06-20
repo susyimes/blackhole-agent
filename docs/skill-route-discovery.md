@@ -558,8 +558,9 @@ export.
 
 The same panel includes `completion_handoff`, a compact supervisor-facing
 contract for the final slice state. It repeats the completion status and
-decision, names a `supervisor_next_action`, records whether the final planned
-pass was observed, lists selected item-id evidence refs, and carries any
+decision, names a `supervisor_next_action`, records the
+`activation_sequence_status`, records whether the final planned pass was
+observed, lists selected item-id evidence refs, and carries any
 completion blockers. Ready handoffs use
 `handoff_completed_skill_route_slice_to_supervisor`; non-final clean passes use
 `continue_capability_window_before_completion`; blocked final passes use
@@ -591,6 +592,17 @@ means documentation, config, test, or code_patch lanes have enough local proof
 to replay; it still denies runtime action, external skill activation, external
 harness execution, provider launch, remote execution, raw evidence URLs, raw
 source URLs, raw target paths, and raw upstream bodies.
+
+The activation manifest also carries `activation_sequence`, an ordered
+supervisor replay checklist derived from the same body-free fields. The sequence
+requires source-lineage inspection, bounded local lane checks, local artifact
+proof, focused local validation, provider-runtime preflight replay, and the
+final operator handoff before it reports ready. Each step repeats the denials
+for runtime action, external skill activation, external harness execution,
+provider launch, remote execution, raw evidence export, raw source URL export,
+raw target path export, and upstream body export. The sequence is a replay
+surface only; it does not install, clone, execute, scaffold, generate assets, or
+activate upstream skill code.
 
 Activation rows now distinguish bounded upstream evidence from proof that a
 local artifact exists for the lane. A clean discovery lane can still be blocked
