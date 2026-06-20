@@ -1148,6 +1148,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
+    evidence_lane_matrix = skill_route_discovery_evidence_lane_matrix(
+        registry=registry,
+        lane_map=lane_map,
+        activation_gate=activation_gate,
+        evidence_strength=evidence_strength,
+        source_lineage=source_lineage,
+    )
     provider_runtime_diagnostic_panel = skill_route_discovery_provider_runtime_diagnostic_panel(
         activation_lanes=activation_lanes,
         recovery_hints=recovery_hints,
@@ -1250,6 +1257,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
+        "evidence_lane_matrix": evidence_lane_matrix,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
         "activity_signal_panel": activity_signal_panel,
@@ -2700,6 +2708,180 @@ def skill_route_discovery_local_lane_intake(
         "raw_evidence_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+    }
+
+
+def skill_route_discovery_evidence_lane_matrix(
+    *,
+    registry: dict[str, Any],
+    lane_map: dict[str, Any],
+    activation_gate: dict[str, Any],
+    evidence_strength: dict[str, Any],
+    source_lineage: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize how external evidence sources map into bounded local lanes."""
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS,
+    )
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    candidates = registry.get("candidates")
+    candidates = candidates if isinstance(candidates, list) else []
+    proposal_lanes = lane_map.get("proposal_lanes")
+    proposal_lanes = proposal_lanes if isinstance(proposal_lanes, list) else []
+    rejected_candidates = lane_map.get("rejected_candidates")
+    rejected_candidates = rejected_candidates if isinstance(rejected_candidates, list) else []
+    downgraded_candidates = lane_map.get("downgraded_candidates")
+    downgraded_candidates = downgraded_candidates if isinstance(downgraded_candidates, list) else []
+
+    proposals_by_candidate: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        key = (str(lane.get("candidate_name") or ""), str(lane.get("source_url") or ""))
+        proposals_by_candidate.setdefault(key, []).append(lane)
+
+    rejected_by_candidate: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for rejected in rejected_candidates:
+        key = (str(rejected.get("name") or ""), str(rejected.get("source_url") or ""))
+        rejected_by_candidate.setdefault(key, []).append(rejected)
+
+    downgraded_by_candidate: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for downgraded in downgraded_candidates:
+        key = (str(downgraded.get("name") or ""), str(downgraded.get("source_url") or ""))
+        downgraded_by_candidate.setdefault(key, []).append(downgraded)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        candidate_name = str(candidate.get("name") or "")
+        source_url = str(candidate.get("source_url") or "")
+        key = (candidate_name, source_url)
+        candidate_lanes = sorted(
+            {
+                str(lane.get("proposal_kind") or "")
+                for lane in proposals_by_candidate.get(key, [])
+                if str(lane.get("proposal_kind") or "")
+            }
+        )
+        route_profiles = sorted(
+            {
+                profile
+                for lane in proposals_by_candidate.get(key, [])
+                for profile in string_list(lane.get("route_profiles"))
+            }
+        )
+        evidence_urls = [
+            str(url)
+            for lane in proposals_by_candidate.get(key, [])
+            for url in lane.get("evidence_urls") or []
+            if str(url).strip()
+        ]
+        evidence_item_ids = sorted(
+            {
+                str(item_id)
+                for lane in proposals_by_candidate.get(key, [])
+                for item_id in lane.get("evidence_item_ids") or []
+                if str(item_id).strip()
+            }
+        )
+        validation_errors = string_list(candidate.get("validation_errors"))
+        requested_actions = string_list(candidate.get("requested_actions"))
+        blocked_requested_actions = sorted(
+            set(requested_actions) & set(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS)
+        )
+        downgraded = downgraded_by_candidate.get(key, [])
+        rejected = rejected_by_candidate.get(key, [])
+        downgraded_lanes = sorted(
+            {
+                rejected_lane
+                for entry in downgraded
+                for rejected_lane in string_list(entry.get("rejected_lanes"))
+            }
+        )
+
+        lanes_bounded = bool(candidate_lanes) and set(candidate_lanes) <= allowed_lanes
+        runtime_action = "none" if candidate_lanes else "none"
+        if not lanes_bounded and candidate_lanes:
+            diagnostics.append(f"{stable_text_hash(candidate_name or source_url)}:unbounded_lanes")
+        if blocked_requested_actions:
+            diagnostics.append(f"{stable_text_hash(candidate_name or source_url)}:blocked_actions_requested")
+        if rejected:
+            diagnostics.append(f"{stable_text_hash(candidate_name or source_url)}:rejected_candidate")
+
+        rows.append(
+            {
+                "candidate_name_hash": stable_text_hash(candidate_name),
+                "source_hash": stable_text_hash(source_url),
+                "route_profiles": route_profiles,
+                "local_lanes": candidate_lanes,
+                "local_lane_count": len(candidate_lanes),
+                "lanes_bounded": lanes_bounded,
+                "evidence_item_ids": evidence_item_ids,
+                "evidence_item_id_count": len(evidence_item_ids),
+                "evidence_url_hashes": sorted({stable_text_hash(url) for url in evidence_urls}),
+                "evidence_url_count": len(set(evidence_urls)),
+                "downgraded_lane_count": len(downgraded_lanes),
+                "downgraded_lanes": downgraded_lanes,
+                "rejected": bool(rejected),
+                "validation_error_count": len(validation_errors),
+                "blocked_requested_action_count": len(blocked_requested_actions),
+                "blocked_requested_action_hashes": [
+                    stable_text_hash(action) for action in blocked_requested_actions
+                ],
+                "runtime_action": runtime_action,
+                "local_validation_required": bool(candidate_lanes),
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    rows_bounded = bool(rows) and all(row["lanes_bounded"] or row["rejected"] for row in rows)
+    ready = (
+        bool(rows)
+        and rows_bounded
+        and not diagnostics
+        and activation_gate.get("local_proposal_activation_allowed") is True
+    )
+    return {
+        "controller_surface": "skill_route_discovery_evidence_lane_matrix",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "map_external_evidence_to_bounded_local_lanes"
+        if ready
+        else "review_evidence_lane_mapping_before_activation",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "candidate_count": len(rows),
+        "lane_count": sum(row["local_lane_count"] for row in rows),
+        "evidence_tier": str(evidence_strength.get("tier") or ""),
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "rows": rows,
+        "rows_bounded": rows_bounded,
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "blocked_discovery_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS),
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

@@ -980,6 +980,75 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         assert row["external_skill_code_allowed"] is False
         assert row["raw_source_urls_exported"] is False
         assert row["raw_target_paths_exported"] is False
+    assert output["evidence_lane_matrix"]["controller_surface"] == "skill_route_discovery_evidence_lane_matrix"
+    assert output["evidence_lane_matrix"]["status"] == "ready"
+    assert output["evidence_lane_matrix"]["decision"] == "map_external_evidence_to_bounded_local_lanes"
+    assert output["evidence_lane_matrix"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert output["evidence_lane_matrix"]["candidate_count"] == 1
+    assert output["evidence_lane_matrix"]["lane_count"] == 4
+    assert output["evidence_lane_matrix"]["evidence_tier"] == "specific_route_or_validation_evidence"
+    assert output["evidence_lane_matrix"]["activation_decision"] == "ready_for_local_proposal_activation"
+    assert output["evidence_lane_matrix"]["rows_bounded"] is True
+    assert output["evidence_lane_matrix"]["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 1,
+        "related_source_count": 0,
+        "fork_or_mirror_lineage_collapsed": False,
+    }
+    assert output["evidence_lane_matrix"]["blocked_discovery_actions"] == [
+        "clone_and_run",
+        "delete_local_skill",
+        "enable",
+        "execute",
+        "install",
+        "run",
+    ]
+    assert output["evidence_lane_matrix"]["diagnostics"] == []
+    matrix_row = output["evidence_lane_matrix"]["rows"][0]
+    assert matrix_row["candidate_name_hash"] == stable_text_hash("codex-fable5")
+    assert matrix_row["source_hash"] == stable_text_hash("https://github.com/baskduf/FableCodex")
+    assert matrix_row["route_profiles"] == ["codex_workflow_gate"]
+    assert matrix_row["local_lanes"] == ["code_patch", "config", "documentation", "test"]
+    assert matrix_row["lanes_bounded"] is True
+    assert matrix_row["evidence_item_ids"] == [
+        "fablecodex-issue-15",
+        "fablecodex-issue-18",
+        "fablecodex-repo",
+    ]
+    assert matrix_row["evidence_url_count"] == 3
+    assert set(matrix_row["evidence_url_hashes"]) == {
+        stable_text_hash("https://github.com/baskduf/FableCodex"),
+        stable_text_hash("https://github.com/baskduf/FableCodex/issues/15"),
+        stable_text_hash("https://github.com/baskduf/FableCodex/issues/18"),
+    }
+    assert matrix_row["downgraded_lane_count"] == 0
+    assert matrix_row["rejected"] is False
+    assert matrix_row["blocked_requested_action_count"] == 0
+    assert matrix_row["runtime_action"] == "none"
+    assert matrix_row["local_validation_required"] is True
+    assert matrix_row["external_skill_activation_allowed"] is False
+    assert matrix_row["external_skill_code_allowed"] is False
+    assert matrix_row["raw_source_url_exported"] is False
+    assert matrix_row["raw_evidence_urls_exported"] is False
+    assert matrix_row["raw_upstream_body_exported"] is False
+    assert output["evidence_lane_matrix"]["local_validation_required"] is True
+    assert output["evidence_lane_matrix"]["body_free"] is True
+    assert output["evidence_lane_matrix"]["runtime_action_allowed"] is False
+    assert output["evidence_lane_matrix"]["external_skill_activation_allowed"] is False
+    assert output["evidence_lane_matrix"]["external_skill_code_allowed"] is False
+    assert output["evidence_lane_matrix"]["external_harness_execution_allowed"] is False
+    assert output["evidence_lane_matrix"]["provider_runtime_launch_allowed"] is False
+    assert output["evidence_lane_matrix"]["remote_execution_allowed"] is False
+    assert output["evidence_lane_matrix"]["raw_evidence_exported"] is False
+    assert output["evidence_lane_matrix"]["raw_source_urls_exported"] is False
+    assert output["evidence_lane_matrix"]["raw_evidence_urls_exported"] is False
+    assert output["evidence_lane_matrix"]["raw_upstream_body_exported"] is False
     assert output["route_triage_plan"]["controller_surface"] == "skill_route_discovery_route_triage"
     assert output["route_triage_plan"]["status"] == "ready"
     assert output["route_triage_plan"]["decision"] == "triage_bounded_lanes_to_local_artifacts"
@@ -1364,6 +1433,101 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_upstream_body_exported": False,
     }
     assert "https://github.com/baskduf/FableCodex" not in serialized
+
+
+def test_skill_route_discovery_evidence_lane_matrix_bounds_multi_profile_candidates():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_multi_profile_matrix_inline.json"
+    input_payload = {
+        "task_id": "skill-route-discovery-multi-profile-matrix",
+        "source_kind": "candidates",
+        "candidates": [
+            {
+                "name": "codex-fable5",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "evidence_summary": (
+                    "Codex skill and workflow package with evidence gates, review ledgers, "
+                    "verification habits, and plugin routing docs."
+                ),
+                "candidate_lanes": ["documentation", "test", "runtime_execution"],
+            },
+            {
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "evidence_summary": (
+                    "Personal alignment skill ecosystem for AI agents with task routing, "
+                    "profiles, local memory notes, and validation evidence."
+                ),
+                "candidate_lanes": ["config", "test", "install"],
+            },
+            {
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "evidence_summary": (
+                    "Director skill package for Three.js games with gameplay, graphics, "
+                    "UI, debug, QA, scaffold helpers, and install commands."
+                ),
+                "candidate_lanes": ["documentation", "code_patch", "execute"],
+            },
+        ],
+    }
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        input_payload,
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "degraded"
+    assert output["failure_mode"] == "unsupported_lanes_downgraded"
+    assert output["activation_gate"]["decision"] == "review_degraded_lane_before_activation"
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+
+    matrix = output["evidence_lane_matrix"]
+    assert matrix["controller_surface"] == "skill_route_discovery_evidence_lane_matrix"
+    assert matrix["status"] == "review"
+    assert matrix["decision"] == "review_evidence_lane_mapping_before_activation"
+    assert matrix["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert matrix["candidate_count"] == 3
+    assert matrix["lane_count"] == 6
+    assert matrix["rows_bounded"] is True
+    assert matrix["activation_decision"] == "review_degraded_lane_before_activation"
+    assert matrix["diagnostics"] == []
+    assert matrix["runtime_action_allowed"] is False
+    assert matrix["external_skill_activation_allowed"] is False
+    assert matrix["external_skill_code_allowed"] is False
+    assert matrix["raw_source_urls_exported"] is False
+    assert matrix["raw_evidence_urls_exported"] is False
+    assert matrix["raw_upstream_body_exported"] is False
+
+    rows_by_source = {row["source_hash"]: row for row in matrix["rows"]}
+    fable_row = rows_by_source[stable_text_hash("https://github.com/baskduf/FableCodex")]
+    compass_row = rows_by_source[stable_text_hash("https://github.com/dongshuyan/compass-skills")]
+    threejs_row = rows_by_source[stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")]
+
+    assert fable_row["route_profiles"] == ["codex_workflow_gate"]
+    assert fable_row["local_lanes"] == ["documentation", "test"]
+    assert fable_row["downgraded_lanes"] == ["runtime_execution"]
+    assert compass_row["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert compass_row["local_lanes"] == ["config", "test"]
+    assert compass_row["downgraded_lanes"] == ["install"]
+    assert threejs_row["route_profiles"] == ["game_frontend_workflow"]
+    assert threejs_row["local_lanes"] == ["code_patch", "documentation"]
+    assert threejs_row["downgraded_lanes"] == ["execute"]
+
+    for row in matrix["rows"]:
+        assert row["lanes_bounded"] is True
+        assert row["runtime_action"] == "none"
+        assert row["local_validation_required"] is True
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_skill_code_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
 def test_skill_route_discovery_capability_window_reports_in_progress_before_final_pass():

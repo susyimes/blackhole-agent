@@ -276,6 +276,18 @@ documentation, config, test, or code_patch, required tests include
 notes require a rollback ref and artifact before source changes, runtime action
 remains `none`, and external skill activation remains false.
 
+The same output includes an `evidence_lane_matrix` for source-by-source review.
+Each row hashes the candidate name and source URL, lists only the bounded local
+lanes derived from that source, records selected digest item IDs and hashed
+evidence URLs, reports downgraded or rejected lane pressure, and keeps
+`runtime_action: none`. This matrix is intended for cases such as COMPASS
+Skills, Three.js Game Skills, and FableCodex where upstream repositories may
+mention installers, scaffolds, plugins, credential probes, or execution helpers.
+Those signals can justify local documentation, config, test, or code_patch
+work, but the matrix keeps install, enable, run, execute, clone-and-run,
+provider launch, remote execution, raw upstream body export, and external skill
+activation denied before supervisor promotion.
+
 Each checklist row and activation row also carries
 `inspection_requirements`. This is the bounded local inspection contract for
 mapping a public skill repository into work: selected digest item IDs or frozen
