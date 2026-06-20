@@ -1,0 +1,12 @@
+Rollback point for skill-route-discovery pass 3 local replay work.
+
+Original branch: codex/blackhole-evolve/20260620T195306.477801-add-or-run-a-bounded-local-skill-route-discovery
+Original HEAD: 9a8114d562d23c4b486851a843ee02237d2a2e43
+Local rollback ref: refs/blackhole-rollback/20260620T195207Z-skill-route-discovery-pass3
+
+Recovery commands, for explicit human or supervisor use only:
+
+git switch codex/blackhole-evolve/20260620T195306.477801-add-or-run-a-bounded-local-skill-route-discovery
+git reset --hard refs/blackhole-rollback/20260620T195207Z-skill-route-discovery-pass3
+
+This run must not delete this artifact or the rollback ref.

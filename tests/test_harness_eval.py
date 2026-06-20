@@ -1594,6 +1594,72 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    profile_validation_replay = {
+        "controller_surface": "skill_route_discovery_profile_validation_replay",
+        "status": "ready",
+        "decision": "replay_selected_profile_validation_lanes",
+        "validation_plan_status": "ready",
+        "validation_plan_decision": "validate_final_bounded_local_lane_before_handoff",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "profile_count": 1,
+        "selected_local_lanes": ["test"],
+        "rows": [
+            {
+                "route_profile": "codex_workflow_gate",
+                "selected_local_lane": "test",
+                "validation_scope": "local_test_lane_only",
+                "operator_replay_step": "replay_local_test_lane_for_workflow_or_game_route",
+                "recommended_local_lane_order": ["test", "documentation", "code_patch", "config"],
+                "evidence_item_ids": [
+                    "fablecodex-issue-15",
+                    "fablecodex-issue-18",
+                    "fablecodex-repo",
+                ],
+                "evidence_item_id_count": 3,
+                "candidate_source_hashes": [stable_text_hash("https://github.com/baskduf/FableCodex")],
+                "candidate_source_count": 1,
+                "candidate_count": 1,
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                    "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+                ],
+                "plan_basis": "selected_profile_item_ids_and_hashed_candidate_sources",
+                "diagnostics": [],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        ],
+        "diagnostics": [],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     activation_packet = output["capability_window_completion"]["activation_packet"]
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
@@ -1631,6 +1697,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "provider_runtime_replay_ready": True,
         "provider_runtime_sample_gate": provider_runtime_sample_gate,
         "validation_target_handoff": validation_target_handoff,
+        "profile_validation_replay": profile_validation_replay,
         "profile_completion_check": {
             "controller_surface": "skill_route_discovery_profile_completion_check",
             "status": "ready",
@@ -1673,6 +1740,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             ],
             "provider_runtime_sample_gate": provider_runtime_sample_gate,
             "validation_target_handoff": validation_target_handoff,
+            "profile_validation_replay": profile_validation_replay,
             "profile_completion_check": {
                 "controller_surface": "skill_route_discovery_profile_completion_check",
                 "status": "ready",
@@ -2345,6 +2413,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     )
     selection = output["preactivation_lane_selection"]
     validation_plan = output["validation_lane_plan"]
+    profile_replay = output["profile_validation_replay"]
     serialized = json.dumps(output, sort_keys=True)
 
     assert output["route_status"] == "passed"
@@ -2428,6 +2497,34 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
             "raw_upstream_body_exported": False,
         },
     ]
+    assert profile_replay["controller_surface"] == "skill_route_discovery_profile_validation_replay"
+    assert profile_replay["status"] == "ready"
+    assert profile_replay["decision"] == "replay_selected_profile_validation_lanes"
+    assert profile_replay["profile_count"] == 3
+    assert profile_replay["selected_local_lanes"] == ["config", "test"]
+    assert [
+        (row["route_profile"], row["selected_local_lane"], row["operator_replay_step"])
+        for row in profile_replay["rows"]
+    ] == [
+        ("codex_workflow_gate", "test", "replay_local_test_lane_for_workflow_or_game_route"),
+        ("game_frontend_workflow", "test", "replay_local_test_lane_for_workflow_or_game_route"),
+        ("skill_ecosystem_state_handoff", "config", "review_local_config_lane_for_state_handoff"),
+    ]
+    assert [row["evidence_item_ids"] for row in profile_replay["rows"]] == [
+        ["p3-skill-route-discovery-fablecodex"],
+        ["p2-skill-route-discovery-threejs-game"],
+        ["p1-skill-route-discovery-compass"],
+    ]
+    assert [row["candidate_source_hashes"] for row in profile_replay["rows"]] == [
+        [stable_text_hash("https://github.com/baskduf/FableCodex")],
+        [stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills")],
+        [stable_text_hash("https://github.com/dongshuyan/compass-skills")],
+    ]
+    assert all(row["runtime_action"] == "none" for row in profile_replay["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_replay["rows"])
+    assert profile_replay["raw_evidence_urls_exported"] is False
+    assert profile_replay["raw_source_urls_exported"] is False
+    assert profile_replay["raw_upstream_body_exported"] is False
     assert selection["runtime_action_allowed"] is False
     assert selection["external_skill_activation_allowed"] is False
     assert selection["provider_runtime_launch_allowed"] is False

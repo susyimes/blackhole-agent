@@ -1309,6 +1309,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         route_discovery_catalog=route_discovery_catalog,
     )
+    profile_validation_replay = skill_route_discovery_profile_validation_replay(
+        validation_lane_plan=validation_lane_plan,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -1319,6 +1322,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         operator_handoff=operator_handoff,
         supervisor_readiness=supervisor_readiness,
         validation_lane_plan=validation_lane_plan,
+        profile_validation_replay=profile_validation_replay,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
         provider_runtime_replay_sample=provider_runtime_replay_sample,
     )
@@ -1390,6 +1394,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_lane_selection": preactivation_lane_selection,
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
+        "profile_validation_replay": profile_validation_replay,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -3448,6 +3453,123 @@ def skill_route_discovery_validation_lane_plan(
     }
 
 
+def skill_route_discovery_profile_validation_replay(
+    *,
+    validation_lane_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Project selected profile lanes into a bounded local replay checklist."""
+
+    replay_step_by_lane = {
+        "documentation": "review_local_documentation_lane_for_route_contract",
+        "config": "review_local_config_lane_for_state_handoff",
+        "test": "replay_local_test_lane_for_workflow_or_game_route",
+        "code_patch": "review_local_code_patch_lane_for_route_behavior",
+    }
+    plan_rows = validation_lane_plan.get("rows")
+    plan_rows = plan_rows if isinstance(plan_rows, list) else []
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for plan_row in plan_rows:
+        if not isinstance(plan_row, dict):
+            continue
+        route_profile = optional_string(plan_row.get("route_profile")) or "generic_skill_workflow"
+        selected_lane = optional_string(plan_row.get("selected_local_lane")) or ""
+        row_diagnostics = string_list(plan_row.get("diagnostics"))
+        if not selected_lane:
+            row_diagnostics.append("selected_local_lane_missing")
+        if plan_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(plan_row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if plan_row.get("raw_evidence_urls_exported") is not False:
+            row_diagnostics.append("raw_evidence_urls_exported")
+        if plan_row.get("raw_source_urls_exported") is not False:
+            row_diagnostics.append("raw_source_urls_exported")
+        for diagnostic in row_diagnostics:
+            diagnostics.append(f"{route_profile}:{diagnostic}")
+
+        rows.append(
+            {
+                "route_profile": route_profile,
+                "selected_local_lane": selected_lane,
+                "validation_scope": optional_string(plan_row.get("validation_scope"))
+                or (f"local_{selected_lane}_lane_only" if selected_lane else "none"),
+                "operator_replay_step": replay_step_by_lane.get(
+                    selected_lane,
+                    "repair_selected_profile_lane_before_replay",
+                ),
+                "recommended_local_lane_order": string_list(plan_row.get("recommended_local_lane_order")),
+                "evidence_item_ids": string_list(plan_row.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(plan_row.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(plan_row.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(plan_row.get("candidate_source_hashes"))),
+                "candidate_count": int(plan_row.get("candidate_count") or 0),
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "plan_basis": "selected_profile_item_ids_and_hashed_candidate_sources",
+                "diagnostics": sorted(dict.fromkeys(row_diagnostics)),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    plan_status = str(validation_lane_plan.get("status") or "")
+    if rows and plan_status == "ready" and not diagnostics:
+        status = "ready"
+        decision = "replay_selected_profile_validation_lanes"
+    elif rows:
+        status = "review"
+        decision = "repair_profile_validation_replay_before_continuing"
+    else:
+        status = "blocked"
+        decision = "no_profile_validation_replay_rows"
+
+    return {
+        "controller_surface": "skill_route_discovery_profile_validation_replay",
+        "status": status,
+        "decision": decision,
+        "validation_plan_status": plan_status,
+        "validation_plan_decision": str(validation_lane_plan.get("decision") or ""),
+        "supervisor_next_action": str(validation_lane_plan.get("supervisor_next_action") or ""),
+        "profile_count": len(rows),
+        "selected_local_lanes": sorted({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def skill_route_discovery_capability_window_completion(
     *,
     raw_input: dict[str, Any],
@@ -3459,6 +3581,7 @@ def skill_route_discovery_capability_window_completion(
     operator_handoff: dict[str, Any],
     supervisor_readiness: dict[str, Any],
     validation_lane_plan: dict[str, Any],
+    profile_validation_replay: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
     provider_runtime_replay_sample: dict[str, Any],
 ) -> dict[str, Any]:
@@ -3597,6 +3720,7 @@ def skill_route_discovery_capability_window_completion(
         ],
         "provider_runtime_sample_gate": provider_runtime_sample_gate,
         "validation_target_handoff": validation_target_handoff,
+        "profile_validation_replay": profile_validation_replay,
         "profile_completion_check": profile_completion_check,
         "completion_recovery": completion_recovery,
         "next_pass_handoff": next_pass_handoff,
@@ -3636,6 +3760,7 @@ def skill_route_discovery_capability_window_completion(
         "provider_runtime_replay_ready": provider_replay_ready,
         "provider_runtime_sample_gate": provider_runtime_sample_gate,
         "validation_target_handoff": validation_target_handoff,
+        "profile_validation_replay": profile_validation_replay,
         "profile_completion_check": profile_completion_check,
         "next_pass_handoff": next_pass_handoff,
         "completion_recovery": completion_recovery,

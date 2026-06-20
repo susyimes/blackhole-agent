@@ -620,6 +620,20 @@ external skill activation, external skill code, external harness execution,
 provider launch, remote execution, raw source URLs, raw target paths, and
 upstream bodies.
 
+Pass-3 replay also emits `profile_validation_replay`, a per-profile local
+checklist derived from `validation_lane_plan`. Each row names the route profile,
+the selected bounded local lane, a local operator replay step, selected item-id
+evidence refs, hashed candidate sources, required validation commands, and
+provider-runtime replay commands. This makes the active pass directly
+actionable without exposing upstream URLs or bodies: FableCodex-style workflow
+gates and Three.js game skill routes map to
+`replay_local_test_lane_for_workflow_or_game_route`, while COMPASS-style state
+handoff maps to `review_local_config_lane_for_state_handoff`. The panel does
+not add lanes, install skills, run upstream code, execute browser/game helpers,
+write profiles, launch providers, perform remote execution, export raw evidence
+URLs, export raw source URLs, export raw target paths, or export upstream
+bodies.
+
 On final scheduled passes for this capability slice, the harness emits
 `capability_window_completion`. This panel consumes the route profile review,
 activation manifest, operator handoff, supervisor readiness, and
@@ -765,7 +779,8 @@ generation, provider launch, remote execution, raw source URL export, raw target
 path export, or upstream body export.
 
 `capability_window_completion` now repeats those grouped targets through
-`validation_target_handoff`. This makes the next supervisor action visible from
+`validation_target_handoff` and repeats the per-profile replay checklist through
+`profile_validation_replay`. This makes the next supervisor action visible from
 the completion surface itself: a non-final pass can carry a local config target
 for COMPASS-style state handoff and a local test target for FableCodex-style or
 game-skill workflow evidence without requiring operators to infer the route from
