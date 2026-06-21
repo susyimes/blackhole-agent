@@ -33,6 +33,10 @@ SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS = (
     "run",
 )
 SKILL_ROUTE_DISCOVERY_TRIGGER_TERMS = ("agent", "agents", "codex", "skill", "skills", "workflow")
+SKILL_ROUTE_DISCOVERY_MIXED_REQUIRED_TERMS = ("codex", "workflow")
+SKILL_ROUTE_DISCOVERY_MIXED_SKILL_TERMS = ("skill", "skills")
+SKILL_ROUTE_DISCOVERY_MIXED_AGENT_TERMS = ("agent", "agents")
+SKILL_ROUTE_DISCOVERY_MIXED_LANE_ORDER = ("test", "documentation", "config", "code_patch")
 SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
 SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE = "proposal_lane"
@@ -698,6 +702,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             continue
 
         uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
+        probe_metadata = _skill_route_discovery_mixed_probe_metadata(candidate, allowed_lanes)
         candidate_lane_inventory.append(
             {
                 "candidate_name": name,
@@ -715,6 +720,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "activation_gate": "local_validation_before_activation",
                 "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                 "uncertainty_reasons": uncertainty_reasons,
+                **probe_metadata,
             }
         )
 
@@ -737,6 +743,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                     "uncertainty_reasons": uncertainty_reasons,
                     "reason": "recognized_skill_project_evidence",
+                    **probe_metadata,
                 }
             )
 
@@ -885,6 +892,38 @@ def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate
         if any(keyword in text for keyword in keywords)
     ]
     return tuple(dict.fromkeys(profiles or ["generic_skill_workflow"]))
+
+
+def _skill_route_discovery_mixed_probe_metadata(
+    candidate: Mapping[str, Any],
+    allowed_lanes: Sequence[str],
+) -> dict[str, Any]:
+    """Route mixed Codex/agent/skill/workflow signals through skill discovery first."""
+
+    matched_terms = set(_string_list(candidate.get("matched_route_terms")))
+    if not _has_mixed_skill_workflow_terms(matched_terms):
+        return {}
+
+    allowed = list(
+        dict.fromkeys(str(lane) for lane in allowed_lanes if str(lane) in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    )
+    recommended_order = [lane for lane in SKILL_ROUTE_DISCOVERY_MIXED_LANE_ORDER if lane in allowed]
+    return {
+        "route_probe_decision": "skill_route_discovery_first",
+        "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+        "secondary_lane": "agent_harness_eval_after_local_corroboration",
+        "secondary_lane_status": "blocked_until_local_corroboration",
+        "agent_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+        "recommended_local_lane_order": recommended_order,
+    }
+
+
+def _has_mixed_skill_workflow_terms(matched_terms: set[str]) -> bool:
+    return (
+        all(term in matched_terms for term in SKILL_ROUTE_DISCOVERY_MIXED_REQUIRED_TERMS)
+        and bool(matched_terms & set(SKILL_ROUTE_DISCOVERY_MIXED_SKILL_TERMS))
+        and bool(matched_terms & set(SKILL_ROUTE_DISCOVERY_MIXED_AGENT_TERMS))
+    )
 
 
 def _skill_route_discovery_matched_terms(*parts: str) -> tuple[str, ...]:

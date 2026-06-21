@@ -15,7 +15,11 @@ added the requirement that selected digest `item_id` values remain visible in
 item-derived lane maps. Source digest `github-growth-20260620T005207.516587Z`
 extended the replay fixture to the current four carried skill evidence items,
 including fork-lineage evidence, while preserving selected `item_id` citations
-instead of URL citations. The bounded evidence reviewed for these runs:
+instead of URL citations. Source digest
+`github-growth-20260621T021207.784187Z` added a core lane-map probe for mixed
+Codex/agent/skill/workflow repositories so `skill_route_discovery` stays first
+before any broader agent-harness evaluation. The bounded evidence reviewed for
+these runs:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
@@ -1144,6 +1148,16 @@ skill-route lanes; it cannot add follow-up issue, runtime execution, install,
 provider launch, remote execution, profile-write, memory-write, raw source URL
 export, or upstream body export authority. The required validation commands
 remain the local mixed-skill and route-hint lane-map tests.
+
+The core disabled-registry lane map now exposes the same first-route decision
+before downstream harness expansion. When body-free candidate metadata contains
+the mixed Codex, agent, skill, and workflow terms, each candidate inventory row
+and proposal-lane row records `route_probe_decision: skill_route_discovery_first`,
+`primary_route: skill_route_discovery`,
+`secondary_lane: agent_harness_eval_after_local_corroboration`, and
+`secondary_lane_status: blocked_until_local_corroboration`. The recommended
+lane order is filtered to lanes already present on that candidate, and the
+allowed proposal kinds remain only documentation, config, test, and code_patch.
 
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public

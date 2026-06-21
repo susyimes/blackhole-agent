@@ -607,6 +607,56 @@ def test_skill_route_discovery_normalizes_push_event_to_bounded_proposal_lanes()
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
 
 
+def test_skill_route_discovery_mixed_codex_agent_workflow_probe_routes_first_through_skill_lanes():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            {
+                "item_id": "fablecodex-mixed-workflow",
+                "item_kind": "repository",
+                "name": "FableCodex",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "title": "FableCodex Codex agent skill workflow probe",
+                "summary": (
+                    "Codex plugin and agent workflow skill package with examples, tests, "
+                    "evals, evidence gates, and review verification."
+                ),
+                "route_hints": ["skill_route_discovery"],
+                "topics": ["codex", "agent-skills", "workflow", "validation"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "agent_harness_eval"],
+            }
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert lane_map["proposal_lane_count"] == 4
+    inventory = lane_map["candidate_lane_inventory"][0]
+    assert inventory["candidate_name"] == "FableCodex"
+    assert inventory["proposal_kinds"] == ["documentation", "config", "test", "code_patch"]
+    assert inventory["route_probe_decision"] == "skill_route_discovery_first"
+    assert inventory["primary_route"] == "skill_route_discovery"
+    assert inventory["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+    assert inventory["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert inventory["agent_harness_eval_allowed_after"] == "local_corroboration_or_general_agent_project_claim"
+    assert inventory["recommended_local_lane_order"] == ["test", "documentation", "config", "code_patch"]
+    assert inventory["local_validation_required"] is True
+    assert inventory["runtime_action"] == "none"
+    assert inventory["external_skill_activation_allowed"] is False
+
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(lane["route_probe_decision"] == "skill_route_discovery_first" for lane in lane_map["proposal_lanes"])
+    assert all(lane["primary_route"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
+    assert all(
+        lane["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+        for lane in lane_map["proposal_lanes"]
+    )
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+
+
 def test_skill_route_discovery_proposal_lane_map_cites_only_item_evidence_urls():
     fixture_path = (
         Path(__file__).parent
