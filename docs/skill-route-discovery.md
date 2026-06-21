@@ -1017,6 +1017,20 @@ recovery hint codes and hashes, and diagnostics while denying provider launch,
 remote execution, raw preflight input export, raw diagnostics export, and raw
 provider-value export.
 
+The summary also carries `profile_validation_checklist`, a compact mirror of
+the profile acceptance contract for the current pass. It marks each profile as
+either `selected_current_pass_profile` or `queued_profile_for_later_pass`,
+records the expected first local lane, validation scope, validation gate,
+metadata requirements, and acceptance status, and repeats the local validation
+commands. In the pass-2 skill-route window, FableCodex-style
+`codex_workflow_gate` and Three.js-style `game_frontend_workflow` profiles can
+be selected for the local test lane while COMPASS-style
+`skill_ecosystem_state_handoff` remains queued for the local config lane. The
+checklist is a replay aid only: it does not add lanes, install or activate
+upstream skills, execute a secondary harness, launch providers, perform remote
+execution, export raw evidence URLs, export raw source URLs, export raw target
+paths, or export upstream bodies.
+
 The same row now carries `recovery_replay_packet`, an operator replay packet for
 the selected skill-route action. It translates provider-runtime recovery hint
 codes into scoped replay steps such as adding a body-free sample, repairing

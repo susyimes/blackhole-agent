@@ -1344,6 +1344,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         current_action_provider_runtime_preflight=current_action_provider_runtime_preflight,
         validation_lane_plan=validation_lane_plan,
         route_profile_review=route_profile_review,
+        profile_lane_acceptance_contract=profile_lane_acceptance_contract,
         activity_signal_panel=activity_signal_panel,
         generic_validation_prompt=generic_validation_prompt,
         supervisor_readiness=supervisor_readiness,
@@ -5704,6 +5705,7 @@ def skill_route_discovery_validation_readiness_summary(
     current_action_provider_runtime_preflight: dict[str, Any],
     validation_lane_plan: dict[str, Any],
     route_profile_review: dict[str, Any],
+    profile_lane_acceptance_contract: dict[str, Any],
     activity_signal_panel: dict[str, Any],
     generic_validation_prompt: dict[str, Any],
     supervisor_readiness: dict[str, Any],
@@ -5716,10 +5718,14 @@ def skill_route_discovery_validation_readiness_summary(
     plan_targets = plan_targets if isinstance(plan_targets, list) else []
     profile_rows = route_profile_review.get("rows")
     profile_rows = profile_rows if isinstance(profile_rows, list) else []
+    contract_rows = profile_lane_acceptance_contract.get("rows")
+    contract_rows = contract_rows if isinstance(contract_rows, list) else []
     activity_rows = activity_signal_panel.get("rows")
     activity_rows = activity_rows if isinstance(activity_rows, list) else []
     plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
     current_action_diagnostics = string_list(current_action.get("diagnostics"))
+    profile_contract_diagnostics = string_list(profile_lane_acceptance_contract.get("diagnostics"))
+    profile_contract_status = optional_string(profile_lane_acceptance_contract.get("status")) or ""
     supervisor_decision = optional_string(supervisor_readiness.get("decision")) or ""
     generic_prompt_required = generic_validation_prompt.get("prompt_required") is True
     provider_preflight_status = (
@@ -5768,10 +5774,58 @@ def skill_route_discovery_validation_readiness_summary(
             }
         )
 
+    selected_profiles = set(route_profiles)
+    profile_validation_rows: list[dict[str, Any]] = []
+    for raw_row in contract_rows:
+        contract_row = raw_row if isinstance(raw_row, dict) else {}
+        profile = optional_string(contract_row.get("route_profile")) or "generic_skill_workflow"
+        pass_role = (
+            "selected_current_pass_profile"
+            if profile in selected_profiles
+            else "queued_profile_for_later_pass"
+        )
+        row_status = optional_string(contract_row.get("status")) or "blocked"
+        profile_validation_rows.append(
+            {
+                "route_profile": profile,
+                "pass_role": pass_role,
+                "status": row_status,
+                "accepted_for_local_validation": row_status == "ready",
+                "expected_first_local_lane": optional_string(
+                    contract_row.get("selected_first_local_lane")
+                )
+                or "",
+                "validation_scope": optional_string(contract_row.get("validation_scope")) or "",
+                "validation_gate": optional_string(contract_row.get("validation_gate")) or "",
+                "allowed_local_lanes": string_list(contract_row.get("allowed_local_lanes")),
+                "required_metadata": string_list(contract_row.get("required_metadata")),
+                "diagnostics": string_list(contract_row.get("diagnostics")),
+                "required_validation": string_list(current_action.get("required_validation")),
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+    profile_validation_ready = bool(profile_validation_rows) and all(
+        row["accepted_for_local_validation"] for row in profile_validation_rows
+    )
+
     ready = (
         current_action.get("status") == "ready"
         and validation_lane_plan.get("status") == "ready"
         and route_profile_review.get("status") == "ready"
+        and (profile_validation_ready or not profile_validation_rows)
         and supervisor_decision == "ready_for_supervisor_promotion"
         and provider_preflight_ready
         and selected_lane != "none"
@@ -5791,6 +5845,9 @@ def skill_route_discovery_validation_readiness_summary(
     elif generic_prompt_required:
         status = "review"
         decision = "collect_local_corroboration_before_replay"
+    elif profile_validation_rows and not profile_validation_ready:
+        status = "review"
+        decision = "repair_profile_validation_checklist_before_replay"
     elif selected_lane != "none":
         status = "review"
         decision = "resolve_readiness_diagnostics_before_replay"
@@ -5854,13 +5911,56 @@ def skill_route_discovery_validation_readiness_summary(
             "raw_diagnostics_exported": False,
             "raw_provider_values_exported": False,
         },
+        "profile_validation_checklist": {
+            "controller_surface": "skill_route_discovery_profile_validation_checklist",
+            "status": "ready" if profile_validation_ready else "blocked",
+            "decision": "profile_lanes_ready_for_bounded_local_replay"
+            if profile_validation_ready
+            else "repair_profile_lane_contract_before_replay",
+            "profile_acceptance_contract_status": profile_contract_status,
+            "profile_count": len(profile_validation_rows),
+            "selected_current_pass_profile_count": sum(
+                1 for row in profile_validation_rows if row["pass_role"] == "selected_current_pass_profile"
+            ),
+            "queued_profile_count": sum(
+                1 for row in profile_validation_rows if row["pass_role"] == "queued_profile_for_later_pass"
+            ),
+            "accepted_profile_count": sum(
+                1 for row in profile_validation_rows if row["accepted_for_local_validation"]
+            ),
+            "evidence_ref_mode": "selected_item_ids_only",
+            "rows": profile_validation_rows,
+            "diagnostics": profile_contract_diagnostics,
+            "required_validation": string_list(current_action.get("required_validation")),
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "supervisor_decision": supervisor_decision,
         "supervisor_next_action": optional_string(current_action.get("supervisor_next_action")) or "",
         "generic_prompt_required": generic_prompt_required,
         "generic_movement_policy": optional_string(generic_validation_prompt.get("generic_movement_policy")) or "",
         "profile_rows": readiness_rows,
         "diagnostics": sorted(
-            dict.fromkeys([*plan_diagnostics, *current_action_diagnostics, *provider_preflight_diagnostics])
+            dict.fromkeys(
+                [
+                    *plan_diagnostics,
+                    *current_action_diagnostics,
+                    *provider_preflight_diagnostics,
+                    *profile_contract_diagnostics,
+                ]
+            )
         ),
         "local_validation_required": True,
         "body_free": True,

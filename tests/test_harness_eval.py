@@ -9815,6 +9815,40 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert summary["activity_lane_count"] == 4
     assert summary["supervisor_decision"] == "ready_for_supervisor_promotion"
     assert summary["generic_prompt_required"] is False
+    checklist = summary["profile_validation_checklist"]
+    assert checklist["controller_surface"] == "skill_route_discovery_profile_validation_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["decision"] == "profile_lanes_ready_for_bounded_local_replay"
+    assert checklist["profile_acceptance_contract_status"] == "ready"
+    assert checklist["profile_count"] == 3
+    assert checklist["selected_current_pass_profile_count"] == 2
+    assert checklist["queued_profile_count"] == 1
+    assert checklist["accepted_profile_count"] == 3
+    assert checklist["evidence_ref_mode"] == "selected_item_ids_only"
+    assert checklist["runtime_action_allowed"] is False
+    assert checklist["external_skill_activation_allowed"] is False
+    assert checklist["external_harness_execution_allowed"] is False
+    assert checklist["provider_runtime_launch_allowed"] is False
+    assert checklist["raw_source_urls_exported"] is False
+
+    checklist_rows = {row["route_profile"]: row for row in checklist["rows"]}
+    assert checklist_rows["codex_workflow_gate"]["pass_role"] == "selected_current_pass_profile"
+    assert checklist_rows["codex_workflow_gate"]["expected_first_local_lane"] == "test"
+    assert checklist_rows["codex_workflow_gate"]["validation_gate"] == (
+        "skill_route_discovery_first_before_workflow_gate"
+    )
+    assert checklist_rows["game_frontend_workflow"]["pass_role"] == "selected_current_pass_profile"
+    assert checklist_rows["game_frontend_workflow"]["expected_first_local_lane"] == "test"
+    assert checklist_rows["skill_ecosystem_state_handoff"]["pass_role"] == "queued_profile_for_later_pass"
+    assert checklist_rows["skill_ecosystem_state_handoff"]["expected_first_local_lane"] == "config"
+    for row in checklist["rows"]:
+        assert row["accepted_for_local_validation"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
     assert summary["runtime_action_allowed"] is False
     assert summary["external_skill_activation_allowed"] is False
     assert summary["external_harness_execution_allowed"] is False
