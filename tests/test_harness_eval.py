@@ -3591,6 +3591,45 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert pass3_handoff["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
     assert pass3_handoff["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
     assert pass3_handoff["secondary_lane_status"] == "blocked_until_local_corroboration"
+    checklist = pass3_handoff["final_pass_replay_checklist"]
+    assert checklist["controller_surface"] == "skill_route_discovery_pass3_final_pass_replay_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["decision"] == "ready_for_final_pass_replay"
+    assert checklist["step_count"] == 4
+    assert [step["step"] for step in checklist["steps"]] == [
+        "replay_selected_current_pass_lane",
+        "carry_queued_bounded_lanes",
+        "preserve_secondary_harness_block",
+        "verify_body_free_final_handoff",
+    ]
+    assert {step["status"] for step in checklist["steps"]} == {"ready"}
+    assert checklist["steps"][0]["selected_local_lanes"] == ["test"]
+    assert checklist["steps"][0]["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+    ]
+    assert checklist["steps"][0]["evidence_item_id_count"] == 2
+    assert checklist["steps"][1]["queued_local_lanes"] == ["config"]
+    assert checklist["steps"][1]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert checklist["steps"][1]["evidence_item_id_count"] == 1
+    assert checklist["steps"][2]["primary_route"] == "skill_route_discovery"
+    assert checklist["steps"][2]["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert checklist["steps"][2]["secondary_harness_eval_allowed"] is False
+    assert checklist["steps"][3]["raw_evidence_urls_exported"] is False
+    assert checklist["steps"][3]["raw_source_urls_exported"] is False
+    assert checklist["steps"][3]["raw_upstream_body_exported"] is False
+    assert checklist["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+    assert checklist["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert checklist["runtime_action_allowed"] is False
+    assert checklist["external_skill_activation_allowed"] is False
+    assert checklist["external_harness_execution_allowed"] is False
+    assert checklist["provider_runtime_launch_allowed"] is False
+    assert checklist["raw_evidence_urls_exported"] is False
+    assert checklist["raw_source_urls_exported"] is False
+    assert checklist["raw_upstream_body_exported"] is False
     assert pass3_handoff["queue_count"] == 2
     assert pass3_handoff["rows"][0]["queue_role"] == "selected_current_pass_lane"
     assert pass3_handoff["rows"][0]["selected_local_lane"] == "test"

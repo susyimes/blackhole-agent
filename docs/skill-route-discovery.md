@@ -994,6 +994,15 @@ an external agent, execute a harness, launch a provider, perform remote
 execution, export raw evidence URLs, export raw source URLs, export raw target
 paths, or export upstream bodies.
 
+The same packet now includes `final_pass_replay_checklist`, an operator-facing
+recovery checklist for the final pass. It separates four checks: replay the
+selected current-pass lane, carry queued bounded lanes, preserve the secondary
+agent-harness block until local corroboration exists, and verify that the
+handoff remains body-free. The checklist repeats only selected item counts,
+bounded lane names, route profiles, replay commands, and denial flags. It does
+not add proposal lanes, cite raw URLs, import upstream skill bodies, launch
+providers, execute harnesses, or activate external skills.
+
 On the first pass of a skill-route-discovery window, the harness also emits
 `pass1_handoff_packet`. The packet joins the selected current-pass bounded lane,
 queued bounded lanes, selected digest item IDs, hashed candidate sources, and

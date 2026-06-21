@@ -4122,6 +4122,15 @@ def skill_route_discovery_pass3_handoff_packet(
     )
     selected_lanes = sorted({row["selected_local_lane"] for row in selected_rows})
     queued_lanes = sorted({row["selected_local_lane"] for row in queued_rows})
+    final_pass_replay_checklist = skill_route_discovery_pass3_final_pass_replay_checklist(
+        ready=ready,
+        current_action=current_action,
+        selected_rows=selected_rows,
+        queued_rows=queued_rows,
+        mixed_probe_primary_route=mixed_probe_primary_route,
+        mixed_probe_secondary_status=mixed_probe_secondary_status,
+        diagnostics=diagnostics,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -4160,6 +4169,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "secondary_lane": optional_string(mixed_local_lane_probe.get("secondary_lane"))
         or "agent_harness_eval_after_local_corroboration",
         "secondary_lane_status": mixed_probe_secondary_status,
+        "final_pass_replay_checklist": final_pass_replay_checklist,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),
@@ -4171,6 +4181,118 @@ def skill_route_discovery_pass3_handoff_packet(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_final_pass_replay_checklist(
+    *,
+    ready: bool,
+    current_action: dict[str, Any],
+    selected_rows: list[dict[str, Any]],
+    queued_rows: list[dict[str, Any]],
+    mixed_probe_primary_route: str,
+    mixed_probe_secondary_status: str,
+    diagnostics: list[str],
+) -> dict[str, Any]:
+    """Return the pass-4 replay checklist without adding activation authority."""
+
+    steps = [
+        {
+            "step": "replay_selected_current_pass_lane",
+            "status": "ready" if selected_rows else "blocked",
+            "selected_local_lanes": sorted({row["selected_local_lane"] for row in selected_rows}),
+            "route_profiles": sorted(
+                {
+                    profile
+                    for row in selected_rows
+                    for profile in string_list(row.get("route_profiles"))
+                }
+            ),
+            "evidence_ref_mode": "selected_item_ids_only",
+            "evidence_item_id_count": len(
+                {
+                    item_id
+                    for row in selected_rows
+                    for item_id in string_list(row.get("evidence_item_ids"))
+                }
+            ),
+            "required_validation": string_list(current_action.get("required_validation")),
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+        },
+        {
+            "step": "carry_queued_bounded_lanes",
+            "status": "ready" if queued_rows else "not_applicable",
+            "queued_local_lanes": sorted({row["selected_local_lane"] for row in queued_rows}),
+            "route_profiles": sorted(
+                {
+                    profile
+                    for row in queued_rows
+                    for profile in string_list(row.get("route_profiles"))
+                }
+            ),
+            "evidence_ref_mode": "selected_item_ids_only",
+            "evidence_item_id_count": len(
+                {
+                    item_id
+                    for row in queued_rows
+                    for item_id in string_list(row.get("evidence_item_ids"))
+                }
+            ),
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+        },
+        {
+            "step": "preserve_secondary_harness_block",
+            "status": "ready"
+            if (
+                mixed_probe_primary_route == "skill_route_discovery"
+                and mixed_probe_secondary_status == "blocked_until_local_corroboration"
+            )
+            else "blocked",
+            "primary_route": mixed_probe_primary_route,
+            "secondary_lane_status": mixed_probe_secondary_status,
+            "secondary_harness_eval_allowed": False,
+            "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+            "runtime_action_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+        },
+        {
+            "step": "verify_body_free_final_handoff",
+            "status": "ready" if not diagnostics else "blocked",
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+    ]
+    return {
+        "controller_surface": "skill_route_discovery_pass3_final_pass_replay_checklist",
+        "status": "ready" if ready else "blocked",
+        "decision": "ready_for_final_pass_replay" if ready else "repair_before_final_pass_replay",
+        "step_count": len(steps),
+        "steps": steps,
+        "required_validation": string_list(current_action.get("required_validation")),
+        "provider_runtime_replay_commands": string_list(current_action.get("provider_runtime_replay_commands")),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
