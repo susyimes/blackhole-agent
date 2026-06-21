@@ -1961,6 +1961,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_upstream_body_exported": False,
     }
     local_lane_closure = output["capability_window_completion"]["completion_report"]["local_lane_closure"]
+    activation_handoff = output["capability_window_completion"]["completion_report"]["activation_handoff"]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -1984,6 +1985,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             stable_text_hash("fablecodex-repo"),
         ],
         "local_lane_closure": local_lane_closure,
+        "activation_handoff": activation_handoff,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -3280,6 +3282,36 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert closure["raw_source_urls_exported"] is False
     assert closure["raw_target_paths_exported"] is False
     assert closure["raw_upstream_body_exported"] is False
+    handoff = output["capability_window_completion"]["completion_report"]["activation_handoff"]
+    assert handoff["controller_surface"] == "skill_route_discovery_completion_activation_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "supervisor_may_replay_bounded_local_lanes_after_validation"
+    assert handoff["supervisor_next_action"] == "external_supervisor_replay_bounded_local_lanes"
+    assert handoff["planned_window_complete"] is True
+    assert handoff["activation_packet_status"] == "ready"
+    assert handoff["final_slice_closure_status"] == "ready"
+    assert handoff["local_lane_closure_status"] == "ready"
+    assert handoff["provider_runtime_completion_status"] == "not_applicable"
+    assert handoff["selected_local_lanes"] == ["config", "test"]
+    assert handoff["lane_count"] == 4
+    assert handoff["ready_lane_count"] == 4
+    assert handoff["blocked_lane_count"] == 0
+    assert handoff["replay_step_count"] == 1
+    assert len(handoff["replay_step_hashes"]) == 1
+    assert handoff["completion_blocker_count"] == 0
+    assert handoff["local_validation_required"] is True
+    assert handoff["external_supervisor_required"] is True
+    assert handoff["restart_required_by_kernel"] is False
+    assert handoff["runtime_action_allowed"] is False
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_skill_code_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_source_urls_exported"] is False
+    assert handoff["raw_target_paths_exported"] is False
+    assert handoff["raw_upstream_body_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized

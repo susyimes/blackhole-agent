@@ -977,6 +977,17 @@ only. It does not expand evidence URLs, install or enable upstream skills,
 execute external harnesses, launch providers, perform remote execution, export
 raw source URLs, export raw target paths, or export upstream bodies.
 
+The same report includes `activation_handoff`, a final supervisor replay
+contract for pass-4 completion. It repeats the planned-window status, activation
+packet status, final slice status, local lane closure status, provider-runtime
+completion status, selected bounded lanes, ready and blocked lane counts, replay
+step hashes, blocker hashes, required local validation, and provider-runtime
+replay commands. A ready handoff says only that an external supervisor may
+replay the already validated documentation, config, test, or code_patch lanes
+after local validation. The kernel does not restart itself, launch providers,
+perform remote execution, activate upstream skills, export raw evidence URLs,
+export raw source URLs, export raw target paths, or export upstream bodies.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend

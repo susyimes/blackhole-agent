@@ -154,6 +154,30 @@
       "equals": false
     },
     {
+      "path": "capability_window_completion.completion_report.activation_handoff.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.completion_report.activation_handoff.decision",
+      "equals": "supervisor_may_replay_bounded_local_lanes_after_validation"
+    },
+    {
+      "path": "capability_window_completion.completion_report.activation_handoff.supervisor_next_action",
+      "equals": "external_supervisor_replay_bounded_local_lanes"
+    },
+    {
+      "path": "capability_window_completion.completion_report.activation_handoff.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.activation_handoff.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.activation_handoff.remote_execution_allowed",
+      "equals": false
+    },
+    {
       "path": "capability_window_completion.final_slice_closure.runtime_action_allowed",
       "equals": false
     },
