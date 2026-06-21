@@ -957,6 +957,19 @@ external skill code, external skill activation, external harness execution,
 provider launch, remote execution, raw evidence URL export, raw source URL
 export, raw target path export, and upstream body export remain denied.
 
+On pass 3 of a skill-route-discovery window, `pass3_handoff_packet` gives the
+supervisor the active final-pass lane and any queued bounded lane in one
+body-free packet. For the FableCodex, Three.js Game Skills, and COMPASS Skills
+class, it keeps the selected local `test` lane and queued local `config` lane
+visible together, preserves only selected `item_id` references and source
+hashes, and repeats that mixed Codex/workflow/skill evidence stays
+`skill_route_discovery` first while
+`agent_harness_eval_after_local_corroboration` remains blocked. The packet does
+not add lanes, install or enable upstream skills, run upstream code, activate
+an external agent, execute a harness, launch a provider, perform remote
+execution, export raw evidence URLs, export raw source URLs, export raw target
+paths, or export upstream bodies.
+
 On the first pass of a skill-route-discovery window, the harness also emits
 `pass1_handoff_packet`. The packet joins the selected current-pass bounded lane,
 queued bounded lanes, selected digest item IDs, hashed candidate sources, and

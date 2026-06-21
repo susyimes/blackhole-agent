@@ -3249,6 +3249,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     current_action = output["current_action"]
     profile_replay = output["profile_validation_replay"]
     replay_queue = output["pass_validation_replay_queue"]
+    pass3_handoff = output["pass3_handoff_packet"]
     serialized = json.dumps(output, sort_keys=True)
 
     assert output["route_status"] == "passed"
@@ -3475,6 +3476,44 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert replay_queue["raw_evidence_urls_exported"] is False
     assert replay_queue["raw_source_urls_exported"] is False
     assert replay_queue["raw_upstream_body_exported"] is False
+    assert pass3_handoff["controller_surface"] == "skill_route_discovery_pass3_handoff_packet"
+    assert pass3_handoff["status"] == "ready"
+    assert pass3_handoff["decision"] == "continue_active_and_queued_bounded_lanes_to_final_pass"
+    assert pass3_handoff["current_pass"] == 3
+    assert pass3_handoff["next_pass"] == 4
+    assert pass3_handoff["selected_local_lanes"] == ["test"]
+    assert pass3_handoff["queued_local_lanes"] == ["config"]
+    assert pass3_handoff["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert pass3_handoff["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs-game",
+        "p3-skill-route-discovery-fablecodex",
+    ]
+    assert pass3_handoff["candidate_source_hashes"] == sorted([
+        stable_text_hash("https://github.com/baskduf/FableCodex"),
+        stable_text_hash("https://github.com/dongshuyan/compass-skills"),
+        stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+    ])
+    assert pass3_handoff["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
+    assert pass3_handoff["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+    assert pass3_handoff["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert pass3_handoff["queue_count"] == 2
+    assert pass3_handoff["rows"][0]["queue_role"] == "selected_current_pass_lane"
+    assert pass3_handoff["rows"][0]["selected_local_lane"] == "test"
+    assert pass3_handoff["rows"][1]["queue_role"] == "queued_bounded_lane"
+    assert pass3_handoff["rows"][1]["selected_local_lane"] == "config"
+    assert pass3_handoff["diagnostics"] == []
+    assert pass3_handoff["runtime_action_allowed"] is False
+    assert pass3_handoff["external_skill_activation_allowed"] is False
+    assert pass3_handoff["external_harness_execution_allowed"] is False
+    assert pass3_handoff["provider_runtime_launch_allowed"] is False
+    assert pass3_handoff["raw_evidence_urls_exported"] is False
+    assert pass3_handoff["raw_source_urls_exported"] is False
+    assert pass3_handoff["raw_upstream_body_exported"] is False
     assert selection["runtime_action_allowed"] is False
     assert selection["external_skill_activation_allowed"] is False
     assert selection["provider_runtime_launch_allowed"] is False
