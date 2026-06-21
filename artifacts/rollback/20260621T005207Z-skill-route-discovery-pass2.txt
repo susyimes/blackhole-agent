@@ -1,0 +1,7 @@
+rollback point: 20260621T005207Z skill-route-discovery-pass2
+original branch: codex/blackhole-evolve/20260621T005305.795953-prototype-skill-route-discovery-logic-that-maps-
+original head: 01c5bf2bb1e1959a2a4475bad5752f4d715cb940
+local rollback ref: refs/rollback/20260621T005207Z-skill-route-discovery-pass2
+recovery commands:
+  git reset --hard 01c5bf2bb1e1959a2a4475bad5752f4d715cb940
+  git clean -fd

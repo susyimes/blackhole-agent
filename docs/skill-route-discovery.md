@@ -920,6 +920,15 @@ runtime action, external skill activation, external harness execution, provider
 launch, remote execution, raw evidence URLs, raw source URLs, raw target paths,
 and upstream bodies.
 
+`next_pass_handoff` also carries `next_pass_replay_packet`, a compact
+supervisor replay row for the selected next validation target. The packet
+copies the chosen bounded lane, selected `item_id` references, hashed candidate
+sources, queued bounded lanes, replay commands, and completion blockers into
+one place. It is intentionally not an activation token: runtime action,
+external skill code, external skill activation, external harness execution,
+provider launch, remote execution, raw evidence URL export, raw source URL
+export, raw target path export, and upstream body export remain denied.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,

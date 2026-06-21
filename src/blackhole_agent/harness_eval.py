@@ -5286,6 +5286,109 @@ def skill_route_discovery_provider_runtime_sample_gate(
     }
 
 
+def skill_route_discovery_next_pass_replay_packet(
+    *,
+    handoff_status: str,
+    handoff_decision: str,
+    supervisor_next_action: str,
+    current_pass: int,
+    total_passes: int,
+    diagnostics: list[str],
+    validation_lane_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Package the selected next-pass lane into a bounded supervisor replay row."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    next_validation_target = validation_lane_plan.get("next_validation_target")
+    next_validation_target = next_validation_target if isinstance(next_validation_target, dict) else {}
+    selected_lane = optional_string(next_validation_target.get("selected_local_lane")) or "none"
+    targets_input = validation_lane_plan.get("lane_validation_targets")
+    targets_input = targets_input if isinstance(targets_input, list) else []
+    queued_targets: list[dict[str, Any]] = []
+    for target in targets_input:
+        if not isinstance(target, dict):
+            continue
+        queued_lane = optional_string(target.get("selected_local_lane")) or ""
+        if not queued_lane or queued_lane == selected_lane:
+            continue
+        if queued_lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            continue
+        queued_targets.append(
+            {
+                "selected_local_lane": queued_lane,
+                "validation_scope": optional_string(target.get("validation_scope"))
+                or f"local_{queued_lane}_lane_only",
+                "route_profiles": string_list(target.get("route_profiles")),
+                "route_profile_count": len(string_list(target.get("route_profiles"))),
+                "evidence_item_ids": string_list(target.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(target.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(target.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(target.get("candidate_source_hashes"))),
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    selected_ready = (
+        next_validation_target.get("status") == "ready"
+        and selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    has_next_pass = bool(current_pass and total_passes and current_pass < total_passes)
+    return {
+        "controller_surface": "skill_route_discovery_next_pass_replay_packet",
+        "status": handoff_status,
+        "decision": handoff_decision,
+        "supervisor_next_action": supervisor_next_action,
+        "current_pass": current_pass,
+        "next_pass": current_pass + 1 if has_next_pass else current_pass,
+        "total_passes": total_passes,
+        "remaining_pass_count": max(total_passes - current_pass, 0) if total_passes else 0,
+        "selected_target_ready": selected_ready,
+        "selected_local_lane": selected_lane,
+        "validation_scope": optional_string(next_validation_target.get("validation_scope")) or "none",
+        "route_profiles": string_list(next_validation_target.get("route_profiles")),
+        "route_profile_count": int(next_validation_target.get("route_profile_count") or 0),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_ids": string_list(next_validation_target.get("evidence_item_ids")),
+        "evidence_item_id_count": int(next_validation_target.get("evidence_item_id_count") or 0),
+        "candidate_source_hashes": string_list(next_validation_target.get("candidate_source_hashes")),
+        "candidate_source_count": int(next_validation_target.get("candidate_source_count") or 0),
+        "queued_validation_targets": queued_targets,
+        "queued_validation_target_count": len(queued_targets),
+        "queued_local_lanes": [target["selected_local_lane"] for target in queued_targets],
+        "completion_blockers": diagnostics,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "packet_basis": "next_validation_target_plus_queued_bounded_lanes",
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def skill_route_discovery_next_pass_handoff(
     *,
     status: str,
@@ -5342,6 +5445,15 @@ def skill_route_discovery_next_pass_handoff(
         supervisor_next_action = "handoff_completed_skill_route_slice_to_supervisor" if status == "ready" else (
             "replay_or_repair_before_supervisor_handoff"
         )
+    replay_packet = skill_route_discovery_next_pass_replay_packet(
+        handoff_status=handoff_status,
+        handoff_decision=handoff_decision,
+        supervisor_next_action=supervisor_next_action,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        diagnostics=diagnostics,
+        validation_lane_plan=validation_lane_plan,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_next_pass_handoff",
@@ -5362,6 +5474,7 @@ def skill_route_discovery_next_pass_handoff(
         "selected_evidence_ref_count": len(selected_evidence_refs),
         "selected_evidence_refs": selected_evidence_refs,
         "completion_blockers": diagnostics,
+        "next_pass_replay_packet": replay_packet,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "local_validation_required": True,
         "body_free": True,
