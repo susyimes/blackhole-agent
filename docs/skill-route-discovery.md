@@ -796,6 +796,15 @@ does not export raw source URLs or upstream bodies and does not allow runtime
 action, external skill activation, external harness execution, provider launch,
 or remote execution.
 
+For `skill_ecosystem_state_handoff` candidates, the proposal lane map also
+emits `state_profile_boundary` on the candidate inventory row and each derived
+local lane. This is a COMPASS-inspired metadata contract, not storage behavior:
+retention policy and privacy boundary review are required before activation,
+local targets remain metadata-only, and profile writes, memory writes, global
+config writes, private-context export, and write authority from upstream
+repository presence are denied. The deeper harness review remains
+`skill_route_discovery_state_handoff_preflight`.
+
 The same plan also groups selected profiles into `lane_validation_targets`.
 These rows are the operator-visible workload for the next pass: each row names
 one bounded local lane, the route profiles it covers, selected item IDs, hashed

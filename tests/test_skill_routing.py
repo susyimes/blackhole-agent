@@ -534,6 +534,26 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
         row["activation_gate"] == "local_validation_before_activation"
         for row in lane_map["candidate_lane_inventory"]
     )
+    compass_inventory = next(
+        row for row in lane_map["candidate_lane_inventory"] if row["candidate_name"] == "compass-skills"
+    )
+    assert compass_inventory["state_profile_boundary"] == {
+        "boundary_required_before_activation": True,
+        "retention_policy_required": True,
+        "privacy_boundary_required": True,
+        "local_target_metadata_only": True,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "global_config_write_allowed": False,
+        "private_context_export_allowed": False,
+        "upstream_presence_grants_write": False,
+        "review_surface": "skill_route_discovery_state_handoff_preflight",
+    }
+    assert all(
+        "state_profile_boundary" not in row
+        for row in lane_map["candidate_lane_inventory"]
+        if row["candidate_name"] != "compass-skills"
+    )
     assert lane_map["route_profile_catalog"] == {
         "body_free": True,
         "profile_counts": {
@@ -568,6 +588,21 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
     assert all(lane["uncertainty"] for lane in lane_map["proposal_lanes"])
     assert all("unvalidated_external_skill_evidence" in lane["uncertainty_reasons"] for lane in lane_map["proposal_lanes"])
+    compass_lanes = [
+        lane for lane in lane_map["proposal_lanes"] if lane["candidate_name"] == "compass-skills"
+    ]
+    assert {lane["proposal_kind"] for lane in compass_lanes} == {"documentation", "config", "test", "code_patch"}
+    assert all(
+        lane["state_profile_boundary"]["profile_write_allowed"] is False
+        and lane["state_profile_boundary"]["memory_write_allowed"] is False
+        and lane["state_profile_boundary"]["private_context_export_allowed"] is False
+        for lane in compass_lanes
+    )
+    assert all(
+        "state_profile_boundary" not in lane
+        for lane in lane_map["proposal_lanes"]
+        if lane["candidate_name"] != "compass-skills"
+    )
 
 
 def test_skill_route_discovery_normalizes_push_event_to_bounded_proposal_lanes():

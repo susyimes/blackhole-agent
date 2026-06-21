@@ -703,6 +703,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
 
         uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
         probe_metadata = _skill_route_discovery_mixed_probe_metadata(candidate, allowed_lanes)
+        state_boundary_metadata = _skill_route_discovery_state_boundary_metadata(candidate)
         candidate_lane_inventory.append(
             {
                 "candidate_name": name,
@@ -721,6 +722,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                 "uncertainty_reasons": uncertainty_reasons,
                 **probe_metadata,
+                **state_boundary_metadata,
             }
         )
 
@@ -744,6 +746,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "uncertainty_reasons": uncertainty_reasons,
                     "reason": "recognized_skill_project_evidence",
                     **probe_metadata,
+                    **state_boundary_metadata,
                 }
             )
 
@@ -915,6 +918,29 @@ def _skill_route_discovery_mixed_probe_metadata(
         "secondary_lane_status": "blocked_until_local_corroboration",
         "agent_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
         "recommended_local_lane_order": recommended_order,
+    }
+
+
+def _skill_route_discovery_state_boundary_metadata(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose COMPASS-style state/profile routes as bounded metadata only."""
+
+    route_profiles = set(_string_list(candidate.get("route_profiles")))
+    if "skill_ecosystem_state_handoff" not in route_profiles:
+        return {}
+
+    return {
+        "state_profile_boundary": {
+            "boundary_required_before_activation": True,
+            "retention_policy_required": True,
+            "privacy_boundary_required": True,
+            "local_target_metadata_only": True,
+            "profile_write_allowed": False,
+            "memory_write_allowed": False,
+            "global_config_write_allowed": False,
+            "private_context_export_allowed": False,
+            "upstream_presence_grants_write": False,
+            "review_surface": "skill_route_discovery_state_handoff_preflight",
+        }
     }
 
 
