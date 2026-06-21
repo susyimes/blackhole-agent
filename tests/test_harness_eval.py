@@ -3870,6 +3870,64 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert checklist["raw_evidence_urls_exported"] is False
     assert checklist["raw_source_urls_exported"] is False
     assert checklist["raw_upstream_body_exported"] is False
+    checkpoints = pass3_handoff["operator_checkpoint_list"]
+    assert checkpoints["controller_surface"] == "skill_route_discovery_pass3_operator_checkpoint_list"
+    assert checkpoints["status"] == "ready"
+    assert checkpoints["decision"] == "operator_can_replay_pass3_checkpoints"
+    assert checkpoints["checkpoint_count"] == 2
+    assert checkpoints["selected_checkpoint_count"] == 1
+    assert checkpoints["queued_checkpoint_count"] == 1
+    assert checkpoints["evidence_ref_mode"] == "selected_item_ids_only"
+    assert checkpoints["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert checkpoints["diagnostics"] == []
+    assert checkpoints["runtime_action_allowed"] is False
+    assert checkpoints["external_skill_activation_allowed"] is False
+    assert checkpoints["external_harness_execution_allowed"] is False
+    assert checkpoints["provider_runtime_launch_allowed"] is False
+    assert checkpoints["raw_evidence_urls_exported"] is False
+    assert checkpoints["raw_source_urls_exported"] is False
+    assert checkpoints["raw_upstream_body_exported"] is False
+    assert [
+        (
+            row["checkpoint"],
+            row["queue_role"],
+            row["selected_local_lane"],
+            row["route_profiles"],
+            row["evidence_item_id_count"],
+            row["candidate_source_count"],
+            row["queue_fingerprint"],
+            row["status"],
+        )
+        for row in checkpoints["rows"]
+    ] == [
+        (
+            "replay_selected_current_pass_lane",
+            "selected_current_pass_lane",
+            "test",
+            ["codex_workflow_gate", "game_frontend_workflow"],
+            2,
+            2,
+            expected_queue_fingerprints[0],
+            "ready",
+        ),
+        (
+            "carry_queued_bounded_lane_to_final_pass",
+            "queued_bounded_lane",
+            "config",
+            ["skill_ecosystem_state_handoff"],
+            1,
+            1,
+            expected_queue_fingerprints[1],
+            "ready",
+        ),
+    ]
+    assert all(row["blockers"] == [] for row in checkpoints["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in checkpoints["rows"])
+    assert all(row["raw_source_urls_exported"] is False for row in checkpoints["rows"])
+    assert all(row["raw_upstream_body_exported"] is False for row in checkpoints["rows"])
     assert pass3_handoff["queue_count"] == 2
     assert pass3_handoff["rows"][0]["queue_role"] == "selected_current_pass_lane"
     assert pass3_handoff["rows"][0]["selected_local_lane"] == "test"

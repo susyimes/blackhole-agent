@@ -158,6 +158,26 @@
     {
       "path": "pass_validation_replay_queue.external_skill_activation_allowed",
       "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.operator_checkpoint_list.status",
+      "equals": "ready"
+    },
+    {
+      "path": "pass3_handoff_packet.operator_checkpoint_list.rows.0.checkpoint",
+      "equals": "replay_selected_current_pass_lane"
+    },
+    {
+      "path": "pass3_handoff_packet.operator_checkpoint_list.rows.1.checkpoint",
+      "equals": "carry_queued_bounded_lane_to_final_pass"
+    },
+    {
+      "path": "pass3_handoff_packet.operator_checkpoint_list.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.operator_checkpoint_list.external_harness_execution_allowed",
+      "equals": false
     }
   ]
 }

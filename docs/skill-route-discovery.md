@@ -1053,6 +1053,15 @@ bounded lane names, route profiles, replay commands, and denial flags. It does
 not add proposal lanes, cite raw URLs, import upstream skill bodies, launch
 providers, execute harnesses, or activate external skills.
 
+The pass-3 packet also includes `operator_checkpoint_list`, a compact row list
+for the same selected and queued lanes. This gives operators a direct checkpoint
+view of the FableCodex/Three.js local test lane and the COMPASS config lane
+without walking nested queue rows. Each checkpoint carries only the bounded lane,
+route profiles, selected item counts, source counts, queue fingerprint, replay
+commands, provider-runtime replay commands, blockers, and denial flags. It does
+not export raw evidence URLs or source URLs, expose upstream bodies, run
+providers, execute harnesses, or activate external skills.
+
 On the first pass of a skill-route-discovery window, the harness also emits
 `pass1_handoff_packet`. The packet joins the selected current-pass bounded lane,
 queued bounded lanes, selected digest item IDs, hashed candidate sources, and
