@@ -3994,6 +3994,7 @@ def skill_route_discovery_pass2_handoff_packet(
     )
     activation_preview_rows = []
     operator_checkpoints = []
+    acceptance_rows = []
     for row in rows:
         preview_blockers = [] if ready else sorted(dict.fromkeys(diagnostics or ["pass2_handoff_not_ready"]))
         activation_preview_rows.append(
@@ -4019,6 +4020,52 @@ def skill_route_discovery_pass2_handoff_packet(
                 "external_harness_execution_allowed": False,
                 "provider_runtime_launch_allowed": False,
                 "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+        acceptance_gates = {
+            "bounded_lane": row["selected_local_lane"] in allowed_lanes,
+            "local_validation_required": True,
+            "runtime_action_none": row["runtime_action"] == "none",
+            "external_skill_activation_denied": row["external_skill_activation_allowed"] is False,
+            "external_harness_execution_denied": row["external_harness_execution_allowed"] is False,
+            "provider_runtime_launch_denied": row["provider_runtime_launch_allowed"] is False,
+            "remote_execution_denied": row["remote_execution_allowed"] is False,
+            "raw_evidence_urls_not_exported": row["raw_evidence_urls_exported"] is False,
+            "raw_source_urls_not_exported": row["raw_source_urls_exported"] is False,
+            "raw_target_paths_not_exported": row["raw_target_paths_exported"] is False,
+            "raw_upstream_body_not_exported": row["raw_upstream_body_exported"] is False,
+            "checkpoint_ready": ready,
+        }
+        acceptance_rows.append(
+            {
+                "queue_position": row["queue_position"],
+                "queue_role": row["queue_role"],
+                "selected_local_lane": row["selected_local_lane"],
+                "validation_scope": row["validation_scope"],
+                "route_profiles": row["route_profiles"],
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_id_count": row["evidence_item_id_count"],
+                "candidate_source_count": row["candidate_source_count"],
+                "queue_fingerprint": row["queue_fingerprint"],
+                "acceptance_gates": acceptance_gates,
+                "accepted": all(acceptance_gates.values()),
+                "required_validation": row["replay_commands"],
+                "provider_runtime_replay_commands": row["provider_runtime_replay_commands"],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "body_free": True,
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
                 "raw_evidence_urls_exported": False,
                 "raw_source_urls_exported": False,
                 "raw_target_paths_exported": False,
@@ -4059,6 +4106,15 @@ def skill_route_discovery_pass2_handoff_packet(
                 "raw_upstream_body_exported": False,
             }
         )
+
+    secondary_route_gates = {
+        "mixed_skill_workflow_primary_route_preserved": mixed_primary_route == "skill_route_discovery",
+        "secondary_harness_lane_blocked": secondary_lane_status == "blocked_until_local_corroboration",
+        "secondary_harness_eval_denied": True,
+    }
+    acceptance_ready = ready and bool(acceptance_rows) and all(row["accepted"] for row in acceptance_rows) and all(
+        secondary_route_gates.values()
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass2_handoff_packet",
@@ -4149,6 +4205,46 @@ def skill_route_discovery_pass2_handoff_packet(
             ),
             "rows": activation_preview_rows,
             "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        "local_lane_acceptance_contract": {
+            "controller_surface": "skill_route_discovery_pass2_local_lane_acceptance_contract",
+            "status": "ready" if acceptance_ready else "not_applicable" if current_pass != 2 else "blocked",
+            "decision": "pass2_lanes_accepted_for_bounded_local_replay"
+            if acceptance_ready
+            else "repair_pass2_lane_acceptance_before_replay",
+            "contract_scope": "selected_and_queued_pass2_bounded_lanes",
+            "checkpoint_count": len(acceptance_rows),
+            "selected_checkpoint_count": len(selected_rows),
+            "queued_checkpoint_count": len(queued_rows),
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "selected_local_lanes": sorted({row["selected_local_lane"] for row in selected_rows}),
+            "queued_local_lanes": sorted({row["selected_local_lane"] for row in queued_rows}),
+            "route_profiles": route_profiles,
+            "evidence_ref_mode": "selected_item_ids_only",
+            "secondary_route_gates": secondary_route_gates,
+            "secondary_lane": secondary_lane,
+            "secondary_lane_status": secondary_lane_status,
+            "secondary_harness_eval_allowed": False,
+            "rows": acceptance_rows,
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "required_validation": string_list(current_action.get("required_validation")),
+            "provider_runtime_replay_commands": string_list(
+                current_action.get("provider_runtime_replay_commands")
+            ),
             "local_validation_required": True,
             "body_free": True,
             "runtime_action_allowed": False,

@@ -918,6 +918,22 @@ agent activation, external harness execution, provider launch, remote
 execution, raw source URL export, raw evidence URL export, raw target path
 export, and upstream body export remain denied.
 
+`pass2_handoff_packet` also emits `local_lane_acceptance_contract`. This is the
+pass-2 acceptance surface for converting COMPASS-style state handoff evidence,
+Three.js/game skill evidence, and FableCodex-style mixed Codex/workflow/skill
+evidence into bounded local work. Each selected or queued row repeats the
+bounded lane, validation scope, route profiles, queue fingerprint, replay
+commands, and provider-runtime replay commands, then lists boolean acceptance
+gates for bounded lane membership, local validation, `runtime_action: none`,
+external skill denial, secondary harness denial, provider launch denial, remote
+execution denial, and omission of raw evidence URLs, raw source URLs, raw target
+paths, and upstream bodies. The contract also records that mixed
+Codex/workflow/skill evidence preserves `skill_route_discovery` as the primary
+route and keeps `agent_harness_eval_after_local_corroboration` blocked. A ready
+contract is a local replay signal only; it does not install skills, execute
+upstream code, launch a provider, execute the secondary harness, write remote
+state, or export raw upstream evidence.
+
 For `provider-runtime-control` windows the harness also emits
 `current_action_provider_runtime_preflight`. This panel joins the selected
 current action to provider-runtime replay state so pass-1 supervisors can see

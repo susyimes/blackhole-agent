@@ -2781,6 +2781,51 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert checkpoints["external_skill_activation_allowed"] is False
     assert checkpoints["external_harness_execution_allowed"] is False
     assert checkpoints["raw_evidence_urls_exported"] is False
+    contract = pass2_packet["local_lane_acceptance_contract"]
+    assert contract["controller_surface"] == "skill_route_discovery_pass2_local_lane_acceptance_contract"
+    assert contract["status"] == "ready"
+    assert contract["decision"] == "pass2_lanes_accepted_for_bounded_local_replay"
+    assert contract["contract_scope"] == "selected_and_queued_pass2_bounded_lanes"
+    assert contract["checkpoint_count"] == 2
+    assert contract["selected_checkpoint_count"] == 1
+    assert contract["queued_checkpoint_count"] == 1
+    assert contract["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert contract["selected_local_lanes"] == ["test"]
+    assert contract["queued_local_lanes"] == ["config"]
+    assert contract["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert contract["secondary_route_gates"] == {
+        "mixed_skill_workflow_primary_route_preserved": True,
+        "secondary_harness_lane_blocked": True,
+        "secondary_harness_eval_denied": True,
+    }
+    assert [row["selected_local_lane"] for row in contract["rows"]] == ["test", "config"]
+    assert [row["route_profiles"] for row in contract["rows"]] == [
+        ["codex_workflow_gate", "game_frontend_workflow"],
+        ["skill_ecosystem_state_handoff"],
+    ]
+    assert all(row["accepted"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["bounded_lane"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["local_validation_required"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["runtime_action_none"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["external_skill_activation_denied"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["external_harness_execution_denied"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["provider_runtime_launch_denied"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["remote_execution_denied"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["raw_evidence_urls_not_exported"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["raw_source_urls_not_exported"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["raw_target_paths_not_exported"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["raw_upstream_body_not_exported"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["checkpoint_ready"] is True for row in contract["rows"])
+    assert contract["secondary_harness_eval_allowed"] is False
+    assert contract["runtime_action_allowed"] is False
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["external_agent_activation_allowed"] is False
+    assert contract["external_harness_execution_allowed"] is False
+    assert contract["raw_evidence_urls_exported"] is False
     preview = pass2_packet["bounded_activation_preview"]
     assert preview["controller_surface"] == "skill_route_discovery_pass2_bounded_activation_preview"
     assert preview["status"] == "ready"
