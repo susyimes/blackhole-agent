@@ -1501,10 +1501,126 @@ def test_general_agent_project_eval_lane_requires_harness_evaluation_without_ski
                 "pytest tests/test_proposal_eval.py -q -k omnigent",
             ],
             "skill_route_discovery_inherited": False,
+            "local_validation_required": True,
             "runtime_action": "none",
             "external_agent_activation_allowed": False,
         }
     ]
+    assert eval_lane["local_validation_required"] is True
+
+
+def test_current_skill_route_window_keeps_skill_and_general_routes_bounded():
+    digest = {
+        "digest_id": "github-growth-20260621T083208.222111Z",
+        "generated_at": "2026-06-21T08:32:08Z",
+        "items": [
+            {
+                "item_id": "p1_skill_route_discovery_catalog",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "FableCodex public Codex skill workflow evidence with plugin routing, "
+                    "review gates, tests, evals, and verification habits."
+                ),
+                "relevance_reason": "Skill and workflow terms should map to bounded local lanes only.",
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "p2_skill_route_documentation",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "COMPASS Skills public skill ecosystem evidence for task clarification, "
+                    "handoff, collaboration profile state, and workflow routing."
+                ),
+                "relevance_reason": "Skill ecosystem route evidence needs local validation before activation.",
+                "risk_flags": [],
+                "confidence": 0.82,
+            },
+            {
+                "item_id": "p3_agent_harness_eval_fixture",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Three.js Game Skills public director skill bundle with specialist skills, "
+                    "game workflow, QA validation, and browser checks."
+                ),
+                "relevance_reason": "Domain skill workflow evidence should stay in local replay lanes.",
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+            {
+                "item_id": "p3_general_agent_project_no_route_hints",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "Omnigent public general AI agent framework and meta-harness with agent orchestration.",
+                "relevance_reason": "General agent project evidence requires local harness evaluation before behavior changes.",
+                "risk_flags": [],
+                "confidence": 0.74,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    classifier_rows = {row["item_id"]: row for row in lane_map["route_classifier"]}
+    candidate_panel = lane_map["skill_route_local_lane_candidates"]
+    general_eval = lane_map["general_agent_project_eval"]
+    preflight = lane_map["route_activation_preflight"]
+    serialized = json.dumps(lane_map, sort_keys=True)
+
+    assert lane_map["route_class_counts"] == {
+        "general_agent_project": 1,
+        "skill_workflow": 3,
+    }
+    assert lane_map["diagnostics"] == []
+    assert preflight["status"] == "ready"
+    assert preflight["skill_workflow_count"] == 3
+    assert preflight["general_agent_project_count"] == 1
+    assert preflight["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preflight["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert preflight["runtime_action"] == "none"
+    assert preflight["external_skill_activation_allowed"] is False
+    assert preflight["external_agent_activation_allowed"] is False
+    assert preflight["external_harness_execution_allowed"] is False
+    assert preflight["raw_source_url_export_allowed"] is False
+
+    skill_ids = {
+        "p1_skill_route_discovery_catalog",
+        "p2_skill_route_documentation",
+        "p3_agent_harness_eval_fixture",
+    }
+    for item_id in skill_ids:
+        row = classifier_rows[item_id]
+        assert row["route_class"] == "skill_workflow"
+        assert "skill_route_discovery" in row["route_hints"]
+        assert row["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+        assert row["unsupported_lanes"] == []
+
+    general_row = classifier_rows["p3_general_agent_project_no_route_hints"]
+    assert general_row["route_class"] == "general_agent_project"
+    assert general_row["route_hints"] == ["agent_harness_eval"]
+    assert "skill_route_discovery" not in general_row["route_hints"]
+    assert general_row["allowed_lanes"] == []
+    assert general_row["evaluation_lane"] == "agent_harness_eval_required"
+
+    candidate_ids = {row["item_id"] for row in candidate_panel["rows"]}
+    assert candidate_ids == skill_ids
+    assert "p3_general_agent_project_no_route_hints" not in candidate_ids
+    assert candidate_panel["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert candidate_panel["runtime_action"] == "none"
+    assert candidate_panel["external_skill_activation_allowed"] is False
+
+    assert general_eval["candidate_count"] == 1
+    assert general_eval["skill_route_discovery_inherited"] is False
+    assert general_eval["local_validation_required"] is True
+    assert general_eval["runtime_action"] == "none"
+    assert general_eval["candidates"][0]["item_id"] == "p3_general_agent_project_no_route_hints"
+    assert general_eval["candidates"][0]["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert general_eval["candidates"][0]["local_validation_required"] is True
+    assert "skill_route_discovery" not in general_eval["candidates"][0]
+    assert "https://github.com/" not in serialized
 
 
 def test_skill_route_boundary_report_splits_skill_repos_from_general_agent_projects():

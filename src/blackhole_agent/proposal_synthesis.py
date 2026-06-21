@@ -811,6 +811,7 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
                 "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
                 "required_local_validation": list(GENERAL_AGENT_PROJECT_EVAL_COMMANDS),
                 "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
                 "runtime_action": "none",
                 "external_agent_activation_allowed": False,
             }
@@ -823,6 +824,7 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
         "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
         "required_local_validation": list(GENERAL_AGENT_PROJECT_EVAL_COMMANDS),
         "skill_route_discovery_inherited": False,
+        "local_validation_required": True,
         "runtime_action": "none",
         "external_agent_activation_allowed": False,
         "raw_source_url_export_allowed": False,

@@ -1278,11 +1278,14 @@ an evaluation lane, not a skill-route lane: it records selected item IDs, hashed
 source URLs, `agent_harness_eval_required`, allowed local lanes of
 documentation, test, or code_patch, and replay commands for the local harness
 and proposal tests. It keeps `skill_route_discovery_inherited: false`,
-`runtime_action: none`, raw source URL export denied, and external agent
-activation denied. A general agent framework can therefore justify local
-harness evaluation before a behavior change, but cannot become a skill
-discovery candidate unless the selected evidence also shows skill/workflow
-signals.
+`local_validation_required: true`, `runtime_action: none`, raw source URL
+export denied, and external agent activation denied. The 2026-06-21T08:32Z
+pass-1 route window replays this split with FableCodex, COMPASS Skills, and
+Three.js Game Skills in bounded skill-route lanes while Omnigent-style general
+agent evidence remains gated behind harness evaluation. A general agent
+framework can therefore justify local harness evaluation before a behavior
+change, but cannot become a skill discovery candidate unless the selected
+evidence also shows skill/workflow signals.
 
 The same route-hint map now emits `skill_route_boundary_report`, a compact
 operator summary of that split. Skill/workflow rows such as FableCodex,
