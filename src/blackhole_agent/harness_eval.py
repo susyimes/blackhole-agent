@@ -4529,6 +4529,21 @@ def skill_route_discovery_capability_window_completion(
         activation_packet=activation_packet,
         completion_recovery=completion_recovery,
     )
+    provider_runtime_completion_handoff = skill_route_discovery_provider_runtime_completion_handoff(
+        status=status,
+        decision=decision,
+        completion_next_action=completion_next_action,
+        theme=theme,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        planned_window_complete=planned_window_complete,
+        diagnostics=diagnostics,
+        provider_runtime_sample_gate=provider_runtime_sample_gate,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+        completion_recovery=completion_recovery,
+        activation_packet=activation_packet,
+        final_slice_closure=final_slice_closure,
+    )
     completion_handoff = {
         "status": status,
         "decision": decision,
@@ -4553,6 +4568,7 @@ def skill_route_discovery_capability_window_completion(
         "profile_validation_replay": profile_validation_replay,
         "profile_completion_check": profile_completion_check,
         "completion_recovery": completion_recovery,
+        "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
         "next_pass_handoff": next_pass_handoff,
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
@@ -4597,6 +4613,7 @@ def skill_route_discovery_capability_window_completion(
         "completion_recovery": completion_recovery,
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
+        "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
@@ -4613,6 +4630,124 @@ def skill_route_discovery_capability_window_completion(
         "remote_execution_allowed": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_completion_handoff(
+    *,
+    status: str,
+    decision: str,
+    completion_next_action: str,
+    theme: str,
+    current_pass: int,
+    total_passes: int,
+    planned_window_complete: bool,
+    diagnostics: list[str],
+    provider_runtime_sample_gate: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+    completion_recovery: dict[str, Any],
+    activation_packet: dict[str, Any],
+    final_slice_closure: dict[str, Any],
+) -> dict[str, Any]:
+    """Join final slice closure with provider-runtime replay state for supervisor handoff."""
+
+    gate_status = optional_string(provider_runtime_sample_gate.get("status")) or "blocked"
+    gate_required = provider_runtime_sample_gate.get("required") is True
+    sample_provided = provider_runtime_replay_sample.get("provided") is True
+    sample_route_status = optional_string(provider_runtime_replay_sample.get("route_status")) or "missing"
+    sample_ready_for_local_replay = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    sample_ready_for_supervisor_promotion = (
+        provider_runtime_replay_sample.get("ready_for_supervisor_promotion") is True
+    )
+    degraded_replay_only = provider_runtime_replay_sample.get("degraded_replay_only") is True
+    success_claim_allowed = provider_runtime_replay_sample.get("success_claim_allowed") is True
+    provider_runtime_theme = theme == "provider-runtime-control"
+    activation_packet_ready = activation_packet.get("status") == "ready"
+    closure_ready = final_slice_closure.get("supervisor_handoff_ready") is True
+
+    if not provider_runtime_theme:
+        handoff_status = "not_applicable"
+        handoff_decision = "provider_runtime_completion_handoff_not_required_for_theme"
+        supervisor_next_action = completion_next_action
+    elif status == "ready" and gate_status == "ready" and activation_packet_ready and closure_ready:
+        handoff_status = "ready"
+        handoff_decision = "provider_runtime_control_slice_ready_for_supervisor_handoff"
+        supervisor_next_action = "handoff_provider_runtime_control_slice_to_supervisor"
+    elif gate_status != "ready":
+        handoff_status = "blocked"
+        handoff_decision = "repair_provider_runtime_replay_before_completion_handoff"
+        supervisor_next_action = optional_string(provider_runtime_sample_gate.get("next_action")) or (
+            "replay_provider_runtime_before_supervisor_handoff"
+        )
+    else:
+        handoff_status = "blocked"
+        handoff_decision = "repair_completion_packet_before_provider_runtime_handoff"
+        supervisor_next_action = optional_string(completion_recovery.get("supervisor_next_action")) or (
+            "replay_or_repair_before_supervisor_handoff"
+        )
+
+    completion_blockers = sorted(dict.fromkeys(str(diagnostic) for diagnostic in diagnostics if str(diagnostic)))
+    recovery_hint_codes = string_list(completion_recovery.get("recovery_hint_codes"))
+    if provider_runtime_theme and gate_status != "ready":
+        gate_diagnostic = optional_string(provider_runtime_sample_gate.get("diagnostic"))
+        if gate_diagnostic and gate_diagnostic != "none":
+            recovery_hint_codes.append(gate_diagnostic)
+    recovery_hint_codes = sorted(dict.fromkeys(code for code in recovery_hint_codes if code))
+
+    return {
+        "controller_surface": "provider_runtime_completion_handoff",
+        "status": handoff_status,
+        "decision": handoff_decision,
+        "completion_status": status,
+        "completion_decision": decision,
+        "supervisor_next_action": supervisor_next_action,
+        "theme": theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "final_pass_required": bool(total_passes),
+        "final_pass_observed": planned_window_complete,
+        "provider_runtime_sample_gate_status": gate_status,
+        "provider_runtime_sample_gate_decision": optional_string(
+            provider_runtime_sample_gate.get("decision")
+        ) or "",
+        "provider_runtime_sample_required": gate_required,
+        "provider_runtime_sample_provided": sample_provided,
+        "provider_runtime_sample_route_status": sample_route_status,
+        "provider_runtime_sample_ready_for_local_replay": sample_ready_for_local_replay,
+        "provider_runtime_sample_ready_for_supervisor_promotion": sample_ready_for_supervisor_promotion,
+        "provider_runtime_degraded_replay_only": degraded_replay_only,
+        "success_claim_allowed": success_claim_allowed,
+        "activation_packet_status": optional_string(activation_packet.get("status")) or "",
+        "activation_packet_ready": activation_packet_ready,
+        "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
+        "final_slice_closure_ready": closure_ready,
+        "completion_blocker_count": len(completion_blockers),
+        "completion_blocker_hashes": [stable_text_hash(diagnostic) for diagnostic in completion_blockers],
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 

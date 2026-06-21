@@ -1,0 +1,7 @@
+rollback_id=20260621T001304Z-provider-runtime-control-pass4
+original_branch=codex/blackhole-evolve/20260621T001304.620807-add-a-local-skill-route-discovery-fixture-or-tes
+head=b6391d996f17693c85206939dabf97be56226bda
+rollback_ref=refs/blackhole/rollback/20260621T001304Z-provider-runtime-control-pass4
+recover_branch=git switch codex/blackhole-evolve/20260621T001304.620807-add-a-local-skill-route-discovery-fixture-or-tes
+recover_reset=git reset --hard refs/blackhole/rollback/20260621T001304Z-provider-runtime-control-pass4
+recover_clean=git clean -fd

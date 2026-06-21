@@ -873,6 +873,21 @@ and upstream bodies. Blocked packets require repair before local replay;
 degraded packets are replayable for local validation but remain review-only
 before any success claim.
 
+On the final pass of a `provider-runtime-control` window,
+`capability_window_completion` also emits `provider_runtime_completion_handoff`.
+This packet joins the final slice status, provider-runtime sample gate,
+activation packet readiness, and final closure readiness into a single
+supervisor-visible decision. A ready packet means the pass-4 slice has a
+body-free provider-runtime replay sample, the activation packet is ready, and
+the local completion blockers are empty; blocked packets point back to the
+provider-runtime sample gate or the local completion recovery lane. The packet
+does not launch providers or activate upstream skills. It records only status
+codes, counts, recovery hint codes and hashes, replay commands, final-pass
+booleans, and the same denials for runtime action, external skill activation,
+external skill code, external harness execution, provider launch, remote
+execution, raw evidence URLs, raw source URLs, raw preflight inputs, raw
+diagnostics, raw provider values, raw target paths, and upstream bodies.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend

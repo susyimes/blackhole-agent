@@ -1794,6 +1794,59 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    provider_runtime_completion_handoff = {
+        "controller_surface": "provider_runtime_completion_handoff",
+        "status": "not_applicable",
+        "decision": "provider_runtime_completion_handoff_not_required_for_theme",
+        "completion_status": "ready",
+        "completion_decision": "complete_slice_for_supervisor_handoff",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "theme": "skill-route-discovery",
+        "current_pass": 4,
+        "total_passes": 4,
+        "final_pass_required": True,
+        "final_pass_observed": True,
+        "provider_runtime_sample_gate_status": "ready",
+        "provider_runtime_sample_gate_decision": "sample_optional_for_this_window",
+        "provider_runtime_sample_required": False,
+        "provider_runtime_sample_provided": False,
+        "provider_runtime_sample_route_status": "missing",
+        "provider_runtime_sample_ready_for_local_replay": False,
+        "provider_runtime_sample_ready_for_supervisor_promotion": False,
+        "provider_runtime_degraded_replay_only": False,
+        "success_claim_allowed": False,
+        "activation_packet_status": "ready",
+        "activation_packet_ready": True,
+        "final_slice_closure_status": "ready",
+        "final_slice_closure_ready": True,
+        "completion_blocker_count": 0,
+        "completion_blocker_hashes": [],
+        "recovery_hint_codes": [],
+        "recovery_hint_code_hashes": [],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -1896,6 +1949,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
                 "raw_upstream_body_exported": False,
             },
             "completion_recovery": completion_recovery,
+            "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
             "next_pass_handoff": next_pass_handoff,
             "activation_packet": activation_packet,
             "final_slice_closure": final_slice_closure,
@@ -1913,6 +1967,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "completion_recovery": completion_recovery,
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
+        "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -2785,6 +2840,87 @@ def test_skill_route_discovery_provider_runtime_control_pass_continues_with_read
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["diagnostics"] == ["capability_window_not_at_final_pass"]
+
+
+def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completion_handoff():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["theme"] = "provider-runtime-control"
+    input_payload["capability_window"]["capability_slice"] = (
+        "Turn provider and runtime configuration problems into body-free diagnostics, "
+        "recovery hints, and locally replayable validation."
+    )
+    input_payload["provider_runtime_preflight_samples"] = [
+        {
+            "provider": {
+                "name": "local-dry-run-provider",
+                "harness": "local-dry-run-provider",
+            },
+            "runtime": {
+                "platform": "linux",
+                "cli_resolved_in_runner": True,
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        }
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    completion = output["capability_window_completion"]
+    provider_handoff = completion["provider_runtime_completion_handoff"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "ready"
+    assert completion["decision"] == "complete_slice_for_supervisor_handoff"
+    assert completion["planned_window_complete"] is True
+    assert provider_handoff["controller_surface"] == "provider_runtime_completion_handoff"
+    assert provider_handoff["status"] == "ready"
+    assert provider_handoff["decision"] == "provider_runtime_control_slice_ready_for_supervisor_handoff"
+    assert provider_handoff["supervisor_next_action"] == (
+        "handoff_provider_runtime_control_slice_to_supervisor"
+    )
+    assert provider_handoff["theme"] == "provider-runtime-control"
+    assert provider_handoff["current_pass"] == 4
+    assert provider_handoff["total_passes"] == 4
+    assert provider_handoff["final_pass_observed"] is True
+    assert provider_handoff["provider_runtime_sample_gate_status"] == "ready"
+    assert provider_handoff["provider_runtime_sample_required"] is True
+    assert provider_handoff["provider_runtime_sample_provided"] is True
+    assert provider_handoff["provider_runtime_sample_route_status"] == "passed"
+    assert provider_handoff["provider_runtime_sample_ready_for_local_replay"] is True
+    assert provider_handoff["provider_runtime_sample_ready_for_supervisor_promotion"] is True
+    assert provider_handoff["success_claim_allowed"] is True
+    assert provider_handoff["activation_packet_ready"] is True
+    assert provider_handoff["final_slice_closure_ready"] is True
+    assert provider_handoff["completion_blocker_count"] == 0
+    assert provider_handoff["recovery_hint_codes"] == []
+    assert provider_handoff["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert completion["completion_handoff"]["provider_runtime_completion_handoff"] == provider_handoff
+    assert provider_handoff["runtime_action_allowed"] is False
+    assert provider_handoff["external_skill_activation_allowed"] is False
+    assert provider_handoff["external_skill_code_allowed"] is False
+    assert provider_handoff["provider_runtime_launch_allowed"] is False
+    assert provider_handoff["remote_execution_allowed"] is False
+    assert provider_handoff["raw_preflight_inputs_exported"] is False
+    assert provider_handoff["raw_diagnostics_exported"] is False
+    assert provider_handoff["raw_provider_values_exported"] is False
+    assert "OPENAI_API_KEY" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
 def test_skill_route_discovery_provider_runtime_control_pass_surfaces_degraded_recovery_packet():
