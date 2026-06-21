@@ -1348,13 +1348,16 @@ remain the local mixed-skill and route-hint lane-map tests.
 
 The core disabled-registry lane map now exposes the same first-route decision
 before downstream harness expansion. When body-free candidate metadata contains
-the mixed Codex, agent, skill, and workflow terms, each candidate inventory row
-and proposal-lane row records `route_probe_decision: skill_route_discovery_first`,
+mixed Codex, skill, and workflow terms, each candidate inventory row and
+proposal-lane row records `route_probe_decision: skill_route_discovery_first`,
 `primary_route: skill_route_discovery`,
 `secondary_lane: agent_harness_eval_after_local_corroboration`, and
-`secondary_lane_status: blocked_until_local_corroboration`. The recommended
-lane order is filtered to lanes already present on that candidate, and the
-allowed proposal kinds remain only documentation, config, test, and code_patch.
+`secondary_lane_status: blocked_until_local_corroboration`. An explicit agent
+term is recorded as `full_mixed_signal`, but it is no longer required for a
+FableCodex-style Codex/skill/workflow repository to enter skill-route discovery
+before any broader harness evaluation. The recommended lane order is filtered
+to lanes already present on that candidate, and the allowed proposal kinds
+remain only documentation, config, test, and code_patch.
 
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
