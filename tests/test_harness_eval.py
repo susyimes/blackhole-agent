@@ -1896,6 +1896,53 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    completion_report = {
+        "controller_surface": "skill_route_discovery_completion_report",
+        "status": "ready",
+        "decision": "operator_report_ready_for_supervisor_handoff",
+        "completion_status": "ready",
+        "completion_decision": "complete_slice_for_supervisor_handoff",
+        "supervisor_next_action": "handoff_completed_skill_route_slice_to_supervisor",
+        "theme": "skill-route-discovery",
+        "current_pass": 4,
+        "total_passes": 4,
+        "planned_window_complete": True,
+        "final_pass_required": True,
+        "final_pass_observed": True,
+        "proposal_kinds": ["code_patch", "config", "documentation", "test"],
+        "route_profiles": ["codex_workflow_gate"],
+        "selected_local_lanes": ["test"],
+        "selected_evidence_ref_count": 3,
+        "selected_evidence_ref_hashes": [
+            stable_text_hash("fablecodex-issue-15"),
+            stable_text_hash("fablecodex-issue-18"),
+            stable_text_hash("fablecodex-repo"),
+        ],
+        "missing_route_profiles": [],
+        "activation_packet_status": "ready",
+        "final_slice_closure_status": "ready",
+        "provider_runtime_completion_status": "not_applicable",
+        "completion_blocker_count": 0,
+        "completion_blocker_hashes": [],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -2002,6 +2049,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "next_pass_handoff": next_pass_handoff,
             "activation_packet": activation_packet,
             "final_slice_closure": final_slice_closure,
+            "completion_report": completion_report,
             "local_validation_required": True,
             "runtime_action_allowed": False,
             "external_skill_activation_allowed": False,
@@ -2017,6 +2065,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
         "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
+        "completion_report": completion_report,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -2049,6 +2098,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     }
     assert all(row["runtime_action_allowed"] is False for row in activation_packet["rows"])
     assert activation_packet["external_skill_activation_allowed"] is False
+    assert output["capability_window_completion"]["completion_report"] == completion_report
+    assert output["capability_window_completion"]["completion_report"]["runtime_action_allowed"] is False
+    assert output["capability_window_completion"]["completion_report"]["raw_evidence_urls_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
 
 

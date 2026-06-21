@@ -138,6 +138,22 @@
       "equals": "ready"
     },
     {
+      "path": "capability_window_completion.completion_report.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.completion_report.decision",
+      "equals": "operator_report_ready_for_supervisor_handoff"
+    },
+    {
+      "path": "capability_window_completion.completion_report.selected_local_lanes",
+      "equals": ["config", "test"]
+    },
+    {
+      "path": "capability_window_completion.completion_report.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
       "path": "capability_window_completion.final_slice_closure.runtime_action_allowed",
       "equals": false
     },

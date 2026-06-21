@@ -4743,6 +4743,24 @@ def skill_route_discovery_capability_window_completion(
         activation_packet=activation_packet,
         final_slice_closure=final_slice_closure,
     )
+    completion_report = skill_route_discovery_completion_report(
+        status=status,
+        decision=decision,
+        completion_next_action=completion_next_action,
+        theme=theme,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        planned_window_complete=planned_window_complete,
+        proposal_kinds=proposal_kinds,
+        route_profiles=route_profiles,
+        selected_evidence_refs=selected_evidence_refs,
+        diagnostics=diagnostics,
+        validation_target_handoff=validation_target_handoff,
+        profile_completion_check=profile_completion_check,
+        activation_packet=activation_packet,
+        final_slice_closure=final_slice_closure,
+        provider_runtime_completion_handoff=provider_runtime_completion_handoff,
+    )
     completion_handoff = {
         "status": status,
         "decision": decision,
@@ -4771,6 +4789,7 @@ def skill_route_discovery_capability_window_completion(
         "next_pass_handoff": next_pass_handoff,
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
+        "completion_report": completion_report,
         "local_validation_required": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
@@ -4813,6 +4832,7 @@ def skill_route_discovery_capability_window_completion(
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
         "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
+        "completion_report": completion_report,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
@@ -4829,6 +4849,95 @@ def skill_route_discovery_capability_window_completion(
         "remote_execution_allowed": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_report(
+    *,
+    status: str,
+    decision: str,
+    completion_next_action: str,
+    theme: str,
+    current_pass: int,
+    total_passes: int,
+    planned_window_complete: bool,
+    proposal_kinds: list[str],
+    route_profiles: list[str],
+    selected_evidence_refs: list[str],
+    diagnostics: list[str],
+    validation_target_handoff: dict[str, Any],
+    profile_completion_check: dict[str, Any],
+    activation_packet: dict[str, Any],
+    final_slice_closure: dict[str, Any],
+    provider_runtime_completion_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    """Condense final skill-route completion state into an operator report."""
+
+    selected_local_lanes = string_list(validation_target_handoff.get("selected_local_lanes"))
+    ready = (
+        status == "ready"
+        and activation_packet.get("status") == "ready"
+        and final_slice_closure.get("supervisor_handoff_ready") is True
+        and provider_runtime_completion_handoff.get("status") in {"ready", "not_applicable"}
+        and not diagnostics
+    )
+    blocked_reasons = sorted(dict.fromkeys(str(diagnostic) for diagnostic in diagnostics if str(diagnostic)))
+    if not ready:
+        if activation_packet.get("status") != "ready":
+            blocked_reasons.append("activation_packet_not_ready")
+        if final_slice_closure.get("supervisor_handoff_ready") is not True:
+            blocked_reasons.append("final_slice_closure_not_ready")
+        if provider_runtime_completion_handoff.get("status") not in {"ready", "not_applicable"}:
+            blocked_reasons.append("provider_runtime_completion_handoff_not_ready")
+    blocked_reasons = sorted(dict.fromkeys(blocked_reasons))
+
+    return {
+        "controller_surface": "skill_route_discovery_completion_report",
+        "status": "ready" if ready else "blocked",
+        "decision": "operator_report_ready_for_supervisor_handoff"
+        if ready
+        else "operator_report_blocked_until_local_repair",
+        "completion_status": status,
+        "completion_decision": decision,
+        "supervisor_next_action": completion_next_action,
+        "theme": theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "planned_window_complete": planned_window_complete,
+        "final_pass_required": bool(total_passes),
+        "final_pass_observed": planned_window_complete,
+        "proposal_kinds": proposal_kinds,
+        "route_profiles": route_profiles,
+        "selected_local_lanes": selected_local_lanes,
+        "selected_evidence_ref_count": len(selected_evidence_refs),
+        "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
+        "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
+        "activation_packet_status": optional_string(activation_packet.get("status")) or "",
+        "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
+        "provider_runtime_completion_status": optional_string(
+            provider_runtime_completion_handoff.get("status")
+        )
+        or "",
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 

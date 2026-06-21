@@ -910,6 +910,18 @@ external skill code, external harness execution, provider launch, remote
 execution, raw evidence URLs, raw source URLs, raw preflight inputs, raw
 diagnostics, raw provider values, raw target paths, and upstream bodies.
 
+For final pass skill-route handoff, `capability_window_completion` also emits
+`completion_report`. This is the compact operator summary to read before
+traversing the nested activation packet, final closure, and provider-runtime
+handoff objects. It records completion status, selected bounded lanes, selected
+evidence reference hashes, missing route profiles, activation packet status,
+final closure status, provider-runtime completion status, blocker hashes, and
+replay commands. A ready report means the completed slice can be handed to the
+supervisor for local replay of documentation, config, test, or code_patch lanes
+only. It does not expand evidence URLs, install or enable upstream skills,
+execute external harnesses, launch providers, perform remote execution, export
+raw source URLs, export raw target paths, or export upstream bodies.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend
