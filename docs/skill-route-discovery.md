@@ -1502,6 +1502,18 @@ COMPASS-style state handoff rows expose
 fails, the handoff is blocked before activation while preserving only the
 bounded documentation, config, test, or code_patch lanes.
 
+Pass-4 completion reports include `final_route_handoff_manifest`, a compact
+body-free route manifest for the external supervisor. It presents one row per
+route profile with the selected bounded local lane, operator replay step,
+profile gate, selected item IDs, hashed candidate sources, and completion
+diagnostics. For the FableCodex, Three.js Game Skills, and COMPASS Skills
+window, the manifest maps FableCodex-style workflow gates and game/frontend
+skills to local `test` replay, while COMPASS-style state handoff maps to local
+`config` review. The manifest is not an activation grant: runtime action,
+external skill activation, external harness execution, provider launch, remote
+execution, raw source URL export, raw target path export, and upstream body
+export remain denied.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

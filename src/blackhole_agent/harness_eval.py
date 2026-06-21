@@ -6448,6 +6448,7 @@ def skill_route_discovery_capability_window_completion(
         selected_evidence_refs=selected_evidence_refs,
         diagnostics=diagnostics,
         validation_target_handoff=validation_target_handoff,
+        profile_validation_replay=profile_validation_replay,
         profile_completion_check=profile_completion_check,
         route_profile_review=route_profile_review,
         mixed_local_lane_probe=mixed_local_lane_probe,
@@ -6561,6 +6562,7 @@ def skill_route_discovery_completion_report(
     selected_evidence_refs: list[str],
     diagnostics: list[str],
     validation_target_handoff: dict[str, Any],
+    profile_validation_replay: dict[str, Any],
     profile_completion_check: dict[str, Any],
     route_profile_review: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
@@ -6644,6 +6646,14 @@ def skill_route_discovery_completion_report(
         activation_handoff=activation_handoff,
         completion_audit=completion_audit,
     )
+    final_route_handoff_manifest = skill_route_discovery_final_route_handoff_manifest(
+        ready=ready,
+        blocked_reasons=blocked_reasons,
+        profile_validation_replay=profile_validation_replay,
+        profile_validation_gate=profile_validation_gate,
+        local_lane_closure=local_lane_closure,
+        activation_handoff=activation_handoff,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_completion_report",
@@ -6670,6 +6680,7 @@ def skill_route_discovery_completion_report(
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
+        "final_route_handoff_manifest": final_route_handoff_manifest,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -6837,6 +6848,153 @@ def skill_route_discovery_completion_replay_checklist(
         "replay_commands": replay_commands,
         "provider_runtime_replay_commands": provider_commands,
         "steps": steps,
+        "local_validation_required": True,
+        "external_supervisor_required": True,
+        "restart_required_by_kernel": False,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_final_route_handoff_manifest(
+    *,
+    ready: bool,
+    blocked_reasons: list[str],
+    profile_validation_replay: dict[str, Any],
+    profile_validation_gate: dict[str, Any],
+    local_lane_closure: dict[str, Any],
+    activation_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose final route-profile lanes as a compact supervisor handoff manifest."""
+
+    replay_rows = profile_validation_replay.get("rows")
+    replay_rows = replay_rows if isinstance(replay_rows, list) else []
+    gate_rows = profile_validation_gate.get("rows")
+    gate_rows = gate_rows if isinstance(gate_rows, list) else []
+    closure_rows = local_lane_closure.get("rows")
+    closure_rows = closure_rows if isinstance(closure_rows, list) else []
+    gate_by_profile = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in gate_rows
+        if isinstance(row, dict)
+    }
+
+    rows: list[dict[str, Any]] = []
+    for replay_row in replay_rows:
+        if not isinstance(replay_row, dict):
+            continue
+        profile = optional_string(replay_row.get("route_profile")) or "generic_skill_workflow"
+        selected_lane = optional_string(replay_row.get("selected_local_lane")) or ""
+        gate_row = gate_by_profile.get(profile, {})
+        matching_closure_rows = [
+            row
+            for row in closure_rows
+            if isinstance(row, dict)
+            and str(row.get("proposal_kind") or "") == selected_lane
+            and profile in string_list(row.get("route_profiles"))
+        ]
+        closure_ready = any(
+            row.get("local_artifact_proof_ready") is True
+            and row.get("activation_ready") is True
+            and row.get("operator_lane_ready") is True
+            and int(row.get("activation_blocker_count") or 0) == 0
+            for row in matching_closure_rows
+        )
+        row_diagnostics = string_list(replay_row.get("diagnostics"))
+        if not closure_ready:
+            row_diagnostics.append("selected_lane_not_ready_for_supervisor_replay")
+        if optional_string(gate_row.get("status")) != "ready":
+            row_diagnostics.append("profile_validation_gate_not_ready")
+
+        rows.append(
+            {
+                "route_profile": profile,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "selected_local_lane": selected_lane,
+                "validation_scope": optional_string(replay_row.get("validation_scope")) or "none",
+                "operator_replay_step": optional_string(replay_row.get("operator_replay_step")) or "",
+                "local_gate": optional_string(gate_row.get("local_gate")) or "",
+                "required_first_route_decision": optional_string(
+                    gate_row.get("required_first_route_decision")
+                )
+                or "",
+                "first_route_confirmed": gate_row.get("first_route_confirmed") is True,
+                "metadata_complete": gate_row.get("metadata_complete") is True,
+                "local_artifact_proof_ready": gate_row.get("local_artifact_proof_ready") is True,
+                "operator_lane_ready": gate_row.get("operator_lane_ready") is True,
+                "closure_lane_ready": closure_ready,
+                "evidence_item_ids": string_list(replay_row.get("evidence_item_ids")),
+                "evidence_item_id_count": int(replay_row.get("evidence_item_id_count") or 0),
+                "candidate_source_hashes": string_list(replay_row.get("candidate_source_hashes")),
+                "candidate_source_count": int(replay_row.get("candidate_source_count") or 0),
+                "candidate_count": int(replay_row.get("candidate_count") or 0),
+                "diagnostic_count": len(row_diagnostics),
+                "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in row_diagnostics],
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    rows = sorted(rows, key=lambda row: row["route_profile"])
+    ready_rows = [row for row in rows if row["status"] == "ready"]
+    manifest_ready = (
+        ready
+        and bool(rows)
+        and len(ready_rows) == len(rows)
+        and optional_string(activation_handoff.get("status")) == "ready"
+        and not blocked_reasons
+    )
+    selected_local_lanes = sorted(
+        dict.fromkeys(row["selected_local_lane"] for row in rows if row["selected_local_lane"])
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_final_route_handoff_manifest",
+        "status": "ready" if manifest_ready else "blocked",
+        "decision": "route_profile_handoff_ready_for_external_supervisor"
+        if manifest_ready
+        else "repair_route_profile_handoff_before_supervisor",
+        "profile_count": len(rows),
+        "ready_profile_count": len(ready_rows),
+        "blocked_profile_count": len(rows) - len(ready_rows),
+        "selected_local_lanes": selected_local_lanes,
+        "selected_local_lane_count": len(selected_local_lanes),
+        "route_profiles": [row["route_profile"] for row in rows],
+        "rows": rows,
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "activation_handoff_status": optional_string(activation_handoff.get("status")) or "",
+        "supervisor_next_action": optional_string(activation_handoff.get("supervisor_next_action")) or "",
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
         "local_validation_required": True,
         "external_supervisor_required": True,
         "restart_required_by_kernel": False,

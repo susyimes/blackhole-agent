@@ -1972,6 +1972,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     completion_replay_checklist = output["capability_window_completion"]["completion_report"][
         "completion_replay_checklist"
     ]
+    final_route_handoff_manifest = output["capability_window_completion"]["completion_report"][
+        "final_route_handoff_manifest"
+    ]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -1999,6 +2002,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
+        "final_route_handoff_manifest": final_route_handoff_manifest,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -3555,6 +3559,66 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert checklist["raw_source_urls_exported"] is False
     assert checklist["raw_target_paths_exported"] is False
     assert checklist["raw_upstream_body_exported"] is False
+    manifest = output["capability_window_completion"]["completion_report"]["final_route_handoff_manifest"]
+    assert manifest["controller_surface"] == "skill_route_discovery_final_route_handoff_manifest"
+    assert manifest["status"] == "ready"
+    assert manifest["decision"] == "route_profile_handoff_ready_for_external_supervisor"
+    assert manifest["profile_count"] == 3
+    assert manifest["ready_profile_count"] == 3
+    assert manifest["blocked_profile_count"] == 0
+    assert manifest["selected_local_lanes"] == ["config", "test"]
+    assert manifest["selected_local_lane_count"] == 2
+    assert manifest["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert manifest["completion_blocker_count"] == 0
+    assert manifest["activation_handoff_status"] == "ready"
+    assert manifest["supervisor_next_action"] == "external_supervisor_replay_bounded_local_lanes"
+    manifest_rows = {row["route_profile"]: row for row in manifest["rows"]}
+    assert manifest_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert manifest_rows["codex_workflow_gate"]["operator_replay_step"] == (
+        "replay_local_test_lane_for_workflow_or_game_route"
+    )
+    assert manifest_rows["codex_workflow_gate"]["required_first_route_decision"] == (
+        "skill_route_discovery_first"
+    )
+    assert manifest_rows["codex_workflow_gate"]["first_route_confirmed"] is True
+    assert manifest_rows["codex_workflow_gate"]["evidence_item_ids"] == [
+        "p3-skill-workflow-first-fablecodex"
+    ]
+    assert manifest_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert manifest_rows["game_frontend_workflow"]["operator_replay_step"] == (
+        "replay_local_test_lane_for_workflow_or_game_route"
+    )
+    assert manifest_rows["game_frontend_workflow"]["evidence_item_ids"] == [
+        "p2-skill-route-discovery-threejs-game"
+    ]
+    assert manifest_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert manifest_rows["skill_ecosystem_state_handoff"]["operator_replay_step"] == (
+        "review_local_config_lane_for_state_handoff"
+    )
+    assert manifest_rows["skill_ecosystem_state_handoff"]["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
+    assert all(row["status"] == "ready" for row in manifest["rows"])
+    assert all(row["closure_lane_ready"] is True for row in manifest["rows"])
+    assert all(row["diagnostic_count"] == 0 for row in manifest["rows"])
+    assert all(row["candidate_source_hashes"] for row in manifest["rows"])
+    assert all(row["runtime_action"] == "none" for row in manifest["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in manifest["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in manifest["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in manifest["rows"])
+    assert manifest["runtime_action_allowed"] is False
+    assert manifest["external_skill_activation_allowed"] is False
+    assert manifest["external_harness_execution_allowed"] is False
+    assert manifest["provider_runtime_launch_allowed"] is False
+    assert manifest["remote_execution_allowed"] is False
+    assert manifest["raw_evidence_urls_exported"] is False
+    assert manifest["raw_source_urls_exported"] is False
+    assert manifest["raw_target_paths_exported"] is False
+    assert manifest["raw_upstream_body_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized

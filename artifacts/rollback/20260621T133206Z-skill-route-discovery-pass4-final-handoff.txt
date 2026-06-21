@@ -1,0 +1,15 @@
+Rollback point for skill-route-discovery pass 4 final handoff
+
+Created: 2026-06-21T13:32:06Z
+Original branch: codex/blackhole-evolve/20260621T133312.322933-add-or-extend-local-skill-route-discovery-valida
+Original HEAD: e3bb5ad4f0d18f5dc780836e48828cafd44f8e8e
+Rollback ref: refs/blackhole/rollback/20260621T133206Z-skill-route-discovery-pass4
+
+Recovery commands, explicit and destructive:
+
+git switch codex/blackhole-evolve/20260621T133312.322933-add-or-extend-local-skill-route-discovery-valida
+git reset --hard refs/blackhole/rollback/20260621T133206Z-skill-route-discovery-pass4
+
+Scope note:
+This rollback point covers local source, fixture, documentation, and artifact edits made during the
+github-growth-20260621T133207.766848Z skill-route-discovery pass-4 completion run.
