@@ -2033,6 +2033,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     final_route_handoff_manifest = output["capability_window_completion"]["completion_report"][
         "final_route_handoff_manifest"
     ]
+    route_validation_lane_queue = output["capability_window_completion"]["completion_report"][
+        "route_validation_lane_queue"
+    ]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -2061,6 +2064,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
         "final_route_handoff_manifest": final_route_handoff_manifest,
+        "route_validation_lane_queue": route_validation_lane_queue,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -3667,6 +3671,34 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert all(row["runtime_action"] == "none" for row in manifest["rows"])
     assert all(row["external_skill_activation_allowed"] is False for row in manifest["rows"])
     assert all(row["provider_runtime_launch_allowed"] is False for row in manifest["rows"])
+    lane_queue = output["capability_window_completion"]["completion_report"]["route_validation_lane_queue"]
+    serialized = json.dumps(lane_queue, sort_keys=True)
+    assert lane_queue["controller_surface"] == "skill_route_discovery_route_validation_lane_queue"
+    assert lane_queue["status"] == "ready"
+    assert lane_queue["decision"] == "bounded_route_validation_lanes_ready_for_supervisor_replay"
+    assert lane_queue["lane_count"] == 3
+    assert lane_queue["ready_lane_count"] == 3
+    assert lane_queue["blocked_lane_count"] == 0
+    assert lane_queue["selected_local_lanes"] == ["config", "test"]
+    assert lane_queue["activity_event_kinds"] == ["push", "unknown"]
+    assert lane_queue["push_signal_count"] == 4
+    assert lane_queue["push_event_freshness_signal"] is True
+    assert lane_queue["push_event_authoritative"] is False
+    assert lane_queue["activity_freshness"] == "push_movement_present_non_authoritative"
+    assert lane_queue["completion_blocker_count"] == 0
+    queue_rows = {row["route_profile"]: row for row in lane_queue["rows"]}
+    assert queue_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert queue_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert queue_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(row["runtime_action"] == "none" for row in lane_queue["rows"])
+    assert all(row["local_validation_required"] is True for row in lane_queue["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in lane_queue["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in lane_queue["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in lane_queue["rows"])
+    assert all(row["remote_execution_allowed"] is False for row in lane_queue["rows"])
+    assert all(row["push_event_authoritative"] is False for row in lane_queue["rows"])
+    assert all(row["push_event_install_or_activation_allowed"] is False for row in lane_queue["rows"])
+    assert "https://github.com/" not in serialized
     assert all(row["raw_evidence_urls_exported"] is False for row in manifest["rows"])
     assert manifest["runtime_action_allowed"] is False
     assert manifest["external_skill_activation_allowed"] is False

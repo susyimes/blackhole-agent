@@ -37,6 +37,7 @@
       {
         "name": "compass-skills",
         "source_url": "https://github.com/dongshuyan/compass-skills",
+        "discovery_event_kind": "PushEvent",
         "evidence_summary": "COMPASS skill ecosystem with task clarification, repo-local task memory, handoff prompts, collaboration profile, privacy boundary, route metadata, and validation evidence.",
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
         "evidence_item_ids": ["p1-skill-route-discovery-compass"],
@@ -203,6 +204,50 @@
     },
     {
       "path": "capability_window_completion.completion_report.completion_replay_checklist.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.decision",
+      "equals": "bounded_route_validation_lanes_ready_for_supervisor_replay"
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.lane_count",
+      "equals": 3
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.ready_lane_count",
+      "equals": 3
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.selected_local_lanes",
+      "equals": ["config", "test"]
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.push_signal_count",
+      "equals": 4
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.push_event_freshness_signal",
+      "equals": true
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.push_event_authoritative",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.activity_freshness",
+      "equals": "push_movement_present_non_authoritative"
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.route_validation_lane_queue.external_skill_activation_allowed",
       "equals": false
     },
     {

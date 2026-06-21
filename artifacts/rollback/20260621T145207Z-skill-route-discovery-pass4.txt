@@ -1,0 +1,15 @@
+# Rollback Point
+
+Run: github-growth-20260621T145207.864288Z
+Capability theme: skill-route-discovery pass 4 of 4
+Original branch: codex/blackhole-evolve/20260621T145329.157855-add-or-run-a-local-skill-route-discovery-validat
+Original HEAD: af2f302c1f811cdb4a8fd728fe4396c9b93aefb3
+Rollback ref: refs/rollback/blackhole-agent/20260621T145207Z-skill-route-discovery-pass4
+
+Recovery commands:
+```powershell
+git switch codex/blackhole-evolve/20260621T145329.157855-add-or-run-a-local-skill-route-discovery-validat
+git reset --hard refs/rollback/blackhole-agent/20260621T145207Z-skill-route-discovery-pass4
+```
+
+Rollback execution is destructive and must be chosen explicitly by an operator or supervisor policy.

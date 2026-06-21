@@ -1493,6 +1493,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         supervisor_readiness=supervisor_readiness,
         validation_lane_plan=validation_lane_plan,
         profile_validation_replay=profile_validation_replay,
+        activity_signal_panel=activity_signal_panel,
         mixed_local_lane_probe=mixed_local_lane_probe,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
         provider_runtime_replay_sample=provider_runtime_replay_sample,
@@ -6636,6 +6637,7 @@ def skill_route_discovery_capability_window_completion(
     supervisor_readiness: dict[str, Any],
     validation_lane_plan: dict[str, Any],
     profile_validation_replay: dict[str, Any],
+    activity_signal_panel: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
     provider_runtime_replay_sample: dict[str, Any],
@@ -6809,6 +6811,7 @@ def skill_route_discovery_capability_window_completion(
         diagnostics=diagnostics,
         validation_target_handoff=validation_target_handoff,
         profile_validation_replay=profile_validation_replay,
+        activity_signal_panel=activity_signal_panel,
         profile_completion_check=profile_completion_check,
         route_profile_review=route_profile_review,
         mixed_local_lane_probe=mixed_local_lane_probe,
@@ -6923,6 +6926,7 @@ def skill_route_discovery_completion_report(
     diagnostics: list[str],
     validation_target_handoff: dict[str, Any],
     profile_validation_replay: dict[str, Any],
+    activity_signal_panel: dict[str, Any],
     profile_completion_check: dict[str, Any],
     route_profile_review: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
@@ -7014,6 +7018,12 @@ def skill_route_discovery_completion_report(
         local_lane_closure=local_lane_closure,
         activation_handoff=activation_handoff,
     )
+    route_validation_lane_queue = skill_route_discovery_route_validation_lane_queue(
+        ready=ready,
+        blocked_reasons=blocked_reasons,
+        final_route_handoff_manifest=final_route_handoff_manifest,
+        activity_signal_panel=activity_signal_panel,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_completion_report",
@@ -7041,6 +7051,7 @@ def skill_route_discovery_completion_report(
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
         "final_route_handoff_manifest": final_route_handoff_manifest,
+        "route_validation_lane_queue": route_validation_lane_queue,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -7358,6 +7369,151 @@ def skill_route_discovery_final_route_handoff_manifest(
         "local_validation_required": True,
         "external_supervisor_required": True,
         "restart_required_by_kernel": False,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_route_validation_lane_queue(
+    *,
+    ready: bool,
+    blocked_reasons: list[str],
+    final_route_handoff_manifest: dict[str, Any],
+    activity_signal_panel: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose the final skill-route slice as bounded local validation lanes."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    manifest_rows = final_route_handoff_manifest.get("rows")
+    manifest_rows = manifest_rows if isinstance(manifest_rows, list) else []
+    activity_rows = activity_signal_panel.get("rows")
+    activity_rows = activity_rows if isinstance(activity_rows, list) else []
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    event_kinds = sorted({str(row.get("event_kind") or "") for row in activity_rows if isinstance(row, dict)})
+    push_signal_count = sum(
+        1
+        for row in activity_rows
+        if isinstance(row, dict) and str(row.get("event_kind") or "") == "push"
+    )
+    activity_freshness = (
+        "push_movement_present_non_authoritative" if push_signal_count else "no_push_movement_observed"
+    )
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for manifest_row in manifest_rows:
+        if not isinstance(manifest_row, dict):
+            continue
+        route_profile = optional_string(manifest_row.get("route_profile")) or "generic_skill_workflow"
+        selected_lane = optional_string(manifest_row.get("selected_local_lane")) or ""
+        row_diagnostics = string_list(manifest_row.get("diagnostics"))
+        if selected_lane not in allowed_lanes:
+            row_diagnostics.append("selected_lane_not_bounded")
+        if manifest_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(manifest_row.get("runtime_action") or "") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if manifest_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if manifest_row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        if manifest_row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_not_denied")
+        if manifest_row.get("remote_execution_allowed") is not False:
+            row_diagnostics.append("remote_execution_not_denied")
+        if manifest_row.get("raw_evidence_urls_exported") is not False:
+            row_diagnostics.append("raw_evidence_urls_exported")
+        if manifest_row.get("raw_source_urls_exported") is not False:
+            row_diagnostics.append("raw_source_urls_exported")
+
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        diagnostics.extend(f"{route_profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "route_profile": route_profile,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "selected_local_lane": selected_lane,
+                "validation_scope": optional_string(manifest_row.get("validation_scope")) or "none",
+                "operator_replay_step": optional_string(manifest_row.get("operator_replay_step")) or "",
+                "activity_freshness": activity_freshness,
+                "push_event_freshness_signal": push_signal_count > 0,
+                "push_event_authoritative": False,
+                "push_event_install_or_activation_allowed": False,
+                "event_kinds": event_kinds,
+                "evidence_item_id_count": int(manifest_row.get("evidence_item_id_count") or 0),
+                "candidate_source_count": int(manifest_row.get("candidate_source_count") or 0),
+                "diagnostic_count": len(row_diagnostics),
+                "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in row_diagnostics],
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    lane_queue_ready = (
+        ready
+        and bool(rows)
+        and not diagnostics
+        and optional_string(final_route_handoff_manifest.get("status")) == "ready"
+        and not blocked_reasons
+    )
+    selected_local_lanes = sorted(
+        dict.fromkeys(row["selected_local_lane"] for row in rows if row["selected_local_lane"])
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_route_validation_lane_queue",
+        "status": "ready" if lane_queue_ready else "blocked",
+        "decision": "bounded_route_validation_lanes_ready_for_supervisor_replay"
+        if lane_queue_ready
+        else "repair_route_validation_lanes_before_supervisor_replay",
+        "lane_count": len(rows),
+        "ready_lane_count": sum(1 for row in rows if row["status"] == "ready"),
+        "blocked_lane_count": sum(1 for row in rows if row["status"] != "ready"),
+        "selected_local_lanes": selected_local_lanes,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "activity_event_kinds": event_kinds,
+        "push_signal_count": push_signal_count,
+        "push_event_freshness_signal": push_signal_count > 0,
+        "push_event_authoritative": False,
+        "activity_freshness": activity_freshness,
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
