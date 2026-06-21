@@ -910,6 +910,26 @@ supervisor to infer it from raw repository URLs or README claims. Mixed
 Codex/workflow/skill evidence remains `skill_route_discovery_first`; secondary
 agent-harness evaluation stays blocked until local corroboration.
 
+For the 2026-06-21T11:12Z pass-1 window, the harness also emits
+`pass1_validation_queue`. This queue maps anchoring proposals such as
+`p1-skill-route-discovery-compass`, `p2-threejs-game-skill-docs`, and
+`p3-codex-workflow-gate-config` to the selected bounded local lane already
+chosen by the replay queue. COMPASS-style state handoff remains a local
+documentation or config-boundary row, Three.js game/frontend evidence remains a
+local test/frontend validation row, and FableCodex-style Codex workflow-gate
+evidence remains a local test row that preserves
+`skill_route_discovery_first`. Adjacent general-agent anchors such as
+`p4-general-agent-harness-eval` and `trend:omnigent-ai/omnigent` are represented
+as `agent_harness_eval_required` rows with
+`skill_route_discovery_inherited: false`.
+
+The queue is a replay surface, not an activation token. It cites selected
+`item_id` values only, exports candidate/source metadata as hashes, and repeats
+the denials for runtime action, external skill activation, external agent
+activation, external harness execution, provider launch, remote execution, raw
+evidence URL export, raw source URL export, raw target path export, and upstream
+body export.
+
 Pass-2 windows now also emit `pass2_handoff_packet`. This packet copies the
 selected current-pass lane, queued bounded lanes, selected item IDs, candidate
 source hashes, and mixed-route probe decision into one supervisor-readable

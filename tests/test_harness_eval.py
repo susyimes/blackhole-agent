@@ -3681,6 +3681,7 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     )
     current_action = output["current_action"]
     handoff_packet = output["pass1_handoff_packet"]
+    pass1_queue = output["pass1_validation_queue"]
     mixed_probe = output["mixed_local_lane_probe"]
     serialized = json.dumps(output, sort_keys=True)
 
@@ -3693,8 +3694,8 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert current_action["selected_local_lane"] == "test"
     assert current_action["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
     assert current_action["evidence_item_ids"] == [
-        "p2-threejs-skill-discovery-fixture",
-        "p3-fablecodex-skill-workflow-probe",
+        "p2-threejs-game-skill-docs",
+        "p3-codex-workflow-gate-config",
     ]
     assert current_action["queued_validation_targets"][0]["evidence_item_ids"] == [
         "p1-skill-route-discovery-compass"
@@ -3706,10 +3707,35 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert handoff_packet["evidence_ref_mode"] == "selected_item_ids_only"
     assert handoff_packet["evidence_item_ids"] == [
         "p1-skill-route-discovery-compass",
-        "p2-threejs-skill-discovery-fixture",
-        "p3-fablecodex-skill-workflow-probe",
+        "p2-threejs-game-skill-docs",
+        "p3-codex-workflow-gate-config",
     ]
     assert handoff_packet["external_skill_activation_allowed"] is False
+    assert pass1_queue["controller_surface"] == "skill_route_discovery_pass1_validation_queue"
+    assert pass1_queue["status"] == "ready"
+    assert pass1_queue["decision"] == "pass1_skill_route_validation_queue_ready"
+    assert pass1_queue["anchoring_proposal_count"] == 5
+    assert pass1_queue["skill_route_row_count"] == 3
+    assert pass1_queue["adjacent_general_agent_row_count"] == 2
+    assert pass1_queue["ready_skill_route_row_count"] == 3
+    assert pass1_queue["selected_local_lanes"] == ["documentation", "test"]
+    assert pass1_queue["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert pass1_queue["mixed_skill_workflow_secondary_lane_status"] == "blocked_until_local_corroboration"
+    queue_rows_by_id = {row["proposal_id"]: row for row in pass1_queue["rows"]}
+    assert queue_rows_by_id["p1-skill-route-discovery-compass"]["selected_local_lane"] == "documentation"
+    assert queue_rows_by_id["p2-threejs-game-skill-docs"]["route_profiles"] == ["game_frontend_workflow"]
+    assert queue_rows_by_id["p3-codex-workflow-gate-config"]["selected_local_lane"] == "test"
+    assert queue_rows_by_id["p4-general-agent-harness-eval"]["route"] == "agent_harness_eval_required"
+    assert queue_rows_by_id["trend:omnigent-ai/omnigent"]["skill_route_discovery_inherited"] is False
+    assert all(row["runtime_action"] == "none" for row in pass1_queue["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in pass1_queue["rows"])
+    assert pass1_queue["runtime_action_allowed"] is False
+    assert pass1_queue["external_skill_activation_allowed"] is False
+    assert pass1_queue["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
 
 

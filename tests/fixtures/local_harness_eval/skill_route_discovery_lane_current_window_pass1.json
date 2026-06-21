@@ -15,16 +15,16 @@
       ],
       "anchoring_proposals": [
         "p1-skill-route-discovery-compass",
-        "p2-threejs-skill-discovery-fixture",
-        "p3-fablecodex-skill-workflow-probe",
+        "p2-threejs-game-skill-docs",
+        "p3-codex-workflow-gate-config",
         "p4-general-agent-harness-eval",
-        "p5-route-policy-summary"
+        "trend:omnigent-ai/omnigent"
       ],
       "evidence_urls": [
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
-        "https://github.com/ACN1987/FableCodex",
-        "https://github.com/baskduf/FableCodex"
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/omnigent-ai/omnigent"
       ]
     },
     "source_kind": "candidates",
@@ -42,7 +42,7 @@
         "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
         "evidence_summary": "Three.js browser game director skill bundle with specialist agent skills, gameplay workflow, QA validation, screenshot and canvas checks, scaffold boundaries, asset/provider boundary notes, and credential safeguards.",
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
-        "evidence_item_ids": ["p2-threejs-skill-discovery-fixture"],
+        "evidence_item_ids": ["p2-threejs-game-skill-docs"],
         "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
       },
       {
@@ -50,7 +50,7 @@
         "source_url": "https://github.com/baskduf/FableCodex",
         "evidence_summary": "FableCodex Codex agent skill workflow package with planning gates, plugin routing, examples, tests, evals, evidence gates, review ledger, replay notes, and verification habits.",
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
-        "evidence_item_ids": ["p3-fablecodex-skill-workflow-probe"],
+        "evidence_item_ids": ["p3-codex-workflow-gate-config"],
         "evidence_urls": [
           "https://github.com/baskduf/FableCodex",
           "https://github.com/ACN1987/FableCodex"

@@ -1378,6 +1378,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         current_action=current_action,
         pass_validation_replay_queue=pass_validation_replay_queue,
     )
+    pass1_validation_queue = skill_route_discovery_pass1_validation_queue(
+        raw_input=raw_input,
+        pass_validation_replay_queue=pass_validation_replay_queue,
+        mixed_local_lane_probe=mixed_local_lane_probe,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -1473,6 +1478,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass2_handoff_packet": pass2_handoff_packet,
         "pass3_handoff_packet": pass3_handoff_packet,
         "pass1_handoff_packet": pass1_handoff_packet,
+        "pass1_validation_queue": pass1_validation_queue,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -4947,6 +4953,226 @@ def skill_route_discovery_pass1_handoff_packet(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_pass1_validation_queue(
+    *,
+    raw_input: dict[str, Any],
+    pass_validation_replay_queue: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
+) -> dict[str, Any]:
+    """Map pass-1 anchoring proposals to bounded local replay rows."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    current_pass = int(window.get("current_pass") or window.get("planned_pass") or 0)
+    anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    queue_rows = pass_validation_replay_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    rows_by_evidence_id: dict[str, dict[str, Any]] = {}
+    for row in queue_rows:
+        if not isinstance(row, dict):
+            continue
+        for item_id in string_list(row.get("evidence_item_ids")):
+            rows_by_evidence_id[item_id] = row
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for proposal_id in anchoring_proposals:
+        proposal_lower = proposal_id.casefold()
+        if "general-agent" in proposal_lower or "omnigent" in proposal_lower:
+            rows.append(
+                {
+                    "proposal_id": proposal_id,
+                    "route": "agent_harness_eval_required",
+                    "queue_status": "gated",
+                    "selected_local_lane": "none",
+                    "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                    "route_profiles": [],
+                    "evidence_ref_mode": "selected_item_ids_only",
+                    "evidence_item_ids": [],
+                    "evidence_item_id_count": 0,
+                    "secondary_lane": "agent_harness_eval_after_local_corroboration",
+                    "secondary_lane_status": "blocked_until_local_corroboration",
+                    "skill_route_discovery_inherited": False,
+                    "ready_for_local_replay": False,
+                    "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_agent_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_evidence_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            )
+            continue
+
+        replay_row = rows_by_evidence_id.get(proposal_id)
+        if not replay_row:
+            diagnostics.append(f"{stable_text_hash(proposal_id)}:anchoring_proposal_not_in_replay_queue")
+            rows.append(
+                {
+                    "proposal_id": proposal_id,
+                    "route": "skill_route_discovery",
+                    "queue_status": "blocked",
+                    "selected_local_lane": "none",
+                    "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                    "route_profiles": [],
+                    "evidence_ref_mode": "selected_item_ids_only",
+                    "evidence_item_ids": [proposal_id],
+                    "evidence_item_id_count": 1,
+                    "ready_for_local_replay": False,
+                    "diagnostics": ["anchoring_proposal_not_in_replay_queue"],
+                    "replay_commands": [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND],
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_agent_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_evidence_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            )
+            continue
+
+        selected_lane = optional_string(replay_row.get("selected_local_lane")) or "none"
+        row_diagnostics = string_list(replay_row.get("diagnostics"))
+        if selected_lane not in allowed_lanes:
+            row_diagnostics.append("selected_local_lane_not_bounded")
+        if replay_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(replay_row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if replay_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if row_diagnostics:
+            diagnostics.extend(f"{stable_text_hash(proposal_id)}:{diagnostic}" for diagnostic in row_diagnostics)
+
+        route_profiles = skill_route_discovery_pass1_profiles_for_proposal(
+            proposal_id,
+            string_list(replay_row.get("route_profiles")),
+        )
+        rows.append(
+            {
+                "proposal_id": proposal_id,
+                "route": "skill_route_discovery",
+                "queue_status": "ready" if not row_diagnostics else "blocked",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "route_profiles": route_profiles,
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": [proposal_id],
+                "evidence_item_id_count": 1,
+                "candidate_source_hashes": string_list(replay_row.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(replay_row.get("candidate_source_hashes"))),
+                "ready_for_local_replay": not row_diagnostics,
+                "diagnostics": sorted(dict.fromkeys(row_diagnostics)),
+                "replay_commands": string_list(replay_row.get("replay_commands")),
+                "provider_runtime_replay_commands": string_list(
+                    replay_row.get("provider_runtime_replay_commands")
+                ),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    skill_rows = [row for row in rows if row["route"] == "skill_route_discovery"]
+    adjacent_rows = [row for row in rows if row["route"] == "agent_harness_eval_required"]
+    mixed_probe_status = optional_string(mixed_local_lane_probe.get("secondary_lane_status")) or ""
+    ready = (
+        current_pass == 1
+        and bool(skill_rows)
+        and all(row["ready_for_local_replay"] for row in skill_rows)
+        and all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows)
+        and not diagnostics
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass1_validation_queue",
+        "status": "ready" if ready else "not_applicable" if current_pass != 1 else "blocked",
+        "decision": "pass1_skill_route_validation_queue_ready"
+        if ready
+        else "repair_pass1_validation_queue_before_replay",
+        "current_pass": current_pass,
+        "total_passes": int(window.get("total_passes") or 0),
+        "anchoring_proposal_count": len(anchoring_proposals),
+        "skill_route_row_count": len(skill_rows),
+        "adjacent_general_agent_row_count": len(adjacent_rows),
+        "ready_skill_route_row_count": sum(1 for row in skill_rows if row["ready_for_local_replay"]),
+        "selected_local_lanes": sorted(
+            {row["selected_local_lane"] for row in skill_rows if row["selected_local_lane"] in allowed_lanes}
+        ),
+        "route_profiles": sorted(
+            {
+                profile
+                for row in skill_rows
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "mixed_skill_workflow_secondary_lane_status": mixed_probe_status,
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass1_profiles_for_proposal(proposal_id: str, route_profiles: list[str]) -> list[str]:
+    """Narrow grouped replay profiles for proposal-level pass-1 queue rows."""
+
+    proposal_lower = proposal_id.casefold()
+    if "compass" in proposal_lower:
+        narrowed = ["skill_ecosystem_state_handoff"]
+    elif "threejs" in proposal_lower or "game" in proposal_lower:
+        narrowed = ["game_frontend_workflow"]
+    elif "codex" in proposal_lower or "fable" in proposal_lower or "workflow" in proposal_lower:
+        narrowed = ["codex_workflow_gate"]
+    else:
+        narrowed = []
+
+    available = set(route_profiles)
+    filtered = [profile for profile in narrowed if profile in available]
+    return filtered or route_profiles
 
 
 def skill_route_discovery_current_action_provider_runtime_preflight(
