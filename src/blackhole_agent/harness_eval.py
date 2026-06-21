@@ -1316,6 +1316,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         route_discovery_catalog=route_discovery_catalog,
     )
+    validation_work_queue = skill_route_discovery_validation_work_queue(
+        validation_lane_plan=validation_lane_plan,
+        candidate_lane_intake=candidate_lane_intake,
+    )
     current_action = skill_route_discovery_current_action(validation_lane_plan=validation_lane_plan)
     current_action_provider_runtime_preflight = skill_route_discovery_current_action_provider_runtime_preflight(
         raw_input=raw_input,
@@ -1444,6 +1448,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_lane_selection": preactivation_lane_selection,
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
+        "validation_work_queue": validation_work_queue,
         "current_action": current_action,
         "current_action_provider_runtime_preflight": current_action_provider_runtime_preflight,
         "validation_readiness_summary": validation_readiness_summary,
@@ -3607,6 +3612,197 @@ def skill_route_discovery_next_validation_target(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_validation_work_queue(
+    *,
+    validation_lane_plan: dict[str, Any],
+    candidate_lane_intake: dict[str, Any],
+) -> dict[str, Any]:
+    """Render selected skill-route lanes as bounded local work items."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    plan_rows = validation_lane_plan.get("rows")
+    plan_rows = plan_rows if isinstance(plan_rows, list) else []
+    candidate_rows = candidate_lane_intake.get("rows")
+    candidate_rows = candidate_rows if isinstance(candidate_rows, list) else []
+
+    candidate_by_profile: dict[str, list[dict[str, Any]]] = {}
+    for candidate in candidate_rows:
+        if not isinstance(candidate, dict):
+            continue
+        for profile in string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]:
+            candidate_by_profile.setdefault(profile, []).append(candidate)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for index, plan_row in enumerate(plan_rows):
+        if not isinstance(plan_row, dict):
+            continue
+        route_profile = optional_string(plan_row.get("route_profile")) or "generic_skill_workflow"
+        selected_lane = optional_string(plan_row.get("selected_local_lane")) or ""
+        plan_row_diagnostics = string_list(plan_row.get("diagnostics"))
+        candidates = candidate_by_profile.get(route_profile, [])
+        selected_candidates = [
+            candidate
+            for candidate in candidates
+            if selected_lane in string_list(candidate.get("recommended_local_lane_order"))
+            or selected_lane in string_list(candidate.get("proposal_kinds"))
+        ]
+        if not selected_candidates:
+            selected_candidates = candidates
+
+        row_diagnostics = list(plan_row_diagnostics)
+        if selected_lane not in allowed_lanes:
+            row_diagnostics.append("selected_local_lane_not_bounded")
+        if not selected_candidates:
+            row_diagnostics.append("candidate_profile_mapping_missing")
+        if plan_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(plan_row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if plan_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+
+        artifact_contract = skill_route_discovery_local_artifact_contract(selected_lane)
+        target_paths = string_list(artifact_contract.get("target_paths"))
+        target_path_hashes = [stable_text_hash(path) for path in sorted(dict.fromkeys(target_paths))]
+        candidate_hashes = sorted(
+            {
+                str(candidate.get("candidate_name_hash") or "")
+                for candidate in selected_candidates
+                if str(candidate.get("candidate_name_hash") or "")
+            }
+        )
+        source_hashes = sorted(
+            {
+                str(candidate.get("source_hash") or "")
+                for candidate in selected_candidates
+                if str(candidate.get("source_hash") or "")
+            }
+        )
+        evidence_item_ids = sorted(
+            {
+                item_id
+                for item_id in string_list(plan_row.get("evidence_item_ids"))
+                if item_id
+            }
+        )
+        if not evidence_item_ids:
+            evidence_item_ids = sorted(
+                {
+                    item_id
+                    for candidate in selected_candidates
+                    for item_id in string_list(candidate.get("evidence_item_ids"))
+                    if item_id
+                }
+            )
+
+        row_diagnostics = sorted(dict.fromkeys(diagnostic for diagnostic in row_diagnostics if diagnostic))
+        diagnostics.extend(f"rows[{index}].{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "work_item_id": stable_text_hash(
+                    "|".join([route_profile, selected_lane, ",".join(evidence_item_ids), ",".join(source_hashes)])
+                ),
+                "route_profile": route_profile,
+                "selected_local_lane": selected_lane,
+                "validation_scope": optional_string(plan_row.get("validation_scope"))
+                or (f"local_{selected_lane}_lane_only" if selected_lane else "none"),
+                "artifact_contract_kind": selected_lane if selected_lane in allowed_lanes else "unbounded",
+                "target_path_count": len(target_path_hashes),
+                "target_path_hashes": target_path_hashes,
+                "candidate_count": len(selected_candidates),
+                "candidate_hashes": candidate_hashes,
+                "candidate_source_hashes": source_hashes
+                or string_list(plan_row.get("candidate_source_hashes")),
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": evidence_item_ids,
+                "evidence_item_id_count": len(evidence_item_ids),
+                "recommended_local_lane_order": string_list(plan_row.get("recommended_local_lane_order")),
+                "supervisor_replay_step": skill_route_discovery_validation_work_step(selected_lane),
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "diagnostics": row_diagnostics,
+                "ready_for_local_replay": not row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready_rows = [row for row in rows if row["ready_for_local_replay"]]
+    plan_ready = validation_lane_plan.get("status") == "ready"
+    intake_ready = candidate_lane_intake.get("status") == "ready"
+    if rows and plan_ready and intake_ready and len(ready_rows) == len(rows):
+        status = "ready"
+        decision = "bounded_validation_work_queue_ready_for_local_replay"
+    elif rows:
+        status = "review"
+        decision = "review_validation_work_queue_before_local_replay"
+    else:
+        status = "blocked"
+        decision = "no_validation_work_items_available"
+
+    return {
+        "controller_surface": "skill_route_discovery_validation_work_queue",
+        "status": status,
+        "decision": decision,
+        "validation_plan_status": optional_string(validation_lane_plan.get("status")) or "",
+        "candidate_intake_status": optional_string(candidate_lane_intake.get("status")) or "",
+        "work_item_count": len(rows),
+        "ready_work_item_count": len(ready_rows),
+        "blocked_work_item_count": len(rows) - len(ready_rows),
+        "selected_local_lanes": sorted({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "route_profiles": [row["route_profile"] for row in rows],
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_validation_work_step(selected_lane: str) -> str:
+    """Return the local replay step for a bounded validation work item."""
+
+    steps = {
+        "documentation": "review_local_documentation_artifact_then_replay_skill_route_lane",
+        "config": "review_local_config_boundary_then_replay_skill_route_lane",
+        "test": "run_focused_local_test_lane_then_replay_skill_route_lane",
+        "code_patch": "review_local_code_patch_behavior_then_replay_skill_route_lane",
+    }
+    return steps.get(selected_lane, "repair_unbounded_validation_work_item")
 
 
 def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]) -> dict[str, Any]:

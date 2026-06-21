@@ -3573,6 +3573,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     )
     selection = output["preactivation_lane_selection"]
     validation_plan = output["validation_lane_plan"]
+    validation_work_queue = output["validation_work_queue"]
     current_action = output["current_action"]
     profile_replay = output["profile_validation_replay"]
     replay_queue = output["pass_validation_replay_queue"]
@@ -3660,6 +3661,67 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
             "raw_upstream_body_exported": False,
         },
     ]
+    assert validation_work_queue["controller_surface"] == "skill_route_discovery_validation_work_queue"
+    assert validation_work_queue["status"] == "ready"
+    assert validation_work_queue["decision"] == "bounded_validation_work_queue_ready_for_local_replay"
+    assert validation_work_queue["validation_plan_status"] == "ready"
+    assert validation_work_queue["candidate_intake_status"] == "ready"
+    assert validation_work_queue["work_item_count"] == 3
+    assert validation_work_queue["ready_work_item_count"] == 3
+    assert validation_work_queue["blocked_work_item_count"] == 0
+    assert validation_work_queue["selected_local_lanes"] == ["config", "test"]
+    assert validation_work_queue["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert validation_work_queue["diagnostics"] == []
+    assert validation_work_queue["runtime_action_allowed"] is False
+    assert validation_work_queue["external_skill_activation_allowed"] is False
+    assert validation_work_queue["external_harness_execution_allowed"] is False
+    assert validation_work_queue["provider_runtime_launch_allowed"] is False
+    assert validation_work_queue["raw_evidence_urls_exported"] is False
+    assert validation_work_queue["raw_source_urls_exported"] is False
+    assert validation_work_queue["raw_target_paths_exported"] is False
+    assert validation_work_queue["raw_upstream_body_exported"] is False
+
+    work_rows_by_profile = {row["route_profile"]: row for row in validation_work_queue["rows"]}
+    assert work_rows_by_profile["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert work_rows_by_profile["codex_workflow_gate"]["supervisor_replay_step"] == (
+        "run_focused_local_test_lane_then_replay_skill_route_lane"
+    )
+    assert work_rows_by_profile["codex_workflow_gate"]["candidate_hashes"] == [
+        stable_text_hash("codex-fable5")
+    ]
+    assert work_rows_by_profile["codex_workflow_gate"]["candidate_source_hashes"] == [
+        stable_text_hash("https://github.com/baskduf/FableCodex")
+    ]
+    assert work_rows_by_profile["codex_workflow_gate"]["target_path_hashes"] == [
+        stable_text_hash("tests/test_harness_eval.py"),
+        stable_text_hash("tests/test_skill_routing.py"),
+    ]
+    assert work_rows_by_profile["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert work_rows_by_profile["game_frontend_workflow"]["candidate_hashes"] == [
+        stable_text_hash("threejs-game-skills")
+    ]
+    assert work_rows_by_profile["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert work_rows_by_profile["skill_ecosystem_state_handoff"]["supervisor_replay_step"] == (
+        "review_local_config_boundary_then_replay_skill_route_lane"
+    )
+    assert work_rows_by_profile["skill_ecosystem_state_handoff"]["target_path_hashes"] == [
+        stable_text_hash("src/blackhole_agent/proposal_synthesis.py")
+    ]
+    assert [row["evidence_item_ids"] for row in validation_work_queue["rows"]] == [
+        ["p3-skill-route-discovery-fablecodex"],
+        ["p2-skill-route-discovery-threejs-game"],
+        ["p1-skill-route-discovery-compass"],
+    ]
+    assert all(row["ready_for_local_replay"] is True for row in validation_work_queue["rows"])
+    assert all(row["runtime_action"] == "none" for row in validation_work_queue["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in validation_work_queue["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in validation_work_queue["rows"])
+    assert all(row["raw_source_urls_exported"] is False for row in validation_work_queue["rows"])
+    assert all(row["raw_target_paths_exported"] is False for row in validation_work_queue["rows"])
     assert current_action == {
         "controller_surface": "skill_route_discovery_current_action",
         "status": "ready",

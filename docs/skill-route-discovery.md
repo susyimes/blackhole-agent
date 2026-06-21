@@ -822,6 +822,18 @@ lanes and does not authorize upstream install, clone, execution, scaffold
 generation, provider launch, remote execution, raw source URL export, raw target
 path export, or upstream body export.
 
+The harness also emits `validation_work_queue`, which expands the selected
+route-profile lanes into bounded local work items. Each row joins the selected
+lane from `validation_lane_plan` with candidate-level route evidence from
+`candidate_lane_intake`, then reports only hashed candidate identifiers, hashed
+candidate sources, selected item IDs, hashed local artifact targets, replay
+commands, and a supervisor replay step. For the current pass-3 profile set,
+FableCodex and Three.js Game Skills become local `test` work items, while
+COMPASS-style state handoff becomes a local `config` work item. The queue is
+body-free and local-only: it cannot add lanes, export raw source URLs or target
+paths, run upstream code, execute external harnesses, launch providers, or
+activate external skill packages.
+
 The plan also emits `next_validation_target`, a single bounded lane selected
 from the grouped targets for the next scheduled pass. The selector prefers a
 local `test` replay when workflow or game-skill route evidence is present, then
