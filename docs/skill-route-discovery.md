@@ -868,6 +868,15 @@ skill code, external harness execution, provider launch, remote execution, raw
 evidence URLs, raw source URLs, raw target paths, and upstream bodies remain
 denied.
 
+Each `pass_validation_replay_queue` row also carries a `queue_fingerprint`
+derived from queue role, bounded lane, validation scope, route profiles,
+selected item IDs, candidate source hashes, and the denied runtime/external
+activation flags. The top-level `queue_fingerprints` list preserves the row
+order for supervisor drift checks between pass handoffs. These fingerprints are
+body-free replay identifiers only; they do not include raw source URLs, raw
+target paths, replay command bodies, upstream skill bodies, or any authority to
+install, enable, run, clone, scaffold, launch providers, or execute remote work.
+
 Pass-1 windows use the same row. A COMPASS, Three.js Game Skills, and
 FableCodex-style discovery window should expose the first concrete local replay
 target as `current_action.selected_local_lane` instead of requiring the

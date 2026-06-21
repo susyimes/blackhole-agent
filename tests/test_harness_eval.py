@@ -5,6 +5,7 @@ from blackhole_agent.harness_eval import (
     build_harness_comparison_report,
     evaluate_harness_behavior,
     run_local_harness_eval,
+    stable_json_hash,
     stable_text_hash,
     skill_route_discovery_inspection_requirements,
     skill_route_discovery_provider_runtime_control,
@@ -3693,6 +3694,53 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert replay_queue["rows"][1]["selected_local_lane"] == "config"
     assert replay_queue["rows"][1]["route_profiles"] == ["skill_ecosystem_state_handoff"]
     assert replay_queue["rows"][1]["evidence_item_ids"] == ["p1-skill-route-discovery-compass"]
+    expected_queue_fingerprints = [
+        stable_json_hash(
+            {
+                "queue_position": 1,
+                "queue_role": "selected_current_pass_lane",
+                "selected_local_lane": "test",
+                "validation_scope": "local_test_lane_only",
+                "route_profiles": ["codex_workflow_gate", "game_frontend_workflow"],
+                "evidence_item_ids": [
+                    "p2-skill-route-discovery-threejs-game",
+                    "p3-skill-route-discovery-fablecodex",
+                ],
+                "candidate_source_hashes": [
+                    stable_text_hash("https://github.com/baskduf/FableCodex"),
+                    stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+                ],
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        ),
+        stable_json_hash(
+            {
+                "queue_position": 2,
+                "queue_role": "queued_bounded_lane",
+                "selected_local_lane": "config",
+                "validation_scope": "local_config_lane_only",
+                "route_profiles": ["skill_ecosystem_state_handoff"],
+                "evidence_item_ids": ["p1-skill-route-discovery-compass"],
+                "candidate_source_hashes": [
+                    stable_text_hash("https://github.com/dongshuyan/compass-skills")
+                ],
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        ),
+    ]
+    assert replay_queue["queue_fingerprints"] == expected_queue_fingerprints
+    assert [row["queue_fingerprint"] for row in replay_queue["rows"]] == expected_queue_fingerprints
+    assert {row["fingerprint_basis"] for row in replay_queue["rows"]} == {
+        "queue_role_lane_profiles_evidence_hashes"
+    }
     assert all(row["runtime_action"] == "none" for row in replay_queue["rows"])
     assert all(row["external_skill_activation_allowed"] is False for row in replay_queue["rows"])
     assert replay_queue["required_validation"] == skill_route_discovery_preactivation_validation_commands()
@@ -3721,6 +3769,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
         stable_text_hash("https://github.com/dongshuyan/compass-skills"),
         stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
     ])
+    assert pass3_handoff["queue_fingerprints"] == expected_queue_fingerprints
     assert pass3_handoff["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
     assert pass3_handoff["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
     assert pass3_handoff["secondary_lane_status"] == "blocked_until_local_corroboration"
@@ -3766,8 +3815,10 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert pass3_handoff["queue_count"] == 2
     assert pass3_handoff["rows"][0]["queue_role"] == "selected_current_pass_lane"
     assert pass3_handoff["rows"][0]["selected_local_lane"] == "test"
+    assert pass3_handoff["rows"][0]["queue_fingerprint"] == expected_queue_fingerprints[0]
     assert pass3_handoff["rows"][1]["queue_role"] == "queued_bounded_lane"
     assert pass3_handoff["rows"][1]["selected_local_lane"] == "config"
+    assert pass3_handoff["rows"][1]["queue_fingerprint"] == expected_queue_fingerprints[1]
     assert pass3_handoff["diagnostics"] == []
     assert pass3_handoff["runtime_action_allowed"] is False
     assert pass3_handoff["external_skill_activation_allowed"] is False

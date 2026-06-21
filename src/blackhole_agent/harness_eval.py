@@ -3808,6 +3808,24 @@ def skill_route_discovery_pass_validation_replay_queue(
             }
         )
 
+    for row in queue_rows:
+        fingerprint_payload = {
+            "queue_position": int(row.get("queue_position") or 0),
+            "queue_role": str(row.get("queue_role") or ""),
+            "selected_local_lane": str(row.get("selected_local_lane") or ""),
+            "validation_scope": str(row.get("validation_scope") or ""),
+            "route_profiles": sorted(string_list(row.get("route_profiles"))),
+            "evidence_item_ids": sorted(string_list(row.get("evidence_item_ids"))),
+            "candidate_source_hashes": sorted(string_list(row.get("candidate_source_hashes"))),
+            "runtime_action": str(row.get("runtime_action") or "none"),
+            "external_skill_activation_allowed": row.get("external_skill_activation_allowed") is True,
+            "external_harness_execution_allowed": row.get("external_harness_execution_allowed") is True,
+            "provider_runtime_launch_allowed": row.get("provider_runtime_launch_allowed") is True,
+            "remote_execution_allowed": row.get("remote_execution_allowed") is True,
+        }
+        row["queue_fingerprint"] = stable_json_hash(fingerprint_payload)
+        row["fingerprint_basis"] = "queue_role_lane_profiles_evidence_hashes"
+
     plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
     replay_diagnostics = string_list(profile_validation_replay.get("diagnostics"))
     diagnostics = sorted(dict.fromkeys((*plan_diagnostics, *replay_diagnostics)))
@@ -3854,6 +3872,8 @@ def skill_route_discovery_pass_validation_replay_queue(
                 for source_hash in string_list(row.get("candidate_source_hashes"))
             }
         ),
+        "queue_fingerprints": [str(row["queue_fingerprint"]) for row in queue_rows],
+        "fingerprint_basis": "queue_role_lane_profiles_evidence_hashes",
         "rows": queue_rows,
         "diagnostics": diagnostics,
         "required_validation": string_list(current_action.get("required_validation")),
@@ -3919,6 +3939,9 @@ def skill_route_discovery_pass2_handoff_packet(
                 "evidence_item_id_count": len(string_list(row.get("evidence_item_ids"))),
                 "candidate_source_hashes": string_list(row.get("candidate_source_hashes")),
                 "candidate_source_count": len(string_list(row.get("candidate_source_hashes"))),
+                "queue_fingerprint": optional_string(row.get("queue_fingerprint")) or "",
+                "fingerprint_basis": optional_string(row.get("fingerprint_basis"))
+                or "queue_role_lane_profiles_evidence_hashes",
                 "replay_commands": string_list(row.get("replay_commands")),
                 "provider_runtime_replay_commands": string_list(row.get("provider_runtime_replay_commands")),
                 "local_validation_required": True,
@@ -4142,6 +4165,9 @@ def skill_route_discovery_pass3_handoff_packet(
                 "evidence_item_id_count": len(string_list(row.get("evidence_item_ids"))),
                 "candidate_source_hashes": string_list(row.get("candidate_source_hashes")),
                 "candidate_source_count": len(string_list(row.get("candidate_source_hashes"))),
+                "queue_fingerprint": optional_string(row.get("queue_fingerprint")) or "",
+                "fingerprint_basis": optional_string(row.get("fingerprint_basis"))
+                or "queue_role_lane_profiles_evidence_hashes",
                 "replay_commands": string_list(row.get("replay_commands")),
                 "provider_runtime_replay_commands": string_list(row.get("provider_runtime_replay_commands")),
                 "local_validation_required": True,
@@ -4232,6 +4258,8 @@ def skill_route_discovery_pass3_handoff_packet(
                 for source_hash in string_list(row.get("candidate_source_hashes"))
             }
         ),
+        "queue_fingerprints": [str(row["queue_fingerprint"]) for row in rows if row.get("queue_fingerprint")],
+        "fingerprint_basis": "queue_role_lane_profiles_evidence_hashes",
         "mixed_skill_workflow_primary_route": mixed_probe_primary_route,
         "secondary_lane": optional_string(mixed_local_lane_probe.get("secondary_lane"))
         or "agent_harness_eval_after_local_corroboration",
