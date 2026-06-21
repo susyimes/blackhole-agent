@@ -1969,6 +1969,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     profile_validation_gate = output["capability_window_completion"]["completion_report"]["profile_validation_gate"]
     activation_handoff = output["capability_window_completion"]["completion_report"]["activation_handoff"]
     completion_audit = output["capability_window_completion"]["completion_report"]["completion_audit"]
+    completion_replay_checklist = output["capability_window_completion"]["completion_report"][
+        "completion_replay_checklist"
+    ]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -1995,6 +1998,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "profile_validation_gate": profile_validation_gate,
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
+        "completion_replay_checklist": completion_replay_checklist,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -3492,6 +3496,44 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert audit["raw_source_urls_exported"] is False
     assert audit["raw_target_paths_exported"] is False
     assert audit["raw_upstream_body_exported"] is False
+    checklist = output["capability_window_completion"]["completion_report"]["completion_replay_checklist"]
+    assert checklist["controller_surface"] == "skill_route_discovery_completion_replay_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["decision"] == "final_replay_checklist_ready_for_supervisor"
+    assert checklist["selected_local_lanes"] == ["config", "test"]
+    assert checklist["step_count"] == 6
+    assert checklist["ready_step_count"] == 6
+    assert checklist["blocked_step_count"] == 0
+    assert checklist["incomplete_step_hashes"] == []
+    assert checklist["completion_blocker_count"] == 0
+    assert checklist["completion_blocker_hashes"] == []
+    assert checklist["recovery_hint_codes"] == ["no_recovery_required"]
+    assert checklist["replay_commands"] == skill_route_discovery_preactivation_validation_commands()
+    assert checklist["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert [step["step"] for step in checklist["steps"]] == [
+        "profile_validation_gate",
+        "local_lane_closure",
+        "activation_packet",
+        "provider_runtime_completion_handoff",
+        "completion_audit",
+        "supervisor_handoff",
+    ]
+    assert all(step["status"] in {"ready", "not_applicable"} for step in checklist["steps"])
+    assert checklist["external_supervisor_required"] is True
+    assert checklist["restart_required_by_kernel"] is False
+    assert checklist["runtime_action_allowed"] is False
+    assert checklist["external_skill_activation_allowed"] is False
+    assert checklist["external_skill_code_allowed"] is False
+    assert checklist["external_harness_execution_allowed"] is False
+    assert checklist["provider_runtime_launch_allowed"] is False
+    assert checklist["remote_execution_allowed"] is False
+    assert checklist["raw_evidence_urls_exported"] is False
+    assert checklist["raw_source_urls_exported"] is False
+    assert checklist["raw_target_paths_exported"] is False
+    assert checklist["raw_upstream_body_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized

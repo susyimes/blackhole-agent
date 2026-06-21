@@ -6043,6 +6043,18 @@ def skill_route_discovery_completion_report(
         activation_handoff=activation_handoff,
         blocked_reasons=blocked_reasons,
     )
+    completion_replay_checklist = skill_route_discovery_completion_replay_checklist(
+        ready=ready,
+        blocked_reasons=blocked_reasons,
+        selected_local_lanes=selected_local_lanes,
+        local_lane_closure=local_lane_closure,
+        profile_validation_gate=profile_validation_gate,
+        activation_packet=activation_packet,
+        final_slice_closure=final_slice_closure,
+        provider_runtime_completion_handoff=provider_runtime_completion_handoff,
+        activation_handoff=activation_handoff,
+        completion_audit=completion_audit,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_completion_report",
@@ -6068,6 +6080,7 @@ def skill_route_discovery_completion_report(
         "profile_validation_gate": profile_validation_gate,
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
+        "completion_replay_checklist": completion_replay_checklist,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -6083,6 +6096,107 @@ def skill_route_discovery_completion_report(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_replay_checklist(
+    *,
+    ready: bool,
+    blocked_reasons: list[str],
+    selected_local_lanes: list[str],
+    local_lane_closure: dict[str, Any],
+    profile_validation_gate: dict[str, Any],
+    activation_packet: dict[str, Any],
+    final_slice_closure: dict[str, Any],
+    provider_runtime_completion_handoff: dict[str, Any],
+    activation_handoff: dict[str, Any],
+    completion_audit: dict[str, Any],
+) -> dict[str, Any]:
+    """Render the final pass as an ordered replay checklist for supervisors."""
+
+    steps = [
+        {
+            "step": "profile_validation_gate",
+            "status": optional_string(profile_validation_gate.get("status")) or "",
+            "decision": optional_string(profile_validation_gate.get("decision")) or "",
+            "replay_action": "verify_required_route_profiles_have_local_lanes",
+        },
+        {
+            "step": "local_lane_closure",
+            "status": optional_string(local_lane_closure.get("status")) or "",
+            "decision": optional_string(local_lane_closure.get("decision")) or "",
+            "replay_action": "verify_local_artifact_proofs_for_bounded_lanes",
+        },
+        {
+            "step": "activation_packet",
+            "status": optional_string(activation_packet.get("status")) or "",
+            "decision": optional_string(activation_packet.get("decision")) or "",
+            "replay_action": "review_body_free_activation_packet",
+        },
+        {
+            "step": "provider_runtime_completion_handoff",
+            "status": optional_string(provider_runtime_completion_handoff.get("status")) or "",
+            "decision": optional_string(provider_runtime_completion_handoff.get("decision")) or "",
+            "replay_action": "replay_provider_runtime_preflight_when_required",
+        },
+        {
+            "step": "completion_audit",
+            "status": optional_string(completion_audit.get("status")) or "",
+            "decision": optional_string(completion_audit.get("decision")) or "",
+            "replay_action": "compare_completion_fingerprint_before_promotion",
+        },
+        {
+            "step": "supervisor_handoff",
+            "status": optional_string(activation_handoff.get("status")) or "",
+            "decision": optional_string(activation_handoff.get("decision")) or "",
+            "replay_action": "external_supervisor_replays_bounded_local_lanes",
+        },
+    ]
+    incomplete_steps = [
+        str(step["step"])
+        for step in steps
+        if step["status"] not in {"ready", "not_applicable"}
+    ]
+    recovery_hint_codes = ["no_recovery_required"] if ready else ["repair_completion_blockers_before_replay"]
+    replay_commands = skill_route_discovery_preactivation_validation_commands()
+    provider_commands = [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+
+    return {
+        "controller_surface": "skill_route_discovery_completion_replay_checklist",
+        "status": "ready" if ready and not incomplete_steps else "blocked",
+        "decision": "final_replay_checklist_ready_for_supervisor"
+        if ready and not incomplete_steps
+        else "repair_final_replay_checklist_before_supervisor",
+        "selected_local_lanes": sorted(dict.fromkeys(selected_local_lanes)),
+        "step_count": len(steps),
+        "ready_step_count": sum(1 for step in steps if step["status"] in {"ready", "not_applicable"}),
+        "blocked_step_count": len(incomplete_steps),
+        "incomplete_step_hashes": [stable_text_hash(step) for step in incomplete_steps],
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "replay_commands": replay_commands,
+        "provider_runtime_replay_commands": provider_commands,
+        "steps": steps,
+        "local_validation_required": True,
+        "external_supervisor_required": True,
+        "restart_required_by_kernel": False,
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,

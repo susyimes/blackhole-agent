@@ -1052,6 +1052,17 @@ launch providers, execute external harnesses, perform remote execution, restart
 the kernel, or activate the completed slice without the existing supervisor
 handoff.
 
+The final report also includes `completion_replay_checklist`. This is the
+operator-visible replay surface for closing a pass-4 skill-route slice: it
+orders the profile validation gate, local lane closure, activation packet,
+provider-runtime handoff, completion audit, and supervisor handoff into one
+body-free checklist. A ready checklist means those surfaces are ready or not
+applicable and the supervisor can replay the already bounded local lanes after
+the local validation commands. A blocked checklist carries only hashed blocker
+and step identifiers plus recovery hint codes. It does not add lanes, restart
+the kernel, launch providers, execute external harnesses, perform remote
+execution, export raw source or target paths, or activate upstream skill code.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend
