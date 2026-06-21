@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 53
-    assert payload["pass_count"] == 52
+    assert payload["fixture_count"] == 54
+    assert payload["pass_count"] == 53
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -96,6 +96,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "agent_workflow_route",
         "harness_run_summary",
         "headless_tool_roundtrip",
+        "known_failure_metadata_preflight",
         "mock_e2e_runner_tier",
         "mock_llm_workflow_route",
         "native_skill_session_title",
@@ -130,6 +131,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["headless-tool-roundtrip-function-call"]["passed"] is True
+    assert results["known-failure-metadata-preflight-removed"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-ask-boundary"]["passed"] is True
     assert results["mock-e2e-runner-tier-ci-roundtrip-hang"]["passed"] is True
@@ -335,6 +337,66 @@ def test_native_skill_session_title_blocks_generic_provider_fallback_without_exp
     assert output["privacy"]["provider_launched"] is False
     assert "PRIVATE_COMMAND_ARGUMENT_DO_NOT_EXPORT" not in serialized
     assert "Claude Code" not in serialized
+
+
+def test_known_failure_metadata_preflight_blocks_absent_metadata_without_exporting_ids():
+    output = evaluate_harness_behavior(
+        "known_failure_metadata_preflight",
+        {
+            "task_id": "fixture-known-failure-metadata-absent-inline",
+            "known_failure_metadata": {
+                "present": False,
+                "expected_failure_ids": ["PRIVATE_KNOWN_FAILURE_ID_DO_NOT_EXPORT"],
+                "current_failure_ids": [],
+                "change_evidence": {
+                    "known_failure_removal_explained": False,
+                    "local_test_evidence_present": False,
+                    "gating_refresh_recorded": False,
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "known_failure_metadata_absent_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "known_failure_metadata_stale"
+    assert output["preflight"]["metadata_present"] is False
+    assert output["preflight"]["known_failure_metadata_absent"] is True
+    assert output["preflight"]["test_gating_should_refresh"] is True
+    assert output["supervisor_handoff"]["recovery_hint_codes"] == [
+        "refresh_expected_failure_assumptions",
+        "restore_or_confirm_known_failure_metadata",
+    ]
+    assert output["privacy"]["raw_test_names_exported"] is False
+    assert "PRIVATE_KNOWN_FAILURE_ID_DO_NOT_EXPORT" not in serialized
+
+
+def test_known_failure_metadata_preflight_accepts_current_metadata_without_refresh():
+    output = evaluate_harness_behavior(
+        "known_failure_metadata_preflight",
+        {
+            "task_id": "fixture-known-failure-metadata-current-inline",
+            "known_failure_metadata": {
+                "present": True,
+                "expected_failure_ids": ["approval-output-phase-ask"],
+                "current_failure_ids": ["approval-output-phase-ask"],
+                "change_evidence": {
+                    "known_failure_removal_explained": True,
+                    "local_test_evidence_present": True,
+                    "gating_refresh_recorded": True,
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "known_failure_metadata_current_inline.json",
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["preflight"]["status"] == "current"
+    assert output["preflight"]["test_gating_should_refresh"] is False
+    assert output["preflight"]["diagnostics"] == []
+    assert output["supervisor_handoff"]["decision"] == "test_gating_current"
 
 
 def test_rendered_html_artifact_validation_covers_script_execution_and_link_targets():

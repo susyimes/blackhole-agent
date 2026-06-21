@@ -249,6 +249,25 @@ other personal data. Privacy-leakage scenarios remain review-only; they may
 record metadata such as phase names, booleans, failure classes, counts, and
 hashes, but not sensitive bodies.
 
+## Known-Failure Metadata Preflight
+
+Source digest: `github-growth-20260621T025207.809488Z`
+
+The current Omnigent proposal stream included low-detail movement around a
+test/remove-known-failures branch and generic pull request activity. That is not
+enough detail to copy a test change, but it is enough to require a local
+preflight before blackhole-agent treats green tests as fresh evidence.
+
+For this repository, `known_failure_metadata_preflight` compares expected and
+current known-failure metadata before growth runs consume test results. It
+blocks as `known_failure_metadata_stale` when metadata is absent, current
+metadata is empty, expected failures were removed, the removal is unexplained,
+or the expected-failure gate refresh was not recorded. The output reports
+`test_gating_should_refresh`, hashed removed/added failure IDs, and recovery
+hint codes only; raw test names, raw failure text, quarantine bodies, and
+private paths remain omitted. The validation command is
+`pytest tests/test_harness_eval.py -q -k known_failure_metadata_preflight`.
+
 ## Evidence From This Run
 
 The source digest cited `https://github.com/omnigent-ai/omnigent`. Its public

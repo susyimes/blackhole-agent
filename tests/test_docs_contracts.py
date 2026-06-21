@@ -135,6 +135,37 @@ def test_upstream_evidence_interpretation_doc_records_approval_ask_surfacing_wat
     assert missing_architecture == []
 
 
+def test_known_failure_metadata_preflight_contract_is_documented():
+    doc = (REPO_ROOT / "docs" / "upstream-evidence-interpretation.md").read_text(encoding="utf-8")
+    architecture = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+
+    required_doc_phrases = [
+        "## Known-Failure Metadata Preflight",
+        "Source digest: `github-growth-20260621T025207.809488Z`",
+        "test/remove-known-failures branch",
+        "`known_failure_metadata_preflight` compares expected and\ncurrent known-failure metadata",
+        "`known_failure_metadata_stale`",
+        "`test_gating_should_refresh`",
+        "hashed removed/added failure IDs",
+        "raw test names, raw failure text, quarantine bodies, and\nprivate paths remain omitted",
+        "pytest tests/test_harness_eval.py -q -k known_failure_metadata_preflight",
+    ]
+    required_architecture_phrases = [
+        "`known_failure_metadata_preflight` fixtures run before a growth pass treats test evidence as current",
+        "detects absent metadata, empty current metadata, removed entries",
+        "`test_gating_should_refresh` plus body-free recovery hints",
+        "Failure IDs are represented only as hashes",
+        "does not edit quarantine files or execute tests",
+        "pytest tests/test_harness_eval.py -q -k known_failure_metadata_preflight",
+    ]
+
+    missing_doc = [phrase for phrase in required_doc_phrases if phrase not in doc]
+    missing_architecture = [phrase for phrase in required_architecture_phrases if phrase not in architecture]
+
+    assert missing_doc == []
+    assert missing_architecture == []
+
+
 def test_skill_route_discovery_doc_records_bounded_matrix():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

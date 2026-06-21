@@ -1,0 +1,13 @@
+Rollback point for known-failure metadata preflight
+
+Created: 2026-06-21T02:52:07Z
+Original branch: codex/blackhole-evolve/20260621T025308.563341-introduce-a-local-preflight-or-config-check-for-
+Original HEAD: 18ec3b039b1e8be555fe250177428284165e0176
+Rollback ref: refs/rollback/20260621T025207Z-known-failure-preflight
+Artifact path: artifacts/rollback/20260621T025207Z-known-failure-preflight.txt
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+git switch codex/blackhole-evolve/20260621T025308.563341-introduce-a-local-preflight-or-config-check-for-
+git reset --hard refs/rollback/20260621T025207Z-known-failure-preflight
+
+No rollback command was executed during this run. Do not delete this artifact or ref during this run.

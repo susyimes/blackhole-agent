@@ -44,6 +44,7 @@ SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "agent_workflow_route",
     "harness_run_summary",
     "headless_tool_roundtrip",
+    "known_failure_metadata_preflight",
     "mock_e2e_runner_tier",
     "mock_llm_workflow_route",
     "native_skill_session_title",
@@ -516,6 +517,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return summarize_harness_run(raw_input, source_path=source_path).to_dict()
     if behavior == "headless_tool_roundtrip":
         return evaluate_headless_tool_roundtrip(raw_input, source_path=source_path)
+    if behavior == "known_failure_metadata_preflight":
+        return evaluate_known_failure_metadata_preflight(raw_input, source_path=source_path)
     if behavior == "mock_e2e_runner_tier":
         return evaluate_mock_e2e_runner_tier(raw_input, source_path=source_path)
     if behavior == "mock_llm_workflow_route":
@@ -8689,6 +8692,103 @@ def evaluate_mock_e2e_known_failure_route(known_failure: dict[str, Any]) -> dict
         "test_logic_changed": test_logic_changed,
         "raw_failure_text_exported": False,
     }
+
+
+def evaluate_known_failure_metadata_preflight(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Detect stale expected-failure metadata before test evidence is trusted."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    metadata = raw_input.get("known_failure_metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    metadata_present = bool(metadata) and truthy(metadata.get("present", True))
+    expected_ids = sorted(dict.fromkeys(string_list(metadata.get("expected_failure_ids"))))
+    current_ids = sorted(dict.fromkeys(string_list(metadata.get("current_failure_ids"))))
+    removed_ids = sorted(set(expected_ids) - set(current_ids))
+    added_ids = sorted(set(current_ids) - set(expected_ids))
+    retained_ids = sorted(set(expected_ids) & set(current_ids))
+    change_evidence = metadata.get("change_evidence")
+    change_evidence = change_evidence if isinstance(change_evidence, dict) else {}
+    removal_explained = truthy(change_evidence.get("known_failure_removal_explained"))
+    local_test_evidence_present = truthy(change_evidence.get("local_test_evidence_present"))
+    gating_refresh_recorded = truthy(change_evidence.get("gating_refresh_recorded"))
+    diagnostics: list[str] = []
+
+    if not metadata_present:
+        diagnostics.append("known_failure_metadata_absent")
+    if expected_ids and not current_ids:
+        diagnostics.append("known_failure_metadata_empty")
+    if removed_ids and metadata_present:
+        diagnostics.append("known_failure_metadata_removed")
+    if added_ids and not local_test_evidence_present:
+        diagnostics.append("known_failure_metadata_added_without_local_test_evidence")
+    if removed_ids and metadata_present and not removal_explained:
+        diagnostics.append("known_failure_metadata_change_unexplained")
+    if (removed_ids or not metadata_present or (added_ids and not local_test_evidence_present)) and not gating_refresh_recorded:
+        diagnostics.append("expected_failure_assumption_refresh_missing")
+
+    test_gating_should_refresh = bool(diagnostics)
+    status = "refresh_required" if test_gating_should_refresh else "current"
+    route_status = "blocked" if test_gating_should_refresh else "passed"
+    failure_mode = "known_failure_metadata_stale" if test_gating_should_refresh else "none"
+
+    return {
+        "schema_version": 1,
+        "behavior": "known_failure_metadata_preflight",
+        "task_id_hash": stable_text_hash(task_id),
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "preflight": {
+            "status": status,
+            "metadata_present": metadata_present,
+            "expected_failure_count": len(expected_ids),
+            "current_failure_count": len(current_ids),
+            "retained_failure_count": len(retained_ids),
+            "removed_failure_count": len(removed_ids),
+            "added_failure_count": len(added_ids),
+            "removed_failure_hashes": [stable_text_hash(value) for value in removed_ids],
+            "added_failure_hashes": [stable_text_hash(value) for value in added_ids],
+            "known_failure_metadata_removed": bool(removed_ids and metadata_present),
+            "known_failure_metadata_absent": not metadata_present,
+            "local_test_evidence_present": local_test_evidence_present,
+            "removal_explained": removal_explained,
+            "gating_refresh_recorded": gating_refresh_recorded,
+            "test_gating_should_refresh": test_gating_should_refresh,
+            "expected_failure_assumptions_stale": test_gating_should_refresh,
+            "diagnostics": diagnostics,
+        },
+        "supervisor_handoff": {
+            "decision": "refresh_expected_failure_assumptions" if test_gating_should_refresh else "test_gating_current",
+            "next_action": (
+                "refresh_known_failure_metadata_before_consuming_test_evidence"
+                if test_gating_should_refresh
+                else "continue_with_current_test_gate"
+            ),
+            "replay_commands": ["pytest tests/test_harness_eval.py -q -k known_failure_metadata_preflight"],
+            "recovery_hint_codes": known_failure_metadata_recovery_hint_codes(diagnostics),
+            "local_validation_required": True,
+            "runtime_action_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "privacy": {
+            "raw_metadata_exported": False,
+            "raw_failure_text_exported": False,
+            "raw_test_names_exported": False,
+            "body_free_diagnostics_only": True,
+        },
+    }
+
+
+def known_failure_metadata_recovery_hint_codes(diagnostics: list[str]) -> list[str]:
+    codes: list[str] = []
+    if any(diagnostic in diagnostics for diagnostic in ("known_failure_metadata_absent", "known_failure_metadata_empty")):
+        codes.append("restore_or_confirm_known_failure_metadata")
+    if "known_failure_metadata_removed" in diagnostics:
+        codes.append("explain_known_failure_removal")
+    if "known_failure_metadata_added_without_local_test_evidence" in diagnostics:
+        codes.append("attach_local_test_evidence")
+    if "expected_failure_assumption_refresh_missing" in diagnostics:
+        codes.append("refresh_expected_failure_assumptions")
+    return sorted(dict.fromkeys(codes))
 
 
 def evaluate_mock_e2e_ci_round_trip(ci_round_trip: dict[str, Any]) -> dict[str, Any]:

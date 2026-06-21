@@ -1,0 +1,56 @@
+{
+  "name": "known-failure-metadata-preflight-removed",
+  "behavior": "known_failure_metadata_preflight",
+  "input": {
+    "task_id": "fixture-known-failure-metadata-preflight-removed",
+    "known_failure_metadata": {
+      "present": true,
+      "expected_failure_ids": [
+        "approval-output-phase-ask",
+        "approval-sub-agent-ask"
+      ],
+      "current_failure_ids": [
+        "approval-output-phase-ask"
+      ],
+      "change_evidence": {
+        "known_failure_removal_explained": false,
+        "local_test_evidence_present": false,
+        "gating_refresh_recorded": false
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "known_failure_metadata_stale"
+    },
+    {
+      "path": "preflight.status",
+      "equals": "refresh_required"
+    },
+    {
+      "path": "preflight.known_failure_metadata_removed",
+      "equals": true
+    },
+    {
+      "path": "preflight.removed_failure_count",
+      "equals": 1
+    },
+    {
+      "path": "preflight.test_gating_should_refresh",
+      "equals": true
+    },
+    {
+      "path": "supervisor_handoff.decision",
+      "equals": "refresh_expected_failure_assumptions"
+    },
+    {
+      "path": "privacy.raw_test_names_exported",
+      "equals": false
+    }
+  ]
+}
