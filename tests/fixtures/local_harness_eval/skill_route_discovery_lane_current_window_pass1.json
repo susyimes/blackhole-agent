@@ -1,0 +1,167 @@
+{
+  "name": "skill-route-discovery-lane-current-window-pass1",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-current-window-pass1",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass",
+        "p2-threejs-skill-discovery-fixture",
+        "p3-fablecodex-skill-workflow-probe",
+        "p4-general-agent-harness-eval",
+        "p5-route-policy-summary"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/ACN1987/FableCodex",
+        "https://github.com/baskduf/FableCodex"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "evidence_summary": "COMPASS skill ecosystem with SKILL.md folders for task clarification, repo-local task memory, handoff prompts, collaboration profile state, privacy boundary notes, route metadata, and validation evidence.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p1-skill-route-discovery-compass"],
+        "evidence_urls": ["https://github.com/dongshuyan/compass-skills"]
+      },
+      {
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "evidence_summary": "Three.js browser game director skill bundle with specialist agent skills, gameplay workflow, QA validation, screenshot and canvas checks, scaffold boundaries, asset/provider boundary notes, and credential safeguards.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p2-threejs-skill-discovery-fixture"],
+        "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
+      },
+      {
+        "name": "FableCodex",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "evidence_summary": "FableCodex Codex agent skill workflow package with planning gates, plugin routing, examples, tests, evals, evidence gates, review ledger, replay notes, and verification habits.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p3-fablecodex-skill-workflow-probe"],
+        "evidence_urls": [
+          "https://github.com/baskduf/FableCodex",
+          "https://github.com/ACN1987/FableCodex"
+        ],
+        "related_source_urls": [
+          "https://github.com/baskduf/FableCodex",
+          "https://github.com/ACN1987/FableCodex"
+        ]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T043207Z-skill-route-discovery-pass1-current-run.txt",
+        "review_note": "Current pass-1 documentation lane records the carried skill-route discovery evidence without importing upstream skill bodies."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["tests/fixtures/local_harness_eval/skill_route_discovery_lane_current_window_pass1.json"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T043207Z-skill-route-discovery-pass1-current-run.txt",
+        "review_note": "Current pass-1 config lane is a bounded local harness fixture, not a skill enablement request."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T043207Z-skill-route-discovery-pass1-current-run.txt",
+        "review_note": "Current pass-1 test lane verifies that mixed FableCodex workflow evidence enters skill_route_discovery before broader harness evaluation."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260621T043207Z-skill-route-discovery-pass1-current-run.txt",
+        "review_note": "Current pass-1 code-patch lane remains local classifier or harness behavior only; upstream skill code is not executed."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 3
+    },
+    {
+      "path": "lane_map.proposal_lane_count",
+      "equals": 12
+    },
+    {
+      "path": "current_action.status",
+      "equals": "ready"
+    },
+    {
+      "path": "current_action.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "current_action.route_profiles",
+      "equals": ["codex_workflow_gate", "game_frontend_workflow"]
+    },
+    {
+      "path": "current_action.queued_local_lanes",
+      "equals": ["documentation"]
+    },
+    {
+      "path": "pass1_handoff_packet.status",
+      "equals": "ready"
+    },
+    {
+      "path": "mixed_local_lane_probe.primary_route",
+      "equals": "skill_route_discovery"
+    },
+    {
+      "path": "mixed_local_lane_probe.secondary_lane_status",
+      "equals": "blocked_until_local_corroboration"
+    },
+    {
+      "path": "activation_gate.external_skill_activation_allowed",
+      "equals": false
+    }
+  ]
+}

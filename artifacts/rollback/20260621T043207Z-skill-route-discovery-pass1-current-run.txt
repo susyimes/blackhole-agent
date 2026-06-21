@@ -1,0 +1,14 @@
+Rollback point for skill-route-discovery pass 1 current run
+
+Created: 2026-06-21T04:32:07Z
+Source digest: github-growth-20260621T043207.872197Z
+Original branch: codex/blackhole-evolve/20260621T043313.869904-add-or-extend-local-skill-route-discovery-tests-
+Original HEAD: 671856a89ca3b87e228c7d6d21998ba774ad695e
+Local rollback ref: refs/heads/codex/blackhole-evolve/20260621T043313.869904-add-or-extend-local-skill-route-discovery-tests-
+
+Recovery commands, explicit and destructive:
+
+git switch codex/blackhole-evolve/20260621T043313.869904-add-or-extend-local-skill-route-discovery-tests-
+git reset --hard 671856a89ca3b87e228c7d6d21998ba774ad695e
+
+Do not run these commands from inside the kernel. A human operator or external supervisor must choose rollback.

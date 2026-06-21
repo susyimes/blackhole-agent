@@ -22,9 +22,12 @@ before any broader agent-harness evaluation. Source digest
 `github-growth-20260621T033207.842733Z` carried the same pass-2 route window and
 adds an operator-visible pass-2 handoff packet for the selected bounded lane,
 queued bounded lanes, and blocked secondary harness route. The bounded evidence
-reviewed for these runs:
+reviewed for these runs. Source digest `github-growth-20260621T043207.872197Z`
+adds a current-window pass-1 fixture that keeps the carried COMPASS, Three.js,
+and FableCodex evidence in selected-item lanes before activation:
 
 - `https://github.com/baskduf/FableCodex`
+- `https://github.com/ACN1987/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
 - `https://github.com/majidmanzarpour/threejs-game-skills`
 - `https://github.com/pretinhuu1-boop/threejs-game-skills`
@@ -1019,6 +1022,20 @@ documentation, test, or code_patch. It does not add skill-route lanes, grant
 runtime action, activate an external agent, run an external harness, launch a
 provider, perform remote execution, export raw source URLs, or export upstream
 bodies.
+
+The current pass-1 replay fixture for digest
+`github-growth-20260621T043207.872197Z` uses the carried proposal IDs
+`p1-skill-route-discovery-compass`, `p2-threejs-skill-discovery-fixture`, and
+`p3-fablecodex-skill-workflow-probe` as the only proposal evidence refs. It
+selects the local `test` lane for mixed FableCodex/Three.js workflow evidence,
+queues the COMPASS state-handoff evidence as a bounded documentation lane, and
+keeps the FableCodex mirror source as hashed lineage pressure. The mixed probe
+continues to report `skill_route_discovery` as the primary route while
+`agent_harness_eval_after_local_corroboration` remains blocked. This fixture is
+an activation-readiness replay surface for documentation, config, test, or
+code_patch lanes only; it does not install, enable, run, clone, scaffold,
+launch providers, activate external harnesses, write profiles or memory, export
+raw GitHub URLs, or treat upstream skill bodies as local behavior.
 
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The

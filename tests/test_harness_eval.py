@@ -86,8 +86,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 54
-    assert payload["pass_count"] == 53
+    assert payload["fixture_count"] == 55
+    assert payload["pass_count"] == 54
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -164,6 +164,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
     assert results["skill-route-discovery-lane-pass4-closure"]["passed"] is True
     assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
+    assert results["skill-route-discovery-lane-current-window-pass1"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
@@ -3378,6 +3379,49 @@ def test_skill_route_discovery_pass1_exposes_current_action_for_mixed_skill_rout
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_harness_eval():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_current_window_pass1.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    current_action = output["current_action"]
+    handoff_packet = output["pass1_handoff_packet"]
+    mixed_probe = output["mixed_local_lane_probe"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["source_lineage"]["related_source_count"] == 2
+    assert output["source_lineage"]["fork_or_mirror_lineage_collapsed"] is True
+    assert output["activation_gate"]["external_skill_activation_allowed"] is False
+    assert current_action["status"] == "ready"
+    assert current_action["selected_local_lane"] == "test"
+    assert current_action["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
+    assert current_action["evidence_item_ids"] == [
+        "p2-threejs-skill-discovery-fixture",
+        "p3-fablecodex-skill-workflow-probe",
+    ]
+    assert current_action["queued_validation_targets"][0]["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
+    assert mixed_probe["primary_route"] == "skill_route_discovery"
+    assert mixed_probe["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert mixed_probe["external_harness_execution_allowed"] is False
+    assert handoff_packet["status"] == "ready"
+    assert handoff_packet["evidence_ref_mode"] == "selected_item_ids_only"
+    assert handoff_packet["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-threejs-skill-discovery-fixture",
+        "p3-fablecodex-skill-workflow-probe",
+    ]
+    assert handoff_packet["external_skill_activation_allowed"] is False
+    assert "https://github.com/" not in serialized
 
 
 def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
