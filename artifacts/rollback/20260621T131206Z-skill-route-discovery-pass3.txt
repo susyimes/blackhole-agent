@@ -1,0 +1,17 @@
+# Rollback Point: skill-route-discovery pass 3
+
+- Run: github-growth-20260621T131207.804228Z
+- Created at: 2026-06-21T13:12:06Z
+- Original branch: codex/blackhole-evolve/20260621T131314.419997-add-a-bounded-local-skill-route-discovery-valida
+- Original HEAD: d83115d2262fea4578b4dd16f13216e63428f4be
+- Local rollback ref: refs/rollback/20260621T131206Z-skill-route-discovery-pass3
+- Theme: skill-route-discovery
+
+Recovery commands, if explicitly chosen by a human operator or supervisor policy:
+
+```bash
+git switch codex/blackhole-evolve/20260621T131314.419997-add-a-bounded-local-skill-route-discovery-valida
+git reset --hard refs/rollback/20260621T131206Z-skill-route-discovery-pass3
+```
+
+No rollback execution was performed during this run.

@@ -1373,6 +1373,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         current_action=current_action,
         pass_validation_replay_queue=pass_validation_replay_queue,
         mixed_local_lane_probe=mixed_local_lane_probe,
+        profile_lane_acceptance_contract=profile_lane_acceptance_contract,
     )
     pass1_handoff_packet = skill_route_discovery_pass1_handoff_packet(
         raw_input=raw_input,
@@ -4513,6 +4514,7 @@ def skill_route_discovery_pass3_handoff_packet(
     current_action: dict[str, Any],
     pass_validation_replay_queue: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
+    profile_lane_acceptance_contract: dict[str, Any],
 ) -> dict[str, Any]:
     """Expose pass-3 continuation across mixed skill routes without adding lanes."""
 
@@ -4585,6 +4587,9 @@ def skill_route_discovery_pass3_handoff_packet(
         diagnostics.append("mixed_local_lane_probe_review_required")
     if mixed_probe_status == "ready" and mixed_probe_primary_route != "skill_route_discovery":
         diagnostics.append("mixed_local_lane_primary_route_drift")
+    profile_contract_status = optional_string(profile_lane_acceptance_contract.get("status")) or ""
+    if profile_contract_status != "ready":
+        diagnostics.append("profile_lane_acceptance_contract_not_ready")
 
     selected_rows = [row for row in rows if row["queue_role"] == "selected_current_pass_lane"]
     queued_rows = [row for row in rows if row["queue_role"] == "queued_bounded_lane"]
@@ -4648,6 +4653,7 @@ def skill_route_discovery_pass3_handoff_packet(
         rows=rows,
         mixed_probe_primary_route=mixed_probe_primary_route,
         mixed_probe_secondary_status=mixed_probe_secondary_status,
+        profile_lane_acceptance_contract=profile_lane_acceptance_contract,
         diagnostics=diagnostics,
     )
 
@@ -4748,6 +4754,7 @@ def skill_route_discovery_pass3_profile_activation_gates(
     rows: list[dict[str, Any]],
     mixed_probe_primary_route: str,
     mixed_probe_secondary_status: str,
+    profile_lane_acceptance_contract: dict[str, Any],
     diagnostics: list[str],
 ) -> dict[str, Any]:
     """Map pass-3 route profiles to bounded local lanes before final activation."""
@@ -4755,7 +4762,26 @@ def skill_route_discovery_pass3_profile_activation_gates(
     from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
 
     allowed_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
-    profile_rows: dict[str, dict[str, Any]] = {}
+    contract_rows = profile_lane_acceptance_contract.get("rows")
+    contract_rows = contract_rows if isinstance(contract_rows, list) else []
+    contract_by_profile = {
+        str(row.get("route_profile") or ""): row
+        for row in contract_rows
+        if isinstance(row, dict) and str(row.get("route_profile") or "").strip()
+    }
+    profile_contract_status = optional_string(profile_lane_acceptance_contract.get("status")) or ""
+    profile_rows: dict[str, dict[str, Any]] = {
+        profile: {
+            "route_profile": profile,
+            "selected_local_lanes": [],
+            "queue_roles": [],
+            "evidence_item_ids": [],
+            "candidate_source_hashes": [],
+            "required_validation": [],
+            "provider_runtime_replay_commands": [],
+        }
+        for profile in contract_by_profile
+    }
     for row in rows:
         selected_lane = optional_string(row.get("selected_local_lane")) or ""
         queue_role = optional_string(row.get("queue_role")) or "queued_bounded_lane"
@@ -4801,6 +4827,18 @@ def skill_route_discovery_pass3_profile_activation_gates(
             row_blockers.append("unbounded_or_missing_local_lane")
         if profile == "codex_workflow_gate" and route_probe_decision != "skill_route_discovery_first":
             row_blockers.append("skill_route_discovery_first_not_confirmed")
+        contract_row = contract_by_profile.get(profile, {})
+        contract_status = optional_string(contract_row.get("status")) or "missing"
+        acceptance_gates = contract_row.get("acceptance_gates")
+        acceptance_gates = acceptance_gates if isinstance(acceptance_gates, dict) else {}
+        failed_acceptance_gates = sorted(
+            str(gate)
+            for gate, passed in acceptance_gates.items()
+            if passed is not True
+        )
+        if profile_contract_status != "ready" or contract_status != "ready":
+            row_blockers.append("profile_lane_acceptance_contract_not_ready")
+        row_blockers.extend(f"profile_acceptance_gate_failed:{gate}" for gate in failed_acceptance_gates)
 
         profile_gate_rows.append(
             {
@@ -4810,8 +4848,15 @@ def skill_route_discovery_pass3_profile_activation_gates(
                 if ready and not row_blockers
                 else "repair_profile_activation_gate_before_final_pass",
                 "route_probe_decision": route_probe_decision,
+                "validation_gate": optional_string(contract_row.get("validation_gate")) or "",
+                "blocked_activation_reason": optional_string(contract_row.get("blocked_activation_reason")) or "",
                 "allowed_local_lanes": allowed_lanes,
                 "selected_local_lanes": selected_lanes,
+                "selected_first_local_lane": optional_string(contract_row.get("selected_first_local_lane")) or "",
+                "required_metadata": string_list(contract_row.get("required_metadata")),
+                "acceptance_gates": acceptance_gates,
+                "acceptance_contract_status": contract_status,
+                "acceptance_contract_ready": contract_status == "ready" and not failed_acceptance_gates,
                 "queue_roles": sorted(dict.fromkeys(string_list(entry.get("queue_roles")))),
                 "evidence_ref_mode": "selected_item_ids_only",
                 "evidence_item_ids": sorted(dict.fromkeys(string_list(entry.get("evidence_item_ids")))),
@@ -4849,6 +4894,8 @@ def skill_route_discovery_pass3_profile_activation_gates(
         "ready_profile_count": len(profile_gate_rows) - len(blocked_profiles),
         "blocked_profile_count": len(blocked_profiles),
         "blocked_profiles": blocked_profiles,
+        "acceptance_contract_status": profile_contract_status,
+        "acceptance_contract_ready": profile_contract_status == "ready",
         "allowed_local_lanes": allowed_lanes,
         "route_profiles": [row["route_profile"] for row in profile_gate_rows],
         "rows": profile_gate_rows,

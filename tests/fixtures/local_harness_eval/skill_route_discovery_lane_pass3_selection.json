@@ -178,6 +178,42 @@
     {
       "path": "pass3_handoff_packet.operator_checkpoint_list.external_harness_execution_allowed",
       "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.acceptance_contract_status",
+      "equals": "ready"
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.acceptance_contract_ready",
+      "equals": true
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.0.route_profile",
+      "equals": "codex_workflow_gate"
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.0.validation_gate",
+      "equals": "skill_route_discovery_first_before_workflow_gate"
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.0.acceptance_contract_ready",
+      "equals": true
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.1.route_profile",
+      "equals": "game_frontend_workflow"
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.1.validation_gate",
+      "equals": "local_frontend_validation_before_game_skill_activation"
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.2.route_profile",
+      "equals": "skill_ecosystem_state_handoff"
+    },
+    {
+      "path": "pass3_handoff_packet.profile_activation_gates.rows.2.validation_gate",
+      "equals": "state_handoff_boundary_before_profile_or_memory_write"
     }
   ]
 }

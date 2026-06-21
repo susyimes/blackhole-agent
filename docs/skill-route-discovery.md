@@ -1491,6 +1491,17 @@ validation. The gate is body-free and cannot add lanes, install upstream
 skills, run external harnesses, launch providers, write profile or memory
 state, perform remote execution, or export raw source URLs or upstream bodies.
 
+The pass-3 gate now also carries the profile acceptance contract into each
+activation row. A profile cannot be ready for final-pass replay unless its
+contract status is ready, its profile-specific validation gate is visible, and
+its metadata requirements remain satisfied. FableCodex-style workflow rows
+therefore expose `skill_route_discovery_first_before_workflow_gate`; Three.js
+game/frontend rows expose `local_frontend_validation_before_game_skill_activation`;
+COMPASS-style state handoff rows expose
+`state_handoff_boundary_before_profile_or_memory_write`. If any acceptance gate
+fails, the handoff is blocked before activation while preserving only the
+bounded documentation, config, test, or code_patch lanes.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

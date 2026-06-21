@@ -4195,6 +4195,8 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert profile_gates["profile_count"] == 3
     assert profile_gates["ready_profile_count"] == 3
     assert profile_gates["blocked_profile_count"] == 0
+    assert profile_gates["acceptance_contract_status"] == "ready"
+    assert profile_gates["acceptance_contract_ready"] is True
     assert profile_gates["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
     assert profile_gates["route_profiles"] == [
         "codex_workflow_gate",
@@ -4203,6 +4205,13 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     ]
     gate_rows = {row["route_profile"]: row for row in profile_gates["rows"]}
     assert gate_rows["codex_workflow_gate"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert gate_rows["codex_workflow_gate"]["validation_gate"] == (
+        "skill_route_discovery_first_before_workflow_gate"
+    )
+    assert gate_rows["codex_workflow_gate"]["selected_first_local_lane"] == "test"
+    assert gate_rows["codex_workflow_gate"]["acceptance_contract_status"] == "ready"
+    assert gate_rows["codex_workflow_gate"]["acceptance_contract_ready"] is True
+    assert gate_rows["codex_workflow_gate"]["acceptance_gates"]["first_route_confirmed"] is True
     assert gate_rows["codex_workflow_gate"]["selected_local_lanes"] == ["test"]
     assert gate_rows["codex_workflow_gate"]["queue_roles"] == ["selected_current_pass_lane"]
     assert gate_rows["codex_workflow_gate"]["evidence_item_ids"] == [
@@ -4210,8 +4219,26 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
         "p3-skill-route-discovery-fablecodex",
     ]
     assert gate_rows["game_frontend_workflow"]["route_probe_decision"] == "skill_route_discovery"
+    assert gate_rows["game_frontend_workflow"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert gate_rows["game_frontend_workflow"]["selected_first_local_lane"] == "test"
+    assert gate_rows["game_frontend_workflow"]["required_metadata"] == [
+        "body_free_game_skill_summary",
+        "local_frontend_validation_target",
+        "asset_or_provider_boundary_note",
+    ]
     assert gate_rows["game_frontend_workflow"]["selected_local_lanes"] == ["test"]
     assert gate_rows["skill_ecosystem_state_handoff"]["route_probe_decision"] == "skill_route_discovery"
+    assert gate_rows["skill_ecosystem_state_handoff"]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert gate_rows["skill_ecosystem_state_handoff"]["selected_first_local_lane"] == "config"
+    assert gate_rows["skill_ecosystem_state_handoff"]["required_metadata"] == [
+        "state_retention_boundary",
+        "privacy_boundary",
+        "local_target_metadata_only",
+    ]
     assert gate_rows["skill_ecosystem_state_handoff"]["selected_local_lanes"] == ["config"]
     assert gate_rows["skill_ecosystem_state_handoff"]["queue_roles"] == ["queued_bounded_lane"]
     assert gate_rows["skill_ecosystem_state_handoff"]["evidence_item_ids"] == [
@@ -4314,6 +4341,36 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass3_selection.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["state_handoff_boundary"]["privacy_boundary_documented"] = False
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    pass3_handoff = output["pass3_handoff_packet"]
+    profile_gates = pass3_handoff["profile_activation_gates"]
+    gate_rows = {row["route_profile"]: row for row in profile_gates["rows"]}
+
+    assert pass3_handoff["status"] == "blocked"
+    assert "profile_lane_acceptance_contract_not_ready" in pass3_handoff["diagnostics"]
+    assert profile_gates["status"] == "blocked"
+    assert profile_gates["acceptance_contract_status"] == "blocked"
+    assert profile_gates["acceptance_contract_ready"] is False
+    assert gate_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
+    assert gate_rows["skill_ecosystem_state_handoff"]["acceptance_contract_status"] == "blocked"
+    assert "profile_lane_acceptance_contract_not_ready" in (
+        gate_rows["skill_ecosystem_state_handoff"]["activation_blockers"]
+    )
+    assert gate_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
+    assert gate_rows["skill_ecosystem_state_handoff"]["external_skill_activation_allowed"] is False
+    assert gate_rows["skill_ecosystem_state_handoff"]["provider_runtime_launch_allowed"] is False
 
 
 def test_skill_route_discovery_catalog_links_profiles_to_provider_runtime_replay():
