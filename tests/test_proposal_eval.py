@@ -629,6 +629,57 @@ def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():
     )
 
 
+def test_skill_route_discovery_policy_preflight_blocks_item_level_lane_drift():
+    case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+    evidence_package["items"][0]["route_classification"]["allowed_lanes"] = [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "runtime_execution",
+    ]
+
+    lane_map = build_route_hint_lane_map(evidence_package)
+    preflight = build_route_hint_policy_preflight(evidence_package)
+    review = review_llm_proposal_response(
+        json.dumps(case["raw_response"]),
+        evidence_package,
+        mode=case["mode"],
+    )
+
+    drift_row = next(
+        row
+        for row in lane_map["route_classifier"]
+        if row["item_id"] == evidence_package["items"][0]["item_id"]
+    )
+    candidate_row = next(
+        row
+        for row in lane_map["skill_route_local_lane_candidates"]["rows"]
+        if row["item_id"] == evidence_package["items"][0]["item_id"]
+    )
+
+    assert lane_map["ok"] is False
+    assert lane_map["diagnostics"] == [
+        f"{evidence_package['items'][0]['item_id']} skill_route_discovery item has unsupported lanes: runtime_execution"
+    ]
+    assert drift_row["unsupported_lanes"] == ["runtime_execution"]
+    assert candidate_row["local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert candidate_row["unsupported_lanes"] == ["runtime_execution"]
+    assert candidate_row["lanes_bounded"] is False
+    assert candidate_row["lane_status"] == "blocked_unsupported_lanes"
+    assert lane_map["skill_route_local_lane_candidates"]["unsupported_lane_count"] == 1
+    assert lane_map["skill_route_local_lane_candidates"]["activation_gate"] == "blocked_before_activation"
+    assert preflight["ok"] is False
+    assert preflight["diagnostics"] == lane_map["diagnostics"]
+    assert review.status == "rejected"
+    assert review.reason == "route_hint_policy_preflight failed: " + lane_map["diagnostics"][0]
+
+
 def test_omnigent_governance_policy_hint_bounds_local_validation_lanes():
     case = load_proposal_replay_case(FIXTURE_DIR / "omnigent_route_contract.json")
     evidence_package = build_proposal_evidence_package(

@@ -1193,6 +1193,16 @@ class, route hints, allowed local lanes, and classifier reasons only. They do
 not export raw upstream bodies, add evidence URLs, grant permissions, install
 packages, or request runtime action.
 
+The map also checks selected item metadata for lane drift. If a pre-shaped
+`route_classification` marks an item as `skill_workflow` but includes lanes
+outside documentation, config, test, or code_patch, the unsupported lanes are
+reported on the classifier row and the policy preflight fails before proposal
+review. The `skill_route_local_lane_candidates` panel still shows the filtered
+bounded lanes for audit, but marks that item `blocked_unsupported_lanes` and
+sets the activation gate to `blocked_before_activation`. This prevents
+malformed selected-item metadata from bypassing local validation by being
+silently narrowed in the operator-facing panel.
+
 The same route-hint map also emits `skill_route_local_lane_candidates`, a
 bounded pre-activation panel derived directly from selected skill/workflow
 items. FableCodex, COMPASS Skills, and Three.js Game Skills-style rows expose

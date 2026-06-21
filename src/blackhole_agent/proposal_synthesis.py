@@ -442,6 +442,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
     )
     route_class_counts: dict[str, int] = {}
     route_classifier_rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
     package_items = evidence_package.get("items", [])
     package_items = package_items if isinstance(package_items, list) else []
     skill_route_activity_counts = digest_skill_route_activity_counts(package_items)
@@ -459,12 +460,22 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             else 0
         )
         route_class_counts[route_class] = route_class_counts.get(route_class, 0) + 1
+        classification_allowed_lanes = [
+            str(lane) for lane in classification.get("allowed_lanes", []) if str(lane).strip()
+        ]
+        classification_unsupported_lanes = _unsupported_skill_route_classification_lanes(classification)
+        if classification_unsupported_lanes:
+            diagnostics.append(
+                f"{str(item.get('item_id') or '')} skill_route_discovery item has unsupported lanes: "
+                + ", ".join(classification_unsupported_lanes)
+            )
         route_classifier_rows.append(
             {
                 "item_id": str(item.get("item_id") or ""),
                 "route_class": route_class,
                 "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
-                "allowed_lanes": [str(lane) for lane in classification.get("allowed_lanes", [])],
+                "allowed_lanes": classification_allowed_lanes,
+                "unsupported_lanes": classification_unsupported_lanes,
                 "evaluation_lane": str(classification.get("evaluation_lane") or ""),
                 "route_probe_decision": str(classification.get("route_probe_decision") or ""),
                 "reasons": [str(reason) for reason in classification.get("reasons", [])],
@@ -473,7 +484,6 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             }
         )
 
-    diagnostics: list[str] = []
     expected_policy_lanes = {
         hint: lanes
         for hint, lanes in ROUTE_HINT_VALIDATION_LANES.items()
@@ -567,6 +577,7 @@ def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
             for lane in classification.get("allowed_lanes", [])
             if str(lane) in allowed_lanes and str(lane) in ROUTE_HINT_PROPOSAL_LANES
         ]
+        unsupported_lanes = _unsupported_skill_route_classification_lanes(classification)
         route_probe_decision = str(classification.get("route_probe_decision") or "")
         mixed_probe = route_probe_decision == "skill_route_discovery_first"
         rows.append(
@@ -576,7 +587,13 @@ def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
                 "route_class": "skill_workflow",
                 "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
                 "local_lanes": local_lanes,
-                "lanes_bounded": bool(local_lanes) and set(local_lanes).issubset(allowed_lanes),
+                "unsupported_lanes": unsupported_lanes,
+                "lanes_bounded": (
+                    bool(local_lanes)
+                    and not unsupported_lanes
+                    and set(local_lanes).issubset(allowed_lanes)
+                ),
+                "lane_status": "blocked_unsupported_lanes" if unsupported_lanes else "bounded",
                 "route_probe_decision": route_probe_decision,
                 "secondary_lane_status": (
                     "blocked_until_local_corroboration"
@@ -603,12 +620,14 @@ def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
         )
 
     rows_bounded = all(row["lanes_bounded"] for row in rows)
+    unsupported_lane_count = sum(1 for row in rows if row["unsupported_lanes"])
     return {
         "controller_surface": "skill_route_local_lane_candidates",
         "candidate_count": len(rows),
         "rows": rows,
         "allowed_local_lanes": list(allowed_lanes),
         "rows_bounded": rows_bounded,
+        "unsupported_lane_count": unsupported_lane_count,
         "local_validation_required": True,
         "activation_gate": (
             "local_validation_before_activation"
@@ -782,6 +801,19 @@ def route_metadata_for_digest_item(item: dict[str, Any]) -> dict[str, Any]:
         "route_hints": list(classification["route_hints"]),
         "route_classification": classification,
     }
+
+
+def _unsupported_skill_route_classification_lanes(classification: Mapping[str, Any]) -> list[str]:
+    if classification.get("route_class") != "skill_workflow":
+        return []
+    allowed = set(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+    return sorted(
+        {
+            str(lane)
+            for lane in classification.get("allowed_lanes", [])
+            if str(lane).strip() and str(lane) not in allowed
+        }
+    )
 
 
 def classify_digest_item_route(item: dict[str, Any]) -> dict[str, Any]:
