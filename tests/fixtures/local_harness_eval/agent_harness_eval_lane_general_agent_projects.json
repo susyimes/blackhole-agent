@@ -11,6 +11,11 @@
         "summary": "Public general agent framework and meta-harness evidence with multiple agents, policy controls, sandboxing, provider coordination, and session state.",
         "relevance_reason": "Map behavior claims to existing local controller and runner checks before any behavior change.",
         "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["python_package", "script_installer", "repo_tool_install"],
+        "entrypoints": ["cli", "server", "yaml_agent"],
+        "dependency_boundaries": ["provider_api_key", "sandbox_runtime", "cloud_sandbox"],
+        "task_loop_assumptions": ["orchestrated_multi_agent", "session_supervision", "policy_gate"],
+        "observable_behaviors": ["multi_agent_supervision", "policy_control", "session_sync", "sandboxing"],
         "risk_flags": []
       },
       {
@@ -20,6 +25,11 @@
         "summary": "Public domain advisor agent evidence with local database lookup, source citation, browser session conversation state, and API settings for model selection.",
         "relevance_reason": "Record which domain-agent claims map to existing local validation and which remain evidence-only.",
         "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["web_app"],
+        "entrypoints": ["browser_app", "api"],
+        "dependency_boundaries": ["database", "provider_api_key", "browser_session"],
+        "task_loop_assumptions": ["conversational_advisor", "stateful_browser_session"],
+        "observable_behaviors": ["source_citation", "model_selection", "conversation_state"],
         "risk_flags": []
       }
     ]
@@ -81,6 +91,42 @@
     {
       "path": "claim_evaluation.external_agent_activation_allowed",
       "equals": false
+    },
+    {
+      "path": "project_intake_probe.status",
+      "equals": "ready"
+    },
+    {
+      "path": "project_intake_probe.decision",
+      "equals": "project_shape_recorded_before_local_eval"
+    },
+    {
+      "path": "project_intake_probe.record_count",
+      "equals": 2
+    },
+    {
+      "path": "project_intake_probe.complete_record_count",
+      "equals": 2
+    },
+    {
+      "path": "project_intake_probe.missing_fields",
+      "equals": []
+    },
+    {
+      "path": "project_intake_probe.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "project_intake_probe.install_allowed",
+      "equals": false
+    },
+    {
+      "path": "project_intake_probe.rows.0.install_shape",
+      "equals": ["python_package", "script_installer", "repo_tool_install"]
+    },
+    {
+      "path": "project_intake_probe.rows.1.dependency_boundaries",
+      "equals": ["database", "provider_api_key", "browser_session"]
     },
     {
       "path": "privacy.raw_source_urls_exported",

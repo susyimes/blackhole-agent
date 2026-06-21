@@ -149,6 +149,14 @@ AGENT_HARNESS_EVAL_CLAIM_PATTERNS: dict[str, dict[str, Any]] = {
         "validation": (),
     },
 }
+AGENT_HARNESS_EVAL_PROBE_FIELDS = (
+    "install_shape",
+    "entrypoints",
+    "dependency_boundaries",
+    "task_loop_assumptions",
+    "observable_behaviors",
+)
+AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS = tuple(AGENT_HARNESS_EVAL_PROBE_FIELDS)
 SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
 SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
@@ -767,6 +775,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     review_notes: list[dict[str, Any]] = []
     unsupported_lanes: list[str] = []
     claim_rows: list[dict[str, Any]] = []
+    project_probe_rows: list[dict[str, Any]] = []
     recognized_count = 0
     detailed_count = 0
 
@@ -785,6 +794,9 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         item_id = optional_string(record.get("item_id")) or f"item-{index}"
         source_url = optional_string(record.get("source_url")) or ""
         claim_rows.extend(agent_harness_eval_claim_rows(item_id=item_id, text=text))
+        project_probe_rows.append(
+            agent_harness_eval_project_probe_row(item_id=item_id, source_url=source_url, record=record)
+        )
         lanes = string_list(record.get("suggested_lanes")) or ["test"]
         allowed_lanes = [lane for lane in lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES]
         rejected_lanes = sorted(set(lanes) - set(AGENT_HARNESS_EVAL_ALLOWED_LANES))
@@ -818,6 +830,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     runtime_safe = all(lane["runtime_action"] == "none" for lane in lane_records)
     validation_required = all(lane["local_validation_required"] is True for lane in lane_records)
     claim_evaluation = build_agent_harness_eval_claim_evaluation(claim_rows)
+    project_intake_probe = build_agent_harness_eval_project_intake_probe(project_probe_rows)
     failure_mode = agent_harness_eval_lane_failure_mode(
         recognized_count=recognized_count,
         lane_count=len(lane_records),
@@ -866,6 +879,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activation_gate": activation_gate,
         "activation_lanes": activation_lanes,
         "claim_evaluation": claim_evaluation,
+        "project_intake_probe": project_intake_probe,
         "review_notes": review_notes,
         "proposal_lanes": [
             {
@@ -882,6 +896,8 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
             "raw_source_urls_exported": False,
             "raw_evidence_bodies_exported": False,
             "source_urls_hashed": True,
+            "raw_install_commands_exported": False,
+            "upstream_project_imported": False,
             "runtime_actions_executed": False,
             "offensive_behavior_local_execution": False,
         },
@@ -924,6 +940,86 @@ def agent_harness_eval_claim_rows(*, item_id: str, text: str) -> list[dict[str, 
             }
         )
     return rows
+
+
+def agent_harness_eval_project_probe_row(
+    *,
+    item_id: str,
+    source_url: str,
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    """Record body-free project shape before any general-agent behavior adoption."""
+
+    present_fields = [
+        field
+        for field in AGENT_HARNESS_EVAL_PROBE_FIELDS
+        if string_list(record.get(field))
+    ]
+    missing_fields = [
+        field
+        for field in AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS
+        if field not in present_fields
+    ]
+    return {
+        "item_id": item_id,
+        "source_url_hash": stable_text_hash(source_url) if source_url else None,
+        "install_shape": string_list(record.get("install_shape")),
+        "entrypoints": string_list(record.get("entrypoints")),
+        "dependency_boundaries": string_list(record.get("dependency_boundaries")),
+        "task_loop_assumptions": string_list(record.get("task_loop_assumptions")),
+        "observable_behaviors": string_list(record.get("observable_behaviors")),
+        "present_fields": present_fields,
+        "missing_fields": missing_fields,
+        "probe_complete": not missing_fields,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "install_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_install_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def build_agent_harness_eval_project_intake_probe(project_probe_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize install shape and runtime assumptions without importing upstream behavior."""
+
+    complete_count = sum(1 for row in project_probe_rows if row["probe_complete"])
+    missing_fields = sorted(
+        {
+            str(field)
+            for row in project_probe_rows
+            for field in row.get("missing_fields", [])
+            if str(field).strip()
+        }
+    )
+    return {
+        "controller_surface": "agent_harness_project_intake_probe",
+        "status": "ready" if project_probe_rows and complete_count == len(project_probe_rows) else "incomplete",
+        "decision": (
+            "project_shape_recorded_before_local_eval"
+            if project_probe_rows and complete_count == len(project_probe_rows)
+            else "collect_project_shape_before_behavior_adoption"
+        ),
+        "record_count": len(project_probe_rows),
+        "complete_record_count": complete_count,
+        "missing_fields": missing_fields,
+        "required_fields": list(AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS),
+        "runtime_action": "none",
+        "local_validation_required": True,
+        "install_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_install_commands_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": project_probe_rows,
+    }
 
 
 def build_agent_harness_eval_claim_evaluation(claim_rows: list[dict[str, Any]]) -> dict[str, Any]:

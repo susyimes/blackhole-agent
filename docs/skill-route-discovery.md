@@ -1526,6 +1526,21 @@ agent activation. This is the intended lane for comparing Omnigent-style
 meta-harness evidence with domain-agent evidence such as xuefeng-agent before
 any local behavior change is proposed.
 
+The same replay now emits `project_intake_probe` before local behavior adoption
+is considered. This panel records five body-free shape categories for each
+general-agent project: install shape, entrypoints, dependency boundaries, task
+loop assumptions, and observable behaviors. Omnigent-style meta-harness evidence
+can therefore be represented as Python/package or installer shape, CLI/server/
+YAML-agent entrypoints, provider and sandbox boundaries, orchestrated session
+loops, and observable policy or multi-agent supervision behavior. Domain-agent
+evidence such as xuefeng-agent can be represented as web/API entrypoints,
+database/provider/browser-session boundaries, conversational loop assumptions,
+and source-citation or model-selection behavior. The probe hashes sources and
+exports no raw install commands, upstream bodies, provider inputs, or project
+code. `status: ready` only means the five shape categories are recorded for
+local evaluation; install, import, external harness execution, provider launch,
+remote execution, and external agent activation remain denied.
+
 Activation readiness now depends on that matrix. If any recognized general-agent
 claim is still `unmapped_evidence_only`, the harness reports
 `failure_mode: unmapped_agent_claims` and

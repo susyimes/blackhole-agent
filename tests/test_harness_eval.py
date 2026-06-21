@@ -516,6 +516,8 @@ def test_agent_harness_eval_lane_turns_public_harness_evidence_into_local_eval_l
         "raw_source_urls_exported": False,
         "raw_evidence_bodies_exported": False,
         "source_urls_hashed": True,
+        "raw_install_commands_exported": False,
+        "upstream_project_imported": False,
         "runtime_actions_executed": False,
         "offensive_behavior_local_execution": False,
     }
@@ -550,6 +552,26 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert output["claim_evaluation"]["unmapped_claim_ids"] == ["local_data_grounding"]
     assert output["claim_evaluation"]["runtime_action"] == "none"
     assert output["claim_evaluation"]["external_agent_activation_allowed"] is False
+    assert output["project_intake_probe"]["controller_surface"] == "agent_harness_project_intake_probe"
+    assert output["project_intake_probe"]["status"] == "ready"
+    assert output["project_intake_probe"]["decision"] == "project_shape_recorded_before_local_eval"
+    assert output["project_intake_probe"]["record_count"] == 2
+    assert output["project_intake_probe"]["complete_record_count"] == 2
+    assert output["project_intake_probe"]["missing_fields"] == []
+    assert output["project_intake_probe"]["required_fields"] == [
+        "install_shape",
+        "entrypoints",
+        "dependency_boundaries",
+        "task_loop_assumptions",
+        "observable_behaviors",
+    ]
+    assert output["project_intake_probe"]["runtime_action"] == "none"
+    assert output["project_intake_probe"]["install_allowed"] is False
+    assert output["project_intake_probe"]["external_agent_activation_allowed"] is False
+    assert output["project_intake_probe"]["external_harness_execution_allowed"] is False
+    assert output["project_intake_probe"]["provider_launch_allowed"] is False
+    assert output["project_intake_probe"]["remote_execution_allowed"] is False
+    assert output["project_intake_probe"]["raw_install_commands_exported"] is False
     assert all(lane["activation_ready"] is False for lane in output["activation_lanes"])
     assert all(lane["activation_blockers"] == ["unmapped_agent_claims"] for lane in output["activation_lanes"])
     assert all(lane["runtime_action"] == "none" for lane in output["activation_lanes"])
@@ -567,6 +589,42 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert rows_by_claim[
         ("xuefeng-agent-domain-advisor", "local_data_grounding")
     ]["status"] == "unmapped_evidence_only"
+    probe_rows = {
+        row["item_id"]: row
+        for row in output["project_intake_probe"]["rows"]
+    }
+    assert probe_rows["omnigent-general-agent-framework"]["install_shape"] == [
+        "python_package",
+        "script_installer",
+        "repo_tool_install",
+    ]
+    assert probe_rows["omnigent-general-agent-framework"]["entrypoints"] == ["cli", "server", "yaml_agent"]
+    assert probe_rows["omnigent-general-agent-framework"]["dependency_boundaries"] == [
+        "provider_api_key",
+        "sandbox_runtime",
+        "cloud_sandbox",
+    ]
+    assert probe_rows["omnigent-general-agent-framework"]["task_loop_assumptions"] == [
+        "orchestrated_multi_agent",
+        "session_supervision",
+        "policy_gate",
+    ]
+    assert probe_rows["omnigent-general-agent-framework"]["observable_behaviors"] == [
+        "multi_agent_supervision",
+        "policy_control",
+        "session_sync",
+        "sandboxing",
+    ]
+    assert probe_rows["xuefeng-agent-domain-advisor"]["install_shape"] == ["web_app"]
+    assert probe_rows["xuefeng-agent-domain-advisor"]["entrypoints"] == ["browser_app", "api"]
+    assert probe_rows["xuefeng-agent-domain-advisor"]["dependency_boundaries"] == [
+        "database",
+        "provider_api_key",
+        "browser_session",
+    ]
+    assert all(row["probe_complete"] is True for row in probe_rows.values())
+    assert all(row["runtime_action"] == "none" for row in probe_rows.values())
+    assert all(row["source_url_hash"].startswith("sha256:") for row in probe_rows.values())
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
     assert "https://github.com/ziqihe10-droid/xuefeng-agent" not in serialized
 
