@@ -4435,6 +4435,67 @@ def skill_route_discovery_pass2_handoff_packet(
     acceptance_ready = ready and bool(acceptance_rows) and all(row["accepted"] for row in acceptance_rows) and all(
         secondary_route_gates.values()
     )
+    contract_rows = profile_lane_acceptance_contract.get("rows")
+    contract_rows = contract_rows if isinstance(contract_rows, list) else []
+    profile_summary_rows: list[dict[str, Any]] = []
+    selected_route_profiles = {
+        profile
+        for row in selected_rows
+        for profile in string_list(row.get("route_profiles"))
+    }
+    for raw_contract_row in contract_rows:
+        contract_row = raw_contract_row if isinstance(raw_contract_row, dict) else {}
+        profile = optional_string(contract_row.get("route_profile")) or "generic_skill_workflow"
+        row_status = optional_string(contract_row.get("status")) or "blocked"
+        validation_gate = optional_string(contract_row.get("validation_gate")) or ""
+        profile_summary_rows.append(
+            {
+                "route_profile": profile,
+                "pass_role": "selected_current_pass_profile"
+                if profile in selected_route_profiles
+                else "queued_profile_for_later_pass",
+                "status": row_status,
+                "accepted_for_local_validation": row_status == "ready",
+                "expected_first_local_lane": optional_string(
+                    contract_row.get("selected_first_local_lane")
+                )
+                or "",
+                "allowed_local_lanes": string_list(contract_row.get("allowed_local_lanes")),
+                "validation_scope": optional_string(contract_row.get("validation_scope")) or "",
+                "validation_gate": validation_gate,
+                "route_probe_decision": "skill_route_discovery_first"
+                if validation_gate == "skill_route_discovery_first_before_workflow_gate"
+                else "skill_route_discovery",
+                "required_metadata": string_list(contract_row.get("required_metadata")),
+                "diagnostics": string_list(contract_row.get("diagnostics")),
+                "required_validation": string_list(current_action.get("required_validation")),
+                "provider_runtime_replay_commands": string_list(
+                    current_action.get("provider_runtime_replay_commands")
+                ),
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+    profile_summary_ready = (
+        ready
+        and profile_contract_status == "ready"
+        and bool(profile_summary_rows)
+        and all(row["accepted_for_local_validation"] for row in profile_summary_rows)
+        and set(route_profiles).issubset({row["route_profile"] for row in profile_summary_rows})
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass2_handoff_packet",
@@ -4478,6 +4539,53 @@ def skill_route_discovery_pass2_handoff_packet(
         "secondary_harness_eval_allowed": False,
         "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
         "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
+        "route_profile_acceptance_summary": {
+            "controller_surface": "skill_route_discovery_pass2_route_profile_acceptance_summary",
+            "status": "ready" if profile_summary_ready else "not_applicable" if current_pass != 2 else "blocked",
+            "decision": "profile_routes_accepted_for_bounded_local_lanes"
+            if profile_summary_ready
+            else "repair_profile_route_acceptance_before_pass2_handoff",
+            "profile_acceptance_contract_status": profile_contract_status,
+            "profile_count": len(profile_summary_rows),
+            "selected_current_pass_profile_count": sum(
+                1 for row in profile_summary_rows if row["pass_role"] == "selected_current_pass_profile"
+            ),
+            "queued_profile_count": sum(
+                1 for row in profile_summary_rows if row["pass_role"] == "queued_profile_for_later_pass"
+            ),
+            "accepted_profile_count": sum(
+                1 for row in profile_summary_rows if row["accepted_for_local_validation"]
+            ),
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "selected_local_lanes": sorted({row["selected_local_lane"] for row in selected_rows}),
+            "queued_local_lanes": sorted({row["selected_local_lane"] for row in queued_rows}),
+            "route_profiles": [row["route_profile"] for row in profile_summary_rows],
+            "evidence_ref_mode": "selected_item_ids_only",
+            "mixed_skill_workflow_primary_route": mixed_primary_route,
+            "secondary_lane": secondary_lane,
+            "secondary_lane_status": secondary_lane_status,
+            "secondary_harness_eval_allowed": False,
+            "rows": profile_summary_rows,
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "required_validation": string_list(current_action.get("required_validation")),
+            "provider_runtime_replay_commands": string_list(
+                current_action.get("provider_runtime_replay_commands")
+            ),
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "operator_checkpoint_list": {
             "controller_surface": "skill_route_discovery_pass2_operator_checkpoint_list",
             "status": "ready" if ready else "not_applicable" if current_pass != 2 else "blocked",

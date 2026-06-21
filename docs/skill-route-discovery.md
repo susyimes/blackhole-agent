@@ -1031,6 +1031,19 @@ upstream skills, execute a secondary harness, launch providers, perform remote
 execution, export raw evidence URLs, export raw source URLs, export raw target
 paths, or export upstream bodies.
 
+For pass-2 handoff specifically, `pass2_handoff_packet` also repeats the same
+route-profile decision as `route_profile_acceptance_summary`. This summary gives
+the supervisor the selected FableCodex-style `codex_workflow_gate` and
+Three.js-style `game_frontend_workflow` rows in the local `test` lane, plus the
+queued COMPASS-style `skill_ecosystem_state_handoff` row in the local `config`
+lane, without expanding the nested readiness panel. The mixed
+Codex/workflow/skill row must still report `skill_route_discovery_first`, and
+the summary keeps the secondary harness lane blocked until local corroboration.
+It is body-free and repeats that runtime action, external skill activation,
+external harness execution, provider launch, remote execution, raw evidence URL
+export, raw source URL export, raw target path export, and upstream body export
+remain denied.
+
 The same row now carries `recovery_replay_packet`, an operator replay packet for
 the selected skill-route action. It translates provider-runtime recovery hint
 codes into scoped replay steps such as adding a body-free sample, repairing

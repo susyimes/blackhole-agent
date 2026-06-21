@@ -10039,6 +10039,47 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert summary["provider_runtime_preflight"]["raw_preflight_inputs_exported"] is False
     assert "https://github.com/" not in serialized
 
+    pass2_summary = output["pass2_handoff_packet"]["route_profile_acceptance_summary"]
+    pass2_serialized = json.dumps(pass2_summary, sort_keys=True)
+    assert pass2_summary["controller_surface"] == (
+        "skill_route_discovery_pass2_route_profile_acceptance_summary"
+    )
+    assert pass2_summary["status"] == "ready"
+    assert pass2_summary["decision"] == "profile_routes_accepted_for_bounded_local_lanes"
+    assert pass2_summary["profile_acceptance_contract_status"] == "ready"
+    assert pass2_summary["profile_count"] == 3
+    assert pass2_summary["selected_current_pass_profile_count"] == 2
+    assert pass2_summary["queued_profile_count"] == 1
+    assert pass2_summary["accepted_profile_count"] == 3
+    assert pass2_summary["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert pass2_summary["selected_local_lanes"] == ["test"]
+    assert pass2_summary["queued_local_lanes"] == ["config"]
+    assert pass2_summary["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
+    assert pass2_summary["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert pass2_summary["secondary_harness_eval_allowed"] is False
+
+    pass2_rows = {row["route_profile"]: row for row in pass2_summary["rows"]}
+    assert pass2_rows["codex_workflow_gate"]["pass_role"] == "selected_current_pass_profile"
+    assert pass2_rows["codex_workflow_gate"]["expected_first_local_lane"] == "test"
+    assert pass2_rows["codex_workflow_gate"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert pass2_rows["game_frontend_workflow"]["pass_role"] == "selected_current_pass_profile"
+    assert pass2_rows["game_frontend_workflow"]["expected_first_local_lane"] == "test"
+    assert pass2_rows["skill_ecosystem_state_handoff"]["pass_role"] == "queued_profile_for_later_pass"
+    assert pass2_rows["skill_ecosystem_state_handoff"]["expected_first_local_lane"] == "config"
+    for row in pass2_summary["rows"]:
+        assert row["accepted_for_local_validation"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in pass2_serialized
+
 
 def test_skill_route_discovery_generic_pull_request_prompts_for_local_validation():
     output = evaluate_harness_behavior(
