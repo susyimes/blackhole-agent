@@ -4154,6 +4154,51 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert checklist["raw_evidence_urls_exported"] is False
     assert checklist["raw_source_urls_exported"] is False
     assert checklist["raw_upstream_body_exported"] is False
+    profile_gates = pass3_handoff["profile_activation_gates"]
+    assert profile_gates["controller_surface"] == "skill_route_discovery_pass3_profile_activation_gates"
+    assert profile_gates["status"] == "ready"
+    assert profile_gates["decision"] == "profile_lanes_ready_for_final_pass_validation"
+    assert profile_gates["profile_count"] == 3
+    assert profile_gates["ready_profile_count"] == 3
+    assert profile_gates["blocked_profile_count"] == 0
+    assert profile_gates["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert profile_gates["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    gate_rows = {row["route_profile"]: row for row in profile_gates["rows"]}
+    assert gate_rows["codex_workflow_gate"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert gate_rows["codex_workflow_gate"]["selected_local_lanes"] == ["test"]
+    assert gate_rows["codex_workflow_gate"]["queue_roles"] == ["selected_current_pass_lane"]
+    assert gate_rows["codex_workflow_gate"]["evidence_item_ids"] == [
+        "p2-skill-route-discovery-threejs-game",
+        "p3-skill-route-discovery-fablecodex",
+    ]
+    assert gate_rows["game_frontend_workflow"]["route_probe_decision"] == "skill_route_discovery"
+    assert gate_rows["game_frontend_workflow"]["selected_local_lanes"] == ["test"]
+    assert gate_rows["skill_ecosystem_state_handoff"]["route_probe_decision"] == "skill_route_discovery"
+    assert gate_rows["skill_ecosystem_state_handoff"]["selected_local_lanes"] == ["config"]
+    assert gate_rows["skill_ecosystem_state_handoff"]["queue_roles"] == ["queued_bounded_lane"]
+    assert gate_rows["skill_ecosystem_state_handoff"]["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
+    assert all(row["activation_blockers"] == [] for row in profile_gates["rows"])
+    assert all(row["local_validation_required"] is True for row in profile_gates["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in profile_gates["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_gates["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in profile_gates["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in profile_gates["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in profile_gates["rows"])
+    assert all(row["raw_source_urls_exported"] is False for row in profile_gates["rows"])
+    assert all(row["raw_upstream_body_exported"] is False for row in profile_gates["rows"])
+    assert profile_gates["runtime_action_allowed"] is False
+    assert profile_gates["external_skill_activation_allowed"] is False
+    assert profile_gates["external_harness_execution_allowed"] is False
+    assert profile_gates["provider_runtime_launch_allowed"] is False
+    assert profile_gates["raw_evidence_urls_exported"] is False
+    assert profile_gates["raw_source_urls_exported"] is False
+    assert profile_gates["raw_upstream_body_exported"] is False
     checkpoints = pass3_handoff["operator_checkpoint_list"]
     assert checkpoints["controller_surface"] == "skill_route_discovery_pass3_operator_checkpoint_list"
     assert checkpoints["status"] == "ready"

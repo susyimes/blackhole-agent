@@ -1448,6 +1448,17 @@ execution, raw source URL export, raw target path export, and upstream body
 export remain denied. The pass-2 handoff packet embeds the same contract so the
 operator can reject a pass before replaying selected or queued bounded lanes.
 
+Pass-3 handoff packets also emit `profile_activation_gates`. This is the final
+pre-activation profile view for the active window: it maps each observed route
+profile to its selected bounded local lane, queue role, selected item IDs,
+hashed candidate sources, required local validation, and activation blockers.
+Codex workflow rows must still prove
+`route_probe_decision: skill_route_discovery_first`; game/frontend rows remain
+local test validation; skill-ecosystem state handoff rows remain local config
+validation. The gate is body-free and cannot add lanes, install upstream
+skills, run external harnesses, launch providers, write profile or memory
+state, perform remote execution, or export raw source URLs or upstream bodies.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy
