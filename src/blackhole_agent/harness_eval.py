@@ -6487,6 +6487,54 @@ def skill_route_discovery_completion_replay_checklist(
 ) -> dict[str, Any]:
     """Render the final pass as an ordered replay checklist for supervisors."""
 
+    profile_rows = profile_validation_gate.get("rows")
+    profile_rows = profile_rows if isinstance(profile_rows, list) else []
+    profile_lane_contracts = [
+        {
+            "route_profile": optional_string(row.get("route_profile")) or "generic_skill_workflow",
+            "status": optional_string(row.get("status")) or "",
+            "decision": optional_string(row.get("decision")) or "",
+            "selected_local_lane": optional_string(row.get("selected_local_lane")) or "",
+            "validation_scope": optional_string(row.get("validation_scope")) or "none",
+            "local_gate": optional_string(row.get("local_gate")) or "",
+            "required_first_route_decision": optional_string(row.get("required_first_route_decision")) or "",
+            "first_route_confirmed": row.get("first_route_confirmed") is True,
+            "metadata_complete": row.get("metadata_complete") is True,
+            "local_artifact_proof_ready": row.get("local_artifact_proof_ready") is True,
+            "operator_lane_ready": row.get("operator_lane_ready") is True,
+            "diagnostic_count": len(string_list(row.get("diagnostics"))),
+            "diagnostic_hashes": [
+                stable_text_hash(diagnostic) for diagnostic in string_list(row.get("diagnostics"))
+            ],
+            "required_validation": skill_route_discovery_preactivation_validation_commands(),
+            "provider_runtime_replay_commands": [
+                PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+            ],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for row in profile_rows
+        if isinstance(row, dict)
+    ]
+    profile_contract_ready = bool(profile_lane_contracts) and all(
+        contract["status"] == "ready"
+        and contract["metadata_complete"]
+        and contract["local_artifact_proof_ready"]
+        and contract["operator_lane_ready"]
+        and contract["diagnostic_count"] == 0
+        for contract in profile_lane_contracts
+    )
     steps = [
         {
             "step": "profile_validation_gate",
@@ -6552,6 +6600,12 @@ def skill_route_discovery_completion_replay_checklist(
         "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "profile_lane_contract_status": "ready" if profile_contract_ready else "blocked",
+        "profile_lane_contract_count": len(profile_lane_contracts),
+        "ready_profile_lane_contract_count": sum(
+            1 for contract in profile_lane_contracts if contract["status"] == "ready"
+        ),
+        "profile_lane_contracts": profile_lane_contracts,
         "replay_commands": replay_commands,
         "provider_runtime_replay_commands": provider_commands,
         "steps": steps,

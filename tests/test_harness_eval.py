@@ -3508,6 +3508,27 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert checklist["completion_blocker_count"] == 0
     assert checklist["completion_blocker_hashes"] == []
     assert checklist["recovery_hint_codes"] == ["no_recovery_required"]
+    assert checklist["profile_lane_contract_status"] == "ready"
+    assert checklist["profile_lane_contract_count"] == 3
+    assert checklist["ready_profile_lane_contract_count"] == 3
+    contract_rows = {row["route_profile"]: row for row in checklist["profile_lane_contracts"]}
+    assert contract_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert contract_rows["codex_workflow_gate"]["required_first_route_decision"] == (
+        "skill_route_discovery_first"
+    )
+    assert contract_rows["codex_workflow_gate"]["first_route_confirmed"] is True
+    assert contract_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert contract_rows["game_frontend_workflow"]["local_gate"] == (
+        "game_frontend_workflow_requires_local_test_or_frontend_validation"
+    )
+    assert contract_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert contract_rows["skill_ecosystem_state_handoff"]["local_gate"] == (
+        "state_handoff_requires_config_boundary_review"
+    )
+    assert all(row["local_validation_required"] is True for row in checklist["profile_lane_contracts"])
+    assert all(row["runtime_action"] == "none" for row in checklist["profile_lane_contracts"])
+    assert all(row["external_skill_activation_allowed"] is False for row in checklist["profile_lane_contracts"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in checklist["profile_lane_contracts"])
     assert checklist["replay_commands"] == skill_route_discovery_preactivation_validation_commands()
     assert checklist["provider_runtime_replay_commands"] == [
         "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",

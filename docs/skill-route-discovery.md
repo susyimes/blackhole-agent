@@ -1093,6 +1093,14 @@ the local validation commands. A blocked checklist carries only hashed blocker
 and step identifiers plus recovery hint codes. It does not add lanes, restart
 the kernel, launch providers, execute external harnesses, perform remote
 execution, export raw source or target paths, or activate upstream skill code.
+The checklist now repeats `profile_lane_contracts`, one body-free row per route
+profile, so operators can see that FableCodex-style workflow gates still start
+with `skill_route_discovery_first`, Three.js-style game workflow evidence stays
+on the local test lane, and COMPASS-style state handoff evidence stays on the
+local config boundary lane. These rows repeat readiness booleans, gate names,
+validation scopes, and replay commands only; they do not export raw source URLs
+or grant profile writes, memory writes, provider launch, remote execution, or
+upstream skill activation.
 
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
