@@ -3993,6 +3993,7 @@ def skill_route_discovery_pass2_handoff_packet(
         }
     )
     activation_preview_rows = []
+    operator_checkpoints = []
     for row in rows:
         preview_blockers = [] if ready else sorted(dict.fromkeys(diagnostics or ["pass2_handoff_not_ready"]))
         activation_preview_rows.append(
@@ -4018,6 +4019,40 @@ def skill_route_discovery_pass2_handoff_packet(
                 "external_harness_execution_allowed": False,
                 "provider_runtime_launch_allowed": False,
                 "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+        operator_checkpoints.append(
+            {
+                "checkpoint": "replay_selected_current_pass_lane"
+                if row["queue_role"] == "selected_current_pass_lane"
+                else "carry_queued_bounded_lane_to_next_pass",
+                "queue_position": row["queue_position"],
+                "queue_role": row["queue_role"],
+                "selected_local_lane": row["selected_local_lane"],
+                "validation_scope": row["validation_scope"],
+                "route_profiles": row["route_profiles"],
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_id_count": row["evidence_item_id_count"],
+                "candidate_source_count": row["candidate_source_count"],
+                "queue_fingerprint": row["queue_fingerprint"],
+                "status": "ready" if ready else "blocked",
+                "blockers": preview_blockers,
+                "required_validation": row["replay_commands"],
+                "provider_runtime_replay_commands": row["provider_runtime_replay_commands"],
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
                 "raw_evidence_urls_exported": False,
                 "raw_source_urls_exported": False,
                 "raw_target_paths_exported": False,
@@ -4066,6 +4101,34 @@ def skill_route_discovery_pass2_handoff_packet(
         "secondary_lane_status": secondary_lane_status,
         "secondary_harness_eval_allowed": False,
         "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+        "operator_checkpoint_list": {
+            "controller_surface": "skill_route_discovery_pass2_operator_checkpoint_list",
+            "status": "ready" if ready else "not_applicable" if current_pass != 2 else "blocked",
+            "decision": "operator_can_replay_pass2_checkpoints"
+            if ready
+            else "repair_pass2_checkpoints_before_replay",
+            "checkpoint_count": len(operator_checkpoints),
+            "selected_checkpoint_count": len(selected_rows),
+            "queued_checkpoint_count": len(queued_rows),
+            "evidence_ref_mode": "selected_item_ids_only",
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "rows": operator_checkpoints,
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "bounded_activation_preview": {
             "controller_surface": "skill_route_discovery_pass2_bounded_activation_preview",
             "status": "ready" if ready else "not_applicable" if current_pass != 2 else "blocked",

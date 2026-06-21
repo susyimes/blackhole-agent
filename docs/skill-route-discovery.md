@@ -906,6 +906,18 @@ manifest. It does not add lanes, cite raw repository URLs, activate the
 secondary harness, install skills, execute upstream code, launch providers,
 perform remote execution, export raw target paths, or export upstream bodies.
 
+The packet also carries `operator_checkpoint_list`, a compact pass-2 checklist
+for the same rows. Each checkpoint names whether the supervisor should replay
+the selected current-pass lane or carry a queued bounded lane forward, then
+shows the bounded lane, validation scope, route profiles, selected-item citation
+mode, evidence and source counts, queue fingerprint, replay commands, provider
+preflight replay commands, readiness status, and blocker codes. The checklist
+exists to make the next operator action visible without expanding raw upstream
+evidence. It repeats that runtime action, external skill activation, external
+agent activation, external harness execution, provider launch, remote
+execution, raw source URL export, raw evidence URL export, raw target path
+export, and upstream body export remain denied.
+
 For `provider-runtime-control` windows the harness also emits
 `current_action_provider_runtime_preflight`. This panel joins the selected
 current action to provider-runtime replay state so pass-1 supervisors can see

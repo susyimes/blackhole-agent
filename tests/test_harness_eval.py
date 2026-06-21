@@ -2755,6 +2755,32 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert pass2_packet["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
     assert pass2_packet["secondary_lane_status"] == "blocked_until_local_corroboration"
     assert pass2_packet["secondary_harness_eval_allowed"] is False
+    checkpoints = pass2_packet["operator_checkpoint_list"]
+    assert checkpoints["controller_surface"] == "skill_route_discovery_pass2_operator_checkpoint_list"
+    assert checkpoints["status"] == "ready"
+    assert checkpoints["decision"] == "operator_can_replay_pass2_checkpoints"
+    assert checkpoints["checkpoint_count"] == 2
+    assert checkpoints["selected_checkpoint_count"] == 1
+    assert checkpoints["queued_checkpoint_count"] == 1
+    assert [row["checkpoint"] for row in checkpoints["rows"]] == [
+        "replay_selected_current_pass_lane",
+        "carry_queued_bounded_lane_to_next_pass",
+    ]
+    assert [row["selected_local_lane"] for row in checkpoints["rows"]] == ["test", "config"]
+    assert {row["status"] for row in checkpoints["rows"]} == {"ready"}
+    assert all(row["evidence_ref_mode"] == "selected_item_ids_only" for row in checkpoints["rows"])
+    assert all(row["queue_fingerprint"] for row in checkpoints["rows"])
+    assert all(row["blockers"] == [] for row in checkpoints["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["external_agent_activation_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in checkpoints["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in checkpoints["rows"])
+    assert all(row["raw_source_urls_exported"] is False for row in checkpoints["rows"])
+    assert checkpoints["runtime_action_allowed"] is False
+    assert checkpoints["external_skill_activation_allowed"] is False
+    assert checkpoints["external_harness_execution_allowed"] is False
+    assert checkpoints["raw_evidence_urls_exported"] is False
     preview = pass2_packet["bounded_activation_preview"]
     assert preview["controller_surface"] == "skill_route_discovery_pass2_bounded_activation_preview"
     assert preview["status"] == "ready"

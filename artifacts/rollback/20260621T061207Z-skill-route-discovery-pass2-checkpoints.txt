@@ -1,0 +1,13 @@
+Rollback point for skill-route-discovery pass 2 checkpoint surface.
+
+Original branch: codex/blackhole-evolve/20260621T061537.845958-borrow-cautiously-from-omnigent-ai-omnigent-tren
+Original HEAD: 3d1f901c2bc238bcd69898e7aa2c5eda93622151
+Local rollback ref: refs/rollback/20260621T061207Z-skill-route-discovery-pass2
+
+Recovery commands, if an external supervisor or human operator chooses rollback:
+
+git switch codex/blackhole-evolve/20260621T061537.845958-borrow-cautiously-from-omnigent-ai-omnigent-tren
+git reset --hard refs/rollback/20260621T061207Z-skill-route-discovery-pass2
+
+Rollback is explicit and destructive. Do not run these commands unless recovery
+has been selected outside this kernel run.
