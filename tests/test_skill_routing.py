@@ -398,6 +398,96 @@ def test_skill_route_discovery_summary_classifier_defaults_to_documentation_only
     assert registry["candidates"][0]["requested_actions"] == []
 
 
+def test_skill_route_discovery_classifies_body_free_file_layout_into_local_lanes():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "summary": "Directory snapshot with task clarification, profile state, validation checks, and prompts.",
+                "observed_paths": [
+                    "skills/task-clarifier/SKILL.md",
+                    "skills/local-memory/SKILL.md",
+                    "scripts/validate_skill_metadata.py",
+                    "prompts/handoff.md",
+                    "PUBLICATION_AUDIT.md",
+                ],
+                "metadata_files": ["skills.sh.json", "AGENTS.md"],
+            },
+            {
+                "name": "FableCodex",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "summary": "Codex workflow skill package with plugin route gate and local verification.",
+                "observed_paths": [
+                    ".codex-plugin/plugin.json",
+                    "tests/test_workflow_gate.py",
+                    "examples/replay-template.md",
+                ],
+                "suggested_lanes": ["agent_harness_eval", "install"],
+            },
+            {
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "summary": "Browser game workflow directory snapshot with Three.js QA and scaffold boundaries.",
+                "observed_paths": [
+                    "skills/game-director/SKILL.md",
+                    "qa/browser-canvas-checklist.md",
+                    "scaffold/vite-threejs-game/template.ts",
+                ],
+            },
+            {
+                "name": "generic-agent-docs",
+                "source_url": "https://github.com/example/generic-agent-docs",
+                "summary": "Generic repository instructions without reusable skill package evidence.",
+                "observed_paths": ["AGENTS.md"],
+            },
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["summary_count"] == 4
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_summary_count"] == 1
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    assert set(candidates_by_name["compass-skills"]["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert candidates_by_name["compass-skills"]["source_layout_signals"] == [
+        "skill_markdown",
+        "skill_directory",
+        "validation_script",
+        "template_or_prompt",
+    ]
+    assert candidates_by_name["compass-skills"]["source_metadata_signals"] == [
+        "skill_registry_metadata",
+        "agent_metadata",
+        "qa_checklist",
+    ]
+    assert set(candidates_by_name["FableCodex"]["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert candidates_by_name["threejs-game-skills"]["route_profiles"] == ["game_frontend_workflow"]
+
+    inventory_by_name = {row["candidate_name"]: row for row in lane_map["candidate_lane_inventory"]}
+    assert inventory_by_name["compass-skills"]["source_layout_signals"] == [
+        "skill_markdown",
+        "skill_directory",
+        "validation_script",
+        "template_or_prompt",
+    ]
+    assert inventory_by_name["compass-skills"]["source_metadata_signals"] == [
+        "skill_registry_metadata",
+        "agent_metadata",
+        "qa_checklist",
+    ]
+    assert inventory_by_name["compass-skills"]["runtime_action"] == "none"
+    assert inventory_by_name["compass-skills"]["external_skill_activation_allowed"] is False
+    assert inventory_by_name["FableCodex"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+        if lane["candidate_name"] == "FableCodex"
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+
 def test_skill_route_discovery_summary_classifier_collapses_fork_lineage():
     registry = build_skill_route_discovery_registry_from_summaries(
         [

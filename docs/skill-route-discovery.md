@@ -205,6 +205,16 @@ such as install, execute, run, or runtime execution are ignored rather than
 promoted into candidate lanes or requested actions. Non-skill repositories are
 ignored, and URL validation still happens at registry build time.
 
+Summary records can also carry body-free file layout evidence through
+`observed_paths` and metadata filename evidence through `metadata_files`.
+Recognized examples include `skills/.../SKILL.md`, `skills.sh.json`,
+`.codex-plugin/plugin.json`, tests, validation scripts, templates, scaffold
+directories, and QA checklists. Those names are classified into layout and
+metadata signal tags and can select only the four bounded local lanes. The
+classifier does not read upstream file bodies, clone repositories, install
+plugins, run scripts, export source URLs into harness panels, or treat a
+generic `AGENTS.md` file by itself as reusable skill-package evidence.
+
 ## Issue Evidence Lane
 
 Repository issues can refine the same disabled discovery candidate when they

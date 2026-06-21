@@ -86,6 +86,17 @@ SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
         "workflow",
     ),
 }
+SKILL_ROUTE_DISCOVERY_LAYOUT_SIGNAL_LANES: Mapping[str, tuple[str, ...]] = {
+    "skill_markdown": ("documentation", "config"),
+    "skill_directory": ("documentation", "config"),
+    "agent_metadata": ("config",),
+    "skill_registry_metadata": ("config",),
+    "validation_script": ("test", "code_patch"),
+    "test_file": ("test",),
+    "scaffold_asset": ("code_patch",),
+    "template_or_prompt": ("documentation", "code_patch"),
+    "qa_checklist": ("documentation", "test"),
+}
 SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
     "codex_workflow_gate": (
         "codex",
@@ -219,6 +230,8 @@ class ExternalSkillRouteCandidate:
     evidence_urls: tuple[str, ...] = ()
     evidence_item_urls: tuple[str, ...] = ()
     related_source_urls: tuple[str, ...] = ()
+    source_layout_signals: tuple[str, ...] = ()
+    source_metadata_signals: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
@@ -242,6 +255,16 @@ class ExternalSkillRouteCandidate:
             evidence_urls=_string_tuple(value.get("evidence_urls")),
             evidence_item_urls=_string_tuple(value.get("evidence_item_urls")),
             related_source_urls=_string_tuple(value.get("related_source_urls")),
+            source_layout_signals=_string_tuple(
+                value.get("source_layout_signals")
+                or value.get("layout_signals")
+                or value.get("file_layout_signals")
+            ),
+            source_metadata_signals=_string_tuple(
+                value.get("source_metadata_signals")
+                or value.get("metadata_signals")
+                or value.get("repository_metadata_signals")
+            ),
             requested_actions=_string_tuple(value.get("requested_actions")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
@@ -289,7 +312,13 @@ class ExternalSkillRouteCandidate:
             "route_profiles": list(_skill_route_discovery_route_profiles(self)),
             "route_hints": list(self.route_hints),
             "matched_route_terms": list(
-                _skill_route_discovery_matched_terms(self.name, self.evidence_summary, " ".join(self.candidate_lanes))
+                _skill_route_discovery_matched_terms(
+                    self.name,
+                    self.evidence_summary,
+                    " ".join(self.candidate_lanes),
+                    " ".join(self.source_layout_signals),
+                    " ".join(self.source_metadata_signals),
+                )
             ),
             "route_status": SKILL_ROUTE_DISCOVERY_INVALID if errors else SKILL_ROUTE_DISCOVERY_DISABLED,
             "source_url": self.source_url,
@@ -297,6 +326,8 @@ class ExternalSkillRouteCandidate:
             "uncertainty_reasons": list(uncertainty_reasons),
             "validation_errors": list(errors),
             "validation_status": self.validation_status,
+            **_optional_list_field("source_layout_signals", self.source_layout_signals),
+            **_optional_list_field("source_metadata_signals", self.source_metadata_signals),
         }
 
 
@@ -310,6 +341,8 @@ class ExternalSkillRepositorySummary:
     discovery_event_kind: str = "unknown"
     topics: tuple[str, ...] = ()
     suggested_lanes: tuple[str, ...] = ()
+    observed_paths: tuple[str, ...] = ()
+    metadata_files: tuple[str, ...] = ()
     upstream_source_url: str = ""
 
     @classmethod
@@ -330,6 +363,16 @@ class ExternalSkillRepositorySummary:
             discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
             topics=_string_tuple(value.get("topics")),
             suggested_lanes=_string_tuple(value.get("suggested_lanes")),
+            observed_paths=_string_tuple(
+                value.get("observed_paths")
+                or value.get("file_paths")
+                or value.get("paths")
+            ),
+            metadata_files=_string_tuple(
+                value.get("metadata_files")
+                or value.get("manifest_files")
+                or value.get("repository_metadata_files")
+            ),
             upstream_source_url=str(
                 value.get("upstream_source_url")
                 or value.get("forked_from_url")
@@ -348,6 +391,8 @@ class ExternalSkillRepositorySummary:
             discovery_event_kind=self.discovery_event_kind,
             candidate_lanes=_bounded_skill_discovery_lanes(self),
             related_source_urls=_summary_related_source_urls(self),
+            source_layout_signals=_skill_repository_layout_signals(self),
+            source_metadata_signals=_skill_repository_metadata_signals(self),
             validation_status="unvalidated",
             enabled=False,
         )
@@ -768,6 +813,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "activation_gate": "local_validation_before_activation",
                 "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                 "uncertainty_reasons": uncertainty_reasons,
+                **_optional_list_field("source_layout_signals", _string_list(candidate.get("source_layout_signals"))),
+                **_optional_list_field(
+                    "source_metadata_signals",
+                    _string_list(candidate.get("source_metadata_signals")),
+                ),
                 **probe_metadata,
                 **state_boundary_metadata,
             }
@@ -794,6 +844,14 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                     "uncertainty_reasons": uncertainty_reasons,
                     "reason": "recognized_skill_project_evidence",
+                    **_optional_list_field(
+                        "source_layout_signals",
+                        _string_list(candidate.get("source_layout_signals")),
+                    ),
+                    **_optional_list_field(
+                        "source_metadata_signals",
+                        _string_list(candidate.get("source_metadata_signals")),
+                    ),
                     **probe_metadata,
                     **state_boundary_metadata,
                 }
@@ -898,7 +956,9 @@ def _coerce_external_skill_evidence_item(
 
 def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary) -> bool:
     text = _summary_text(summary)
-    return any(
+    layout_signals = _skill_repository_layout_signals(summary)
+    metadata_signals = _skill_repository_metadata_signals(summary)
+    has_skill_text = any(
         marker in text
         for marker in (
             "agent skill",
@@ -915,6 +975,11 @@ def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary
             "workflow skills",
         )
     )
+    has_skill_layout = bool(
+        set(layout_signals) & {"skill_markdown", "skill_directory"}
+        or set(metadata_signals) & {"skill_registry_metadata"}
+    )
+    return has_skill_text or has_skill_layout
 
 
 def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> tuple[str, ...]:
@@ -925,7 +990,13 @@ def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> t
         for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
         if any(keyword in text for keyword in SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS[lane])
     )
+    layout_lanes = tuple(
+        lane
+        for signal in (*_skill_repository_layout_signals(summary), *_skill_repository_metadata_signals(summary))
+        for lane in SKILL_ROUTE_DISCOVERY_LAYOUT_SIGNAL_LANES.get(signal, ())
+    )
     lanes = tuple(dict.fromkeys((*suggested, *keyword_lanes)))
+    lanes = tuple(dict.fromkeys((*lanes, *layout_lanes)))
     return lanes or ("documentation",)
 
 
@@ -938,6 +1009,8 @@ def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate
             candidate.name,
             candidate.evidence_summary,
             " ".join(candidate.candidate_lanes),
+            " ".join(candidate.source_layout_signals),
+            " ".join(candidate.source_metadata_signals),
         )
         if part
     ).casefold()
@@ -1114,6 +1187,55 @@ def _summary_related_source_urls(summary: ExternalSkillRepositorySummary) -> tup
     return tuple(dict.fromkeys(related_source_urls))
 
 
+def _skill_repository_layout_signals(summary: ExternalSkillRepositorySummary) -> tuple[str, ...]:
+    """Classify body-free repository file paths into local route signals."""
+
+    paths = tuple(path.replace("\\", "/").strip().casefold() for path in summary.observed_paths if path.strip())
+    signals: list[str] = []
+    for path in paths:
+        parts = tuple(part for part in path.split("/") if part)
+        basename = parts[-1] if parts else path
+        if basename == "skill.md":
+            signals.append("skill_markdown")
+        if "skills" in parts:
+            signals.append("skill_directory")
+        if basename in {"agents.md", ".agents.md"} or "agents" in parts:
+            signals.append("agent_metadata")
+        if basename.startswith("test_") or basename.endswith("_test.py") or "/tests/" in f"/{path}/":
+            signals.append("test_file")
+        if basename.endswith((".sh", ".ps1", ".mjs", ".js", ".ts", ".py")) and (
+            "script" in parts or "scripts" in parts
+        ):
+            signals.append("validation_script")
+        if "scaffold" in parts or "template" in parts or "assets" in parts:
+            signals.append("scaffold_asset")
+        if "prompt" in path or "template" in path:
+            signals.append("template_or_prompt")
+        if "checklist" in path or "qa" in parts:
+            signals.append("qa_checklist")
+    return tuple(dict.fromkeys(signals))
+
+
+def _skill_repository_metadata_signals(summary: ExternalSkillRepositorySummary) -> tuple[str, ...]:
+    """Classify body-free metadata filenames without reading upstream bodies."""
+
+    files = tuple(
+        path.replace("\\", "/").strip().casefold()
+        for path in (*summary.metadata_files, *summary.observed_paths)
+        if path.strip()
+    )
+    signals: list[str] = []
+    for path in files:
+        basename = path.rsplit("/", 1)[-1]
+        if basename in {"skills.sh.json", "skill.json", "plugin.json", "manifest.json"}:
+            signals.append("skill_registry_metadata")
+        if basename in {"agents.md", ".agents.md"} or ".codex-plugin/" in path or "/plugins/" in f"/{path}":
+            signals.append("agent_metadata")
+        if basename in {"publication_audit.md", "security.md"} or "audit" in basename:
+            signals.append("qa_checklist")
+    return tuple(dict.fromkeys(signals))
+
+
 def _merge_external_skill_route_candidates(
     left: ExternalSkillRouteCandidate,
     right: ExternalSkillRouteCandidate,
@@ -1131,6 +1253,10 @@ def _merge_external_skill_route_candidates(
         evidence_urls=tuple(dict.fromkeys((*left.evidence_urls, *right.evidence_urls))),
         evidence_item_urls=tuple(dict.fromkeys((*left.evidence_item_urls, *right.evidence_item_urls))),
         related_source_urls=tuple(dict.fromkeys((*left.related_source_urls, *right.related_source_urls))),
+        source_layout_signals=tuple(dict.fromkeys((*left.source_layout_signals, *right.source_layout_signals))),
+        source_metadata_signals=tuple(
+            dict.fromkeys((*left.source_metadata_signals, *right.source_metadata_signals))
+        ),
         requested_actions=tuple(dict.fromkeys((*left.requested_actions, *right.requested_actions))),
         validation_status=left.validation_status,
         enabled=left.enabled or right.enabled,
@@ -1337,3 +1463,8 @@ def _string_tuple(value: Any) -> tuple[str, ...]:
     if isinstance(value, Sequence):
         return tuple(str(item).strip() for item in value if str(item).strip())
     raise ValueError("skill metadata fields must be strings or sequences of strings")
+
+
+def _optional_list_field(name: str, values: Sequence[str]) -> dict[str, list[str]]:
+    items = list(dict.fromkeys(str(value).strip() for value in values if str(value).strip()))
+    return {name: items} if items else {}

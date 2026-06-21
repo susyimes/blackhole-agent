@@ -1,0 +1,7 @@
+rollback point for github-growth-20260621T151207.801956Z
+branch: codex/blackhole-evolve/20260621T151429.638956-add-a-bounded-local-validation-path-for-detectin
+head: 4755d8e9d713f3959e9e08ce21de290def593447
+recovery commands:
+  git reset --hard 4755d8e9d713f3959e9e08ce21de290def593447
+  git clean -fd
+notes: destructive recovery requires explicit operator approval.
