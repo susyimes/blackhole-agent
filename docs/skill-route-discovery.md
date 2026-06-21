@@ -18,8 +18,11 @@ including fork-lineage evidence, while preserving selected `item_id` citations
 instead of URL citations. Source digest
 `github-growth-20260621T021207.784187Z` added a core lane-map probe for mixed
 Codex/agent/skill/workflow repositories so `skill_route_discovery` stays first
-before any broader agent-harness evaluation. The bounded evidence reviewed for
-these runs:
+before any broader agent-harness evaluation. Source digest
+`github-growth-20260621T033207.842733Z` carried the same pass-2 route window and
+adds an operator-visible pass-2 handoff packet for the selected bounded lane,
+queued bounded lanes, and blocked secondary harness route. The bounded evidence
+reviewed for these runs:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
@@ -868,6 +871,18 @@ target as `current_action.selected_local_lane` instead of requiring the
 supervisor to infer it from raw repository URLs or README claims. Mixed
 Codex/workflow/skill evidence remains `skill_route_discovery_first`; secondary
 agent-harness evaluation stays blocked until local corroboration.
+
+Pass-2 windows now also emit `pass2_handoff_packet`. This packet copies the
+selected current-pass lane, queued bounded lanes, selected item IDs, candidate
+source hashes, and mixed-route probe decision into one supervisor-readable
+surface. For the current COMPASS/FableCodex/Three.js window, FableCodex-style
+mixed Codex/agent/skill/workflow evidence keeps
+`mixed_skill_workflow_primary_route: skill_route_discovery`, while
+`agent_harness_eval_after_local_corroboration` remains blocked. The packet is
+not a secondary-harness activation token: it denies runtime action, external
+skill activation, external agent activation, external harness execution,
+provider launch, remote execution, raw source URL export, raw evidence URL
+export, raw target path export, and upstream body export.
 
 For `provider-runtime-control` windows the harness also emits
 `current_action_provider_runtime_preflight`. This panel joins the selected

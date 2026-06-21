@@ -2704,7 +2704,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "validation_scope": "local_test_lane_only",
         "route_profiles": ["codex_workflow_gate", "game_frontend_workflow"],
         "route_profile_count": 2,
-        "evidence_item_ids": ["p1-skill-route-discovery-fixtures", "p1-skill-route-discovery-index"],
+        "evidence_item_ids": ["p2-skill-route-discovery-threejs", "p3-mixed-codex-skill-workflow-probe"],
         "evidence_item_id_count": 2,
         "candidate_source_hashes": [
             stable_text_hash("https://github.com/baskduf/FableCodex"),
@@ -2735,6 +2735,32 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert completion["next_pass_handoff"]["next_validation_target"] == (
         validation_plan["next_validation_target"]
     )
+    pass2_packet = output["pass2_handoff_packet"]
+    assert pass2_packet["controller_surface"] == "skill_route_discovery_pass2_handoff_packet"
+    assert pass2_packet["status"] == "ready"
+    assert pass2_packet["decision"] == "continue_pass2_selected_lane_with_queued_bounded_handoff"
+    assert pass2_packet["current_pass"] == 2
+    assert pass2_packet["next_pass"] == 3
+    assert pass2_packet["selected_local_lanes"] == ["test"]
+    assert pass2_packet["queued_local_lanes"] == ["config"]
+    assert pass2_packet["mixed_skill_workflow_candidate_count"] == 1
+    assert pass2_packet["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
+    assert pass2_packet["mixed_skill_workflow_probe_status"] == "ready"
+    assert pass2_packet["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+    assert pass2_packet["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert pass2_packet["secondary_harness_eval_allowed"] is False
+    assert pass2_packet["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs",
+        "p3-mixed-codex-skill-workflow-probe",
+    ]
+    assert pass2_packet["runtime_action_allowed"] is False
+    assert pass2_packet["external_skill_activation_allowed"] is False
+    assert pass2_packet["external_agent_activation_allowed"] is False
+    assert pass2_packet["external_harness_execution_allowed"] is False
+    assert pass2_packet["raw_evidence_urls_exported"] is False
+    assert pass2_packet["raw_source_urls_exported"] is False
+    assert pass2_packet["raw_upstream_body_exported"] is False
     replay_packet = completion["next_pass_handoff"]["next_pass_replay_packet"]
     assert replay_packet["controller_surface"] == "skill_route_discovery_next_pass_replay_packet"
     assert replay_packet["status"] == "ready"
@@ -2748,8 +2774,8 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert replay_packet["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
     assert replay_packet["evidence_ref_mode"] == "selected_item_ids_only"
     assert replay_packet["evidence_item_ids"] == [
-        "p1-skill-route-discovery-fixtures",
-        "p1-skill-route-discovery-index",
+        "p2-skill-route-discovery-threejs",
+        "p3-mixed-codex-skill-workflow-probe",
     ]
     assert replay_packet["candidate_source_hashes"] == [
         stable_text_hash("https://github.com/baskduf/FableCodex"),
@@ -2760,7 +2786,9 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert replay_packet["queued_validation_targets"][0]["route_profiles"] == [
         "skill_ecosystem_state_handoff"
     ]
-    assert replay_packet["queued_validation_targets"][0]["evidence_item_ids"] == ["p2-skill-growth-docs"]
+    assert replay_packet["queued_validation_targets"][0]["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
     assert replay_packet["runtime_action"] == "none"
     assert replay_packet["external_skill_activation_allowed"] is False
     assert replay_packet["external_skill_code_allowed"] is False
@@ -2790,9 +2818,9 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         for target in validation_plan["lane_validation_targets"]
     )
     assert [row["evidence_item_ids"] for row in validation_plan["rows"]] == [
-        ["p1-skill-route-discovery-index"],
-        ["p1-skill-route-discovery-fixtures"],
-        ["p2-skill-growth-docs"],
+        ["p3-mixed-codex-skill-workflow-probe"],
+        ["p2-skill-route-discovery-threejs"],
+        ["p1-skill-route-discovery-compass"],
     ]
     assert all(row["candidate_source_hashes"] for row in validation_plan["rows"])
     assert all(

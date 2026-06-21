@@ -1343,6 +1343,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         validation_lane_plan=validation_lane_plan,
         profile_validation_replay=profile_validation_replay,
     )
+    pass2_handoff_packet = skill_route_discovery_pass2_handoff_packet(
+        raw_input=raw_input,
+        current_action=current_action,
+        pass_validation_replay_queue=pass_validation_replay_queue,
+        mixed_local_lane_probe=mixed_local_lane_probe,
+        validation_readiness_summary=validation_readiness_summary,
+    )
     pass3_handoff_packet = skill_route_discovery_pass3_handoff_packet(
         raw_input=raw_input,
         current_action=current_action,
@@ -1443,6 +1450,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "pass_validation_replay_queue": pass_validation_replay_queue,
+        "pass2_handoff_packet": pass2_handoff_packet,
         "pass3_handoff_packet": pass3_handoff_packet,
         "pass1_handoff_packet": pass1_handoff_packet,
         "activation_manifest": activation_manifest,
@@ -3858,6 +3866,163 @@ def skill_route_discovery_pass_validation_replay_queue(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass2_handoff_packet(
+    *,
+    raw_input: dict[str, Any],
+    current_action: dict[str, Any],
+    pass_validation_replay_queue: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
+    validation_readiness_summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-2 bounded lane continuation before secondary harness routing."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    current_pass = int(current_action.get("current_pass") or 0)
+    total_passes = int(current_action.get("total_passes") or 0)
+    queue_rows_input = pass_validation_replay_queue.get("rows")
+    queue_rows_input = queue_rows_input if isinstance(queue_rows_input, list) else []
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for index, raw_row in enumerate(queue_rows_input):
+        row = raw_row if isinstance(raw_row, dict) else {}
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        if selected_lane not in allowed_lanes:
+            diagnostics.append(f"rows[{index}].selected_local_lane_not_bounded")
+            continue
+        rows.append(
+            {
+                "queue_position": int(row.get("queue_position") or len(rows) + 1),
+                "queue_role": optional_string(row.get("queue_role")) or "queued_bounded_lane",
+                "selected_local_lane": selected_lane,
+                "validation_scope": optional_string(row.get("validation_scope"))
+                or f"local_{selected_lane}_lane_only",
+                "route_profiles": string_list(row.get("route_profiles")),
+                "route_profile_count": len(string_list(row.get("route_profiles"))),
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": string_list(row.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(row.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(row.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(row.get("candidate_source_hashes"))),
+                "replay_commands": string_list(row.get("replay_commands")),
+                "provider_runtime_replay_commands": string_list(row.get("provider_runtime_replay_commands")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    queue_status = optional_string(pass_validation_replay_queue.get("status")) or ""
+    if queue_status != "ready":
+        diagnostics.append("pass_validation_replay_queue_not_ready")
+    readiness_status = optional_string(validation_readiness_summary.get("status")) or ""
+    if readiness_status != "ready":
+        diagnostics.append("validation_readiness_summary_not_ready")
+
+    mixed_status = optional_string(mixed_local_lane_probe.get("status")) or ""
+    mixed_primary_route = optional_string(mixed_local_lane_probe.get("primary_route")) or "skill_route_discovery"
+    secondary_lane = (
+        optional_string(mixed_local_lane_probe.get("secondary_lane"))
+        or "agent_harness_eval_after_local_corroboration"
+    )
+    secondary_lane_status = (
+        optional_string(mixed_local_lane_probe.get("secondary_lane_status"))
+        or "blocked_until_local_corroboration"
+    )
+    mixed_candidate_count = int(mixed_local_lane_probe.get("candidate_count") or 0)
+    if mixed_candidate_count and mixed_primary_route != "skill_route_discovery":
+        diagnostics.append("mixed_skill_workflow_primary_route_drift")
+    if mixed_candidate_count and secondary_lane_status != "blocked_until_local_corroboration":
+        diagnostics.append("secondary_harness_lane_not_blocked")
+
+    selected_rows = [row for row in rows if row["queue_role"] == "selected_current_pass_lane"]
+    queued_rows = [row for row in rows if row["queue_role"] == "queued_bounded_lane"]
+    ready = current_pass == 2 and bool(selected_rows) and not diagnostics
+    route_profiles = sorted(
+        {
+            profile
+            for row in rows
+            for profile in string_list(row.get("route_profiles"))
+        }
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_pass2_handoff_packet",
+        "status": "ready" if ready else "not_applicable" if current_pass != 2 else "blocked",
+        "decision": "continue_pass2_selected_lane_with_queued_bounded_handoff"
+        if ready
+        else "repair_pass2_handoff_before_next_pass",
+        "theme": optional_string(window.get("theme")) or optional_string(current_action.get("theme")) or "",
+        "current_pass": current_pass,
+        "next_pass": int(current_action.get("next_pass") or 0),
+        "total_passes": total_passes,
+        "remaining_pass_count": int(current_action.get("remaining_pass_count") or 0),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": sorted({row["selected_local_lane"] for row in selected_rows}),
+        "queued_local_lanes": sorted({row["selected_local_lane"] for row in queued_rows}),
+        "route_profiles": route_profiles,
+        "route_profile_count": len(route_profiles),
+        "queue_count": len(rows),
+        "selected_queue_count": len(selected_rows),
+        "queued_queue_count": len(queued_rows),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_ids": sorted(
+            {
+                item_id
+                for row in rows
+                for item_id in string_list(row.get("evidence_item_ids"))
+            }
+        ),
+        "candidate_source_hashes": sorted(
+            {
+                source_hash
+                for row in rows
+                for source_hash in string_list(row.get("candidate_source_hashes"))
+            }
+        ),
+        "mixed_skill_workflow_candidate_count": mixed_candidate_count,
+        "mixed_skill_workflow_primary_route": mixed_primary_route,
+        "mixed_skill_workflow_probe_status": mixed_status,
+        "secondary_lane": secondary_lane,
+        "secondary_lane_status": secondary_lane_status,
+        "secondary_harness_eval_allowed": False,
+        "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": string_list(current_action.get("required_validation")),
+        "provider_runtime_replay_commands": string_list(
+            current_action.get("provider_runtime_replay_commands")
+        ),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,

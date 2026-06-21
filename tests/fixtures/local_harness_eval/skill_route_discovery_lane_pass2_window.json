@@ -14,16 +14,15 @@
         "skill_ecosystem_state_handoff"
       ],
       "anchoring_proposals": [
-        "p1-skill-route-discovery-fixtures",
-        "p2-skill-discovery-policy-doc",
-        "p3-general-agent-harness-eval",
-        "p4-route-ranking-preference-for-skill-signals",
-        "trend:omnigent-ai/omnigent",
-        "p1-skill-route-discovery-index",
-        "p2-skill-growth-docs",
-        "p3-agent-harness-eval-fixtures",
-        "p4-agent-harness-route-doc",
-        "p5-skill-route-config-preflight"
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs-game",
+        "p3-skill-route-discovery-fablecodex",
+        "p4-agent-harness-eval-general-projects",
+        "p5-omnigent-test-movement-followup",
+        "p2-skill-route-discovery-threejs",
+        "p3-mixed-codex-skill-workflow-probe",
+        "p4-general-agent-harness-eval-omnigent",
+        "p5-general-agent-harness-eval-xuefeng"
       ],
       "evidence_urls": [
         "https://github.com/baskduf/FableCodex",
@@ -37,9 +36,9 @@
       {
         "name": "codex-fable5",
         "source_url": "https://github.com/baskduf/FableCodex",
-        "evidence_summary": "Codex skill workflow gate with review ledger, verification habit, plugin routing docs, and local test coverage notes.",
+        "evidence_summary": "Codex agent skill workflow gate with review ledger, verification habit, plugin routing docs, and local test coverage notes.",
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
-        "evidence_item_ids": ["p1-skill-route-discovery-index"],
+        "evidence_item_ids": ["p3-mixed-codex-skill-workflow-probe"],
         "evidence_urls": ["https://github.com/baskduf/FableCodex"]
       },
       {
@@ -47,7 +46,7 @@
         "source_url": "https://github.com/dongshuyan/compass-skills",
         "evidence_summary": "Skill ecosystem with task clarification, repo-local local memory, handoff prompts, collaboration profile, route metadata, validation evidence, and privacy boundary notes.",
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
-        "evidence_item_ids": ["p2-skill-growth-docs"],
+        "evidence_item_ids": ["p1-skill-route-discovery-compass"],
         "evidence_urls": ["https://github.com/dongshuyan/compass-skills"]
       },
       {
@@ -55,7 +54,7 @@
         "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
         "evidence_summary": "Three.js browser game director skill bundle with QA validation, screenshot and canvas checks, asset/provider boundary notes, credential safeguards, and generation limits.",
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
-        "evidence_item_ids": ["p1-skill-route-discovery-fixtures"],
+        "evidence_item_ids": ["p2-skill-route-discovery-threejs"],
         "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"]
       }
     ],
@@ -148,6 +147,18 @@
     {
       "path": "capability_window_completion.runtime_action_allowed",
       "equals": false
+    },
+    {
+      "path": "pass2_handoff_packet.status",
+      "equals": "ready"
+    },
+    {
+      "path": "pass2_handoff_packet.mixed_skill_workflow_primary_route",
+      "equals": "skill_route_discovery"
+    },
+    {
+      "path": "pass2_handoff_packet.secondary_lane_status",
+      "equals": "blocked_until_local_corroboration"
     },
     {
       "path": "activation_gate.external_skill_activation_allowed",
