@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260621T113207.793637Z",
+  "summaries": [
+    {
+      "name": "codex-fable5",
+      "source_url": "https://github.com/baskduf/FableCodex",
+      "summary": "Codex skill workflow package with evidence gates, review ledgers, verification habits, plugin routing docs, and local validation habits.",
+      "topics": ["codex", "agent-skills", "workflow", "verification"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "agent_harness_eval"]
+    },
+    {
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "summary": "Skill ecosystem for AI agents with clarification, task memory, collaboration profile handoff, route metadata, and validation notes.",
+      "topics": ["agent-skills", "workflow", "profiles", "local-memory"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"]
+    },
+    {
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "summary": "Director skill package for Three.js browser games with gameplay, graphics, UI, QA, release verification, scaffold helpers, and asset workflow notes.",
+      "topics": ["agent-skills", "threejs", "browser-game", "qa"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "name": "threejs-phaser-game-skills",
+      "source_url": "https://github.com/LeanEntropy/threejs-phaser-game-skills",
+      "upstream_source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "summary": "Fork-lineage game-engine skill bundle for Three.js and Phaser browser games with specialist workflows, QA checks, scaffold materials, and install scripts.",
+      "topics": ["agent-skills", "threejs", "phaser", "game-engine", "qa"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "execute"]
+    }
+  ]
+}

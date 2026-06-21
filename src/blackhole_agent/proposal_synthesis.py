@@ -100,8 +100,10 @@ SKILL_ROUTE_PROFILE_KEYWORDS = {
     "game_frontend_workflow": (
         "3d",
         "browser game",
+        "game engine",
         "gameplay",
         "graphics",
+        "phaser",
         "three.js",
         "threejs",
         "vite",

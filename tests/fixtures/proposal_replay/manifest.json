@@ -6,6 +6,7 @@
     "https://github.com/NotPBShaw/burner-agents",
     "https://github.com/baskduf/FableCodex",
     "https://github.com/dongshuyan/compass-skills",
+    "https://github.com/LeanEntropy/threejs-phaser-game-skills",
     "https://github.com/majidmanzarpour/threejs-game-skills",
     "https://github.com/microsoft/fastcontext",
     "https://github.com/omnigent-ai/omnigent",
@@ -117,6 +118,17 @@
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
         "https://github.com/xiaoguomeiyitian/threejs-game-skills"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "skill-route-discovery-current-window-game-frontend-lanes",
+      "file": "skill_route_discovery_current_window_game_frontend_lanes.json",
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/LeanEntropy/threejs-phaser-game-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills"
       ],
       "expected_review_status": "accepted"
     }

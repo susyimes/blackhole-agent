@@ -15,6 +15,7 @@ from blackhole_agent.proposal_synthesis import (
     build_proposal_evidence_package,
     build_route_hint_lane_map,
     build_route_hint_policy_preflight,
+    classify_digest_item_route,
     review_llm_proposal_response,
 )
 
@@ -40,6 +41,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
         "omnigent-release-evidence-validation",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
+        "skill-route-discovery-current-window-game-frontend-lanes",
         "skill-route-discovery-four-item-lanes",
         "security-adjacent-context-pressure",
         "skill-workflow-route-discovery",
@@ -50,11 +52,11 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 11
-    assert report.passed_count == 11
+    assert report.case_count == 12
+    assert report.passed_count == 12
     assert report.failed_count == 0
-    assert report.accepted_count == 21
-    assert report.rejected_count == 9
+    assert report.accepted_count == 24
+    assert report.rejected_count == 10
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -109,7 +111,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 11
+    assert report.case_count == 12
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
@@ -122,9 +124,11 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "agent-codex-workflow-local-validation",
         "skill-workflow-route-discovery",
         "skill-route-discovery-four-item-lanes",
+        "skill-route-discovery-current-window-game-frontend-lanes",
     ]
     assert report.evidence_urls == [
         "https://github.com/ApodexAI/AgentHarness",
+        "https://github.com/LeanEntropy/threejs-phaser-game-skills",
         "https://github.com/NotPBShaw/burner-agents",
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
@@ -578,6 +582,28 @@ def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
     assert all(lane["local_validation_required"] is True for lane in skill_entry["proposal_lanes"])
     assert "allowed_evidence_urls" not in lane_map
     assert "permissions" not in lane_map
+
+
+def test_skill_route_profile_classifies_phaser_game_engine_evidence_as_frontend_workflow():
+    classification = classify_digest_item_route(
+        {
+            "event_kind": "RepositoryTrend",
+            "summary": (
+                "LeanEntropy/threejs-phaser-game-skills: agent skills for Phaser game engine "
+                "browser workflows, QA checks, and scaffold materials."
+            ),
+            "relevance_reason": (
+                "Supports bounded skill_route_discovery lanes for game frontend workflow validation."
+            ),
+        }
+    )
+
+    assert classification["route_class"] == "skill_workflow"
+    assert classification["route_hints"] == ["skill_route_discovery"]
+    assert classification["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert classification["route_profiles"] == ["game_frontend_workflow"]
+    assert classification["runtime_action"] == "none"
+    assert classification["local_validation_required"] is True
 
 
 def test_skill_route_discovery_policy_preflight_blocks_unbounded_route_config():

@@ -435,6 +435,74 @@ def test_skill_route_discovery_summary_classifier_collapses_fork_lineage():
     assert candidate["validation_errors"] == []
 
 
+def test_skill_route_discovery_current_window_game_frontend_evidence_stays_bounded():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_game_frontend_lanes.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_summaries(payload["summaries"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["summary_count"] == 4
+    assert registry["candidate_count"] == 3
+    assert registry["duplicate_summary_count"] == 1
+    assert registry["ignored_summary_count"] == 0
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    assert candidates_by_name["threejs-game-skills"]["related_source_urls"] == [
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/LeanEntropy/threejs-phaser-game-skills",
+    ]
+    assert candidates_by_name["threejs-game-skills"]["route_profiles"] == ["game_frontend_workflow"]
+    assert candidates_by_name["threejs-game-skills"]["candidate_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+        "config",
+    ]
+
+    assert lane_map["source_registry_status"] == "classification_only"
+    assert lane_map["candidate_count"] == 3
+    assert lane_map["proposal_lane_count"] == 12
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(row["runtime_action"] == "none" for row in lane_map["candidate_lane_inventory"])
+    assert all(row["external_skill_activation_allowed"] is False for row in lane_map["candidate_lane_inventory"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+
+    game_inventory = next(
+        row for row in lane_map["candidate_lane_inventory"] if row["candidate_name"] == "threejs-game-skills"
+    )
+    assert game_inventory["route_profiles"] == ["game_frontend_workflow"]
+    assert game_inventory["proposal_kinds"] == ["documentation", "test", "code_patch", "config"]
+    assert game_inventory["route_validation_contract"]["rows"][0]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert game_inventory["route_validation_contract"]["rows"][0]["preferred_local_lanes"] == [
+        "test",
+        "documentation",
+        "code_patch",
+        "config",
+    ]
+    assert game_inventory["route_validation_contract"]["runtime_action"] == "none"
+    assert game_inventory["route_validation_contract"]["external_skill_activation_allowed"] is False
+    assert game_inventory["route_validation_contract"]["provider_launch_allowed"] is False
+    assert game_inventory["route_validation_contract"]["remote_execution_allowed"] is False
+
+
 def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candidates():
     fixture_path = (
         Path(__file__).parent

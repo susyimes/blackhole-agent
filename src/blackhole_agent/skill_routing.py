@@ -99,8 +99,10 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
     "game_frontend_workflow": (
         "3d",
         "browser game",
+        "game engine",
         "gameplay",
         "graphics",
+        "phaser",
         "three.js",
         "threejs",
         "vite",
@@ -900,14 +902,17 @@ def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary
         marker in text
         for marker in (
             "agent skill",
+            "agent skills",
             "codex skill",
             "claude skill",
             "director skill",
             "fablecodex",
             "skill ecosystem",
+            "skill bundle",
             "skill.md",
             "skills/",
             "workflow skill",
+            "workflow skills",
         )
     )
 

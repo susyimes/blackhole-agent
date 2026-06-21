@@ -1,0 +1,191 @@
+{
+  "name": "skill-route-discovery-current-window-game-frontend-lanes",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 4,
+    "max_item_text_chars": 440
+  },
+  "digest": {
+    "digest_id": "github-growth-20260621T113207-skill-route-discovery-current-window-game-frontend-lanes",
+    "generated_at": "2026-06-21T11:32:07Z",
+    "items": [
+      {
+        "item_id": "fablecodex-codex-workflow-gate",
+        "source_url": "https://github.com/baskduf/FableCodex",
+        "event_kind": "RepositoryTrend",
+        "summary": "baskduf/FableCodex: Codex workflow skill evidence with review gates, examples, tests, and local verification habits",
+        "relevance_reason": "Supports running skill route discovery before broader workflow gates.",
+        "risk_flags": [],
+        "confidence": 0.9
+      },
+      {
+        "item_id": "compass-skills-route-handoff",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "dongshuyan/compass-skills: AI agent skills ecosystem for task clarification, profile handoff, local memory notes, and route metadata",
+        "relevance_reason": "Supports bounded skill ecosystem state handoff lanes without profile or memory writes.",
+        "risk_flags": [],
+        "confidence": 0.88
+      },
+      {
+        "item_id": "threejs-game-skills-director",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "majidmanzarpour/threejs-game-skills: agent skills for Three.js browser game direction, gameplay, graphics, UI, QA, and scaffold helpers",
+        "relevance_reason": "Supports a local game_frontend_workflow validation profile only.",
+        "risk_flags": [],
+        "confidence": 0.85
+      },
+      {
+        "item_id": "leanentropy-threejs-phaser-game-skills",
+        "source_url": "https://github.com/LeanEntropy/threejs-phaser-game-skills",
+        "event_kind": "RepositoryTrend",
+        "summary": "LeanEntropy/threejs-phaser-game-skills: fork-lineage agent skills for Phaser game engine and Three.js browser workflows, QA checks, scaffold materials, and install scripts",
+        "relevance_reason": "Supports classifying Phaser game-engine skill evidence as bounded game_frontend_workflow lanes.",
+        "risk_flags": [],
+        "confidence": 0.82
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-20260621T113207-skill-route-discovery-current-window-game-frontend-lanes",
+    "run_interpretation": "Current-window skill and game-frontend evidence maps only to bounded local validation lanes.",
+    "self_model_reading": {
+      "status": "left_unchanged",
+      "reason": "The current self-model already favors rollback-backed local changes while keeping external skill activation out of discovery."
+    },
+    "proposals": [
+      {
+        "proposal_id": "p1-skill-route-discovery-index",
+        "kind": "test",
+        "summary": "Add current-window replay coverage that classifies skill repositories into bounded local lanes only.",
+        "evidence_refs": [
+          "fablecodex-codex-workflow-gate",
+          "compass-skills-route-handoff"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run focused unit tests for skill route discovery documentation, config, test, and code_patch lanes.",
+        "rationale": "Public skill and workflow evidence is useful as local route metadata, not as an upstream runtime action.",
+        "uncertainty": "Repository-level evidence leaves missing_detail_risk for upstream behavior; this proposal validates only local routing.",
+        "self_effect": "Improves future trend intelligence by making current-window skill evidence replayable.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p2-game-frontend-skill-profile",
+        "kind": "config",
+        "summary": "Classify Three.js and Phaser game skill evidence as the game_frontend_workflow route profile.",
+        "evidence_refs": [
+          "threejs-game-skills-director",
+          "leanentropy-threejs-phaser-game-skills"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run route-profile unit tests that keep game_frontend_workflow lanes local and non-executable.",
+        "rationale": "Game-engine skill bundles reveal a reusable frontend validation profile while bundled installers and scaffolds remain out of bounds.",
+        "uncertainty": "Fork-lineage evidence may duplicate the upstream skill package rather than add implementation detail.",
+        "self_effect": "Improves route-profile precision for game frontend skill evidence.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p3-codex-workflow-gate",
+        "kind": "documentation",
+        "summary": "Document that mixed Codex workflow skill signals route through skill discovery before broader workflow gates.",
+        "evidence_refs": [
+          "fablecodex-codex-workflow-gate"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Inspect the routing note and run proposal replay unit tests for skill_route_discovery_first behavior.",
+        "rationale": "Mixed Codex-plus-skill workflow evidence should not automatically escalate to a generic harness lane.",
+        "uncertainty": "This documents local interpretation only and does not claim upstream workflow parity.",
+        "self_effect": "Keeps mixed workflow signals legible for future proposal synthesis.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p4-game-skill-runtime-escape",
+        "kind": "follow_up_issue",
+        "summary": "Incorrectly route game skill evidence into an unbounded runtime follow-up lane.",
+        "evidence_refs": [
+          "leanentropy-threejs-phaser-game-skills"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving game frontend skill evidence rejects lanes outside documentation, config, test, or code_patch.",
+        "rationale": "This candidate is intentionally malformed to exercise deterministic lane rejection.",
+        "uncertainty": "Malformed candidate; it should not be accepted.",
+        "self_effect": "Would weaken skill route discovery if accepted.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 3,
+    "rejected_count": 1,
+    "selected_item_ids": [
+      "fablecodex-codex-workflow-gate",
+      "compass-skills-route-handoff",
+      "threejs-game-skills-director",
+      "leanentropy-threejs-phaser-game-skills"
+    ],
+    "truncated_item_ids": [],
+    "accepted_evidence_refs": {
+      "p1-skill-route-discovery-index": [
+        "fablecodex-codex-workflow-gate",
+        "compass-skills-route-handoff"
+      ],
+      "p2-game-frontend-skill-profile": [
+        "threejs-game-skills-director",
+        "leanentropy-threejs-phaser-game-skills"
+      ],
+      "p3-codex-workflow-gate": [
+        "fablecodex-codex-workflow-gate"
+      ]
+    },
+    "rejected_error_substrings": [
+      "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
+    ],
+    "proposal_controls": {
+      "p1-skill-route-discovery-index": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p2-game-frontend-skill-profile": {
+        "kind": "config",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p3-codex-workflow-gate": {
+        "kind": "documentation",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    },
+    "proposal_validation_preflights": {
+      "p1-skill-route-discovery-index": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p2-game-frontend-skill-profile": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p3-codex-workflow-gate": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      }
+    }
+  }
+}

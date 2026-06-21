@@ -21,14 +21,24 @@ Codex/agent/skill/workflow repositories so `skill_route_discovery` stays first
 before any broader agent-harness evaluation. Source digest
 `github-growth-20260621T033207.842733Z` carried the same pass-2 route window and
 adds an operator-visible pass-2 handoff packet for the selected bounded lane,
-queued bounded lanes, and blocked secondary harness route. The bounded evidence
-reviewed for these runs. Source digest `github-growth-20260621T043207.872197Z`
+queued bounded lanes, and blocked secondary harness route. Source digest
+`github-growth-20260621T043207.872197Z`
 adds a current-window pass-1 fixture that keeps the carried COMPASS, Three.js,
-and FableCodex evidence in selected-item lanes before activation:
+and FableCodex evidence in selected-item lanes before activation. Source digest
+`github-growth-20260621T113207.793637Z` extends the same pass-2 window with
+`LeanEntropy/threejs-phaser-game-skills`, a fork-lineage game-engine skill
+signal. Phaser and game-engine language are interpreted as
+`game_frontend_workflow` profile evidence only; they can select local
+documentation, config, test, or code_patch lanes, but do not permit install,
+execute, scaffold, asset generation, provider launch, or upstream skill
+activation.
+
+The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
 - `https://github.com/ACN1987/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
+- `https://github.com/LeanEntropy/threejs-phaser-game-skills`
 - `https://github.com/majidmanzarpour/threejs-game-skills`
 - `https://github.com/pretinhuu1-boop/threejs-game-skills`
 - `https://github.com/xiaoguomeiyitian/threejs-game-skills`
@@ -51,6 +61,7 @@ activate any upstream skill package.
 | `baskduf/FableCodex` | Codex workflow package with evidence gates, inspection, ledgers, and verification habits. | documentation, test, code patch | Treat workflow skills as process-contract evidence that can become local docs, regression checks, or bounded verification behavior. | Keep disabled until a local test or controller path proves the specific gate. |
 | `dongshuyan/compass-skills` | Multi-skill system for clarification, repo-local task memory, and collaboration profile state. | documentation, config, test, code patch | Treat skill ecosystems as routing topology evidence: entry points, durable state, and ambiguity gates can inform local route metadata. | Do not create local memory/profile behavior from repository presence alone. |
 | `majidmanzarpour/threejs-game-skills` | Domain director routes specialist game, asset, debug, QA, and release skills with bundled helper materials. | documentation, config, test, code patch | Treat domain directors as evidence for explicit route orchestration and validation ledgers. | Do not run bundled scaffolds, installers, browser checks, or asset generators without a separate local capability path. |
+| `LeanEntropy/threejs-phaser-game-skills` | Fork-lineage game-skill bundle adds Phaser/game-engine wording to the Three.js browser-game route shape. | documentation, config, test, code patch | Treat Phaser or game-engine skills as the same local `game_frontend_workflow` validation profile. | Do not amplify fork presence into installation, execution, scaffolding, provider launch, or external skill activation. |
 
 ## Route Discovery Catalog
 
