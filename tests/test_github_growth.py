@@ -1507,6 +1507,118 @@ def test_general_agent_project_eval_lane_requires_harness_evaluation_without_ski
     ]
 
 
+def test_skill_route_boundary_report_splits_skill_repos_from_general_agent_projects():
+    digest = {
+        "digest_id": "github-growth-20260621T065208-skill-route-boundary",
+        "generated_at": "2026-06-21T06:52:08Z",
+        "items": [
+            {
+                "item_id": "fablecodex-workflow-skill-probe",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "FableCodex: Codex plugin with agent skill workflow gates, examples, "
+                    "tests, evals, replay, and verification ledgers."
+                ),
+                "relevance_reason": "Mixed skill and harness signals should enter skill-route discovery first.",
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "compass-skills-state",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "COMPASS Skills: agent skills for task memory, profiles, and workflow routing.",
+                "relevance_reason": "Skill ecosystem state handoff evidence maps to bounded local lanes.",
+                "risk_flags": [],
+                "confidence": 0.72,
+            },
+            {
+                "item_id": "threejs-game-skills-director",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "Three.js Game Skills: director skill with specialist skills and QA workflows.",
+                "relevance_reason": "Domain-specific skills should stay in skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.70,
+            },
+            {
+                "item_id": "omnigent-general-agent-project",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "Omnigent: general AI agent runtime and meta-harness.",
+                "relevance_reason": "General agent movement requires harness evaluation rather than route-package lanes.",
+                "risk_flags": [],
+                "confidence": 0.68,
+            },
+            {
+                "item_id": "xuefeng-general-agent-project",
+                "source_url": "https://github.com/ziqihe10-droid/xuefeng-agent",
+                "event_kind": "RepositoryTrend",
+                "summary": "xuefeng-agent: general AI agent project with runtime movement.",
+                "relevance_reason": "Agent project without route-package signals remains harness-eval evidence.",
+                "risk_flags": [],
+                "confidence": 0.64,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=5, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    boundary = lane_map["skill_route_boundary_report"]
+    serialized = json.dumps(boundary, sort_keys=True)
+
+    assert boundary["controller_surface"] == "skill_route_boundary_report"
+    assert boundary["status"] == "ready"
+    assert boundary["decision"] == "skill_and_general_agent_routes_split_before_activation"
+    assert boundary["skill_workflow_count"] == 3
+    assert boundary["general_agent_project_count"] == 2
+    assert boundary["mixed_skill_workflow_count"] == 1
+    assert boundary["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert boundary["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert boundary["mixed_secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+    assert boundary["mixed_secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert boundary["diagnostics"] == []
+    assert boundary["runtime_action"] == "none"
+    assert boundary["external_skill_activation_allowed"] is False
+    assert boundary["external_agent_activation_allowed"] is False
+    assert boundary["external_harness_execution_allowed"] is False
+    assert boundary["provider_runtime_launch_allowed"] is False
+    assert boundary["remote_execution_allowed"] is False
+    assert boundary["raw_source_url_export_allowed"] is False
+    assert boundary["upstream_body_export_allowed"] is False
+
+    skill_rows = {row["item_id"]: row for row in boundary["skill_workflow_rows"]}
+    general_rows = {row["item_id"]: row for row in boundary["general_agent_project_rows"]}
+    assert sorted(skill_rows) == [
+        "compass-skills-state",
+        "fablecodex-workflow-skill-probe",
+        "threejs-game-skills-director",
+    ]
+    assert sorted(general_rows) == [
+        "omnigent-general-agent-project",
+        "xuefeng-general-agent-project",
+    ]
+    assert all(row["primary_route"] == "skill_route_discovery" for row in skill_rows.values())
+    assert all(row["local_lanes"] == ["documentation", "config", "test", "code_patch"] for row in skill_rows.values())
+    assert all(row["agent_harness_eval_required"] is False for row in skill_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is True for row in skill_rows.values())
+    assert skill_rows["fablecodex-workflow-skill-probe"]["secondary_lane"] == (
+        "agent_harness_eval_after_local_corroboration"
+    )
+    assert skill_rows["fablecodex-workflow-skill-probe"]["secondary_lane_status"] == (
+        "blocked_until_local_corroboration"
+    )
+
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in general_rows.values())
+    assert all(row["allowed_local_lanes"] == ["documentation", "test", "code_patch"] for row in general_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in general_rows.values())
+    assert all(row["agent_harness_eval_required"] is True for row in general_rows.values())
+    assert "https://github.com" not in serialized
+    assert "FableCodex" not in serialized
+    assert "omnigent-ai" not in serialized
+
+
 def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_activation():
     digest = {
         "digest_id": "github-growth-20260620T191207.732215Z",

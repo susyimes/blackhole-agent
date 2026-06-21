@@ -1,0 +1,11 @@
+Run: github-growth-20260621T065208.198099Z
+Capability window: skill-route-discovery pass 4 of 4
+Original branch: codex/blackhole-evolve/20260621T065416.244544-add-a-local-skill-route-discovery-validation-lan
+Original HEAD: d5bdff814c673c287e11c646154db9a8e214bc0a
+Rollback ref: refs/rollback/20260621T065208Z-skill-route-discovery-pass4
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260621T065416.244544-add-a-local-skill-route-discovery-validation-lan
+  git reset --hard refs/rollback/20260621T065208Z-skill-route-discovery-pass4
+
+Rollback is explicit and destructive. Do not run the reset unless an operator or supervisor policy chooses recovery.

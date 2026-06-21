@@ -1246,6 +1246,20 @@ harness evaluation before a behavior change, but cannot become a skill
 discovery candidate unless the selected evidence also shows skill/workflow
 signals.
 
+The same route-hint map now emits `skill_route_boundary_report`, a compact
+operator summary of that split. Skill/workflow rows such as FableCodex,
+COMPASS Skills, or Three.js Game Skills keep `primary_route:
+skill_route_discovery` with only documentation, config, test, or code_patch
+local lanes. General agent-project rows such as Omnigent or xuefeng-agent keep
+`primary_route: agent_harness_eval_required` with documentation, test, or
+code_patch evaluation lanes and `skill_route_discovery_inherited: false`.
+Mixed skill/workflow rows keep
+`agent_harness_eval_after_local_corroboration` blocked until local
+corroboration exists. The report exports item IDs and source URL hashes only;
+it does not add lanes, expose raw source URLs, export upstream bodies, run an
+external harness, launch a provider, perform remote execution, activate an
+external agent, or activate upstream skill code.
+
 Mixed Codex/workflow/skill repositories now get an explicit local probe before
 that split becomes ambiguous. When a selected item has skill-route evidence and
 also mentions Codex, plugins, examples, tests, evals, replay, harness, or other

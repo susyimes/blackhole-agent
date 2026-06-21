@@ -546,6 +546,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "skill_route_local_lane_candidates": build_skill_route_local_lane_candidates(package_items),
         "mixed_skill_workflow_probe": build_mixed_skill_workflow_probe(package_items),
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
+        "skill_route_boundary_report": build_skill_route_boundary_report(package_items),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -743,6 +744,118 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
         "runtime_action": "none",
         "external_agent_activation_allowed": False,
         "raw_source_url_export_allowed": False,
+    }
+
+
+def build_skill_route_boundary_report(items: list[Any]) -> dict[str, Any]:
+    """Summarize the split between skill routes and general agent evaluation."""
+
+    skill_rows: list[dict[str, Any]] = []
+    general_rows: list[dict[str, Any]] = []
+    mixed_rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    skill_lanes = ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+    general_lanes = GENERAL_AGENT_PROJECT_EVAL_LANES
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+
+        item_id = str(item.get("item_id") or "")
+        source_url = str(item.get("source_url") or "")
+        source_url_hash = stable_hash({"source_url": source_url}) if source_url else ""
+        route_class = str(classification.get("route_class") or "unclassified")
+        route_probe_decision = str(classification.get("route_probe_decision") or "")
+
+        if route_class == "skill_workflow":
+            local_lanes = [
+                str(lane)
+                for lane in classification.get("allowed_lanes", [])
+                if str(lane) in skill_lanes and str(lane) in ROUTE_HINT_PROPOSAL_LANES
+            ]
+            unsupported_lanes = _unsupported_skill_route_classification_lanes(classification)
+            if unsupported_lanes:
+                diagnostics.append(f"{item_id}:skill_workflow_unsupported_lanes")
+            if not local_lanes:
+                diagnostics.append(f"{item_id}:skill_workflow_missing_bounded_lanes")
+            row = {
+                "item_id": item_id,
+                "source_url_hash": source_url_hash,
+                "route_class": "skill_workflow",
+                "primary_route": "skill_route_discovery",
+                "local_lanes": local_lanes,
+                "unsupported_lanes": unsupported_lanes,
+                "secondary_lane": (
+                    "agent_harness_eval_after_local_corroboration"
+                    if route_probe_decision == "skill_route_discovery_first"
+                    else ""
+                ),
+                "secondary_lane_status": (
+                    "blocked_until_local_corroboration"
+                    if route_probe_decision == "skill_route_discovery_first"
+                    else "not_requested"
+                ),
+                "skill_route_discovery_inherited": True,
+                "agent_harness_eval_required": False,
+                "runtime_action": "none",
+                "local_validation_required": True,
+            }
+            skill_rows.append(row)
+            if route_probe_decision == "skill_route_discovery_first":
+                mixed_rows.append(row)
+            continue
+
+        if route_class == "general_agent_project":
+            if "skill_route_discovery" in classification.get("route_hints", []):
+                diagnostics.append(f"{item_id}:general_agent_project_inherited_skill_route")
+            general_rows.append(
+                {
+                    "item_id": item_id,
+                    "source_url_hash": source_url_hash,
+                    "route_class": "general_agent_project",
+                    "primary_route": "agent_harness_eval_required",
+                    "allowed_local_lanes": list(general_lanes),
+                    "skill_route_discovery_inherited": False,
+                    "agent_harness_eval_required": True,
+                    "runtime_action": "none",
+                    "local_validation_required": True,
+                }
+            )
+
+    status = "ready" if not diagnostics else "review"
+    return {
+        "controller_surface": "skill_route_boundary_report",
+        "status": status,
+        "decision": (
+            "skill_and_general_agent_routes_split_before_activation"
+            if status == "ready"
+            else "review_route_boundary_before_activation"
+        ),
+        "skill_workflow_count": len(skill_rows),
+        "general_agent_project_count": len(general_rows),
+        "mixed_skill_workflow_count": len(mixed_rows),
+        "skill_workflow_rows": skill_rows,
+        "general_agent_project_rows": general_rows,
+        "allowed_skill_route_lanes": list(skill_lanes),
+        "allowed_general_agent_lanes": list(general_lanes),
+        "mixed_secondary_lane": "agent_harness_eval_after_local_corroboration",
+        "mixed_secondary_lane_status": "blocked_until_local_corroboration",
+        "required_local_validation": sorted(
+            dict.fromkeys(SKILL_ROUTE_LOCAL_LANE_COMMANDS + GENERAL_AGENT_PROJECT_EVAL_COMMANDS)
+        ),
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
     }
 
 
