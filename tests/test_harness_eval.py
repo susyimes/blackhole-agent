@@ -1958,6 +1958,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    local_lane_closure = output["capability_window_completion"]["completion_report"]["local_lane_closure"]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -1980,6 +1981,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             stable_text_hash("fablecodex-issue-18"),
             stable_text_hash("fablecodex-repo"),
         ],
+        "local_lane_closure": local_lane_closure,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -3189,6 +3191,59 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     assert provider_handoff["raw_diagnostics_exported"] is False
     assert provider_handoff["raw_provider_values_exported"] is False
     assert "OPENAI_API_KEY" not in serialized
+    assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["capability_window_completion"]["completion_report"], sort_keys=True)
+    closure = output["capability_window_completion"]["completion_report"]["local_lane_closure"]
+
+    assert closure["controller_surface"] == "skill_route_discovery_completion_local_lane_closure"
+    assert closure["status"] == "ready"
+    assert closure["decision"] == "bounded_local_lanes_ready_for_supervisor_replay"
+    assert closure["activation_packet_status"] == "ready"
+    assert closure["operator_activation_lane_status"] == "ready"
+    assert closure["lane_count"] == 4
+    assert closure["ready_lane_count"] == 4
+    assert closure["blocked_lane_count"] == 0
+    assert closure["selected_local_lanes"] == ["config", "test"]
+    assert closure["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert {row["proposal_kind"] for row in closure["rows"]} == {
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    }
+    assert {
+        row["proposal_kind"]
+        for row in closure["rows"]
+        if row["selected_for_profile_validation"]
+    } == {"config", "test"}
+    assert all(row["operator_lane_ready"] is True for row in closure["rows"])
+    assert all(row["local_artifact_proof_ready"] is True for row in closure["rows"])
+    assert all(row["activation_ready"] is True for row in closure["rows"])
+    assert all(row["activation_blocker_count"] == 0 for row in closure["rows"])
+    assert all(row["runtime_action"] == "none" for row in closure["rows"])
+    assert closure["runtime_action_allowed"] is False
+    assert closure["external_skill_activation_allowed"] is False
+    assert closure["external_skill_code_allowed"] is False
+    assert closure["external_harness_execution_allowed"] is False
+    assert closure["provider_runtime_launch_allowed"] is False
+    assert closure["remote_execution_allowed"] is False
+    assert closure["raw_evidence_urls_exported"] is False
+    assert closure["raw_source_urls_exported"] is False
+    assert closure["raw_target_paths_exported"] is False
+    assert closure["raw_upstream_body_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized

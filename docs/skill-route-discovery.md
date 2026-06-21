@@ -944,7 +944,12 @@ traversing the nested activation packet, final closure, and provider-runtime
 handoff objects. It records completion status, selected bounded lanes, selected
 evidence reference hashes, missing route profiles, activation packet status,
 final closure status, provider-runtime completion status, blocker hashes, and
-replay commands. A ready report means the completed slice can be handed to the
+replay commands. The report also includes `local_lane_closure`, a per-lane
+closure summary derived from the validated activation packet. It reports
+documentation, config, test, and code_patch readiness, selected profile
+validation lanes, evidence reference hashes, source and target counts, local
+artifact proof readiness, operator lane readiness, and activation blocker
+hashes. A ready report means the completed slice can be handed to the
 supervisor for local replay of documentation, config, test, or code_patch lanes
 only. It does not expand evidence URLs, install or enable upstream skills,
 execute external harnesses, launch providers, perform remote execution, export

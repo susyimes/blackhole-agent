@@ -5437,9 +5437,14 @@ def skill_route_discovery_completion_report(
     """Condense final skill-route completion state into an operator report."""
 
     selected_local_lanes = string_list(validation_target_handoff.get("selected_local_lanes"))
+    local_lane_closure = skill_route_discovery_completion_local_lane_closure(
+        activation_packet=activation_packet,
+        selected_local_lanes=selected_local_lanes,
+    )
     ready = (
         status == "ready"
         and activation_packet.get("status") == "ready"
+        and local_lane_closure.get("status") == "ready"
         and final_slice_closure.get("supervisor_handoff_ready") is True
         and provider_runtime_completion_handoff.get("status") in {"ready", "not_applicable"}
         and not diagnostics
@@ -5448,6 +5453,8 @@ def skill_route_discovery_completion_report(
     if not ready:
         if activation_packet.get("status") != "ready":
             blocked_reasons.append("activation_packet_not_ready")
+        if local_lane_closure.get("status") != "ready":
+            blocked_reasons.append("local_lane_closure_not_ready")
         if final_slice_closure.get("supervisor_handoff_ready") is not True:
             blocked_reasons.append("final_slice_closure_not_ready")
         if provider_runtime_completion_handoff.get("status") not in {"ready", "not_applicable"}:
@@ -5474,6 +5481,7 @@ def skill_route_discovery_completion_report(
         "selected_local_lanes": selected_local_lanes,
         "selected_evidence_ref_count": len(selected_evidence_refs),
         "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
+        "local_lane_closure": local_lane_closure,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -5483,6 +5491,114 @@ def skill_route_discovery_completion_report(
         or "",
         "completion_blocker_count": len(blocked_reasons),
         "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_local_lane_closure(
+    *,
+    activation_packet: dict[str, Any],
+    selected_local_lanes: list[str],
+) -> dict[str, Any]:
+    """Expose final local lane readiness inside the operator completion report."""
+
+    packet_rows = activation_packet.get("rows")
+    packet_rows = packet_rows if isinstance(packet_rows, list) else []
+    operator_lane = activation_packet.get("operator_activation_lane")
+    operator_lane = operator_lane if isinstance(operator_lane, dict) else {}
+    operator_rows = operator_lane.get("lanes")
+    operator_rows = operator_rows if isinstance(operator_rows, list) else []
+    operator_ready_by_kind = {
+        str(row.get("proposal_kind") or ""): row.get("operator_lane_ready") is True
+        for row in operator_rows
+        if isinstance(row, dict)
+    }
+    selected_lane_set = set(selected_local_lanes)
+
+    rows: list[dict[str, Any]] = []
+    for packet_row in packet_rows:
+        if not isinstance(packet_row, dict):
+            continue
+        proposal_kind = str(packet_row.get("proposal_kind") or "")
+        evidence_refs = string_list(packet_row.get("evidence_refs"))
+        activation_blockers = string_list(packet_row.get("activation_blockers"))
+        rows.append(
+            {
+                "proposal_kind": proposal_kind,
+                "selected_for_profile_validation": proposal_kind in selected_lane_set,
+                "route_profiles": string_list(packet_row.get("route_profiles")),
+                "evidence_ref_count": len(evidence_refs),
+                "evidence_ref_hashes": [stable_text_hash(ref) for ref in evidence_refs],
+                "candidate_count": int(packet_row.get("candidate_count") or 0),
+                "candidate_source_count": len(string_list(packet_row.get("candidate_source_hashes"))),
+                "target_path_count": len(string_list(packet_row.get("target_path_hashes"))),
+                "local_artifact_proof_ready": packet_row.get("local_artifact_proof_ready") is True,
+                "activation_ready": packet_row.get("activation_ready") is True,
+                "operator_lane_ready": operator_ready_by_kind.get(proposal_kind, False),
+                "activation_blocker_count": len(activation_blockers),
+                "activation_blocker_hashes": [stable_text_hash(blocker) for blocker in activation_blockers],
+                "supervisor_replay_step": optional_string(packet_row.get("supervisor_replay_step")) or "",
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "runtime_action": "none",
+                "local_validation_required": True,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    rows = sorted(rows, key=lambda row: row["proposal_kind"])
+    ready_lane_count = sum(
+        1
+        for row in rows
+        if row["local_artifact_proof_ready"]
+        and row["activation_ready"]
+        and row["operator_lane_ready"]
+        and row["activation_blocker_count"] == 0
+    )
+    status = "ready" if rows and ready_lane_count == len(rows) else "blocked"
+    return {
+        "controller_surface": "skill_route_discovery_completion_local_lane_closure",
+        "status": status,
+        "decision": "bounded_local_lanes_ready_for_supervisor_replay"
+        if status == "ready"
+        else "repair_bounded_local_lanes_before_supervisor_replay",
+        "activation_packet_status": optional_string(activation_packet.get("status")) or "",
+        "operator_activation_lane_status": optional_string(operator_lane.get("status")) or "",
+        "lane_count": len(rows),
+        "ready_lane_count": ready_lane_count,
+        "blocked_lane_count": len(rows) - ready_lane_count,
+        "selected_local_lanes": sorted(selected_lane_set),
+        "proposal_kinds": [row["proposal_kind"] for row in rows],
+        "rows": rows,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
