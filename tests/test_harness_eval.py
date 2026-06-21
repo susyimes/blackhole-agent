@@ -1962,6 +1962,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     }
     local_lane_closure = output["capability_window_completion"]["completion_report"]["local_lane_closure"]
     activation_handoff = output["capability_window_completion"]["completion_report"]["activation_handoff"]
+    completion_audit = output["capability_window_completion"]["completion_report"]["completion_audit"]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -1986,6 +1987,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         ],
         "local_lane_closure": local_lane_closure,
         "activation_handoff": activation_handoff,
+        "completion_audit": completion_audit,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -3383,6 +3385,32 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert handoff["raw_source_urls_exported"] is False
     assert handoff["raw_target_paths_exported"] is False
     assert handoff["raw_upstream_body_exported"] is False
+    audit = output["capability_window_completion"]["completion_report"]["completion_audit"]
+    assert audit["controller_surface"] == "skill_route_discovery_completion_audit"
+    assert audit["status"] == "ready"
+    assert audit["decision"] == "completion_fingerprint_ready_for_replay_compare"
+    assert audit["fingerprint"].startswith("sha256:")
+    assert audit["basis_field_count"] == 16
+    assert audit["lane_row_count"] == 4
+    assert audit["selected_local_lanes"] == ["config", "test"]
+    assert audit["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert audit["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert audit["replay_step_hashes"] == handoff["replay_step_hashes"]
+    assert audit["completion_blocker_hashes"] == []
+    assert audit["runtime_action_allowed"] is False
+    assert audit["external_skill_activation_allowed"] is False
+    assert audit["external_skill_code_allowed"] is False
+    assert audit["external_harness_execution_allowed"] is False
+    assert audit["provider_runtime_launch_allowed"] is False
+    assert audit["remote_execution_allowed"] is False
+    assert audit["raw_evidence_urls_exported"] is False
+    assert audit["raw_source_urls_exported"] is False
+    assert audit["raw_target_paths_exported"] is False
+    assert audit["raw_upstream_body_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized

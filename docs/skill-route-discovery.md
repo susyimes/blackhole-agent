@@ -1028,6 +1028,16 @@ after local validation. The kernel does not restart itself, launch providers,
 perform remote execution, activate upstream skills, export raw evidence URLs,
 export raw source URLs, export raw target paths, or export upstream bodies.
 
+The report also emits `completion_audit`, a stable body-free fingerprint for
+comparing pass-4 replay attempts. The fingerprint is derived from completion
+status, bounded proposal kinds, selected local lanes, route profiles, selected
+item-id hashes, per-lane readiness rows, replay-step hashes, and blocker hashes.
+It is an audit key only: it does not add lanes, cite raw repository URLs, export
+target paths, install or enable upstream skills, run external skill code,
+launch providers, execute external harnesses, perform remote execution, restart
+the kernel, or activate the completed slice without the existing supervisor
+handoff.
+
 For domain-specific skill bundles such as Three.js game workflows, the harness
 also emits `domain_validation_probe`. This panel is derived from the same
 body-free validation lane plan and becomes ready only when the game/frontend

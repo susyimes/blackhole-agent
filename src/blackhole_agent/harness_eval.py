@@ -5987,6 +5987,20 @@ def skill_route_discovery_completion_report(
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
         blocked_reasons=blocked_reasons,
     )
+    completion_audit = skill_route_discovery_completion_audit(
+        ready=ready,
+        theme=theme,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        planned_window_complete=planned_window_complete,
+        proposal_kinds=proposal_kinds,
+        route_profiles=route_profiles,
+        selected_local_lanes=selected_local_lanes,
+        selected_evidence_refs=selected_evidence_refs,
+        local_lane_closure=local_lane_closure,
+        activation_handoff=activation_handoff,
+        blocked_reasons=blocked_reasons,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_completion_report",
@@ -6010,6 +6024,7 @@ def skill_route_discovery_completion_report(
         "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
         "local_lane_closure": local_lane_closure,
         "activation_handoff": activation_handoff,
+        "completion_audit": completion_audit,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -6024,6 +6039,90 @@ def skill_route_discovery_completion_report(
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_audit(
+    *,
+    ready: bool,
+    theme: str,
+    current_pass: int,
+    total_passes: int,
+    planned_window_complete: bool,
+    proposal_kinds: list[str],
+    route_profiles: list[str],
+    selected_local_lanes: list[str],
+    selected_evidence_refs: list[str],
+    local_lane_closure: dict[str, Any],
+    activation_handoff: dict[str, Any],
+    blocked_reasons: list[str],
+) -> dict[str, Any]:
+    """Return a stable body-free replay fingerprint for final completion review."""
+
+    replay_step_hashes = string_list(activation_handoff.get("replay_step_hashes"))
+    closure_rows = local_lane_closure.get("rows")
+    closure_rows = closure_rows if isinstance(closure_rows, list) else []
+    lane_rows = [
+        {
+            "proposal_kind": str(row.get("proposal_kind") or ""),
+            "route_profiles": string_list(row.get("route_profiles")),
+            "selected_for_profile_validation": row.get("selected_for_profile_validation") is True,
+            "evidence_ref_hashes": string_list(row.get("evidence_ref_hashes")),
+            "candidate_source_count": int(row.get("candidate_source_count") or 0),
+            "target_path_count": int(row.get("target_path_count") or 0),
+            "local_artifact_proof_ready": row.get("local_artifact_proof_ready") is True,
+            "activation_ready": row.get("activation_ready") is True,
+            "operator_lane_ready": row.get("operator_lane_ready") is True,
+            "activation_blocker_hashes": string_list(row.get("activation_blocker_hashes")),
+        }
+        for row in closure_rows
+        if isinstance(row, dict)
+    ]
+    audit_basis = {
+        "theme": theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "planned_window_complete": planned_window_complete,
+        "ready": ready,
+        "proposal_kinds": proposal_kinds,
+        "route_profiles": route_profiles,
+        "selected_local_lanes": selected_local_lanes,
+        "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
+        "local_lane_closure_status": optional_string(local_lane_closure.get("status")) or "",
+        "activation_handoff_status": optional_string(activation_handoff.get("status")) or "",
+        "ready_lane_count": int(local_lane_closure.get("ready_lane_count") or 0),
+        "blocked_lane_count": int(local_lane_closure.get("blocked_lane_count") or 0),
+        "replay_step_hashes": replay_step_hashes,
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "lane_rows": lane_rows,
+    }
+    return {
+        "controller_surface": "skill_route_discovery_completion_audit",
+        "status": "ready" if ready else "blocked",
+        "decision": "completion_fingerprint_ready_for_replay_compare"
+        if ready
+        else "completion_fingerprint_blocked_until_local_repair",
+        "fingerprint": stable_json_hash(audit_basis),
+        "basis_field_count": len(audit_basis),
+        "lane_row_count": len(lane_rows),
+        "selected_local_lanes": sorted(dict.fromkeys(selected_local_lanes)),
+        "proposal_kinds": sorted(dict.fromkeys(proposal_kinds)),
+        "route_profiles": sorted(dict.fromkeys(route_profiles)),
+        "replay_step_hashes": replay_step_hashes,
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
         "local_validation_required": True,
         "body_free": True,
         "runtime_action_allowed": False,
