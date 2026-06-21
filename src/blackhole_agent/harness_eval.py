@@ -3969,6 +3969,38 @@ def skill_route_discovery_pass2_handoff_packet(
             for profile in string_list(row.get("route_profiles"))
         }
     )
+    activation_preview_rows = []
+    for row in rows:
+        preview_blockers = [] if ready else sorted(dict.fromkeys(diagnostics or ["pass2_handoff_not_ready"]))
+        activation_preview_rows.append(
+            {
+                "queue_position": row["queue_position"],
+                "queue_role": row["queue_role"],
+                "selected_local_lane": row["selected_local_lane"],
+                "route_profiles": row["route_profiles"],
+                "evidence_item_id_count": row["evidence_item_id_count"],
+                "candidate_source_count": row["candidate_source_count"],
+                "activation_preview_step": "replay_selected_current_pass_lane"
+                if row["queue_role"] == "selected_current_pass_lane"
+                else "carry_queued_bounded_lane_to_next_pass",
+                "activation_preview_status": "ready" if ready else "blocked",
+                "activation_blockers": preview_blockers,
+                "required_validation": row["replay_commands"],
+                "provider_runtime_replay_commands": row["provider_runtime_replay_commands"],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
 
     return {
         "controller_surface": "skill_route_discovery_pass2_handoff_packet",
@@ -4011,6 +4043,41 @@ def skill_route_discovery_pass2_handoff_packet(
         "secondary_lane_status": secondary_lane_status,
         "secondary_harness_eval_allowed": False,
         "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+        "bounded_activation_preview": {
+            "controller_surface": "skill_route_discovery_pass2_bounded_activation_preview",
+            "status": "ready" if ready else "not_applicable" if current_pass != 2 else "blocked",
+            "decision": "replay_selected_lane_and_carry_queued_lanes"
+            if ready
+            else "repair_pass2_preview_before_activation_handoff",
+            "preview_row_count": len(activation_preview_rows),
+            "selected_preview_count": len(selected_rows),
+            "queued_preview_count": len(queued_rows),
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "selected_local_lanes": sorted({row["selected_local_lane"] for row in selected_rows}),
+            "queued_local_lanes": sorted({row["selected_local_lane"] for row in queued_rows}),
+            "evidence_ref_mode": "selected_item_ids_only",
+            "route_profiles": route_profiles,
+            "required_validation": string_list(current_action.get("required_validation")),
+            "provider_runtime_replay_commands": string_list(
+                current_action.get("provider_runtime_replay_commands")
+            ),
+            "rows": activation_preview_rows,
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),

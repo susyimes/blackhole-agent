@@ -2752,6 +2752,40 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert pass2_packet["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
     assert pass2_packet["secondary_lane_status"] == "blocked_until_local_corroboration"
     assert pass2_packet["secondary_harness_eval_allowed"] is False
+    preview = pass2_packet["bounded_activation_preview"]
+    assert preview["controller_surface"] == "skill_route_discovery_pass2_bounded_activation_preview"
+    assert preview["status"] == "ready"
+    assert preview["decision"] == "replay_selected_lane_and_carry_queued_lanes"
+    assert preview["preview_row_count"] == 2
+    assert preview["selected_preview_count"] == 1
+    assert preview["queued_preview_count"] == 1
+    assert preview["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preview["selected_local_lanes"] == ["test"]
+    assert preview["queued_local_lanes"] == ["config"]
+    assert preview["evidence_ref_mode"] == "selected_item_ids_only"
+    assert preview["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert [row["activation_preview_step"] for row in preview["rows"]] == [
+        "replay_selected_current_pass_lane",
+        "carry_queued_bounded_lane_to_next_pass",
+    ]
+    assert {row["activation_preview_status"] for row in preview["rows"]} == {"ready"}
+    assert {row["runtime_action"] for row in preview["rows"]} == {"none"}
+    assert all(row["activation_blockers"] == [] for row in preview["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in preview["rows"])
+    assert all(row["external_agent_activation_allowed"] is False for row in preview["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in preview["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in preview["rows"])
+    assert preview["runtime_action_allowed"] is False
+    assert preview["external_skill_activation_allowed"] is False
+    assert preview["external_agent_activation_allowed"] is False
+    assert preview["external_harness_execution_allowed"] is False
+    assert preview["raw_evidence_urls_exported"] is False
+    assert preview["raw_source_urls_exported"] is False
+    assert preview["raw_upstream_body_exported"] is False
     assert pass2_packet["evidence_item_ids"] == [
         "p1-skill-route-discovery-compass",
         "p2-skill-route-discovery-threejs",

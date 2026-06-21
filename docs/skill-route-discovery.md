@@ -887,6 +887,16 @@ skill activation, external agent activation, external harness execution,
 provider launch, remote execution, raw source URL export, raw evidence URL
 export, raw target path export, and upstream body export.
 
+The same packet now carries `bounded_activation_preview`, a pass-2 replay
+surface for the selected current-pass lane and queued bounded lanes. It reports
+only allowed local lanes, route profiles, selected-item citation mode, replay
+commands, provider-runtime replay commands, activation-preview steps, and
+blocker codes. The preview exists so the supervisor can replay the local `test`
+lane and carry the queued `config` lane without re-reading the full nested
+manifest. It does not add lanes, cite raw repository URLs, activate the
+secondary harness, install skills, execute upstream code, launch providers,
+perform remote execution, export raw target paths, or export upstream bodies.
+
 For `provider-runtime-control` windows the harness also emits
 `current_action_provider_runtime_preflight`. This panel joins the selected
 current action to provider-runtime replay state so pass-1 supervisors can see
