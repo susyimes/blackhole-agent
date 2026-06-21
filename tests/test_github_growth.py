@@ -1619,6 +1619,100 @@ def test_skill_route_boundary_report_splits_skill_repos_from_general_agent_proje
     assert "omnigent-ai" not in serialized
 
 
+def test_route_activation_preflight_keeps_current_skill_window_bounded_before_activation():
+    digest = {
+        "digest_id": "github-growth-20260621T071207.939436Z",
+        "generated_at": "2026-06-21T07:12:07Z",
+        "items": [
+            {
+                "item_id": "p1-skill-route-discovery-registry",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "FableCodex is a Codex plugin and agent skill workflow with evidence gates, "
+                    "tests, evals, examples, and verification habits."
+                ),
+                "relevance_reason": "Skill/workflow trend evidence should enter bounded local lanes first.",
+                "risk_flags": [],
+                "confidence": 0.88,
+            },
+            {
+                "item_id": "p2-skill-workflow-docs",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "COMPASS Skills is an agent skills system for task routing, profile state, and workflow handoff.",
+                "relevance_reason": "State handoff evidence needs local documentation or config validation before activation.",
+                "risk_flags": [],
+                "confidence": 0.84,
+            },
+            {
+                "item_id": "threejs-game-skills-director",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "Three.js Game Skills is a director skill bundle with specialist game workflow and QA validation.",
+                "relevance_reason": "Domain skill bundles should become local validation lanes only.",
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+            {
+                "item_id": "p3-agent-harness-eval-preflight",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": "Omnigent is a general AI agent framework and meta-harness for orchestrating coding agents.",
+                "relevance_reason": "General agent-project evidence requires harness evaluation before behavior changes.",
+                "risk_flags": [],
+                "confidence": 0.76,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    preflight = lane_map["route_activation_preflight"]
+    serialized = json.dumps(preflight, sort_keys=True)
+
+    assert preflight["controller_surface"] == "route_activation_preflight"
+    assert preflight["status"] == "ready"
+    assert preflight["decision"] == "bounded_routes_ready_for_local_validation_selection"
+    assert preflight["skill_workflow_count"] == 3
+    assert preflight["general_agent_project_count"] == 1
+    assert preflight["mixed_skill_workflow_count"] == 1
+    assert preflight["activation_blockers"] == []
+    assert preflight["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preflight["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert preflight["runtime_action"] == "none"
+    assert preflight["external_skill_activation_allowed"] is False
+    assert preflight["external_agent_activation_allowed"] is False
+    assert preflight["external_harness_execution_allowed"] is False
+    assert preflight["provider_runtime_launch_allowed"] is False
+    assert preflight["remote_execution_allowed"] is False
+    assert preflight["raw_source_url_export_allowed"] is False
+    assert preflight["upstream_body_export_allowed"] is False
+    assert "https://github.com" not in serialized
+    assert "FableCodex" not in serialized
+    assert "omnigent-ai" not in serialized
+
+    skill_rows = {row["item_id"]: row for row in preflight["skill_route_rows"]}
+    general_rows = {row["item_id"]: row for row in preflight["general_agent_rows"]}
+    assert sorted(skill_rows) == [
+        "p1-skill-route-discovery-registry",
+        "p2-skill-workflow-docs",
+        "threejs-game-skills-director",
+    ]
+    assert sorted(general_rows) == ["p3-agent-harness-eval-preflight"]
+    assert all(row["primary_route"] == "skill_route_discovery" for row in skill_rows.values())
+    assert all(row["local_lanes"] == ["documentation", "config", "test", "code_patch"] for row in skill_rows.values())
+    assert all(row["lane_status"] == "bounded" for row in skill_rows.values())
+    assert skill_rows["p1-skill-route-discovery-registry"]["activation_gate"] == (
+        "local_skill_route_validation_before_secondary_harness_eval"
+    )
+    assert skill_rows["p1-skill-route-discovery-registry"]["secondary_lane_status"] == (
+        "blocked_until_local_corroboration"
+    )
+    assert general_rows["p3-agent-harness-eval-preflight"]["primary_route"] == "agent_harness_eval_required"
+    assert general_rows["p3-agent-harness-eval-preflight"]["skill_route_discovery_inherited"] is False
+
+
 def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_activation():
     digest = {
         "digest_id": "github-growth-20260620T191207.732215Z",

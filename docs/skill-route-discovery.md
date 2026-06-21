@@ -1260,6 +1260,19 @@ it does not add lanes, expose raw source URLs, export upstream bodies, run an
 external harness, launch a provider, perform remote execution, activate an
 external agent, or activate upstream skill code.
 
+The route-hint map now also emits `route_activation_preflight`, a supervisor
+gate that turns the split into an activation-readiness decision before local
+work is selected. It lists skill-route rows, general-agent rows, bounded local
+lanes, blockers, and replay commands without raw repository URLs or upstream
+bodies. FableCodex, COMPASS Skills, and Three.js Game Skills-style evidence can
+be ready only for documentation, config, test, or code_patch validation.
+Omnigent-style general agent-project evidence remains
+`agent_harness_eval_required` with documentation, test, or code_patch evaluation
+lanes and `skill_route_discovery_inherited: false`. A ready preflight does not
+install, enable, run, clone, scaffold, launch providers, execute an external
+harness, activate an external agent, activate upstream skill code, perform
+remote execution, or export raw source URLs.
+
 Mixed Codex/workflow/skill repositories now get an explicit local probe before
 that split becomes ambiguous. When a selected item has skill-route evidence and
 also mentions Codex, plugins, examples, tests, evals, replay, harness, or other

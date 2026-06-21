@@ -1,0 +1,21 @@
+Rollback point for source digest github-growth-20260621T071207.939436Z
+
+Original branch:
+codex/blackhole-evolve/20260621T071313.908071-add-or-extend-local-skill-route-discovery-valida
+
+Original HEAD:
+86437cbd08189ca797c4772ef4485988d7f2ce19
+
+Local rollback ref:
+refs/rollback/20260621T071207Z-skill-route-discovery-validation
+
+Recovery commands, if an external supervisor or human chooses destructive rollback:
+git reset --hard refs/rollback/20260621T071207Z-skill-route-discovery-validation
+git clean -fd
+
+Run notes:
+- Self-model was read before modification planning.
+- Evidence URLs reviewed narrowly: baskduf/FableCodex, dongshuyan/compass-skills,
+  majidmanzarpour/threejs-game-skills, and omnigent-ai/omnigent.
+- Intended change: add a bounded route activation preflight for skill/workflow
+  and general-agent evidence before local activation planning.

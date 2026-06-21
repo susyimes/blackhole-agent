@@ -547,6 +547,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "mixed_skill_workflow_probe": build_mixed_skill_workflow_probe(package_items),
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
         "skill_route_boundary_report": build_skill_route_boundary_report(package_items),
+        "route_activation_preflight": build_route_activation_preflight(package_items),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -554,6 +555,87 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "evidence_url_effect": "none",
         "runtime_action": "none",
         "diagnostics": diagnostics,
+    }
+
+
+def build_route_activation_preflight(items: list[Any]) -> dict[str, Any]:
+    """Render the route split as an operator-visible pre-activation gate."""
+
+    candidate_panel = build_skill_route_local_lane_candidates(items)
+    general_eval = build_general_agent_project_eval_lane(items)
+    boundary = build_skill_route_boundary_report(items)
+    mixed_probe = build_mixed_skill_workflow_probe(items)
+
+    skill_rows = [
+        {
+            "item_id": str(row.get("item_id") or ""),
+            "route_class": "skill_workflow",
+            "primary_route": "skill_route_discovery",
+            "local_lanes": [str(lane) for lane in row.get("local_lanes", [])],
+            "lane_status": str(row.get("lane_status") or ""),
+            "activation_gate": str(row.get("activation_gate") or ""),
+            "secondary_lane_status": str(row.get("secondary_lane_status") or ""),
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+        for row in candidate_panel.get("rows", [])
+        if isinstance(row, dict)
+    ]
+    general_rows = [
+        {
+            "item_id": str(row.get("item_id") or ""),
+            "route_class": "general_agent_project",
+            "primary_route": "agent_harness_eval_required",
+            "allowed_local_lanes": [str(lane) for lane in row.get("allowed_local_lanes", [])],
+            "skill_route_discovery_inherited": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+        for row in general_eval.get("candidates", [])
+        if isinstance(row, dict)
+    ]
+    activation_blockers = list(boundary.get("diagnostics", []))
+    activation_blockers.extend(
+        f"{row['item_id']}:unsupported_skill_route_lanes"
+        for row in skill_rows
+        if row["lane_status"] != "bounded"
+    )
+    activation_blockers = sorted(dict.fromkeys(str(blocker) for blocker in activation_blockers if str(blocker)))
+    mixed_count = int(mixed_probe.get("candidate_count") or 0)
+    validation_commands = list(SKILL_ROUTE_LOCAL_LANE_COMMANDS)
+    if general_rows:
+        validation_commands.extend(GENERAL_AGENT_PROJECT_EVAL_COMMANDS)
+    if mixed_count:
+        validation_commands.extend(MIXED_SKILL_ROUTE_PROBE_COMMANDS)
+
+    status = "ready" if not activation_blockers and boundary.get("status") == "ready" else "review"
+    return {
+        "controller_surface": "route_activation_preflight",
+        "status": status,
+        "decision": (
+            "bounded_routes_ready_for_local_validation_selection"
+            if status == "ready"
+            else "review_route_boundary_before_activation"
+        ),
+        "skill_workflow_count": len(skill_rows),
+        "general_agent_project_count": len(general_rows),
+        "mixed_skill_workflow_count": mixed_count,
+        "skill_route_rows": skill_rows,
+        "general_agent_rows": general_rows,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "allowed_general_agent_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "activation_blockers": activation_blockers,
+        "required_local_validation": sorted(dict.fromkeys(validation_commands)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
     }
 
 
