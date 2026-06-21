@@ -86,6 +86,36 @@ SKILL_ROUTE_LOCAL_LANE_COMMANDS = [
     "pytest tests/test_proposal_eval.py -q -k skill_route_discovery",
 ]
 MIXED_SKILL_ROUTE_PROBE_LANE_ORDER = ["test", "documentation", "config", "code_patch"]
+SKILL_ROUTE_PROFILE_KEYWORDS = {
+    "codex_workflow_gate": (
+        "codex",
+        "evidence gate",
+        "fablecodex",
+        "plugin",
+        "review gate",
+        "review ledger",
+        "verification habit",
+        "workflow gate",
+    ),
+    "game_frontend_workflow": (
+        "3d",
+        "browser game",
+        "gameplay",
+        "graphics",
+        "three.js",
+        "threejs",
+        "vite",
+    ),
+    "skill_ecosystem_state_handoff": (
+        "collaboration profile",
+        "compass",
+        "handoff",
+        "local memory",
+        "profile",
+        "skill ecosystem",
+        "task forest",
+    ),
+}
 MIXED_SKILL_ROUTE_PROBE_DENIED_ACTIONS = [
     "install",
     "enable",
@@ -478,6 +508,7 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
                 "unsupported_lanes": classification_unsupported_lanes,
                 "evaluation_lane": str(classification.get("evaluation_lane") or ""),
                 "route_probe_decision": str(classification.get("route_probe_decision") or ""),
+                "route_profiles": [str(profile) for profile in classification.get("route_profiles", [])],
                 "reasons": [str(reason) for reason in classification.get("reasons", [])],
                 "repeated_skill_activity_count": repeated_activity_count,
                 "repeated_skill_activity_signal": repeated_activity_count >= 2,
@@ -671,6 +702,7 @@ def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
                 "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
                 "local_lanes": local_lanes,
                 "unsupported_lanes": unsupported_lanes,
+                "route_profiles": [str(profile) for profile in classification.get("route_profiles", [])],
                 "lanes_bounded": (
                     bool(local_lanes)
                     and not unsupported_lanes
@@ -747,6 +779,7 @@ def build_mixed_skill_workflow_probe(items: list[Any]) -> dict[str, Any]:
                 "source_url_hash": stable_hash({"source_url": source_url}) if source_url else "",
                 "route_class": "skill_workflow",
                 "route_probe_decision": "skill_route_discovery_first",
+                "route_profiles": [str(profile) for profile in classification.get("route_profiles", [])],
                 "primary_lane": "skill_route_discovery",
                 "secondary_lane": "agent_harness_eval_after_local_corroboration",
                 "secondary_lane_status": "blocked_until_local_corroboration",
@@ -871,6 +904,7 @@ def build_skill_route_boundary_report(items: list[Any]) -> dict[str, Any]:
                 "primary_route": "skill_route_discovery",
                 "local_lanes": local_lanes,
                 "unsupported_lanes": unsupported_lanes,
+                "route_profiles": [str(profile) for profile in classification.get("route_profiles", [])],
                 "secondary_lane": (
                     "agent_harness_eval_after_local_corroboration"
                     if route_probe_decision == "skill_route_discovery_first"
@@ -1039,6 +1073,7 @@ def classify_digest_item_route(item: dict[str, Any]) -> dict[str, Any]:
             "allowed_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
             "evaluation_lane": route_probe_decision,
             "route_probe_decision": route_probe_decision,
+            "route_profiles": _skill_workflow_route_profiles(text),
             "reasons": _skill_workflow_route_reasons(text),
             "runtime_action": "none",
             "local_validation_required": True,
@@ -1101,6 +1136,17 @@ def _skill_workflow_route_reasons(text: str) -> list[str]:
     if _has_mixed_skill_workflow_probe_signal(text):
         reasons.append("mixed_skill_workflow_probe")
     return reasons or ["skill_workflow_route_signal"]
+
+
+def _skill_workflow_route_profiles(text: str) -> list[str]:
+    """Classify the local validation profile for skill-route evidence."""
+
+    profiles = [
+        profile
+        for profile, keywords in SKILL_ROUTE_PROFILE_KEYWORDS.items()
+        if any(keyword in text for keyword in keywords)
+    ]
+    return profiles or ["generic_skill_workflow"]
 
 
 def _has_mixed_skill_workflow_probe_signal(text: str) -> bool:

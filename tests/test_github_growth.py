@@ -1423,6 +1423,7 @@ def test_route_classifier_distinguishes_skill_workflow_from_general_agent_projec
     assert skill_classification["route_class"] == "skill_workflow"
     assert skill_classification["route_hints"] == ["skill_route_discovery"]
     assert skill_classification["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert skill_classification["route_profiles"] == ["game_frontend_workflow"]
     assert skill_classification["runtime_action"] == "none"
 
     assert general_classification["route_class"] == "general_agent_project"
@@ -1904,6 +1905,7 @@ def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_a
         assert "skill_route_discovery" in row["route_hints"]
         assert row["local_lanes"] == ["documentation", "config", "test", "code_patch"]
         assert row["lanes_bounded"] is True
+        assert row["route_profiles"]
         assert row["local_validation_required"] is True
         assert row["runtime_action"] == "none"
         assert row["external_skill_activation_allowed"] is False
@@ -1914,6 +1916,7 @@ def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_a
         assert "https://github.com" not in json.dumps(row, sort_keys=True)
 
     assert rows_by_id["fablecodex-workflow-skill"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert rows_by_id["fablecodex-workflow-skill"]["route_profiles"] == ["codex_workflow_gate"]
     assert rows_by_id["fablecodex-workflow-skill"]["activation_gate"] == (
         "local_skill_route_validation_before_secondary_harness_eval"
     )
@@ -1924,7 +1927,9 @@ def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_a
     ]
 
     assert rows_by_id["compass-skills-state"]["activation_gate"] == "local_validation_before_activation"
+    assert rows_by_id["compass-skills-state"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
     assert rows_by_id["threejs-game-skills-director"]["activation_gate"] == "local_validation_before_activation"
+    assert rows_by_id["threejs-game-skills-director"]["route_profiles"] == ["game_frontend_workflow"]
     assert rows_by_id["compass-skills-state"]["required_local_validation"] == [
         "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
         "pytest tests/test_proposal_eval.py -q -k skill_route_discovery",
@@ -2010,6 +2015,7 @@ def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first()
             "source_url_hash": stable_hash({"source_url": "https://github.com/baskduf/FableCodex"}),
             "route_class": "skill_workflow",
             "route_probe_decision": "skill_route_discovery_first",
+            "route_profiles": ["codex_workflow_gate"],
             "primary_lane": "skill_route_discovery",
             "secondary_lane": "agent_harness_eval_after_local_corroboration",
             "secondary_lane_status": "blocked_until_local_corroboration",
@@ -2044,6 +2050,84 @@ def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first()
     assert general_eval["candidate_count"] == 1
     assert general_eval["candidates"][0]["item_id"] == "omnigent-general-agent-project"
     assert general_eval["skill_route_discovery_inherited"] is False
+
+
+def test_skill_route_profiles_are_visible_before_local_lane_activation():
+    digest = {
+        "digest_id": "github-growth-20260621T091208-skill-route-profiles",
+        "generated_at": "2026-06-21T09:12:08Z",
+        "items": [
+            {
+                "item_id": "proposal-skill-workflow-fablecodex-probe",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "FableCodex Codex plugin with workflow gates, examples, tests, "
+                    "evals, and verification habits."
+                ),
+                "relevance_reason": "Mixed skill and workflow repositories require skill_route_discovery first.",
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "proposal-skill-route-discovery-compass",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "COMPASS Skills skill ecosystem with task handoff, collaboration profile state, "
+                    "local memory, and workflow routing."
+                ),
+                "relevance_reason": "State/profile skill repositories need bounded local lanes before activation.",
+                "risk_flags": [],
+                "confidence": 0.82,
+            },
+            {
+                "item_id": "proposal-skill-route-discovery-threejs-game",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Three.js Game Skills director skill package for browser game workflow, "
+                    "gameplay, QA validation, graphics, and Vite checks."
+                ),
+                "relevance_reason": "Domain-specific skill repositories should remain local validation candidates.",
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    classifier_rows = {row["item_id"]: row for row in lane_map["route_classifier"]}
+    candidate_rows = {row["item_id"]: row for row in lane_map["skill_route_local_lane_candidates"]["rows"]}
+    serialized = json.dumps(lane_map, sort_keys=True)
+
+    assert lane_map["skill_route_local_lane_candidates"]["candidate_count"] == 3
+    assert lane_map["skill_route_local_lane_candidates"]["rows_bounded"] is True
+    assert lane_map["skill_route_local_lane_candidates"]["runtime_action"] == "none"
+    assert lane_map["skill_route_local_lane_candidates"]["external_skill_activation_allowed"] is False
+    assert classifier_rows["proposal-skill-workflow-fablecodex-probe"]["route_profiles"] == ["codex_workflow_gate"]
+    assert classifier_rows["proposal-skill-route-discovery-compass"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert classifier_rows["proposal-skill-route-discovery-threejs-game"]["route_profiles"] == [
+        "game_frontend_workflow"
+    ]
+    assert candidate_rows["proposal-skill-workflow-fablecodex-probe"]["route_probe_decision"] == (
+        "skill_route_discovery_first"
+    )
+    assert candidate_rows["proposal-skill-workflow-fablecodex-probe"]["activation_gate"] == (
+        "local_skill_route_validation_before_secondary_harness_eval"
+    )
+    assert candidate_rows["proposal-skill-route-discovery-compass"]["activation_gate"] == (
+        "local_validation_before_activation"
+    )
+    assert candidate_rows["proposal-skill-route-discovery-threejs-game"]["activation_gate"] == (
+        "local_validation_before_activation"
+    )
+    assert all(row["local_lanes"] == ["documentation", "config", "test", "code_patch"] for row in candidate_rows.values())
+    assert all(row["local_validation_required"] is True for row in candidate_rows.values())
+    assert "https://github.com/" not in serialized
 
 
 def test_skill_route_discovery_boosts_repeated_trend_fork_and_push_activity():

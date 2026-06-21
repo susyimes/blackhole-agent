@@ -1248,9 +1248,14 @@ agent activity.
 
 `build_route_hint_lane_map` summarizes those classifier rows through
 `route_class_counts` and `route_classifier`. The rows carry item IDs, route
-class, route hints, allowed local lanes, and classifier reasons only. They do
-not export raw upstream bodies, add evidence URLs, grant permissions, install
-packages, or request runtime action.
+class, route hints, allowed local lanes, route profiles, and classifier reasons
+only. Route profiles distinguish the local validation shape before activation:
+FableCodex-style Codex workflow gates are `codex_workflow_gate`, COMPASS-style
+state or profile handoff packages are `skill_ecosystem_state_handoff`, and
+Three.js/domain game skill packages are `game_frontend_workflow`. These profiles
+select review lanes and replay expectations, not upstream activation authority.
+They do not export raw upstream bodies, add evidence URLs, grant permissions,
+install packages, or request runtime action.
 
 The map also checks selected item metadata for lane drift. If a pre-shaped
 `route_classification` marks an item as `skill_workflow` but includes lanes
