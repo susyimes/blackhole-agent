@@ -817,6 +817,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     lanes_bounded = not unsupported_lanes
     runtime_safe = all(lane["runtime_action"] == "none" for lane in lane_records)
     validation_required = all(lane["local_validation_required"] is True for lane in lane_records)
+    claim_evaluation = build_agent_harness_eval_claim_evaluation(claim_rows)
     failure_mode = agent_harness_eval_lane_failure_mode(
         recognized_count=recognized_count,
         lane_count=len(lane_records),
@@ -825,6 +826,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         lanes_bounded=lanes_bounded,
         runtime_safe=runtime_safe,
         validation_required=validation_required,
+        unmapped_claim_count=int(claim_evaluation["unmapped_claim_count"]),
     )
     route_status = (
         "passed"
@@ -863,7 +865,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         },
         "activation_gate": activation_gate,
         "activation_lanes": activation_lanes,
-        "claim_evaluation": build_agent_harness_eval_claim_evaluation(claim_rows),
+        "claim_evaluation": claim_evaluation,
         "review_notes": review_notes,
         "proposal_lanes": [
             {
@@ -966,6 +968,7 @@ def agent_harness_eval_lane_failure_mode(
     lanes_bounded: bool,
     runtime_safe: bool,
     validation_required: bool,
+    unmapped_claim_count: int,
 ) -> str:
     if not runtime_safe:
         return "runtime_action_requested"
@@ -973,6 +976,8 @@ def agent_harness_eval_lane_failure_mode(
         return "local_validation_not_required"
     if not lanes_bounded:
         return "unbounded_agent_harness_eval_lane"
+    if unmapped_claim_count:
+        return "unmapped_agent_claims"
     if lane_count:
         if detailed_count == 0:
             return "weak_harness_evidence"
@@ -993,6 +998,9 @@ def agent_harness_eval_activation_gate(failure_mode: str) -> dict[str, Any]:
         allowed = False
     elif failure_mode == "weak_harness_evidence":
         decision = "review_weak_evidence_before_activation"
+        allowed = False
+    elif failure_mode == "unmapped_agent_claims":
+        decision = "map_agent_claims_before_activation"
         allowed = False
     else:
         decision = "blocked_before_activation"

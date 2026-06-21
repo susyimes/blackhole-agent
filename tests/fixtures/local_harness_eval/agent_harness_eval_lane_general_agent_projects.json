@@ -27,11 +27,19 @@
   "assertions": [
     {
       "path": "route_status",
-      "equals": "passed"
+      "equals": "blocked"
     },
     {
       "path": "failure_mode",
-      "equals": "none"
+      "equals": "unmapped_agent_claims"
+    },
+    {
+      "path": "activation_gate.decision",
+      "equals": "map_agent_claims_before_activation"
+    },
+    {
+      "path": "activation_gate.local_eval_activation_allowed",
+      "equals": false
     },
     {
       "path": "lane_map.proposal_kinds",
@@ -77,6 +85,18 @@
     {
       "path": "privacy.raw_source_urls_exported",
       "equals": false
+    },
+    {
+      "path": "activation_lanes.0.activation_ready",
+      "equals": false
+    },
+    {
+      "path": "activation_lanes.0.activation_blockers",
+      "equals": ["unmapped_agent_claims"]
+    },
+    {
+      "path": "activation_lanes.0.runtime_action",
+      "equals": "none"
     }
   ]
 }

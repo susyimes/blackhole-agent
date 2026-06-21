@@ -533,8 +533,10 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     )
     serialized = json.dumps(output, sort_keys=True)
 
-    assert output["route_status"] == "passed"
-    assert output["activation_gate"]["local_eval_activation_allowed"] is True
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "unmapped_agent_claims"
+    assert output["activation_gate"]["decision"] == "map_agent_claims_before_activation"
+    assert output["activation_gate"]["local_eval_activation_allowed"] is False
     assert output["activation_gate"]["external_harness_execution_allowed"] is False
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation", "test"]
     assert output["claim_evaluation"]["controller_surface"] == "agent_harness_claim_mapping"
@@ -548,6 +550,9 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert output["claim_evaluation"]["unmapped_claim_ids"] == ["local_data_grounding"]
     assert output["claim_evaluation"]["runtime_action"] == "none"
     assert output["claim_evaluation"]["external_agent_activation_allowed"] is False
+    assert all(lane["activation_ready"] is False for lane in output["activation_lanes"])
+    assert all(lane["activation_blockers"] == ["unmapped_agent_claims"] for lane in output["activation_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in output["activation_lanes"])
 
     rows_by_claim = {
         (row["item_id"], row["claim_id"]): row

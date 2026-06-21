@@ -1418,6 +1418,15 @@ agent activation. This is the intended lane for comparing Omnigent-style
 meta-harness evidence with domain-agent evidence such as xuefeng-agent before
 any local behavior change is proposed.
 
+Activation readiness now depends on that matrix. If any recognized general-agent
+claim is still `unmapped_evidence_only`, the harness reports
+`failure_mode: unmapped_agent_claims` and
+`activation_gate.decision: map_agent_claims_before_activation`. The bounded
+documentation, test, or code_patch lanes remain visible for local work, but each
+activation lane stays blocked with `runtime_action: none` until a later pass
+either maps the claim to a local validation command or records it as evidence
+that should not drive activation.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,
