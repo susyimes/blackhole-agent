@@ -680,6 +680,20 @@ clone-and-run, profile-write, memory-write, scaffold, asset-generation,
 provider-launch, remote-execution, raw evidence export, raw source URL export,
 or upstream body export authority.
 
+The completion report also includes `profile_validation_gate`, a final
+profile-specific check before the report can be ready. FableCodex-style
+`codex_workflow_gate` rows must still prove
+`skill_route_discovery_first` with the secondary
+`agent_harness_eval_after_local_corroboration` lane blocked; Three.js
+`game_frontend_workflow` rows must be tied to the local test/frontend
+validation lane; COMPASS `skill_ecosystem_state_handoff` rows must be tied to
+the local config/state-boundary lane. The gate records only profile names,
+bounded lane names, validation scopes, metadata readiness, local artifact proof
+readiness, operator lane readiness, diagnostic hashes, and replay commands. It
+does not export raw repository URLs or upstream bodies, install external
+skills, run scaffolds or browser checkers, write profiles or memory, launch
+providers, execute a secondary harness, or perform remote execution.
+
 The same panel includes `completion_handoff`, a compact supervisor-facing
 contract for the final slice state. It repeats the completion status and
 decision, names a `supervisor_next_action`, records the

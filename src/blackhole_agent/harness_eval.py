@@ -1376,6 +1376,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         supervisor_readiness=supervisor_readiness,
         validation_lane_plan=validation_lane_plan,
         profile_validation_replay=profile_validation_replay,
+        mixed_local_lane_probe=mixed_local_lane_probe,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
         provider_runtime_replay_sample=provider_runtime_replay_sample,
     )
@@ -5667,6 +5668,7 @@ def skill_route_discovery_capability_window_completion(
     supervisor_readiness: dict[str, Any],
     validation_lane_plan: dict[str, Any],
     profile_validation_replay: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
     provider_runtime_replay_sample: dict[str, Any],
 ) -> dict[str, Any]:
@@ -5722,6 +5724,10 @@ def skill_route_discovery_capability_window_completion(
         observed_route_profiles=route_profiles,
         planned_window_complete=planned_window_complete,
     )
+    profile_route_diagnostics = skill_route_discovery_completion_profile_route_diagnostics(
+        route_profiles=route_profiles,
+        mixed_local_lane_probe=mixed_local_lane_probe,
+    )
 
     diagnostics: list[str] = []
     if route_status != "passed" or failure_mode != "none":
@@ -5745,6 +5751,7 @@ def skill_route_discovery_capability_window_completion(
             "required_route_profiles_missing:"
             + ",".join(profile_completion_check["missing_route_profiles"])
         )
+    diagnostics.extend(profile_route_diagnostics)
     if total_passes and not planned_window_complete:
         diagnostics.append("capability_window_not_at_final_pass")
 
@@ -5800,6 +5807,7 @@ def skill_route_discovery_capability_window_completion(
         profile_completion_check=profile_completion_check,
         validation_target_handoff=validation_target_handoff,
         profile_validation_replay=profile_validation_replay,
+        mixed_local_lane_probe=mixed_local_lane_probe,
         activation_manifest=activation_manifest,
         activation_packet=activation_packet,
         completion_recovery=completion_recovery,
@@ -5833,6 +5841,8 @@ def skill_route_discovery_capability_window_completion(
         diagnostics=diagnostics,
         validation_target_handoff=validation_target_handoff,
         profile_completion_check=profile_completion_check,
+        route_profile_review=route_profile_review,
+        mixed_local_lane_probe=mixed_local_lane_probe,
         activation_packet=activation_packet,
         final_slice_closure=final_slice_closure,
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
@@ -5944,6 +5954,8 @@ def skill_route_discovery_completion_report(
     diagnostics: list[str],
     validation_target_handoff: dict[str, Any],
     profile_completion_check: dict[str, Any],
+    route_profile_review: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
     activation_packet: dict[str, Any],
     final_slice_closure: dict[str, Any],
     provider_runtime_completion_handoff: dict[str, Any],
@@ -5955,10 +5967,18 @@ def skill_route_discovery_completion_report(
         activation_packet=activation_packet,
         selected_local_lanes=selected_local_lanes,
     )
+    profile_validation_gate = skill_route_discovery_completion_profile_validation_gate(
+        route_profiles=route_profiles,
+        validation_target_handoff=validation_target_handoff,
+        route_profile_review=route_profile_review,
+        mixed_local_lane_probe=mixed_local_lane_probe,
+        local_lane_closure=local_lane_closure,
+    )
     ready = (
         status == "ready"
         and activation_packet.get("status") == "ready"
         and local_lane_closure.get("status") == "ready"
+        and profile_validation_gate.get("status") == "ready"
         and final_slice_closure.get("supervisor_handoff_ready") is True
         and provider_runtime_completion_handoff.get("status") in {"ready", "not_applicable"}
         and not diagnostics
@@ -5969,6 +5989,8 @@ def skill_route_discovery_completion_report(
             blocked_reasons.append("activation_packet_not_ready")
         if local_lane_closure.get("status") != "ready":
             blocked_reasons.append("local_lane_closure_not_ready")
+        if profile_validation_gate.get("status") != "ready":
+            blocked_reasons.append("profile_validation_gate_not_ready")
         if final_slice_closure.get("supervisor_handoff_ready") is not True:
             blocked_reasons.append("final_slice_closure_not_ready")
         if provider_runtime_completion_handoff.get("status") not in {"ready", "not_applicable"}:
@@ -5998,6 +6020,7 @@ def skill_route_discovery_completion_report(
         selected_local_lanes=selected_local_lanes,
         selected_evidence_refs=selected_evidence_refs,
         local_lane_closure=local_lane_closure,
+        profile_validation_gate=profile_validation_gate,
         activation_handoff=activation_handoff,
         blocked_reasons=blocked_reasons,
     )
@@ -6023,6 +6046,7 @@ def skill_route_discovery_completion_report(
         "selected_evidence_ref_count": len(selected_evidence_refs),
         "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
         "local_lane_closure": local_lane_closure,
+        "profile_validation_gate": profile_validation_gate,
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
@@ -6055,6 +6079,182 @@ def skill_route_discovery_completion_report(
     }
 
 
+def skill_route_discovery_completion_profile_validation_gate(
+    *,
+    route_profiles: list[str],
+    validation_target_handoff: dict[str, Any],
+    route_profile_review: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
+    local_lane_closure: dict[str, Any],
+) -> dict[str, Any]:
+    """Check profile-specific validation lanes before final completion handoff."""
+
+    profile_requirements: dict[str, dict[str, Any]] = {
+        "codex_workflow_gate": {
+            "required_selected_lane": "test",
+            "required_validation_scope": "local_test_lane_only",
+            "required_profile_review_status": "ready",
+            "required_first_route_decision": "skill_route_discovery_first",
+            "required_secondary_lane_status": "blocked_until_local_corroboration",
+            "local_gate": "codex_workflow_gate_requires_skill_route_discovery_first",
+        },
+        "game_frontend_workflow": {
+            "required_selected_lane": "test",
+            "required_validation_scope": "local_test_lane_only",
+            "required_profile_review_status": "ready",
+            "required_first_route_decision": "",
+            "required_secondary_lane_status": "",
+            "local_gate": "game_frontend_workflow_requires_local_test_or_frontend_validation",
+        },
+        "skill_ecosystem_state_handoff": {
+            "required_selected_lane": "config",
+            "required_validation_scope": "local_config_lane_only",
+            "required_profile_review_status": "ready",
+            "required_first_route_decision": "",
+            "required_secondary_lane_status": "",
+            "local_gate": "state_handoff_requires_config_boundary_review",
+        },
+        "generic_skill_workflow": {
+            "required_selected_lane": "documentation",
+            "required_validation_scope": "local_documentation_lane_only",
+            "required_profile_review_status": "ready",
+            "required_first_route_decision": "",
+            "required_secondary_lane_status": "",
+            "local_gate": "generic_skill_workflow_requires_documented_local_contract",
+        },
+    }
+
+    target_rows = validation_target_handoff.get("targets")
+    target_rows = target_rows if isinstance(target_rows, list) else []
+    review_rows = route_profile_review.get("rows")
+    review_rows = review_rows if isinstance(review_rows, list) else []
+    closure_rows = local_lane_closure.get("rows")
+    closure_rows = closure_rows if isinstance(closure_rows, list) else []
+    mixed_rows = mixed_local_lane_probe.get("rows")
+    mixed_rows = mixed_rows if isinstance(mixed_rows, list) else []
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for profile in sorted(dict.fromkeys(route_profiles)):
+        requirement = profile_requirements.get(profile, profile_requirements["generic_skill_workflow"])
+        matching_targets = [
+            row for row in target_rows if isinstance(row, dict) and profile in string_list(row.get("route_profiles"))
+        ]
+        matching_review_rows = [
+            row for row in review_rows if isinstance(row, dict) and str(row.get("route_profile") or "") == profile
+        ]
+        matching_closure_rows = [
+            row for row in closure_rows if isinstance(row, dict) and profile in string_list(row.get("route_profiles"))
+        ]
+        matching_mixed_rows = [
+            row for row in mixed_rows if isinstance(row, dict) and profile in string_list(row.get("route_profiles"))
+        ]
+        selected_lane = optional_string(matching_targets[0].get("selected_local_lane")) if matching_targets else ""
+        validation_scope = optional_string(matching_targets[0].get("validation_scope")) if matching_targets else ""
+        profile_review_status = optional_string(route_profile_review.get("status")) or ""
+        metadata_complete = all(row.get("metadata_complete") is True for row in matching_review_rows)
+        local_artifact_ready = any(row.get("local_artifact_proof_ready") is True for row in matching_closure_rows)
+        operator_lane_ready = any(
+            row.get("local_artifact_proof_ready") is True
+            and row.get("activation_ready") is True
+            and int(row.get("activation_blocker_count") or 0) == 0
+            for row in matching_closure_rows
+        )
+        first_route_ready = True
+        if requirement["required_first_route_decision"]:
+            first_route_ready = any(
+                str(row.get("route_probe_decision") or "") == requirement["required_first_route_decision"]
+                and str(row.get("primary_route") or "") == "skill_route_discovery"
+                and str(row.get("secondary_lane_status") or "") == requirement["required_secondary_lane_status"]
+                for row in matching_mixed_rows
+            )
+
+        row_diagnostics: list[str] = []
+        if selected_lane != requirement["required_selected_lane"]:
+            row_diagnostics.append("required_selected_lane_missing")
+        if validation_scope != requirement["required_validation_scope"]:
+            row_diagnostics.append("required_validation_scope_missing")
+        if profile_review_status != requirement["required_profile_review_status"]:
+            row_diagnostics.append("profile_review_not_ready")
+        if not metadata_complete:
+            row_diagnostics.append("profile_metadata_incomplete")
+        if not local_artifact_ready:
+            row_diagnostics.append("local_artifact_proof_not_ready")
+        if not operator_lane_ready:
+            row_diagnostics.append("operator_lane_not_ready")
+        if not first_route_ready:
+            row_diagnostics.append("skill_route_discovery_first_not_confirmed")
+
+        diagnostics.extend(f"{profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "route_profile": profile,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "decision": "profile_ready_for_completion_handoff"
+                if not row_diagnostics
+                else "repair_profile_validation_before_completion_handoff",
+                "local_gate": str(requirement["local_gate"]),
+                "required_selected_lane": str(requirement["required_selected_lane"]),
+                "selected_local_lane": selected_lane,
+                "required_validation_scope": str(requirement["required_validation_scope"]),
+                "validation_scope": validation_scope,
+                "required_first_route_decision": str(requirement["required_first_route_decision"]),
+                "first_route_confirmed": first_route_ready,
+                "profile_review_status": profile_review_status,
+                "metadata_complete": metadata_complete,
+                "local_artifact_proof_ready": local_artifact_ready,
+                "operator_lane_ready": operator_lane_ready,
+                "diagnostics": row_diagnostics,
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "provider_runtime_replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_completion_profile_validation_gate",
+        "status": "ready" if ready else "blocked",
+        "decision": "profile_validation_gates_ready_for_completion_handoff"
+        if ready
+        else "repair_profile_validation_gates_before_completion_handoff",
+        "profile_count": len(rows),
+        "ready_profile_count": sum(1 for row in rows if row["status"] == "ready"),
+        "blocked_profile_count": sum(1 for row in rows if row["status"] != "ready"),
+        "route_profiles": [row["route_profile"] for row in rows],
+        "rows": rows,
+        "diagnostic_count": len(diagnostics),
+        "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in diagnostics],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def skill_route_discovery_completion_audit(
     *,
     ready: bool,
@@ -6067,6 +6267,7 @@ def skill_route_discovery_completion_audit(
     selected_local_lanes: list[str],
     selected_evidence_refs: list[str],
     local_lane_closure: dict[str, Any],
+    profile_validation_gate: dict[str, Any],
     activation_handoff: dict[str, Any],
     blocked_reasons: list[str],
 ) -> dict[str, Any]:
@@ -6102,9 +6303,11 @@ def skill_route_discovery_completion_audit(
         "selected_local_lanes": selected_local_lanes,
         "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
         "local_lane_closure_status": optional_string(local_lane_closure.get("status")) or "",
+        "profile_validation_gate_status": optional_string(profile_validation_gate.get("status")) or "",
         "activation_handoff_status": optional_string(activation_handoff.get("status")) or "",
         "ready_lane_count": int(local_lane_closure.get("ready_lane_count") or 0),
         "blocked_lane_count": int(local_lane_closure.get("blocked_lane_count") or 0),
+        "profile_gate_row_count": int(profile_validation_gate.get("profile_count") or 0),
         "replay_step_hashes": replay_step_hashes,
         "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
         "lane_rows": lane_rows,
@@ -6587,6 +6790,7 @@ def skill_route_discovery_final_slice_closure(
     profile_completion_check: dict[str, Any],
     validation_target_handoff: dict[str, Any],
     profile_validation_replay: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
     activation_manifest: dict[str, Any],
     activation_packet: dict[str, Any],
     completion_recovery: dict[str, Any],
@@ -7203,6 +7407,33 @@ def skill_route_discovery_profile_completion_check(
         "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_completion_profile_route_diagnostics(
+    *,
+    route_profiles: list[str],
+    mixed_local_lane_probe: dict[str, Any],
+) -> list[str]:
+    """Return top-level completion diagnostics for profile route ordering."""
+
+    diagnostics: list[str] = []
+    profiles = set(route_profiles)
+    mixed_rows = mixed_local_lane_probe.get("rows")
+    mixed_rows = mixed_rows if isinstance(mixed_rows, list) else []
+
+    if "codex_workflow_gate" in profiles:
+        codex_first_confirmed = any(
+            isinstance(row, dict)
+            and "codex_workflow_gate" in string_list(row.get("route_profiles"))
+            and str(row.get("route_probe_decision") or "") == "skill_route_discovery_first"
+            and str(row.get("primary_route") or "") == "skill_route_discovery"
+            and str(row.get("secondary_lane_status") or "") == "blocked_until_local_corroboration"
+            for row in mixed_rows
+        )
+        if not codex_first_confirmed:
+            diagnostics.append("codex_workflow_gate:skill_route_discovery_first_not_confirmed")
+
+    return diagnostics
 
 
 def skill_route_discovery_local_lane_intake(

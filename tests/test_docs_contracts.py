@@ -258,6 +258,11 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "repair missing required route profiles, repair local artifact proof,\nreplay provider-runtime preflight",
         "records only bounded lane names, missing\nroute profile names, blocker hashes, hint codes, and replay commands",
         "does\nnot export raw evidence URLs, raw source URLs, raw target paths, or upstream\nbodies",
+        "`profile_validation_gate`, a final\nprofile-specific check",
+        "FableCodex-style\n`codex_workflow_gate` rows must still prove\n`skill_route_discovery_first`",
+        "`game_frontend_workflow` rows must be tied to the local test/frontend\nvalidation lane",
+        "`skill_ecosystem_state_handoff` rows must be tied to\n"
+        "the local config/state-boundary lane",
         "`next_pass_handoff`",
         "pass-to-pass\ncontinuity",
         "`pass2_handoff_packet`",

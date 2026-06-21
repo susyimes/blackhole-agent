@@ -1961,6 +1961,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_upstream_body_exported": False,
     }
     local_lane_closure = output["capability_window_completion"]["completion_report"]["local_lane_closure"]
+    profile_validation_gate = output["capability_window_completion"]["completion_report"]["profile_validation_gate"]
     activation_handoff = output["capability_window_completion"]["completion_report"]["activation_handoff"]
     completion_audit = output["capability_window_completion"]["completion_report"]["completion_audit"]
     completion_report = {
@@ -1986,6 +1987,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             stable_text_hash("fablecodex-repo"),
         ],
         "local_lane_closure": local_lane_closure,
+        "profile_validation_gate": profile_validation_gate,
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
         "missing_route_profiles": [],
@@ -3385,12 +3387,48 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert handoff["raw_source_urls_exported"] is False
     assert handoff["raw_target_paths_exported"] is False
     assert handoff["raw_upstream_body_exported"] is False
+    profile_gate = output["capability_window_completion"]["completion_report"]["profile_validation_gate"]
+    assert profile_gate["controller_surface"] == "skill_route_discovery_completion_profile_validation_gate"
+    assert profile_gate["status"] == "ready"
+    assert profile_gate["decision"] == "profile_validation_gates_ready_for_completion_handoff"
+    assert profile_gate["profile_count"] == 3
+    assert profile_gate["ready_profile_count"] == 3
+    assert profile_gate["blocked_profile_count"] == 0
+    assert profile_gate["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    gate_rows = {row["route_profile"]: row for row in profile_gate["rows"]}
+    assert gate_rows["codex_workflow_gate"]["local_gate"] == (
+        "codex_workflow_gate_requires_skill_route_discovery_first"
+    )
+    assert gate_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert gate_rows["codex_workflow_gate"]["first_route_confirmed"] is True
+    assert gate_rows["codex_workflow_gate"]["required_first_route_decision"] == "skill_route_discovery_first"
+    assert gate_rows["game_frontend_workflow"]["local_gate"] == (
+        "game_frontend_workflow_requires_local_test_or_frontend_validation"
+    )
+    assert gate_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert gate_rows["skill_ecosystem_state_handoff"]["local_gate"] == (
+        "state_handoff_requires_config_boundary_review"
+    )
+    assert gate_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(row["metadata_complete"] is True for row in profile_gate["rows"])
+    assert all(row["local_artifact_proof_ready"] is True for row in profile_gate["rows"])
+    assert all(row["operator_lane_ready"] is True for row in profile_gate["rows"])
+    assert all(row["diagnostics"] == [] for row in profile_gate["rows"])
+    assert profile_gate["runtime_action_allowed"] is False
+    assert profile_gate["external_skill_activation_allowed"] is False
+    assert profile_gate["provider_runtime_launch_allowed"] is False
+    assert profile_gate["raw_evidence_urls_exported"] is False
+    assert profile_gate["raw_source_urls_exported"] is False
     audit = output["capability_window_completion"]["completion_report"]["completion_audit"]
     assert audit["controller_surface"] == "skill_route_discovery_completion_audit"
     assert audit["status"] == "ready"
     assert audit["decision"] == "completion_fingerprint_ready_for_replay_compare"
     assert audit["fingerprint"].startswith("sha256:")
-    assert audit["basis_field_count"] == 16
+    assert audit["basis_field_count"] == 18
     assert audit["lane_row_count"] == 4
     assert audit["selected_local_lanes"] == ["config", "test"]
     assert audit["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
@@ -4365,6 +4403,114 @@ def test_skill_route_discovery_completion_accepts_required_profile_coverage():
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_completion_blocks_codex_profile_without_first_route_gate():
+    input_payload = {
+        "task_id": "fixture-skill-route-discovery-codex-profile-first-route-gate",
+        "capability_window": {
+            "theme": "skill-route-discovery",
+            "current_pass": 4,
+            "total_passes": 4,
+            "required_route_profiles": [
+                "codex_workflow_gate",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            ],
+        },
+        "source_kind": "candidates",
+        "candidates": [
+            {
+                "name": "codex-fable5",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "evidence_summary": (
+                    "Codex workflow gate with review ledger, verification habit, "
+                    "plugin routing docs, examples, tests, evals, replay, and local test target notes."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "evidence_item_ids": ["fablecodex-repo"],
+            },
+            {
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "evidence_summary": (
+                    "Skill ecosystem with task clarification, repo-local local memory, handoff prompts, "
+                    "collaboration profile, route metadata, validation evidence, and privacy boundary notes."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "evidence_item_ids": ["compass-repo"],
+            },
+            {
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "evidence_summary": (
+                    "Three.js browser game director skill bundle with QA validation, screenshot and canvas checks, "
+                    "asset/provider boundary notes, credential safeguards, and generation limits."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "evidence_item_ids": ["threejs-repo"],
+            },
+        ],
+        "state_handoff_boundary": {
+            "retention_policy_documented": True,
+            "privacy_boundary_documented": True,
+            "local_target_metadata_only": True,
+            "upstream_presence_grants_write": False,
+        },
+        "local_artifact_proofs": [
+            {
+                "proposal_kind": "documentation",
+                "changed_files": ["docs/skill-route-discovery.md"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260621T093206Z-skill-route-pass4-validation-gate.md",
+                "review_note": "Documentation lane records the first-route gate.",
+            },
+            {
+                "proposal_kind": "config",
+                "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260621T093206Z-skill-route-pass4-validation-gate.md",
+                "review_note": "Config lane remains bounded to local proposal mapping.",
+            },
+            {
+                "proposal_kind": "test",
+                "changed_files": ["tests/test_harness_eval.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260621T093206Z-skill-route-pass4-validation-gate.md",
+                "review_note": "Test lane validates first-route gate failure.",
+            },
+            {
+                "proposal_kind": "code_patch",
+                "changed_files": ["src/blackhole_agent/harness_eval.py"],
+                "validation_commands": skill_route_discovery_preactivation_validation_commands(),
+                "rollback_artifact": "artifacts/rollback/20260621T093206Z-skill-route-pass4-validation-gate.md",
+                "review_note": "Harness code blocks Codex profile completion without first-route proof.",
+            },
+        ],
+    }
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        input_payload,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_codex_first_route_gate_inline.json",
+    )
+    completion = output["capability_window_completion"]
+    profile_gate = completion["completion_report"]["profile_validation_gate"]
+
+    assert output["route_status"] == "passed"
+    assert completion["status"] == "blocked"
+    assert completion["decision"] == "continue_or_replay_before_completion"
+    assert "codex_workflow_gate:skill_route_discovery_first_not_confirmed" in completion["diagnostics"]
+    assert completion["completion_report"]["status"] == "blocked"
+    assert profile_gate["status"] == "blocked"
+    assert profile_gate["blocked_profile_count"] == 1
+    codex_gate = next(row for row in profile_gate["rows"] if row["route_profile"] == "codex_workflow_gate")
+    assert codex_gate["selected_local_lane"] == "test"
+    assert codex_gate["first_route_confirmed"] is False
+    assert codex_gate["diagnostics"] == ["skill_route_discovery_first_not_confirmed"]
+    assert profile_gate["runtime_action_allowed"] is False
+    assert profile_gate["external_skill_activation_allowed"] is False
+    assert profile_gate["raw_evidence_urls_exported"] is False
 
 
 def test_skill_route_discovery_capability_window_handoff_reports_final_blockers():
