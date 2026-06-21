@@ -3161,6 +3161,7 @@ def test_skill_route_discovery_pass1_exposes_current_action_for_mixed_skill_rout
         source_path=fixture_path,
     )
     current_action = output["current_action"]
+    handoff_packet = output["pass1_handoff_packet"]
     serialized = json.dumps(output, sort_keys=True)
 
     assert output["route_status"] == "passed"
@@ -3193,6 +3194,38 @@ def test_skill_route_discovery_pass1_exposes_current_action_for_mixed_skill_rout
     assert current_action["external_skill_activation_allowed"] is False
     assert current_action["external_skill_code_allowed"] is False
     assert current_action["raw_evidence_urls_exported"] is False
+    assert handoff_packet["controller_surface"] == "skill_route_discovery_pass1_handoff_packet"
+    assert handoff_packet["status"] == "ready"
+    assert handoff_packet["decision"] == (
+        "continue_bounded_skill_route_lane_before_secondary_agent_harness_eval"
+    )
+    assert handoff_packet["current_pass"] == 1
+    assert handoff_packet["next_pass"] == 2
+    assert handoff_packet["selected_local_lane"] == "test"
+    assert handoff_packet["queued_local_lanes"] == ["documentation"]
+    assert handoff_packet["bounded_local_lanes"] == ["documentation", "test"]
+    assert handoff_packet["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs",
+        "p3-mixed-skill-workflow-routing",
+    ]
+    assert handoff_packet["replay_commands"] == skill_route_discovery_preactivation_validation_commands()
+    assert handoff_packet["adjacent_general_agent_project_eval"] == {
+        "status": "gated",
+        "agent_harness_eval_required": True,
+        "skill_route_discovery_inherited": False,
+        "allowed_local_lanes": ["documentation", "test", "code_patch"],
+        "replay_commands": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    assert handoff_packet["runtime_action_allowed"] is False
+    assert handoff_packet["external_skill_activation_allowed"] is False
+    assert handoff_packet["external_harness_execution_allowed"] is False
+    assert handoff_packet["raw_evidence_urls_exported"] is False
     assert "codex" in output["term_route_review"]["rows"][0]["matched_route_terms"]
     assert output["term_route_review"]["runtime_action_allowed"] is False
     assert output["term_route_review"]["external_skill_activation_allowed"] is False

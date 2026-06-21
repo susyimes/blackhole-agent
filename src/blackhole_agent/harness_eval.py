@@ -1340,6 +1340,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         validation_lane_plan=validation_lane_plan,
         profile_validation_replay=profile_validation_replay,
     )
+    pass1_handoff_packet = skill_route_discovery_pass1_handoff_packet(
+        raw_input=raw_input,
+        current_action=current_action,
+        pass_validation_replay_queue=pass_validation_replay_queue,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -1429,6 +1434,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "pass_validation_replay_queue": pass_validation_replay_queue,
+        "pass1_handoff_packet": pass1_handoff_packet,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -3839,6 +3845,117 @@ def skill_route_discovery_pass_validation_replay_queue(
         "plan_basis": "current_action_and_profile_validation_replay",
         "local_validation_required": True,
         "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass1_handoff_packet(
+    *,
+    raw_input: dict[str, Any],
+    current_action: dict[str, Any],
+    pass_validation_replay_queue: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-1 continuation work without promoting external projects."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    evidence_urls = string_list(window.get("evidence_urls"))
+    anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    current_pass = int(current_action.get("current_pass") or 0)
+    selected_lane = optional_string(current_action.get("selected_local_lane")) or "none"
+    queued_lanes = string_list(current_action.get("queued_local_lanes"))
+    queue_rows = pass_validation_replay_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    bounded_lanes = sorted(
+        {
+            lane
+            for lane in [selected_lane, *queued_lanes]
+            if lane in allowed_lanes
+        }
+    )
+    evidence_item_ids = sorted(
+        {
+            item_id
+            for row in queue_rows
+            if isinstance(row, dict)
+            for item_id in string_list(row.get("evidence_item_ids"))
+        }
+    )
+    candidate_source_hashes = sorted(
+        {
+            source_hash
+            for row in queue_rows
+            if isinstance(row, dict)
+            for source_hash in string_list(row.get("candidate_source_hashes"))
+        }
+    )
+    general_agent_evidence_present = any("omnigent-ai/omnigent" in url for url in evidence_urls) or any(
+        "agent-harness" in proposal or "agent_harness" in proposal
+        for proposal in anchoring_proposals
+    )
+    ready = (
+        current_pass == 1
+        and current_action.get("status") == "ready"
+        and pass_validation_replay_queue.get("status") == "ready"
+        and bool(bounded_lanes)
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_pass1_handoff_packet",
+        "status": "ready" if ready else "not_applicable" if current_pass != 1 else "blocked",
+        "decision": "continue_bounded_skill_route_lane_before_secondary_agent_harness_eval"
+        if ready
+        else "pass1_handoff_not_currently_ready",
+        "theme": optional_string(window.get("theme")) or "skill-route-discovery",
+        "capability_slice": optional_string(window.get("capability_slice")) or "",
+        "current_pass": current_pass,
+        "next_pass": int(current_action.get("next_pass") or 0),
+        "total_passes": int(current_action.get("total_passes") or 0),
+        "selected_local_lane": selected_lane,
+        "queued_local_lanes": queued_lanes,
+        "bounded_local_lanes": bounded_lanes,
+        "queue_count": int(pass_validation_replay_queue.get("queue_count") or 0),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_ids": evidence_item_ids,
+        "evidence_item_id_count": len(evidence_item_ids),
+        "candidate_source_hashes": candidate_source_hashes,
+        "candidate_source_count": len(candidate_source_hashes),
+        "replay_commands": string_list(current_action.get("required_validation")),
+        "provider_runtime_replay_commands": string_list(
+            current_action.get("provider_runtime_replay_commands")
+        ),
+        "adjacent_general_agent_project_eval": {
+            "status": "gated" if general_agent_evidence_present else "not_present",
+            "agent_harness_eval_required": general_agent_evidence_present,
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes": ["documentation", "test", "code_patch"]
+            if general_agent_evidence_present
+            else [],
+            "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+            if general_agent_evidence_present
+            else [],
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,

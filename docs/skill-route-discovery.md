@@ -953,6 +953,18 @@ external skill code, external skill activation, external harness execution,
 provider launch, remote execution, raw evidence URL export, raw source URL
 export, raw target path export, and upstream body export remain denied.
 
+On the first pass of a skill-route-discovery window, the harness also emits
+`pass1_handoff_packet`. The packet joins the selected current-pass bounded lane,
+queued bounded lanes, selected digest item IDs, hashed candidate sources, and
+local replay commands into one supervisor-visible row. Omnigent-style general
+agent framework evidence remains adjacent only: the packet reports
+`adjacent_general_agent_project_eval` with `agent_harness_eval_required: true`,
+`skill_route_discovery_inherited: false`, and allowed local lanes of
+documentation, test, or code_patch. It does not add skill-route lanes, grant
+runtime action, activate an external agent, run an external harness, launch a
+provider, perform remote execution, export raw source URLs, or export upstream
+bodies.
+
 Before supervisor promotion, the lane now emits
 `activation_manifest` as a compact replay surface for bounded local work. The
 manifest lists only the allowed local lane names, selected-item `evidence_refs`,
