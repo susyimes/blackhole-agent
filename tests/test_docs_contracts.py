@@ -319,6 +319,12 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "`local_frontend_validation_before_game_skill_activation`",
         "`state_handoff_boundary_before_profile_or_memory_write`",
         "denied provider launch, denied remote execution, and denied\nraw upstream body export before activation",
+        "`profile_lane_acceptance_contract`",
+        "FableCodex-style\n`codex_workflow_gate` evidence must preserve `skill_route_discovery_first`",
+        "Three.js `game_frontend_workflow` evidence starts in\n"
+        "the local test/frontend validation lane",
+        "COMPASS-style\n`skill_ecosystem_state_handoff` evidence starts in the local config/state\nboundary lane",
+        "The pass-2 handoff packet embeds the same contract",
         "## Evidence Citation And Uncertainty",
         "cite only selected `item_id` values\nin `evidence_refs`",
         "must not cite repository URLs, owner/repository names,\ntruncated item IDs",

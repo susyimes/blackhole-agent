@@ -1390,6 +1390,22 @@ rows use `local_frontend_validation_before_game_skill_activation`, and
 skill activation, denied provider launch, denied remote execution, and denied
 raw upstream body export before activation.
 
+The local harness also summarizes those row contracts as
+`profile_lane_acceptance_contract`. This profile-level panel is the pass-handoff
+view: it lists the observed route profiles, allowed documentation/config/test/
+code_patch lanes, each profile's preferred first validation lane, validation
+scope, metadata requirements, and acceptance gates. FableCodex-style
+`codex_workflow_gate` evidence must preserve `skill_route_discovery_first`
+before workflow handling; Three.js `game_frontend_workflow` evidence starts in
+the local test/frontend validation lane; COMPASS-style
+`skill_ecosystem_state_handoff` evidence starts in the local config/state
+boundary lane. The panel is ready only when profile review is ready, metadata
+is complete, local validation remains required, runtime action is `none`, and
+external skill activation, external harness execution, provider launch, remote
+execution, raw source URL export, raw target path export, and upstream body
+export remain denied. The pass-2 handoff packet embeds the same contract so the
+operator can reject a pass before replaying selected or queued bounded lanes.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

@@ -1275,6 +1275,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
         evidence_strength=evidence_strength,
     )
+    profile_lane_acceptance_contract = skill_route_discovery_profile_lane_acceptance_contract(
+        route_profile_review=route_profile_review,
+        mixed_local_lane_probe=mixed_local_lane_probe,
+    )
     activity_signal_panel = skill_route_discovery_activity_signal_panel(
         proposal_lanes=proposal_lanes,
         activation_gate=activation_gate,
@@ -1353,6 +1357,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         pass_validation_replay_queue=pass_validation_replay_queue,
         mixed_local_lane_probe=mixed_local_lane_probe,
         validation_readiness_summary=validation_readiness_summary,
+        profile_lane_acceptance_contract=profile_lane_acceptance_contract,
     )
     pass3_handoff_packet = skill_route_discovery_pass3_handoff_packet(
         raw_input=raw_input,
@@ -1444,6 +1449,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "evidence_lane_matrix": evidence_lane_matrix,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
+        "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
         "activity_signal_panel": activity_signal_panel,
         "generic_validation_prompt": generic_validation_prompt,
         "preactivation_lane_selection": preactivation_lane_selection,
@@ -4101,6 +4107,7 @@ def skill_route_discovery_pass2_handoff_packet(
     pass_validation_replay_queue: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
     validation_readiness_summary: dict[str, Any],
+    profile_lane_acceptance_contract: dict[str, Any],
 ) -> dict[str, Any]:
     """Expose pass-2 bounded lane continuation before secondary harness routing."""
 
@@ -4162,6 +4169,9 @@ def skill_route_discovery_pass2_handoff_packet(
     readiness_status = optional_string(validation_readiness_summary.get("status")) or ""
     if readiness_status != "ready":
         diagnostics.append("validation_readiness_summary_not_ready")
+    profile_contract_status = optional_string(profile_lane_acceptance_contract.get("status")) or ""
+    if profile_contract_status != "ready":
+        diagnostics.append("profile_lane_acceptance_contract_not_ready")
 
     mixed_status = optional_string(mixed_local_lane_probe.get("status")) or ""
     mixed_primary_route = optional_string(mixed_local_lane_probe.get("primary_route")) or "skill_route_discovery"
@@ -4354,6 +4364,7 @@ def skill_route_discovery_pass2_handoff_packet(
         "secondary_lane_status": secondary_lane_status,
         "secondary_harness_eval_allowed": False,
         "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
+        "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
         "operator_checkpoint_list": {
             "controller_surface": "skill_route_discovery_pass2_operator_checkpoint_list",
             "status": "ready" if ready else "not_applicable" if current_pass != 2 else "blocked",
@@ -8359,6 +8370,148 @@ def skill_route_discovery_route_profile_review(
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
         "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_profile_lane_acceptance_contract(
+    *,
+    route_profile_review: dict[str, Any],
+    mixed_local_lane_probe: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize which bounded lanes each route profile may enter."""
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS,
+    )
+
+    review_rows = route_profile_review.get("rows")
+    review_rows = review_rows if isinstance(review_rows, list) else []
+    mixed_rows = mixed_local_lane_probe.get("rows")
+    mixed_rows = mixed_rows if isinstance(mixed_rows, list) else []
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for index, raw_row in enumerate(review_rows):
+        review_row = raw_row if isinstance(raw_row, dict) else {}
+        profile = optional_string(review_row.get("route_profile")) or "generic_skill_workflow"
+        contract = SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS.get(
+            profile,
+            SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS["generic_skill_workflow"],
+        )
+        proposal_kinds = [
+            kind
+            for kind in string_list(review_row.get("proposal_kinds"))
+            if kind in allowed_lanes
+        ]
+        preferred_lanes = [
+            lane
+            for lane in [str(value) for value in contract.get("preferred_lanes", ())]
+            if lane in proposal_kinds
+        ]
+        selected_first_lane = preferred_lanes[0] if preferred_lanes else ""
+        validation_scope = f"local_{selected_first_lane}_lane_only" if selected_first_lane else ""
+        first_route_required = profile == "codex_workflow_gate"
+        first_route_confirmed = True
+        if first_route_required:
+            first_route_confirmed = any(
+                isinstance(row, dict)
+                and profile in string_list(row.get("route_profiles"))
+                and str(row.get("route_probe_decision") or "") == "skill_route_discovery_first"
+                and str(row.get("primary_route") or "") == "skill_route_discovery"
+                and str(row.get("secondary_lane_status") or "") == "blocked_until_local_corroboration"
+                for row in mixed_rows
+            )
+
+        acceptance_gates = {
+            "profile_review_ready": route_profile_review.get("status") == "ready",
+            "bounded_lanes_only": bool(proposal_kinds)
+            and set(proposal_kinds) <= allowed_lanes,
+            "metadata_complete": review_row.get("metadata_complete") is True,
+            "local_validation_required": review_row.get("local_validation_required") is True,
+            "runtime_action_none": str(review_row.get("runtime_action") or "") == "none",
+            "first_route_confirmed": first_route_confirmed,
+            "external_skill_activation_denied": review_row.get("external_skill_activation_allowed") is False,
+            "provider_runtime_launch_denied": True,
+            "remote_execution_denied": True,
+            "raw_source_urls_not_exported": review_row.get("raw_source_urls_exported") is False,
+            "raw_target_paths_not_exported": review_row.get("raw_target_paths_exported") is False,
+            "raw_upstream_body_not_exported": review_row.get("raw_upstream_body_exported") is False,
+        }
+        row_diagnostics = [
+            gate for gate, passed in acceptance_gates.items() if passed is not True
+        ]
+        diagnostics.extend(f"rows[{index}].{profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "route_profile": profile,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "decision": "profile_lane_ready_for_bounded_local_validation"
+                if not row_diagnostics
+                else "repair_profile_lane_before_local_validation",
+                "validation_gate": str(contract.get("validation_gate") or ""),
+                "blocked_activation_reason": str(contract.get("blocked_activation_reason") or ""),
+                "allowed_local_lanes": proposal_kinds,
+                "preferred_local_lanes": preferred_lanes,
+                "selected_first_local_lane": selected_first_lane,
+                "validation_scope": validation_scope,
+                "required_metadata": [str(value) for value in contract.get("required_metadata", ())],
+                "expected_metadata": string_list(review_row.get("expected_metadata")),
+                "acceptance_gates": acceptance_gates,
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_profile_lane_acceptance_contract",
+        "status": "ready" if ready else "blocked",
+        "decision": "profile_lanes_ready_for_bounded_local_validation"
+        if ready
+        else "repair_profile_lane_contract_before_activation",
+        "profile_count": len(rows),
+        "ready_profile_count": sum(1 for row in rows if row["status"] == "ready"),
+        "blocked_profile_count": sum(1 for row in rows if row["status"] != "ready"),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "route_profiles": [row["route_profile"] for row in rows],
+        "selected_first_local_lanes": sorted(
+            {
+                row["selected_first_local_lane"]
+                for row in rows
+                if row["selected_first_local_lane"]
+            }
+        ),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,

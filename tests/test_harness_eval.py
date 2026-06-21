@@ -2650,6 +2650,43 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
     ]
+    profile_contract = output["profile_lane_acceptance_contract"]
+    assert profile_contract["controller_surface"] == "skill_route_discovery_profile_lane_acceptance_contract"
+    assert profile_contract["status"] == "ready"
+    assert profile_contract["decision"] == "profile_lanes_ready_for_bounded_local_validation"
+    assert profile_contract["profile_count"] == 3
+    assert profile_contract["ready_profile_count"] == 3
+    assert profile_contract["blocked_profile_count"] == 0
+    assert profile_contract["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert profile_contract["selected_first_local_lanes"] == ["config", "test"]
+    assert profile_contract["evidence_ref_mode"] == "selected_item_ids_only"
+    profile_rows = {row["route_profile"]: row for row in profile_contract["rows"]}
+    assert profile_rows["codex_workflow_gate"]["validation_gate"] == (
+        "skill_route_discovery_first_before_workflow_gate"
+    )
+    assert profile_rows["codex_workflow_gate"]["selected_first_local_lane"] == "test"
+    assert profile_rows["codex_workflow_gate"]["validation_scope"] == "local_test_lane_only"
+    assert profile_rows["codex_workflow_gate"]["acceptance_gates"]["first_route_confirmed"] is True
+    assert profile_rows["game_frontend_workflow"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert profile_rows["game_frontend_workflow"]["selected_first_local_lane"] == "test"
+    assert profile_rows["game_frontend_workflow"]["validation_scope"] == "local_test_lane_only"
+    assert profile_rows["skill_ecosystem_state_handoff"]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert profile_rows["skill_ecosystem_state_handoff"]["selected_first_local_lane"] == "config"
+    assert profile_rows["skill_ecosystem_state_handoff"]["validation_scope"] == "local_config_lane_only"
+    assert all(row["local_validation_required"] is True for row in profile_contract["rows"])
+    assert all(row["runtime_action"] == "none" for row in profile_contract["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_contract["rows"])
+    assert profile_contract["runtime_action_allowed"] is False
+    assert profile_contract["external_skill_activation_allowed"] is False
+    assert profile_contract["provider_runtime_launch_allowed"] is False
+    assert profile_contract["remote_execution_allowed"] is False
+    assert profile_contract["raw_evidence_urls_exported"] is False
+    assert profile_contract["raw_source_urls_exported"] is False
+    assert profile_contract["raw_upstream_body_exported"] is False
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["current_pass"] == 2
@@ -2759,6 +2796,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert pass2_packet["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
     assert pass2_packet["secondary_lane_status"] == "blocked_until_local_corroboration"
     assert pass2_packet["secondary_harness_eval_allowed"] is False
+    assert pass2_packet["profile_lane_acceptance_contract"] == profile_contract
     checkpoints = pass2_packet["operator_checkpoint_list"]
     assert checkpoints["controller_surface"] == "skill_route_discovery_pass2_operator_checkpoint_list"
     assert checkpoints["status"] == "ready"
