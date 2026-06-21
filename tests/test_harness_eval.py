@@ -3163,6 +3163,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     validation_plan = output["validation_lane_plan"]
     current_action = output["current_action"]
     profile_replay = output["profile_validation_replay"]
+    replay_queue = output["pass_validation_replay_queue"]
     serialized = json.dumps(output, sort_keys=True)
 
     assert output["route_status"] == "passed"
@@ -3349,6 +3350,46 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert profile_replay["raw_evidence_urls_exported"] is False
     assert profile_replay["raw_source_urls_exported"] is False
     assert profile_replay["raw_upstream_body_exported"] is False
+    assert replay_queue["controller_surface"] == "skill_route_discovery_pass_validation_replay_queue"
+    assert replay_queue["status"] == "ready"
+    assert replay_queue["decision"] == "replay_selected_pass_lane_then_queued_bounded_lanes"
+    assert replay_queue["current_pass"] == 3
+    assert replay_queue["next_pass"] == 4
+    assert replay_queue["selected_local_lane"] == "test"
+    assert replay_queue["queued_local_lanes"] == ["config"]
+    assert replay_queue["queue_count"] == 2
+    assert replay_queue["selected_queue_count"] == 1
+    assert replay_queue["queued_queue_count"] == 1
+    assert replay_queue["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert replay_queue["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs-game",
+        "p3-skill-route-discovery-fablecodex",
+    ]
+    assert replay_queue["rows"][0]["queue_role"] == "selected_current_pass_lane"
+    assert replay_queue["rows"][0]["selected_local_lane"] == "test"
+    assert replay_queue["rows"][0]["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+    ]
+    assert replay_queue["rows"][0]["evidence_item_ids"] == [
+        "p2-skill-route-discovery-threejs-game",
+        "p3-skill-route-discovery-fablecodex",
+    ]
+    assert replay_queue["rows"][1]["queue_role"] == "queued_bounded_lane"
+    assert replay_queue["rows"][1]["selected_local_lane"] == "config"
+    assert replay_queue["rows"][1]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert replay_queue["rows"][1]["evidence_item_ids"] == ["p1-skill-route-discovery-compass"]
+    assert all(row["runtime_action"] == "none" for row in replay_queue["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in replay_queue["rows"])
+    assert replay_queue["required_validation"] == skill_route_discovery_preactivation_validation_commands()
+    assert replay_queue["raw_evidence_urls_exported"] is False
+    assert replay_queue["raw_source_urls_exported"] is False
+    assert replay_queue["raw_upstream_body_exported"] is False
     assert selection["runtime_action_allowed"] is False
     assert selection["external_skill_activation_allowed"] is False
     assert selection["provider_runtime_launch_allowed"] is False

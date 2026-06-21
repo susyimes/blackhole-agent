@@ -1335,6 +1335,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     profile_validation_replay = skill_route_discovery_profile_validation_replay(
         validation_lane_plan=validation_lane_plan,
     )
+    pass_validation_replay_queue = skill_route_discovery_pass_validation_replay_queue(
+        current_action=current_action,
+        validation_lane_plan=validation_lane_plan,
+        profile_validation_replay=profile_validation_replay,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -1423,6 +1428,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "validation_readiness_summary": validation_readiness_summary,
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
+        "pass_validation_replay_queue": pass_validation_replay_queue,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -3677,6 +3683,162 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass_validation_replay_queue(
+    *,
+    current_action: dict[str, Any],
+    validation_lane_plan: dict[str, Any],
+    profile_validation_replay: dict[str, Any],
+) -> dict[str, Any]:
+    """Render the current pass and queued bounded lanes as one supervisor replay packet."""
+
+    status = str(current_action.get("status") or "")
+    selected_lane = optional_string(current_action.get("selected_local_lane")) or ""
+    queued_targets = current_action.get("queued_validation_targets")
+    queued_targets = queued_targets if isinstance(queued_targets, list) else []
+    queue_rows: list[dict[str, Any]] = []
+
+    if selected_lane and selected_lane != "none":
+        queue_rows.append(
+            {
+                "queue_position": 1,
+                "queue_role": "selected_current_pass_lane",
+                "selected_local_lane": selected_lane,
+                "validation_scope": optional_string(current_action.get("validation_scope"))
+                or f"local_{selected_lane}_lane_only",
+                "route_profiles": string_list(current_action.get("route_profiles")),
+                "route_profile_count": int(current_action.get("route_profile_count") or 0),
+                "evidence_item_ids": string_list(current_action.get("evidence_item_ids")),
+                "evidence_item_id_count": int(current_action.get("evidence_item_id_count") or 0),
+                "candidate_source_hashes": string_list(current_action.get("candidate_source_hashes")),
+                "candidate_source_count": int(current_action.get("candidate_source_count") or 0),
+                "replay_commands": string_list(current_action.get("required_validation")),
+                "provider_runtime_replay_commands": string_list(
+                    current_action.get("provider_runtime_replay_commands")
+                ),
+                "supervisor_next_action": str(current_action.get("supervisor_next_action") or ""),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    for queued_target in queued_targets:
+        if not isinstance(queued_target, dict):
+            continue
+        queued_lane = optional_string(queued_target.get("selected_local_lane")) or ""
+        if not queued_lane:
+            continue
+        queue_rows.append(
+            {
+                "queue_position": len(queue_rows) + 1,
+                "queue_role": "queued_bounded_lane",
+                "selected_local_lane": queued_lane,
+                "validation_scope": optional_string(queued_target.get("validation_scope"))
+                or f"local_{queued_lane}_lane_only",
+                "route_profiles": string_list(queued_target.get("route_profiles")),
+                "route_profile_count": int(queued_target.get("route_profile_count") or 0),
+                "evidence_item_ids": string_list(queued_target.get("evidence_item_ids")),
+                "evidence_item_id_count": int(queued_target.get("evidence_item_id_count") or 0),
+                "candidate_source_hashes": string_list(queued_target.get("candidate_source_hashes")),
+                "candidate_source_count": int(queued_target.get("candidate_source_count") or 0),
+                "replay_commands": string_list(current_action.get("required_validation")),
+                "provider_runtime_replay_commands": string_list(
+                    current_action.get("provider_runtime_replay_commands")
+                ),
+                "supervisor_next_action": "replay_after_selected_current_pass_lane",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
+    replay_diagnostics = string_list(profile_validation_replay.get("diagnostics"))
+    diagnostics = sorted(dict.fromkeys((*plan_diagnostics, *replay_diagnostics)))
+    ready = status == "ready" and bool(queue_rows) and not diagnostics
+    selected_queue_count = sum(1 for row in queue_rows if row["queue_role"] == "selected_current_pass_lane")
+    queued_queue_count = sum(1 for row in queue_rows if row["queue_role"] == "queued_bounded_lane")
+
+    return {
+        "controller_surface": "skill_route_discovery_pass_validation_replay_queue",
+        "status": "ready" if ready else "blocked" if not queue_rows else "review",
+        "decision": "replay_selected_pass_lane_then_queued_bounded_lanes"
+        if ready
+        else "repair_validation_plan_before_pass_replay",
+        "current_pass": int(current_action.get("current_pass") or 0),
+        "next_pass": int(current_action.get("next_pass") or 0),
+        "total_passes": int(current_action.get("total_passes") or 0),
+        "remaining_pass_count": int(current_action.get("remaining_pass_count") or 0),
+        "selected_local_lane": selected_lane or "none",
+        "queued_local_lanes": [
+            row["selected_local_lane"] for row in queue_rows if row["queue_role"] == "queued_bounded_lane"
+        ],
+        "queue_count": len(queue_rows),
+        "selected_queue_count": selected_queue_count,
+        "queued_queue_count": queued_queue_count,
+        "route_profiles": sorted(
+            {
+                profile
+                for row in queue_rows
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_ids": sorted(
+            {
+                item_id
+                for row in queue_rows
+                for item_id in string_list(row.get("evidence_item_ids"))
+            }
+        ),
+        "candidate_source_hashes": sorted(
+            {
+                source_hash
+                for row in queue_rows
+                for source_hash in string_list(row.get("candidate_source_hashes"))
+            }
+        ),
+        "rows": queue_rows,
+        "diagnostics": diagnostics,
+        "required_validation": string_list(current_action.get("required_validation")),
+        "provider_runtime_replay_commands": string_list(
+            current_action.get("provider_runtime_replay_commands")
+        ),
+        "plan_basis": "current_action_and_profile_validation_replay",
+        "local_validation_required": True,
+        "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,

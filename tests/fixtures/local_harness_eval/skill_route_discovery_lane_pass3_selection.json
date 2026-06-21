@@ -138,6 +138,26 @@
     {
       "path": "preactivation_lane_selection.external_skill_activation_allowed",
       "equals": false
+    },
+    {
+      "path": "pass_validation_replay_queue.status",
+      "equals": "ready"
+    },
+    {
+      "path": "pass_validation_replay_queue.rows.0.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "pass_validation_replay_queue.rows.1.selected_local_lane",
+      "equals": "config"
+    },
+    {
+      "path": "pass_validation_replay_queue.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass_validation_replay_queue.external_skill_activation_allowed",
+      "equals": false
     }
   ]
 }

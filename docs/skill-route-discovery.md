@@ -837,6 +837,18 @@ IDs, route profiles, hashed candidate sources, and the same denials; they are
 not permission to install, enable, run, scaffold, write profiles, write memory,
 export raw URLs, or execute upstream skill code.
 
+The harness also emits `pass_validation_replay_queue`, a single replay packet
+for the current pass. The first row is the selected `current_action` lane and
+later rows are queued bounded lanes, so a pass-3 window can show the
+FableCodex/Three.js local `test` replay before the COMPASS-style `config`
+handoff without requiring operators to compare multiple panels. The packet
+exports only selected item IDs, route profiles, candidate source hashes, local
+validation commands, provider-runtime replay commands, and queue roles. It is
+not an activation request: runtime action, external skill activation, external
+skill code, external harness execution, provider launch, remote execution, raw
+evidence URLs, raw source URLs, raw target paths, and upstream bodies remain
+denied.
+
 Pass-1 windows use the same row. A COMPASS, Three.js Game Skills, and
 FableCodex-style discovery window should expose the first concrete local replay
 target as `current_action.selected_local_lane` instead of requiring the
