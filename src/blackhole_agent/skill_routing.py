@@ -115,6 +115,48 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
         "task forest",
     ),
 }
+SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS: Mapping[str, Mapping[str, Any]] = {
+    "codex_workflow_gate": {
+        "validation_gate": "skill_route_discovery_first_before_workflow_gate",
+        "preferred_lanes": ("test", "documentation", "config", "code_patch"),
+        "required_metadata": (
+            "skill_route_discovery_first",
+            "body_free_workflow_summary",
+            "local_gate_or_test_target",
+        ),
+        "blocked_activation_reason": "secondary_workflow_gate_blocked_until_local_corroboration",
+    },
+    "game_frontend_workflow": {
+        "validation_gate": "local_frontend_validation_before_game_skill_activation",
+        "preferred_lanes": ("test", "documentation", "code_patch", "config"),
+        "required_metadata": (
+            "body_free_game_skill_summary",
+            "local_frontend_validation_target",
+            "asset_or_provider_boundary_note",
+        ),
+        "blocked_activation_reason": "upstream_scaffold_or_provider_boundary_not_validated",
+    },
+    "skill_ecosystem_state_handoff": {
+        "validation_gate": "state_handoff_boundary_before_profile_or_memory_write",
+        "preferred_lanes": ("config", "test", "documentation", "code_patch"),
+        "required_metadata": (
+            "state_retention_boundary",
+            "privacy_boundary",
+            "local_target_metadata_only",
+        ),
+        "blocked_activation_reason": "profile_or_memory_write_blocked_until_local_boundary_validation",
+    },
+    "generic_skill_workflow": {
+        "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+        "preferred_lanes": ("documentation", "test", "config", "code_patch"),
+        "required_metadata": (
+            "selected_digest_item_ids_or_frozen_digest_evidence",
+            "body_free_repository_summary",
+            "local_artifact_target",
+        ),
+        "blocked_activation_reason": "generic_skill_evidence_requires_local_corroboration",
+    },
+}
 
 VALIDATION_WEIGHTS: Mapping[str, int] = {
     "validated": 12,
@@ -704,17 +746,20 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
         probe_metadata = _skill_route_discovery_mixed_probe_metadata(candidate, allowed_lanes)
         state_boundary_metadata = _skill_route_discovery_state_boundary_metadata(candidate)
+        route_profiles = _string_list(candidate.get("route_profiles"))
+        validation_contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
         candidate_lane_inventory.append(
             {
                 "candidate_name": name,
                 "source_url": source_url,
                 "proposal_kinds": list(dict.fromkeys(allowed_lanes)),
-                "route_profiles": _string_list(candidate.get("route_profiles")),
+                "route_profiles": route_profiles,
                 "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
                 "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                 "discovery_event_effect": str(candidate.get("discovery_event_effect") or "record_only"),
                 "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
                 "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
+                "route_validation_contract": validation_contract,
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -727,6 +772,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         )
 
         for lane in allowed_lanes:
+            lane_validation_contract = _skill_route_discovery_validation_contract(route_profiles, (lane,))
             proposal_lanes.append(
                 {
                     "candidate_name": name,
@@ -734,12 +780,13 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                     "source_url": source_url,
                     "proposal_kind": lane,
-                    "route_profiles": _string_list(candidate.get("route_profiles")),
+                    "route_profiles": route_profiles,
                     "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
                     "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
                     "status": SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
                     "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
                     "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
+                    "route_validation_contract": lane_validation_contract,
                     "local_validation_required": True,
                     "runtime_action": "none",
                     "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
@@ -942,6 +989,67 @@ def _skill_route_discovery_state_boundary_metadata(candidate: Mapping[str, Any])
             "upstream_presence_grants_write": False,
             "review_surface": "skill_route_discovery_state_handoff_preflight",
         }
+    }
+
+
+def _skill_route_discovery_validation_contract(
+    route_profiles: Sequence[str],
+    allowed_lanes: Sequence[str],
+) -> dict[str, Any]:
+    """Return profile-specific local validation gates before activation.
+
+    The contract is derived only from local route profile names and already
+    bounded lanes. It does not add lanes or imply upstream skill activation.
+    """
+
+    bounded_lanes = list(
+        dict.fromkeys(str(lane) for lane in allowed_lanes if str(lane) in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    )
+    profiles = list(dict.fromkeys(str(profile) for profile in route_profiles if str(profile).strip()))
+    if not profiles:
+        profiles = ["generic_skill_workflow"]
+
+    rows: list[dict[str, Any]] = []
+    for profile in profiles:
+        contract = SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS.get(
+            profile,
+            SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS["generic_skill_workflow"],
+        )
+        preferred_lanes = [
+            lane
+            for lane in contract["preferred_lanes"]
+            if lane in bounded_lanes
+        ]
+        rows.append(
+            {
+                "route_profile": profile,
+                "validation_gate": contract["validation_gate"],
+                "allowed_local_lanes": bounded_lanes,
+                "preferred_local_lanes": preferred_lanes,
+                "required_metadata": list(contract["required_metadata"]),
+                "blocked_activation_reason": contract["blocked_activation_reason"],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_route_validation_contract",
+        "status": "ready" if bounded_lanes else "blocked_no_allowed_lanes",
+        "route_profiles": profiles,
+        "allowed_local_lanes": bounded_lanes,
+        "row_count": len(rows),
+        "rows": rows,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_activation_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

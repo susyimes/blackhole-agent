@@ -537,6 +537,42 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     compass_inventory = next(
         row for row in lane_map["candidate_lane_inventory"] if row["candidate_name"] == "compass-skills"
     )
+    compass_contract = compass_inventory["route_validation_contract"]
+    assert compass_contract["controller_surface"] == "skill_route_discovery_route_validation_contract"
+    assert compass_contract["status"] == "ready"
+    assert compass_contract["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert compass_contract["allowed_local_lanes"] == ["config", "test", "documentation", "code_patch"]
+    assert compass_contract["rows"][0]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert compass_contract["rows"][0]["preferred_local_lanes"] == [
+        "config",
+        "test",
+        "documentation",
+        "code_patch",
+    ]
+    fablecodex_lanes = [
+        lane for lane in lane_map["proposal_lanes"] if lane["candidate_name"] == "codex-fable5"
+    ]
+    assert {
+        lane["route_validation_contract"]["rows"][0]["validation_gate"]
+        for lane in fablecodex_lanes
+    } == {"skill_route_discovery_first_before_workflow_gate"}
+    assert all(
+        lane["route_validation_contract"]["allowed_local_lanes"] == [lane["proposal_kind"]]
+        for lane in fablecodex_lanes
+    )
+    threejs_inventory = next(
+        row for row in lane_map["candidate_lane_inventory"] if row["candidate_name"] == "threejs-game-skills"
+    )
+    assert threejs_inventory["route_validation_contract"]["rows"][0]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert threejs_inventory["route_validation_contract"]["rows"][0]["preferred_local_lanes"] == [
+        "test",
+        "documentation",
+        "code_patch",
+    ]
     assert compass_inventory["state_profile_boundary"] == {
         "boundary_required_before_activation": True,
         "retention_policy_required": True,
@@ -810,6 +846,39 @@ def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
             "discovery_event_effect": "record_only",
             "evidence_item_ids": [],
             "evidence_urls": ["https://github.com/example/lane-overreach"],
+            "route_validation_contract": {
+                "controller_surface": "skill_route_discovery_route_validation_contract",
+                "status": "ready",
+                "route_profiles": ["generic_skill_workflow"],
+                "allowed_local_lanes": ["documentation"],
+                "row_count": 1,
+                "rows": [
+                    {
+                        "route_profile": "generic_skill_workflow",
+                        "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                        "allowed_local_lanes": ["documentation"],
+                        "preferred_local_lanes": ["documentation"],
+                        "required_metadata": [
+                            "selected_digest_item_ids_or_frozen_digest_evidence",
+                            "body_free_repository_summary",
+                            "local_artifact_target",
+                        ],
+                        "blocked_activation_reason": "generic_skill_evidence_requires_local_corroboration",
+                        "local_validation_required": True,
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "raw_upstream_body_exported": False,
+                    }
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_activation_allowed": False,
+                "provider_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            },
             "local_validation_required": True,
             "runtime_action": "none",
             "external_skill_activation_allowed": False,

@@ -1,0 +1,16 @@
+# Rollback Point: skill-route-discovery-pass1
+
+Created: 2026-06-21T09:52:06Z
+Original branch: codex/blackhole-evolve/20260621T095352.279901-add-or-extend-local-validation-coverage-for-disc
+Original HEAD: 0c983330727912e87447adc8d3e154ddc414dde0
+Rollback ref: refs/rollback/20260621T095206Z-skill-route-discovery-pass1
+
+Recovery commands (destructive, operator-approved only):
+
+```powershell
+git switch codex/blackhole-evolve/20260621T095352.279901-add-or-extend-local-validation-coverage-for-disc
+git reset --hard refs/rollback/20260621T095206Z-skill-route-discovery-pass1
+git clean -fd
+```
+
+Do not run these commands automatically. This artifact records the recovery path for this self-modification run.

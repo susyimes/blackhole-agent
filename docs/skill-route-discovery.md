@@ -1378,6 +1378,18 @@ before any broader harness evaluation. The recommended lane order is filtered
 to lanes already present on that candidate, and the allowed proposal kinds
 remain only documentation, config, test, and code_patch.
 
+The core lane map also emits a `route_validation_contract` on every candidate
+inventory row and proposal-lane row. This contract is derived only from
+body-free route profiles and already bounded lanes; it does not inspect
+upstream skill bodies and it cannot add lanes. `codex_workflow_gate` rows use
+`skill_route_discovery_first_before_workflow_gate`, `game_frontend_workflow`
+rows use `local_frontend_validation_before_game_skill_activation`, and
+`skill_ecosystem_state_handoff` rows use
+`state_handoff_boundary_before_profile_or_memory_write`. Each row repeats
+`local_validation_required: true`, `runtime_action: none`, denied external
+skill activation, denied provider launch, denied remote execution, and denied
+raw upstream body export before activation.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy
