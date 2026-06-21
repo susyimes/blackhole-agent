@@ -4860,6 +4860,13 @@ def skill_route_discovery_pass3_handoff_packet(
         profile_lane_acceptance_contract=profile_lane_acceptance_contract,
         diagnostics=diagnostics,
     )
+    profile_validation_proof = skill_route_discovery_pass3_profile_validation_proof(
+        ready=ready,
+        raw_input=raw_input,
+        rows=rows,
+        profile_activation_gates=profile_activation_gates,
+        diagnostics=diagnostics,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -4902,6 +4909,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "secondary_lane_status": mixed_probe_secondary_status,
         "final_pass_replay_checklist": final_pass_replay_checklist,
         "profile_activation_gates": profile_activation_gates,
+        "profile_validation_proof": profile_validation_proof,
         "operator_checkpoint_list": {
             "controller_surface": "skill_route_discovery_pass3_operator_checkpoint_list",
             "status": "ready" if ready else "not_applicable" if current_pass != 3 else "blocked",
@@ -4936,6 +4944,154 @@ def skill_route_discovery_pass3_handoff_packet(
         "provider_runtime_replay_commands": string_list(
             current_action.get("provider_runtime_replay_commands")
         ),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_profile_validation_proof(
+    *,
+    ready: bool,
+    raw_input: dict[str, Any],
+    rows: list[dict[str, Any]],
+    profile_activation_gates: dict[str, Any],
+    diagnostics: list[str],
+) -> dict[str, Any]:
+    """Prove each pass-3 route profile has a bounded local lane before activation."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    local_artifact_proofs = raw_input.get("local_artifact_proofs")
+    local_artifact_proofs = local_artifact_proofs if isinstance(local_artifact_proofs, list) else []
+    proof_lanes = {
+        str(proof.get("proposal_kind") or "")
+        for proof in local_artifact_proofs
+        if isinstance(proof, dict)
+    }
+    gate_rows = profile_activation_gates.get("rows")
+    gate_rows = gate_rows if isinstance(gate_rows, list) else []
+    gate_by_profile = {
+        str(row.get("route_profile") or ""): row
+        for row in gate_rows
+        if isinstance(row, dict) and str(row.get("route_profile") or "").strip()
+    }
+    source_rows: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        for profile in string_list(row.get("route_profiles")):
+            entry = source_rows.setdefault(
+                profile,
+                {
+                    "route_profile": profile,
+                    "selected_local_lanes": [],
+                    "queue_roles": [],
+                    "evidence_item_ids": [],
+                    "candidate_source_hashes": [],
+                    "required_validation": [],
+                    "provider_runtime_replay_commands": [],
+                },
+            )
+            if selected_lane:
+                entry["selected_local_lanes"].append(selected_lane)
+            entry["queue_roles"].append(optional_string(row.get("queue_role")) or "queued_bounded_lane")
+            entry["evidence_item_ids"].extend(string_list(row.get("evidence_item_ids")))
+            entry["candidate_source_hashes"].extend(string_list(row.get("candidate_source_hashes")))
+            entry["required_validation"].extend(string_list(row.get("replay_commands")))
+            entry["provider_runtime_replay_commands"].extend(
+                string_list(row.get("provider_runtime_replay_commands"))
+            )
+
+    proof_rows: list[dict[str, Any]] = []
+    proof_diagnostics = list(diagnostics)
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    for profile in sorted(set(source_rows) | set(gate_by_profile)):
+        source_row = source_rows.get(profile, {})
+        gate_row = gate_by_profile.get(profile, {})
+        selected_lanes = sorted(dict.fromkeys(string_list(source_row.get("selected_local_lanes"))))
+        lane = selected_lanes[0] if len(selected_lanes) == 1 else ""
+        row_blockers: list[str] = []
+        if not lane or lane not in allowed_lanes:
+            row_blockers.append("missing_bounded_selected_lane")
+        if lane and lane not in proof_lanes:
+            row_blockers.append("missing_local_artifact_proof_for_lane")
+        if not string_list(source_row.get("evidence_item_ids")):
+            row_blockers.append("missing_selected_item_ids")
+        if not string_list(source_row.get("candidate_source_hashes")):
+            row_blockers.append("missing_candidate_source_hashes")
+        if gate_row.get("acceptance_contract_ready") is not True:
+            row_blockers.append("profile_acceptance_contract_not_ready")
+        if not string_list(source_row.get("required_validation")):
+            row_blockers.append("missing_required_validation")
+
+        proof_diagnostics.extend(f"{profile}:{blocker}" for blocker in row_blockers)
+        proof_rows.append(
+            {
+                "route_profile": profile,
+                "status": "ready" if ready and not row_blockers else "blocked",
+                "decision": "profile_has_bounded_local_validation_proof"
+                if ready and not row_blockers
+                else "repair_profile_validation_proof_before_activation",
+                "selected_local_lane": lane,
+                "queue_roles": sorted(dict.fromkeys(string_list(source_row.get("queue_roles")))),
+                "validation_gate": optional_string(gate_row.get("validation_gate")) or "",
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": sorted(dict.fromkeys(string_list(source_row.get("evidence_item_ids")))),
+                "candidate_source_hashes": sorted(
+                    dict.fromkeys(string_list(source_row.get("candidate_source_hashes")))
+                ),
+                "local_artifact_proof_present": bool(lane and lane in proof_lanes),
+                "required_validation": sorted(
+                    dict.fromkeys(string_list(source_row.get("required_validation")))
+                ),
+                "provider_runtime_replay_commands": sorted(
+                    dict.fromkeys(string_list(source_row.get("provider_runtime_replay_commands")))
+                ),
+                "acceptance_contract_ready": gate_row.get("acceptance_contract_ready") is True,
+                "blockers": sorted(dict.fromkeys(row_blockers)),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row["route_profile"] for row in proof_rows if row["status"] != "ready"]
+    proof_ready = bool(proof_rows) and ready and not blocked_rows
+    return {
+        "controller_surface": "skill_route_discovery_pass3_profile_validation_proof",
+        "status": "ready" if proof_ready else "blocked",
+        "decision": "profiles_have_bounded_local_validation_proof"
+        if proof_ready
+        else "repair_profile_validation_proof_before_final_activation",
+        "validation_gate": "focused-evidence-review",
+        "profile_count": len(proof_rows),
+        "ready_profile_count": len(proof_rows) - len(blocked_rows),
+        "blocked_profile_count": len(blocked_rows),
+        "blocked_profiles": blocked_rows,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "local_artifact_proof_lanes": sorted(lane for lane in proof_lanes if lane in allowed_lanes),
+        "rows": proof_rows,
+        "diagnostics": sorted(dict.fromkeys(proof_diagnostics)),
         "local_validation_required": True,
         "body_free": True,
         "runtime_action_allowed": False,

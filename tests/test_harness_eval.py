@@ -4382,6 +4382,53 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert profile_gates["raw_evidence_urls_exported"] is False
     assert profile_gates["raw_source_urls_exported"] is False
     assert profile_gates["raw_upstream_body_exported"] is False
+    validation_proof = pass3_handoff["profile_validation_proof"]
+    assert validation_proof["controller_surface"] == "skill_route_discovery_pass3_profile_validation_proof"
+    assert validation_proof["status"] == "ready"
+    assert validation_proof["decision"] == "profiles_have_bounded_local_validation_proof"
+    assert validation_proof["validation_gate"] == "focused-evidence-review"
+    assert validation_proof["profile_count"] == 3
+    assert validation_proof["ready_profile_count"] == 3
+    assert validation_proof["blocked_profile_count"] == 0
+    assert validation_proof["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert validation_proof["local_artifact_proof_lanes"] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    proof_rows = {row["route_profile"]: row for row in validation_proof["rows"]}
+    assert proof_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert proof_rows["codex_workflow_gate"]["validation_gate"] == (
+        "skill_route_discovery_first_before_workflow_gate"
+    )
+    assert proof_rows["codex_workflow_gate"]["local_artifact_proof_present"] is True
+    assert proof_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert proof_rows["game_frontend_workflow"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert proof_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert proof_rows["skill_ecosystem_state_handoff"]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert proof_rows["skill_ecosystem_state_handoff"]["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
+    assert all(row["status"] == "ready" for row in validation_proof["rows"])
+    assert all(row["blockers"] == [] for row in validation_proof["rows"])
+    assert all(row["local_artifact_proof_present"] is True for row in validation_proof["rows"])
+    assert all(row["acceptance_contract_ready"] is True for row in validation_proof["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in validation_proof["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in validation_proof["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in validation_proof["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in validation_proof["rows"])
+    assert validation_proof["runtime_action_allowed"] is False
+    assert validation_proof["external_skill_activation_allowed"] is False
+    assert validation_proof["external_harness_execution_allowed"] is False
+    assert validation_proof["provider_runtime_launch_allowed"] is False
+    assert validation_proof["raw_evidence_urls_exported"] is False
+    assert validation_proof["raw_source_urls_exported"] is False
+    assert validation_proof["raw_upstream_body_exported"] is False
     checkpoints = pass3_handoff["operator_checkpoint_list"]
     assert checkpoints["controller_surface"] == "skill_route_discovery_pass3_operator_checkpoint_list"
     assert checkpoints["status"] == "ready"
@@ -4485,6 +4532,16 @@ def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready()
     assert profile_gates["status"] == "blocked"
     assert profile_gates["acceptance_contract_status"] == "blocked"
     assert profile_gates["acceptance_contract_ready"] is False
+    validation_proof = pass3_handoff["profile_validation_proof"]
+    proof_rows = {row["route_profile"]: row for row in validation_proof["rows"]}
+    assert validation_proof["status"] == "blocked"
+    assert validation_proof["validation_gate"] == "focused-evidence-review"
+    assert "skill_ecosystem_state_handoff" in validation_proof["blocked_profiles"]
+    assert proof_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
+    assert "profile_acceptance_contract_not_ready" in proof_rows["skill_ecosystem_state_handoff"]["blockers"]
+    assert proof_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
+    assert proof_rows["skill_ecosystem_state_handoff"]["external_skill_activation_allowed"] is False
+    assert proof_rows["skill_ecosystem_state_handoff"]["provider_runtime_launch_allowed"] is False
     assert gate_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
     assert gate_rows["skill_ecosystem_state_handoff"]["acceptance_contract_status"] == "blocked"
     assert "profile_lane_acceptance_contract_not_ready" in (

@@ -1515,6 +1515,17 @@ COMPASS-style state handoff rows expose
 fails, the handoff is blocked before activation while preserving only the
 bounded documentation, config, test, or code_patch lanes.
 
+Pass-3 handoff packets also include `profile_validation_proof`. This packet is
+the focused-evidence-review lane for the active Compass/FableCodex/Three.js
+window: each route profile must have one bounded selected local lane, selected
+item IDs, hashed candidate sources, a matching local artifact proof, required
+local replay commands, and a ready profile acceptance contract. Missing proof
+or a failed acceptance contract blocks that profile before final activation.
+The proof remains body-free and does not install upstream skills, execute
+external harnesses, launch providers, write profile or memory state, perform
+remote execution, or export raw source URLs, raw target paths, or upstream
+bodies.
+
 Pass-4 completion reports include `final_route_handoff_manifest`, a compact
 body-free route manifest for the external supervisor. It presents one row per
 route profile with the selected bounded local lane, operator replay step,
