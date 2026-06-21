@@ -827,6 +827,16 @@ activation, external skill code, external harness execution, provider launch,
 remote execution, raw evidence URLs, raw source URLs, raw target paths, and
 upstream bodies.
 
+When more than one bounded lane is ready, `current_action` also carries
+`queued_validation_targets`. This keeps the first replay target compact while
+making adjacent local work visible: for example, a pass-1 window can select the
+FableCodex/Three.js-style local `test` lane and still show the COMPASS-style
+state-handoff documentation or config lane as queued metadata, depending on
+which local artifact proof is ready. Queued targets repeat only selected item
+IDs, route profiles, hashed candidate sources, and the same denials; they are
+not permission to install, enable, run, scaffold, write profiles, write memory,
+export raw URLs, or execute upstream skill code.
+
 Pass-1 windows use the same row. A COMPASS, Three.js Game Skills, and
 FableCodex-style discovery window should expose the first concrete local replay
 target as `current_action.selected_local_lane` instead of requiring the

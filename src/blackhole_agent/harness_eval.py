@@ -3585,6 +3585,40 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
     next_target = validation_lane_plan.get("next_validation_target")
     next_target = next_target if isinstance(next_target, dict) else {}
     selected_lane = optional_string(next_target.get("selected_local_lane")) or "none"
+    lane_validation_targets = validation_lane_plan.get("lane_validation_targets")
+    lane_validation_targets = lane_validation_targets if isinstance(lane_validation_targets, list) else []
+    queued_targets: list[dict[str, Any]] = []
+    for target in lane_validation_targets:
+        if not isinstance(target, dict) or target is next_target:
+            continue
+        queued_lane = optional_string(target.get("selected_local_lane")) or ""
+        if not queued_lane or queued_lane == selected_lane:
+            continue
+        queued_targets.append(
+            {
+                "selected_local_lane": queued_lane,
+                "validation_scope": optional_string(target.get("validation_scope"))
+                or f"local_{queued_lane}_lane_only",
+                "route_profiles": string_list(target.get("route_profiles")),
+                "route_profile_count": len(string_list(target.get("route_profiles"))),
+                "evidence_item_ids": string_list(target.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(target.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(target.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(target.get("candidate_source_hashes"))),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
     plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
     status = (
         "ready"
@@ -3631,6 +3665,9 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
         "evidence_item_id_count": int(next_target.get("evidence_item_id_count") or 0),
         "candidate_source_hashes": string_list(next_target.get("candidate_source_hashes")),
         "candidate_source_count": int(next_target.get("candidate_source_count") or 0),
+        "queued_validation_targets": queued_targets,
+        "queued_validation_target_count": len(queued_targets),
+        "queued_local_lanes": [target["selected_local_lane"] for target in queued_targets],
         "required_validation": string_list(validation_lane_plan.get("required_validation")),
         "provider_runtime_replay_commands": string_list(
             validation_lane_plan.get("provider_runtime_replay_commands")

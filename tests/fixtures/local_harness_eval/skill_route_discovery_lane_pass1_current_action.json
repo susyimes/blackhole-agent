@@ -133,6 +133,22 @@
       "equals": "test"
     },
     {
+      "path": "current_action.queued_local_lanes",
+      "equals": ["documentation"]
+    },
+    {
+      "path": "current_action.queued_validation_targets.0.route_profiles",
+      "equals": ["skill_ecosystem_state_handoff"]
+    },
+    {
+      "path": "current_action.queued_validation_targets.0.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "current_action.queued_validation_targets.0.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
       "path": "current_action.route_profiles",
       "equals": ["codex_workflow_gate", "game_frontend_workflow"]
     },

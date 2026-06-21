@@ -2995,6 +2995,15 @@ def test_skill_route_discovery_pass1_exposes_current_action_for_mixed_skill_rout
     assert current_action["selected_local_lane"] == "test"
     assert current_action["validation_scope"] == "local_test_lane_only"
     assert current_action["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
+    assert current_action["queued_local_lanes"] == ["documentation"]
+    assert current_action["queued_validation_target_count"] == 1
+    assert current_action["queued_validation_targets"][0]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert current_action["queued_validation_targets"][0]["evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
+    assert current_action["queued_validation_targets"][0]["runtime_action"] == "none"
+    assert current_action["queued_validation_targets"][0]["external_skill_activation_allowed"] is False
+    assert current_action["queued_validation_targets"][0]["raw_evidence_urls_exported"] is False
     assert current_action["evidence_item_ids"] == [
         "p2-skill-route-discovery-threejs",
         "p3-mixed-skill-workflow-routing",
@@ -3133,6 +3142,34 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
             stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
         ],
         "candidate_source_count": 2,
+        "queued_validation_targets": [
+            {
+                "selected_local_lane": "config",
+                "validation_scope": "local_config_lane_only",
+                "route_profiles": ["skill_ecosystem_state_handoff"],
+                "route_profile_count": 1,
+                "evidence_item_ids": ["p1-skill-route-discovery-compass"],
+                "evidence_item_id_count": 1,
+                "candidate_source_hashes": [
+                    stable_text_hash("https://github.com/dongshuyan/compass-skills")
+                ],
+                "candidate_source_count": 1,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        ],
+        "queued_validation_target_count": 1,
+        "queued_local_lanes": ["config"],
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",

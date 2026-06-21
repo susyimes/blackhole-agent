@@ -1,0 +1,17 @@
+Rollback point for source digest github-growth-20260621T003207.749013Z
+
+Original branch:
+codex/blackhole-evolve/20260621T003300.434760-run-a-bounded-skill-route-discovery-validation-f
+
+Original HEAD:
+5fbf2961ea91c1e13c36cee9cc3cb1a16eb31f2b
+
+Local rollback ref:
+5fbf2961ea91c1e13c36cee9cc3cb1a16eb31f2b
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260621T003300.434760-run-a-bounded-skill-route-discovery-validation-f
+git reset --hard 5fbf2961ea91c1e13c36cee9cc3cb1a16eb31f2b
+
+Rollback execution is explicit and destructive. Do not run these commands unless
+a human operator or external supervisor policy chooses rollback.
