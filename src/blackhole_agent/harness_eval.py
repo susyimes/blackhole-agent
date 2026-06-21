@@ -1382,6 +1382,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         pass_validation_replay_queue=pass_validation_replay_queue,
         mixed_local_lane_probe=mixed_local_lane_probe,
+        profile_lane_acceptance_contract=profile_lane_acceptance_contract,
     )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
@@ -5095,6 +5096,7 @@ def skill_route_discovery_pass1_validation_queue(
     raw_input: dict[str, Any],
     pass_validation_replay_queue: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
+    profile_lane_acceptance_contract: dict[str, Any],
 ) -> dict[str, Any]:
     """Map pass-1 anchoring proposals to bounded local replay rows."""
 
@@ -5107,6 +5109,13 @@ def skill_route_discovery_pass1_validation_queue(
     queue_rows = pass_validation_replay_queue.get("rows")
     queue_rows = queue_rows if isinstance(queue_rows, list) else []
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    profile_contract_rows = profile_lane_acceptance_contract.get("rows")
+    profile_contract_rows = profile_contract_rows if isinstance(profile_contract_rows, list) else []
+    profile_contract_by_name = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in profile_contract_rows
+        if isinstance(row, dict)
+    }
 
     rows_by_evidence_id: dict[str, dict[str, Any]] = {}
     for row in queue_rows:
@@ -5202,6 +5211,15 @@ def skill_route_discovery_pass1_validation_queue(
             proposal_id,
             string_list(replay_row.get("route_profiles")),
         )
+        profile_contracts = [
+            skill_route_discovery_pass1_profile_contract_row(
+                proposal_id=proposal_id,
+                selected_local_lane=selected_lane,
+                contract_row=profile_contract_by_name[profile],
+            )
+            for profile in route_profiles
+            if profile in profile_contract_by_name
+        ]
         rows.append(
             {
                 "proposal_id": proposal_id,
@@ -5215,6 +5233,8 @@ def skill_route_discovery_pass1_validation_queue(
                 "evidence_item_id_count": 1,
                 "candidate_source_hashes": string_list(replay_row.get("candidate_source_hashes")),
                 "candidate_source_count": len(string_list(replay_row.get("candidate_source_hashes"))),
+                "profile_contracts": profile_contracts,
+                "profile_contract_count": len(profile_contracts),
                 "ready_for_local_replay": not row_diagnostics,
                 "diagnostics": sorted(dict.fromkeys(row_diagnostics)),
                 "replay_commands": string_list(replay_row.get("replay_commands")),
@@ -5239,6 +5259,13 @@ def skill_route_discovery_pass1_validation_queue(
     skill_rows = [row for row in rows if row["route"] == "skill_route_discovery"]
     adjacent_rows = [row for row in rows if row["route"] == "agent_harness_eval_required"]
     mixed_probe_status = optional_string(mixed_local_lane_probe.get("secondary_lane_status")) or ""
+    profile_contract_rows = [
+        contract
+        for row in skill_rows
+        for contract in (row.get("profile_contracts") if isinstance(row.get("profile_contracts"), list) else [])
+        if isinstance(contract, dict)
+    ]
+    ready_profile_contract_count = sum(1 for row in profile_contract_rows if row.get("status") == "ready")
     ready = (
         current_pass == 1
         and bool(skill_rows)
@@ -5268,6 +5295,11 @@ def skill_route_discovery_pass1_validation_queue(
                 for profile in string_list(row.get("route_profiles"))
             }
         ),
+        "profile_contract_count": len(profile_contract_rows),
+        "ready_profile_contract_count": ready_profile_contract_count,
+        "profile_contract_status": "ready"
+        if profile_contract_rows and ready_profile_contract_count == len(profile_contract_rows)
+        else "blocked",
         "mixed_skill_workflow_secondary_lane_status": mixed_probe_status,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
@@ -5281,6 +5313,55 @@ def skill_route_discovery_pass1_validation_queue(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass1_profile_contract_row(
+    *,
+    proposal_id: str,
+    selected_local_lane: str,
+    contract_row: dict[str, Any],
+) -> dict[str, Any]:
+    """Trim the profile acceptance contract for a pass-1 proposal row."""
+
+    acceptance_gates = contract_row.get("acceptance_gates")
+    acceptance_gates = acceptance_gates if isinstance(acceptance_gates, dict) else {}
+    return {
+        "proposal_id": proposal_id,
+        "route_profile": optional_string(contract_row.get("route_profile")) or "generic_skill_workflow",
+        "status": optional_string(contract_row.get("status")) or "blocked",
+        "validation_gate": optional_string(contract_row.get("validation_gate")) or "",
+        "selected_local_lane": selected_local_lane,
+        "selected_first_local_lane": optional_string(contract_row.get("selected_first_local_lane")) or "",
+        "validation_scope": optional_string(contract_row.get("validation_scope")) or "",
+        "required_metadata": string_list(contract_row.get("required_metadata")),
+        "expected_metadata": string_list(contract_row.get("expected_metadata")),
+        "acceptance_gates": {
+            "profile_review_ready": acceptance_gates.get("profile_review_ready") is True,
+            "bounded_lanes_only": acceptance_gates.get("bounded_lanes_only") is True,
+            "metadata_complete": acceptance_gates.get("metadata_complete") is True,
+            "local_validation_required": acceptance_gates.get("local_validation_required") is True,
+            "runtime_action_none": acceptance_gates.get("runtime_action_none") is True,
+            "first_route_confirmed": acceptance_gates.get("first_route_confirmed") is True,
+            "external_skill_activation_denied": acceptance_gates.get("external_skill_activation_denied") is True,
+            "provider_runtime_launch_denied": acceptance_gates.get("provider_runtime_launch_denied") is True,
+            "remote_execution_denied": acceptance_gates.get("remote_execution_denied") is True,
+            "raw_source_urls_not_exported": acceptance_gates.get("raw_source_urls_not_exported") is True,
+            "raw_target_paths_not_exported": acceptance_gates.get("raw_target_paths_not_exported") is True,
+            "raw_upstream_body_not_exported": acceptance_gates.get("raw_upstream_body_not_exported") is True,
+        },
+        "diagnostics": string_list(contract_row.get("diagnostics")),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,

@@ -3745,11 +3745,24 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
     ]
+    assert pass1_queue["profile_contract_status"] == "ready"
+    assert pass1_queue["profile_contract_count"] == 3
+    assert pass1_queue["ready_profile_contract_count"] == 3
     assert pass1_queue["mixed_skill_workflow_secondary_lane_status"] == "blocked_until_local_corroboration"
     queue_rows_by_id = {row["proposal_id"]: row for row in pass1_queue["rows"]}
     assert queue_rows_by_id["p1-skill-route-discovery-compass"]["selected_local_lane"] == "documentation"
+    assert queue_rows_by_id["p1-skill-route-discovery-compass"]["profile_contracts"][0]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
     assert queue_rows_by_id["p2-threejs-game-skill-docs"]["route_profiles"] == ["game_frontend_workflow"]
+    assert queue_rows_by_id["p2-threejs-game-skill-docs"]["profile_contracts"][0]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert queue_rows_by_id["p2-threejs-game-skill-docs"]["profile_contracts"][0]["selected_first_local_lane"] == "test"
     assert queue_rows_by_id["p3-codex-workflow-gate-config"]["selected_local_lane"] == "test"
+    assert queue_rows_by_id["p3-codex-workflow-gate-config"]["profile_contracts"][0]["acceptance_gates"][
+        "first_route_confirmed"
+    ] is True
     assert queue_rows_by_id["p4-general-agent-harness-eval"]["route"] == "agent_harness_eval_required"
     assert queue_rows_by_id["trend:omnigent-ai/omnigent"]["skill_route_discovery_inherited"] is False
     assert all(row["runtime_action"] == "none" for row in pass1_queue["rows"])

@@ -1456,6 +1456,16 @@ execution, raw source URL export, raw target path export, and upstream body
 export remain denied. The pass-2 handoff packet embeds the same contract so the
 operator can reject a pass before replaying selected or queued bounded lanes.
 
+For pass-1 windows, `pass1_validation_queue` also carries the relevant trimmed
+profile contract on each skill-route anchoring proposal row. This lets an
+operator inspect the Three.js/game frontend validation gate, COMPASS state
+handoff boundary, and FableCodex first-route proof directly beside the selected
+bounded lane. These row-level contracts are replay metadata only: they do not
+add lanes, do not change the selected local lane, and keep runtime action,
+external skill activation, external harness execution, provider launch, remote
+execution, raw source URL export, raw target path export, and upstream body
+export denied.
+
 Pass-3 handoff packets also emit `profile_activation_gates`. This is the final
 pre-activation profile view for the active window: it maps each observed route
 profile to its selected bounded local lane, queue role, selected item IDs,

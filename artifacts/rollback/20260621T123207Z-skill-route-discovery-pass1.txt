@@ -1,0 +1,8 @@
+rollback_point: 20260621T123207Z-skill-route-discovery-pass1
+original_branch: codex/blackhole-evolve/20260621T123314.312311-add-a-local-validation-lane-for-game-frontend-sk
+head: bda13696a26daf5583057276e030455170dc3b2f
+local_ref: refs/blackhole-rollback/20260621T123207-skill-route-discovery-pass1
+recovery_commands:
+  git switch codex/blackhole-evolve/20260621T123314.312311-add-a-local-validation-lane-for-game-frontend-sk
+  git reset --hard refs/blackhole-rollback/20260621T123207-skill-route-discovery-pass1
+  git clean -fd
