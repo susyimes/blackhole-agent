@@ -434,6 +434,7 @@ def build_route_hint_policy_preflight(evidence_package: dict[str, Any]) -> dict[
     diagnostics = list(lane_map["diagnostics"])
     skill_lanes = lane_map["validation_lanes"].get("skill_route_discovery", [])
     governance_lanes = lane_map["validation_lanes"].get("governance_policy", [])
+    skill_route_implementation_preflight = lane_map["skill_route_implementation_preflight"]
     return {
         "ok": not diagnostics,
         "route_hint_count": len(lane_map["selected_route_hints"]),
@@ -441,6 +442,7 @@ def build_route_hint_policy_preflight(evidence_package: dict[str, Any]) -> dict[
         "configured_route_hints": lane_map["configured_route_hints"],
         "skill_route_discovery_lanes": skill_lanes,
         "allowed_skill_route_discovery_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "skill_route_implementation_preflight": skill_route_implementation_preflight,
         "governance_policy_lanes": governance_lanes,
         "allowed_governance_policy_lanes": list(ROUTE_HINT_VALIDATION_LANES["governance_policy"]),
         "diagnostics": diagnostics,
@@ -577,6 +579,10 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "route_classifier": route_classifier_rows,
         "route_activity_pressure": build_skill_route_activity_pressure(package_items),
         "skill_route_local_lane_candidates": build_skill_route_local_lane_candidates(package_items),
+        "skill_route_implementation_preflight": build_skill_route_implementation_preflight(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+        ),
         "mixed_skill_workflow_probe": build_mixed_skill_workflow_probe(package_items),
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
         "skill_route_boundary_report": build_skill_route_boundary_report(package_items),
@@ -589,6 +595,137 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "runtime_action": "none",
         "diagnostics": diagnostics,
     }
+
+
+def build_skill_route_implementation_preflight(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+) -> dict[str, Any]:
+    """Require bounded local lane selection before skill-route implementation."""
+
+    candidate_panel = build_skill_route_local_lane_candidates(items)
+    selected_item_ids = {
+        str(item_id)
+        for item_id in (
+            context_budget.get("selected_item_ids", [])
+            if isinstance(context_budget, dict)
+            else []
+        )
+        if str(item_id).strip()
+    }
+    truncated_item_ids = sorted(
+        {
+            str(item_id)
+            for item_id in (
+                context_budget.get("truncated_item_ids", [])
+                if isinstance(context_budget, dict)
+                else []
+            )
+            if str(item_id).strip()
+        }
+    )
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+
+    for row in candidate_panel.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("item_id") or "")
+        local_lanes = [str(lane) for lane in row.get("local_lanes", []) if str(lane).strip()]
+        route_profiles = [str(profile) for profile in row.get("route_profiles", []) if str(profile).strip()]
+        selected_lane = select_skill_route_implementation_lane(local_lanes, route_profiles)
+        queued_lanes = [lane for lane in local_lanes if lane != selected_lane]
+        unsupported_lanes = [str(lane) for lane in row.get("unsupported_lanes", []) if str(lane).strip()]
+        selected_item_known = not selected_item_ids or item_id in selected_item_ids
+        lane_selection_ready = (
+            bool(selected_lane)
+            and selected_lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+            and selected_lane in local_lanes
+            and not unsupported_lanes
+            and selected_item_known
+        )
+        row_blockers: list[str] = []
+        if not selected_lane:
+            row_blockers.append("missing_bounded_local_lane_selection")
+        if unsupported_lanes:
+            row_blockers.append("unsupported_skill_route_lanes")
+        if not selected_item_known:
+            row_blockers.append("item_not_in_selected_context_budget")
+        if row_blockers:
+            blockers.extend(f"{item_id}:{blocker}" for blocker in row_blockers if item_id)
+
+        rows.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": str(row.get("source_url_hash") or ""),
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": local_lanes,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": queued_lanes,
+                "unsupported_lanes": unsupported_lanes,
+                "lane_selection_status": "ready" if lane_selection_ready else "blocked",
+                "implementation_route_allowed": lane_selection_ready,
+                "evidence_ref_scope": "selected_item_ids_only",
+                "truncated_item_id_ref_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_export_allowed": False,
+                "upstream_body_export_allowed": False,
+            }
+        )
+
+    status = "not_applicable" if not rows else "ready" if not blockers else "blocked"
+    return {
+        "controller_surface": "skill_route_implementation_preflight",
+        "status": status,
+        "decision": (
+            "select_bounded_local_lane_before_implementation"
+            if status == "ready"
+            else "no_skill_route_candidates_selected"
+            if status == "not_applicable"
+            else "block_skill_route_implementation_until_lanes_are_bounded"
+        ),
+        "candidate_count": len(rows),
+        "ready_candidate_count": sum(1 for row in rows if row["lane_selection_status"] == "ready"),
+        "blocked_candidate_count": sum(1 for row in rows if row["lane_selection_status"] != "ready"),
+        "allowed_local_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "selected_item_ids": sorted(selected_item_ids),
+        "truncated_item_ids": truncated_item_ids,
+        "truncated_item_ids_blocked_as_evidence_refs": True,
+        "activation_blockers": sorted(dict.fromkeys(blockers)),
+        "rows": rows,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def select_skill_route_implementation_lane(local_lanes: list[str], route_profiles: list[str]) -> str:
+    """Choose the first local implementation lane to validate for a skill route."""
+
+    lanes = [lane for lane in local_lanes if lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]]
+    profiles = set(route_profiles)
+    preferred_lanes: list[str]
+    if "skill_ecosystem_state_handoff" in profiles:
+        preferred_lanes = ["config", "test", "documentation", "code_patch"]
+    elif "codex_workflow_gate" in profiles or "game_frontend_workflow" in profiles:
+        preferred_lanes = ["test", "documentation", "config", "code_patch"]
+    else:
+        preferred_lanes = list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+    for lane in preferred_lanes:
+        if lane in lanes:
+            return lane
+    return lanes[0] if lanes else ""
 
 
 def build_route_activation_preflight(items: list[Any]) -> dict[str, Any]:

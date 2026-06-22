@@ -321,22 +321,33 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
         for route_hint in item["route_hints"]
     } == {"skill_route_discovery"}
     preflight = build_route_hint_policy_preflight(evidence_package)
-    assert preflight == {
-        "ok": True,
-        "route_hint_count": 1,
-        "selected_route_hints": ["skill_route_discovery"],
-        "configured_route_hints": [
-            "agent_harness_eval",
-            "governance_policy",
-            "provider_config_preflight",
-            "skill_route_discovery",
-        ],
-        "skill_route_discovery_lanes": ["documentation", "config", "test", "code_patch"],
-        "allowed_skill_route_discovery_lanes": ["documentation", "config", "test", "code_patch"],
-        "governance_policy_lanes": ["documentation", "config", "test", "code_patch"],
-        "allowed_governance_policy_lanes": ["documentation", "config", "test", "code_patch"],
-        "diagnostics": [],
-    }
+    assert preflight["ok"] is True
+    assert preflight["route_hint_count"] == 1
+    assert preflight["selected_route_hints"] == ["skill_route_discovery"]
+    assert preflight["configured_route_hints"] == [
+        "agent_harness_eval",
+        "governance_policy",
+        "provider_config_preflight",
+        "skill_route_discovery",
+    ]
+    assert preflight["skill_route_discovery_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preflight["allowed_skill_route_discovery_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preflight["governance_policy_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preflight["allowed_governance_policy_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert preflight["diagnostics"] == []
+    implementation_preflight = preflight["skill_route_implementation_preflight"]
+    assert implementation_preflight["controller_surface"] == "skill_route_implementation_preflight"
+    assert implementation_preflight["status"] == "ready"
+    assert implementation_preflight["candidate_count"] == 2
+    assert implementation_preflight["ready_candidate_count"] == 2
+    assert implementation_preflight["blocked_candidate_count"] == 0
+    assert implementation_preflight["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert implementation_preflight["truncated_item_ids_blocked_as_evidence_refs"] is True
+    assert implementation_preflight["runtime_action"] == "none"
+    assert implementation_preflight["external_skill_activation_allowed"] is False
+    assert [row["selected_local_lane"] for row in implementation_preflight["rows"]] == ["test", "config"]
+    assert all(row["implementation_route_allowed"] is True for row in implementation_preflight["rows"])
+    assert all(row["truncated_item_id_ref_allowed"] is False for row in implementation_preflight["rows"])
 
     valid_proposal = case["raw_response"]["proposals"][0]
     table = [
@@ -407,6 +418,14 @@ def test_skill_route_discovery_enforces_lanes_refs_limits_and_uncertainty():
     assert truncation_package["context_budget"]["evidence_truncation_uncertainty"]["missing_detail_risk"] is True
     assert truncation_package["context_budget"]["selected_item_ids"] == ["fablecodex-codex-skill-workflow"]
     assert truncation_package["context_budget"]["truncated_item_ids"] == ["compass-skills-task-routing"]
+    truncation_preflight = build_route_hint_policy_preflight(truncation_package)[
+        "skill_route_implementation_preflight"
+    ]
+    assert truncation_preflight["status"] == "ready"
+    assert truncation_preflight["selected_item_ids"] == ["fablecodex-codex-skill-workflow"]
+    assert truncation_preflight["truncated_item_ids"] == ["compass-skills-task-routing"]
+    assert truncation_preflight["truncated_item_ids_blocked_as_evidence_refs"] is True
+    assert [row["item_id"] for row in truncation_preflight["rows"]] == ["fablecodex-codex-skill-workflow"]
 
     truncated_ref_review = review_llm_proposal_response(
         json.dumps(
@@ -578,6 +597,16 @@ def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
         "test",
         "code_patch",
     ]
+    implementation_preflight = lane_map["skill_route_implementation_preflight"]
+    assert implementation_preflight["status"] == "ready"
+    assert implementation_preflight["decision"] == "select_bounded_local_lane_before_implementation"
+    assert implementation_preflight["candidate_count"] == 2
+    assert [row["selected_local_lane"] for row in implementation_preflight["rows"]] == ["test", "config"]
+    assert [row["queued_local_lanes"] for row in implementation_preflight["rows"]] == [
+        ["documentation", "config", "code_patch"],
+        ["documentation", "test", "code_patch"],
+    ]
+    assert all(row["evidence_ref_scope"] == "selected_item_ids_only" for row in implementation_preflight["rows"])
     assert all(lane["runtime_action"] == "none" for lane in skill_entry["proposal_lanes"])
     assert all(lane["local_validation_required"] is True for lane in skill_entry["proposal_lanes"])
     assert "allowed_evidence_urls" not in lane_map
@@ -698,6 +727,15 @@ def test_skill_route_discovery_policy_preflight_blocks_item_level_lane_drift():
     assert candidate_row["unsupported_lanes"] == ["runtime_execution"]
     assert candidate_row["lanes_bounded"] is False
     assert candidate_row["lane_status"] == "blocked_unsupported_lanes"
+    implementation_preflight = lane_map["skill_route_implementation_preflight"]
+    assert implementation_preflight["status"] == "blocked"
+    assert implementation_preflight["decision"] == "block_skill_route_implementation_until_lanes_are_bounded"
+    assert implementation_preflight["blocked_candidate_count"] == 1
+    assert implementation_preflight["activation_blockers"] == [
+        f"{evidence_package['items'][0]['item_id']}:unsupported_skill_route_lanes"
+    ]
+    assert implementation_preflight["rows"][0]["implementation_route_allowed"] is False
+    assert implementation_preflight["rows"][0]["unsupported_lanes"] == ["runtime_execution"]
     assert lane_map["skill_route_local_lane_candidates"]["unsupported_lane_count"] == 1
     assert lane_map["skill_route_local_lane_candidates"]["activation_gate"] == "blocked_before_activation"
     assert preflight["ok"] is False
