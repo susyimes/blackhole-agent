@@ -914,6 +914,12 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
 
     local_activation_targets = _skill_route_discovery_local_activation_targets(candidate_lane_inventory)
     route_profile_handoff_queue = _skill_route_discovery_route_profile_handoff_queue(local_activation_targets)
+    adoption_manifest = _skill_route_discovery_adoption_manifest(
+        candidate_lane_inventory,
+        proposal_lanes,
+        rejected_candidates,
+        downgraded_candidates,
+    )
 
     return {
         "schema_version": 1,
@@ -928,6 +934,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
+        "adoption_manifest": adoption_manifest,
         "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
@@ -1642,6 +1649,143 @@ def _skill_route_discovery_route_profile_handoff_queue(
         ),
         "route_profile_count": len(rows),
         "blocked_route_profiles": blocked_profiles,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_adoption_manifest(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    proposal_lanes: Sequence[Mapping[str, Any]],
+    rejected_candidates: Sequence[Mapping[str, Any]],
+    downgraded_candidates: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose the whole skill-route adoption boundary as one operator manifest."""
+
+    proposal_counts_by_candidate: dict[str, int] = {}
+    for lane in proposal_lanes:
+        candidate_name = str(lane.get("candidate_name") or "")
+        if candidate_name:
+            proposal_counts_by_candidate[candidate_name] = proposal_counts_by_candidate.get(candidate_name, 0) + 1
+
+    rows: list[dict[str, Any]] = []
+    blocked_candidates: list[str] = []
+    observed_profiles: list[str] = []
+    observed_lanes: list[str] = []
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        source_hash = _stable_hash(str(candidate.get("source_url") or candidate_name))
+        local_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        observed_profiles.extend(route_profiles)
+        observed_lanes.extend(local_lanes)
+
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        if selected_lane not in local_lanes:
+            selected_lane = local_lanes[0] if local_lanes else ""
+
+        validation_contract = candidate.get("route_validation_contract")
+        validation_contract = validation_contract if isinstance(validation_contract, Mapping) else {}
+        contract_rows = validation_contract.get("rows")
+        contract_rows = (
+            contract_rows
+            if isinstance(contract_rows, Sequence) and not isinstance(contract_rows, (str, bytes))
+            else []
+        )
+        validation_gates = [
+            str(row.get("validation_gate") or "")
+            for row in contract_rows
+            if isinstance(row, Mapping) and str(row.get("validation_gate") or "").strip()
+        ]
+
+        route_probe_decision = str(candidate.get("route_probe_decision") or "skill_route_discovery")
+        first_route_required = "codex_workflow_gate" in route_profiles
+        first_route_confirmed = not first_route_required or route_probe_decision == "skill_route_discovery_first"
+        ready = bool(local_lanes and selected_lane and first_route_confirmed)
+        blockers = []
+        if not local_lanes:
+            blockers.append("missing_bounded_local_lane")
+        if first_route_required and not first_route_confirmed:
+            blockers.append("missing_skill_route_discovery_first")
+        if not ready and candidate_name:
+            blocked_candidates.append(candidate_name)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": source_hash,
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": local_lanes,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in local_lanes if lane != selected_lane],
+                "proposal_lane_count": proposal_counts_by_candidate.get(candidate_name, 0),
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
+                "replay_command": _skill_route_discovery_replay_command(selected_lane, route_profiles),
+                "selected_evidence_item_ids": _string_list(candidate.get("evidence_item_ids")),
+                "route_probe_decision": route_probe_decision,
+                "first_route_required": first_route_required,
+                "first_route_confirmed": first_route_confirmed,
+                "manifest_status": "ready_for_local_validation" if ready else "blocked_before_activation",
+                "activation_blockers": blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not blocked_candidates and not rejected_candidates and not downgraded_candidates
+    return {
+        "controller_surface": "skill_route_discovery_adoption_manifest",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "bounded_local_validation_only"
+            if ready
+            else "repair_skill_route_manifest_before_activation"
+        ),
+        "candidate_count": len(candidate_lane_inventory),
+        "proposal_lane_count": len(proposal_lanes),
+        "rejected_candidate_count": len(rejected_candidates),
+        "downgraded_candidate_count": len(downgraded_candidates),
+        "blocked_candidate_names": [name for name in blocked_candidates if name],
+        "observed_route_profiles": list(dict.fromkeys(observed_profiles)),
+        "observed_local_lanes": list(
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(observed_lanes)
+        ),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "blocked_external_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS)
+        + [
+            "activate_upstream_skill_code",
+            "external_harness_execution",
+            "provider_runtime_launch",
+            "remote_execution",
+            "raw_source_url_export",
+            "raw_upstream_body_export",
+        ],
+        "activation_gate": "local_validation_before_activation",
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,

@@ -1,21 +1,21 @@
 {
-  "created_at": "2026-06-14T12:11:32.3492655Z",
-  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-blackhole-worktrees\\20260614T120923Z",
-  "original_branch": "codex/blackhole-evolve/20260614T120947.802162-borrow-cautiously-from-omnigent-ai-omnigent-tren",
-  "original_head": "92ef73f0d3ac4adb8c1ba36d4665399640a7125a",
-  "rollback_ref": "refs/blackhole-agent/rollback/20260614T121132Z",
+  "created_at": "2026-06-22T17:06:23Z",
+  "repo_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-blackhole-worktrees\\20260622T170623Z",
+  "original_branch": "codex/blackhole-evolve/20260622T170728.027713-add-or-extend-a-local-skill-route-discovery-vali",
+  "original_head": "901a771c10cdc46daa0b58bb659e2e28bc2c0eac",
+  "rollback_ref": "refs/blackhole-rollback/20260622T170623Z-skill-route-pass2",
   "status_porcelain": "",
   "restore_commands": [
     [
       "git",
       "switch",
-      "codex/blackhole-evolve/20260614T120947.802162-borrow-cautiously-from-omnigent-ai-omnigent-tren"
+      "codex/blackhole-evolve/20260622T170728.027713-add-or-extend-a-local-skill-route-discovery-vali"
     ],
     [
       "git",
       "reset",
       "--hard",
-      "refs/blackhole-agent/rollback/20260614T121132Z"
+      "refs/blackhole-rollback/20260622T170623Z-skill-route-pass2"
     ],
     [
       "git",

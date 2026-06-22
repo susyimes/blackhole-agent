@@ -1,20 +1,20 @@
 # Rollback Point
 
-Created: 2026-06-14T12:11:32.3492655Z
-Repository: `C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260614T120923Z`
-Original branch: `codex/blackhole-evolve/20260614T120947.802162-borrow-cautiously-from-omnigent-ai-omnigent-tren`
-Original HEAD: `92ef73f0d3ac4adb8c1ba36d4665399640a7125a`
-Rollback ref: `refs/blackhole-agent/rollback/20260614T121132Z`
+Created: 2026-06-22T17:06:23Z
+Repository: `C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260622T170623Z`
+Original branch: `codex/blackhole-evolve/20260622T170728.027713-add-or-extend-a-local-skill-route-discovery-vali`
+Original HEAD: `901a771c10cdc46daa0b58bb659e2e28bc2c0eac`
+Rollback ref: `refs/blackhole-rollback/20260622T170623Z-skill-route-pass2`
 
 ## Recovery Commands
 
 Run these from the repository root only after choosing to discard the failed self-evolution diff:
 
 ```bash
-git switch codex/blackhole-evolve/20260614T120947.802162-borrow-cautiously-from-omnigent-ai-omnigent-tren
+git switch codex/blackhole-evolve/20260622T170728.027713-add-or-extend-a-local-skill-route-discovery-vali
 ```
 ```bash
-git reset --hard refs/blackhole-agent/rollback/20260614T121132Z
+git reset --hard refs/blackhole-rollback/20260622T170623Z-skill-route-pass2
 ```
 ```bash
 git clean -fd
@@ -24,4 +24,4 @@ git clean -fd
 
 - `git reset --hard` discards tracked working tree changes.
 - `git clean -fd` removes untracked files and directories.
-- Keep this artifact outside any cleanup path until the recovered agent has started successfully.
+- Keep this artifact until the supervisor has validated the activated branch.

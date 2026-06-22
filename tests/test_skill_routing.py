@@ -955,6 +955,53 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
     }
+    adoption_manifest = lane_map["adoption_manifest"]
+    assert adoption_manifest["controller_surface"] == "skill_route_discovery_adoption_manifest"
+    assert adoption_manifest["status"] == "ready"
+    assert adoption_manifest["decision"] == "bounded_local_validation_only"
+    assert adoption_manifest["candidate_count"] == 3
+    assert adoption_manifest["proposal_lane_count"] == 11
+    assert adoption_manifest["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "skill_ecosystem_state_handoff",
+        "game_frontend_workflow",
+    ]
+    assert adoption_manifest["observed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert adoption_manifest["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert adoption_manifest["activation_gate"] == "local_validation_before_activation"
+    assert adoption_manifest["local_validation_required"] is True
+    assert adoption_manifest["runtime_action"] == "none"
+    assert adoption_manifest["external_skill_activation_allowed"] is False
+    assert adoption_manifest["external_harness_execution_allowed"] is False
+    assert adoption_manifest["provider_runtime_launch_allowed"] is False
+    assert adoption_manifest["remote_execution_allowed"] is False
+    assert adoption_manifest["raw_source_url_exported"] is False
+    assert adoption_manifest["raw_evidence_urls_exported"] is False
+    assert adoption_manifest["raw_target_paths_exported"] is False
+    assert adoption_manifest["raw_upstream_body_exported"] is False
+    assert {
+        "install",
+        "execute",
+        "activate_upstream_skill_code",
+        "provider_runtime_launch",
+        "remote_execution",
+        "raw_source_url_export",
+        "raw_upstream_body_export",
+    } <= set(adoption_manifest["blocked_external_actions"])
+    manifest_rows = {row["candidate_name"]: row for row in adoption_manifest["rows"]}
+    assert manifest_rows["codex-fable5"]["selected_local_lane"] == "test"
+    assert manifest_rows["codex-fable5"]["first_route_confirmed"] is True
+    assert manifest_rows["codex-fable5"]["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
+    )
+    assert manifest_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert manifest_rows["compass-skills"]["validation_target"] == "state_or_profile_boundary_metadata"
+    assert manifest_rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert manifest_rows["threejs-game-skills"]["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert all(row["manifest_status"] == "ready_for_local_validation" for row in adoption_manifest["rows"])
+    assert all(row["runtime_action"] == "none" for row in adoption_manifest["rows"])
+    assert all(row["local_validation_required"] is True for row in adoption_manifest["rows"])
+    assert all("source_url" not in row for row in adoption_manifest["rows"])
     assert {
         lane["proposal_kind"]
         for lane in lane_map["proposal_lanes"]

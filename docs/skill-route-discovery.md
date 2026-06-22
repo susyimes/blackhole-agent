@@ -1452,6 +1452,19 @@ install, enable, run, clone, scaffold, launch providers, execute an external
 harness, activate an external agent, activate upstream skill code, perform
 remote execution, or export raw source URLs.
 
+The source-registry lane map also emits `adoption_manifest`, a body-free
+operator handoff for public skill ecosystem evidence before any adoption
+decision. The manifest records each candidate's route profiles, bounded local
+lanes, selected validation lane, validation target, replay command, evidence
+item IDs, and source hash. FableCodex-style workflow gates, COMPASS-style state
+handoff packages, and Three.js/game frontend skill packages can be marked ready
+only for local validation lanes: documentation, config, test, or code_patch.
+The manifest keeps `runtime_action: none`, requires
+`local_validation_required: true`, blocks install, execute, provider launch,
+remote execution, upstream skill activation, raw source URL export, and upstream
+body export, and remains blocked if a candidate is rejected, downgraded, lacks a
+bounded lane, or misses required `skill_route_discovery_first` proof.
+
 Mixed Codex/workflow/skill repositories now get an explicit local probe before
 that split becomes ambiguous. When a selected item has skill-route evidence and
 also mentions Codex, plugins, examples, tests, evals, replay, harness, or other
