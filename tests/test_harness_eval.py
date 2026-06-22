@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 55
-    assert payload["pass_count"] == 54
+    assert payload["fixture_count"] == 56
+    assert payload["pass_count"] == 55
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -157,6 +157,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
+    assert results["provider-runtime-preflight-wire-api-chat"]["passed"] is True
     assert results["provider-runtime-preflight-review-model-unavailable"]["passed"] is True
     assert results["provider-runtime-preflight-usage-limit-429"]["passed"] is True
     assert results["provider-runtime-recovery-summary-blocked-and-degraded"]["passed"] is True
@@ -245,6 +246,122 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before_launch():
+    exercised = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-wire-api-chat-exercised",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "wire_api": "chat",
+                "supported_wire_apis": ["chat", "responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_wire_api_chat_exercised_inline.json",
+    )
+    unexercised = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-wire-api-chat-unexercised",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "wire_api": "chat",
+                "supported_wire_apis": ["chat", "responses"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_wire_api_chat_unexercised_inline.json",
+    )
+    unsupported = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-wire-api-chat-unsupported",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "wire_api": "chat",
+                "supported_wire_apis": ["responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_wire_api_chat_unsupported_inline.json",
+    )
+    serialized = json.dumps(
+        {"exercised": exercised, "unexercised": unexercised, "unsupported": unsupported},
+        sort_keys=True,
+    )
+
+    assert exercised["route_status"] == "passed"
+    assert exercised["wire_api"]["selected"] == "chat"
+    assert exercised["wire_api"]["exercised"] is True
+    assert exercised["wire_api"]["raw_value_exported"] is False
+    assert exercised["runtime"]["runner_invoked"] is True
+
+    assert unexercised["route_status"] == "blocked"
+    assert unexercised["failure_mode"] == "provider_wire_api_unexercised"
+    assert unexercised["runtime"]["runner_invoked"] is False
+    assert unexercised["wire_api"]["exercise_required"] is True
+    assert unexercised["wire_api"]["exercised"] is False
+    assert unexercised["preflight"]["diagnostics"] == [
+        "provider wire API was configured but not exercised by local route evidence"
+    ]
+    assert unexercised["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_wire_api_unexercised",
+            "scope": "provider_wire_api",
+            "severity": "blocker",
+            "action": "configure a supported provider wire API and replay local route evidence before launching the harness",
+            "wire_api_required": False,
+            "wire_api_configured": True,
+            "wire_api_selected": "chat",
+            "wire_api_supported": True,
+            "wire_api_exercise_required": True,
+            "wire_api_exercised": False,
+            "supported_wire_api_count": 2,
+            "exercised_wire_api_count": 0,
+            "raw_value_exported": False,
+        }
+    ]
+    assert unexercised["supervisor_replay"]["ready_for_provider_launch"] is False
+    assert unexercised["supervisor_replay"]["recovery_hint_codes"] == ["provider_wire_api_unexercised"]
+
+    assert unsupported["route_status"] == "blocked"
+    assert unsupported["failure_mode"] == "provider_wire_api_unsupported"
+    assert unsupported["wire_api"]["supported"] is False
+    assert unsupported["wire_api"]["exercised"] is True
+
+    assert "PRIVATE" not in serialized
 
 
 def test_mock_llm_repl_approval_output_poll_times_out_without_single_sample_pass():

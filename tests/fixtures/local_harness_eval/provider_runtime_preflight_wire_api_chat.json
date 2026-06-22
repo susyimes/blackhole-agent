@@ -1,0 +1,75 @@
+{
+  "name": "provider-runtime-preflight-wire-api-chat",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-wire-api-chat",
+    "provider": {
+      "name": "omnigent-openai-compatible",
+      "harness": "omnigent",
+      "wire_api": "chat",
+      "supported_wire_apis": [
+        "chat",
+        "responses"
+      ],
+      "exercised_wire_apis": [
+        "chat"
+      ]
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "wire_api.configured",
+      "equals": true
+    },
+    {
+      "path": "wire_api.selected",
+      "equals": "chat"
+    },
+    {
+      "path": "wire_api.supported",
+      "equals": true
+    },
+    {
+      "path": "wire_api.exercise_required",
+      "equals": true
+    },
+    {
+      "path": "wire_api.exercised",
+      "equals": true
+    },
+    {
+      "path": "wire_api.raw_value_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": true
+    }
+  ]
+}

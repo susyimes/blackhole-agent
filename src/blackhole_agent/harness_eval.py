@@ -13618,6 +13618,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
+    wire_api_preflight = evaluate_provider_wire_api_preflight(provider=provider, runtime=runtime)
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
     usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
     install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
@@ -13690,6 +13691,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not usage_limit_preflight["ok"]
         or not install_linkage_preflight["ok"]
         or not model_command_preflight["ok"]
+        or not wire_api_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
         or not browser_preflight["url_safety"]["ok"]
@@ -13711,6 +13713,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(usage_limit_preflight["diagnostics"])
     diagnostics.extend(install_linkage_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
+    diagnostics.extend(wire_api_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
             required_env_key_count=len(required_env_keys),
@@ -13733,6 +13736,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not install_linkage_preflight["ok"]
             else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
+            else wire_api_preflight["failure_mode"]
+            if not wire_api_preflight["ok"]
             else "provider_env_missing"
             if env_preflight_failed
             else "url_safety_preflight_failed"
@@ -13826,6 +13831,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "usage_limit": usage_limit_preflight,
         "install_linkage": install_linkage_preflight,
         "model_command": model_command_preflight,
+        "wire_api": wire_api_preflight,
     }
     recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
     output["recovery_hints"] = recovery_hints
@@ -14230,6 +14236,98 @@ def evaluate_provider_model_command_preflight(
     }
 
 
+def evaluate_provider_wire_api_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate provider wire API routing before a provider harness can launch."""
+
+    required = truthy(provider.get("wire_api_required")) or truthy(runtime.get("wire_api_required"))
+    raw_wire_api = runtime.get("wire_api", provider.get("wire_api"))
+    selected_wire_api = normalize_provider_wire_api(raw_wire_api)
+    configured = selected_wire_api != "unknown"
+    supported_wire_apis = sorted(
+        {
+            normalize_provider_wire_api(value)
+            for value in string_list(provider.get("supported_wire_apis"))
+            + string_list(runtime.get("supported_wire_apis"))
+        }
+        - {"unknown"}
+    )
+    exercised_wire_apis = sorted(
+        {
+            normalize_provider_wire_api(value)
+            for value in string_list(provider.get("exercised_wire_apis"))
+            + string_list(runtime.get("exercised_wire_apis"))
+        }
+        - {"unknown"}
+    )
+    exercise_required = (
+        truthy(provider.get("wire_api_exercise_required"))
+        or truthy(runtime.get("wire_api_exercise_required"))
+        or selected_wire_api == "chat"
+    )
+    supported = not configured or not supported_wire_apis or selected_wire_api in supported_wire_apis
+    exercised = not configured or selected_wire_api in exercised_wire_apis
+    missing = required and not configured
+    unsupported = configured and not supported
+    unexercised = configured and exercise_required and not exercised
+    ok = not missing and not unsupported and not unexercised
+
+    diagnostics: list[str] = []
+    if missing:
+        diagnostics.append("provider wire API is required but was not configured")
+    if unsupported:
+        diagnostics.append("provider wire API is not in the supported route list")
+    if unexercised:
+        diagnostics.append("provider wire API was configured but not exercised by local route evidence")
+
+    if missing:
+        failure_mode = "provider_wire_api_missing"
+    elif unsupported:
+        failure_mode = "provider_wire_api_unsupported"
+    elif unexercised:
+        failure_mode = "provider_wire_api_unexercised"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "configured": configured,
+        "selected": selected_wire_api,
+        "selected_hash": stable_text_hash(selected_wire_api) if configured else None,
+        "supported": supported,
+        "supported_wire_apis": supported_wire_apis,
+        "supported_wire_api_count": len(supported_wire_apis),
+        "exercise_required": exercise_required,
+        "exercised": exercised,
+        "exercised_wire_apis": exercised_wire_apis,
+        "exercised_wire_api_count": len(exercised_wire_apis),
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "raw_value_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_provider_wire_api(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_")
+    aliases = {
+        "chat": "chat",
+        "chat_completion": "chat",
+        "chat_completions": "chat",
+        "openai_chat": "chat",
+        "responses": "responses",
+        "response": "responses",
+        "openai_responses": "responses",
+        "completion": "completions",
+        "completions": "completions",
+        "text_completion": "completions",
+    }
+    return aliases.get(text, "unknown")
+
+
 def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
     """Aggregate provider runtime preflight cases into body-free recovery hints."""
 
@@ -14532,6 +14630,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     usage_limit = preflight.get("usage_limit") if isinstance(preflight.get("usage_limit"), dict) else {}
     install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
+    wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
     base_hint = {
@@ -14635,6 +14734,29 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_required": bool(model_command.get("required")),
                 "command_configured": bool(model_command.get("configured")),
                 "command_arg_count": int(model_command.get("command_arg_count") or 0),
+            }
+        )
+    elif failure_mode in {
+        "provider_wire_api_missing",
+        "provider_wire_api_unexercised",
+        "provider_wire_api_unsupported",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_wire_api",
+                "severity": "blocker",
+                "action": "configure a supported provider wire API and replay local route evidence before launching the harness",
+                "wire_api_required": bool(wire_api.get("required")),
+                "wire_api_configured": bool(wire_api.get("configured")),
+                "wire_api_selected": optional_string(wire_api.get("selected")) or "unknown",
+                "wire_api_supported": bool(wire_api.get("supported")),
+                "wire_api_exercise_required": bool(wire_api.get("exercise_required")),
+                "wire_api_exercised": bool(wire_api.get("exercised")),
+                "supported_wire_api_count": int(wire_api.get("supported_wire_api_count") or 0),
+                "exercised_wire_api_count": int(wire_api.get("exercised_wire_api_count") or 0),
+                "raw_value_exported": False,
             }
         )
     elif failure_mode == "provider_install_linkage_unresolved":
