@@ -9263,6 +9263,8 @@ def skill_route_discovery_candidate_lane_intake(
             downgraded_lanes=downgraded_lanes,
             rejected=bool(rejected),
         )
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, dict) else {}
         rows.append(
             {
                 "candidate_name_hash": stable_text_hash(candidate_name),
@@ -9274,6 +9276,30 @@ def skill_route_discovery_candidate_lane_intake(
                 "recommended_local_lane_order": lane_selection["recommended_local_lane_order"],
                 "lane_selection_reason": lane_selection["lane_selection_reason"],
                 "lane_selection_review_required": lane_selection["lane_selection_review_required"],
+                "handoff_metadata": {
+                    "controller_surface": str(
+                        handoff_metadata.get("controller_surface")
+                        or "skill_route_discovery_lane_handoff_metadata"
+                    ),
+                    "handoff_scope": str(handoff_metadata.get("handoff_scope") or ""),
+                    "status": str(handoff_metadata.get("status") or ""),
+                    "decision": str(handoff_metadata.get("decision") or ""),
+                    "allowed_local_lanes": string_list(handoff_metadata.get("allowed_local_lanes")),
+                    "selected_local_lane": str(handoff_metadata.get("selected_local_lane") or ""),
+                    "queued_local_lanes": string_list(handoff_metadata.get("queued_local_lanes")),
+                    "validation_gates": string_list(handoff_metadata.get("validation_gates")),
+                    "required_metadata": string_list(handoff_metadata.get("required_metadata")),
+                    "activation_gate": str(handoff_metadata.get("activation_gate") or ""),
+                    "local_validation_required": handoff_metadata.get("local_validation_required") is True,
+                    "runtime_action": str(handoff_metadata.get("runtime_action") or "none"),
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_upstream_body_exported": False,
+                },
                 "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                 "discovery_event_effect": str(candidate.get("discovery_event_effect") or "record_only"),
                 "evidence_item_ids": string_list(candidate.get("evidence_item_ids")),

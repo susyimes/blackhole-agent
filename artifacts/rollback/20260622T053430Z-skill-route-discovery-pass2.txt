@@ -1,0 +1,14 @@
+Rollback point for skill-route-discovery pass 2
+
+Source digest: github-growth-20260622T053431.406906Z
+Original branch: codex/blackhole-evolve/20260622T053540.325051-add-or-strengthen-local-validation-for-skill-rou
+Original HEAD: 6e946558808b58daf2b3c438fa25b60e27cf8f77
+Rollback ref: refs/blackhole-rollback/20260622T053430Z-skill-route-discovery-pass2
+
+Recovery commands:
+git switch codex/blackhole-evolve/20260622T053540.325051-add-or-strengthen-local-validation-for-skill-rou
+git reset --hard refs/blackhole-rollback/20260622T053430Z-skill-route-discovery-pass2
+
+Notes:
+- Created before local source edits for the skill-route-discovery capability window, pass 2 of 4.
+- Rollback execution is explicit and destructive; the kernel only records the recovery path.

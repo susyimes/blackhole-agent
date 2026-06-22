@@ -2725,6 +2725,26 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
     ]
+    intake_rows = {
+        tuple(row["route_profiles"]): row
+        for row in output["candidate_lane_intake"]["rows"]
+    }
+    compass_handoff = intake_rows[("skill_ecosystem_state_handoff",)]["handoff_metadata"]
+    assert compass_handoff["controller_surface"] == "skill_route_discovery_lane_handoff_metadata"
+    assert compass_handoff["handoff_scope"] == "candidate_inventory"
+    assert compass_handoff["status"] == "ready"
+    assert compass_handoff["selected_local_lane"] == "config"
+    assert compass_handoff["queued_local_lanes"] == ["test", "documentation", "code_patch"]
+    assert compass_handoff["validation_gates"] == ["state_handoff_boundary_before_profile_or_memory_write"]
+    assert compass_handoff["local_validation_required"] is True
+    assert compass_handoff["runtime_action"] == "none"
+    assert compass_handoff["external_skill_activation_allowed"] is False
+    assert compass_handoff["external_harness_execution_allowed"] is False
+    assert compass_handoff["provider_runtime_launch_allowed"] is False
+    assert compass_handoff["remote_execution_allowed"] is False
+    assert compass_handoff["raw_source_url_exported"] is False
+    assert compass_handoff["raw_evidence_urls_exported"] is False
+    assert compass_handoff["raw_upstream_body_exported"] is False
     profile_contract = output["profile_lane_acceptance_contract"]
     assert profile_contract["controller_surface"] == "skill_route_discovery_profile_lane_acceptance_contract"
     assert profile_contract["status"] == "ready"

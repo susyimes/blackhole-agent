@@ -795,6 +795,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         state_boundary_metadata = _skill_route_discovery_state_boundary_metadata(candidate)
         route_profiles = _string_list(candidate.get("route_profiles"))
         validation_contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
+        handoff_metadata = _skill_route_discovery_handoff_metadata(
+            route_profiles,
+            allowed_lanes,
+            handoff_scope="candidate_inventory",
+        )
         candidate_lane_inventory.append(
             {
                 "candidate_name": name,
@@ -807,6 +812,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
                 "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
                 "route_validation_contract": validation_contract,
+                "handoff_metadata": handoff_metadata,
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -825,6 +831,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
 
         for lane in allowed_lanes:
             lane_validation_contract = _skill_route_discovery_validation_contract(route_profiles, (lane,))
+            lane_handoff_metadata = _skill_route_discovery_handoff_metadata(
+                route_profiles,
+                (lane,),
+                handoff_scope="proposal_lane",
+            )
             proposal_lanes.append(
                 {
                     "candidate_name": name,
@@ -839,6 +850,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "evidence_urls": _proposal_lane_evidence_urls(candidate, source_url),
                     "evidence_item_ids": _proposal_lane_evidence_item_ids(candidate),
                     "route_validation_contract": lane_validation_contract,
+                    "handoff_metadata": lane_handoff_metadata,
                     "local_validation_required": True,
                     "runtime_action": "none",
                     "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
@@ -1127,6 +1139,57 @@ def _skill_route_discovery_validation_contract(
         "provider_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_handoff_metadata(
+    route_profiles: Sequence[str],
+    allowed_lanes: Sequence[str],
+    *,
+    handoff_scope: str,
+) -> dict[str, Any]:
+    """Expose one bounded local lane handoff without adding activation authority."""
+
+    contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
+    bounded_lanes = _string_list(contract.get("allowed_local_lanes"))
+    preferred_lanes: list[str] = []
+    validation_gates: list[str] = []
+    required_metadata: list[str] = []
+    rows = contract.get("rows")
+    rows = rows if isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)) else []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        preferred_lanes.extend(_string_list(row.get("preferred_local_lanes")))
+        gate = str(row.get("validation_gate") or "").strip()
+        if gate:
+            validation_gates.append(gate)
+        required_metadata.extend(_string_list(row.get("required_metadata")))
+
+    ordered_lanes = [lane for lane in dict.fromkeys((*preferred_lanes, *bounded_lanes)) if lane in bounded_lanes]
+    selected_lane = ordered_lanes[0] if ordered_lanes else ""
+    queued_lanes = [lane for lane in ordered_lanes if lane != selected_lane]
+    return {
+        "controller_surface": "skill_route_discovery_lane_handoff_metadata",
+        "handoff_scope": handoff_scope,
+        "status": "ready" if selected_lane else "blocked",
+        "decision": "handoff_bounded_local_lane_for_validation" if selected_lane else "blocked_no_bounded_local_lane",
+        "route_profiles": _string_list(contract.get("route_profiles")),
+        "allowed_local_lanes": bounded_lanes,
+        "selected_local_lane": selected_lane,
+        "queued_local_lanes": queued_lanes,
+        "validation_gates": list(dict.fromkeys(validation_gates)),
+        "required_metadata": list(dict.fromkeys(required_metadata)),
+        "activation_gate": "local_validation_before_activation",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 

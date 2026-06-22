@@ -695,6 +695,23 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     compass_inventory = next(
         row for row in lane_map["candidate_lane_inventory"] if row["candidate_name"] == "compass-skills"
     )
+    compass_handoff = compass_inventory["handoff_metadata"]
+    assert compass_handoff["controller_surface"] == "skill_route_discovery_lane_handoff_metadata"
+    assert compass_handoff["handoff_scope"] == "candidate_inventory"
+    assert compass_handoff["status"] == "ready"
+    assert compass_handoff["allowed_local_lanes"] == ["config", "test", "documentation", "code_patch"]
+    assert compass_handoff["selected_local_lane"] == "config"
+    assert compass_handoff["queued_local_lanes"] == ["test", "documentation", "code_patch"]
+    assert compass_handoff["validation_gates"] == ["state_handoff_boundary_before_profile_or_memory_write"]
+    assert compass_handoff["local_validation_required"] is True
+    assert compass_handoff["runtime_action"] == "none"
+    assert compass_handoff["external_skill_activation_allowed"] is False
+    assert compass_handoff["external_harness_execution_allowed"] is False
+    assert compass_handoff["provider_runtime_launch_allowed"] is False
+    assert compass_handoff["remote_execution_allowed"] is False
+    assert compass_handoff["raw_source_url_exported"] is False
+    assert compass_handoff["raw_evidence_urls_exported"] is False
+    assert compass_handoff["raw_upstream_body_exported"] is False
     compass_contract = compass_inventory["route_validation_contract"]
     assert compass_contract["controller_surface"] == "skill_route_discovery_route_validation_contract"
     assert compass_contract["status"] == "ready"
@@ -718,6 +735,14 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     } == {"skill_route_discovery_first_before_workflow_gate"}
     assert all(
         lane["route_validation_contract"]["allowed_local_lanes"] == [lane["proposal_kind"]]
+        for lane in fablecodex_lanes
+    )
+    assert all(
+        lane["handoff_metadata"]["handoff_scope"] == "proposal_lane"
+        and lane["handoff_metadata"]["selected_local_lane"] == lane["proposal_kind"]
+        and lane["handoff_metadata"]["queued_local_lanes"] == []
+        and lane["handoff_metadata"]["runtime_action"] == "none"
+        and lane["handoff_metadata"]["external_skill_activation_allowed"] is False
         for lane in fablecodex_lanes
     )
     threejs_inventory = next(
@@ -1035,6 +1060,32 @@ def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
                 "provider_launch_allowed": False,
                 "remote_execution_allowed": False,
                 "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            },
+            "handoff_metadata": {
+                "controller_surface": "skill_route_discovery_lane_handoff_metadata",
+                "handoff_scope": "candidate_inventory",
+                "status": "ready",
+                "decision": "handoff_bounded_local_lane_for_validation",
+                "route_profiles": ["generic_skill_workflow"],
+                "allowed_local_lanes": ["documentation"],
+                "selected_local_lane": "documentation",
+                "queued_local_lanes": [],
+                "validation_gates": ["generic_skill_workflow_local_validation_before_activation"],
+                "required_metadata": [
+                    "selected_digest_item_ids_or_frozen_digest_evidence",
+                    "body_free_repository_summary",
+                    "local_artifact_target",
+                ],
+                "activation_gate": "local_validation_before_activation",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
                 "raw_upstream_body_exported": False,
             },
             "local_validation_required": True,

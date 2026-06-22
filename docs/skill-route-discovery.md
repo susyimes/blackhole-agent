@@ -32,6 +32,10 @@ signal. Phaser and game-engine language are interpreted as
 documentation, config, test, or code_patch lanes, but do not permit install,
 execute, scaffold, asset generation, provider launch, or upstream skill
 activation.
+Source digest `github-growth-20260622T053431.406906Z` keeps the same
+COMPASS/FableCodex/Three.js/Omnigent route window active for pass 2 and adds
+core lane-map handoff metadata so every recognized skill repository produces a
+selected local validation lane plus queued bounded lanes before activation.
 
 The bounded evidence reviewed for these runs is:
 
@@ -1476,6 +1480,17 @@ rows use `local_frontend_validation_before_game_skill_activation`, and
 `local_validation_required: true`, `runtime_action: none`, denied external
 skill activation, denied provider launch, denied remote execution, and denied
 raw upstream body export before activation.
+
+Each core candidate inventory row and proposal-lane row also carries
+`handoff_metadata`. This is the bounded local handoff surface used before a
+supervisor or later pass selects work: it records the selected local lane, any
+queued local lanes, profile validation gates, required metadata, and the same
+activation denials as the route validation contract. Candidate rows may queue
+remaining documentation, config, test, or code_patch lanes; individual proposal
+rows select only their own proposal kind and queue nothing. The handoff metadata
+does not export raw upstream bodies, add evidence URLs, install or enable
+external skills, run external harnesses, launch providers, or perform remote
+execution.
 
 The local harness also summarizes those row contracts as
 `profile_lane_acceptance_contract`. This profile-level panel is the pass-handoff
