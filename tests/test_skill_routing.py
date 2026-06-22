@@ -933,6 +933,52 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert activation_targets["raw_evidence_urls_exported"] is False
     assert activation_targets["raw_upstream_body_exported"] is False
 
+    profile_queue = lane_map["route_profile_handoff_queue"]
+    assert profile_queue["controller_surface"] == "skill_route_discovery_route_profile_handoff_queue"
+    assert profile_queue["status"] == "ready"
+    assert profile_queue["decision"] == "handoff_route_profiles_to_bounded_local_validation"
+    assert profile_queue["route_profile_count"] == 3
+    assert profile_queue["blocked_route_profiles"] == []
+    assert profile_queue["local_validation_required"] is True
+    assert profile_queue["runtime_action"] == "none"
+    assert profile_queue["external_skill_activation_allowed"] is False
+    assert profile_queue["external_harness_execution_allowed"] is False
+    assert profile_queue["provider_runtime_launch_allowed"] is False
+    assert profile_queue["remote_execution_allowed"] is False
+    assert profile_queue["raw_source_url_exported"] is False
+    assert profile_queue["raw_evidence_urls_exported"] is False
+    assert profile_queue["raw_target_paths_exported"] is False
+    assert profile_queue["raw_upstream_body_exported"] is False
+    profile_rows = {row["route_profile"]: row for row in profile_queue["rows"]}
+    assert profile_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert profile_rows["codex_workflow_gate"]["validation_target"] == "skill_route_first_probe_regression"
+    assert profile_rows["codex_workflow_gate"]["validation_gates"] == [
+        "skill_route_discovery_first_before_workflow_gate"
+    ]
+    assert profile_rows["codex_workflow_gate"]["first_route_required"] is True
+    assert profile_rows["codex_workflow_gate"]["first_route_confirmed"] is True
+    assert profile_rows["codex_workflow_gate"]["queue_status"] == "ready"
+    assert profile_rows["codex_workflow_gate"]["candidate_names"] == ["codex-fable5"]
+    assert profile_rows["codex_workflow_gate"]["candidate_source_hashes"] == [
+        "sha256:c27eb597f279b04dc64fe485a7756cce5edfebd1cee8cd68a1b8becb46c219cd"
+    ]
+    assert profile_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert profile_rows["skill_ecosystem_state_handoff"]["validation_target"] == "state_or_profile_boundary_metadata"
+    assert profile_rows["skill_ecosystem_state_handoff"]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+    assert profile_rows["skill_ecosystem_state_handoff"]["first_route_required"] is False
+    assert profile_rows["skill_ecosystem_state_handoff"]["queue_status"] == "ready"
+    assert profile_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert profile_rows["game_frontend_workflow"]["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert profile_rows["game_frontend_workflow"]["validation_gates"] == [
+        "local_frontend_validation_before_game_skill_activation"
+    ]
+    assert all(row["runtime_action"] == "none" for row in profile_queue["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_queue["rows"])
+    assert all(row["raw_source_url_exported"] is False for row in profile_queue["rows"])
+    assert all(row["raw_upstream_body_exported"] is False for row in profile_queue["rows"])
+
     next_step = lane_map["next_validation_step"]
     assert next_step["controller_surface"] == "skill_route_discovery_next_validation_step"
     assert next_step["status"] == "ready"

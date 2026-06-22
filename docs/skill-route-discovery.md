@@ -1532,6 +1532,19 @@ activation, external harness execution, provider launch, remote execution, raw
 source URL export, raw evidence URL export, raw target path export, and upstream
 body export remain denied.
 
+The lane map also emits `route_profile_handoff_queue`, an operator-visible
+profile queue derived from `local_activation_targets`. Each observed profile
+gets one body-free handoff row with its selected bounded local lane, validation
+target, replay command, validation gates, selected evidence item IDs, hashed
+candidate sources, first-route proof status, and activation blockers. This
+makes FableCodex-style `codex_workflow_gate`, COMPASS-style
+`skill_ecosystem_state_handoff`, and other skill-workflow validation profiles
+visible before a pass is activated. The queue does not add lanes or grant
+authority: runtime action, upstream skill activation, external harness
+execution, provider launch, remote execution, raw source URL export, raw
+evidence URL export, raw target path export, and upstream body export remain
+denied.
+
 Harness replay results now surface that same `local_lane_matrix` inside the
 top-level `lane_map` summary. This is the pass-4 operator path for the active
 COMPASS/FableCodex/Three.js window: a supervisor can inspect the bounded

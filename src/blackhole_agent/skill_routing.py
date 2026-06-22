@@ -883,6 +883,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             )
 
     local_activation_targets = _skill_route_discovery_local_activation_targets(candidate_lane_inventory)
+    route_profile_handoff_queue = _skill_route_discovery_route_profile_handoff_queue(local_activation_targets)
 
     return {
         "schema_version": 1,
@@ -896,6 +897,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
         "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
         "local_activation_targets": local_activation_targets,
+        "route_profile_handoff_queue": route_profile_handoff_queue,
         "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
@@ -1490,6 +1492,114 @@ def _skill_route_discovery_next_validation_step(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_route_profile_handoff_queue(
+    local_activation_targets: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Summarize selected local validation lanes by route profile.
+
+    The queue is derived from already-bounded activation targets. It gives an
+    operator one route-profile row per observed profile without adding lanes or
+    changing the selected validation target.
+    """
+
+    raw_rows = local_activation_targets.get("rows")
+    target_rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    profile_rows: dict[str, dict[str, Any]] = {}
+    blocked_profiles: list[str] = []
+
+    for row in target_rows:
+        if not isinstance(row, Mapping):
+            continue
+        route_profiles = _string_list(row.get("route_profiles")) or ["generic_skill_workflow"]
+        selected_lane = str(row.get("selected_local_lane") or "")
+        activation_ready = row.get("activation_ready") is True
+        validation_gates = _string_list(row.get("validation_gates"))
+        activation_blockers = _string_list(row.get("activation_blockers"))
+        selected_item_ids = _string_list(row.get("selected_evidence_item_ids"))
+        candidate_name = str(row.get("candidate_name") or "")
+        source_hash = str(row.get("candidate_source_hash") or "")
+
+        for profile in route_profiles:
+            existing = profile_rows.get(profile)
+            if existing is None:
+                profile_rows[profile] = {
+                    "route_profile": profile,
+                    "selected_local_lane": selected_lane,
+                    "validation_target": str(row.get("validation_target") or ""),
+                    "replay_command": str(row.get("replay_command") or ""),
+                    "validation_gates": validation_gates,
+                    "candidate_names": [candidate_name] if candidate_name else [],
+                    "candidate_source_hashes": [source_hash] if source_hash else [],
+                    "selected_evidence_item_ids": selected_item_ids,
+                    "first_route_required": row.get("first_route_required") is True,
+                    "first_route_confirmed": row.get("first_route_confirmed") is True,
+                    "queue_status": "ready" if activation_ready else "blocked",
+                    "activation_blockers": activation_blockers,
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            else:
+                existing["candidate_names"] = list(
+                    dict.fromkeys((*_string_list(existing.get("candidate_names")), candidate_name))
+                )
+                existing["candidate_source_hashes"] = list(
+                    dict.fromkeys((*_string_list(existing.get("candidate_source_hashes")), source_hash))
+                )
+                existing["selected_evidence_item_ids"] = list(
+                    dict.fromkeys((*_string_list(existing.get("selected_evidence_item_ids")), *selected_item_ids))
+                )
+                existing["validation_gates"] = list(
+                    dict.fromkeys((*_string_list(existing.get("validation_gates")), *validation_gates))
+                )
+                existing["first_route_required"] = (
+                    existing.get("first_route_required") is True or row.get("first_route_required") is True
+                )
+                existing["first_route_confirmed"] = (
+                    existing.get("first_route_confirmed") is True and row.get("first_route_confirmed") is True
+                )
+                existing["activation_blockers"] = list(
+                    dict.fromkeys((*_string_list(existing.get("activation_blockers")), *activation_blockers))
+                )
+                if not activation_ready:
+                    existing["queue_status"] = "blocked"
+
+    rows = [profile_rows[profile] for profile in sorted(profile_rows)]
+    for row in rows:
+        if row["queue_status"] != "ready":
+            blocked_profiles.append(row["route_profile"])
+
+    return {
+        "controller_surface": "skill_route_discovery_route_profile_handoff_queue",
+        "status": "ready" if rows and not blocked_profiles else "blocked",
+        "decision": (
+            "handoff_route_profiles_to_bounded_local_validation"
+            if rows and not blocked_profiles
+            else "repair_route_profile_handoff_before_activation"
+        ),
+        "route_profile_count": len(rows),
+        "blocked_route_profiles": blocked_profiles,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 
