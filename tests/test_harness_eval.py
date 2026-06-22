@@ -3599,6 +3599,7 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     serialized = json.dumps(output, sort_keys=True)
     completion = output["capability_window_completion"]
     provider_handoff = completion["provider_runtime_completion_handoff"]
+    final_diagnostics = completion["provider_runtime_final_diagnostics"]
 
     assert output["route_status"] == "passed"
     assert output["failure_mode"] == "none"
@@ -3639,6 +3640,36 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     assert provider_handoff["raw_preflight_inputs_exported"] is False
     assert provider_handoff["raw_diagnostics_exported"] is False
     assert provider_handoff["raw_provider_values_exported"] is False
+    assert final_diagnostics["controller_surface"] == "provider_runtime_final_diagnostics"
+    assert final_diagnostics["status"] == "ready"
+    assert final_diagnostics["decision"] == "provider_runtime_final_diagnostics_ready_for_supervisor_replay"
+    assert final_diagnostics["supervisor_next_action"] == (
+        "supervisor_replay_provider_runtime_preflight_then_promote"
+    )
+    assert final_diagnostics["theme"] == "provider-runtime-control"
+    assert final_diagnostics["provider_runtime_theme"] is True
+    assert final_diagnostics["provider_runtime_diagnostic_panel_status"] == "ready"
+    assert final_diagnostics["provider_runtime_sample_gate_status"] == "ready"
+    assert final_diagnostics["provider_runtime_completion_handoff_status"] == "ready"
+    assert final_diagnostics["provider_runtime_sample_route_status"] == "passed"
+    assert final_diagnostics["provider_runtime_sample_ready_for_local_replay"] is True
+    assert final_diagnostics["provider_runtime_sample_ready_for_supervisor_promotion"] is True
+    assert final_diagnostics["success_claim_allowed"] is True
+    assert final_diagnostics["completion_blocker_count"] == 0
+    assert final_diagnostics["recovery_hint_count"] == 0
+    assert final_diagnostics["recovery_hint_codes"] == []
+    assert final_diagnostics["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert completion["completion_handoff"]["provider_runtime_final_diagnostics"] == final_diagnostics
+    assert final_diagnostics["body_free_diagnostics_only"] is True
+    assert final_diagnostics["runtime_action_allowed"] is False
+    assert final_diagnostics["provider_runtime_launch_allowed"] is False
+    assert final_diagnostics["remote_execution_allowed"] is False
+    assert final_diagnostics["raw_preflight_inputs_exported"] is False
+    assert final_diagnostics["raw_diagnostics_exported"] is False
+    assert final_diagnostics["raw_provider_values_exported"] is False
     assert "OPENAI_API_KEY" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
