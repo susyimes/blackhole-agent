@@ -830,6 +830,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     runtime_safe = all(lane["runtime_action"] == "none" for lane in lane_records)
     validation_required = all(lane["local_validation_required"] is True for lane in lane_records)
     claim_evaluation = build_agent_harness_eval_claim_evaluation(claim_rows)
+    claim_remediation_plan = build_agent_harness_eval_claim_remediation_plan(claim_evaluation)
     project_intake_probe = build_agent_harness_eval_project_intake_probe(project_probe_rows)
     failure_mode = agent_harness_eval_lane_failure_mode(
         recognized_count=recognized_count,
@@ -879,6 +880,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activation_gate": activation_gate,
         "activation_lanes": activation_lanes,
         "claim_evaluation": claim_evaluation,
+        "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
         "review_notes": review_notes,
         "proposal_lanes": [
@@ -1044,6 +1046,65 @@ def build_agent_harness_eval_claim_evaluation(claim_rows: list[dict[str, Any]]) 
         "external_agent_activation_allowed": False,
         "raw_claim_bodies_exported": False,
         "rows": claim_rows,
+    }
+
+
+def build_agent_harness_eval_claim_remediation_plan(claim_evaluation: dict[str, Any]) -> dict[str, Any]:
+    """Turn unmapped general-agent claims into bounded local follow-up lanes."""
+
+    unmapped_claim_ids = [
+        str(claim_id)
+        for claim_id in claim_evaluation.get("unmapped_claim_ids", [])
+        if str(claim_id).strip()
+    ]
+    mapped_claim_ids = [
+        str(claim_id)
+        for claim_id in claim_evaluation.get("mapped_claim_ids", [])
+        if str(claim_id).strip()
+    ]
+    rows = [
+        {
+            "claim_id": claim_id,
+            "status": "needs_local_mapping",
+            "recommended_lanes": ["documentation", "test"],
+            "required_local_validation": [
+                "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            ],
+            "activation_blocker": "unmapped_agent_claims",
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_claim_body_exported": False,
+        }
+        for claim_id in unmapped_claim_ids
+    ]
+    status = "blocked" if rows else "ready" if mapped_claim_ids else "empty"
+    return {
+        "controller_surface": "agent_harness_claim_remediation_plan",
+        "status": status,
+        "decision": (
+            "map_unmapped_claims_before_activation"
+            if rows
+            else "mapped_claims_ready_for_local_eval"
+            if mapped_claim_ids
+            else "collect_agent_claims_before_activation"
+        ),
+        "unmapped_claim_count": len(rows),
+        "unmapped_claim_ids": unmapped_claim_ids,
+        "mapped_claim_ids": mapped_claim_ids,
+        "allowed_local_lanes": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "recommended_first_lanes": ["documentation", "test"] if rows else [],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "local_eval_activation_allowed": not rows and bool(mapped_claim_ids),
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_claim_bodies_exported": False,
+        "rows": rows,
     }
 
 

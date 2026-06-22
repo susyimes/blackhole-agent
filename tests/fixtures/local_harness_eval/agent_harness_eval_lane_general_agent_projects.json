@@ -93,6 +93,34 @@
       "equals": false
     },
     {
+      "path": "claim_remediation_plan.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "claim_remediation_plan.decision",
+      "equals": "map_unmapped_claims_before_activation"
+    },
+    {
+      "path": "claim_remediation_plan.unmapped_claim_ids",
+      "equals": ["local_data_grounding"]
+    },
+    {
+      "path": "claim_remediation_plan.recommended_first_lanes",
+      "equals": ["documentation", "test"]
+    },
+    {
+      "path": "claim_remediation_plan.local_eval_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "claim_remediation_plan.rows.0.activation_blocker",
+      "equals": "unmapped_agent_claims"
+    },
+    {
+      "path": "claim_remediation_plan.rows.0.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
       "path": "project_intake_probe.status",
       "equals": "ready"
     },

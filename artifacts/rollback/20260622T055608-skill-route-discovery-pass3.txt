@@ -1,0 +1,17 @@
+Rollback point for source digest github-growth-20260622T055431.415273Z
+
+Original branch: codex/blackhole-evolve/20260622T055608.427470-add-a-local-agent-harness-evaluation-candidate-f
+Original HEAD: 40a77d4c355cefbbbb92d10664a780851315bf74
+Rollback ref: refs/blackhole-rollback/20260622T055608-skill-route-discovery-pass3
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260622T055608.427470-add-a-local-agent-harness-evaluation-candidate-f
+git reset --hard refs/blackhole-rollback/20260622T055608-skill-route-discovery-pass3
+
+Run notes:
+- Self-model read before modification; left unchanged because it already supports rollback-backed, locally validated behavior changes.
+- External evidence opened only for the carried proposal URLs:
+  - https://github.com/omnigent-ai/omnigent
+  - https://github.com/omnigent-ai/omnigent/pull/924#pullrequestreview-4541429283
+  - https://github.com/baskduf/FableCodex

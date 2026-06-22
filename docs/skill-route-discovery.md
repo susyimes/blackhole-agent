@@ -1610,6 +1610,15 @@ activation lane stays blocked with `runtime_action: none` until a later pass
 either maps the claim to a local validation command or records it as evidence
 that should not drive activation.
 
+The blocked state now includes `claim_remediation_plan`. This operator-facing
+panel turns each unmapped general-agent claim into a bounded local follow-up
+row, currently preferring documentation or test work before code patches. The
+plan repeats the activation blocker, required local replay command, and denied
+runtime/external actions. For Omnigent-style meta-harness evidence, this means
+generic movement can request local claim mapping, but it still cannot activate
+an upstream agent, run an external harness, launch a provider, perform remote
+execution, or export raw claim bodies.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,

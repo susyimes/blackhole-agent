@@ -552,6 +552,35 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert output["claim_evaluation"]["unmapped_claim_ids"] == ["local_data_grounding"]
     assert output["claim_evaluation"]["runtime_action"] == "none"
     assert output["claim_evaluation"]["external_agent_activation_allowed"] is False
+    assert output["claim_remediation_plan"]["controller_surface"] == "agent_harness_claim_remediation_plan"
+    assert output["claim_remediation_plan"]["status"] == "blocked"
+    assert output["claim_remediation_plan"]["decision"] == "map_unmapped_claims_before_activation"
+    assert output["claim_remediation_plan"]["unmapped_claim_ids"] == ["local_data_grounding"]
+    assert output["claim_remediation_plan"]["recommended_first_lanes"] == ["documentation", "test"]
+    assert output["claim_remediation_plan"]["local_eval_activation_allowed"] is False
+    assert output["claim_remediation_plan"]["runtime_action"] == "none"
+    assert output["claim_remediation_plan"]["external_agent_activation_allowed"] is False
+    assert output["claim_remediation_plan"]["external_harness_execution_allowed"] is False
+    assert output["claim_remediation_plan"]["provider_launch_allowed"] is False
+    assert output["claim_remediation_plan"]["remote_execution_allowed"] is False
+    assert output["claim_remediation_plan"]["raw_claim_bodies_exported"] is False
+    assert output["claim_remediation_plan"]["rows"] == [
+        {
+            "claim_id": "local_data_grounding",
+            "status": "needs_local_mapping",
+            "recommended_lanes": ["documentation", "test"],
+            "required_local_validation": [
+                "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            ],
+            "activation_blocker": "unmapped_agent_claims",
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_claim_body_exported": False,
+        }
+    ]
     assert output["project_intake_probe"]["controller_surface"] == "agent_harness_project_intake_probe"
     assert output["project_intake_probe"]["status"] == "ready"
     assert output["project_intake_probe"]["decision"] == "project_shape_recorded_before_local_eval"
