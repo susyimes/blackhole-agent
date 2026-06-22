@@ -1518,6 +1518,18 @@ external skill activation, external harness execution, provider launch, remote
 execution, raw source URL export, raw target path export, and upstream body
 export denied.
 
+`pass1_validation_queue` also summarizes those row contracts as
+`profile_validation_lanes`. This is the operator-visible lane queue for the
+active pass-1 profile set: COMPASS-style state handoff exposes the local config
+or boundary-review lane, Three.js game/frontend evidence exposes the local test
+or frontend-validation lane, and FableCodex-style workflow evidence exposes the
+local test lane with `first_route_required` and `first_route_confirmed` before
+any secondary harness path. The panel is derived only from already-bounded
+profile contracts and selected item IDs; it does not add lanes, export raw
+source URLs or upstream bodies, install or enable upstream skills, execute an
+external harness, launch providers, write memory/profile state, or perform
+remote execution.
+
 Pass-3 handoff packets also emit `profile_activation_gates`. This is the final
 pre-activation profile view for the active window: it maps each observed route
 profile to its selected bounded local lane, queue role, selected item IDs,

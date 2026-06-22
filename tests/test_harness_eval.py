@@ -3971,8 +3971,40 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert pass1_queue["profile_contract_status"] == "ready"
     assert pass1_queue["profile_contract_count"] == 3
     assert pass1_queue["ready_profile_contract_count"] == 3
+    assert pass1_queue["profile_validation_lane_count"] == 3
+    assert pass1_queue["ready_profile_validation_lane_count"] == 3
     assert pass1_queue["mixed_skill_workflow_secondary_lane_status"] == "blocked_until_local_corroboration"
     queue_rows_by_id = {row["proposal_id"]: row for row in pass1_queue["rows"]}
+    validation_lanes_by_profile = {
+        row["route_profile"]: row for row in pass1_queue["profile_validation_lanes"]
+    }
+    assert validation_lanes_by_profile["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert validation_lanes_by_profile["skill_ecosystem_state_handoff"]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert validation_lanes_by_profile["skill_ecosystem_state_handoff"]["proposal_ids"] == [
+        "p1-skill-route-discovery-compass"
+    ]
+    assert validation_lanes_by_profile["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert validation_lanes_by_profile["game_frontend_workflow"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert validation_lanes_by_profile["game_frontend_workflow"]["proposal_ids"] == [
+        "p2-threejs-game-skill-docs"
+    ]
+    assert validation_lanes_by_profile["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert validation_lanes_by_profile["codex_workflow_gate"]["first_route_required"] is True
+    assert validation_lanes_by_profile["codex_workflow_gate"]["first_route_confirmed"] is True
+    assert validation_lanes_by_profile["codex_workflow_gate"]["proposal_ids"] == [
+        "p3-codex-workflow-gate-config"
+    ]
+    assert all(
+        row["runtime_action"] == "none"
+        and row["external_skill_activation_allowed"] is False
+        and row["external_harness_execution_allowed"] is False
+        and row["raw_source_urls_exported"] is False
+        for row in pass1_queue["profile_validation_lanes"]
+    )
     assert queue_rows_by_id["p1-skill-route-discovery-compass"]["selected_local_lane"] == "documentation"
     assert queue_rows_by_id["p1-skill-route-discovery-compass"]["profile_contracts"][0]["validation_gate"] == (
         "state_handoff_boundary_before_profile_or_memory_write"

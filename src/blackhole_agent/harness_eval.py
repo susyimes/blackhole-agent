@@ -5736,6 +5736,63 @@ def skill_route_discovery_pass1_validation_queue(
         if isinstance(contract, dict)
     ]
     ready_profile_contract_count = sum(1 for row in profile_contract_rows if row.get("status") == "ready")
+    profile_validation_lanes: list[dict[str, Any]] = []
+    for contract in profile_contract_rows:
+        profile = optional_string(contract.get("route_profile")) or "generic_skill_workflow"
+        proposal_ids = sorted(
+            {
+                row["proposal_id"]
+                for row in skill_rows
+                if profile in string_list(row.get("route_profiles"))
+            }
+        )
+        replay_commands = sorted(
+            {
+                command
+                for row in skill_rows
+                if profile in string_list(row.get("route_profiles"))
+                for command in string_list(row.get("replay_commands"))
+            }
+        )
+        provider_runtime_replay_commands = sorted(
+            {
+                command
+                for row in skill_rows
+                if profile in string_list(row.get("route_profiles"))
+                for command in string_list(row.get("provider_runtime_replay_commands"))
+            }
+        )
+        acceptance_gates = contract.get("acceptance_gates")
+        acceptance_gates = acceptance_gates if isinstance(acceptance_gates, dict) else {}
+        first_route_required = profile == "codex_workflow_gate"
+        profile_validation_lanes.append(
+            {
+                "route_profile": profile,
+                "queue_status": "ready" if contract.get("status") == "ready" else "blocked",
+                "selected_local_lane": optional_string(contract.get("selected_first_local_lane")) or "none",
+                "validation_gate": optional_string(contract.get("validation_gate")) or "",
+                "validation_scope": optional_string(contract.get("validation_scope")) or "",
+                "proposal_ids": proposal_ids,
+                "proposal_count": len(proposal_ids),
+                "required_metadata": string_list(contract.get("required_metadata")),
+                "replay_commands": replay_commands,
+                "provider_runtime_replay_commands": provider_runtime_replay_commands,
+                "first_route_required": first_route_required,
+                "first_route_confirmed": acceptance_gates.get("first_route_confirmed") is True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
     ready = (
         current_pass == 1
         and bool(skill_rows)
@@ -5770,6 +5827,11 @@ def skill_route_discovery_pass1_validation_queue(
         "profile_contract_status": "ready"
         if profile_contract_rows and ready_profile_contract_count == len(profile_contract_rows)
         else "blocked",
+        "profile_validation_lane_count": len(profile_validation_lanes),
+        "ready_profile_validation_lane_count": sum(
+            1 for row in profile_validation_lanes if row["queue_status"] == "ready"
+        ),
+        "profile_validation_lanes": profile_validation_lanes,
         "mixed_skill_workflow_secondary_lane_status": mixed_probe_status,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
