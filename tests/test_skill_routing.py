@@ -919,6 +919,20 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert matrix["raw_source_url_exported"] is False
     assert matrix["raw_upstream_body_exported"] is False
 
+    activation_targets = lane_map["local_activation_targets"]
+    assert activation_targets["controller_surface"] == "skill_route_discovery_local_activation_targets"
+    assert activation_targets["status"] == "ready"
+    assert activation_targets["row_count"] == 3
+    assert activation_targets["blocked_candidate_names"] == []
+    assert activation_targets["runtime_action"] == "none"
+    assert activation_targets["external_skill_activation_allowed"] is False
+    assert activation_targets["external_harness_execution_allowed"] is False
+    assert activation_targets["provider_runtime_launch_allowed"] is False
+    assert activation_targets["remote_execution_allowed"] is False
+    assert activation_targets["raw_source_url_exported"] is False
+    assert activation_targets["raw_evidence_urls_exported"] is False
+    assert activation_targets["raw_upstream_body_exported"] is False
+
     rows = {row["candidate_name"]: row for row in matrix["rows"]}
     assert rows["codex-fable5"]["allowed_local_lanes"] == [
         "documentation",
@@ -948,6 +962,31 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     ]
     assert rows["threejs-game-skills"]["runtime_action"] == "none"
     assert rows["threejs-game-skills"]["external_skill_activation_allowed"] is False
+
+    target_rows = {row["candidate_name"]: row for row in activation_targets["rows"]}
+    assert target_rows["codex-fable5"]["selected_local_lane"] == "test"
+    assert target_rows["codex-fable5"]["validation_target"] == "skill_route_first_probe_regression"
+    assert target_rows["codex-fable5"]["first_route_required"] is True
+    assert target_rows["codex-fable5"]["first_route_confirmed"] is True
+    assert target_rows["codex-fable5"]["activation_ready"] is True
+    assert target_rows["codex-fable5"]["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
+    )
+
+    assert target_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert target_rows["compass-skills"]["validation_target"] == "state_or_profile_boundary_metadata"
+    assert target_rows["compass-skills"]["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k state_handoff"
+    )
+
+    assert target_rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert target_rows["threejs-game-skills"]["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert target_rows["threejs-game-skills"]["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k game_frontend"
+    )
+    assert all(row["runtime_action"] == "none" for row in target_rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in target_rows.values())
+    assert all(row["raw_source_url_exported"] is False for row in target_rows.values())
 
 
 def test_skill_route_discovery_mixed_codex_agent_workflow_probe_routes_first_through_skill_lanes():

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
@@ -880,6 +881,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "downgraded_candidate_count": len(downgraded_candidates),
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
         "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
+        "local_activation_targets": _skill_route_discovery_local_activation_targets(candidate_lane_inventory),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
         "rejected_candidates": rejected_candidates,
@@ -1319,6 +1321,132 @@ def _skill_route_discovery_local_lane_matrix(
         "raw_upstream_body_exported": False,
         "rows": rows,
     }
+
+
+def _skill_route_discovery_local_activation_targets(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Build a supervisor-facing validation target list for bounded lanes."""
+
+    rows: list[dict[str, Any]] = []
+    blocked_rows: list[str] = []
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        proposal_kinds = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        if selected_lane not in proposal_kinds:
+            selected_lane = proposal_kinds[0] if proposal_kinds else ""
+        route_probe_decision = str(candidate.get("route_probe_decision") or "skill_route_discovery")
+        first_route_required = "codex_workflow_gate" in route_profiles
+        first_route_confirmed = not first_route_required or route_probe_decision == "skill_route_discovery_first"
+        validation_contract = candidate.get("route_validation_contract")
+        validation_contract = validation_contract if isinstance(validation_contract, Mapping) else {}
+        contract_rows = validation_contract.get("rows")
+        contract_rows = (
+            contract_rows
+            if isinstance(contract_rows, Sequence) and not isinstance(contract_rows, (str, bytes))
+            else []
+        )
+        validation_gates = [
+            str(row.get("validation_gate") or "")
+            for row in contract_rows
+            if isinstance(row, Mapping) and str(row.get("validation_gate") or "").strip()
+        ]
+        item_ids = _string_list(candidate.get("evidence_item_ids"))
+        source_hash = _stable_hash(str(candidate.get("source_url") or candidate_name))
+        profile_names = ",".join(route_profiles)
+        ready = bool(selected_lane and first_route_confirmed)
+        if not ready and candidate_name:
+            blocked_rows.append(candidate_name)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": source_hash,
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in proposal_kinds if lane != selected_lane],
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
+                "replay_command": _skill_route_discovery_replay_command(selected_lane, route_profiles),
+                "selected_evidence_item_ids": item_ids,
+                "first_route_required": first_route_required,
+                "first_route_confirmed": first_route_confirmed,
+                "activation_ready": ready,
+                "activation_blockers": (
+                    [] if ready else ["missing_skill_route_discovery_first" if first_route_required else "missing_bounded_lane"]
+                ),
+                "operator_note": (
+                    f"Validate {selected_lane or 'bounded local'} lane for {profile_names} before activation."
+                ),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_local_activation_targets",
+        "status": "ready" if rows and not blocked_rows else "blocked",
+        "row_count": len(rows),
+        "blocked_candidate_names": [name for name in blocked_rows if name],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_validation_target(lane: str, route_profiles: Sequence[str]) -> str:
+    profiles = set(route_profiles)
+    if lane == "config" or "skill_ecosystem_state_handoff" in profiles:
+        return "state_or_profile_boundary_metadata"
+    if lane == "test" and "game_frontend_workflow" in profiles:
+        return "local_frontend_render_or_workflow_check"
+    if lane == "test" and "codex_workflow_gate" in profiles:
+        return "skill_route_first_probe_regression"
+    if lane == "documentation":
+        return "body_free_route_profile_note"
+    if lane == "code_patch":
+        return "bounded_local_controller_patch"
+    if lane == "test":
+        return "focused_local_regression"
+    return "bounded_local_lane_review"
+
+
+def _skill_route_discovery_replay_command(lane: str, route_profiles: Sequence[str]) -> str:
+    profiles = set(route_profiles)
+    if lane == "test" and "game_frontend_workflow" in profiles:
+        return "python -m pytest tests/test_skill_routing.py -q -k game_frontend"
+    if lane == "test" and "codex_workflow_gate" in profiles:
+        return "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
+    if lane == "config" and "skill_ecosystem_state_handoff" in profiles:
+        return "python -m pytest tests/test_skill_routing.py -q -k state_handoff"
+    return "python -m pytest tests/test_skill_routing.py -q -k skill_route_discovery"
+
+
+def _stable_hash(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _summary_lineage_key(summary: ExternalSkillRepositorySummary) -> str:

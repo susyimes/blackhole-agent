@@ -1502,6 +1502,19 @@ first-route proof is present. It does not add lanes, export raw source URLs or
 upstream bodies, install or enable upstream skills, execute external harnesses,
 launch providers, or perform remote execution.
 
+Pass-1 lane maps also emit `local_activation_targets`, a body-free validation
+target panel derived from the same candidate inventory. Each row records the
+selected bounded local lane, queued local lanes, profile validation gates, a
+local validation target, and the focused replay command an operator can run
+before activation. FableCodex-style workflow evidence maps to a
+`skill_route_first_probe_regression`, COMPASS-style state handoff maps to
+`state_or_profile_boundary_metadata`, and Three.js/game frontend evidence maps
+to `local_frontend_render_or_workflow_check`. The panel hashes candidate
+sources and exports no raw evidence URLs or upstream bodies. It is an activation
+target list, not an activation grant: runtime action, upstream skill activation,
+external harness execution, provider launch, remote execution, profile writes,
+memory writes, and source/body export remain denied.
+
 Harness replay results now surface that same `local_lane_matrix` inside the
 top-level `lane_map` summary. This is the pass-4 operator path for the active
 COMPASS/FableCodex/Three.js window: a supervisor can inspect the bounded
