@@ -2065,6 +2065,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     route_validation_lane_queue = output["capability_window_completion"]["completion_report"][
         "route_validation_lane_queue"
     ]
+    secondary_harness_bridge = output["capability_window_completion"]["completion_report"][
+        "secondary_harness_bridge"
+    ]
     completion_consistency_guard = output["capability_window_completion"]["completion_report"][
         "completion_consistency_guard"
     ]
@@ -2097,6 +2100,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "completion_replay_checklist": completion_replay_checklist,
         "final_route_handoff_manifest": final_route_handoff_manifest,
         "route_validation_lane_queue": route_validation_lane_queue,
+        "secondary_harness_bridge": secondary_harness_bridge,
         "completion_consistency_guard": completion_consistency_guard,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
@@ -3832,6 +3836,52 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert all(row["push_event_authoritative"] is False for row in lane_queue["rows"])
     assert all(row["push_event_install_or_activation_allowed"] is False for row in lane_queue["rows"])
     assert "https://github.com/" not in serialized
+    secondary_bridge = output["capability_window_completion"]["completion_report"]["secondary_harness_bridge"]
+    serialized = json.dumps(secondary_bridge, sort_keys=True)
+    assert secondary_bridge["controller_surface"] == "skill_route_discovery_secondary_harness_bridge"
+    assert secondary_bridge["status"] == "ready"
+    assert secondary_bridge["decision"] == "secondary_agent_harness_gated_after_skill_route_completion"
+    assert secondary_bridge["bridge_scope"] == "skill_route_discovery_to_agent_harness_eval"
+    assert secondary_bridge["row_count"] == 3
+    assert secondary_bridge["ready_row_count"] == 3
+    assert secondary_bridge["blocked_row_count"] == 0
+    assert secondary_bridge["agent_harness_eval_required_count"] == 1
+    assert secondary_bridge["agent_harness_eval_blocked_count"] == 1
+    assert secondary_bridge["selected_local_lanes"] == ["config", "test"]
+    assert secondary_bridge["required_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+    ]
+    bridge_rows = {row["route_profile"]: row for row in secondary_bridge["rows"]}
+    assert bridge_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert bridge_rows["codex_workflow_gate"]["primary_route"] == "skill_route_discovery"
+    assert bridge_rows["codex_workflow_gate"]["secondary_lane"] == (
+        "agent_harness_eval_after_local_corroboration"
+    )
+    assert bridge_rows["codex_workflow_gate"]["secondary_lane_status"] == (
+        "blocked_until_local_corroboration"
+    )
+    assert bridge_rows["codex_workflow_gate"]["agent_harness_eval_behavior"] == (
+        "agent_harness_eval_lane"
+    )
+    assert bridge_rows["codex_workflow_gate"]["agent_harness_eval_required"] is True
+    assert bridge_rows["codex_workflow_gate"]["activation_ready"] is False
+    assert bridge_rows["codex_workflow_gate"]["activation_blockers"] == [
+        "local_corroboration_required_before_agent_harness_eval"
+    ]
+    assert bridge_rows["game_frontend_workflow"]["secondary_lane_status"] == "not_applicable"
+    assert bridge_rows["skill_ecosystem_state_handoff"]["secondary_lane_status"] == "not_applicable"
+    assert all(row["runtime_action"] == "none" for row in secondary_bridge["rows"])
+    assert all(row["local_eval_activation_allowed"] is False for row in secondary_bridge["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in secondary_bridge["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in secondary_bridge["rows"])
+    assert secondary_bridge["runtime_action_allowed"] is False
+    assert secondary_bridge["local_eval_activation_allowed"] is False
+    assert secondary_bridge["external_harness_execution_allowed"] is False
+    assert secondary_bridge["provider_runtime_launch_allowed"] is False
+    assert secondary_bridge["remote_execution_allowed"] is False
+    assert secondary_bridge["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
     consistency_guard = output["capability_window_completion"]["completion_report"]["completion_consistency_guard"]
     serialized = json.dumps(consistency_guard, sort_keys=True)
     assert consistency_guard["controller_surface"] == (
@@ -3848,6 +3898,7 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
         "completion_replay_checklist": "ready",
         "final_route_handoff_manifest": "ready",
         "route_validation_lane_queue": "ready",
+        "secondary_harness_bridge": "ready",
     }
     assert consistency_guard["ready_profile_count"] == consistency_guard["ready_lane_count"] == 3
     assert consistency_guard["blocked_profile_count"] == consistency_guard["blocked_lane_count"] == 0

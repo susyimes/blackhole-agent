@@ -1673,9 +1673,22 @@ false and the queue still denies install, activation, external harness
 execution, provider launch, remote execution, raw source URL export, raw target
 path export, and upstream body export.
 
+Pass-4 completion also emits `secondary_harness_bridge`, the local handoff
+between skill-route discovery and broader `agent_harness_eval_lane` checks.
+This bridge is for mixed skill/workflow/general-agent signals such as
+FableCodex plus Omnigent-style harness evidence: it records which route profile
+would require a later agent-harness evaluation, confirms that
+`skill_route_discovery` stayed first, and keeps the secondary lane
+`blocked_until_local_corroboration`. The bridge is not activation authority.
+It denies local eval activation, external harness execution, provider launch,
+remote execution, raw source URL export, and upstream body export until a later
+local agent-harness fixture maps the candidate claims to existing controller
+invariants.
+
 Pass-4 completion also emits `completion_consistency_guard`. This guard compares
-the activation handoff, replay checklist, final route handoff manifest, and
-route validation lane queue before the completion report can be marked ready.
+the activation handoff, replay checklist, final route handoff manifest, route
+validation lane queue, and secondary harness bridge before the completion report
+can be marked ready.
 The selected local lane set must match across those surfaces, ready and blocked
 profile counts must match ready and blocked queue counts, all panel statuses
 must be ready, and the handoff must remain external-supervisor controlled with
