@@ -1567,8 +1567,13 @@ The same pass-4 report now emits `route_validation_lane_queue`. This is the
 operator-visible queue for the completed slice: it restates the final route
 profiles as bounded local validation lanes, reports the selected `config` or
 `test` lane per profile, and carries the replay commands needed before any
-supervisor promotion. Repository activity freshness is included only as a
-non-authoritative signal. A COMPASS-style `PushEvent` can mark
+supervisor promotion. For FableCodex-style Codex/workflow evidence, each queued
+row also carries `workflow_gate`: `skill_route_discovery_first` must be
+confirmed before the workflow gate is considered ready, and the queue blocks the
+row if that first-route proof is missing. Game/frontend and state-handoff rows
+stay in the same bounded local lane queue without gaining a secondary workflow
+action. Repository activity freshness is included only as a non-authoritative
+signal. A COMPASS-style `PushEvent` can mark
 `push_event_freshness_signal: true`, but `push_event_authoritative` remains
 false and the queue still denies install, activation, external harness
 execution, provider launch, remote execution, raw source URL export, raw target

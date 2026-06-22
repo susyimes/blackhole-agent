@@ -3737,7 +3737,27 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert lane_queue["completion_blocker_count"] == 0
     queue_rows = {row["route_profile"]: row for row in lane_queue["rows"]}
     assert queue_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert queue_rows["codex_workflow_gate"]["workflow_gate"] == {
+        "controller_surface": "skill_route_discovery_queue_workflow_gate",
+        "status": "ready",
+        "decision": "skill_route_discovery_first_confirmed_before_workflow_gate",
+        "required_first_route_decision": "skill_route_discovery_first",
+        "first_route_confirmed": True,
+        "primary_route": "skill_route_discovery",
+        "secondary_workflow_action_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert queue_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert queue_rows["game_frontend_workflow"]["workflow_gate"]["required_first_route_decision"] == ""
+    assert queue_rows["game_frontend_workflow"]["workflow_gate"]["secondary_workflow_action_allowed"] is False
     assert queue_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
     assert all(row["runtime_action"] == "none" for row in lane_queue["rows"])
     assert all(row["local_validation_required"] is True for row in lane_queue["rows"])
@@ -5015,6 +5035,23 @@ def test_skill_route_discovery_completion_blocks_codex_profile_without_first_rou
     assert codex_gate["selected_local_lane"] == "test"
     assert codex_gate["first_route_confirmed"] is False
     assert codex_gate["diagnostics"] == ["skill_route_discovery_first_not_confirmed"]
+    lane_queue = completion["completion_report"]["route_validation_lane_queue"]
+    queue_codex_gate = next(
+        row for row in lane_queue["rows"] if row["route_profile"] == "codex_workflow_gate"
+    )
+    assert lane_queue["status"] == "blocked"
+    assert queue_codex_gate["status"] == "blocked"
+    assert queue_codex_gate["workflow_gate"]["status"] == "blocked"
+    assert queue_codex_gate["workflow_gate"]["decision"] == (
+        "repair_skill_route_discovery_first_before_workflow_gate"
+    )
+    assert queue_codex_gate["workflow_gate"]["required_first_route_decision"] == (
+        "skill_route_discovery_first"
+    )
+    assert queue_codex_gate["workflow_gate"]["first_route_confirmed"] is False
+    assert "codex_workflow_gate:skill_route_discovery_first_not_confirmed_before_workflow_gate" in (
+        lane_queue["diagnostics"]
+    )
     assert profile_gate["runtime_action_allowed"] is False
     assert profile_gate["external_skill_activation_allowed"] is False
     assert profile_gate["raw_evidence_urls_exported"] is False

@@ -7479,8 +7479,15 @@ def skill_route_discovery_route_validation_lane_queue(
         route_profile = optional_string(manifest_row.get("route_profile")) or "generic_skill_workflow"
         selected_lane = optional_string(manifest_row.get("selected_local_lane")) or ""
         row_diagnostics = string_list(manifest_row.get("diagnostics"))
+        required_first_route_decision = optional_string(
+            manifest_row.get("required_first_route_decision")
+        ) or ""
+        first_route_confirmed = manifest_row.get("first_route_confirmed") is True
+        workflow_gate_ready = not required_first_route_decision or first_route_confirmed
         if selected_lane not in allowed_lanes:
             row_diagnostics.append("selected_lane_not_bounded")
+        if not workflow_gate_ready:
+            row_diagnostics.append("skill_route_discovery_first_not_confirmed_before_workflow_gate")
         if manifest_row.get("local_validation_required") is not True:
             row_diagnostics.append("local_validation_not_required")
         if str(manifest_row.get("runtime_action") or "") != "none":
@@ -7507,6 +7514,26 @@ def skill_route_discovery_route_validation_lane_queue(
                 "selected_local_lane": selected_lane,
                 "validation_scope": optional_string(manifest_row.get("validation_scope")) or "none",
                 "operator_replay_step": optional_string(manifest_row.get("operator_replay_step")) or "",
+                "workflow_gate": {
+                    "controller_surface": "skill_route_discovery_queue_workflow_gate",
+                    "status": "ready" if workflow_gate_ready else "blocked",
+                    "decision": "skill_route_discovery_first_confirmed_before_workflow_gate"
+                    if workflow_gate_ready
+                    else "repair_skill_route_discovery_first_before_workflow_gate",
+                    "required_first_route_decision": required_first_route_decision,
+                    "first_route_confirmed": first_route_confirmed,
+                    "primary_route": "skill_route_discovery" if required_first_route_decision else "",
+                    "secondary_workflow_action_allowed": False,
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_upstream_body_exported": False,
+                },
                 "activity_freshness": activity_freshness,
                 "push_event_freshness_signal": push_signal_count > 0,
                 "push_event_authoritative": False,
