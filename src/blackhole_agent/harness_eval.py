@@ -7148,12 +7148,22 @@ def skill_route_discovery_completion_report(
         final_route_handoff_manifest=final_route_handoff_manifest,
         activity_signal_panel=activity_signal_panel,
     )
+    completion_consistency_guard = skill_route_discovery_completion_consistency_guard(
+        ready=ready,
+        selected_local_lanes=selected_local_lanes,
+        activation_handoff=activation_handoff,
+        completion_replay_checklist=completion_replay_checklist,
+        final_route_handoff_manifest=final_route_handoff_manifest,
+        route_validation_lane_queue=route_validation_lane_queue,
+        blocked_reasons=blocked_reasons,
+    )
+    report_ready = ready and completion_consistency_guard["status"] == "ready"
 
     return {
         "controller_surface": "skill_route_discovery_completion_report",
-        "status": "ready" if ready else "blocked",
+        "status": "ready" if report_ready else "blocked",
         "decision": "operator_report_ready_for_supervisor_handoff"
-        if ready
+        if report_ready
         else "operator_report_blocked_until_local_repair",
         "completion_status": status,
         "completion_decision": decision,
@@ -7176,6 +7186,7 @@ def skill_route_discovery_completion_report(
         "completion_replay_checklist": completion_replay_checklist,
         "final_route_handoff_manifest": final_route_handoff_manifest,
         "route_validation_lane_queue": route_validation_lane_queue,
+        "completion_consistency_guard": completion_consistency_guard,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -7191,6 +7202,92 @@ def skill_route_discovery_completion_report(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_consistency_guard(
+    *,
+    ready: bool,
+    selected_local_lanes: list[str],
+    activation_handoff: dict[str, Any],
+    completion_replay_checklist: dict[str, Any],
+    final_route_handoff_manifest: dict[str, Any],
+    route_validation_lane_queue: dict[str, Any],
+    blocked_reasons: list[str],
+) -> dict[str, Any]:
+    """Cross-check final pass handoff panels before reporting slice closure."""
+
+    selected_lane_set = set(selected_local_lanes)
+    manifest_lane_set = set(string_list(final_route_handoff_manifest.get("selected_local_lanes")))
+    queue_lane_set = set(string_list(route_validation_lane_queue.get("selected_local_lanes")))
+    checklist_lane_set = set(string_list(completion_replay_checklist.get("selected_local_lanes")))
+    statuses = {
+        "activation_handoff": optional_string(activation_handoff.get("status")) or "",
+        "completion_replay_checklist": optional_string(completion_replay_checklist.get("status")) or "",
+        "final_route_handoff_manifest": optional_string(final_route_handoff_manifest.get("status")) or "",
+        "route_validation_lane_queue": optional_string(route_validation_lane_queue.get("status")) or "",
+    }
+
+    diagnostics = list(blocked_reasons)
+    for panel, panel_status in statuses.items():
+        if panel_status != "ready":
+            diagnostics.append(f"{panel}_not_ready")
+    if selected_lane_set != manifest_lane_set:
+        diagnostics.append("selected_lanes_do_not_match_final_manifest")
+    if selected_lane_set != queue_lane_set:
+        diagnostics.append("selected_lanes_do_not_match_validation_queue")
+    if selected_lane_set != checklist_lane_set:
+        diagnostics.append("selected_lanes_do_not_match_replay_checklist")
+    if int(final_route_handoff_manifest.get("ready_profile_count") or 0) != int(
+        route_validation_lane_queue.get("ready_lane_count") or 0
+    ):
+        diagnostics.append("ready_profile_count_does_not_match_ready_lane_count")
+    if int(final_route_handoff_manifest.get("blocked_profile_count") or 0) != int(
+        route_validation_lane_queue.get("blocked_lane_count") or 0
+    ):
+        diagnostics.append("blocked_profile_count_does_not_match_blocked_lane_count")
+    if completion_replay_checklist.get("external_supervisor_required") is not True:
+        diagnostics.append("external_supervisor_handoff_not_recorded")
+    if completion_replay_checklist.get("restart_required_by_kernel") is not False:
+        diagnostics.append("kernel_restart_requested")
+
+    diagnostics = sorted(dict.fromkeys(diagnostic for diagnostic in diagnostics if diagnostic))
+    guard_ready = ready and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_completion_consistency_guard",
+        "status": "ready" if guard_ready else "blocked",
+        "decision": "completion_surfaces_consistent_for_supervisor_handoff"
+        if guard_ready
+        else "repair_completion_surface_mismatch_before_handoff",
+        "selected_local_lanes": sorted(selected_lane_set),
+        "manifest_selected_local_lanes": sorted(manifest_lane_set),
+        "queue_selected_local_lanes": sorted(queue_lane_set),
+        "checklist_selected_local_lanes": sorted(checklist_lane_set),
+        "panel_statuses": statuses,
+        "ready_profile_count": int(final_route_handoff_manifest.get("ready_profile_count") or 0),
+        "ready_lane_count": int(route_validation_lane_queue.get("ready_lane_count") or 0),
+        "blocked_profile_count": int(final_route_handoff_manifest.get("blocked_profile_count") or 0),
+        "blocked_lane_count": int(route_validation_lane_queue.get("blocked_lane_count") or 0),
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "diagnostic_count": len(diagnostics),
+        "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in diagnostics],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "external_supervisor_required": True,
+        "restart_required_by_kernel": False,
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,

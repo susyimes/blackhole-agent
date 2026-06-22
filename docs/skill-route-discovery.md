@@ -1640,6 +1640,18 @@ false and the queue still denies install, activation, external harness
 execution, provider launch, remote execution, raw source URL export, raw target
 path export, and upstream body export.
 
+Pass-4 completion also emits `completion_consistency_guard`. This guard compares
+the activation handoff, replay checklist, final route handoff manifest, and
+route validation lane queue before the completion report can be marked ready.
+The selected local lane set must match across those surfaces, ready and blocked
+profile counts must match ready and blocked queue counts, all panel statuses
+must be ready, and the handoff must remain external-supervisor controlled with
+no kernel restart request. Diagnostics are reported only as hashes. The guard
+does not add lanes or grant activation: runtime action, upstream skill
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw target path export, and upstream body export remain
+denied.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy
