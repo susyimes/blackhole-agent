@@ -36,6 +36,13 @@ Source digest `github-growth-20260622T053431.406906Z` keeps the same
 COMPASS/FableCodex/Three.js/Omnigent route window active for pass 2 and adds
 core lane-map handoff metadata so every recognized skill repository produces a
 selected local validation lane plus queued bounded lanes before activation.
+Source digest `github-growth-20260622T093432.348800Z` adds
+`lyra81604/zhengxi-views` as a source-cited domain research agent skill signal.
+This is classified as `source_cited_domain_research`: it may select local
+documentation, config, test, or code_patch validation lanes for citation and
+advice-boundary checks, but it does not permit upstream dataset import,
+provider-backed advice generation, financial advice, install, execution,
+scaffold, or external skill activation.
 
 The bounded evidence reviewed for these runs is:
 
@@ -43,6 +50,7 @@ The bounded evidence reviewed for these runs is:
 - `https://github.com/ACN1987/FableCodex`
 - `https://github.com/dongshuyan/compass-skills`
 - `https://github.com/LeanEntropy/threejs-phaser-game-skills`
+- `https://github.com/lyra81604/zhengxi-views`
 - `https://github.com/majidmanzarpour/threejs-game-skills`
 - `https://github.com/pretinhuu1-boop/threejs-game-skills`
 - `https://github.com/xiaoguomeiyitian/threejs-game-skills`
@@ -64,6 +72,7 @@ activate any upstream skill package.
 | --- | --- | --- | --- | --- |
 | `baskduf/FableCodex` | Codex workflow package with evidence gates, inspection, ledgers, and verification habits. | documentation, test, code patch | Treat workflow skills as process-contract evidence that can become local docs, regression checks, or bounded verification behavior. | Keep disabled until a local test or controller path proves the specific gate. |
 | `dongshuyan/compass-skills` | Multi-skill system for clarification, repo-local task memory, and collaboration profile state. | documentation, config, test, code patch | Treat skill ecosystems as routing topology evidence: entry points, durable state, and ambiguity gates can inform local route metadata. | Do not create local memory/profile behavior from repository presence alone. |
+| `lyra81604/zhengxi-views` | Source-cited domain research agent skill with public-view evidence and investment-research framing. | documentation, config, test, code patch | Treat source-cited domain skills as evidence for local citation and advice-boundary validation. | Do not import upstream datasets, generate financial advice, launch providers, or treat repository claims as decision support. |
 | `majidmanzarpour/threejs-game-skills` | Domain director routes specialist game, asset, debug, QA, and release skills with bundled helper materials. | documentation, config, test, code patch | Treat domain directors as evidence for explicit route orchestration and validation ledgers. | Do not run bundled scaffolds, installers, browser checks, or asset generators without a separate local capability path. |
 | `LeanEntropy/threejs-phaser-game-skills` | Fork-lineage game-skill bundle adds Phaser/game-engine wording to the Three.js browser-game route shape. | documentation, config, test, code patch | Treat Phaser or game-engine skills as the same local `game_frontend_workflow` validation profile. | Do not amplify fork presence into installation, execution, scaffolding, provider launch, or external skill activation. |
 
@@ -78,6 +87,7 @@ it:
 | --- | --- | --- | --- | --- |
 | Workflow-gate package | Evidence gates, review ledgers, inspection habits, verification routines, Codex or agent workflow language. | documentation, test, code_patch | Show the local gate in docs or a focused regression before changing runtime behavior. | Installing the upstream workflow or treating its README as proof the local controller already behaves that way. |
 | State and alignment skill system | Task memory, collaboration profile, clarification gate, repo-local task graph, route metadata, skill ecosystem map. | documentation, config, test, code_patch | Keep state body-free unless a later local design explicitly models storage, retention, correction, and privacy boundaries. | Creating profile or memory behavior from repository presence alone. |
+| Source-cited domain research skill | Traceable or cited source corpus, domain research framing, investment or other advisory wording, QA/source-grounding claims. | documentation, config, test, code_patch | Validate citation provenance and advice disclaimers locally before any domain-specific behavior changes. | Importing upstream datasets, generating advice, launching providers, or treating public views as verified local knowledge. |
 | Domain director or specialist bundle | Director skill, specialist skills, scaffold, packaged helpers, QA scripts, asset or browser validation workflow. | documentation, config, test, code_patch | Validate only the local orchestration or boundary being changed; treat bundled scaffolds and helpers as evidence to inspect. | Running installer, scaffold, browser checker, asset generator, credential probe, or helper script during discovery. |
 
 Catalog entries are additive only when they preserve the same bounded outputs:

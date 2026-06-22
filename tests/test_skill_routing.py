@@ -888,6 +888,80 @@ def test_skill_route_discovery_normalizes_push_event_to_bounded_proposal_lanes()
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
 
 
+def test_skill_route_discovery_source_cited_domain_research_stays_bounded_and_non_advisory():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "summary": (
+                    "Agent Skill for traceable public investment research views, source-cited QA, "
+                    "fund scoring examples, advice disclaimers, and local validation notes."
+                ),
+                "topics": ["agent-skill", "research", "source-cited", "investment", "validation"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_launch"],
+                "observed_paths": [
+                    "skills/zhengxi-views/SKILL.md",
+                    "docs/source-citations.md",
+                    "tests/test_citation_boundaries.py",
+                ],
+            }
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 1
+    candidate = registry["candidates"][0]
+    assert candidate["name"] == "zhengxi-views"
+    assert candidate["candidate_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert candidate["route_profiles"] == ["source_cited_domain_research"]
+
+    inventory = lane_map["candidate_lane_inventory"][0]
+    assert inventory["proposal_kinds"] == ["documentation", "config", "test", "code_patch"]
+    assert inventory["route_profiles"] == ["source_cited_domain_research"]
+    assert inventory["handoff_metadata"]["selected_local_lane"] == "test"
+    assert inventory["handoff_metadata"]["queued_local_lanes"] == ["documentation", "config", "code_patch"]
+    assert inventory["handoff_metadata"]["validation_gates"] == [
+        "source_citation_and_advice_boundary_before_domain_skill_activation"
+    ]
+    assert inventory["domain_research_boundary"] == {
+        "boundary_required_before_activation": True,
+        "source_citation_required": True,
+        "advice_disclaimer_required": True,
+        "local_evidence_replay_required": True,
+        "upstream_dataset_import_allowed": False,
+        "upstream_advice_generation_allowed": False,
+        "financial_or_medical_advice_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "private_context_export_allowed": False,
+        "review_surface": "skill_route_discovery_domain_research_preflight",
+    }
+
+    activation_target = lane_map["local_activation_targets"]["rows"][0]
+    assert activation_target["candidate_name"] == "zhengxi-views"
+    assert activation_target["selected_local_lane"] == "test"
+    assert activation_target["validation_target"] == "source_citation_and_advice_boundary_check"
+    assert activation_target["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research"
+    )
+    assert activation_target["runtime_action"] == "none"
+    assert activation_target["external_skill_activation_allowed"] is False
+    assert activation_target["provider_runtime_launch_allowed"] is False
+    assert activation_target["raw_source_url_exported"] is False
+    assert activation_target["raw_upstream_body_exported"] is False
+
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(lane["route_hint"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
+    assert all(lane["domain_research_boundary"]["financial_or_medical_advice_allowed"] is False for lane in lane_map["proposal_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
+
+
 def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded():
     fixture_path = (
         Path(__file__).parent

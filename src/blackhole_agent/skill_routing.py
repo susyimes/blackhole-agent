@@ -131,6 +131,20 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
         "threejs",
         "vite",
     ),
+    "source_cited_domain_research": (
+        "advice",
+        "advisory",
+        "citation",
+        "cited",
+        "domain research",
+        "fund",
+        "investment",
+        "research",
+        "source-cited",
+        "sourced",
+        "traceable",
+        "views",
+    ),
     "skill_ecosystem_state_handoff": (
         "collaboration profile",
         "compass",
@@ -171,6 +185,17 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS: Mapping[str, Mapping[s
             "local_target_metadata_only",
         ),
         "blocked_activation_reason": "profile_or_memory_write_blocked_until_local_boundary_validation",
+    },
+    "source_cited_domain_research": {
+        "validation_gate": "source_citation_and_advice_boundary_before_domain_skill_activation",
+        "preferred_lanes": ("test", "documentation", "config", "code_patch"),
+        "required_metadata": (
+            "body_free_domain_research_summary",
+            "source_citation_boundary",
+            "advice_disclaimer_boundary",
+            "local_evidence_replay_target",
+        ),
+        "blocked_activation_reason": "domain_research_skill_blocked_until_citation_and_advice_boundaries_are_validated",
     },
     "generic_skill_workflow": {
         "validation_gate": "generic_skill_workflow_local_validation_before_activation",
@@ -806,6 +831,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         uncertainty_reasons = _string_list(candidate.get("uncertainty_reasons"))
         probe_metadata = _skill_route_discovery_mixed_probe_metadata(candidate, allowed_lanes)
         state_boundary_metadata = _skill_route_discovery_state_boundary_metadata(candidate)
+        domain_research_boundary_metadata = _skill_route_discovery_domain_research_boundary_metadata(candidate)
         route_profiles = _string_list(candidate.get("route_profiles"))
         validation_contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
         handoff_metadata = _skill_route_discovery_handoff_metadata(
@@ -839,6 +865,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 ),
                 **probe_metadata,
                 **state_boundary_metadata,
+                **domain_research_boundary_metadata,
             }
         )
 
@@ -866,6 +893,8 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "handoff_metadata": lane_handoff_metadata,
                     "local_validation_required": True,
                     "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "provider_runtime_launch_allowed": False,
                     "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                     "uncertainty_reasons": uncertainty_reasons,
                     "reason": "recognized_skill_project_evidence",
@@ -879,6 +908,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     ),
                     **probe_metadata,
                     **state_boundary_metadata,
+                    **domain_research_boundary_metadata,
                 }
             )
 
@@ -1098,6 +1128,29 @@ def _skill_route_discovery_state_boundary_metadata(candidate: Mapping[str, Any])
             "private_context_export_allowed": False,
             "upstream_presence_grants_write": False,
             "review_surface": "skill_route_discovery_state_handoff_preflight",
+        }
+    }
+
+
+def _skill_route_discovery_domain_research_boundary_metadata(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose source-cited domain skill routes as local evidence checks only."""
+
+    route_profiles = set(_string_list(candidate.get("route_profiles")))
+    if "source_cited_domain_research" not in route_profiles:
+        return {}
+
+    return {
+        "domain_research_boundary": {
+            "boundary_required_before_activation": True,
+            "source_citation_required": True,
+            "advice_disclaimer_required": True,
+            "local_evidence_replay_required": True,
+            "upstream_dataset_import_allowed": False,
+            "upstream_advice_generation_allowed": False,
+            "financial_or_medical_advice_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "private_context_export_allowed": False,
+            "review_surface": "skill_route_discovery_domain_research_preflight",
         }
     }
 
@@ -1626,6 +1679,8 @@ def _skill_route_discovery_validation_target(lane: str, route_profiles: Sequence
     profiles = set(route_profiles)
     if lane == "config" or "skill_ecosystem_state_handoff" in profiles:
         return "state_or_profile_boundary_metadata"
+    if lane == "test" and "source_cited_domain_research" in profiles:
+        return "source_citation_and_advice_boundary_check"
     if lane == "test" and "game_frontend_workflow" in profiles:
         return "local_frontend_render_or_workflow_check"
     if lane == "test" and "codex_workflow_gate" in profiles:
@@ -1643,6 +1698,8 @@ def _skill_route_discovery_replay_command(lane: str, route_profiles: Sequence[st
     profiles = set(route_profiles)
     if lane == "test" and "game_frontend_workflow" in profiles:
         return "python -m pytest tests/test_skill_routing.py -q -k game_frontend"
+    if lane == "test" and "source_cited_domain_research" in profiles:
+        return "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research"
     if lane == "test" and "codex_workflow_gate" in profiles:
         return "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
     if lane == "config" and "skill_ecosystem_state_handoff" in profiles:

@@ -1,0 +1,10 @@
+Rollback point: skill route discovery pass 2
+Created: 2026-06-22T09:34:30Z
+Original branch: codex/blackhole-evolve/20260622T093547.552325-add-or-extend-local-validation-coverage-for-skil
+Original HEAD: d2cc570591f9e170bbb2942559071c17950eece7
+Rollback ref: refs/rollback/blackhole-agent/20260622T093430Z-skill-route-discovery-pass2
+
+Recovery commands, destructive and operator-triggered only:
+  git switch codex/blackhole-evolve/20260622T093547.552325-add-or-extend-local-validation-coverage-for-skil
+  git reset --hard refs/rollback/blackhole-agent/20260622T093430Z-skill-route-discovery-pass2
+  git clean -fd
