@@ -1502,6 +1502,15 @@ first-route proof is present. It does not add lanes, export raw source URLs or
 upstream bodies, install or enable upstream skills, execute external harnesses,
 launch providers, or perform remote execution.
 
+Harness replay results now surface that same `local_lane_matrix` inside the
+top-level `lane_map` summary. This is the pass-4 operator path for the active
+COMPASS/FableCodex/Three.js window: a supervisor can inspect the bounded
+profile rows, selected local lanes, queued lanes, and first-route proof before
+opening the deeper completion report. The summary remains body-free and
+classification-only; it does not authorize upstream skill activation, external
+harness execution, provider launch, remote execution, profile writes, memory
+writes, or raw upstream body export.
+
 The local harness also summarizes those row contracts as
 `profile_lane_acceptance_contract`. This profile-level panel is the pass-handoff
 view: it lists the observed route profiles, allowed documentation/config/test/

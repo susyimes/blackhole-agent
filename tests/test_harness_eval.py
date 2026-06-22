@@ -3471,6 +3471,66 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
+def test_skill_route_discovery_pass4_lane_map_exposes_local_lane_matrix():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    matrix = output["lane_map"]["local_lane_matrix"]
+    serialized = json.dumps(matrix, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert matrix["controller_surface"] == "skill_route_discovery_local_lane_matrix"
+    assert matrix["status"] == "ready"
+    assert matrix["row_count"] == 3
+    assert matrix["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "skill_ecosystem_state_handoff",
+        "game_frontend_workflow",
+    ]
+    assert matrix["observed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert matrix["blocked_candidate_names"] == []
+    assert matrix["runtime_action"] == "none"
+    assert matrix["external_skill_activation_allowed"] is False
+    assert matrix["external_harness_execution_allowed"] is False
+    assert matrix["provider_runtime_launch_allowed"] is False
+    assert matrix["remote_execution_allowed"] is False
+    assert matrix["raw_source_url_exported"] is False
+    assert matrix["raw_upstream_body_exported"] is False
+
+    rows = {row["candidate_name"]: row for row in matrix["rows"]}
+    assert rows["codex-fable5"]["selected_local_lane"] == "test"
+    assert rows["codex-fable5"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert rows["codex-fable5"]["first_route_required"] is True
+    assert rows["codex-fable5"]["first_route_confirmed"] is True
+    assert rows["codex-fable5"]["validation_gates"] == [
+        "skill_route_discovery_first_before_workflow_gate"
+    ]
+    assert rows["compass-skills"]["selected_local_lane"] == "config"
+    assert rows["compass-skills"]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+    assert rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert rows["threejs-game-skills"]["validation_gates"] == [
+        "local_frontend_validation_before_game_skill_activation"
+    ]
+    assert all(row["runtime_action"] == "none" for row in matrix["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in matrix["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in matrix["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in matrix["rows"])
+    assert all(row["remote_execution_allowed"] is False for row in matrix["rows"])
+    assert "https://github.com/" not in serialized
+
+
 def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

@@ -1593,6 +1593,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "lane_runtime_safe": lane_runtime_safe,
             "local_validation_required": validation_required,
             "uncertainty_reasons": uncertainty["reasons"],
+            "local_lane_matrix": lane_map["local_lane_matrix"],
         },
         "evidence_strength": evidence_strength,
         "source_lineage": source_lineage,
