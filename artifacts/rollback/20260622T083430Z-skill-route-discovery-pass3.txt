@@ -1,0 +1,17 @@
+# Rollback Point: skill-route-discovery pass 3
+
+- Original branch: codex/blackhole-evolve/20260622T083540.499016-add-or-strengthen-local-validation-for-provider-
+- Original HEAD: fa7790402d4d1c2399d5e05257d59ca53ae1e28e
+- Local rollback ref: refs/rollback/20260622T083430Z-skill-route-discovery-pass3
+- Source digest: github-growth-20260622T083431.730223Z
+- Theme: skill-route-discovery
+- Capability slice: Convert skill and route evidence into bounded local lanes that can be validated before activation.
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+```bash
+git switch codex/blackhole-evolve/20260622T083540.499016-add-or-strengthen-local-validation-for-provider-
+git reset --hard refs/rollback/20260622T083430Z-skill-route-discovery-pass3
+```
+
+Do not delete this artifact during the run that created it.

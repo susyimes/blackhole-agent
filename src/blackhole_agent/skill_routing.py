@@ -15,6 +15,18 @@ NO_SKILL_MATCH = "no_match"
 AMBIGUOUS_SKILL_MATCH = "ambiguous_match"
 SKILL_ROUTE_DISCOVERY_HINT = "skill_route_discovery"
 SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
+SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS: Mapping[str, tuple[str, ...]] = {
+    "documentation": ("docs/skill-route-discovery.md",),
+    "config": ("src/blackhole_agent/proposal_synthesis.py",),
+    "test": (
+        "tests/test_skill_routing.py",
+        "tests/test_harness_eval.py",
+    ),
+    "code_patch": (
+        "src/blackhole_agent/skill_routing.py",
+        "src/blackhole_agent/harness_eval.py",
+    ),
+}
 SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS = ("github.com", "www.github.com")
 SKILL_ROUTE_DISCOVERY_ALLOWED_EVENTS = (
     "pull_request",
@@ -1380,6 +1392,7 @@ def _skill_route_discovery_local_activation_targets(
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
                 "replay_command": _skill_route_discovery_replay_command(selected_lane, route_profiles),
+                "promotion_proof": _skill_route_discovery_promotion_proof(selected_lane),
                 "selected_evidence_item_ids": item_ids,
                 "first_route_required": first_route_required,
                 "first_route_confirmed": first_route_confirmed,
@@ -1436,6 +1449,11 @@ def _skill_route_discovery_next_validation_step(
     selected_profiles = _string_list(selected.get("route_profiles")) if selected is not None else []
     selected_target = str(selected.get("validation_target") or "") if selected is not None else ""
     replay_command = str(selected.get("replay_command") or "") if selected is not None else ""
+    promotion_proof = (
+        selected.get("promotion_proof")
+        if selected is not None and isinstance(selected.get("promotion_proof"), Mapping)
+        else _skill_route_discovery_promotion_proof(selected_lane)
+    )
 
     return {
         "controller_surface": "skill_route_discovery_next_validation_step",
@@ -1450,6 +1468,7 @@ def _skill_route_discovery_next_validation_step(
         "selected_route_profiles": selected_profiles,
         "validation_target": selected_target,
         "replay_command": replay_command,
+        "promotion_proof": promotion_proof,
         "ready_candidate_names": [
             str(row.get("candidate_name") or "")
             for row in ready_rows
@@ -1469,6 +1488,7 @@ def _skill_route_discovery_next_validation_step(
         "remote_execution_allowed": False,
         "raw_source_url_exported": False,
         "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 
@@ -1518,6 +1538,30 @@ def _skill_route_discovery_replay_command(lane: str, route_profiles: Sequence[st
     if lane == "config" and "skill_ecosystem_state_handoff" in profiles:
         return "python -m pytest tests/test_skill_routing.py -q -k state_handoff"
     return "python -m pytest tests/test_skill_routing.py -q -k skill_route_discovery"
+
+
+def _skill_route_discovery_promotion_proof(lane: str) -> dict[str, Any]:
+    target_paths = SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS.get(lane, ())
+    return {
+        "controller_surface": "skill_route_discovery_promotion_proof",
+        "selected_local_lane": lane if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES else "",
+        "target_path_hashes": [_stable_hash(path) for path in target_paths],
+        "target_path_count": len(target_paths),
+        "required_evidence": [
+            "changed_file_review",
+            "focused_local_validation",
+            "rollback_artifact",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
 
 def _stable_hash(value: str) -> str:

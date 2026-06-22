@@ -944,6 +944,29 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert next_step["replay_command"] == (
         "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
     )
+    assert next_step["promotion_proof"] == {
+        "controller_surface": "skill_route_discovery_promotion_proof",
+        "selected_local_lane": "test",
+        "target_path_hashes": [
+            "sha256:9a38f861c194d9e5e004d0f4837e81c564d6cacca53d5f62e09fe0952684650d",
+            "sha256:35e8cf2fc42afff1abd6f9335f74413eac5addc1a1495417739324e0ae26a044",
+        ],
+        "target_path_count": 2,
+        "required_evidence": [
+            "changed_file_review",
+            "focused_local_validation",
+            "rollback_artifact",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert next_step["ready_candidate_names"] == [
         "codex-fable5",
         "compass-skills",
@@ -958,6 +981,7 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert next_step["remote_execution_allowed"] is False
     assert next_step["raw_source_url_exported"] is False
     assert next_step["raw_evidence_urls_exported"] is False
+    assert next_step["raw_target_paths_exported"] is False
     assert next_step["raw_upstream_body_exported"] is False
 
     rows = {row["candidate_name"]: row for row in matrix["rows"]}
@@ -999,12 +1023,17 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert target_rows["codex-fable5"]["replay_command"] == (
         "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
     )
+    assert target_rows["codex-fable5"]["promotion_proof"]["selected_local_lane"] == "test"
+    assert target_rows["codex-fable5"]["promotion_proof"]["target_path_count"] == 2
+    assert target_rows["codex-fable5"]["promotion_proof"]["raw_target_paths_exported"] is False
 
     assert target_rows["compass-skills"]["selected_local_lane"] == "config"
     assert target_rows["compass-skills"]["validation_target"] == "state_or_profile_boundary_metadata"
     assert target_rows["compass-skills"]["replay_command"] == (
         "python -m pytest tests/test_skill_routing.py -q -k state_handoff"
     )
+    assert target_rows["compass-skills"]["promotion_proof"]["selected_local_lane"] == "config"
+    assert target_rows["compass-skills"]["promotion_proof"]["target_path_count"] == 1
 
     assert target_rows["threejs-game-skills"]["selected_local_lane"] == "test"
     assert target_rows["threejs-game-skills"]["validation_target"] == "local_frontend_render_or_workflow_check"

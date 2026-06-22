@@ -1522,10 +1522,15 @@ FableCodex-style `skill_route_discovery_first` regression checks before
 game/frontend test lanes and COMPASS-style state boundary review. The selector
 also lists ready and blocked candidate names so the scheduled loop can stop on
 missing first-route proof instead of inferring readiness from individual rows.
+The selected step now carries `promotion_proof`: a body-free checklist of
+changed-file review, focused local validation, rollback artifact, and review
+note evidence, plus hashed target paths for the chosen bounded lane. This lets
+the supervisor see which proof must exist before promotion without exporting
+raw target paths or treating the replay command as activation.
 It does not add lanes or grant activation: runtime action, upstream skill
 activation, external harness execution, provider launch, remote execution, raw
-source URL export, raw evidence URL export, and upstream body export remain
-denied.
+source URL export, raw evidence URL export, raw target path export, and upstream
+body export remain denied.
 
 Harness replay results now surface that same `local_lane_matrix` inside the
 top-level `lane_map` summary. This is the pass-4 operator path for the active
