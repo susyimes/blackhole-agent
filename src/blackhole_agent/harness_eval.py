@@ -13617,6 +13617,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     mock_llm = raw_input.get("mock_llm") if isinstance(raw_input.get("mock_llm"), dict) else {}
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
+    auth_header_preflight = evaluate_provider_auth_header_preflight(provider=provider, runtime=runtime)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     wire_api_preflight = evaluate_provider_wire_api_preflight(provider=provider, runtime=runtime)
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
@@ -13690,6 +13691,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not review_model_preflight["ok"]
         or not usage_limit_preflight["ok"]
         or not install_linkage_preflight["ok"]
+        or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
         or env_preflight_failed
@@ -13712,6 +13714,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(review_model_preflight["diagnostics"])
     diagnostics.extend(usage_limit_preflight["diagnostics"])
     diagnostics.extend(install_linkage_preflight["diagnostics"])
+    diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
     diagnostics.extend(
@@ -13734,6 +13737,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not usage_limit_preflight["ok"]
             else install_linkage_preflight["failure_mode"]
             if not install_linkage_preflight["ok"]
+            else auth_header_preflight["failure_mode"]
+            if not auth_header_preflight["ok"]
             else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
             else wire_api_preflight["failure_mode"]
@@ -13830,6 +13835,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "review_model": review_model_preflight,
         "usage_limit": usage_limit_preflight,
         "install_linkage": install_linkage_preflight,
+        "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
     }
@@ -14236,6 +14242,108 @@ def evaluate_provider_model_command_preflight(
     }
 
 
+def evaluate_provider_auth_header_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate trusted proxy identity header metadata without exporting values."""
+
+    required = (
+        truthy(provider.get("auth_header_required"))
+        or truthy(runtime.get("auth_header_required"))
+        or truthy(provider.get("header_auth_enabled"))
+        or truthy(runtime.get("header_auth_enabled"))
+    )
+    default_header = optional_string(
+        runtime.get("default_auth_header_name", provider.get("default_auth_header_name"))
+    ) or "X-Forwarded-Email"
+    raw_header = runtime.get("auth_header_name", provider.get("auth_header_name"))
+    header_name = optional_string(raw_header) or ""
+    configured = bool(header_name)
+    selected_header = header_name or default_header
+    env_name = optional_string(runtime.get("auth_header_env_name", provider.get("auth_header_env_name"))) or ""
+    accepted_headers = list(
+        dict.fromkeys(
+            header
+            for header in (
+                normalize_http_header_name(value)
+                for value in (
+                    string_list(provider.get("accepted_auth_headers"))
+                    + string_list(runtime.get("accepted_auth_headers"))
+                )
+            )
+            if header
+        )
+    )
+    if not accepted_headers and selected_header:
+        accepted_headers = [normalize_http_header_name(selected_header)]
+
+    selected_valid = is_http_header_name(selected_header)
+    custom_header_configured = (
+        configured and normalize_http_header_name(selected_header) != normalize_http_header_name(default_header)
+    )
+    default_header_still_accepted = bool(
+        custom_header_configured
+        and normalize_http_header_name(default_header)
+        and normalize_http_header_name(default_header) in accepted_headers
+    )
+    single_trusted_input = len(set(accepted_headers)) == 1 and not default_header_still_accepted
+    missing = required and not selected_header
+    malformed = bool(selected_header and not selected_valid)
+    fallback_ambiguous = bool(custom_header_configured and not single_trusted_input)
+    ok = not missing and not malformed and not fallback_ambiguous
+
+    diagnostics: list[str] = []
+    if missing:
+        diagnostics.append("provider auth header is required but no header name was configured")
+    if malformed:
+        diagnostics.append("provider auth header name must be a valid HTTP header token")
+    if fallback_ambiguous:
+        diagnostics.append("custom provider auth header must replace the default trusted header")
+
+    if missing:
+        failure_mode = "provider_auth_header_missing"
+    elif malformed:
+        failure_mode = "provider_auth_header_malformed"
+    elif fallback_ambiguous:
+        failure_mode = "provider_auth_header_fallback_ambiguous"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "configured": configured,
+        "env_name_configured": bool(env_name),
+        "env_name_hash": stable_text_hash(env_name) if env_name else None,
+        "env_name_recorded": False,
+        "selected_hash": stable_text_hash(normalize_http_header_name(selected_header)) if selected_header else None,
+        "default_header_hash": stable_text_hash(normalize_http_header_name(default_header)) if default_header else None,
+        "custom_header_configured": custom_header_configured,
+        "selected_header_valid": selected_valid,
+        "accepted_header_count": len(set(accepted_headers)),
+        "accepted_header_hashes": [stable_text_hash(header) for header in sorted(set(accepted_headers))],
+        "single_trusted_input": single_trusted_input,
+        "default_header_still_accepted": default_header_still_accepted,
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "raw_header_name_exported": False,
+        "raw_header_value_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def is_http_header_name(value: str) -> bool:
+    """Return whether value is an RFC-style HTTP field-name token."""
+
+    return re.fullmatch(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+", value) is not None
+
+
+def normalize_http_header_name(value: Any) -> str:
+    text = optional_string(value) or ""
+    return text.strip().lower()
+
+
 def evaluate_provider_wire_api_preflight(
     *,
     provider: dict[str, Any],
@@ -14629,6 +14737,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     review_model = preflight.get("review_model") if isinstance(preflight.get("review_model"), dict) else {}
     usage_limit = preflight.get("usage_limit") if isinstance(preflight.get("usage_limit"), dict) else {}
     install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
+    auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
@@ -14734,6 +14843,31 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_required": bool(model_command.get("required")),
                 "command_configured": bool(model_command.get("configured")),
                 "command_arg_count": int(model_command.get("command_arg_count") or 0),
+            }
+        )
+    elif failure_mode in {
+        "provider_auth_header_fallback_ambiguous",
+        "provider_auth_header_malformed",
+        "provider_auth_header_missing",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_auth_header",
+                "severity": "blocker",
+                "action": "configure exactly one valid trusted provider auth header before launching the harness",
+                "auth_header_required": bool(auth_header.get("required")),
+                "auth_header_configured": bool(auth_header.get("configured")),
+                "auth_header_env_name_configured": bool(auth_header.get("env_name_configured")),
+                "custom_header_configured": bool(auth_header.get("custom_header_configured")),
+                "selected_header_valid": bool(auth_header.get("selected_header_valid")),
+                "accepted_header_count": int(auth_header.get("accepted_header_count") or 0),
+                "single_trusted_input": bool(auth_header.get("single_trusted_input")),
+                "default_header_still_accepted": bool(auth_header.get("default_header_still_accepted")),
+                "raw_header_name_exported": False,
+                "raw_header_value_exported": False,
+                "env_name_recorded": False,
             }
         )
     elif failure_mode in {

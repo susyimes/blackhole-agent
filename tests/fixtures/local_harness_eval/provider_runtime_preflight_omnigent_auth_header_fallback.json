@@ -1,0 +1,75 @@
+{
+  "name": "provider-runtime-preflight-omnigent-auth-header-fallback",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-omnigent-auth-header-fallback",
+    "provider": {
+      "name": "omnigent-proxy",
+      "harness": "omnigent",
+      "auth_header_required": true,
+      "auth_header_name": "X-Omnigent-User",
+      "auth_header_env_name": "OMNIGENT_AUTH_HEADER",
+      "default_auth_header_name": "X-Forwarded-Email",
+      "accepted_auth_headers": [
+        "X-Omnigent-User",
+        "X-Forwarded-Email"
+      ]
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_auth_header_fallback_ambiguous"
+    },
+    {
+      "path": "auth_header.custom_header_configured",
+      "equals": true
+    },
+    {
+      "path": "auth_header.accepted_header_count",
+      "equals": 2
+    },
+    {
+      "path": "auth_header.default_header_still_accepted",
+      "equals": true
+    },
+    {
+      "path": "auth_header.single_trusted_input",
+      "equals": false
+    },
+    {
+      "path": "auth_header.raw_header_name_exported",
+      "equals": false
+    },
+    {
+      "path": "auth_header.raw_header_value_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    }
+  ]
+}

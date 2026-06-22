@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 56
-    assert payload["pass_count"] == 55
+    assert payload["fixture_count"] == 57
+    assert payload["pass_count"] == 56
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -7876,6 +7876,113 @@ def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_ambiguous_omnigent_auth_header_without_name_or_value_export():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_omnigent_auth_header_fallback.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    fallback = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    valid_custom = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-omnigent-auth-header-valid-custom",
+            "provider": {
+                "name": "omnigent-proxy",
+                "harness": "omnigent",
+                "auth_header_required": True,
+                "auth_header_name": "X-Omnigent-User",
+                "auth_header_env_name": "OMNIGENT_AUTH_HEADER",
+                "default_auth_header_name": "X-Forwarded-Email",
+                "accepted_auth_headers": ["X-Omnigent-User"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_auth_header_valid_custom_inline.json",
+    )
+    malformed = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-omnigent-auth-header-malformed",
+            "provider": {
+                "name": "omnigent-proxy",
+                "harness": "omnigent",
+                "auth_header_required": True,
+                "auth_header_name": "X Bad Header",
+                "auth_header_env_name": "OMNIGENT_AUTH_HEADER",
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_auth_header_malformed_inline.json",
+    )
+    serialized = json.dumps(
+        {"fallback": fallback, "valid_custom": valid_custom, "malformed": malformed},
+        sort_keys=True,
+    )
+
+    assert fallback["route_status"] == "blocked"
+    assert fallback["failure_mode"] == "provider_auth_header_fallback_ambiguous"
+    assert fallback["auth_header"]["default_header_still_accepted"] is True
+    assert fallback["auth_header"]["single_trusted_input"] is False
+    assert fallback["runtime"]["runner_invoked"] is False
+    assert fallback["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_auth_header_fallback_ambiguous",
+            "scope": "provider_auth_header",
+            "severity": "blocker",
+            "action": "configure exactly one valid trusted provider auth header before launching the harness",
+            "auth_header_required": True,
+            "auth_header_configured": True,
+            "auth_header_env_name_configured": True,
+            "custom_header_configured": True,
+            "selected_header_valid": True,
+            "accepted_header_count": 2,
+            "single_trusted_input": False,
+            "default_header_still_accepted": True,
+            "raw_header_name_exported": False,
+            "raw_header_value_exported": False,
+            "env_name_recorded": False,
+        }
+    ]
+
+    assert valid_custom["route_status"] == "passed"
+    assert valid_custom["failure_mode"] == "none"
+    assert valid_custom["auth_header"]["custom_header_configured"] is True
+    assert valid_custom["auth_header"]["accepted_header_count"] == 1
+    assert valid_custom["auth_header"]["single_trusted_input"] is True
+    assert valid_custom["auth_header"]["raw_header_name_exported"] is False
+    assert valid_custom["runtime"]["runner_invoked"] is True
+
+    assert malformed["route_status"] == "blocked"
+    assert malformed["failure_mode"] == "provider_auth_header_malformed"
+    assert malformed["auth_header"]["selected_header_valid"] is False
+    assert malformed["runtime"]["runner_invoked"] is False
+
+    assert "OMNIGENT_AUTH_HEADER" not in serialized
+    assert "X-Omnigent-User" not in serialized
+    assert "X-Forwarded-Email" not in serialized
+    assert "X Bad Header" not in serialized
 
 
 def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_before_launch():
