@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260622T154624.499439Z",
+  "capability_window": {
+    "theme": "provider-runtime-control",
+    "capability_slice": "Turn provider and runtime configuration problems into body-free diagnostics, recovery hints, and locally replayable validation.",
+    "current_pass": 2,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "item_id": "fablecodex-provider-runtime-workflow",
+      "item_kind": "repository",
+      "name": "FableCodex",
+      "source_url": "https://github.com/baskduf/FableCodex",
+      "title": "FableCodex Codex agent skill workflow gate",
+      "summary": "Codex plugin workflow skill package with evidence gates, local verification, provider runtime control notes, and review ledgers.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["codex", "agent-skills", "workflow", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "agent_harness_eval"]
+    },
+    {
+      "item_id": "compass-provider-runtime-state-handoff",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "COMPASS Skills agent skill ecosystem",
+      "summary": "Skill ecosystem for AI agents with task clarification, local memory, collaboration profile handoff, route metadata, and validation checks.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "workflow", "profiles", "local-memory"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"]
+    },
+    {
+      "item_id": "zhengxi-views-source-cited-domain-research",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "zhengxi views source cited domain research skill",
+      "summary": "Source-cited domain research agent skill with public view evidence, citation traceability, advisory framing, and investment research boundary risk.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "domain-research", "citations", "investment"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"]
+    },
+    {
+      "item_id": "threejs-game-skills-provider-runtime-frontend",
+      "item_kind": "repository",
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "title": "Three.js game skill director",
+      "summary": "Director skill package for Three.js browser games with gameplay, graphics, QA, release verification, scaffold helpers, and optional asset workflows.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "threejs", "browser-game", "qa"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

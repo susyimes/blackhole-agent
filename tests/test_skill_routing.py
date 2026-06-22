@@ -593,6 +593,137 @@ def test_skill_route_discovery_current_window_game_frontend_evidence_stays_bound
     assert game_inventory["route_validation_contract"]["remote_execution_allowed"] is False
 
 
+def test_skill_route_discovery_provider_runtime_pass2_four_item_matrix_requires_local_validation():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "provider_runtime_pass2_four_item_evidence.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 4
+    assert registry["candidate_count"] == 4
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+    assert lane_map["proposal_lane_count"] == 16
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    assert {
+        name: candidate["route_profiles"]
+        for name, candidate in candidates_by_name.items()
+    } == {
+        "FableCodex": ["codex_workflow_gate"],
+        "compass-skills": ["skill_ecosystem_state_handoff"],
+        "threejs-game-skills": ["game_frontend_workflow"],
+        "zhengxi-views": ["source_cited_domain_research"],
+    }
+    for candidate in registry["candidates"]:
+        assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert candidate["route_hints"] == ["skill_route_discovery"]
+        assert candidate["validation_errors"] == []
+        assert candidate["requested_actions"] == []
+        assert candidate["enabled"] is False
+
+    inventory_by_name = {row["candidate_name"]: row for row in lane_map["candidate_lane_inventory"]}
+    assert set(inventory_by_name) == {
+        "FableCodex",
+        "compass-skills",
+        "threejs-game-skills",
+        "zhengxi-views",
+    }
+    for row in lane_map["candidate_lane_inventory"]:
+        assert set(row["proposal_kinds"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["activation_gate"] == "local_validation_before_activation"
+        assert row["route_validation_contract"]["local_validation_required"] is True
+        assert row["route_validation_contract"]["provider_launch_allowed"] is False
+        assert row["handoff_metadata"]["provider_runtime_launch_allowed"] is False
+        assert row["handoff_metadata"]["external_harness_execution_allowed"] is False
+        assert row["handoff_metadata"]["remote_execution_allowed"] is False
+        assert row["handoff_metadata"]["raw_evidence_urls_exported"] is False
+        assert row["handoff_metadata"]["raw_upstream_body_exported"] is False
+
+    fablecodex = inventory_by_name["FableCodex"]
+    assert fablecodex["route_probe_decision"] == "skill_route_discovery_first"
+    assert fablecodex["primary_route"] == "skill_route_discovery"
+    assert fablecodex["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
+    assert fablecodex["secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert fablecodex["agent_harness_eval_allowed_after"] == (
+        "local_corroboration_or_general_agent_project_claim"
+    )
+
+    lane_matrix = lane_map["local_lane_matrix"]
+    assert lane_matrix["status"] == "ready"
+    assert lane_matrix["row_count"] == 4
+    assert set(lane_matrix["observed_route_profiles"]) == {
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    }
+    assert set(lane_matrix["observed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane_matrix["local_validation_required"] is True
+    assert lane_matrix["runtime_action"] == "none"
+    assert lane_matrix["external_skill_activation_allowed"] is False
+    assert lane_matrix["external_harness_execution_allowed"] is False
+    assert lane_matrix["provider_runtime_launch_allowed"] is False
+    assert lane_matrix["remote_execution_allowed"] is False
+    assert lane_matrix["raw_source_url_exported"] is False
+    assert lane_matrix["raw_upstream_body_exported"] is False
+
+    matrix_rows = {row["candidate_name"]: row for row in lane_matrix["rows"]}
+    assert matrix_rows["FableCodex"]["selected_local_lane"] == "test"
+    assert matrix_rows["FableCodex"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert matrix_rows["FableCodex"]["first_route_required"] is True
+    assert matrix_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert matrix_rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert matrix_rows["zhengxi-views"]["selected_local_lane"] == "test"
+    assert matrix_rows["zhengxi-views"]["validation_gates"] == [
+        "source_citation_and_advice_boundary_before_domain_skill_activation"
+    ]
+
+    next_step = lane_map["next_validation_step"]
+    assert next_step["status"] == "ready"
+    assert next_step["selected_candidate_name"] == "FableCodex"
+    assert next_step["selected_local_lane"] == "test"
+    assert next_step["validation_target"] == "skill_route_first_probe_regression"
+    assert next_step["promotion_proof"]["required_evidence"] == [
+        "changed_file_review",
+        "focused_local_validation",
+        "rollback_artifact",
+        "review_note",
+    ]
+    assert next_step["promotion_proof"]["provider_runtime_launch_allowed"] is False
+    assert next_step["provider_runtime_launch_allowed"] is False
+    assert next_step["external_harness_execution_allowed"] is False
+    assert next_step["remote_execution_allowed"] is False
+    assert next_step["raw_evidence_urls_exported"] is False
+    assert next_step["raw_upstream_body_exported"] is False
+
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
+    assert all(lane["provider_runtime_launch_allowed"] is False for lane in lane_map["proposal_lanes"])
+    assert all(
+        set(lane["evidence_item_ids"]) <= {item["item_id"] for item in payload["items"]}
+        for lane in lane_map["proposal_lanes"]
+    )
+
+
 def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candidates():
     fixture_path = (
         Path(__file__).parent

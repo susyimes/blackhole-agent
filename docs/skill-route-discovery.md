@@ -43,6 +43,13 @@ documentation, config, test, or code_patch validation lanes for citation and
 advice-boundary checks, but it does not permit upstream dataset import,
 provider-backed advice generation, financial advice, install, execution,
 scaffold, or external skill activation.
+Source digest `github-growth-20260622T154624.499439Z` replays the active
+provider-runtime-control pass-2 window across FableCodex, COMPASS Skills,
+zhengxi-views, and Three.js Game Skills. Provider/runtime wording in these
+skill workflow records is interpreted only as a request for body-free
+diagnostics, recovery hints, and locally replayable validation. It does not add
+a provider-runtime lane, external harness lane, install lane, execution lane, or
+remote activation path.
 
 The bounded evidence reviewed for these runs is:
 
@@ -93,6 +100,17 @@ it:
 Catalog entries are additive only when they preserve the same bounded outputs:
 documentation, config, test, or code_patch. Any proposed lane outside that set
 is recorded as rejected or downgraded evidence, never as an activation request.
+
+Provider/runtime-control passes follow the same rule. If a skill workflow item
+mentions provider setup, runtime launch, model commands, harnesses, or recovery
+workflow, the route may still choose only documentation, config, test, or
+code_patch. The resulting lane map must keep `local_validation_required: true`,
+`runtime_action: none`, `provider_runtime_launch_allowed: false`,
+`external_harness_execution_allowed: false`, and `remote_execution_allowed:
+false` until a separate local preflight proves the runtime path. FableCodex-style
+mixed Codex/workflow evidence can expose
+`agent_harness_eval_after_local_corroboration`, but that secondary path stays
+blocked until the skill-route regression has passed.
 
 ## Classification Rules
 

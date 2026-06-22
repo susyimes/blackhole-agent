@@ -1,0 +1,17 @@
+Rollback point for provider-runtime-control pass 2 skill-route validation
+
+Created: 2026-06-22T23:48:00Z
+Original branch: codex/blackhole-evolve/20260622T154728.117859-add-or-extend-local-tests-that-verify-skill-rout
+Original HEAD: dc305b8fd2f2568703a44a968fcd3da8bad9f887
+Rollback ref: refs/rollback/20260622T234800Z-skill-route-provider-runtime-pass2
+
+Recovery commands:
+
+git switch codex/blackhole-evolve/20260622T154728.117859-add-or-extend-local-tests-that-verify-skill-rout
+git reset --hard dc305b8fd2f2568703a44a968fcd3da8bad9f887
+git clean -fd
+
+Notes:
+
+Rollback execution is intentionally destructive and must be chosen by a human
+operator or external supervisor policy. This run does not execute rollback.
