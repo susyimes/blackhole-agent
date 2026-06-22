@@ -2815,6 +2815,8 @@ def run_self_evolution_codex(
     model: str | None = None,
     profile: str | None = None,
     require_codex_route: bool = True,
+    claude_sdk_permission_mode: str | None = None,
+    allow_claude_sdk_auto_permission_mode: bool = True,
     sandbox: str = "workspace-write",
     approval_policy: str = "never",
     ignore_user_config: bool = True,
@@ -2834,6 +2836,17 @@ def run_self_evolution_codex(
         bypass_approvals_and_sandbox=bypass_approvals_and_sandbox,
     )
     kernel = CodexCliKernel(config, command_runner=command_runner)
+    codex_metadata = {
+        "model": config.model,
+        "profile": config.profile,
+        "require_explicit_route": config.require_explicit_route,
+        "claude_sdk_permission_mode": claude_sdk_permission_mode,
+        "allow_claude_sdk_auto_permission_mode": allow_claude_sdk_auto_permission_mode,
+        "sandbox": config.sandbox,
+        "approval_policy": config.approval_policy,
+        "ignore_user_config": config.ignore_user_config,
+        "bypass_approvals_and_sandbox": config.bypass_approvals_and_sandbox,
+    }
     result: CodexCliRunResult = kernel.run(
         plan.task,
         cwd=Path(plan.repo_path),
@@ -2857,15 +2870,7 @@ def run_self_evolution_codex(
         json.dumps(
             {
                 "command": run_result.command,
-                "codex_cli": {
-                    "model": config.model,
-                    "profile": config.profile,
-                    "require_explicit_route": config.require_explicit_route,
-                    "sandbox": config.sandbox,
-                    "approval_policy": config.approval_policy,
-                    "ignore_user_config": config.ignore_user_config,
-                    "bypass_approvals_and_sandbox": config.bypass_approvals_and_sandbox,
-                },
+                "codex_cli": codex_metadata,
                 "provider_preflight": result.provider_preflight,
                 "returncode": run_result.returncode,
                 "task_path": str(run_result.task_path),
@@ -2905,15 +2910,7 @@ def run_self_evolution_codex(
         "target_head": current_head,
         "self_model_path": plan.self_model_path,
         "returncode": run_result.returncode,
-        "codex_cli": {
-            "model": config.model,
-            "profile": config.profile,
-            "require_explicit_route": config.require_explicit_route,
-            "sandbox": config.sandbox,
-            "approval_policy": config.approval_policy,
-            "ignore_user_config": config.ignore_user_config,
-            "bypass_approvals_and_sandbox": config.bypass_approvals_and_sandbox,
-        },
+        "codex_cli": codex_metadata,
         "provider_preflight": result.provider_preflight,
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
@@ -3175,6 +3172,8 @@ def main(
     model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI in codex mode."),
     profile: str | None = typer.Option(None, "--profile", help="Codex config profile to pass in codex mode."),
     require_codex_route: bool = typer.Option(True, "--require-codex-route/--allow-default-codex-route", help="Require codex mode to pass an explicit --model or --profile instead of relying on the CLI default route."),
+    claude_sdk_permission_mode: str | None = typer.Option(None, "--claude-sdk-permission-mode", help="Claude SDK permission mode recorded for supervisor child compatibility."),
+    allow_claude_sdk_auto_permission_mode: bool = typer.Option(True, "--allow-claude-sdk-auto-permission-mode/--disallow-claude-sdk-auto-permission-mode", help="Accept supervisor Claude SDK auto-permission metadata."),
     sandbox: str = typer.Option("workspace-write", "--sandbox", help="Codex sandbox for codex mode."),
     approval_policy: str = typer.Option("never", "--approval-policy", help="Legacy compatibility option; current codex exec has no approval flag."),
     ignore_user_config: bool = typer.Option(True, "--ignore-user-config/--use-user-config", help="Ignore user Codex config in codex mode while keeping auth available."),
@@ -3267,6 +3266,8 @@ def main(
                         model=model,
                         profile=profile,
                         require_codex_route=require_codex_route,
+                        claude_sdk_permission_mode=claude_sdk_permission_mode,
+                        allow_claude_sdk_auto_permission_mode=allow_claude_sdk_auto_permission_mode,
                         sandbox=sandbox,
                         approval_policy=approval_policy,
                         ignore_user_config=ignore_user_config,

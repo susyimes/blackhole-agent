@@ -286,6 +286,9 @@ def test_cli_codex_mode_runs_terminal_driven_controller_journey(tmp_path, monkey
             "12",
             "--model",
             "gpt-5.5",
+            "--claude-sdk-permission-mode",
+            "auto",
+            "--allow-claude-sdk-auto-permission-mode",
             "--extra-instruction",
             "Keep this journey terminal-driven.",
         ],
@@ -311,6 +314,8 @@ def test_cli_codex_mode_runs_terminal_driven_controller_journey(tmp_path, monkey
     assert digest["proposals"][0]["validation_gate"] == "narrow-local-verification"
     assert "terminal-driven end-to-end journey" in plan["task"]
     assert run["last_message"] == "journey complete"
+    assert run["codex_cli"]["claude_sdk_permission_mode"] == "auto"
+    assert run["codex_cli"]["allow_claude_sdk_auto_permission_mode"] is True
     assert manifest["proposal_ids"] == ["terminal-e2e-1"]
     assert manifest["validation_gates"] == ["narrow-local-verification"]
     assert rollback["original_head"] == "base123"
@@ -4131,6 +4136,8 @@ def test_prepare_branch_and_run_codex_invoke_expected_commands(tmp_path):
         "model": "gpt-5",
         "profile": "test-profile",
         "require_explicit_route": True,
+        "claude_sdk_permission_mode": None,
+        "allow_claude_sdk_auto_permission_mode": True,
         "sandbox": "workspace-write",
         "approval_policy": "never",
         "ignore_user_config": True,
