@@ -1,0 +1,88 @@
+{
+  "name": "provider-runtime-preflight-approval-repark-pending",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-approval-repark-pending",
+    "provider": {
+      "name": "omnigent-inbox-provider",
+      "harness": "omnigent",
+      "approval_repark": {
+        "required": true,
+        "elicitation_id": "PRIVATE_ELICITATION_ID_DO_NOT_EXPORT",
+        "local_verdict": "approved",
+        "snapshot_fresh": true,
+        "pending_elicitation_ids": [
+          "PRIVATE_ELICITATION_ID_DO_NOT_EXPORT"
+        ]
+      }
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_approval_repark_pending"
+    },
+    {
+      "path": "approval_repark.stale_verdict_detected",
+      "equals": true
+    },
+    {
+      "path": "approval_repark.local_verdict_cleared",
+      "equals": true
+    },
+    {
+      "path": "approval_repark.same_elicitation_pending",
+      "equals": true
+    },
+    {
+      "path": "approval_repark.raw_elicitation_id_exported",
+      "equals": false
+    },
+    {
+      "path": "approval_repark.raw_snapshot_exported",
+      "equals": false
+    },
+    {
+      "path": "approval_repark.raw_verdict_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "provider_approval_repark_pending"
+    },
+    {
+      "path": "recovery_hints.0.local_verdict_cleared",
+      "equals": true
+    },
+    {
+      "path": "supervisor_replay.ready_for_provider_launch",
+      "equals": false
+    }
+  ]
+}

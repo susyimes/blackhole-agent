@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 57
-    assert payload["pass_count"] == 56
+    assert payload["fixture_count"] == 58
+    assert payload["pass_count"] == 57
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -154,6 +154,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
+    assert results["provider-runtime-preflight-approval-repark-pending"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
@@ -188,6 +189,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REPL_APPROVAL_SESSION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REPL_OUTPUT_STALE_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REPL_OUTPUT approval required DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_ELICITATION_ID_DO_NOT_EXPORT" not in serialized
     assert "native-ask-session-fixture-do-not-export" not in serialized
     assert "PRIVATE_ASK_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_NATIVE_PATH_DO_NOT_EXPORT" not in serialized
@@ -362,6 +364,53 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
     assert unsupported["wire_api"]["exercised"] is True
 
     assert "PRIVATE" not in serialized
+
+
+def test_provider_runtime_preflight_clears_stale_approval_verdict_on_repark():
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-approval-repark-inline",
+            "provider": {
+                "name": "omnigent-inbox-provider",
+                "harness": "omnigent",
+                "approval_repark": {
+                    "required": True,
+                    "elicitation_id": "PRIVATE_ELICITATION_ID_DO_NOT_EXPORT",
+                    "local_verdict": "approved",
+                    "snapshot_data_updated_at": "2026-06-22T16:00:00Z",
+                    "pending_elicitation_ids": ["PRIVATE_ELICITATION_ID_DO_NOT_EXPORT"],
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_approval_repark_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_approval_repark_pending"
+    assert output["approval_repark"]["stale_verdict_detected"] is True
+    assert output["approval_repark"]["local_verdict_cleared"] is True
+    assert output["approval_repark"]["same_elicitation_pending"] is True
+    assert output["approval_repark"]["raw_elicitation_id_exported"] is False
+    assert output["approval_repark"]["raw_snapshot_exported"] is False
+    assert output["approval_repark"]["raw_verdict_exported"] is False
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["preflight"]["diagnostics"] == [
+        "stale approval verdict cleared because fresh provider snapshot still shows elicitation pending"
+    ]
+    assert output["recovery_hints"][0]["code"] == "provider_approval_repark_pending"
+    assert output["supervisor_replay"]["ready_for_provider_launch"] is False
+    assert "PRIVATE_ELICITATION_ID_DO_NOT_EXPORT" not in serialized
+    assert "approved" not in serialized
 
 
 def test_mock_llm_repl_approval_output_poll_times_out_without_single_sample_pass():

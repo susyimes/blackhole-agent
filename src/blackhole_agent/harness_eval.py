@@ -13623,6 +13623,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
     usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
     install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
+    approval_repark_preflight = evaluate_provider_approval_repark_preflight(provider=provider, runtime=runtime)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -13691,6 +13692,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not review_model_preflight["ok"]
         or not usage_limit_preflight["ok"]
         or not install_linkage_preflight["ok"]
+        or not approval_repark_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
@@ -13714,6 +13716,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(review_model_preflight["diagnostics"])
     diagnostics.extend(usage_limit_preflight["diagnostics"])
     diagnostics.extend(install_linkage_preflight["diagnostics"])
+    diagnostics.extend(approval_repark_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
@@ -13737,6 +13740,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not usage_limit_preflight["ok"]
             else install_linkage_preflight["failure_mode"]
             if not install_linkage_preflight["ok"]
+            else approval_repark_preflight["failure_mode"]
+            if not approval_repark_preflight["ok"]
             else auth_header_preflight["failure_mode"]
             if not auth_header_preflight["ok"]
             else model_command_preflight["failure_mode"]
@@ -13835,6 +13840,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "review_model": review_model_preflight,
         "usage_limit": usage_limit_preflight,
         "install_linkage": install_linkage_preflight,
+        "approval_repark": approval_repark_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
@@ -13945,6 +13951,61 @@ def normalize_install_linkage_record(value: dict[str, Any]) -> dict[str, Any]:
         "headerpad_failure": headerpad_failure,
         "relink_error_hash": stable_text_hash(relink_error) if relink_error else None,
         "relink_error_recorded": False,
+    }
+
+
+def evaluate_provider_approval_repark_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Detect stale local approval verdicts after a provider re-parks work as pending."""
+
+    raw_repark = provider.get("approval_repark", runtime.get("approval_repark"))
+    repark = raw_repark if isinstance(raw_repark, dict) else {}
+    required = truthy(repark.get("required")) or bool(repark)
+    elicitation_id = optional_string(
+        repark.get("elicitation_id") or repark.get("approval_id") or repark.get("work_item_id")
+    )
+    pending_ids = string_list(
+        repark.get("pending_elicitation_ids")
+        or repark.get("snapshot_pending_elicitation_ids")
+        or repark.get("pending_work_item_ids")
+    )
+    local_verdict = (optional_string(repark.get("local_verdict") or repark.get("optimistic_verdict")) or "").lower()
+    snapshot_fresh = (
+        truthy(repark.get("snapshot_fresh"))
+        or bool(optional_string(repark.get("snapshot_data_updated_at")))
+        or bool(optional_string(repark.get("snapshot_updated_at")))
+    )
+    stale_verdict_present = bool(
+        required
+        and elicitation_id
+        and local_verdict in {"allow", "allowed", "approve", "approved", "deny", "denied", "responded"}
+        and elicitation_id in pending_ids
+        and snapshot_fresh
+    )
+    diagnostics = []
+    if stale_verdict_present:
+        diagnostics.append(
+            "stale approval verdict cleared because fresh provider snapshot still shows elicitation pending"
+        )
+
+    return {
+        "ok": not stale_verdict_present,
+        "failure_mode": "provider_approval_repark_pending" if stale_verdict_present else "none",
+        "required": required,
+        "snapshot_fresh": snapshot_fresh,
+        "pending_elicitation_count": len(pending_ids),
+        "local_verdict_present": bool(local_verdict),
+        "local_verdict_cleared": stale_verdict_present,
+        "stale_verdict_detected": stale_verdict_present,
+        "same_elicitation_pending": bool(elicitation_id and elicitation_id in pending_ids),
+        "elicitation_id_hash": stable_text_hash(elicitation_id) if elicitation_id else None,
+        "raw_elicitation_id_exported": False,
+        "raw_snapshot_exported": False,
+        "raw_verdict_exported": False,
+        "diagnostics": diagnostics,
     }
 
 
@@ -14737,6 +14798,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     review_model = preflight.get("review_model") if isinstance(preflight.get("review_model"), dict) else {}
     usage_limit = preflight.get("usage_limit") if isinstance(preflight.get("usage_limit"), dict) else {}
     install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
+    approval_repark = preflight.get("approval_repark") if isinstance(preflight.get("approval_repark"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
@@ -14843,6 +14905,23 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_required": bool(model_command.get("required")),
                 "command_configured": bool(model_command.get("configured")),
                 "command_arg_count": int(model_command.get("command_arg_count") or 0),
+            }
+        )
+    elif failure_mode == "provider_approval_repark_pending":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_approval_repark_pending",
+                "scope": "provider_approval_state",
+                "severity": "blocker",
+                "action": "clear the stale local approval verdict and replay the fresh pending approval before provider launch",
+                "snapshot_fresh": bool(approval_repark.get("snapshot_fresh")),
+                "pending_elicitation_count": int(approval_repark.get("pending_elicitation_count") or 0),
+                "same_elicitation_pending": bool(approval_repark.get("same_elicitation_pending")),
+                "local_verdict_cleared": bool(approval_repark.get("local_verdict_cleared")),
+                "raw_elicitation_id_exported": False,
+                "raw_snapshot_exported": False,
+                "raw_verdict_exported": False,
             }
         )
     elif failure_mode in {
