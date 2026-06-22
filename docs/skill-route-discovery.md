@@ -1515,6 +1515,18 @@ target list, not an activation grant: runtime action, upstream skill activation,
 external harness execution, provider launch, remote execution, profile writes,
 memory writes, and source/body export remain denied.
 
+The same core lane map now exposes `next_validation_step`, a compact pass-2
+handoff selector derived only from `local_activation_targets`. It chooses one
+ready bounded replay target for the supervisor to run next, prioritizing
+FableCodex-style `skill_route_discovery_first` regression checks before
+game/frontend test lanes and COMPASS-style state boundary review. The selector
+also lists ready and blocked candidate names so the scheduled loop can stop on
+missing first-route proof instead of inferring readiness from individual rows.
+It does not add lanes or grant activation: runtime action, upstream skill
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw evidence URL export, and upstream body export remain
+denied.
+
 Harness replay results now surface that same `local_lane_matrix` inside the
 top-level `lane_map` summary. This is the pass-4 operator path for the active
 COMPASS/FableCodex/Three.js window: a supervisor can inspect the bounded

@@ -933,6 +933,33 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert activation_targets["raw_evidence_urls_exported"] is False
     assert activation_targets["raw_upstream_body_exported"] is False
 
+    next_step = lane_map["next_validation_step"]
+    assert next_step["controller_surface"] == "skill_route_discovery_next_validation_step"
+    assert next_step["status"] == "ready"
+    assert next_step["decision"] == "run_selected_local_validation_before_activation"
+    assert next_step["selected_candidate_name"] == "codex-fable5"
+    assert next_step["selected_local_lane"] == "test"
+    assert next_step["selected_route_profiles"] == ["codex_workflow_gate"]
+    assert next_step["validation_target"] == "skill_route_first_probe_regression"
+    assert next_step["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
+    )
+    assert next_step["ready_candidate_names"] == [
+        "codex-fable5",
+        "compass-skills",
+        "threejs-game-skills",
+    ]
+    assert next_step["blocked_candidate_names"] == []
+    assert next_step["local_validation_required"] is True
+    assert next_step["runtime_action"] == "none"
+    assert next_step["external_skill_activation_allowed"] is False
+    assert next_step["external_harness_execution_allowed"] is False
+    assert next_step["provider_runtime_launch_allowed"] is False
+    assert next_step["remote_execution_allowed"] is False
+    assert next_step["raw_source_url_exported"] is False
+    assert next_step["raw_evidence_urls_exported"] is False
+    assert next_step["raw_upstream_body_exported"] is False
+
     rows = {row["candidate_name"]: row for row in matrix["rows"]}
     assert rows["codex-fable5"]["allowed_local_lanes"] == [
         "documentation",

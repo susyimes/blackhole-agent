@@ -870,6 +870,8 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 }
             )
 
+    local_activation_targets = _skill_route_discovery_local_activation_targets(candidate_lane_inventory)
+
     return {
         "schema_version": 1,
         "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
@@ -881,7 +883,8 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "downgraded_candidate_count": len(downgraded_candidates),
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
         "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
-        "local_activation_targets": _skill_route_discovery_local_activation_targets(candidate_lane_inventory),
+        "local_activation_targets": local_activation_targets,
+        "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
         "rejected_candidates": rejected_candidates,
@@ -1415,6 +1418,78 @@ def _skill_route_discovery_local_activation_targets(
         "raw_upstream_body_exported": False,
         "rows": rows,
     }
+
+
+def _skill_route_discovery_next_validation_step(
+    local_activation_targets: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Select the next bounded replay target without granting activation."""
+
+    raw_rows = local_activation_targets.get("rows")
+    target_rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    rows = [row for row in target_rows if isinstance(row, Mapping)]
+    ready_rows = [row for row in rows if row.get("activation_ready") is True]
+    blocked_rows = [row for row in rows if row.get("activation_ready") is not True]
+
+    selected = min(ready_rows, key=_skill_route_discovery_next_step_sort_key) if ready_rows else None
+    selected_lane = str(selected.get("selected_local_lane") or "") if selected is not None else ""
+    selected_profiles = _string_list(selected.get("route_profiles")) if selected is not None else []
+    selected_target = str(selected.get("validation_target") or "") if selected is not None else ""
+    replay_command = str(selected.get("replay_command") or "") if selected is not None else ""
+
+    return {
+        "controller_surface": "skill_route_discovery_next_validation_step",
+        "status": "ready" if selected is not None and not blocked_rows else "blocked",
+        "decision": (
+            "run_selected_local_validation_before_activation"
+            if selected is not None and not blocked_rows
+            else "resolve_blocked_skill_route_targets_before_activation"
+        ),
+        "selected_candidate_name": str(selected.get("candidate_name") or "") if selected is not None else "",
+        "selected_local_lane": selected_lane,
+        "selected_route_profiles": selected_profiles,
+        "validation_target": selected_target,
+        "replay_command": replay_command,
+        "ready_candidate_names": [
+            str(row.get("candidate_name") or "")
+            for row in ready_rows
+            if str(row.get("candidate_name") or "").strip()
+        ],
+        "blocked_candidate_names": [
+            str(row.get("candidate_name") or "")
+            for row in blocked_rows
+            if str(row.get("candidate_name") or "").strip()
+        ],
+        "next_step_basis": "ready_targets_prioritize_first_route_probe_then_frontend_test_then_state_boundary",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_next_step_sort_key(row: Mapping[str, Any]) -> tuple[int, int, str]:
+    selected_lane = str(row.get("selected_local_lane") or "")
+    profiles = set(_string_list(row.get("route_profiles")))
+    if selected_lane == "test" and "codex_workflow_gate" in profiles:
+        profile_rank = 0
+    elif selected_lane == "test" and "game_frontend_workflow" in profiles:
+        profile_rank = 1
+    elif selected_lane == "config" and "skill_ecosystem_state_handoff" in profiles:
+        profile_rank = 2
+    else:
+        profile_rank = 3
+    lane_rank = (
+        list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES).index(selected_lane)
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        else 99
+    )
+    return (profile_rank, lane_rank, str(row.get("candidate_name") or "").casefold())
 
 
 def _skill_route_discovery_validation_target(lane: str, route_profiles: Sequence[str]) -> str:
