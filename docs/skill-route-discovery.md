@@ -1635,6 +1635,16 @@ external harnesses, launch providers, write profile or memory state, perform
 remote execution, or export raw source URLs, raw target paths, or upstream
 bodies.
 
+The same pass-3 packet now includes `activation_proof_summary`, a compact
+operator handoff derived from `profile_validation_proof`. It collapses profile
+readiness, selected bounded local lanes, blocker counts, local artifact proof
+presence, acceptance-contract readiness, and hashed replay-command evidence
+into one promotion-facing decision. This summary is intentionally not a new
+lane and not an activation grant: it exports no raw source URLs, evidence URLs,
+target paths, or upstream bodies, and it keeps runtime action, external skill
+activation, external harness execution, provider launch, and remote execution
+denied until the focused local replay has passed.
+
 Pass-4 completion reports include `final_route_handoff_manifest`, a compact
 body-free route manifest for the external supervisor. It presents one row per
 route profile with the selected bounded local lane, operator replay step,

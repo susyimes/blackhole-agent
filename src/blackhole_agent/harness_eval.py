@@ -4930,6 +4930,10 @@ def skill_route_discovery_pass3_handoff_packet(
         profile_activation_gates=profile_activation_gates,
         diagnostics=diagnostics,
     )
+    activation_proof_summary = skill_route_discovery_pass3_activation_proof_summary(
+        ready=ready,
+        profile_validation_proof=profile_validation_proof,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -4973,6 +4977,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "final_pass_replay_checklist": final_pass_replay_checklist,
         "profile_activation_gates": profile_activation_gates,
         "profile_validation_proof": profile_validation_proof,
+        "activation_proof_summary": activation_proof_summary,
         "operator_checkpoint_list": {
             "controller_surface": "skill_route_discovery_pass3_operator_checkpoint_list",
             "status": "ready" if ready else "not_applicable" if current_pass != 3 else "blocked",
@@ -5007,6 +5012,101 @@ def skill_route_discovery_pass3_handoff_packet(
         "provider_runtime_replay_commands": string_list(
             current_action.get("provider_runtime_replay_commands")
         ),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_activation_proof_summary(
+    *,
+    ready: bool,
+    profile_validation_proof: dict[str, Any],
+) -> dict[str, Any]:
+    """Collapse pass-3 profile proof into a promotion-facing decision summary."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    proof_rows = profile_validation_proof.get("rows")
+    proof_rows = proof_rows if isinstance(proof_rows, list) else []
+    rows: list[dict[str, Any]] = []
+    required_validation_hashes: list[str] = []
+    blocked_profiles: list[str] = []
+    for raw_row in proof_rows:
+        row = raw_row if isinstance(raw_row, dict) else {}
+        profile = optional_string(row.get("route_profile")) or ""
+        blockers = string_list(row.get("blockers"))
+        required_validation = string_list(row.get("required_validation"))
+        required_validation_hashes.extend(stable_text_hash(command) for command in required_validation)
+        proof_blocked = bool(blockers)
+        if proof_blocked and profile:
+            blocked_profiles.append(profile)
+        rows.append(
+            {
+                "route_profile": profile,
+                "status": "blocked" if proof_blocked else "ready",
+                "selected_local_lane": optional_string(row.get("selected_local_lane")) or "",
+                "validation_gate": optional_string(row.get("validation_gate")) or "",
+                "local_artifact_proof_present": row.get("local_artifact_proof_present") is True,
+                "acceptance_contract_ready": row.get("acceptance_contract_ready") is True,
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_id_count": len(string_list(row.get("evidence_item_ids"))),
+                "candidate_source_hash_count": len(string_list(row.get("candidate_source_hashes"))),
+                "required_validation_count": len(required_validation),
+                "blocker_count": len(blockers),
+                "blockers": sorted(dict.fromkeys(blockers)),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    proof_ready = ready and profile_validation_proof.get("status") == "ready" and bool(rows) and not blocked_profiles
+    selected_lanes = sorted(
+        {
+            str(row.get("selected_local_lane") or "")
+            for row in rows
+            if str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        }
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass3_activation_proof_summary",
+        "status": "ready" if proof_ready else "blocked",
+        "decision": "operator_can_promote_after_focused_replay"
+        if proof_ready
+        else "repair_profile_validation_proof_before_promotion",
+        "validation_gate": "focused-evidence-review",
+        "profile_count": len(rows),
+        "ready_profile_count": len(rows) - len(blocked_profiles),
+        "blocked_profile_count": len(blocked_profiles),
+        "blocked_profiles": sorted(dict.fromkeys(blocked_profiles)),
+        "selected_local_lanes": selected_lanes,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "required_validation_command_count": len(set(required_validation_hashes)),
+        "required_validation_command_hashes": sorted(dict.fromkeys(required_validation_hashes)),
+        "local_artifact_proof_lanes": string_list(profile_validation_proof.get("local_artifact_proof_lanes")),
+        "rows": rows,
+        "diagnostics": string_list(profile_validation_proof.get("diagnostics")),
         "local_validation_required": True,
         "body_free": True,
         "runtime_action_allowed": False,
