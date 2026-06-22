@@ -879,6 +879,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "rejected_candidate_count": len(rejected_candidates),
         "downgraded_candidate_count": len(downgraded_candidates),
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
+        "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
         "rejected_candidates": rejected_candidates,
@@ -1226,6 +1227,97 @@ def _skill_route_discovery_route_profile_catalog(proposal_lanes: Sequence[Mappin
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
+    }
+
+
+def _skill_route_discovery_local_lane_matrix(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize bounded local lanes before expanding proposal rows.
+
+    This is an operator-facing matrix derived from candidate inventory rows.
+    It does not add lanes; it only makes profile gates and first-route proof
+    visible before a controller selects a local validation lane.
+    """
+
+    rows: list[dict[str, Any]] = []
+    blocked_rows: list[str] = []
+    observed_profiles: list[str] = []
+    observed_lanes: list[str] = []
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        proposal_kinds = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        observed_profiles.extend(route_profiles)
+        observed_lanes.extend(proposal_kinds)
+
+        route_probe_decision = str(candidate.get("route_probe_decision") or "skill_route_discovery")
+        first_route_required = "codex_workflow_gate" in route_profiles
+        first_route_confirmed = not first_route_required or route_probe_decision == "skill_route_discovery_first"
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        validation_contract = candidate.get("route_validation_contract")
+        validation_contract = validation_contract if isinstance(validation_contract, Mapping) else {}
+        contract_rows = validation_contract.get("rows")
+        contract_rows = (
+            contract_rows
+            if isinstance(contract_rows, Sequence) and not isinstance(contract_rows, (str, bytes))
+            else []
+        )
+        validation_gates = [
+            str(row.get("validation_gate") or "")
+            for row in contract_rows
+            if isinstance(row, Mapping) and str(row.get("validation_gate") or "").strip()
+        ]
+        if not first_route_confirmed or not proposal_kinds:
+            blocked_rows.append(candidate_name)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": proposal_kinds,
+                "selected_local_lane": str(handoff_metadata.get("selected_local_lane") or ""),
+                "queued_local_lanes": _string_list(handoff_metadata.get("queued_local_lanes")),
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "route_probe_decision": route_probe_decision,
+                "first_route_required": first_route_required,
+                "first_route_confirmed": first_route_confirmed,
+                "activation_gate": str(candidate.get("activation_gate") or "local_validation_before_activation"),
+                "local_validation_required": candidate.get("local_validation_required") is True,
+                "runtime_action": str(candidate.get("runtime_action") or "none"),
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_local_lane_matrix",
+        "status": "ready" if rows and not blocked_rows else "blocked",
+        "row_count": len(rows),
+        "observed_route_profiles": list(dict.fromkeys(observed_profiles)),
+        "observed_local_lanes": list(
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(observed_lanes)
+        ),
+        "blocked_candidate_names": [name for name in blocked_rows if name],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 

@@ -1,0 +1,15 @@
+Rollback point for skill route discovery pass 3
+
+Created: 2026-06-22T07:15:27Z
+Original branch: codex/blackhole-evolve/20260622T071527.156048-add-or-extend-local-tests-that-verify-skill-rout
+Original HEAD: 759910ebb4a0c8d1f4434f5a9f06c4e30492bf35
+Rollback ref: refs/blackhole/rollback/20260622T071527-skill-route-discovery-pass3
+Source digest: github-growth-20260622T071431.501762Z
+
+Recovery commands (destructive; operator/supervisor only):
+  git switch codex/blackhole-evolve/20260622T071527.156048-add-or-extend-local-tests-that-verify-skill-rout
+  git reset --hard refs/blackhole/rollback/20260622T071527-skill-route-discovery-pass3
+  git clean -fd
+
+Notes:
+  This run must not delete this artifact or the rollback ref.

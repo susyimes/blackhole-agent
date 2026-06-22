@@ -1492,6 +1492,16 @@ does not export raw upstream bodies, add evidence URLs, install or enable
 external skills, run external harnesses, launch providers, or perform remote
 execution.
 
+The core lane map now also emits `local_lane_matrix`, a compact pre-activation
+summary derived from the bounded candidate inventory. It gives controllers one
+row per recognized skill repository with route profiles, allowed local lanes,
+selected and queued lanes, validation gates, and whether a FableCodex-style
+`codex_workflow_gate` has confirmed `skill_route_discovery_first`. The matrix
+is ready only when every row has at least one bounded local lane and required
+first-route proof is present. It does not add lanes, export raw source URLs or
+upstream bodies, install or enable upstream skills, execute external harnesses,
+launch providers, or perform remote execution.
+
 The local harness also summarizes those row contracts as
 `profile_lane_acceptance_contract`. This profile-level panel is the pass-handoff
 view: it lists the observed route profiles, allowed documentation/config/test/
