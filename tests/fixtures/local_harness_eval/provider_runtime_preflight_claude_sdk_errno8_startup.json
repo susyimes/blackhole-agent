@@ -1,0 +1,85 @@
+{
+  "name": "provider-runtime-preflight-claude-sdk-errno8-startup",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-claude-sdk-errno8-startup",
+    "provider": {
+      "name": "claude-sdk",
+      "harness": "claude-sdk",
+      "startup_preflight_required": true
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "launch_transport": "subprocess",
+      "startup_preflight": {
+        "executable": "PRIVATE_CLAUDE_SDK_EXECUTABLE_DO_NOT_EXPORT",
+        "executable_resolved": true,
+        "supported_platforms": ["linux", "darwin"],
+        "provider_config_required": true,
+        "provider_config_present": true,
+        "errno": 8,
+        "failed": true,
+        "stderr_tail": "PRIVATE_ERRNO8_STARTUP_BODY_DO_NOT_EXPORT"
+      }
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_startup_errno8"
+    },
+    {
+      "path": "startup_preflight.ok",
+      "equals": false
+    },
+    {
+      "path": "startup_preflight.executable_resolved",
+      "equals": true
+    },
+    {
+      "path": "startup_preflight.platform_supported",
+      "equals": true
+    },
+    {
+      "path": "startup_preflight.provider_config_present",
+      "equals": true
+    },
+    {
+      "path": "startup_preflight.exec_format_failure",
+      "equals": true
+    },
+    {
+      "path": "startup_preflight.raw_error_body_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "preflight.blocked_before_launch",
+      "equals": true
+    },
+    {
+      "path": "supervisor_replay.reason",
+      "equals": "provider_startup_errno8"
+    }
+  ]
+}

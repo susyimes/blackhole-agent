@@ -1,0 +1,16 @@
+Rollback point for provider-runtime-control pass 1
+
+Created at: 2026-06-23T13:36:42Z
+Original branch: codex/blackhole-evolve/20260623T133545.547944-add-a-local-harness-regression-lane-for-tool-cal
+Original HEAD: 9d7aa9f5b30169fc739096986f44b98384abd0f6
+Rollback ref: refs/blackhole-rollback/20260623T133642Z-provider-runtime-control-pass1
+Source digest: github-growth-20260623T133349.683794Z
+
+Recovery commands, for explicit human/supervisor use only:
+
+git switch codex/blackhole-evolve/20260623T133545.547944-add-a-local-harness-regression-lane-for-tool-cal
+git reset --hard refs/blackhole-rollback/20260623T133642Z-provider-runtime-control-pass1
+
+Notes:
+- This run did not execute rollback.
+- Do not delete this artifact during the run that created it.

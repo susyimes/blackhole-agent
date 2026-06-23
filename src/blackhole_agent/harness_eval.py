@@ -14879,6 +14879,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
     approval_repark_preflight = evaluate_provider_approval_repark_preflight(provider=provider, runtime=runtime)
     setup_preflight = evaluate_provider_setup_preflight(provider=provider, runtime=runtime)
+    startup_preflight = evaluate_provider_startup_preflight(provider=provider, runtime=runtime)
     runner_compat_preflight = evaluate_provider_runner_compat_preflight(
         provider=provider,
         runtime=runtime,
@@ -14961,6 +14962,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not install_linkage_preflight["ok"]
         or not approval_repark_preflight["ok"]
         or not setup_preflight["ok"]
+        or not startup_preflight["ok"]
         or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
@@ -14991,6 +14993,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(install_linkage_preflight["diagnostics"])
     diagnostics.extend(approval_repark_preflight["diagnostics"])
     diagnostics.extend(setup_preflight["diagnostics"])
+    diagnostics.extend(startup_preflight["diagnostics"])
     diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
@@ -15023,6 +15026,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not approval_repark_preflight["ok"]
             else setup_preflight["failure_mode"]
             if not setup_preflight["ok"]
+            else startup_preflight["failure_mode"]
+            if not startup_preflight["ok"]
             else runner_compat_preflight["failure_mode"]
             if not runner_compat_preflight["ok"]
             else auth_header_preflight["failure_mode"]
@@ -15133,6 +15138,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "install_linkage": install_linkage_preflight,
         "approval_repark": approval_repark_preflight,
         "setup_preflight": setup_preflight,
+        "startup_preflight": startup_preflight,
         "runner_compat": runner_compat_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
@@ -15424,6 +15430,117 @@ def evaluate_provider_setup_preflight(
         "discovered_model_hashes": [stable_text_hash(value) for value in discovered_models],
         "discovered_models_exported": False,
         "raw_setup_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def evaluate_provider_startup_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Classify provider harness startup failures without exporting bodies.
+
+    Errno 8-style failures usually arrive after a subprocess launch attempt,
+    but the local replay lane should stay pre-launch: it records whether the
+    executable resolved, whether the current platform is supported, whether
+    required config is present, and whether the observed failure maps to an
+    exec-format startup error.
+    """
+
+    raw_startup = provider.get("startup_preflight", runtime.get("startup_preflight"))
+    startup = raw_startup if isinstance(raw_startup, dict) else {}
+    required = (
+        truthy(provider.get("startup_preflight_required"))
+        or truthy(runtime.get("startup_preflight_required"))
+        or bool(startup)
+    )
+    provider_name = optional_string(provider.get("name")) or ""
+    harness = optional_string(provider.get("harness")) or provider_name
+    platform = (optional_string(runtime.get("platform")) or optional_string(startup.get("platform")) or "").lower()
+    executable = (
+        optional_string(startup.get("executable"))
+        or optional_string(startup.get("command"))
+        or optional_string(runtime.get("cli_path"))
+    )
+    executable_resolved = truthy(
+        startup.get("executable_resolved", startup.get("cli_resolved", runtime.get("cli_resolved_in_runner")))
+    )
+    executable_required = truthy(startup.get("executable_required")) or required
+    supported_platforms = [
+        value.lower()
+        for value in string_list(startup.get("supported_platforms") or provider.get("supported_platforms"))
+    ]
+    platform_supported = not supported_platforms or not platform or platform in supported_platforms
+    if "platform_supported" in startup:
+        platform_supported = truthy(startup.get("platform_supported"))
+    provider_config_required = truthy(
+        startup.get("provider_config_required")
+        or provider.get("provider_config_required")
+        or runtime.get("provider_config_required")
+    )
+    provider_config_present = truthy(startup.get("provider_config_present", True))
+    errno = optional_int(startup.get("errno") or startup.get("os_error_errno") or startup.get("exit_errno"))
+    failure_text = optional_string(
+        startup.get("failure")
+        or startup.get("error")
+        or startup.get("message")
+        or startup.get("stderr_tail")
+    )
+    exec_format_failure = bool(errno == 8 or (failure_text and "errno 8" in failure_text.lower()))
+    startup_failed = truthy(startup.get("failed") or startup.get("startup_failed")) or exec_format_failure
+
+    executable_missing = executable_required and not executable_resolved
+    config_missing = provider_config_required and not provider_config_present
+
+    diagnostics: list[str] = []
+    if executable_missing:
+        diagnostics.append("provider harness executable is required but did not resolve in the runner environment")
+    if not platform_supported:
+        diagnostics.append("provider harness startup platform is not in the supported platform set")
+    if config_missing:
+        diagnostics.append("provider harness startup config is required but not present")
+    if exec_format_failure:
+        diagnostics.append("provider harness startup failed with Errno 8-compatible exec format diagnostics")
+
+    if executable_missing:
+        failure_mode = "provider_startup_executable_missing"
+    elif not platform_supported:
+        failure_mode = "provider_startup_platform_incompatible"
+    elif config_missing:
+        failure_mode = "provider_startup_config_missing"
+    elif exec_format_failure:
+        failure_mode = "provider_startup_errno8"
+    elif startup_failed:
+        failure_mode = "provider_startup_failed"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "observed": bool(startup),
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "provider_harness_hash": stable_text_hash(harness) if harness else None,
+        "provider_harness_recorded": False,
+        "platform": platform or "unknown",
+        "supported_platform_count": len(supported_platforms),
+        "platform_supported": platform_supported,
+        "executable_required": executable_required,
+        "executable_configured": bool(executable),
+        "executable_resolved": executable_resolved,
+        "executable_hash": stable_text_hash(executable) if executable else None,
+        "executable_recorded": False,
+        "provider_config_required": provider_config_required,
+        "provider_config_present": provider_config_present,
+        "provider_config_value_recorded": False,
+        "startup_failed": startup_failed,
+        "errno_observed": errno is not None,
+        "errno": errno,
+        "exec_format_failure": exec_format_failure,
+        "stderr_body_exported": False,
+        "raw_error_body_exported": False,
+        "raw_startup_exported": False,
         "diagnostics": diagnostics,
     }
 
@@ -16938,6 +17055,9 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
     approval_repark = preflight.get("approval_repark") if isinstance(preflight.get("approval_repark"), dict) else {}
     setup_preflight = preflight.get("setup_preflight") if isinstance(preflight.get("setup_preflight"), dict) else {}
+    startup_preflight = (
+        preflight.get("startup_preflight") if isinstance(preflight.get("startup_preflight"), dict) else {}
+    )
     runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
@@ -17276,6 +17396,36 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "raw_paths_exported": False,
                 "raw_commands_exported": False,
                 "raw_model_ids_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_startup_config_missing",
+        "provider_startup_errno8",
+        "provider_startup_executable_missing",
+        "provider_startup_failed",
+        "provider_startup_platform_incompatible",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_startup_preflight",
+                "severity": "blocker",
+                "action": "repair executable resolution, platform compatibility, or provider config before launching the harness",
+                "platform": optional_string(startup_preflight.get("platform")) or "unknown",
+                "supported_platform_count": int(startup_preflight.get("supported_platform_count") or 0),
+                "platform_supported": bool(startup_preflight.get("platform_supported")),
+                "executable_required": bool(startup_preflight.get("executable_required")),
+                "executable_configured": bool(startup_preflight.get("executable_configured")),
+                "executable_resolved": bool(startup_preflight.get("executable_resolved")),
+                "provider_config_required": bool(startup_preflight.get("provider_config_required")),
+                "provider_config_present": bool(startup_preflight.get("provider_config_present")),
+                "errno_observed": bool(startup_preflight.get("errno_observed")),
+                "errno": startup_preflight.get("errno"),
+                "exec_format_failure": bool(startup_preflight.get("exec_format_failure")),
+                "raw_executable_exported": False,
+                "raw_config_exported": False,
+                "raw_error_body_exported": False,
             }
         )
     elif failure_mode in {

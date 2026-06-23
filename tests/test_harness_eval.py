@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 62
-    assert payload["pass_count"] == 61
+    assert payload["fixture_count"] == 63
+    assert payload["pass_count"] == 62
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -154,6 +154,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["push-delivery-path-mock-success"]["passed"] is True
     assert results["provider-runtime-preflight-apple-silicon-brew-jiter-linkage"]["passed"] is True
     assert results["provider-runtime-preflight-claude-sandbox-override"]["passed"] is True
+    assert results["provider-runtime-preflight-claude-sdk-errno8-startup"]["passed"] is True
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["provider-runtime-preflight-approval-repark-pending"]["passed"] is True
@@ -234,6 +235,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CLAUDE_SDK_EXECUTABLE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_ERRNO8_STARTUP_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
@@ -10716,6 +10719,83 @@ def test_provider_runtime_preflight_blocks_native_claude_iterm2_tmux_timeout_ris
         "ensure the runner PATH resolves the native CLI or configure an explicit provider CLI path",
     ]
     assert "~/.local/bin/claude" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_claude_sdk_errno8_startup_without_body_export():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_claude_sdk_errno8_startup.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_startup_errno8"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["startup_preflight"] == {
+        "required": True,
+        "observed": True,
+        "ok": False,
+        "failure_mode": "provider_startup_errno8",
+        "provider_harness_hash": stable_text_hash("claude-sdk"),
+        "provider_harness_recorded": False,
+        "platform": "linux",
+        "supported_platform_count": 2,
+        "platform_supported": True,
+        "executable_required": True,
+        "executable_configured": True,
+        "executable_resolved": True,
+        "executable_hash": stable_text_hash("PRIVATE_CLAUDE_SDK_EXECUTABLE_DO_NOT_EXPORT"),
+        "executable_recorded": False,
+        "provider_config_required": True,
+        "provider_config_present": True,
+        "provider_config_value_recorded": False,
+        "startup_failed": True,
+        "errno_observed": True,
+        "errno": 8,
+        "exec_format_failure": True,
+        "stderr_body_exported": False,
+        "raw_error_body_exported": False,
+        "raw_startup_exported": False,
+        "diagnostics": [
+            "provider harness startup failed with Errno 8-compatible exec format diagnostics",
+        ],
+    }
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["claude-sdk"],
+            "value_recorded": False,
+            "code": "provider_startup_errno8",
+            "scope": "provider_startup_preflight",
+            "severity": "blocker",
+            "action": "repair executable resolution, platform compatibility, or provider config before launching the harness",
+            "platform": "linux",
+            "supported_platform_count": 2,
+            "platform_supported": True,
+            "executable_required": True,
+            "executable_configured": True,
+            "executable_resolved": True,
+            "provider_config_required": True,
+            "provider_config_present": True,
+            "errno_observed": True,
+            "errno": 8,
+            "exec_format_failure": True,
+            "raw_executable_exported": False,
+            "raw_config_exported": False,
+            "raw_error_body_exported": False,
+        }
+    ]
+    assert output["supervisor_replay"]["reason"] == "provider_startup_errno8"
+    assert output["supervisor_replay"]["provider_runtime_launch_allowed"] is False
+    assert output["preflight"]["diagnostics"] == [
+        "provider harness startup failed with Errno 8-compatible exec format diagnostics",
+    ]
+    assert "PRIVATE_CLAUDE_SDK_EXECUTABLE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_ERRNO8_STARTUP_BODY_DO_NOT_EXPORT" not in serialized
 
 
 def test_provider_runtime_preflight_detects_claude_prompt_above_long_status_footer():
