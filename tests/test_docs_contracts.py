@@ -424,10 +424,12 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "`codex_workflow_gate`",
         "`skill_ecosystem_state_handoff`",
         "`game_frontend_workflow`",
+        "`source_cited_domain_research`",
         "`generic_skill_workflow`",
         "These profiles are triage metadata only",
         "do not create install, scaffold, asset-generation, browser-run,\n"
-        "profile-writing, provider-launch, remote-execution, or external skill activation",
+        "profile-writing, upstream dataset import, advice generation, provider-launch,\n"
+        "remote-execution, or external skill activation",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

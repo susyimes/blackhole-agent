@@ -3474,12 +3474,13 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
 
     assert output["route_status"] == "passed"
     assert output["failure_mode"] == "none"
-    assert output["registry"]["candidate_count"] == 3
-    assert output["lane_map"]["proposal_lane_count"] == 12
+    assert output["registry"]["candidate_count"] == 4
+    assert output["lane_map"]["proposal_lane_count"] == 16
     assert output["route_profile_review"]["profiles"] == [
         "codex_workflow_gate",
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
     ]
     intake_rows = {
         tuple(row["route_profiles"]): row
@@ -3505,8 +3506,8 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert profile_contract["controller_surface"] == "skill_route_discovery_profile_lane_acceptance_contract"
     assert profile_contract["status"] == "ready"
     assert profile_contract["decision"] == "profile_lanes_ready_for_bounded_local_validation"
-    assert profile_contract["profile_count"] == 3
-    assert profile_contract["ready_profile_count"] == 3
+    assert profile_contract["profile_count"] == 4
+    assert profile_contract["ready_profile_count"] == 4
     assert profile_contract["blocked_profile_count"] == 0
     assert profile_contract["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
     assert profile_contract["selected_first_local_lanes"] == ["config", "test"]
@@ -3528,6 +3529,11 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     )
     assert profile_rows["skill_ecosystem_state_handoff"]["selected_first_local_lane"] == "config"
     assert profile_rows["skill_ecosystem_state_handoff"]["validation_scope"] == "local_config_lane_only"
+    assert profile_rows["source_cited_domain_research"]["validation_gate"] == (
+        "source_citation_and_advice_boundary_before_domain_skill_activation"
+    )
+    assert profile_rows["source_cited_domain_research"]["selected_first_local_lane"] == "test"
+    assert profile_rows["source_cited_domain_research"]["validation_scope"] == "local_test_lane_only"
     assert all(row["local_validation_required"] is True for row in profile_contract["rows"])
     assert all(row["runtime_action"] == "none" for row in profile_contract["rows"])
     assert all(row["external_skill_activation_allowed"] is False for row in profile_contract["rows"])
@@ -3565,13 +3571,18 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "codex_workflow_gate",
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
     ]
     assert [
         (target["selected_local_lane"], target["route_profiles"], target["validation_scope"])
         for target in completion["validation_target_handoff"]["targets"]
     ] == [
         ("config", ["skill_ecosystem_state_handoff"], "local_config_lane_only"),
-        ("test", ["codex_workflow_gate", "game_frontend_workflow"], "local_test_lane_only"),
+        (
+            "test",
+            ["codex_workflow_gate", "game_frontend_workflow", "source_cited_domain_research"],
+            "local_test_lane_only",
+        ),
     ]
     assert completion["completion_handoff"]["validation_target_handoff"] == (
         completion["validation_target_handoff"]
@@ -3583,7 +3594,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert validation_plan["next_pass"] == 3
     assert validation_plan["remaining_pass_count"] == 2
     assert validation_plan["catalog_status"] == "ready"
-    assert validation_plan["route_profile_count"] == 3
+    assert validation_plan["route_profile_count"] == 4
     assert [
         (row["route_profile"], row["selected_local_lane"], row["validation_scope"])
         for row in validation_plan["rows"]
@@ -3591,6 +3602,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         ("codex_workflow_gate", "test", "local_test_lane_only"),
         ("game_frontend_workflow", "test", "local_test_lane_only"),
         ("skill_ecosystem_state_handoff", "config", "local_config_lane_only"),
+        ("source_cited_domain_research", "test", "local_test_lane_only"),
     ]
     assert validation_plan["lane_validation_target_count"] == 2
     assert validation_plan["next_validation_target"] == {
@@ -3600,15 +3612,20 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "supervisor_next_action": "continue_skill_route_discovery_window",
         "selected_local_lane": "test",
         "validation_scope": "local_test_lane_only",
-        "route_profiles": ["codex_workflow_gate", "game_frontend_workflow"],
-        "route_profile_count": 2,
-        "evidence_item_ids": ["p2-skill-route-discovery-threejs", "p3-mixed-codex-skill-workflow-probe"],
-        "evidence_item_id_count": 2,
+        "route_profiles": ["codex_workflow_gate", "game_frontend_workflow", "source_cited_domain_research"],
+        "route_profile_count": 3,
+        "evidence_item_ids": [
+            "p2-skill-route-discovery-threejs",
+            "p2-skill-route-discovery-zhengxi-views",
+            "p3-mixed-codex-skill-workflow-probe",
+        ],
+        "evidence_item_id_count": 3,
         "candidate_source_hashes": [
             stable_text_hash("https://github.com/baskduf/FableCodex"),
             stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+            stable_text_hash("https://github.com/lyra81604/zhengxi-views"),
         ],
-        "candidate_source_count": 2,
+        "candidate_source_count": 3,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -3689,6 +3706,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "codex_workflow_gate",
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
     ]
     assert contract["secondary_route_gates"] == {
         "mixed_skill_workflow_primary_route_preserved": True,
@@ -3697,7 +3715,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     }
     assert [row["selected_local_lane"] for row in contract["rows"]] == ["test", "config"]
     assert [row["route_profiles"] for row in contract["rows"]] == [
-        ["codex_workflow_gate", "game_frontend_workflow"],
+        ["codex_workflow_gate", "game_frontend_workflow", "source_cited_domain_research"],
         ["skill_ecosystem_state_handoff"],
     ]
     assert all(row["accepted"] is True for row in contract["rows"])
@@ -3734,6 +3752,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "codex_workflow_gate",
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
     ]
     assert [row["activation_preview_step"] for row in preview["rows"]] == [
         "replay_selected_current_pass_lane",
@@ -3756,6 +3775,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert pass2_packet["evidence_item_ids"] == [
         "p1-skill-route-discovery-compass",
         "p2-skill-route-discovery-threejs",
+        "p2-skill-route-discovery-zhengxi-views",
         "p3-mixed-codex-skill-workflow-probe",
     ]
     assert pass2_packet["runtime_action_allowed"] is False
@@ -3775,15 +3795,21 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert replay_packet["selected_target_ready"] is True
     assert replay_packet["selected_local_lane"] == "test"
     assert replay_packet["validation_scope"] == "local_test_lane_only"
-    assert replay_packet["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
+    assert replay_packet["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
     assert replay_packet["evidence_ref_mode"] == "selected_item_ids_only"
     assert replay_packet["evidence_item_ids"] == [
         "p2-skill-route-discovery-threejs",
+        "p2-skill-route-discovery-zhengxi-views",
         "p3-mixed-codex-skill-workflow-probe",
     ]
     assert replay_packet["candidate_source_hashes"] == [
         stable_text_hash("https://github.com/baskduf/FableCodex"),
         stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+        stable_text_hash("https://github.com/lyra81604/zhengxi-views"),
     ]
     assert replay_packet["queued_local_lanes"] == ["config"]
     assert replay_packet["queued_validation_target_count"] == 1
@@ -3810,7 +3836,11 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         for target in validation_plan["lane_validation_targets"]
     ] == [
         ("config", ["skill_ecosystem_state_handoff"], "local_config_lane_only"),
-        ("test", ["codex_workflow_gate", "game_frontend_workflow"], "local_test_lane_only"),
+        (
+            "test",
+            ["codex_workflow_gate", "game_frontend_workflow", "source_cited_domain_research"],
+            "local_test_lane_only",
+        ),
     ]
     assert all(
         target["plan_basis"] == "selected_lane_grouped_route_profiles_and_hashed_candidate_sources"
@@ -3825,6 +3855,7 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         ["p3-mixed-codex-skill-workflow-probe"],
         ["p2-skill-route-discovery-threejs"],
         ["p1-skill-route-discovery-compass"],
+        ["p2-skill-route-discovery-zhengxi-views"],
     ]
     assert all(row["candidate_source_hashes"] for row in validation_plan["rows"])
     assert all(
@@ -11731,9 +11762,13 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert summary["decision"] == "operator_can_replay_selected_bounded_validation_lane"
     assert summary["selected_local_lane"] == "test"
     assert summary["validation_scope"] == "local_test_lane_only"
-    assert summary["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
-    assert summary["route_profile_count"] == 2
-    assert summary["selected_profile_count"] == 2
+    assert summary["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert summary["route_profile_count"] == 3
+    assert summary["selected_profile_count"] == 3
     assert summary["lane_validation_target_count"] == 2
     assert summary["activity_lane_count"] == 4
     assert summary["supervisor_decision"] == "ready_for_supervisor_promotion"
@@ -11743,10 +11778,10 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert checklist["status"] == "ready"
     assert checklist["decision"] == "profile_lanes_ready_for_bounded_local_replay"
     assert checklist["profile_acceptance_contract_status"] == "ready"
-    assert checklist["profile_count"] == 3
-    assert checklist["selected_current_pass_profile_count"] == 2
+    assert checklist["profile_count"] == 4
+    assert checklist["selected_current_pass_profile_count"] == 3
     assert checklist["queued_profile_count"] == 1
-    assert checklist["accepted_profile_count"] == 3
+    assert checklist["accepted_profile_count"] == 4
     assert checklist["evidence_ref_mode"] == "selected_item_ids_only"
     assert checklist["runtime_action_allowed"] is False
     assert checklist["external_skill_activation_allowed"] is False
@@ -11762,6 +11797,8 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     )
     assert checklist_rows["game_frontend_workflow"]["pass_role"] == "selected_current_pass_profile"
     assert checklist_rows["game_frontend_workflow"]["expected_first_local_lane"] == "test"
+    assert checklist_rows["source_cited_domain_research"]["pass_role"] == "selected_current_pass_profile"
+    assert checklist_rows["source_cited_domain_research"]["expected_first_local_lane"] == "test"
     assert checklist_rows["skill_ecosystem_state_handoff"]["pass_role"] == "queued_profile_for_later_pass"
     assert checklist_rows["skill_ecosystem_state_handoff"]["expected_first_local_lane"] == "config"
     for row in checklist["rows"]:
@@ -11791,10 +11828,10 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert pass2_summary["status"] == "ready"
     assert pass2_summary["decision"] == "profile_routes_accepted_for_bounded_local_lanes"
     assert pass2_summary["profile_acceptance_contract_status"] == "ready"
-    assert pass2_summary["profile_count"] == 3
-    assert pass2_summary["selected_current_pass_profile_count"] == 2
+    assert pass2_summary["profile_count"] == 4
+    assert pass2_summary["selected_current_pass_profile_count"] == 3
     assert pass2_summary["queued_profile_count"] == 1
-    assert pass2_summary["accepted_profile_count"] == 3
+    assert pass2_summary["accepted_profile_count"] == 4
     assert pass2_summary["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
     assert pass2_summary["selected_local_lanes"] == ["test"]
     assert pass2_summary["queued_local_lanes"] == ["config"]
@@ -11808,6 +11845,11 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert pass2_rows["codex_workflow_gate"]["route_probe_decision"] == "skill_route_discovery_first"
     assert pass2_rows["game_frontend_workflow"]["pass_role"] == "selected_current_pass_profile"
     assert pass2_rows["game_frontend_workflow"]["expected_first_local_lane"] == "test"
+    assert pass2_rows["source_cited_domain_research"]["pass_role"] == "selected_current_pass_profile"
+    assert pass2_rows["source_cited_domain_research"]["expected_first_local_lane"] == "test"
+    assert pass2_rows["source_cited_domain_research"]["validation_gate"] == (
+        "source_citation_and_advice_boundary_before_domain_skill_activation"
+    )
     assert pass2_rows["skill_ecosystem_state_handoff"]["pass_role"] == "queued_profile_for_later_pass"
     assert pass2_rows["skill_ecosystem_state_handoff"]["expected_first_local_lane"] == "config"
     for row in pass2_summary["rows"]:

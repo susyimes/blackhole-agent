@@ -274,6 +274,29 @@ SKILL_ROUTE_DISCOVERY_PROFILE_REVIEW_CONTRACTS = {
             "manual_install_or_enable_requested",
         ),
     },
+    "source_cited_domain_research": {
+        "recognition_signals": (
+            "source_citation_or_traceability_language",
+            "domain_research_or_public_view_evidence",
+            "advice_boundary_or_disclaimer_language",
+        ),
+        "expected_metadata": (
+            "body_free_domain_research_summary",
+            "source_citation_boundary",
+            "advice_disclaimer_boundary",
+            "local_evidence_replay_target",
+        ),
+        "safe_local_tests": (
+            "pytest tests/test_skill_routing.py -q -k source_cited_domain_research",
+            "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        ),
+        "rejection_conditions": (
+            "upstream_dataset_import_requested",
+            "financial_or_medical_advice_generation_requested",
+            "provider_launch_or_private_context_requested",
+        ),
+    },
     "generic_skill_workflow": {
         "recognition_signals": (
             "skill_or_workflow_language",
@@ -6318,6 +6341,8 @@ def skill_route_discovery_pass1_profiles_for_proposal(proposal_id: str, route_pr
     proposal_lower = proposal_id.casefold()
     if "compass" in proposal_lower:
         narrowed = ["skill_ecosystem_state_handoff"]
+    elif "zhengxi" in proposal_lower or "research" in proposal_lower or "citation" in proposal_lower:
+        narrowed = ["source_cited_domain_research"]
     elif "threejs" in proposal_lower or "game" in proposal_lower:
         narrowed = ["game_frontend_workflow"]
     elif "codex" in proposal_lower or "fable" in proposal_lower or "workflow" in proposal_lower:
@@ -6930,7 +6955,7 @@ def skill_route_discovery_domain_validation_probe(
 
     plan_rows = validation_lane_plan.get("rows")
     plan_rows = plan_rows if isinstance(plan_rows, list) else []
-    domain_profiles = {"game_frontend_workflow"}
+    domain_profiles = {"game_frontend_workflow", "source_cited_domain_research"}
     rows: list[dict[str, Any]] = []
     diagnostics: list[str] = []
 
@@ -6963,12 +6988,29 @@ def skill_route_discovery_domain_validation_probe(
         if plan_row.get("external_skill_code_allowed") is not False:
             row_diagnostics.append("external_skill_code_not_denied")
 
+        if route_profile == "source_cited_domain_research":
+            domain = "source_cited_domain_research"
+            required_validation = [
+                SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
+                "pytest tests/test_skill_routing.py -q -k source_cited_domain_research",
+                PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            ]
+            activation_gate = "local_citation_and_advice_boundary_validation_before_domain_skill_activation"
+        else:
+            domain = "threejs_browser_game"
+            required_validation = [
+                SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
+                "pytest tests/test_harness_eval.py -q -k rendered_html_artifact_validation",
+                PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            ]
+            activation_gate = "local_test_validation_before_domain_skill_activation"
+
         row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
         diagnostics.extend(f"{route_profile}:{diagnostic}" for diagnostic in row_diagnostics)
         rows.append(
             {
                 "route_profile": route_profile,
-                "domain": "threejs_browser_game",
+                "domain": domain,
                 "selected_local_lane": probe_lane,
                 "validation_scope": optional_string(plan_row.get("validation_scope"))
                 or (f"local_{probe_lane}_lane_only" if probe_lane else "none"),
@@ -6977,18 +7019,14 @@ def skill_route_discovery_domain_validation_probe(
                 "evidence_item_ids": string_list(plan_row.get("evidence_item_ids")),
                 "evidence_item_id_count": len(string_list(plan_row.get("evidence_item_ids"))),
                 "candidate_source_hashes": string_list(plan_row.get("candidate_source_hashes")),
-                "required_validation": [
-                    SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
-                    "pytest tests/test_harness_eval.py -q -k rendered_html_artifact_validation",
-                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
-                ],
+                "required_validation": required_validation,
                 "classification_checks": {
                     "domain_profile_matched": True,
                     "local_test_lane_selected": probe_lane == "test",
                     "non_execution_behavior": True,
                     "body_free": True,
                 },
-                "activation_gate": "local_test_validation_before_domain_skill_activation",
+                "activation_gate": activation_gate,
                 "diagnostics": row_diagnostics,
                 "local_validation_required": True,
                 "runtime_action": "none",
@@ -6999,6 +7037,9 @@ def skill_route_discovery_domain_validation_probe(
                 "upstream_scaffold_allowed": False,
                 "upstream_browser_checker_allowed": False,
                 "asset_generation_allowed": False,
+                "upstream_dataset_import_allowed": False,
+                "advice_generation_allowed": False,
+                "financial_or_medical_advice_allowed": False,
                 "provider_runtime_launch_allowed": False,
                 "remote_execution_allowed": False,
                 "raw_evidence_exported": False,
@@ -10676,6 +10717,9 @@ def skill_route_discovery_profile_lane_selection(
     if "skill_ecosystem_state_handoff" in profiles:
         preferred_order = ["config", "documentation", "test", "code_patch"]
         reason = "state_handoff_routes_start_with_metadata_and_boundary_review"
+    elif "source_cited_domain_research" in profiles:
+        preferred_order = ["test", "documentation", "config", "code_patch"]
+        reason = "source_cited_research_routes_start_with_citation_and_advice_boundary_replay"
     elif "game_frontend_workflow" in profiles:
         preferred_order = ["test", "documentation", "code_patch", "config"]
         reason = "game_skill_routes_start_with_validation_and_boundary_review"
@@ -11126,6 +11170,19 @@ def skill_route_discovery_profile_metadata_coverage(
         "local_memory_or_profile_target_if_any": any(
             marker in combined_text for marker in ("memory", "profile", "handoff", "task graph", "task forest")
         ),
+        "body_free_domain_research_summary": bool(records)
+        and any(
+            marker in combined_text
+            for marker in ("domain research", "investment", "public view", "research", "source-cited", "traceable")
+        ),
+        "source_citation_boundary": any(
+            marker in combined_text for marker in ("citation", "cited", "source", "source-cited", "traceable")
+        ),
+        "advice_disclaimer_boundary": any(
+            marker in combined_text for marker in ("advice", "advisory", "disclaimer", "investment", "not constitute")
+        ),
+        "local_evidence_replay_target": bool(proof_kinds & {"test", "code_patch"} or proposal_kinds & {"test"})
+        and any(marker in combined_text for marker in ("evidence", "replay", "test", "validation")),
         "body_free_repository_summary": bool(records),
         "local_artifact_target": bool(proposal_kinds),
     }

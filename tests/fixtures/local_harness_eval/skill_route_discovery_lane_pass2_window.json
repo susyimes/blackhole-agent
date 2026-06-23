@@ -11,6 +11,7 @@
       "required_route_profiles": [
         "codex_workflow_gate",
         "game_frontend_workflow",
+        "source_cited_domain_research",
         "skill_ecosystem_state_handoff"
       ],
       "anchoring_proposals": [
@@ -27,8 +28,8 @@
       "evidence_urls": [
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
-        "https://github.com/majidmanzarpour/threejs-game-skills",
-        "https://github.com/omnigent-ai/omnigent"
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/majidmanzarpour/threejs-game-skills"
       ]
     },
     "source_kind": "candidates",
@@ -48,6 +49,14 @@
         "candidate_lanes": ["documentation", "config", "test", "code_patch"],
         "evidence_item_ids": ["p1-skill-route-discovery-compass"],
         "evidence_urls": ["https://github.com/dongshuyan/compass-skills"]
+      },
+      {
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "evidence_summary": "Source-cited domain research agent skill with public view evidence, citation traceability, advisory framing, investment research disclaimers, validation evidence, and advice boundary notes.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "evidence_item_ids": ["p2-skill-route-discovery-zhengxi-views"],
+        "evidence_urls": ["https://github.com/lyra81604/zhengxi-views"]
       },
       {
         "name": "threejs-game-skills",
@@ -122,15 +131,15 @@
     },
     {
       "path": "registry.candidate_count",
-      "equals": 3
+      "equals": 4
     },
     {
       "path": "lane_map.proposal_lane_count",
-      "equals": 12
+      "equals": 16
     },
     {
       "path": "route_profile_review.profile_count",
-      "equals": 3
+      "equals": 4
     },
     {
       "path": "capability_window_completion.status",
