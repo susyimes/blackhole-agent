@@ -1,0 +1,7 @@
+rollback_point: 20260623T141516Z-provider-runtime-control-pass3
+original_branch: codex/blackhole-evolve/20260623T141516.375239-add-or-extend-local-tests-for-skill-route-discov
+head: 883134af486441db46658edb3965b6b2623da056
+rollback_ref: refs/rollback/20260623T141516Z-provider-runtime-control-pass3
+recover_branch: git switch codex/blackhole-evolve/20260623T141516.375239-add-or-extend-local-tests-for-skill-route-discov
+recover_head: git reset --hard 883134af486441db46658edb3965b6b2623da056
+cleanup_untracked: git clean -fd -- <paths-created-by-this-run>

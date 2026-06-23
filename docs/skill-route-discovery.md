@@ -119,6 +119,17 @@ mixed Codex/workflow evidence can expose
 `agent_harness_eval_after_local_corroboration`, but that secondary path stays
 blocked until the skill-route regression has passed.
 
+The provider-runtime preflight now includes runner-state diagnostics for
+Omnigent-style meta-harness failures where a harness disconnect and a mid-turn
+buffered message leave tool callbacks without active turn context. That signal
+maps to `provider_runner_turn_context_desync`: a blocker that emits only counts,
+hashes, booleans, replay commands, and recovery hint codes. It does not export
+session ids, runner logs, callback bodies, policy bodies, upstream issue bodies,
+or raw source URLs, and it does not authorize provider launch. If policy handling
+defaulted allow while turn context was missing, the diagnostic records
+`policy_fail_open_risk` and requires fail-closed or self-heal/watchdog recovery
+before replay.
+
 ## Classification Rules
 
 Record a candidate as `skill_route_discovery` when the digest evidence shows a

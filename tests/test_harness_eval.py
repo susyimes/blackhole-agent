@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 63
-    assert payload["pass_count"] == 62
+    assert payload["fixture_count"] == 64
+    assert payload["pass_count"] == 63
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -162,6 +162,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-openrouter-harness-base-url-mismatch"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
+    assert results["provider-runtime-preflight-omnigent-turn-context-desync"]["passed"] is True
     assert results["provider-runtime-preflight-runner-compat-bridge-missing"]["passed"] is True
     assert results["provider-runtime-preflight-non-openai-web-search-dispatch-missing"]["passed"] is True
     assert results["provider-runtime-preflight-wire-api-chat"]["passed"] is True
@@ -237,6 +238,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CLAUDE_SDK_EXECUTABLE_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_ERRNO8_STARTUP_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OMNIGENT_SESSION_REF_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OMNIGENT_RUNNER_LOG_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_CREDENTIAL_LABEL_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
@@ -10841,6 +10844,89 @@ def test_provider_runtime_preflight_blocks_claude_sdk_errno8_startup_without_bod
     ]
     assert "PRIVATE_CLAUDE_SDK_EXECUTABLE_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_ERRNO8_STARTUP_BODY_DO_NOT_EXPORT" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_omnigent_turn_context_desync_without_body_export():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_omnigent_turn_context_desync.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_runner_turn_context_desync"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["runner_state"] == {
+        "required": True,
+        "observed": True,
+        "ok": False,
+        "failure_mode": "provider_runner_turn_context_desync",
+        "provider_harness_hash": stable_text_hash("omnigent"),
+        "provider_harness_recorded": False,
+        "session_ref_hash": stable_text_hash("PRIVATE_OMNIGENT_SESSION_REF_DO_NOT_EXPORT"),
+        "session_ref_recorded": False,
+        "active_turn_context_required": True,
+        "active_turn_context_bound": False,
+        "tool_callback_count": 24,
+        "orphaned_tool_callback_count": 20,
+        "consecutive_orphaned_callback_count": 6,
+        "buffered_mid_turn_message": True,
+        "harness_disconnect_observed": True,
+        "policy_default_allow_observed": True,
+        "policy_fail_closed_configured": False,
+        "self_heal_rebind_configured": False,
+        "watchdog_configured": False,
+        "restart_required": True,
+        "turn_context_desync": True,
+        "policy_fail_open_risk": True,
+        "raw_callback_bodies_exported": False,
+        "raw_policy_bodies_exported": False,
+        "raw_session_ref_exported": False,
+        "raw_runner_logs_exported": False,
+        "diagnostics": [
+            "runner active-turn context is required but not bound",
+            "runner tool callbacks were observed without active turn context",
+            "mid-turn message buffering coincided with harness disconnect",
+            "runner policy defaulted allow while turn context was missing",
+            "runner turn-context self-heal or watchdog is not configured",
+        ],
+    }
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_runner_turn_context_desync",
+            "scope": "provider_runner_state",
+            "severity": "blocker",
+            "action": "rebind active turn context or configure runner self-heal/watchdog and fail-closed policy handling before provider launch",
+            "active_turn_context_required": True,
+            "active_turn_context_bound": False,
+            "tool_callback_count": 24,
+            "orphaned_tool_callback_count": 20,
+            "consecutive_orphaned_callback_count": 6,
+            "buffered_mid_turn_message": True,
+            "harness_disconnect_observed": True,
+            "policy_default_allow_observed": True,
+            "policy_fail_closed_configured": False,
+            "self_heal_rebind_configured": False,
+            "watchdog_configured": False,
+            "restart_required": True,
+            "raw_session_ref_exported": False,
+            "raw_runner_logs_exported": False,
+            "raw_callback_bodies_exported": False,
+            "raw_policy_bodies_exported": False,
+        }
+    ]
+    assert output["supervisor_replay"]["reason"] == "provider_runner_turn_context_desync"
+    assert output["supervisor_replay"]["provider_runtime_launch_allowed"] is False
+    assert output["preflight"]["diagnostics"] == output["runner_state"]["diagnostics"]
+    assert "PRIVATE_OMNIGENT_SESSION_REF_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OMNIGENT_RUNNER_LOG_DO_NOT_EXPORT" not in serialized
 
 
 def test_provider_runtime_preflight_detects_claude_prompt_above_long_status_footer():

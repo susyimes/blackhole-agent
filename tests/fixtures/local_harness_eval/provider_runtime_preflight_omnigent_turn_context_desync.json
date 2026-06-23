@@ -1,0 +1,83 @@
+{
+  "name": "provider-runtime-preflight-omnigent-turn-context-desync",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-omnigent-turn-context-desync",
+    "provider": {
+      "name": "omnigent",
+      "harness": "omnigent",
+      "runner_state_preflight_required": true
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "launch_transport": "subprocess",
+      "runner_state_preflight": {
+        "session_ref": "PRIVATE_OMNIGENT_SESSION_REF_DO_NOT_EXPORT",
+        "active_turn_context_required": true,
+        "active_turn_context_bound": false,
+        "tool_callback_count": 24,
+        "orphaned_tool_callback_count": 20,
+        "consecutive_orphaned_callback_count": 6,
+        "buffered_mid_turn_message": true,
+        "harness_disconnect_observed": true,
+        "policy_default_allow_observed": true,
+        "policy_fail_closed_configured": false,
+        "self_heal_rebind_configured": false,
+        "watchdog_configured": false,
+        "restart_required": true,
+        "raw_runner_log": "PRIVATE_OMNIGENT_RUNNER_LOG_DO_NOT_EXPORT"
+      }
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_runner_turn_context_desync"
+    },
+    {
+      "path": "runner_state.ok",
+      "equals": false
+    },
+    {
+      "path": "runner_state.turn_context_desync",
+      "equals": true
+    },
+    {
+      "path": "runner_state.policy_fail_open_risk",
+      "equals": true
+    },
+    {
+      "path": "runner_state.raw_runner_logs_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "preflight.blocked_before_launch",
+      "equals": true
+    },
+    {
+      "path": "supervisor_replay.reason",
+      "equals": "provider_runner_turn_context_desync"
+    }
+  ]
+}

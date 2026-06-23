@@ -14933,6 +14933,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     approval_repark_preflight = evaluate_provider_approval_repark_preflight(provider=provider, runtime=runtime)
     setup_preflight = evaluate_provider_setup_preflight(provider=provider, runtime=runtime)
     startup_preflight = evaluate_provider_startup_preflight(provider=provider, runtime=runtime)
+    runner_state_preflight = evaluate_provider_runner_state_preflight(provider=provider, runtime=runtime)
     runner_compat_preflight = evaluate_provider_runner_compat_preflight(
         provider=provider,
         runtime=runtime,
@@ -15016,6 +15017,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not approval_repark_preflight["ok"]
         or not setup_preflight["ok"]
         or not startup_preflight["ok"]
+        or not runner_state_preflight["ok"]
         or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
@@ -15047,6 +15049,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(approval_repark_preflight["diagnostics"])
     diagnostics.extend(setup_preflight["diagnostics"])
     diagnostics.extend(startup_preflight["diagnostics"])
+    diagnostics.extend(runner_state_preflight["diagnostics"])
     diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
@@ -15081,6 +15084,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not setup_preflight["ok"]
             else startup_preflight["failure_mode"]
             if not startup_preflight["ok"]
+            else runner_state_preflight["failure_mode"]
+            if not runner_state_preflight["ok"]
             else runner_compat_preflight["failure_mode"]
             if not runner_compat_preflight["ok"]
             else auth_header_preflight["failure_mode"]
@@ -15192,6 +15197,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "approval_repark": approval_repark_preflight,
         "setup_preflight": setup_preflight,
         "startup_preflight": startup_preflight,
+        "runner_state": runner_state_preflight,
         "runner_compat": runner_compat_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
@@ -15594,6 +15600,97 @@ def evaluate_provider_startup_preflight(
         "stderr_body_exported": False,
         "raw_error_body_exported": False,
         "raw_startup_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def evaluate_provider_runner_state_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Detect runner turn-context desync before permitting provider launch.
+
+    Public meta-harness reports can expose failure shapes such as orphaned tool
+    callbacks or policy fail-open defaults. The local replay keeps only counts,
+    booleans, and hashes so operators get recovery hints without raw logs,
+    callback payloads, session ids, or policy bodies.
+    """
+
+    raw_state = provider.get("runner_state_preflight", runtime.get("runner_state_preflight"))
+    state = raw_state if isinstance(raw_state, dict) else {}
+    required = (
+        truthy(provider.get("runner_state_preflight_required"))
+        or truthy(runtime.get("runner_state_preflight_required"))
+        or bool(state)
+    )
+    provider_name = optional_string(provider.get("name")) or ""
+    harness = optional_string(provider.get("harness")) or provider_name
+    session_ref = optional_string(state.get("session_ref") or state.get("conversation_id"))
+    active_turn_context_required = truthy(state.get("active_turn_context_required", required))
+    active_turn_context_bound = truthy(state.get("active_turn_context_bound", True))
+    tool_callback_count = optional_int(state.get("tool_callback_count")) or 0
+    orphaned_tool_callback_count = optional_int(state.get("orphaned_tool_callback_count")) or 0
+    consecutive_orphaned_callback_count = optional_int(state.get("consecutive_orphaned_callback_count")) or 0
+    buffered_mid_turn_message = truthy(state.get("buffered_mid_turn_message"))
+    harness_disconnect_observed = truthy(state.get("harness_disconnect_observed"))
+    policy_default_allow_observed = truthy(state.get("policy_default_allow_observed"))
+    policy_fail_closed_configured = truthy(state.get("policy_fail_closed_configured"))
+    self_heal_rebind_configured = truthy(state.get("self_heal_rebind_configured"))
+    watchdog_configured = truthy(state.get("watchdog_configured"))
+    restart_required = truthy(state.get("restart_required"))
+
+    active_context_missing = active_turn_context_required and not active_turn_context_bound
+    orphaned_callbacks = orphaned_tool_callback_count > 0 or consecutive_orphaned_callback_count > 0
+    turn_context_desync = active_context_missing or orphaned_callbacks
+    policy_fail_open_risk = policy_default_allow_observed and not policy_fail_closed_configured
+
+    diagnostics: list[str] = []
+    if active_context_missing:
+        diagnostics.append("runner active-turn context is required but not bound")
+    if orphaned_callbacks:
+        diagnostics.append("runner tool callbacks were observed without active turn context")
+    if buffered_mid_turn_message and harness_disconnect_observed:
+        diagnostics.append("mid-turn message buffering coincided with harness disconnect")
+    if policy_fail_open_risk:
+        diagnostics.append("runner policy defaulted allow while turn context was missing")
+    if turn_context_desync and not (self_heal_rebind_configured or watchdog_configured):
+        diagnostics.append("runner turn-context self-heal or watchdog is not configured")
+
+    if turn_context_desync:
+        failure_mode = "provider_runner_turn_context_desync"
+    elif policy_fail_open_risk:
+        failure_mode = "provider_runner_policy_fail_open"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "observed": bool(state),
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "provider_harness_hash": stable_text_hash(harness) if harness else None,
+        "provider_harness_recorded": False,
+        "session_ref_hash": stable_text_hash(session_ref) if session_ref else None,
+        "session_ref_recorded": False,
+        "active_turn_context_required": active_turn_context_required,
+        "active_turn_context_bound": active_turn_context_bound,
+        "tool_callback_count": tool_callback_count,
+        "orphaned_tool_callback_count": orphaned_tool_callback_count,
+        "consecutive_orphaned_callback_count": consecutive_orphaned_callback_count,
+        "buffered_mid_turn_message": buffered_mid_turn_message,
+        "harness_disconnect_observed": harness_disconnect_observed,
+        "policy_default_allow_observed": policy_default_allow_observed,
+        "policy_fail_closed_configured": policy_fail_closed_configured,
+        "self_heal_rebind_configured": self_heal_rebind_configured,
+        "watchdog_configured": watchdog_configured,
+        "restart_required": restart_required,
+        "turn_context_desync": turn_context_desync,
+        "policy_fail_open_risk": policy_fail_open_risk,
+        "raw_callback_bodies_exported": False,
+        "raw_policy_bodies_exported": False,
+        "raw_session_ref_exported": False,
+        "raw_runner_logs_exported": False,
         "diagnostics": diagnostics,
     }
 
@@ -17111,6 +17208,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     startup_preflight = (
         preflight.get("startup_preflight") if isinstance(preflight.get("startup_preflight"), dict) else {}
     )
+    runner_state = preflight.get("runner_state") if isinstance(preflight.get("runner_state"), dict) else {}
     runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
@@ -17479,6 +17577,37 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "raw_executable_exported": False,
                 "raw_config_exported": False,
                 "raw_error_body_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_runner_policy_fail_open",
+        "provider_runner_turn_context_desync",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_runner_state",
+                "severity": "blocker",
+                "action": "rebind active turn context or configure runner self-heal/watchdog and fail-closed policy handling before provider launch",
+                "active_turn_context_required": bool(runner_state.get("active_turn_context_required")),
+                "active_turn_context_bound": bool(runner_state.get("active_turn_context_bound")),
+                "tool_callback_count": int(runner_state.get("tool_callback_count") or 0),
+                "orphaned_tool_callback_count": int(runner_state.get("orphaned_tool_callback_count") or 0),
+                "consecutive_orphaned_callback_count": int(
+                    runner_state.get("consecutive_orphaned_callback_count") or 0
+                ),
+                "buffered_mid_turn_message": bool(runner_state.get("buffered_mid_turn_message")),
+                "harness_disconnect_observed": bool(runner_state.get("harness_disconnect_observed")),
+                "policy_default_allow_observed": bool(runner_state.get("policy_default_allow_observed")),
+                "policy_fail_closed_configured": bool(runner_state.get("policy_fail_closed_configured")),
+                "self_heal_rebind_configured": bool(runner_state.get("self_heal_rebind_configured")),
+                "watchdog_configured": bool(runner_state.get("watchdog_configured")),
+                "restart_required": bool(runner_state.get("restart_required")),
+                "raw_session_ref_exported": False,
+                "raw_runner_logs_exported": False,
+                "raw_callback_bodies_exported": False,
+                "raw_policy_bodies_exported": False,
             }
         )
     elif failure_mode in {
