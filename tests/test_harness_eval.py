@@ -352,7 +352,11 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
             "wire_api_exercised": False,
             "supported_wire_api_count": 2,
             "exercised_wire_api_count": 0,
+            "runner_wire_api_configured": False,
+            "runner_wire_api_selected": "unknown",
+            "runner_wire_api_matches_config": True,
             "raw_value_exported": False,
+            "runner_raw_value_exported": False,
         }
     ]
     assert unexercised["supervisor_replay"]["ready_for_provider_launch"] is False
@@ -363,6 +367,102 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
     assert unsupported["wire_api"]["supported"] is False
     assert unsupported["wire_api"]["exercised"] is True
 
+    assert "PRIVATE" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_chat_config_that_resolves_to_responses_runner_route():
+    mismatch = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-wire-api-chat-runner-mismatch",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "wire_api": "chat",
+                "supported_wire_apis": ["chat", "responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "generated_model_api": "openai-responses",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_wire_api_chat_runner_mismatch_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-wire-api-chat-runner-ready",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "wire_api": "chat",
+                "supported_wire_apis": ["chat", "responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "generated_model_api": "openai-completions",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_wire_api_chat_runner_ready_inline.json",
+    )
+    serialized = json.dumps({"mismatch": mismatch, "ready": ready}, sort_keys=True)
+
+    assert mismatch["route_status"] == "blocked"
+    assert mismatch["failure_mode"] == "provider_wire_api_runner_mismatch"
+    assert mismatch["runtime"]["runner_invoked"] is False
+    assert mismatch["wire_api"]["selected"] == "chat"
+    assert mismatch["wire_api"]["runner_selected"] == "responses"
+    assert mismatch["wire_api"]["runner_matches_config"] is False
+    assert mismatch["wire_api"]["runner_raw_value_exported"] is False
+    assert mismatch["preflight"]["diagnostics"] == [
+        "provider wire API was configured but resolved to a different runner route"
+    ]
+    assert mismatch["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_wire_api_runner_mismatch",
+            "scope": "provider_wire_api",
+            "severity": "blocker",
+            "action": "configure a supported provider wire API and replay local route evidence before launching the harness",
+            "wire_api_required": False,
+            "wire_api_configured": True,
+            "wire_api_selected": "chat",
+            "wire_api_supported": True,
+            "wire_api_exercise_required": True,
+            "wire_api_exercised": True,
+            "supported_wire_api_count": 2,
+            "exercised_wire_api_count": 1,
+            "runner_wire_api_configured": True,
+            "runner_wire_api_selected": "responses",
+            "runner_wire_api_matches_config": False,
+            "raw_value_exported": False,
+            "runner_raw_value_exported": False,
+        }
+    ]
+    assert mismatch["supervisor_replay"]["recovery_hint_codes"] == ["provider_wire_api_runner_mismatch"]
+
+    assert ready["route_status"] == "passed"
+    assert ready["wire_api"]["selected"] == "chat"
+    assert ready["wire_api"]["runner_selected"] == "chat"
+    assert ready["wire_api"]["runner_matches_config"] is True
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert "openai-responses" not in serialized
+    assert "openai-completions" not in serialized
     assert "PRIVATE" not in serialized
 
 

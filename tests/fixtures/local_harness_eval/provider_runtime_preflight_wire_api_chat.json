@@ -22,7 +22,8 @@
     "runtime": {
       "platform": "linux",
       "cli_resolved_in_runner": true,
-      "launch_transport": "subprocess"
+      "launch_transport": "subprocess",
+      "generated_model_api": "openai-completions"
     },
     "runner_env": {
       "parent_env_keys": [
@@ -62,6 +63,22 @@
     {
       "path": "wire_api.exercised",
       "equals": true
+    },
+    {
+      "path": "wire_api.runner_configured",
+      "equals": true
+    },
+    {
+      "path": "wire_api.runner_selected",
+      "equals": "chat"
+    },
+    {
+      "path": "wire_api.runner_matches_config",
+      "equals": true
+    },
+    {
+      "path": "wire_api.runner_raw_value_exported",
+      "equals": false
     },
     {
       "path": "wire_api.raw_value_exported",

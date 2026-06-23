@@ -1,0 +1,15 @@
+Rollback point for provider wire_api chat preflight evolution
+
+Created: 2026-06-23T11:18:31+08:00
+Source digest: github-growth-20260623T031652.547664Z
+Original branch: codex/blackhole-evolve/20260623T031751.322187-add-or-extend-local-validation-for-provider-conf
+Original HEAD: c8d2310430f27556527c1136b8aa90b9b9e4a3ce
+Local rollback ref: refs/rollback/20260623T111831Z-provider-wire-api-chat-preflight
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260623T031751.322187-add-or-extend-local-validation-for-provider-conf
+  git reset --hard refs/rollback/20260623T111831Z-provider-wire-api-chat-preflight
+
+Notes:
+  Rollback execution is explicit and destructive. Do not run these commands
+  unless a human operator or external supervisor policy chooses rollback.

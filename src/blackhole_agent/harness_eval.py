@@ -14691,6 +14691,22 @@ def evaluate_provider_wire_api_preflight(
     raw_wire_api = runtime.get("wire_api", provider.get("wire_api"))
     selected_wire_api = normalize_provider_wire_api(raw_wire_api)
     configured = selected_wire_api != "unknown"
+    raw_runner_wire_api = next(
+        (
+            runtime[key]
+            for key in (
+                "runner_wire_api",
+                "generated_wire_api",
+                "generated_model_api",
+                "managed_model_api",
+                "resolved_wire_api",
+            )
+            if key in runtime
+        ),
+        None,
+    )
+    runner_wire_api = normalize_provider_runner_wire_api(raw_runner_wire_api)
+    runner_configured = runner_wire_api != "unknown"
     supported_wire_apis = sorted(
         {
             normalize_provider_wire_api(value)
@@ -14714,16 +14730,20 @@ def evaluate_provider_wire_api_preflight(
     )
     supported = not configured or not supported_wire_apis or selected_wire_api in supported_wire_apis
     exercised = not configured or selected_wire_api in exercised_wire_apis
+    runner_matches_config = not configured or not runner_configured or selected_wire_api == runner_wire_api
     missing = required and not configured
     unsupported = configured and not supported
+    runner_mismatch = configured and runner_configured and not runner_matches_config
     unexercised = configured and exercise_required and not exercised
-    ok = not missing and not unsupported and not unexercised
+    ok = not missing and not unsupported and not runner_mismatch and not unexercised
 
     diagnostics: list[str] = []
     if missing:
         diagnostics.append("provider wire API is required but was not configured")
     if unsupported:
         diagnostics.append("provider wire API is not in the supported route list")
+    if runner_mismatch:
+        diagnostics.append("provider wire API was configured but resolved to a different runner route")
     if unexercised:
         diagnostics.append("provider wire API was configured but not exercised by local route evidence")
 
@@ -14731,6 +14751,8 @@ def evaluate_provider_wire_api_preflight(
         failure_mode = "provider_wire_api_missing"
     elif unsupported:
         failure_mode = "provider_wire_api_unsupported"
+    elif runner_mismatch:
+        failure_mode = "provider_wire_api_runner_mismatch"
     elif unexercised:
         failure_mode = "provider_wire_api_unexercised"
     else:
@@ -14748,6 +14770,11 @@ def evaluate_provider_wire_api_preflight(
         "exercised": exercised,
         "exercised_wire_apis": exercised_wire_apis,
         "exercised_wire_api_count": len(exercised_wire_apis),
+        "runner_configured": runner_configured,
+        "runner_selected": runner_wire_api,
+        "runner_selected_hash": stable_text_hash(runner_wire_api) if runner_configured else None,
+        "runner_matches_config": runner_matches_config,
+        "runner_raw_value_exported": False,
         "ok": ok,
         "failure_mode": failure_mode,
         "raw_value_exported": False,
@@ -14868,6 +14895,13 @@ def normalize_provider_wire_api(value: Any) -> str:
         "text_completion": "completions",
     }
     return aliases.get(text, "unknown")
+
+
+def normalize_provider_runner_wire_api(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_")
+    if text == "openai_completions":
+        return "chat"
+    return normalize_provider_wire_api(value)
 
 
 def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
@@ -15344,6 +15378,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
         )
     elif failure_mode in {
         "provider_wire_api_missing",
+        "provider_wire_api_runner_mismatch",
         "provider_wire_api_unexercised",
         "provider_wire_api_unsupported",
     }:
@@ -15362,7 +15397,11 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "wire_api_exercised": bool(wire_api.get("exercised")),
                 "supported_wire_api_count": int(wire_api.get("supported_wire_api_count") or 0),
                 "exercised_wire_api_count": int(wire_api.get("exercised_wire_api_count") or 0),
+                "runner_wire_api_configured": bool(wire_api.get("runner_configured")),
+                "runner_wire_api_selected": optional_string(wire_api.get("runner_selected")) or "unknown",
+                "runner_wire_api_matches_config": bool(wire_api.get("runner_matches_config")),
                 "raw_value_exported": False,
+                "runner_raw_value_exported": False,
             }
         )
     elif failure_mode == "provider_install_linkage_unresolved":
