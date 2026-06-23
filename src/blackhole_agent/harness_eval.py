@@ -6295,6 +6295,11 @@ def skill_route_discovery_provider_runtime_recovery_step(code: str) -> dict[str,
             "blocker",
             "repair_model_command",
         ),
+        "provider_auth_precedence_fallback_risk": (
+            "provider_auth_precedence",
+            "blocker",
+            "preserve_proxy_auth_env",
+        ),
         "provider_install_linkage_unresolved": (
             "provider_install_linkage",
             "blocker",
@@ -13802,6 +13807,13 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         [] if worker_env_inherit_skipped else sorted(set(required_env_keys) - set(harness_env_keys))
     )
     required_env_ready = not missing_parent_env_keys and not missing_harness_env_keys
+    auth_precedence_preflight = evaluate_provider_auth_precedence_preflight(
+        provider=provider,
+        runtime=runtime,
+        parent_env_keys=parent_env_keys,
+        harness_env_keys=harness_env_keys,
+        required_env_keys=required_env_keys,
+    )
     mock_auth_placeholder = truthy(mock_llm.get("auth_placeholder")) or truthy(mock_llm.get("mock_auth_placeholder"))
     mock_enabled = truthy(mock_llm.get("enabled"))
     is_openai_agents = (
@@ -13837,6 +13849,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
+        or not auth_precedence_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
         or not browser_preflight["url_safety"]["ok"]
@@ -13862,6 +13875,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
+    diagnostics.extend(auth_precedence_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
             required_env_key_count=len(required_env_keys),
@@ -13892,6 +13906,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not model_command_preflight["ok"]
             else wire_api_preflight["failure_mode"]
             if not wire_api_preflight["ok"]
+            else auth_precedence_preflight["failure_mode"]
+            if not auth_precedence_preflight["ok"]
             else "provider_env_missing"
             if env_preflight_failed
             else "url_safety_preflight_failed"
@@ -13989,6 +14005,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
+        "auth_precedence": auth_precedence_preflight,
     }
     recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
     output["recovery_hints"] = recovery_hints
@@ -14738,6 +14755,104 @@ def evaluate_provider_wire_api_preflight(
     }
 
 
+def evaluate_provider_auth_precedence_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    parent_env_keys: list[str],
+    harness_env_keys: list[str],
+    required_env_keys: list[str],
+) -> dict[str, Any]:
+    """Validate proxy/Bedrock auth env precedence before provider launch.
+
+    This models harness routes where Claude or Codex should use a configured
+    LiteLLM/Bedrock/proxy auth path instead of silently falling back to native
+    provider auth. It records key presence and hashes only, never values.
+    """
+
+    raw_config = provider.get("auth_precedence", runtime.get("auth_precedence"))
+    config = raw_config if isinstance(raw_config, dict) else {}
+    expected_route = normalize_provider_auth_route(
+        config.get("expected_route")
+        or config.get("expected_auth_route")
+        or provider.get("expected_auth_route")
+        or runtime.get("expected_auth_route")
+    )
+    fallback_route = normalize_provider_auth_route(
+        config.get("fallback_route")
+        or config.get("fallback_auth_route")
+        or provider.get("fallback_auth_route")
+        or runtime.get("fallback_auth_route")
+    )
+    precedence_required = (
+        truthy(provider.get("auth_precedence_required"))
+        or truthy(runtime.get("auth_precedence_required"))
+        or truthy(config.get("required"))
+        or bool(config)
+    )
+    fallback_disallowed = (
+        truthy(config.get("fallback_disallowed"))
+        or truthy(config.get("native_fallback_disallowed"))
+        or truthy(provider.get("native_auth_fallback_disallowed"))
+        or truthy(runtime.get("native_auth_fallback_disallowed"))
+    )
+    raw_proxy_env_keys = (
+        string_list(config.get("required_proxy_env_keys"))
+        + string_list(config.get("proxy_env_keys"))
+        + string_list(provider.get("proxy_env_keys"))
+        + string_list(runtime.get("proxy_env_keys"))
+    )
+    proxy_env_keys = sorted(set(raw_proxy_env_keys or required_env_keys))
+    missing_parent = sorted(set(proxy_env_keys) - set(parent_env_keys))
+    missing_harness = sorted(set(proxy_env_keys) - set(harness_env_keys))
+    proxy_env_ready = bool(proxy_env_keys) and not missing_parent and not missing_harness
+    fallback_risk = bool(precedence_required and fallback_disallowed and not proxy_env_ready)
+    ok = not fallback_risk
+
+    diagnostics: list[str] = []
+    if precedence_required and not expected_route:
+        diagnostics.append("provider auth precedence is required but no expected auth route label was configured")
+    if fallback_risk:
+        diagnostics.append(
+            "configured proxy auth environment did not reach the provider harness; block native auth fallback before launch"
+        )
+
+    failure_mode = "provider_auth_precedence_fallback_risk" if fallback_risk else "none"
+    return {
+        "required": precedence_required,
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "expected_route": expected_route or "unknown",
+        "fallback_route": fallback_route or "unknown",
+        "fallback_disallowed": fallback_disallowed,
+        "proxy_env_key_count": len(proxy_env_keys),
+        "proxy_env_key_hashes": [stable_text_hash(key) for key in proxy_env_keys],
+        "proxy_env_ready": proxy_env_ready,
+        "missing_parent_env_key_count": len(missing_parent),
+        "missing_harness_env_key_count": len(missing_harness),
+        "raw_env_key_names_exported": False,
+        "env_values_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_provider_auth_route(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "anthropic_native": "native_anthropic",
+        "native_claude": "native_anthropic",
+        "claude_native": "native_anthropic",
+        "bedrock_litellm": "litellm_bedrock",
+        "litellm_bedrock": "litellm_bedrock",
+        "litellm_proxy": "litellm_proxy",
+        "bedrock": "bedrock",
+        "proxy": "proxy",
+        "codex_native": "native_codex",
+        "native_codex": "native_codex",
+    }
+    return aliases.get(text, text)
+
+
 def normalize_provider_wire_api(value: Any) -> str:
     text = (optional_string(value) or "").strip().lower().replace("-", "_")
     aliases = {
@@ -15061,6 +15176,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
+    auth_precedence = preflight.get("auth_precedence") if isinstance(preflight.get("auth_precedence"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
     base_hint = {
@@ -15081,6 +15197,24 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "required_env_key_count": int(provider.get("required_env_key_count") or 0),
                 "missing_parent_env_key_count": int(runner_env.get("missing_parent_env_key_count") or 0),
                 "missing_harness_env_key_count": int(runner_env.get("missing_harness_env_key_count") or 0),
+            }
+        )
+    elif failure_mode == "provider_auth_precedence_fallback_risk":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_auth_precedence_fallback_risk",
+                "scope": "provider_auth_precedence",
+                "severity": "blocker",
+                "action": "preserve configured proxy or Bedrock auth environment into the provider harness before allowing native auth fallback",
+                "expected_route": optional_string(auth_precedence.get("expected_route")) or "unknown",
+                "fallback_route": optional_string(auth_precedence.get("fallback_route")) or "unknown",
+                "fallback_disallowed": bool(auth_precedence.get("fallback_disallowed")),
+                "proxy_env_key_count": int(auth_precedence.get("proxy_env_key_count") or 0),
+                "missing_parent_env_key_count": int(auth_precedence.get("missing_parent_env_key_count") or 0),
+                "missing_harness_env_key_count": int(auth_precedence.get("missing_harness_env_key_count") or 0),
+                "raw_env_key_names_exported": False,
+                "env_values_exported": False,
             }
         )
     elif failure_mode == "sandbox_runtime_preflight_failed":

@@ -204,6 +204,15 @@ unavailability, prompt-scan timeout risk, or native terminal launch risk. Use
 `provider_runtime_recovery_summary` when multiple preflights must be grouped
 into status counts and deduplicated hint codes.
 
+For LiteLLM-backed Claude or Codex routes, auth precedence is part of provider
+runtime readiness. If a fixture declares proxy or Bedrock auth as the expected
+route and native Anthropic/Codex auth fallback is disallowed, the parent runner
+and provider harness must both preserve the required proxy auth environment
+keys. Missing harness propagation is reported as
+`provider_auth_precedence_fallback_risk` before launch. Reports may expose route
+labels, counts, and hashes, but not environment values, token values, proxy
+URLs, or raw key names.
+
 The recovery summary separates local replay readiness from success. A degraded
 mock-auth or optional-tooling route may be replayable, but it is still reported
 as `provider_runtime_degraded_replay_only` with `success_claim_allowed: false`

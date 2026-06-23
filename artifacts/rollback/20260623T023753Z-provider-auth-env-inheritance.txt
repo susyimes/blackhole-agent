@@ -1,0 +1,10 @@
+Rollback point: provider auth env inheritance preflight
+Created at: 2026-06-23T02:37:53Z
+Original branch: codex/blackhole-evolve/20260623T023753.691085-document-the-expected-provider-auth-precedence-a
+Original HEAD: d93807fa3ff70d046223375a6756fc9d3c751b4a
+Local rollback ref: refs/blackhole/rollback/20260623T023753Z-provider-auth-env-inheritance
+Recovery commands (destructive; operator/supervisor only):
+  git reset --hard d93807fa3ff70d046223375a6756fc9d3c751b4a
+  git clean -fd
+Evidence: https://github.com/omnigent-ai/omnigent/issues/962
+Scope: add local provider-runtime preflight coverage/docs for LiteLLM/Bedrock Claude/Codex env inheritance without exporting secret values.

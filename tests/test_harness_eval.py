@@ -8186,6 +8186,159 @@ def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_be
     assert "omnigent run" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_litellm_bedrock_auth_fallback_before_launch():
+    missing_passthrough = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-litellm-bedrock-auth-fallback",
+            "provider": {
+                "name": "claude-code",
+                "harness": "claude-code",
+                "required_env_keys": [
+                    "ANTHROPIC_BEDROCK_BASE_URL",
+                    "CLAUDE_CODE_USE_BEDROCK",
+                    "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+                    "ANTHROPIC_AUTH_TOKEN",
+                ],
+                "auth_precedence": {
+                    "required": True,
+                    "expected_route": "litellm_bedrock",
+                    "fallback_route": "native_anthropic",
+                    "fallback_disallowed": True,
+                    "required_proxy_env_keys": [
+                        "ANTHROPIC_BEDROCK_BASE_URL",
+                        "CLAUDE_CODE_USE_BEDROCK",
+                        "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+                        "ANTHROPIC_AUTH_TOKEN",
+                    ],
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": [
+                    "PATH",
+                    "ANTHROPIC_BEDROCK_BASE_URL",
+                    "CLAUDE_CODE_USE_BEDROCK",
+                    "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+                    "ANTHROPIC_AUTH_TOKEN",
+                ],
+                "allowlist": ["PATH"],
+                "passthrough": [],
+                "env_values": {
+                    "ANTHROPIC_AUTH_TOKEN": "PRIVATE_BEDROCK_TOKEN_DO_NOT_EXPORT"
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_litellm_bedrock_auth_fallback_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-litellm-bedrock-auth-ready",
+            "provider": {
+                "name": "codex",
+                "harness": "codex",
+                "required_env_keys": [
+                    "ANTHROPIC_BEDROCK_BASE_URL",
+                    "CLAUDE_CODE_USE_BEDROCK",
+                    "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+                    "ANTHROPIC_AUTH_TOKEN",
+                ],
+                "auth_precedence": {
+                    "required": True,
+                    "expected_route": "bedrock-litellm",
+                    "fallback_route": "anthropic-native",
+                    "fallback_disallowed": True,
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": [
+                    "PATH",
+                    "ANTHROPIC_BEDROCK_BASE_URL",
+                    "CLAUDE_CODE_USE_BEDROCK",
+                    "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+                    "ANTHROPIC_AUTH_TOKEN",
+                ],
+                "allowlist": [
+                    "PATH",
+                    "ANTHROPIC_BEDROCK_BASE_URL",
+                    "CLAUDE_CODE_USE_BEDROCK",
+                    "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+                    "ANTHROPIC_AUTH_TOKEN",
+                ],
+                "passthrough": [],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_litellm_bedrock_auth_ready_inline.json",
+    )
+    serialized = json.dumps({"missing_passthrough": missing_passthrough, "ready": ready}, sort_keys=True)
+
+    assert missing_passthrough["route_status"] == "blocked"
+    assert missing_passthrough["failure_mode"] == "provider_auth_precedence_fallback_risk"
+    assert missing_passthrough["runtime"]["runner_invoked"] is False
+    assert missing_passthrough["auth_precedence"] == {
+        "required": True,
+        "ok": False,
+        "failure_mode": "provider_auth_precedence_fallback_risk",
+        "expected_route": "litellm_bedrock",
+        "fallback_route": "native_anthropic",
+        "fallback_disallowed": True,
+        "proxy_env_key_count": 4,
+        "proxy_env_key_hashes": missing_passthrough["auth_precedence"]["proxy_env_key_hashes"],
+        "proxy_env_ready": False,
+        "missing_parent_env_key_count": 0,
+        "missing_harness_env_key_count": 4,
+        "raw_env_key_names_exported": False,
+        "env_values_exported": False,
+        "diagnostics": [
+            "configured proxy auth environment did not reach the provider harness; block native auth fallback before launch"
+        ],
+    }
+    assert len(missing_passthrough["auth_precedence"]["proxy_env_key_hashes"]) == 4
+    assert missing_passthrough["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["claude-code"],
+            "value_recorded": False,
+            "code": "provider_auth_precedence_fallback_risk",
+            "scope": "provider_auth_precedence",
+            "severity": "blocker",
+            "action": "preserve configured proxy or Bedrock auth environment into the provider harness before allowing native auth fallback",
+            "expected_route": "litellm_bedrock",
+            "fallback_route": "native_anthropic",
+            "fallback_disallowed": True,
+            "proxy_env_key_count": 4,
+            "missing_parent_env_key_count": 0,
+            "missing_harness_env_key_count": 4,
+            "raw_env_key_names_exported": False,
+            "env_values_exported": False,
+        }
+    ]
+    assert missing_passthrough["supervisor_replay"]["recovery_hint_codes"] == [
+        "provider_auth_precedence_fallback_risk"
+    ]
+
+    assert ready["route_status"] == "passed"
+    assert ready["failure_mode"] == "none"
+    assert ready["auth_precedence"]["expected_route"] == "litellm_bedrock"
+    assert ready["auth_precedence"]["fallback_route"] == "native_anthropic"
+    assert ready["auth_precedence"]["proxy_env_ready"] is True
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert "ANTHROPIC_BEDROCK_BASE_URL" not in serialized
+    assert "CLAUDE_CODE_USE_BEDROCK" not in serialized
+    assert "CLAUDE_CODE_SKIP_BEDROCK_AUTH" not in serialized
+    assert "ANTHROPIC_AUTH_TOKEN" not in serialized
+    assert "PRIVATE_BEDROCK_TOKEN_DO_NOT_EXPORT" not in serialized
+
+
 def test_provider_runtime_preflight_blocks_unwritable_global_npm_prefix_before_cli_install():
     output = evaluate_harness_behavior(
         "provider_runtime_preflight",
