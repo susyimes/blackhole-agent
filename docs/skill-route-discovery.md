@@ -1793,6 +1793,20 @@ any proof surface is blocked. It remains body-free and cannot activate upstream
 skills, execute external harnesses, launch providers, perform remote execution,
 or export raw source URLs, evidence URLs, target paths, or upstream bodies.
 
+The same pass-3 packet also includes `local_validation_probe`, a compact
+activation-review probe for skill ecosystem route discovery. It maps the
+COMPASS, FableCodex, and game/frontend route profiles to their bounded local
+lanes, validation gates, selected item IDs, candidate source hashes, queue
+fingerprints, required local validation commands, and provider replay commands.
+FableCodex-style `codex_workflow_gate` rows must preserve
+`skill_route_discovery_first`; game/frontend rows stay in local `test`
+validation; COMPASS-style state handoff stays in the local `config` boundary.
+The probe fails closed when the acceptance contract, local artifact proof,
+first-route decision, or promotion runbook step is not ready. It repeats the
+same denials for runtime action, external skill activation, external harness
+execution, provider launch, remote execution, raw evidence URL export, raw
+source URL export, raw target path export, and upstream body export.
+
 Pass-4 completion reports include `final_route_handoff_manifest`, a compact
 body-free route manifest for the external supervisor. It presents one row per
 route profile with the selected bounded local lane, operator replay step,

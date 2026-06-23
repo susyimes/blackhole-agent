@@ -5673,6 +5673,12 @@ def skill_route_discovery_pass3_handoff_packet(
         operator_checkpoint_list=operator_checkpoint_list,
         profile_validation_proof=profile_validation_proof,
     )
+    local_validation_probe = skill_route_discovery_pass3_local_validation_probe(
+        ready=ready,
+        profile_activation_gates=profile_activation_gates,
+        profile_validation_proof=profile_validation_proof,
+        promotion_runbook=promotion_runbook,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -5719,6 +5725,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "activation_proof_summary": activation_proof_summary,
         "operator_checkpoint_list": operator_checkpoint_list,
         "promotion_runbook": promotion_runbook,
+        "local_validation_probe": local_validation_probe,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),
@@ -5730,6 +5737,163 @@ def skill_route_discovery_pass3_handoff_packet(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_local_validation_probe(
+    *,
+    ready: bool,
+    profile_activation_gates: dict[str, Any],
+    profile_validation_proof: dict[str, Any],
+    promotion_runbook: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose one pass-3 probe that maps skill evidence to bounded replay lanes."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    gate_rows = profile_activation_gates.get("rows")
+    gate_rows = gate_rows if isinstance(gate_rows, list) else []
+    proof_rows = profile_validation_proof.get("rows")
+    proof_rows = proof_rows if isinstance(proof_rows, list) else []
+    runbook_rows = promotion_runbook.get("rows")
+    runbook_rows = runbook_rows if isinstance(runbook_rows, list) else []
+
+    proof_by_profile = {
+        optional_string(row.get("route_profile")) or "": row
+        for row in proof_rows
+        if isinstance(row, dict) and optional_string(row.get("route_profile"))
+    }
+    runbook_by_profile: dict[str, dict[str, Any]] = {}
+    for raw_step in runbook_rows:
+        step = raw_step if isinstance(raw_step, dict) else {}
+        for profile in string_list(step.get("route_profiles")):
+            runbook_by_profile.setdefault(profile, step)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for raw_gate in gate_rows:
+        gate = raw_gate if isinstance(raw_gate, dict) else {}
+        profile = optional_string(gate.get("route_profile")) or ""
+        proof = proof_by_profile.get(profile, {})
+        runbook_step = runbook_by_profile.get(profile, {})
+        selected_lanes = string_list(gate.get("selected_local_lanes"))
+        selected_lane = (
+            selected_lanes[0]
+            if selected_lanes
+            else optional_string(proof.get("selected_local_lane")) or ""
+        )
+        route_probe_decision = optional_string(gate.get("route_probe_decision")) or "skill_route_discovery"
+        acceptance_ready = gate.get("acceptance_contract_ready") is True
+        proof_ready = proof.get("status") == "ready"
+        runbook_ready = runbook_step.get("status") == "ready"
+        selected_lane_bounded = selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        blockers = sorted(
+            dict.fromkeys(
+                string_list(gate.get("activation_blockers"))
+                + string_list(proof.get("blockers"))
+                + string_list(runbook_step.get("blockers"))
+                + ([] if selected_lane_bounded else ["unbounded_or_missing_local_lane"])
+                + ([] if acceptance_ready else ["acceptance_contract_not_ready"])
+                + ([] if proof_ready else ["local_artifact_proof_not_ready"])
+                + ([] if runbook_ready else ["promotion_runbook_step_not_ready"])
+                + (
+                    []
+                    if profile != "codex_workflow_gate" or route_probe_decision == "skill_route_discovery_first"
+                    else ["skill_route_discovery_first_not_confirmed"]
+                )
+            )
+        )
+        diagnostics.extend(f"{profile}:{blocker}" for blocker in blockers if profile)
+        rows.append(
+            {
+                "route_profile": profile,
+                "status": "ready" if ready and not blockers else "blocked",
+                "decision": "validate_local_lane_before_activation"
+                if ready and not blockers
+                else "repair_local_validation_probe_before_activation",
+                "selected_local_lane": selected_lane,
+                "validation_scope": f"local_{selected_lane}_lane_only" if selected_lane else "",
+                "validation_gate": optional_string(gate.get("validation_gate")) or "",
+                "route_probe_decision": route_probe_decision,
+                "queue_roles": string_list(gate.get("queue_roles")),
+                "queue_fingerprint": optional_string(runbook_step.get("queue_fingerprint")) or "",
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": string_list(gate.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(gate.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(gate.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(gate.get("candidate_source_hashes"))),
+                "required_validation": string_list(gate.get("required_validation")),
+                "required_validation_hashes": [
+                    stable_text_hash(command) for command in string_list(gate.get("required_validation"))
+                ],
+                "provider_runtime_replay_commands": string_list(gate.get("provider_runtime_replay_commands")),
+                "acceptance_contract_ready": acceptance_ready,
+                "local_artifact_proof_present": proof.get("local_artifact_proof_present") is True,
+                "promotion_runbook_step_ready": runbook_ready,
+                "blockers": blockers,
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row for row in rows if row.get("status") != "ready"]
+    probe_ready = (
+        ready
+        and bool(rows)
+        and not blocked_rows
+        and profile_activation_gates.get("status") == "ready"
+        and profile_validation_proof.get("status") == "ready"
+        and promotion_runbook.get("status") == "ready"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass3_local_validation_probe",
+        "status": "ready" if probe_ready else "blocked",
+        "decision": "local_validation_probe_ready_for_activation_review"
+        if probe_ready
+        else "repair_local_validation_probe_before_activation_review",
+        "validation_gate": "focused-evidence-review",
+        "profile_count": len(rows),
+        "ready_profile_count": len(rows) - len(blocked_rows),
+        "blocked_profile_count": len(blocked_rows),
+        "blocked_profiles": [str(row.get("route_profile") or "") for row in blocked_rows],
+        "selected_local_lanes": sorted(
+            {
+                str(row.get("selected_local_lane") or "")
+                for row in rows
+                if row.get("selected_local_lane")
+            }
+        ),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "route_profiles": [str(row.get("route_profile") or "") for row in rows],
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,

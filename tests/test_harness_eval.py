@@ -6257,6 +6257,93 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert runbook["raw_source_urls_exported"] is False
     assert runbook["raw_target_paths_exported"] is False
     assert runbook["raw_upstream_body_exported"] is False
+    local_probe = pass3_handoff["local_validation_probe"]
+    assert local_probe["controller_surface"] == "skill_route_discovery_pass3_local_validation_probe"
+    assert local_probe["status"] == "ready"
+    assert local_probe["decision"] == "local_validation_probe_ready_for_activation_review"
+    assert local_probe["validation_gate"] == "focused-evidence-review"
+    assert local_probe["profile_count"] == 3
+    assert local_probe["ready_profile_count"] == 3
+    assert local_probe["blocked_profile_count"] == 0
+    assert local_probe["selected_local_lanes"] == ["config", "test"]
+    assert local_probe["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert local_probe["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    probe_rows = {row["route_profile"]: row for row in local_probe["rows"]}
+    assert {
+        profile: (
+            row["status"],
+            row["selected_local_lane"],
+            row["validation_gate"],
+            row["route_probe_decision"],
+            row["acceptance_contract_ready"],
+            row["local_artifact_proof_present"],
+            row["promotion_runbook_step_ready"],
+        )
+        for profile, row in probe_rows.items()
+    } == {
+        "codex_workflow_gate": (
+            "ready",
+            "test",
+            "skill_route_discovery_first_before_workflow_gate",
+            "skill_route_discovery_first",
+            True,
+            True,
+            True,
+        ),
+        "game_frontend_workflow": (
+            "ready",
+            "test",
+            "local_frontend_validation_before_game_skill_activation",
+            "skill_route_discovery",
+            True,
+            True,
+            True,
+        ),
+        "skill_ecosystem_state_handoff": (
+            "ready",
+            "config",
+            "state_handoff_boundary_before_profile_or_memory_write",
+            "skill_route_discovery",
+            True,
+            True,
+            True,
+        ),
+    }
+    assert probe_rows["codex_workflow_gate"]["candidate_source_hashes"] == [
+        stable_text_hash("https://github.com/baskduf/FableCodex"),
+        stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+    ]
+    assert probe_rows["game_frontend_workflow"]["candidate_source_hashes"] == [
+        stable_text_hash("https://github.com/baskduf/FableCodex"),
+        stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+    ]
+    assert probe_rows["skill_ecosystem_state_handoff"]["candidate_source_hashes"] == [
+        stable_text_hash("https://github.com/dongshuyan/compass-skills")
+    ]
+    assert probe_rows["codex_workflow_gate"]["queue_fingerprint"] == expected_queue_fingerprints[0]
+    assert probe_rows["game_frontend_workflow"]["queue_fingerprint"] == expected_queue_fingerprints[0]
+    assert probe_rows["skill_ecosystem_state_handoff"]["queue_fingerprint"] == expected_queue_fingerprints[1]
+    assert all(row["blockers"] == [] for row in local_probe["rows"])
+    assert all(row["runtime_action"] == "none" for row in local_probe["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in local_probe["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in local_probe["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in local_probe["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in local_probe["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in local_probe["rows"])
+    assert all(row["raw_source_urls_exported"] is False for row in local_probe["rows"])
+    assert all(row["raw_upstream_body_exported"] is False for row in local_probe["rows"])
+    assert local_probe["diagnostics"] == []
+    assert local_probe["runtime_action_allowed"] is False
+    assert local_probe["external_skill_activation_allowed"] is False
+    assert local_probe["external_harness_execution_allowed"] is False
+    assert local_probe["provider_runtime_launch_allowed"] is False
+    assert local_probe["raw_evidence_urls_exported"] is False
+    assert local_probe["raw_source_urls_exported"] is False
+    assert local_probe["raw_upstream_body_exported"] is False
     checkpoints = pass3_handoff["operator_checkpoint_list"]
     assert checkpoints["controller_surface"] == "skill_route_discovery_pass3_operator_checkpoint_list"
     assert checkpoints["status"] == "ready"
@@ -6407,6 +6494,27 @@ def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready()
     assert runbook["external_skill_activation_allowed"] is False
     assert runbook["provider_runtime_launch_allowed"] is False
     assert runbook["raw_evidence_urls_exported"] is False
+    local_probe = pass3_handoff["local_validation_probe"]
+    probe_rows = {row["route_profile"]: row for row in local_probe["rows"]}
+    assert local_probe["status"] == "blocked"
+    assert local_probe["decision"] == "repair_local_validation_probe_before_activation_review"
+    assert local_probe["blocked_profile_count"] == 3
+    assert local_probe["ready_profile_count"] == 0
+    assert local_probe["blocked_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert "skill_ecosystem_state_handoff:acceptance_contract_not_ready" in local_probe["diagnostics"]
+    assert probe_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
+    assert "acceptance_contract_not_ready" in probe_rows["skill_ecosystem_state_handoff"]["blockers"]
+    assert probe_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
+    assert probe_rows["skill_ecosystem_state_handoff"]["external_skill_activation_allowed"] is False
+    assert probe_rows["skill_ecosystem_state_handoff"]["provider_runtime_launch_allowed"] is False
+    assert local_probe["runtime_action_allowed"] is False
+    assert local_probe["external_skill_activation_allowed"] is False
+    assert local_probe["provider_runtime_launch_allowed"] is False
+    assert local_probe["raw_evidence_urls_exported"] is False
     assert proof_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
     assert "profile_acceptance_contract_not_ready" in proof_rows["skill_ecosystem_state_handoff"]["blockers"]
     assert proof_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
