@@ -1546,6 +1546,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in proposal_lanes})
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     lanes_bounded = set(proposal_kinds) <= allowed_lanes
+    route_hint_lane_policy = skill_route_discovery_route_hint_lane_policy(
+        lane_map=lane_map,
+        proposal_kinds=proposal_kinds,
+        lanes_bounded=lanes_bounded,
+    )
     evidence_strength = skill_route_discovery_evidence_strength(raw_input, source_kind=source_kind)
     uncertainty = skill_route_discovery_lane_uncertainty(proposal_lanes, evidence_strength=evidence_strength)
     provider_runtime_replay_sample = skill_route_discovery_provider_runtime_replay_sample(
@@ -1837,6 +1842,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "uncertainty_reasons": uncertainty["reasons"],
             "local_lane_matrix": lane_map["local_lane_matrix"],
         },
+        "route_hint_lane_policy": route_hint_lane_policy,
         "evidence_strength": evidence_strength,
         "source_lineage": source_lineage,
         "uncertainty": uncertainty,
@@ -1917,6 +1923,64 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "raw_related_source_urls_exported": False,
             "runtime_actions_executed": False,
         },
+    }
+
+
+def skill_route_discovery_route_hint_lane_policy(
+    *,
+    lane_map: dict[str, Any],
+    proposal_kinds: list[str],
+    lanes_bounded: bool,
+) -> dict[str, Any]:
+    """Summarize the bounded lane contract for route-hint evidence."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    rejected_candidates = lane_map.get("rejected_candidates")
+    rejected_candidates = rejected_candidates if isinstance(rejected_candidates, list) else []
+    downgraded_candidates = lane_map.get("downgraded_candidates")
+    downgraded_candidates = downgraded_candidates if isinstance(downgraded_candidates, list) else []
+    rejected_lanes = sorted(
+        {
+            lane
+            for candidate in downgraded_candidates
+            for lane in string_list(candidate.get("rejected_lanes"))
+        }
+    )
+    rejected_reasons = sorted(
+        {
+            str(candidate.get("reason") or "")
+            for candidate in (*rejected_candidates, *downgraded_candidates)
+            if str(candidate.get("reason") or "").strip()
+        }
+    )
+    review_required = bool(rejected_candidates or downgraded_candidates or not lanes_bounded)
+
+    return {
+        "controller_surface": "skill_route_discovery_route_hint_lane_policy",
+        "status": "ready" if not review_required else "review",
+        "decision": "route_hints_bound_to_local_lanes"
+        if not review_required
+        else "review_rejected_route_hints_before_activation",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": proposal_kinds,
+        "lanes_bounded": lanes_bounded,
+        "rejected_lane_count": len(rejected_lanes),
+        "rejected_lanes": rejected_lanes,
+        "rejected_candidate_count": len(rejected_candidates),
+        "downgraded_candidate_count": len(downgraded_candidates),
+        "rejected_reasons": rejected_reasons,
+        "review_required": review_required,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

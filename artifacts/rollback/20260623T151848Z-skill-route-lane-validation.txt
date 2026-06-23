@@ -1,0 +1,13 @@
+Rollback point for skill route lane validation run
+
+Source digest: github-growth-20260623T071652.755700Z
+Original branch: codex/blackhole-evolve/20260623T071811.836406-add-or-extend-local-validation-for-skill-route-d
+Original HEAD: 935131d664da83f311b4cddee48678d9ca690d38
+Local rollback ref: refs/rollback/20260623T151848Z-skill-route-lane-validation
+
+Recovery commands:
+  git switch codex/blackhole-evolve/20260623T071811.836406-add-or-extend-local-validation-for-skill-route-d
+  git reset --hard 935131d664da83f311b4cddee48678d9ca690d38
+
+Rollback execution is destructive and must be chosen explicitly by a human operator or external supervisor policy.
+Do not delete this artifact during the run that created it.

@@ -1516,6 +1516,30 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert output["lane_map"]["lanes_bounded"] is True
     assert output["lane_map"]["lane_runtime_safe"] is True
     assert output["lane_map"]["local_validation_required"] is True
+    assert output["route_hint_lane_policy"] == {
+        "controller_surface": "skill_route_discovery_route_hint_lane_policy",
+        "status": "ready",
+        "decision": "route_hints_bound_to_local_lanes",
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lanes": ["code_patch", "config", "documentation", "test"],
+        "lanes_bounded": True,
+        "rejected_lane_count": 0,
+        "rejected_lanes": [],
+        "rejected_candidate_count": 0,
+        "downgraded_candidate_count": 0,
+        "rejected_reasons": [],
+        "review_required": False,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert "unvalidated_external_skill_evidence" in output["lane_map"]["uncertainty_reasons"]
     assert output["uncertainty"] == {
         "body_free": True,
@@ -7416,6 +7440,30 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     assert output["failure_mode"] == "unsupported_lanes_downgraded"
     assert output["lane_map"]["proposal_lane_count"] == 1
     assert output["lane_map"]["downgraded_candidate_count"] == 1
+    assert output["route_hint_lane_policy"] == {
+        "controller_surface": "skill_route_discovery_route_hint_lane_policy",
+        "status": "review",
+        "decision": "review_rejected_route_hints_before_activation",
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lanes": ["documentation"],
+        "lanes_bounded": True,
+        "rejected_lane_count": 1,
+        "rejected_lanes": ["runtime_execution"],
+        "rejected_candidate_count": 0,
+        "downgraded_candidate_count": 1,
+        "rejected_reasons": ["unsupported_candidate_lanes_removed"],
+        "review_required": True,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["activation_gate"] == {
         "controller_surface": "skill_route_discovery_lane",
         "activation_scope": "local_proposal_only",

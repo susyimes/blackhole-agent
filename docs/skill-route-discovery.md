@@ -100,6 +100,13 @@ it:
 Catalog entries are additive only when they preserve the same bounded outputs:
 documentation, config, test, or code_patch. Any proposed lane outside that set
 is recorded as rejected or downgraded evidence, never as an activation request.
+The local harness now emits `route_hint_lane_policy` beside the lane map so an
+operator can see the exact bounded contract before activation: allowed local
+lanes, selected local lanes, rejected lane names, downgrade/rejection counts,
+and whether review is required. This policy surface is body-free and keeps
+runtime action, external skill activation, external harness execution, provider
+launch, remote execution, raw source URL export, and upstream body export
+denied.
 
 Provider/runtime-control passes follow the same rule. If a skill workflow item
 mentions provider setup, runtime launch, model commands, harnesses, or recovery
