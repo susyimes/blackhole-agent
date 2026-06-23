@@ -388,6 +388,8 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "exports only target path hashes and source counts",
         "carries recovery hint codes for blocked or degraded lanes",
         "`provider_runtime_control`",
+        "`provider_runtime_interpretation_panel`",
+        "diagnostics and\nrecovery hints only, followed by local provider-runtime replay",
         "next safe action",
         "hashed hint codes",
         "denies runtime action, external skill activation,\nexternal harness execution, provider launch, remote execution",

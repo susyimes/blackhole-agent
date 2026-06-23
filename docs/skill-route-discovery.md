@@ -1184,6 +1184,20 @@ provider launch, remote execution, raw evidence URL export, raw source URL
 export, raw preflight input export, raw diagnostic export, raw provider value
 export, raw target path export, or upstream body export.
 
+The final `completion_report` carries
+`provider_runtime_interpretation_panel` when the active theme is
+`provider-runtime-control`. This panel is the expected interpretation of
+provider/runtime wording found in skill-route evidence: diagnostics and
+recovery hints only, followed by local provider-runtime replay and then bounded
+documentation, config, test, or code_patch validation. It summarizes the
+diagnostic panel, sample gate, recovery summary, and completion handoff as
+status codes, readiness booleans, route-profile hashes, recovery hint codes,
+and replay commands. It does not create a provider-runtime lane, launch a
+provider, execute an external harness, activate upstream skills, perform remote
+execution, export raw evidence URLs, export raw source URLs, export raw
+preflight inputs, export raw diagnostics, export raw provider values, export raw
+target paths, or export upstream bodies.
+
 For final pass skill-route handoff, `capability_window_completion` also emits
 `completion_report`. This is the compact operator summary to read before
 traversing the nested activation packet, final closure, and provider-runtime

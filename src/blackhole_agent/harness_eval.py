@@ -7829,6 +7829,9 @@ def skill_route_discovery_capability_window_completion(
         profile_completion_check=profile_completion_check,
         route_profile_review=route_profile_review,
         mixed_local_lane_probe=mixed_local_lane_probe,
+        provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
+        provider_runtime_sample_gate=provider_runtime_sample_gate,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
         activation_packet=activation_packet,
         final_slice_closure=final_slice_closure,
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
@@ -7950,6 +7953,9 @@ def skill_route_discovery_completion_report(
     profile_completion_check: dict[str, Any],
     route_profile_review: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
+    provider_runtime_diagnostic_panel: dict[str, Any],
+    provider_runtime_sample_gate: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
     activation_packet: dict[str, Any],
     final_slice_closure: dict[str, Any],
     provider_runtime_completion_handoff: dict[str, Any],
@@ -8050,6 +8056,16 @@ def skill_route_discovery_completion_report(
         final_route_handoff_manifest=final_route_handoff_manifest,
         route_validation_lane_queue=route_validation_lane_queue,
     )
+    provider_runtime_interpretation_panel = skill_route_discovery_provider_runtime_interpretation_panel(
+        ready=ready,
+        theme=theme,
+        route_profiles=route_profiles,
+        blocked_reasons=blocked_reasons,
+        provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
+        provider_runtime_sample_gate=provider_runtime_sample_gate,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+        provider_runtime_completion_handoff=provider_runtime_completion_handoff,
+    )
     completion_consistency_guard = skill_route_discovery_completion_consistency_guard(
         ready=ready,
         selected_local_lanes=selected_local_lanes,
@@ -8090,6 +8106,7 @@ def skill_route_discovery_completion_report(
         "final_route_handoff_manifest": final_route_handoff_manifest,
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
+        "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
@@ -9665,6 +9682,132 @@ def skill_route_discovery_provider_runtime_operator_replay_workflow(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "skill_route_validation_commands": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_interpretation_panel(
+    *,
+    ready: bool,
+    theme: str,
+    route_profiles: list[str],
+    blocked_reasons: list[str],
+    provider_runtime_diagnostic_panel: dict[str, Any],
+    provider_runtime_sample_gate: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+    provider_runtime_completion_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    """Interpret provider/runtime wording in skill-route evidence as replay-only diagnostics."""
+
+    provider_runtime_theme = theme == "provider-runtime-control"
+    diagnostic_status = optional_string(provider_runtime_diagnostic_panel.get("status")) or "blocked"
+    sample_gate_status = optional_string(provider_runtime_sample_gate.get("status")) or "blocked"
+    completion_handoff_status = optional_string(provider_runtime_completion_handoff.get("status")) or "blocked"
+    sample_route_status = optional_string(provider_runtime_replay_sample.get("route_status")) or "missing"
+    sample_ready_for_local_replay = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    sample_ready_for_supervisor_promotion = (
+        provider_runtime_replay_sample.get("ready_for_supervisor_promotion") is True
+    )
+    degraded_replay_only = provider_runtime_replay_sample.get("degraded_replay_only") is True
+    success_claim_allowed = provider_runtime_replay_sample.get("success_claim_allowed") is True
+    recovery_hint_codes = sorted(
+        dict.fromkeys(
+            (
+                *string_list(provider_runtime_diagnostic_panel.get("recovery_hint_codes")),
+                *string_list(provider_runtime_sample_gate.get("recovery_hint_codes")),
+                *string_list(provider_runtime_replay_sample.get("recovery_hint_codes")),
+                *string_list(provider_runtime_completion_handoff.get("recovery_hint_codes")),
+            )
+        )
+    )
+    blockers = sorted(dict.fromkeys(str(reason) for reason in blocked_reasons if str(reason)))
+
+    if not provider_runtime_theme:
+        status = "not_applicable"
+        decision = "provider_runtime_interpretation_not_required_for_theme"
+        next_action = optional_string(provider_runtime_completion_handoff.get("supervisor_next_action")) or ""
+    elif ready and diagnostic_status == "ready" and sample_gate_status == "ready" and completion_handoff_status == "ready":
+        status = "ready"
+        decision = "interpret_provider_runtime_evidence_as_body_free_replay_gate"
+        next_action = "supervisor_replay_provider_runtime_preflight_then_bounded_lane_validation"
+    elif degraded_replay_only:
+        status = "degraded"
+        decision = "interpret_provider_runtime_evidence_as_recovery_hints_before_success_claim"
+        next_action = "resolve_provider_runtime_recovery_hints_then_replay"
+    else:
+        status = "blocked"
+        decision = "repair_provider_runtime_replay_before_interpreting_skill_route_evidence"
+        next_action = "replay_provider_runtime_preflight_and_recovery_summary"
+
+    rows = [
+        {
+            "signal": "skill_route_provider_runtime_wording",
+            "interpretation": "diagnostics_and_recovery_hints_only",
+            "ready": provider_runtime_theme,
+            "route_profile_count": len(route_profiles),
+            "route_profile_hashes": [stable_text_hash(profile) for profile in route_profiles],
+        },
+        {
+            "signal": "provider_runtime_preflight_replay",
+            "interpretation": "local_replay_required_before_supervisor_promotion",
+            "ready": diagnostic_status == "ready" and sample_gate_status == "ready",
+            "diagnostic_status": diagnostic_status,
+            "sample_gate_status": sample_gate_status,
+        },
+        {
+            "signal": "provider_runtime_recovery_summary",
+            "interpretation": "success_claim_allowed_only_when_replay_is_not_degraded",
+            "ready": sample_ready_for_local_replay and sample_ready_for_supervisor_promotion and success_claim_allowed,
+            "sample_route_status": sample_route_status,
+            "degraded_replay_only": degraded_replay_only,
+            "success_claim_allowed": success_claim_allowed,
+        },
+    ]
+
+    return {
+        "controller_surface": "provider_runtime_interpretation_panel",
+        "status": status,
+        "decision": decision,
+        "supervisor_next_action": next_action,
+        "theme": theme,
+        "provider_runtime_theme": provider_runtime_theme,
+        "diagnostic_panel_status": diagnostic_status,
+        "sample_gate_status": sample_gate_status,
+        "completion_handoff_status": completion_handoff_status,
+        "sample_route_status": sample_route_status,
+        "sample_ready_for_local_replay": sample_ready_for_local_replay,
+        "sample_ready_for_supervisor_promotion": sample_ready_for_supervisor_promotion,
+        "degraded_replay_only": degraded_replay_only,
+        "success_claim_allowed": success_claim_allowed,
+        "row_count": len(rows),
+        "rows": rows,
+        "completion_blocker_count": len(blockers),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blockers],
+        "recovery_hint_count": len(recovery_hint_codes),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "local_validation_required": True,
         "body_free": True,
         "body_free_diagnostics_only": True,

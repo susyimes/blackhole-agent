@@ -3068,6 +3068,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     secondary_harness_bridge = output["capability_window_completion"]["completion_report"][
         "secondary_harness_bridge"
     ]
+    provider_runtime_interpretation_panel = output["capability_window_completion"]["completion_report"][
+        "provider_runtime_interpretation_panel"
+    ]
     completion_consistency_guard = output["capability_window_completion"]["completion_report"][
         "completion_consistency_guard"
     ]
@@ -3101,6 +3104,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "final_route_handoff_manifest": final_route_handoff_manifest,
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
+        "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
@@ -4609,6 +4613,7 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     completion = output["capability_window_completion"]
     provider_handoff = completion["provider_runtime_completion_handoff"]
     final_diagnostics = completion["provider_runtime_final_diagnostics"]
+    interpretation = completion["completion_report"]["provider_runtime_interpretation_panel"]
 
     assert output["route_status"] == "passed"
     assert output["failure_mode"] == "none"
@@ -4710,6 +4715,42 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     assert replay_workflow["raw_preflight_inputs_exported"] is False
     assert replay_workflow["raw_diagnostics_exported"] is False
     assert replay_workflow["raw_provider_values_exported"] is False
+    assert interpretation["controller_surface"] == "provider_runtime_interpretation_panel"
+    assert interpretation["status"] == "ready"
+    assert interpretation["decision"] == "interpret_provider_runtime_evidence_as_body_free_replay_gate"
+    assert interpretation["supervisor_next_action"] == (
+        "supervisor_replay_provider_runtime_preflight_then_bounded_lane_validation"
+    )
+    assert interpretation["provider_runtime_theme"] is True
+    assert interpretation["diagnostic_panel_status"] == "ready"
+    assert interpretation["sample_gate_status"] == "ready"
+    assert interpretation["completion_handoff_status"] == "ready"
+    assert interpretation["sample_route_status"] == "passed"
+    assert interpretation["sample_ready_for_local_replay"] is True
+    assert interpretation["sample_ready_for_supervisor_promotion"] is True
+    assert interpretation["degraded_replay_only"] is False
+    assert interpretation["success_claim_allowed"] is True
+    assert interpretation["row_count"] == 3
+    assert [row["signal"] for row in interpretation["rows"]] == [
+        "skill_route_provider_runtime_wording",
+        "provider_runtime_preflight_replay",
+        "provider_runtime_recovery_summary",
+    ]
+    assert interpretation["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert interpretation["body_free_diagnostics_only"] is True
+    assert interpretation["runtime_action_allowed"] is False
+    assert interpretation["external_skill_activation_allowed"] is False
+    assert interpretation["external_harness_execution_allowed"] is False
+    assert interpretation["provider_runtime_launch_allowed"] is False
+    assert interpretation["remote_execution_allowed"] is False
+    assert interpretation["raw_evidence_urls_exported"] is False
+    assert interpretation["raw_source_urls_exported"] is False
+    assert interpretation["raw_preflight_inputs_exported"] is False
+    assert interpretation["raw_diagnostics_exported"] is False
+    assert interpretation["raw_provider_values_exported"] is False
     assert completion["completion_handoff"]["provider_runtime_final_diagnostics"] == final_diagnostics
     assert final_diagnostics["body_free_diagnostics_only"] is True
     assert final_diagnostics["runtime_action_allowed"] is False
