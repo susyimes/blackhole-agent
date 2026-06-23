@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 59
-    assert payload["pass_count"] == 58
+    assert payload["fixture_count"] == 60
+    assert payload["pass_count"] == 59
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -160,6 +160,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
+    assert results["provider-runtime-preflight-runner-compat-bridge-missing"]["passed"] is True
     assert results["provider-runtime-preflight-wire-api-chat"]["passed"] is True
     assert results["provider-runtime-preflight-review-model-unavailable"]["passed"] is True
     assert results["provider-runtime-preflight-usage-limit-429"]["passed"] is True
@@ -622,6 +623,124 @@ def test_provider_runtime_preflight_reports_missing_or_incompatible_nested_chat_
     assert "PRIVATE_BASE_URL_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_MODEL_DO_NOT_EXPORT" not in serialized
     assert "openai-responses" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_unreplayed_old_runner_host_compat_bridge():
+    blocked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-runner-compat-bridge-missing-inline",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "runner_compat": {
+                    "required": True,
+                    "direction": "Config 2",
+                    "runner_python": "PRIVATE_OLD_RUNNER_PYTHON_DO_NOT_EXPORT",
+                    "runner_version": "PRIVATE_OLD_RUNNER_VERSION_DO_NOT_EXPORT",
+                    "host_runner_colocated": True,
+                    "spawn_site_count": 5,
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH", "PYTHONPATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_runner_compat_missing_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-runner-compat-bridge-ready-inline",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "runner_compat": {
+                    "required": True,
+                    "direction": "old-runner-host-to-new-server",
+                    "runner_python_configured": True,
+                    "runner_version_configured": True,
+                    "host_runner_colocated": True,
+                    "worktree_pythonpath_dropped": True,
+                    "neutral_cwd": True,
+                    "local_route_evidence_replayed": True,
+                    "spawn_site_count": 5,
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH", "PYTHONPATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_runner_compat_ready_inline.json",
+    )
+    serialized = json.dumps({"blocked": blocked, "ready": ready}, sort_keys=True)
+
+    assert blocked["route_status"] == "blocked"
+    assert blocked["failure_mode"] == "provider_runner_compat_env_not_neutralized"
+    assert blocked["runtime"]["runner_invoked"] is False
+    assert blocked["runner_compat"]["direction"] == "old_runner_host_to_current_server"
+    assert blocked["runner_compat"]["runner_python_configured"] is True
+    assert blocked["runner_compat"]["runner_version_configured"] is True
+    assert blocked["runner_compat"]["host_runner_colocated"] is True
+    assert blocked["runner_compat"]["worktree_pythonpath_dropped"] is False
+    assert blocked["runner_compat"]["neutral_cwd"] is False
+    assert blocked["runner_compat"]["local_route_evidence_replayed"] is False
+    assert blocked["runner_compat"]["spawn_site_count"] == 5
+    assert blocked["preflight"]["diagnostics"] == [
+        "compat runner environment must drop worktree PYTHONPATH and use a neutral cwd",
+        "compat runner resolution proof must be replayed before provider launch",
+    ]
+    assert blocked["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_runner_compat_env_not_neutralized",
+            "scope": "provider_runner_compat",
+            "severity": "blocker",
+            "action": "configure the old runner/host compatibility bridge and replay local resolution proof before provider launch",
+            "direction": "old_runner_host_to_current_server",
+            "runner_python_configured": True,
+            "runner_version_configured": True,
+            "host_runner_colocated": True,
+            "worktree_pythonpath_dropped": False,
+            "neutral_cwd": False,
+            "local_route_evidence_replayed": False,
+            "spawn_site_count": 5,
+            "pinned_component_count": 3,
+            "neutralization_count": 0,
+            "version_value_recorded": False,
+            "python_path_recorded": False,
+            "cwd_recorded": False,
+            "env_values_recorded": False,
+            "raw_config_exported": False,
+        }
+    ]
+    assert blocked["supervisor_replay"]["ready_for_provider_launch"] is False
+    assert blocked["supervisor_replay"]["recovery_hint_codes"] == [
+        "provider_runner_compat_env_not_neutralized"
+    ]
+
+    assert ready["route_status"] == "passed"
+    assert ready["failure_mode"] == "none"
+    assert ready["runner_compat"]["ok"] is True
+    assert ready["runner_compat"]["direction"] == "old_runner_host_to_current_server"
+    assert ready["runner_compat"]["neutralization_count"] == 2
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert "PRIVATE_OLD_RUNNER_PYTHON_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_OLD_RUNNER_VERSION_DO_NOT_EXPORT" not in serialized
+    assert "Config 2" not in serialized
 
 
 def test_provider_runtime_preflight_clears_stale_approval_verdict_on_repark():

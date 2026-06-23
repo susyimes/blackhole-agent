@@ -14011,6 +14011,11 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
     approval_repark_preflight = evaluate_provider_approval_repark_preflight(provider=provider, runtime=runtime)
     setup_preflight = evaluate_provider_setup_preflight(provider=provider, runtime=runtime)
+    runner_compat_preflight = evaluate_provider_runner_compat_preflight(
+        provider=provider,
+        runtime=runtime,
+        runner_env=runner_env,
+    )
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -14088,6 +14093,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not install_linkage_preflight["ok"]
         or not approval_repark_preflight["ok"]
         or not setup_preflight["ok"]
+        or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
@@ -14114,6 +14120,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(install_linkage_preflight["diagnostics"])
     diagnostics.extend(approval_repark_preflight["diagnostics"])
     diagnostics.extend(setup_preflight["diagnostics"])
+    diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
@@ -14142,6 +14149,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not approval_repark_preflight["ok"]
             else setup_preflight["failure_mode"]
             if not setup_preflight["ok"]
+            else runner_compat_preflight["failure_mode"]
+            if not runner_compat_preflight["ok"]
             else auth_header_preflight["failure_mode"]
             if not auth_header_preflight["ok"]
             else model_command_preflight["failure_mode"]
@@ -14244,6 +14253,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "install_linkage": install_linkage_preflight,
         "approval_repark": approval_repark_preflight,
         "setup_preflight": setup_preflight,
+        "runner_compat": runner_compat_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
@@ -14818,6 +14828,153 @@ def evaluate_provider_model_command_preflight(
         "raw_command_exported": False,
         "diagnostics": diagnostics,
     }
+
+
+def evaluate_provider_runner_compat_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    runner_env: dict[str, Any],
+) -> dict[str, Any]:
+    """Check old runner/host to current server compatibility metadata before launch."""
+
+    raw_config = (
+        runner_env.get("runner_compat")
+        or runtime.get("runner_compat")
+        or provider.get("runner_compat")
+        or runner_env.get("compat")
+        or runtime.get("compat")
+        or provider.get("compat")
+    )
+    config = raw_config if isinstance(raw_config, dict) else {}
+    required = (
+        truthy(config.get("required"))
+        or truthy(runner_env.get("runner_compat_required"))
+        or truthy(runtime.get("runner_compat_required"))
+        or truthy(provider.get("runner_compat_required"))
+        or truthy(runner_env.get("compat_mode"))
+        or truthy(runtime.get("compat_mode"))
+        or truthy(provider.get("compat_mode"))
+        or bool(config)
+    )
+    if not required:
+        return {
+            "required": False,
+            "ok": True,
+            "failure_mode": "none",
+            "mode": "not_applicable",
+            "direction": "not_applicable",
+            "diagnostics": [],
+            "version_value_recorded": False,
+            "python_path_recorded": False,
+            "cwd_recorded": False,
+            "env_values_recorded": False,
+        }
+
+    direction = normalize_runner_compat_direction(
+        config.get("direction")
+        or runtime.get("runner_compat_direction")
+        or provider.get("runner_compat_direction")
+        or "old_runner_host_to_current_server"
+    )
+    runner_python_configured = truthy(
+        config.get("runner_python_configured")
+        or config.get("compat_runner_python_configured")
+        or runner_env.get("compat_runner_python_configured")
+    ) or bool(optional_string(config.get("runner_python")) or optional_string(runner_env.get("compat_runner_python")))
+    runner_version_configured = truthy(
+        config.get("runner_version_configured")
+        or config.get("compat_runner_version_configured")
+        or runner_env.get("compat_runner_version_configured")
+    ) or bool(optional_string(config.get("runner_version")) or optional_string(runner_env.get("compat_runner_version")))
+    host_runner_colocated = truthy(config.get("host_runner_colocated")) or truthy(
+        runtime.get("host_runner_colocated")
+    )
+    worktree_pythonpath_dropped = truthy(
+        config.get("worktree_pythonpath_dropped")
+        or config.get("pythonpath_neutralized")
+        or runner_env.get("worktree_pythonpath_dropped")
+    )
+    neutral_cwd = truthy(
+        config.get("neutral_cwd")
+        or config.get("compat_runner_cwd_neutral")
+        or runner_env.get("neutral_cwd")
+    )
+    local_route_evidence_replayed = truthy(
+        config.get("local_route_evidence_replayed")
+        or config.get("resolution_proof_replayed")
+        or runner_env.get("local_route_evidence_replayed")
+    )
+    spawn_site_count = int(config.get("spawn_site_count") or runtime.get("compat_spawn_site_count") or 0)
+    pinned_component_count = int(
+        bool(runner_python_configured)
+        + bool(runner_version_configured)
+        + bool(host_runner_colocated)
+    )
+    neutralization_count = int(bool(worktree_pythonpath_dropped) + bool(neutral_cwd))
+
+    missing_pin = not runner_python_configured or not runner_version_configured
+    env_not_neutralized = not worktree_pythonpath_dropped or not neutral_cwd
+    colocation_mismatch = not host_runner_colocated
+    replay_missing = not local_route_evidence_replayed
+
+    diagnostics: list[str] = []
+    if missing_pin:
+        diagnostics.append("compat runner python and version backstop must both be configured")
+    if colocation_mismatch:
+        diagnostics.append("compat runner and host must be pinned as one colocated component")
+    if env_not_neutralized:
+        diagnostics.append("compat runner environment must drop worktree PYTHONPATH and use a neutral cwd")
+    if replay_missing:
+        diagnostics.append("compat runner resolution proof must be replayed before provider launch")
+
+    if missing_pin:
+        failure_mode = "provider_runner_compat_bridge_missing"
+    elif colocation_mismatch:
+        failure_mode = "provider_runner_compat_colocation_mismatch"
+    elif env_not_neutralized:
+        failure_mode = "provider_runner_compat_env_not_neutralized"
+    elif replay_missing:
+        failure_mode = "provider_runner_compat_replay_missing"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": True,
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "mode": "compat",
+        "direction": direction,
+        "runner_python_configured": runner_python_configured,
+        "runner_version_configured": runner_version_configured,
+        "host_runner_colocated": host_runner_colocated,
+        "worktree_pythonpath_dropped": worktree_pythonpath_dropped,
+        "neutral_cwd": neutral_cwd,
+        "local_route_evidence_replayed": local_route_evidence_replayed,
+        "spawn_site_count": spawn_site_count,
+        "pinned_component_count": pinned_component_count,
+        "neutralization_count": neutralization_count,
+        "version_value_recorded": False,
+        "python_path_recorded": False,
+        "cwd_recorded": False,
+        "env_values_recorded": False,
+        "raw_config_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_runner_compat_direction(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "config_2": "old_runner_host_to_current_server",
+        "old_runner": "old_runner_host_to_current_server",
+        "old_runner_host": "old_runner_host_to_current_server",
+        "old_runner_host_new_server": "old_runner_host_to_current_server",
+        "old_runner_host_to_new_server": "old_runner_host_to_current_server",
+        "old_runner_host_to_current_server": "old_runner_host_to_current_server",
+        "runner_host_to_server": "old_runner_host_to_current_server",
+    }
+    return aliases.get(text, text or "unknown")
 
 
 def evaluate_provider_auth_header_preflight(
@@ -15478,6 +15635,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
     approval_repark = preflight.get("approval_repark") if isinstance(preflight.get("approval_repark"), dict) else {}
     setup_preflight = preflight.get("setup_preflight") if isinstance(preflight.get("setup_preflight"), dict) else {}
+    runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
@@ -15673,6 +15831,36 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "runner_wire_api_matches_config": bool(wire_api.get("runner_matches_config")),
                 "raw_value_exported": False,
                 "runner_raw_value_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_runner_compat_bridge_missing",
+        "provider_runner_compat_colocation_mismatch",
+        "provider_runner_compat_env_not_neutralized",
+        "provider_runner_compat_replay_missing",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_runner_compat",
+                "severity": "blocker",
+                "action": "configure the old runner/host compatibility bridge and replay local resolution proof before provider launch",
+                "direction": optional_string(runner_compat.get("direction")) or "unknown",
+                "runner_python_configured": bool(runner_compat.get("runner_python_configured")),
+                "runner_version_configured": bool(runner_compat.get("runner_version_configured")),
+                "host_runner_colocated": bool(runner_compat.get("host_runner_colocated")),
+                "worktree_pythonpath_dropped": bool(runner_compat.get("worktree_pythonpath_dropped")),
+                "neutral_cwd": bool(runner_compat.get("neutral_cwd")),
+                "local_route_evidence_replayed": bool(runner_compat.get("local_route_evidence_replayed")),
+                "spawn_site_count": int(runner_compat.get("spawn_site_count") or 0),
+                "pinned_component_count": int(runner_compat.get("pinned_component_count") or 0),
+                "neutralization_count": int(runner_compat.get("neutralization_count") or 0),
+                "version_value_recorded": False,
+                "python_path_recorded": False,
+                "cwd_recorded": False,
+                "env_values_recorded": False,
+                "raw_config_exported": False,
             }
         )
     elif failure_mode == "provider_install_linkage_unresolved":

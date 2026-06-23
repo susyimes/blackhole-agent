@@ -203,6 +203,21 @@ The same mock E2E lane can carry a compact single-file agent YAML document as `a
 
 Runner-generated wire API metadata is part of the provider preflight contract. A configured `wire_api: chat` route may be supplied at the top level or inside nested OpenAI-compatible provider config shapes such as `openai.wire_api` or `provider_config.openai.wire_api`; the preflight resolves these shapes without exporting raw provider config bodies. A configured chat route must not silently resolve to a runner `responses` route; that blocks as `provider_wire_api_runner_mismatch`. Pi-style `openai-completions` labels are normalized to the local chat-completions route. Raw runner labels are not exported.
 
+Old runner/host to current server compatibility is also modeled inside
+`provider_runtime_preflight`. A fixture can declare `runner_compat` for the
+Config-2-style bridge where the runner and host are pinned as one colocated old
+component while the server stays current. The preflight blocks launch until the
+compat runner python and version backstop are configured, runner/host colocation
+is preserved, worktree `PYTHONPATH` is dropped, a neutral cwd is used, and local
+resolution proof has been replayed. Failures use stable classes such as
+`provider_runner_compat_bridge_missing`,
+`provider_runner_compat_env_not_neutralized`,
+`provider_runner_compat_colocation_mismatch`, and
+`provider_runner_compat_replay_missing`. Interpreter paths, version strings,
+cwd, environment values, and raw config bodies are not exported; reports keep
+booleans, counts, normalized direction labels, replay commands, and recovery
+hints.
+
 `provider_runtime_recovery_summary` fixtures aggregate multiple provider-runtime preflight cases into an operator-visible recovery surface. The summary reports pass/degraded/blocked counts, blocked failure classes, runner-invocation counts, and stable recovery hint codes such as `provider_env_missing`, `native_terminal_timeout_risk`, `prompt_scan_timeout_risk`, `provider_usage_limit_exhausted`, `provider_wire_api_unexercised`, `provider_approval_repark_pending`, `review_model_unavailable`, `url_safety_preflight_failed`, `mock_auth_placeholder_used`, and `browser_configure_checks_skipped`. It also emits `supervisor_readiness`, a body-free handoff decision with replay commands, recovery hint codes, blocked failure classes, and explicit denial of provider runtime launch or remote execution. Usage-limit recovery tells the operator to wait for reset or route credential-pool failover through privacy review; it does not select, rank, print, or switch pooled credentials. When a configured credential pool is present, the usage-limit preflight also emits a `failover_review_plan` with safe next-action codes and local replay commands, while continuing to omit credential labels, token values, raw headers, reset values, and provider response bodies. A degraded-only summary can be ready for local replay, but it is no longer reported as supervisor promotion success: `success_status` sets `provider_runtime_degraded_replay_only`, keeps `success_claim_allowed: false`, and requires operator action while preserving `ready_for_supervisor_local_replay: true`. Blocked preflights remain blocked before supervisor promotion. It does not launch providers and does not export raw preflight inputs, diagnostics, URLs, paths, model IDs, review bodies, provider response bodies, wire API raw values, rate-limit reset values, credential labels, environment values, or environment key names. This lane is intended for locally replayable validation of mock/provider migration work where a scheduler needs the next safe local fix without inspecting provider bodies.
 
 `rendered_html_artifact_validation` fixtures validate browser-observable HTML artifacts without exporting HTML bodies, raw URLs, snapshot paths, or image bodies. The lane checks script execution, external-link navigation, and optional UI snapshot gates. Empty landing-state snapshot gates require both baseline and current snapshot hashes plus an observed empty-state marker; missing baselines, missing current snapshots, unobserved empty states, and unapproved diffs are distinct failure modes. This turns upstream UI diff snapshot-gate signals into a replayable local validation path rather than a live browser dependency.

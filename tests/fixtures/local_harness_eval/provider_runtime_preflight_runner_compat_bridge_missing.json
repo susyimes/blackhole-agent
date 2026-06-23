@@ -1,0 +1,100 @@
+{
+  "name": "provider-runtime-preflight-runner-compat-bridge-missing",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-runner-compat-bridge-missing",
+    "provider": {
+      "name": "omnigent-openai-compatible",
+      "harness": "omnigent"
+    },
+    "runtime": {
+      "platform": "linux",
+      "launch_transport": "subprocess",
+      "runner_compat": {
+        "required": true,
+        "direction": "old-runner-host-to-new-server",
+        "runner_python_configured": true,
+        "runner_version_configured": false,
+        "host_runner_colocated": true,
+        "worktree_pythonpath_dropped": true,
+        "neutral_cwd": true,
+        "local_route_evidence_replayed": false,
+        "spawn_site_count": 5
+      }
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_runner_compat_bridge_missing"
+    },
+    {
+      "path": "runner_compat.direction",
+      "equals": "old_runner_host_to_current_server"
+    },
+    {
+      "path": "runner_compat.runner_python_configured",
+      "equals": true
+    },
+    {
+      "path": "runner_compat.runner_version_configured",
+      "equals": false
+    },
+    {
+      "path": "runner_compat.host_runner_colocated",
+      "equals": true
+    },
+    {
+      "path": "runner_compat.worktree_pythonpath_dropped",
+      "equals": true
+    },
+    {
+      "path": "runner_compat.neutral_cwd",
+      "equals": true
+    },
+    {
+      "path": "runner_compat.local_route_evidence_replayed",
+      "equals": false
+    },
+    {
+      "path": "runner_compat.version_value_recorded",
+      "equals": false
+    },
+    {
+      "path": "runner_compat.python_path_recorded",
+      "equals": false
+    },
+    {
+      "path": "runner_compat.cwd_recorded",
+      "equals": false
+    },
+    {
+      "path": "runner_compat.env_values_recorded",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "supervisor_replay.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "supervisor_replay.raw_preflight_input_exported",
+      "equals": false
+    }
+  ]
+}
