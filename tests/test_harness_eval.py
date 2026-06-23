@@ -1386,6 +1386,35 @@ def test_agent_harness_eval_lane_turns_public_harness_evidence_into_local_eval_l
             "external_harness_execution_allowed": False,
         },
     ]
+    assert output["activation_review"] == {
+        "controller_surface": "agent_harness_activation_review",
+        "status": "ready",
+        "decision": "mapped_meta_harness_claims_ready_for_local_eval",
+        "activation_scope": "local_eval_only",
+        "activation_gate_decision": "ready_for_local_eval_activation",
+        "activation_blockers": [],
+        "bounded_activation_lane_count": 2,
+        "claim_count": 0,
+        "mapped_claim_count": 0,
+        "unmapped_claim_count": 0,
+        "claim_mapping_status": "empty",
+        "project_intake_probe_status": "incomplete",
+        "specific_detail_count": 1,
+        "weak_or_generic_evidence_requires_review": False,
+        "safety_review_note_count": 1,
+        "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+        "local_eval_activation_allowed": True,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_bodies_exported": False,
+        "raw_claim_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["review_notes"] == [
         {
             "item_id": "visa-harness-security-boundary",
@@ -1424,6 +1453,26 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert output["activation_gate"]["decision"] == "map_agent_claims_before_activation"
     assert output["activation_gate"]["local_eval_activation_allowed"] is False
     assert output["activation_gate"]["external_harness_execution_allowed"] is False
+    assert output["activation_review"]["controller_surface"] == "agent_harness_activation_review"
+    assert output["activation_review"]["status"] == "blocked"
+    assert output["activation_review"]["decision"] == "resolve_activation_review_blockers_before_local_eval"
+    assert output["activation_review"]["activation_gate_decision"] == "map_agent_claims_before_activation"
+    assert output["activation_review"]["activation_blockers"] == ["unmapped_agent_claims"]
+    assert output["activation_review"]["bounded_activation_lane_count"] == 3
+    assert output["activation_review"]["claim_count"] == 7
+    assert output["activation_review"]["mapped_claim_count"] == 6
+    assert output["activation_review"]["unmapped_claim_count"] == 1
+    assert output["activation_review"]["claim_mapping_status"] == "partial"
+    assert output["activation_review"]["project_intake_probe_status"] == "ready"
+    assert output["activation_review"]["weak_or_generic_evidence_requires_review"] is False
+    assert output["activation_review"]["local_eval_activation_allowed"] is False
+    assert output["activation_review"]["runtime_action"] == "none"
+    assert output["activation_review"]["external_agent_activation_allowed"] is False
+    assert output["activation_review"]["external_harness_execution_allowed"] is False
+    assert output["activation_review"]["provider_launch_allowed"] is False
+    assert output["activation_review"]["remote_execution_allowed"] is False
+    assert output["activation_review"]["raw_source_urls_exported"] is False
+    assert output["activation_review"]["raw_claim_bodies_exported"] is False
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation", "test"]
     assert output["claim_evaluation"]["controller_surface"] == "agent_harness_claim_mapping"
     assert output["claim_evaluation"]["mapping_status"] == "partial"
@@ -1585,6 +1634,10 @@ def test_agent_harness_eval_lane_blocks_unbounded_or_weak_routes():
     assert weak["failure_mode"] == "weak_harness_evidence"
     assert weak["activation_gate"]["decision"] == "review_weak_evidence_before_activation"
     assert weak["activation_lanes"][0]["activation_ready"] is False
+    assert weak["activation_review"]["status"] == "blocked"
+    assert weak["activation_review"]["activation_blockers"] == ["weak_harness_evidence"]
+    assert weak["activation_review"]["weak_or_generic_evidence_requires_review"] is True
+    assert weak["activation_review"]["local_eval_activation_allowed"] is False
 
 
 def test_external_harness_adapter_contract_blocks_actionful_or_incomplete_adapters():

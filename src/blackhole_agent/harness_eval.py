@@ -1120,6 +1120,20 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         activation_allowed=activation_gate["local_eval_activation_allowed"] is True,
         failure_mode=failure_mode,
     )
+    activation_review = build_agent_harness_eval_activation_review(
+        activation_gate=activation_gate,
+        activation_lanes=activation_lanes,
+        claim_evaluation=claim_evaluation,
+        claim_remediation_plan=claim_remediation_plan,
+        project_intake_probe=project_intake_probe,
+        evidence_strength={
+            "record_count": len(records),
+            "recognized_harness_record_count": recognized_count,
+            "specific_detail_count": detailed_count,
+            "activation_evidence_sufficient": detailed_count > 0 and bool(lane_records),
+        },
+        review_notes=review_notes,
+    )
 
     return {
         "schema_version": 1,
@@ -1144,6 +1158,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         },
         "activation_gate": activation_gate,
         "activation_lanes": activation_lanes,
+        "activation_review": activation_review,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
@@ -1461,6 +1476,81 @@ def build_agent_harness_eval_activation_lanes(
         for proposal_kind, lanes in sorted(grouped.items())
         if proposal_kind
     ]
+
+
+def build_agent_harness_eval_activation_review(
+    *,
+    activation_gate: dict[str, Any],
+    activation_lanes: list[dict[str, Any]],
+    claim_evaluation: dict[str, Any],
+    claim_remediation_plan: dict[str, Any],
+    project_intake_probe: dict[str, Any],
+    evidence_strength: dict[str, Any],
+    review_notes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Summarize meta-harness evidence readiness before local eval activation."""
+
+    activation_allowed = activation_gate.get("local_eval_activation_allowed") is True
+    review_only_count = len(review_notes)
+    unmapped_claim_count = int(claim_evaluation.get("unmapped_claim_count") or 0)
+    mapped_claim_count = int(claim_evaluation.get("mapped_claim_count") or 0)
+    claim_count = int(claim_evaluation.get("claim_count") or 0)
+    probe_ready = project_intake_probe.get("status") == "ready"
+    specific_detail_count = int(evidence_strength.get("specific_detail_count") or 0)
+    weak_evidence = specific_detail_count == 0
+    lane_count = len(activation_lanes)
+
+    blockers: list[str] = []
+    if weak_evidence:
+        blockers.append("weak_harness_evidence")
+    if unmapped_claim_count:
+        blockers.append("unmapped_agent_claims")
+    if claim_count and not probe_ready:
+        blockers.append("project_intake_probe_incomplete")
+    if review_only_count and not lane_count:
+        blockers.append("safety_boundary_review_required")
+    if not lane_count:
+        blockers.append("no_bounded_activation_lanes")
+
+    if activation_allowed and not blockers:
+        status = "ready"
+        decision = "mapped_meta_harness_claims_ready_for_local_eval"
+    elif review_only_count and not lane_count:
+        status = "review"
+        decision = "safety_boundary_review_required_before_local_eval"
+    else:
+        status = "blocked"
+        decision = "resolve_activation_review_blockers_before_local_eval"
+
+    return {
+        "controller_surface": "agent_harness_activation_review",
+        "status": status,
+        "decision": decision,
+        "activation_scope": "local_eval_only",
+        "activation_gate_decision": str(activation_gate.get("decision") or ""),
+        "activation_blockers": blockers,
+        "bounded_activation_lane_count": lane_count,
+        "claim_count": claim_count,
+        "mapped_claim_count": mapped_claim_count,
+        "unmapped_claim_count": unmapped_claim_count,
+        "claim_mapping_status": str(claim_evaluation.get("mapping_status") or "empty"),
+        "project_intake_probe_status": str(project_intake_probe.get("status") or "incomplete"),
+        "specific_detail_count": specific_detail_count,
+        "weak_or_generic_evidence_requires_review": weak_evidence,
+        "safety_review_note_count": review_only_count,
+        "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+        "local_eval_activation_allowed": activation_allowed and not blockers,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_bodies_exported": False,
+        "raw_claim_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
 
 def evaluate_headless_tool_roundtrip(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

@@ -1878,6 +1878,18 @@ generic movement can request local claim mapping, but it still cannot activate
 an upstream agent, run an external harness, launch a provider, perform remote
 execution, or export raw claim bodies.
 
+The `agent_harness_eval_lane` replay also emits `activation_review`, a compact
+operator-facing gate over the same evidence. It reports bounded activation lane
+count, mapped and unmapped claim counts, project-intake probe status, weak or
+generic evidence review need, safety-review note count, and the local validation
+command required before promotion. A generic harness-eval record can remain
+ready when it has no general-agent behavior claims to adopt; Omnigent-style
+meta-harness claims must be mapped to local controller invariants first, and any
+unmapped claim keeps local eval activation blocked. The review panel does not
+grant external agent activation, external harness execution, provider launch,
+remote execution, raw source URL export, raw evidence-body export, raw
+claim-body export, or upstream body export.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,
