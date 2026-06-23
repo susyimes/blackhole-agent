@@ -14448,13 +14448,23 @@ def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, 
     decision = str(policy_result["permission"]["decision"])
     tool_executed = bool(policy_result["safety"]["tool_executed"])
     approval_expected = truthy(native_tool_policy.get("approval_expected"))
-    approval_observed = decision == "review_required"
+    approval = policy_result["approval"] if isinstance(policy_result.get("approval"), dict) else {}
+    explicit_approval_resolution = bool(approval.get("resolved_by_explicit_verdict"))
+    approval_observed = decision == "review_required" or explicit_approval_resolution
     approval_contract_passed = not approval_expected or approval_observed
     failure_mode = str(policy_result["failure_mode"])
     if not approval_contract_passed:
         failure_mode = "approval_path_missing"
     elif not output_poll["passed"]:
         failure_mode = str(output_poll["failure_mode"])
+    if decision == "review_required":
+        approval_path_status = "review_only"
+    elif explicit_approval_resolution:
+        approval_path_status = "resolved"
+    elif approval_expected:
+        approval_path_status = "missing"
+    else:
+        approval_path_status = "not_required"
     return {
         "declared": True,
         "route_status": policy_result["route_status"],
@@ -14465,7 +14475,7 @@ def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, 
         "approval_path": {
             "expected": approval_expected,
             "declared": approval_observed,
-            "route_status": "review_only" if decision == "review_required" else "not_required",
+            "route_status": approval_path_status,
             "passive": decision == "review_required" and not tool_executed,
             "tool_executed": tool_executed,
             "arguments_exported": False,

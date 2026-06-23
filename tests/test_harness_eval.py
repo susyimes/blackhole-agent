@@ -1068,6 +1068,118 @@ def test_mock_llm_repl_approval_output_poll_times_out_without_single_sample_pass
     assert "PRIVATE_TIMEOUT_STALE_OUTPUT_DO_NOT_EXPORT" not in serialized
 
 
+def test_mock_llm_approval_expected_without_ask_path_fails_closed():
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        {
+            "task_id": "fixture-mock-llm-approval-missing-inline",
+            "provider": {"enabled": False},
+            "native_tool_policy": {
+                "approval_expected": True,
+                "policy_hook": {
+                    "governed": True,
+                    "session_id": "PRIVATE_APPROVAL_MISSING_SESSION_DO_NOT_EXPORT",
+                    "server_url_configured": True,
+                    "event_phase": "TOOL_CALL",
+                    "failure_mode": "none",
+                },
+                "tool_call": {
+                    "name": "Bash",
+                    "transport": "native",
+                    "arguments": {"command": "PRIVATE_APPROVAL_MISSING_COMMAND_DO_NOT_EXPORT"},
+                },
+            },
+            "mock_llm": {
+                "enabled": True,
+                "responses": [
+                    {
+                        "content": "mock route reached governed tool boundary",
+                        "tool_calls": [{"name": "Bash"}],
+                    }
+                ],
+            },
+            "workflow": {"steps": [{"id": "approval-turn", "expect_contains": "governed tool boundary"}]},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_approval_missing_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "native_policy_route_failed"
+    assert output["native_tool_policy"]["failure_mode"] == "approval_path_missing"
+    assert output["native_tool_policy"]["approval_path"] == {
+        "expected": True,
+        "declared": False,
+        "route_status": "missing",
+        "passive": False,
+        "tool_executed": False,
+        "arguments_exported": False,
+    }
+    assert output["native_tool_policy"]["tool_executed"] is False
+    assert "PRIVATE_APPROVAL_MISSING_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_APPROVAL_MISSING_COMMAND_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_explicit_approval_denial_is_declared_without_execution():
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        {
+            "task_id": "fixture-mock-llm-approval-denied-inline",
+            "provider": {"enabled": False},
+            "native_tool_policy": {
+                "approval_expected": True,
+                "policy_hook": {
+                    "governed": True,
+                    "session_id": "PRIVATE_APPROVAL_DENIED_SESSION_DO_NOT_EXPORT",
+                    "server_url_configured": True,
+                    "event_phase": "TOOL_CALL",
+                    "failure_mode": "none",
+                    "approval_resolution": "denied",
+                    "verdict": {
+                        "review_required": True,
+                        "reason": "operator_ask",
+                    },
+                },
+                "tool_call": {
+                    "name": "Bash",
+                    "transport": "native",
+                    "arguments": {"command": "PRIVATE_APPROVAL_DENIED_COMMAND_DO_NOT_EXPORT"},
+                },
+            },
+            "mock_llm": {
+                "enabled": True,
+                "responses": [
+                    {
+                        "content": "mock route reached governed denial boundary",
+                        "tool_calls": [{"name": "Bash"}],
+                    }
+                ],
+            },
+            "workflow": {"steps": [{"id": "approval-turn", "expect_contains": "denial boundary"}]},
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_approval_denied_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["native_tool_policy"]["route_status"] == "denied"
+    assert output["native_tool_policy"]["failure_mode"] == "policy_approval_denied"
+    assert output["native_tool_policy"]["permission_decision"] == "deny"
+    assert output["native_tool_policy"]["approval_path"] == {
+        "expected": True,
+        "declared": True,
+        "route_status": "resolved",
+        "passive": False,
+        "tool_executed": False,
+        "arguments_exported": False,
+    }
+    assert output["native_tool_policy"]["passive_or_denied"] is True
+    assert output["native_tool_policy"]["tool_executed"] is False
+    assert "PRIVATE_APPROVAL_DENIED_SESSION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_APPROVAL_DENIED_COMMAND_DO_NOT_EXPORT" not in serialized
+
+
 def test_native_skill_session_title_blocks_generic_provider_fallback_without_exporting_context():
     output = evaluate_harness_behavior(
         "native_skill_session_title",
@@ -11159,7 +11271,7 @@ def test_mock_llm_workflow_route_fails_when_expected_approval_path_is_missing():
     assert output["native_tool_policy"]["approval_path"] == {
         "expected": True,
         "declared": False,
-        "route_status": "not_required",
+        "route_status": "missing",
         "passive": False,
         "tool_executed": False,
         "arguments_exported": False,
