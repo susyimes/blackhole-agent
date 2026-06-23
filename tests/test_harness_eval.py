@@ -87,11 +87,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 58
-    assert payload["pass_count"] == 57
+    assert payload["fixture_count"] == 59
+    assert payload["pass_count"] == 58
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
+        "external_harness_adapter_contract",
         "agent_harness_eval_lane",
         "agent_harness_provider_registration",
         "agent_workflow_route",
@@ -120,6 +121,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["external-harness-adapter-contract-databricks-genie"]["passed"] is True
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
@@ -967,6 +969,71 @@ def test_agent_harness_eval_lane_blocks_unbounded_or_weak_routes():
     assert weak["failure_mode"] == "weak_harness_evidence"
     assert weak["activation_gate"]["decision"] == "review_weak_evidence_before_activation"
     assert weak["activation_lanes"][0]["activation_ready"] is False
+
+
+def test_external_harness_adapter_contract_blocks_actionful_or_incomplete_adapters():
+    output = evaluate_harness_behavior(
+        "external_harness_adapter_contract",
+        {
+            "task_id": "fixture-external-harness-adapter-contract-blocked",
+            "evidence": {
+                "source_kind": "github_issue",
+                "source_url": "https://github.com/omnigent-ai/omnigent/issues/905",
+            },
+            "adapter": {
+                "enabled_by_default": True,
+                "remote_execution_requested": True,
+                "config": {
+                    "adapter_name": "databricks-genie-spaces",
+                    "harness_kind": "external_agent_harness",
+                    "provider": "databricks",
+                    "auth": {"kind": "env_or_profile_ref"},
+                    "capabilities": ["space_conversation"],
+                },
+                "runner": {
+                    "type": "remote_service",
+                    "invoked": True,
+                    "remote_execution_requested": True,
+                },
+                "input_envelope": {"fields": ["task_id"]},
+                "output_envelope": {"fields": ["status"]},
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "external_harness_adapter_contract_blocked_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "adapter_config_contract_incomplete"
+    assert output["config_contract"]["missing_fields"] == ["runner"]
+    assert output["config_contract"]["credential_ref_present"] is False
+    assert output["runner_selection"]["status"] == "blocked"
+    assert output["runner_selection"]["allowed_type"] is False
+    assert output["input_envelope"]["missing_fields"] == ["prompt_ref", "workspace_ref"]
+    assert output["output_envelope"]["missing_fields"] == ["run_id", "artifact_refs"]
+    assert output["disabled_by_default"]["enabled_by_default"] is True
+    assert output["disabled_by_default"]["remote_execution_requested"] is True
+    assert output["disabled_by_default"]["local_only_contract"] is False
+    assert output["activation_gate"] == {
+        "controller_surface": "external_harness_adapter_contract",
+        "activation_scope": "local_contract_probe_only",
+        "decision": "blocked_before_replay",
+        "reason": "adapter_config_contract_incomplete",
+        "local_contract_replay_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    assert [hint["code"] for hint in output["recovery_hints"]] == [
+        "adapter_config_contract_incomplete",
+        "runner_selection_contract_incomplete",
+        "input_envelope_contract_incomplete",
+        "output_envelope_contract_incomplete",
+        "adapter_enabled_by_default",
+        "remote_execution_requested",
+    ]
+    assert output["privacy"]["external_harness_launched"] is False
+    assert "https://github.com/omnigent-ai/omnigent/issues/905" not in serialized
 
 
 def test_agent_workflow_route_blocks_invalid_streamed_tool_boundaries_without_exporting_bodies():

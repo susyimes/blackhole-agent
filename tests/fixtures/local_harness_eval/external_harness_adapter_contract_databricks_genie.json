@@ -1,0 +1,137 @@
+{
+  "name": "external-harness-adapter-contract-databricks-genie",
+  "behavior": "external_harness_adapter_contract",
+  "input": {
+    "task_id": "fixture-external-harness-adapter-contract-databricks-genie",
+    "evidence": {
+      "source_kind": "github_issue",
+      "source_url": "https://github.com/omnigent-ai/omnigent/issues/905",
+      "summary_ref": "omnigent issue proposes Databricks Genie Spaces as a harness with provider configuration and e2e skip gates"
+    },
+    "adapter": {
+      "enabled_by_default": false,
+      "remote_execution_requested": false,
+      "config": {
+        "adapter_name": "databricks-genie-spaces",
+        "harness_kind": "external_agent_harness",
+        "provider": "databricks",
+        "runner": "local_contract_probe",
+        "auth": {
+          "kind": "env_or_profile_ref",
+          "credential_ref": "DATABRICKS_PROFILE_OR_TOKEN"
+        },
+        "capabilities": [
+          "space_conversation",
+          "workspace_scoped_query",
+          "artifact_reference_output"
+        ]
+      },
+      "runner": {
+        "type": "mock",
+        "command_ref": "local_contract_probe",
+        "optional_dependency_refs": ["databricks-sdk"],
+        "invoked": false,
+        "remote_execution_requested": false
+      },
+      "input_envelope": {
+        "fields": [
+          "task_id",
+          "prompt_ref",
+          "workspace_ref",
+          "space_ref",
+          "credential_ref"
+        ]
+      },
+      "output_envelope": {
+        "fields": [
+          "run_id",
+          "status",
+          "artifact_refs",
+          "diagnostic_refs"
+        ]
+      }
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "adapter_name",
+      "equals": "databricks-genie-spaces"
+    },
+    {
+      "path": "harness_kind",
+      "equals": "external_agent_harness"
+    },
+    {
+      "path": "evidence.source_kind",
+      "equals": "github_issue"
+    },
+    {
+      "path": "evidence.raw_source_url_exported",
+      "equals": false
+    },
+    {
+      "path": "config_contract.status",
+      "equals": "ready"
+    },
+    {
+      "path": "config_contract.missing_fields",
+      "equals": []
+    },
+    {
+      "path": "config_contract.credential_ref_present",
+      "equals": true
+    },
+    {
+      "path": "config_contract.credential_value_exported",
+      "equals": false
+    },
+    {
+      "path": "runner_selection.status",
+      "equals": "ready"
+    },
+    {
+      "path": "runner_selection.type",
+      "equals": "mock"
+    },
+    {
+      "path": "runner_selection.invoked",
+      "equals": false
+    },
+    {
+      "path": "input_envelope.status",
+      "equals": "ready"
+    },
+    {
+      "path": "output_envelope.status",
+      "equals": "ready"
+    },
+    {
+      "path": "disabled_by_default.local_only_contract",
+      "equals": true
+    },
+    {
+      "path": "activation_gate.decision",
+      "equals": "ready_for_local_contract_replay"
+    },
+    {
+      "path": "activation_gate.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "activation_gate.remote_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.external_harness_launched",
+      "equals": false
+    }
+  ]
+}

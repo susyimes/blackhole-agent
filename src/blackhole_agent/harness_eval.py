@@ -39,6 +39,7 @@ SAFETY_BOUNDARY_REVIEW_FLAGS = {
     "privacy-leakage",
 }
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
+    "external_harness_adapter_contract",
     "agent_harness_eval_lane",
     "agent_harness_provider_registration",
     "agent_workflow_route",
@@ -157,6 +158,30 @@ AGENT_HARNESS_EVAL_PROBE_FIELDS = (
     "observable_behaviors",
 )
 AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS = tuple(AGENT_HARNESS_EVAL_PROBE_FIELDS)
+EXTERNAL_HARNESS_ADAPTER_REQUIRED_CONFIG_FIELDS = (
+    "adapter_name",
+    "harness_kind",
+    "runner",
+    "provider",
+    "auth",
+    "capabilities",
+)
+EXTERNAL_HARNESS_ADAPTER_ALLOWED_RUNNER_TYPES = (
+    "cli",
+    "local_module",
+    "mock",
+    "subprocess",
+)
+EXTERNAL_HARNESS_ADAPTER_REQUIRED_INPUT_FIELDS = (
+    "task_id",
+    "prompt_ref",
+    "workspace_ref",
+)
+EXTERNAL_HARNESS_ADAPTER_REQUIRED_OUTPUT_FIELDS = (
+    "run_id",
+    "status",
+    "artifact_refs",
+)
 SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND = "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
 SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND = (
@@ -515,6 +540,8 @@ def run_local_harness_fixture(path: Path) -> HarnessEvalFixtureResult:
 
 
 def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    if behavior == "external_harness_adapter_contract":
+        return evaluate_external_harness_adapter_contract(raw_input, source_path=source_path)
     if behavior == "agent_harness_eval_lane":
         return evaluate_agent_harness_eval_lane(raw_input, source_path=source_path)
     if behavior == "agent_harness_provider_registration":
@@ -670,6 +697,221 @@ def evaluate_agent_harness_provider_registration(raw_input: dict[str, Any], *, s
             "provider_launched": False,
         },
     }
+
+
+def evaluate_external_harness_adapter_contract(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate a proposed external harness adapter contract without launching it."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    adapter = raw_input.get("adapter") if isinstance(raw_input.get("adapter"), dict) else {}
+    config = adapter.get("config") if isinstance(adapter.get("config"), dict) else {}
+    runner = adapter.get("runner") if isinstance(adapter.get("runner"), dict) else {}
+    input_envelope = adapter.get("input_envelope") if isinstance(adapter.get("input_envelope"), dict) else {}
+    output_envelope = adapter.get("output_envelope") if isinstance(adapter.get("output_envelope"), dict) else {}
+    evidence = raw_input.get("evidence") if isinstance(raw_input.get("evidence"), dict) else {}
+
+    config_status = external_harness_adapter_config_status(config)
+    runner_status = external_harness_adapter_runner_status(runner)
+    input_status = external_harness_adapter_envelope_status(
+        input_envelope,
+        required_fields=EXTERNAL_HARNESS_ADAPTER_REQUIRED_INPUT_FIELDS,
+    )
+    output_status = external_harness_adapter_envelope_status(
+        output_envelope,
+        required_fields=EXTERNAL_HARNESS_ADAPTER_REQUIRED_OUTPUT_FIELDS,
+    )
+    default_enabled = truthy(adapter.get("enabled_by_default"))
+    remote_execution_requested = truthy(adapter.get("remote_execution_requested")) or truthy(
+        runner.get("remote_execution_requested")
+    )
+    local_only = not default_enabled and not remote_execution_requested and not truthy(runner.get("invoked"))
+    blockers = external_harness_adapter_blockers(
+        config_status=config_status,
+        runner_status=runner_status,
+        input_status=input_status,
+        output_status=output_status,
+        local_only=local_only,
+        default_enabled=default_enabled,
+        remote_execution_requested=remote_execution_requested,
+    )
+    route_status = "passed" if not blockers else "blocked"
+
+    return {
+        "schema_version": 1,
+        "behavior": "external_harness_adapter_contract",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": "none" if route_status == "passed" else blockers[0],
+        "adapter_name": optional_string(config.get("adapter_name")),
+        "harness_kind": optional_string(config.get("harness_kind")),
+        "evidence": {
+            "source_kind": optional_string(evidence.get("source_kind")) or "unknown",
+            "source_url_hash": stable_text_hash(str(evidence["source_url"]))
+            if optional_string(evidence.get("source_url"))
+            else None,
+            "upstream_issue_or_repo_recorded": bool(evidence),
+            "raw_source_url_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        "config_contract": config_status,
+        "runner_selection": runner_status,
+        "input_envelope": input_status,
+        "output_envelope": output_status,
+        "disabled_by_default": {
+            "required": True,
+            "enabled_by_default": default_enabled,
+            "remote_execution_requested": remote_execution_requested,
+            "runner_invoked": truthy(runner.get("invoked")),
+            "local_only_contract": local_only,
+        },
+        "activation_gate": {
+            "controller_surface": "external_harness_adapter_contract",
+            "activation_scope": "local_contract_probe_only",
+            "decision": "ready_for_local_contract_replay" if route_status == "passed" else "blocked_before_replay",
+            "reason": "none" if route_status == "passed" else blockers[0],
+            "local_contract_replay_allowed": route_status == "passed",
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "recovery_hints": [
+            external_harness_adapter_recovery_hint(blocker)
+            for blocker in blockers
+        ],
+        "privacy": {
+            "raw_prompt_exported": False,
+            "raw_workspace_path_exported": False,
+            "raw_output_body_exported": False,
+            "raw_source_urls_exported": False,
+            "credential_values_exported": False,
+            "external_harness_launched": False,
+            "remote_execution_allowed": False,
+        },
+    }
+
+
+def external_harness_adapter_config_status(config: dict[str, Any]) -> dict[str, Any]:
+    missing_fields = [
+        field
+        for field in EXTERNAL_HARNESS_ADAPTER_REQUIRED_CONFIG_FIELDS
+        if not external_harness_adapter_field_present(config.get(field))
+    ]
+    auth = config.get("auth") if isinstance(config.get("auth"), dict) else {}
+    credential_ref = optional_string(auth.get("credential_ref"))
+    auth_kind = optional_string(auth.get("kind"))
+    return {
+        "status": "ready" if not missing_fields and credential_ref else "blocked",
+        "required_fields": list(EXTERNAL_HARNESS_ADAPTER_REQUIRED_CONFIG_FIELDS),
+        "missing_fields": missing_fields,
+        "capability_count": len(string_list(config.get("capabilities"))),
+        "auth_kind": auth_kind,
+        "credential_ref_present": bool(credential_ref),
+        "credential_value_present": bool(optional_string(auth.get("credential_value"))),
+        "credential_value_exported": False,
+        "raw_config_exported": False,
+    }
+
+
+def external_harness_adapter_runner_status(runner: dict[str, Any]) -> dict[str, Any]:
+    runner_type = optional_string(runner.get("type"))
+    allowed_type = bool(runner_type in EXTERNAL_HARNESS_ADAPTER_ALLOWED_RUNNER_TYPES)
+    command_ref = optional_string(runner.get("command_ref"))
+    module_ref = optional_string(runner.get("module_ref"))
+    has_runner_ref = bool(command_ref or module_ref or runner_type == "mock")
+    missing_fields: list[str] = []
+    if not runner_type:
+        missing_fields.append("type")
+    if not has_runner_ref:
+        missing_fields.append("command_ref_or_module_ref")
+    return {
+        "status": "ready" if allowed_type and has_runner_ref else "blocked",
+        "type": runner_type,
+        "allowed_types": list(EXTERNAL_HARNESS_ADAPTER_ALLOWED_RUNNER_TYPES),
+        "allowed_type": allowed_type,
+        "has_runner_ref": has_runner_ref,
+        "missing_fields": missing_fields,
+        "optional_dependency_refs": string_list(runner.get("optional_dependency_refs")),
+        "invoked": truthy(runner.get("invoked")),
+        "remote_execution_requested": truthy(runner.get("remote_execution_requested")),
+        "raw_command_exported": False,
+        "raw_module_path_exported": False,
+    }
+
+
+def external_harness_adapter_envelope_status(
+    envelope: dict[str, Any],
+    *,
+    required_fields: tuple[str, ...],
+) -> dict[str, Any]:
+    fields = string_list(envelope.get("fields"))
+    missing_fields = [field for field in required_fields if field not in fields]
+    return {
+        "status": "ready" if not missing_fields else "blocked",
+        "required_fields": list(required_fields),
+        "declared_fields": fields,
+        "missing_fields": missing_fields,
+        "body_fields_exported": False,
+    }
+
+
+def external_harness_adapter_blockers(
+    *,
+    config_status: dict[str, Any],
+    runner_status: dict[str, Any],
+    input_status: dict[str, Any],
+    output_status: dict[str, Any],
+    local_only: bool,
+    default_enabled: bool,
+    remote_execution_requested: bool,
+) -> list[str]:
+    blockers: list[str] = []
+    if config_status["status"] != "ready":
+        blockers.append("adapter_config_contract_incomplete")
+    if runner_status["status"] != "ready":
+        blockers.append("runner_selection_contract_incomplete")
+    if input_status["status"] != "ready":
+        blockers.append("input_envelope_contract_incomplete")
+    if output_status["status"] != "ready":
+        blockers.append("output_envelope_contract_incomplete")
+    if default_enabled:
+        blockers.append("adapter_enabled_by_default")
+    if remote_execution_requested:
+        blockers.append("remote_execution_requested")
+    if not local_only and not default_enabled and not remote_execution_requested:
+        blockers.append("runner_invoked_during_contract_probe")
+    return blockers
+
+
+def external_harness_adapter_recovery_hint(blocker: str) -> dict[str, Any]:
+    actions = {
+        "adapter_config_contract_incomplete": (
+            "declare adapter name, harness kind, provider, auth reference, runner, and capabilities"
+        ),
+        "runner_selection_contract_incomplete": (
+            "choose an allowed local runner type and record a command, module, or mock runner reference"
+        ),
+        "input_envelope_contract_incomplete": "declare task id, prompt reference, and workspace reference inputs",
+        "output_envelope_contract_incomplete": "declare run id, status, and artifact references outputs",
+        "adapter_enabled_by_default": "keep the adapter disabled until local contract replay succeeds",
+        "remote_execution_requested": "remove remote execution from the local contract probe",
+        "runner_invoked_during_contract_probe": "record contract shape without invoking the runner",
+    }
+    return {
+        "code": blocker,
+        "scope": "external_harness_adapter_contract",
+        "severity": "blocker",
+        "action": actions.get(blocker, "repair the adapter contract before local replay"),
+        "runtime_action": "none",
+        "external_harness_execution_allowed": False,
+    }
+
+
+def external_harness_adapter_field_present(value: Any) -> bool:
+    if isinstance(value, dict):
+        return bool(value)
+    if isinstance(value, list):
+        return bool(string_list(value))
+    return bool(optional_string(value))
 
 
 def provider_registration_state(value: Any) -> dict[str, Any]:
