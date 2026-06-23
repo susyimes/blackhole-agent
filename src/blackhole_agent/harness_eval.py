@@ -14273,6 +14273,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     auth_header_preflight = evaluate_provider_auth_header_preflight(provider=provider, runtime=runtime)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     wire_api_preflight = evaluate_provider_wire_api_preflight(provider=provider, runtime=runtime)
+    tool_dispatch_preflight = evaluate_provider_tool_dispatch_preflight(provider=provider, runtime=runtime)
     gateway_base_url_preflight = evaluate_provider_gateway_base_url_preflight(provider=provider, runtime=runtime)
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
     usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
@@ -14365,6 +14366,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
+        or not tool_dispatch_preflight["ok"]
         or not gateway_base_url_preflight["ok"]
         or not auth_precedence_preflight["ok"]
         or env_preflight_failed
@@ -14393,6 +14395,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
+    diagnostics.extend(tool_dispatch_preflight["diagnostics"])
     diagnostics.extend(gateway_base_url_preflight["diagnostics"])
     diagnostics.extend(auth_precedence_preflight["diagnostics"])
     diagnostics.extend(
@@ -14427,6 +14430,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not model_command_preflight["ok"]
             else wire_api_preflight["failure_mode"]
             if not wire_api_preflight["ok"]
+            else tool_dispatch_preflight["failure_mode"]
+            if not tool_dispatch_preflight["ok"]
             else gateway_base_url_preflight["failure_mode"]
             if not gateway_base_url_preflight["ok"]
             else auth_precedence_preflight["failure_mode"]
@@ -14529,6 +14534,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
+        "tool_dispatch": tool_dispatch_preflight,
         "gateway_base_url": gateway_base_url_preflight,
         "auth_precedence": auth_precedence_preflight,
     }
@@ -14550,6 +14556,159 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
     )
     return output
+
+
+def evaluate_provider_tool_dispatch_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Check that provider-enabled builtin tools have a local runner dispatch path.
+
+    The check is metadata-only. It counts tool names and handler evidence but
+    never exports tool arguments, provider bodies, URLs, or credential values.
+    """
+
+    provider_tools = collect_provider_tool_names(provider)
+    runtime_tools = collect_provider_tool_names(runtime)
+    enabled_tools = sorted(set(provider_tools) | set(runtime_tools))
+    local_dispatch_tools = sorted(
+        {
+            normalized
+            for tool in (
+                string_list(provider.get("local_dispatch_tools"))
+                + string_list(provider.get("runner_dispatch_tools"))
+                + string_list(provider.get("supported_dispatch_tools"))
+                + string_list(runtime.get("local_dispatch_tools"))
+                + string_list(runtime.get("runner_dispatch_tools"))
+                + string_list(runtime.get("supported_dispatch_tools"))
+            )
+            if (normalized := normalize_tool_name(tool))
+        }
+    )
+    dispatched_tools = sorted(
+        {
+            normalized
+            for tool in (
+                string_list(provider.get("dispatched_tools"))
+                + string_list(provider.get("exercised_dispatch_tools"))
+                + string_list(runtime.get("dispatched_tools"))
+                + string_list(runtime.get("exercised_dispatch_tools"))
+            )
+            if (normalized := normalize_tool_name(tool))
+        }
+    )
+    provider_family = normalize_provider_family(
+        provider.get("model_provider")
+        or provider.get("provider_family")
+        or provider.get("backend")
+        or runtime.get("model_provider")
+        or runtime.get("provider_family")
+    )
+    model_family = normalize_provider_family(
+        provider.get("model_family")
+        or provider.get("model_vendor")
+        or runtime.get("model_family")
+        or runtime.get("model_vendor")
+    )
+    route_family = model_family if model_family != "unknown" else provider_family
+    openai_native_passthrough = route_family == "openai"
+    web_search_enabled = "web_search" in enabled_tools
+    web_search_handler_registered = "web_search" in local_dispatch_tools
+    web_search_dispatch_exercised = "web_search" in dispatched_tools
+    web_search_dispatch_required = web_search_enabled and not openai_native_passthrough
+    ok = (
+        not web_search_dispatch_required
+        or web_search_handler_registered
+        or web_search_dispatch_exercised
+    )
+    diagnostics = (
+        ["non-OpenAI web_search builtin has no local runner dispatch handler evidence"]
+        if not ok
+        else []
+    )
+    failure_mode = "none" if ok else "provider_tool_dispatch_missing"
+
+    return {
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "enabled_tool_count": len(enabled_tools),
+        "enabled_tool_hashes": [stable_text_hash(tool) for tool in enabled_tools],
+        "local_dispatch_tool_count": len(local_dispatch_tools),
+        "local_dispatch_tool_hashes": [stable_text_hash(tool) for tool in local_dispatch_tools],
+        "dispatched_tool_count": len(dispatched_tools),
+        "dispatched_tool_hashes": [stable_text_hash(tool) for tool in dispatched_tools],
+        "provider_family": route_family,
+        "provider_family_hash": stable_text_hash(route_family),
+        "openai_native_passthrough": openai_native_passthrough,
+        "web_search_enabled": web_search_enabled,
+        "web_search_dispatch_required": web_search_dispatch_required,
+        "web_search_handler_registered": web_search_handler_registered,
+        "web_search_dispatch_exercised": web_search_dispatch_exercised,
+        "raw_tool_config_exported": False,
+        "tool_arguments_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def collect_provider_tool_names(container: dict[str, Any]) -> list[str]:
+    tool_names: list[str] = []
+    for key in ("tools", "builtins", "enabled_tools"):
+        value = container.get(key)
+        if isinstance(value, dict):
+            for nested_key in ("builtins", "enabled", "names"):
+                tool_names.extend(extract_tool_names(value.get(nested_key)))
+        elif isinstance(value, list):
+            tool_names.extend(extract_tool_names(value))
+        else:
+            tool_names.extend(string_list(value))
+    return sorted({normalize_tool_name(name) for name in tool_names if normalize_tool_name(name)})
+
+
+def extract_tool_names(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if not isinstance(value, list):
+        return []
+    names: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            names.append(item)
+        elif isinstance(item, dict):
+            name = optional_string(item.get("name")) or optional_string(item.get("type"))
+            if name:
+                names.append(name)
+    return names
+
+
+def normalize_tool_name(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "websearch": "web_search",
+        "web_search_preview": "web_search",
+        "builtin_web_search": "web_search",
+        "webfetch": "web_fetch",
+        "web_fetch_preview": "web_fetch",
+    }
+    return aliases.get(text, text)
+
+
+def normalize_provider_family(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "open_ai": "openai",
+        "gpt": "openai",
+        "google": "google",
+        "gemini": "google",
+        "google_gemini": "google",
+        "perplexity": "perplexity",
+        "anthropic": "anthropic",
+        "claude": "anthropic",
+        "openrouter": "openrouter",
+        "deepseek": "deepseek",
+        "databricks": "databricks",
+    }
+    return aliases.get(text, text or "unknown")
 
 
 def evaluate_provider_setup_preflight(
@@ -16075,6 +16234,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
+    tool_dispatch = preflight.get("tool_dispatch") if isinstance(preflight.get("tool_dispatch"), dict) else {}
     gateway_base_url = (
         preflight.get("gateway_base_url") if isinstance(preflight.get("gateway_base_url"), dict) else {}
     )
@@ -16270,6 +16430,27 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "runner_wire_api_matches_config": bool(wire_api.get("runner_matches_config")),
                 "raw_value_exported": False,
                 "runner_raw_value_exported": False,
+            }
+        )
+    elif failure_mode == "provider_tool_dispatch_missing":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_tool_dispatch_missing",
+                "scope": "provider_tool_dispatch",
+                "severity": "blocker",
+                "action": "register and locally replay a runner dispatch handler for non-OpenAI web_search before launching the harness",
+                "provider_family": optional_string(tool_dispatch.get("provider_family")) or "unknown",
+                "openai_native_passthrough": bool(tool_dispatch.get("openai_native_passthrough")),
+                "web_search_enabled": bool(tool_dispatch.get("web_search_enabled")),
+                "web_search_dispatch_required": bool(tool_dispatch.get("web_search_dispatch_required")),
+                "web_search_handler_registered": bool(tool_dispatch.get("web_search_handler_registered")),
+                "web_search_dispatch_exercised": bool(tool_dispatch.get("web_search_dispatch_exercised")),
+                "enabled_tool_count": int(tool_dispatch.get("enabled_tool_count") or 0),
+                "local_dispatch_tool_count": int(tool_dispatch.get("local_dispatch_tool_count") or 0),
+                "dispatched_tool_count": int(tool_dispatch.get("dispatched_tool_count") or 0),
+                "raw_tool_config_exported": False,
+                "tool_arguments_exported": False,
             }
         )
     elif failure_mode in {

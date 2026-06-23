@@ -1,0 +1,12 @@
+Rollback point for skill-route provider web_search dispatch preflight
+
+Original branch: codex/blackhole-evolve/20260623T075759.703523-add-or-extend-local-validation-around-skill-rout
+Original HEAD: f4885fddbe86073c924baa7b9fdc06753a09511c
+Local rollback ref: refs/rollback/blackhole-evolve-20260623T075651Z
+
+Recovery commands, if an operator explicitly chooses destructive rollback:
+
+  git switch codex/blackhole-evolve/20260623T075759.703523-add-or-extend-local-validation-around-skill-rout
+  git reset --hard refs/rollback/blackhole-evolve-20260623T075651Z
+
+Do not delete this artifact during the run that created it.

@@ -1,0 +1,87 @@
+{
+  "name": "provider-runtime-preflight-non-openai-web-search-dispatch-missing",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-non-openai-web-search-dispatch-missing",
+    "provider": {
+      "name": "omnigent-openai-compatible",
+      "harness": "omnigent",
+      "model_provider": "google",
+      "tools": {
+        "builtins": [
+          {
+            "name": "web_search",
+            "arguments": "PRIVATE_WEB_SEARCH_ARGUMENTS_DO_NOT_EXPORT"
+          }
+        ]
+      },
+      "local_dispatch_tools": [
+        "web_fetch"
+      ]
+    },
+    "runtime": {
+      "platform": "linux",
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_tool_dispatch_missing"
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "tool_dispatch.provider_family",
+      "equals": "google"
+    },
+    {
+      "path": "tool_dispatch.web_search_enabled",
+      "equals": true
+    },
+    {
+      "path": "tool_dispatch.web_search_dispatch_required",
+      "equals": true
+    },
+    {
+      "path": "tool_dispatch.web_search_handler_registered",
+      "equals": false
+    },
+    {
+      "path": "tool_dispatch.web_search_dispatch_exercised",
+      "equals": false
+    },
+    {
+      "path": "tool_dispatch.raw_tool_config_exported",
+      "equals": false
+    },
+    {
+      "path": "tool_dispatch.tool_arguments_exported",
+      "equals": false
+    },
+    {
+      "path": "supervisor_replay.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "supervisor_replay.recovery_hint_codes",
+      "equals": [
+        "provider_tool_dispatch_missing"
+      ]
+    }
+  ]
+}

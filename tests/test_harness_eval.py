@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 61
-    assert payload["pass_count"] == 60
+    assert payload["fixture_count"] == 62
+    assert payload["pass_count"] == 61
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -162,6 +162,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-openrouter-harness-base-url-mismatch"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
     assert results["provider-runtime-preflight-runner-compat-bridge-missing"]["passed"] is True
+    assert results["provider-runtime-preflight-non-openai-web-search-dispatch-missing"]["passed"] is True
     assert results["provider-runtime-preflight-wire-api-chat"]["passed"] is True
     assert results["provider-runtime-preflight-review-model-unavailable"]["passed"] is True
     assert results["provider-runtime-preflight-usage-limit-429"]["passed"] is True
@@ -373,6 +374,141 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
     assert unsupported["wire_api"]["exercised"] is True
 
     assert "PRIVATE" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_non_openai_web_search_without_dispatch_handler():
+    blocked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-non-openai-web-search-missing",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "model_provider": "google",
+                "tools": {
+                    "builtins": [
+                        {
+                            "name": "web_search",
+                            "arguments": "PRIVATE_WEB_SEARCH_ARGUMENTS_DO_NOT_EXPORT",
+                        }
+                    ]
+                },
+                "local_dispatch_tools": ["web_fetch"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR
+        / "provider_runtime_preflight_non_openai_web_search_missing_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-non-openai-web-search-ready",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "model_provider": "perplexity",
+                "tools": {"builtins": ["web_search"]},
+                "local_dispatch_tools": ["web_fetch", "web_search"],
+                "dispatched_tools": ["web_search"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR
+        / "provider_runtime_preflight_non_openai_web_search_ready_inline.json",
+    )
+    openai_passthrough = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-openai-web-search-native",
+            "provider": {
+                "name": "openai",
+                "harness": "openai-agents",
+                "model_provider": "openai",
+                "tools": {"builtins": ["web_search"]},
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR
+        / "provider_runtime_preflight_openai_web_search_native_inline.json",
+    )
+    serialized = json.dumps(
+        {"blocked": blocked, "ready": ready, "openai": openai_passthrough},
+        sort_keys=True,
+    )
+
+    assert blocked["route_status"] == "blocked"
+    assert blocked["failure_mode"] == "provider_tool_dispatch_missing"
+    assert blocked["runtime"]["runner_invoked"] is False
+    assert blocked["tool_dispatch"]["provider_family"] == "google"
+    assert blocked["tool_dispatch"]["web_search_enabled"] is True
+    assert blocked["tool_dispatch"]["web_search_dispatch_required"] is True
+    assert blocked["tool_dispatch"]["web_search_handler_registered"] is False
+    assert blocked["tool_dispatch"]["web_search_dispatch_exercised"] is False
+    assert blocked["tool_dispatch"]["raw_tool_config_exported"] is False
+    assert blocked["tool_dispatch"]["tool_arguments_exported"] is False
+    assert blocked["preflight"]["diagnostics"] == [
+        "non-OpenAI web_search builtin has no local runner dispatch handler evidence"
+    ]
+    assert blocked["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_tool_dispatch_missing",
+            "scope": "provider_tool_dispatch",
+            "severity": "blocker",
+            "action": (
+                "register and locally replay a runner dispatch handler for non-OpenAI web_search "
+                "before launching the harness"
+            ),
+            "provider_family": "google",
+            "openai_native_passthrough": False,
+            "web_search_enabled": True,
+            "web_search_dispatch_required": True,
+            "web_search_handler_registered": False,
+            "web_search_dispatch_exercised": False,
+            "enabled_tool_count": 1,
+            "local_dispatch_tool_count": 1,
+            "dispatched_tool_count": 0,
+            "raw_tool_config_exported": False,
+            "tool_arguments_exported": False,
+        }
+    ]
+    assert blocked["supervisor_replay"]["recovery_hint_codes"] == ["provider_tool_dispatch_missing"]
+
+    assert ready["route_status"] == "passed"
+    assert ready["tool_dispatch"]["provider_family"] == "perplexity"
+    assert ready["tool_dispatch"]["web_search_handler_registered"] is True
+    assert ready["tool_dispatch"]["web_search_dispatch_exercised"] is True
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert openai_passthrough["route_status"] == "passed"
+    assert openai_passthrough["tool_dispatch"]["openai_native_passthrough"] is True
+    assert openai_passthrough["tool_dispatch"]["web_search_dispatch_required"] is False
+
+    assert "PRIVATE_WEB_SEARCH_ARGUMENTS_DO_NOT_EXPORT" not in serialized
 
 
 def test_provider_runtime_preflight_blocks_gateway_base_url_harness_mismatch_without_url_export():

@@ -203,6 +203,8 @@ The same mock E2E lane can carry a compact single-file agent YAML document as `a
 
 Runner-generated wire API metadata is part of the provider preflight contract. A configured `wire_api: chat` route may be supplied at the top level or inside nested OpenAI-compatible provider config shapes such as `openai.wire_api` or `provider_config.openai.wire_api`; the preflight resolves these shapes without exporting raw provider config bodies. A configured chat route must not silently resolve to a runner `responses` route; that blocks as `provider_wire_api_runner_mismatch`. Pi-style `openai-completions` labels are normalized to the local chat-completions route. Raw runner labels are not exported.
 
+Provider tool-dispatch metadata is also checked before launch. If a non-OpenAI model route enables the `web_search` builtin, the preflight requires either a registered local runner dispatch handler or local dispatch replay evidence; otherwise it blocks as `provider_tool_dispatch_missing`. OpenAI native web-search passthrough remains allowed without a local handler. Tool names are represented by counts and hashes, and raw tool config bodies, arguments, provider responses, URLs, and credentials are not exported.
+
 Old runner/host to current server compatibility is also modeled inside
 `provider_runtime_preflight`. A fixture can declare `runner_compat` for the
 Config-2-style bridge where the runner and host are pinned as one colocated old
