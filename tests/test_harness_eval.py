@@ -6611,6 +6611,74 @@ def test_skill_route_discovery_catalog_links_profiles_to_provider_runtime_replay
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
+def test_skill_route_discovery_pass4_current_window_includes_source_cited_domain_research_lane():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["required_route_profiles"].append("source_cited_domain_research")
+    input_payload["capability_window"]["anchoring_proposals"].append("p4-skill-route-discovery-zhengxi-views")
+    input_payload["capability_window"]["evidence_urls"].append("https://github.com/lyra81604/zhengxi-views")
+    input_payload["candidates"].append(
+        {
+            "name": "zhengxi-views",
+            "source_url": "https://github.com/lyra81604/zhengxi-views",
+            "evidence_summary": (
+                "Source-cited domain research agent skill with public views, citation checks, "
+                "investment research examples, advice disclaimers, and local validation notes."
+            ),
+            "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+            "evidence_item_ids": ["p4-skill-route-discovery-zhengxi-views"],
+            "evidence_urls": ["https://github.com/lyra81604/zhengxi-views"],
+        }
+    )
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+
+    completion_report = output["capability_window_completion"]["completion_report"]
+    manifest = completion_report["final_route_handoff_manifest"]
+    lane_queue = completion_report["route_validation_lane_queue"]
+    secondary_bridge = completion_report["secondary_harness_bridge"]
+    consistency_guard = completion_report["completion_consistency_guard"]
+
+    assert output["route_status"] == "passed"
+    assert completion_report["status"] == "ready"
+    assert manifest["profile_count"] == 4
+    assert manifest["ready_profile_count"] == 4
+    assert manifest["selected_local_lanes"] == ["config", "test"]
+    assert "source_cited_domain_research" in manifest["route_profiles"]
+
+    manifest_rows = {row["route_profile"]: row for row in manifest["rows"]}
+    source_row = manifest_rows["source_cited_domain_research"]
+    assert source_row["selected_local_lane"] == "test"
+    assert source_row["validation_scope"] == "local_test_lane_only"
+    assert source_row["local_gate"] == (
+        "source_cited_domain_research_requires_citation_and_advice_boundary_test"
+    )
+    assert source_row["evidence_item_ids"] == ["p4-skill-route-discovery-zhengxi-views"]
+    assert source_row["runtime_action"] == "none"
+    assert source_row["external_skill_activation_allowed"] is False
+    assert source_row["provider_runtime_launch_allowed"] is False
+
+    queue_rows = {row["route_profile"]: row for row in lane_queue["rows"]}
+    assert lane_queue["lane_count"] == 4
+    assert lane_queue["ready_lane_count"] == 4
+    assert queue_rows["source_cited_domain_research"]["selected_local_lane"] == "test"
+    assert queue_rows["source_cited_domain_research"]["workflow_gate"]["required_first_route_decision"] == ""
+    assert queue_rows["source_cited_domain_research"]["external_harness_execution_allowed"] is False
+    assert queue_rows["source_cited_domain_research"]["provider_runtime_launch_allowed"] is False
+
+    bridge_rows = {row["route_profile"]: row for row in secondary_bridge["rows"]}
+    assert secondary_bridge["row_count"] == 4
+    assert secondary_bridge["agent_harness_eval_required_count"] == 1
+    assert bridge_rows["source_cited_domain_research"]["secondary_lane_status"] == "not_applicable"
+    assert bridge_rows["source_cited_domain_research"]["local_eval_activation_allowed"] is False
+    assert consistency_guard["ready_profile_count"] == consistency_guard["ready_lane_count"] == 4
+    assert consistency_guard["status"] == "ready"
+
 def test_skill_route_discovery_completion_blocks_missing_required_profiles():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

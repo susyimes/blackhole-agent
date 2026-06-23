@@ -50,6 +50,14 @@ skill workflow records is interpreted only as a request for body-free
 diagnostics, recovery hints, and locally replayable validation. It does not add
 a provider-runtime lane, external harness lane, install lane, execution lane, or
 remote activation path.
+Source digest `github-growth-20260623T155349.080210Z` completes the pass-4
+skill-route-discovery window across FableCodex, COMPASS Skills, zhengxi-views,
+Three.js Game Skills, and Omnigent movement evidence. `zhengxi-views` stays in
+the `source_cited_domain_research` profile and can complete only through a local
+test lane that checks citation and advice boundaries. Omnigent-style harness
+movement remains a blocked secondary bridge after skill-route validation; it
+does not authorize external harness execution, provider launch, remote
+execution, or upstream skill activation.
 
 The bounded evidence reviewed for these runs is:
 

@@ -9143,6 +9143,14 @@ def skill_route_discovery_completion_profile_validation_gate(
             "required_secondary_lane_status": "",
             "local_gate": "state_handoff_requires_config_boundary_review",
         },
+        "source_cited_domain_research": {
+            "required_selected_lane": "test",
+            "required_validation_scope": "local_test_lane_only",
+            "required_profile_review_status": "ready",
+            "required_first_route_decision": "",
+            "required_secondary_lane_status": "",
+            "local_gate": "source_cited_domain_research_requires_citation_and_advice_boundary_test",
+        },
         "generic_skill_workflow": {
             "required_selected_lane": "documentation",
             "required_validation_scope": "local_documentation_lane_only",
