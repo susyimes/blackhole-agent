@@ -1,0 +1,13 @@
+Rollback point for github-growth-20260623T021653.193239Z
+
+Original branch: codex/blackhole-evolve/20260623T021803.068964-add-or-tighten-provider-setup-preflight-checks-f
+Original HEAD: 725d61332ee53862097bf2e8ed7220995f3a4f7a
+Local rollback ref: refs/heads/codex/blackhole-evolve/20260623T021803.068964-add-or-tighten-provider-setup-preflight-checks-f
+
+Recovery commands, for explicit human/supervisor use only:
+
+1. git switch codex/blackhole-evolve/20260623T021803.068964-add-or-tighten-provider-setup-preflight-checks-f
+2. git reset --hard 725d61332ee53862097bf2e8ed7220995f3a4f7a
+3. git clean -fd
+
+Rollback execution is destructive and was not run by this kernel.

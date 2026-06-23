@@ -8186,6 +8186,209 @@ def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_be
     assert "omnigent run" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_unwritable_global_npm_prefix_before_cli_install():
+    output = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-npm-prefix-unwritable",
+            "provider": {
+                "name": "claude-cli",
+                "harness": "claude",
+                "setup_preflight_required": True,
+                "setup_preflight": {
+                    "npm_global_install_required": True,
+                    "npm_prefix": "PRIVATE_NPM_PREFIX_DO_NOT_EXPORT",
+                    "npm_prefix_owner": "root",
+                    "npm_prefix_writable": False,
+                    "install_command": [
+                        "npm",
+                        "install",
+                        "-g",
+                        "PRIVATE_CLAUDE_PACKAGE_DO_NOT_EXPORT",
+                    ],
+                    "npm_package": "PRIVATE_CLAUDE_PACKAGE_DO_NOT_EXPORT",
+                },
+            },
+            "runtime": {
+                "platform": "darwin",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_npm_prefix_unwritable_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_setup_npm_prefix_unwritable"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["setup_preflight"]["ok"] is False
+    assert output["setup_preflight"]["npm_global_install_required"] is True
+    assert output["setup_preflight"]["npm_prefix_observed"] is True
+    assert output["setup_preflight"]["npm_prefix_user_owned"] is False
+    assert output["setup_preflight"]["npm_prefix_writable"] is False
+    assert output["setup_preflight"]["npm_prefix_hash"].startswith("sha256:")
+    assert output["setup_preflight"]["npm_prefix_exported"] is False
+    assert output["setup_preflight"]["npm_prefix_owner_recorded"] is False
+    assert output["setup_preflight"]["npm_install_command_arg_count"] == 4
+    assert len(output["setup_preflight"]["npm_install_command_hashes"]) == 4
+    assert output["setup_preflight"]["npm_install_command_exported"] is False
+    assert output["setup_preflight"]["npm_package_hash"].startswith("sha256:")
+    assert output["setup_preflight"]["npm_package_exported"] is False
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["claude"],
+            "value_recorded": False,
+            "code": "provider_setup_npm_prefix_unwritable",
+            "scope": "provider_setup_preflight",
+            "severity": "blocker",
+            "action": "repair provider setup metadata before installing CLI tools or activating LiteLLM-backed model routes",
+            "npm_global_install_required": True,
+            "npm_prefix_observed": True,
+            "npm_prefix_user_owned": False,
+            "npm_prefix_writable": False,
+            "npm_install_command_arg_count": 4,
+            "litellm_adapter": False,
+            "litellm_model_configured": False,
+            "required_model_prefix_count": 0,
+            "model_prefix_ready": True,
+            "model_discovery_required": False,
+            "discovered_model_count": 0,
+            "raw_paths_exported": False,
+            "raw_commands_exported": False,
+            "raw_model_ids_exported": False,
+        }
+    ]
+    assert output["supervisor_replay"]["recovery_hint_codes"] == ["provider_setup_npm_prefix_unwritable"]
+
+    assert "PRIVATE_NPM_PREFIX_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CLAUDE_PACKAGE_DO_NOT_EXPORT" not in serialized
+    assert "npm install" not in serialized
+    assert "root" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_litellm_model_prefix_or_discovery_gap_before_launch():
+    missing_prefix = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-litellm-prefix-missing",
+            "provider": {
+                "name": "litellm-proxy",
+                "harness": "omnigent",
+                "setup_preflight": {
+                    "provider_adapter": "litellm",
+                    "model": "PRIVATE_UNPREFIXED_MODEL_DO_NOT_EXPORT",
+                    "required_model_prefixes": ["PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/"],
+                    "model_discovery_required": True,
+                    "discovered_models": ["PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/model"],
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_litellm_prefix_inline.json",
+    )
+    discovery_missing = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-litellm-discovery-missing",
+            "provider": {
+                "name": "litellm-proxy",
+                "harness": "omnigent",
+                "setup_preflight": {
+                    "provider_adapter": "litellm",
+                    "model": "PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/model",
+                    "required_model_prefixes": ["PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/"],
+                    "model_discovery_required": True,
+                    "discovered_models": [],
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_litellm_discovery_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-litellm-ready",
+            "provider": {
+                "name": "litellm-proxy",
+                "harness": "omnigent",
+                "setup_preflight": {
+                    "provider_adapter": "litellm",
+                    "model": "PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/model",
+                    "required_model_prefixes": ["PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/"],
+                    "model_discovery_required": True,
+                    "discovered_models": ["PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT/model"],
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_litellm_ready_inline.json",
+    )
+    serialized = json.dumps(
+        {"discovery_missing": discovery_missing, "missing_prefix": missing_prefix, "ready": ready},
+        sort_keys=True,
+    )
+
+    assert missing_prefix["route_status"] == "blocked"
+    assert missing_prefix["failure_mode"] == "provider_setup_litellm_model_prefix_missing"
+    assert missing_prefix["runtime"]["runner_invoked"] is False
+    assert missing_prefix["setup_preflight"]["litellm_adapter"] is True
+    assert missing_prefix["setup_preflight"]["litellm_model_configured"] is True
+    assert missing_prefix["setup_preflight"]["litellm_model_hash"].startswith("sha256:")
+    assert missing_prefix["setup_preflight"]["litellm_model_exported"] is False
+    assert missing_prefix["setup_preflight"]["required_model_prefix_count"] == 1
+    assert missing_prefix["setup_preflight"]["required_model_prefixes_exported"] is False
+    assert missing_prefix["setup_preflight"]["model_prefix_ready"] is False
+    assert missing_prefix["setup_preflight"]["model_discovery_required"] is True
+    assert missing_prefix["setup_preflight"]["discovered_model_count"] == 1
+    assert missing_prefix["setup_preflight"]["discovered_models_exported"] is False
+    assert missing_prefix["recovery_hints"][0]["code"] == "provider_setup_litellm_model_prefix_missing"
+    assert missing_prefix["recovery_hints"][0]["raw_model_ids_exported"] is False
+
+    assert discovery_missing["route_status"] == "blocked"
+    assert discovery_missing["failure_mode"] == "provider_setup_litellm_model_discovery_missing"
+    assert discovery_missing["runtime"]["runner_invoked"] is False
+    assert discovery_missing["setup_preflight"]["model_prefix_ready"] is True
+    assert discovery_missing["setup_preflight"]["model_discovery_required"] is True
+    assert discovery_missing["setup_preflight"]["discovered_model_count"] == 0
+    assert discovery_missing["recovery_hints"][0]["code"] == "provider_setup_litellm_model_discovery_missing"
+
+    assert ready["route_status"] == "passed"
+    assert ready["failure_mode"] == "none"
+    assert ready["runtime"]["runner_invoked"] is True
+    assert ready["setup_preflight"]["ok"] is True
+    assert ready["setup_preflight"]["discovered_model_count"] == 1
+
+    assert "PRIVATE_UNPREFIXED_MODEL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_MODEL_PREFIX_DO_NOT_EXPORT" not in serialized
+
+
 def test_provider_runtime_preflight_blocks_apple_silicon_brew_linkage_before_launch():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_apple_silicon_brew_jiter_linkage.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

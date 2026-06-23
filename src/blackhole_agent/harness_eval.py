@@ -13763,6 +13763,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
     install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
     approval_repark_preflight = evaluate_provider_approval_repark_preflight(provider=provider, runtime=runtime)
+    setup_preflight = evaluate_provider_setup_preflight(provider=provider, runtime=runtime)
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -13832,6 +13833,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not usage_limit_preflight["ok"]
         or not install_linkage_preflight["ok"]
         or not approval_repark_preflight["ok"]
+        or not setup_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
@@ -13856,6 +13858,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(usage_limit_preflight["diagnostics"])
     diagnostics.extend(install_linkage_preflight["diagnostics"])
     diagnostics.extend(approval_repark_preflight["diagnostics"])
+    diagnostics.extend(setup_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
@@ -13881,6 +13884,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not install_linkage_preflight["ok"]
             else approval_repark_preflight["failure_mode"]
             if not approval_repark_preflight["ok"]
+            else setup_preflight["failure_mode"]
+            if not setup_preflight["ok"]
             else auth_header_preflight["failure_mode"]
             if not auth_header_preflight["ok"]
             else model_command_preflight["failure_mode"]
@@ -13980,6 +13985,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "usage_limit": usage_limit_preflight,
         "install_linkage": install_linkage_preflight,
         "approval_repark": approval_repark_preflight,
+        "setup_preflight": setup_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
@@ -14002,6 +14008,119 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
     )
     return output
+
+
+def evaluate_provider_setup_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Check setup/install metadata before provider runtime launch.
+
+    This is intentionally body-free: local paths, package names, commands, URLs,
+    and model identifiers are hashed or counted so onboarding failures remain
+    replayable without leaking machine or provider details.
+    """
+
+    raw_setup = provider.get("setup_preflight", runtime.get("setup_preflight"))
+    setup = raw_setup if isinstance(raw_setup, dict) else {}
+    required = (
+        truthy(provider.get("setup_preflight_required"))
+        or truthy(runtime.get("setup_preflight_required"))
+        or bool(setup)
+    )
+
+    npm_global_install_required = truthy(setup.get("npm_global_install_required"))
+    npm_prefix = optional_string(setup.get("npm_prefix") or runtime.get("npm_prefix"))
+    npm_prefix_owner = (optional_string(setup.get("npm_prefix_owner")) or "").lower()
+    npm_prefix_writable = truthy(setup.get("npm_prefix_writable") or setup.get("npm_global_prefix_writable"))
+    npm_prefix_user_owned = truthy(setup.get("npm_prefix_user_owned")) or npm_prefix_owner in {
+        "current_user",
+        "self",
+        "user",
+    }
+    npm_prefix_observed = bool(npm_prefix or npm_prefix_owner or "npm_prefix_writable" in setup)
+    npm_install_command = string_list(setup.get("npm_install_command") or setup.get("install_command"))
+    npm_package = optional_string(setup.get("npm_package") or setup.get("package_name"))
+    npm_prefix_unsafe = bool(
+        npm_global_install_required
+        and npm_prefix_observed
+        and (not npm_prefix_writable or (npm_prefix_owner and not npm_prefix_user_owned))
+    )
+
+    adapter_kind = (
+        optional_string(setup.get("provider_adapter") or setup.get("adapter") or provider.get("adapter_kind"))
+        or ""
+    ).lower()
+    litellm_adapter = adapter_kind == "litellm" or truthy(setup.get("litellm_adapter"))
+    model_id = optional_string(setup.get("model") or runtime.get("model") or provider.get("model"))
+    required_prefixes = tuple(string_list(setup.get("required_model_prefixes") or setup.get("litellm_model_prefixes")))
+    model_prefix_ready = (
+        not litellm_adapter
+        or not model_id
+        or not required_prefixes
+        or any(model_id.startswith(prefix) for prefix in required_prefixes)
+    )
+    model_discovery_required = truthy(setup.get("model_discovery_required"))
+    discovered_models = string_list(
+        setup.get("discovered_models") or setup.get("available_models") or setup.get("model_discovery_results")
+    )
+    model_discovery_ready = not (litellm_adapter and model_discovery_required) or bool(discovered_models)
+
+    diagnostics: list[str] = []
+    if npm_prefix_unsafe:
+        diagnostics.append(
+            "npm global install target is not ready for non-sudo CLI setup; configure a user-owned writable prefix before install"
+        )
+    if not model_prefix_ready:
+        diagnostics.append(
+            "LiteLLM adapter model id is missing a required provider prefix; block setup until model selection is normalized"
+        )
+    if not model_discovery_ready:
+        diagnostics.append(
+            "LiteLLM adapter setup requires model discovery results before provider activation"
+        )
+
+    failure_mode = "none"
+    if npm_prefix_unsafe:
+        failure_mode = "provider_setup_npm_prefix_unwritable"
+    elif not model_prefix_ready:
+        failure_mode = "provider_setup_litellm_model_prefix_missing"
+    elif not model_discovery_ready:
+        failure_mode = "provider_setup_litellm_model_discovery_missing"
+
+    return {
+        "required": required,
+        "observed": bool(setup),
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "npm_global_install_required": npm_global_install_required,
+        "npm_prefix_observed": npm_prefix_observed,
+        "npm_prefix_hash": stable_text_hash(npm_prefix) if npm_prefix else None,
+        "npm_prefix_exported": False,
+        "npm_prefix_owner_recorded": False,
+        "npm_prefix_user_owned": npm_prefix_user_owned,
+        "npm_prefix_writable": npm_prefix_writable,
+        "npm_install_command_hashes": [stable_text_hash(value) for value in npm_install_command],
+        "npm_install_command_arg_count": len(npm_install_command),
+        "npm_install_command_exported": False,
+        "npm_package_hash": stable_text_hash(npm_package) if npm_package else None,
+        "npm_package_exported": False,
+        "litellm_adapter": litellm_adapter,
+        "litellm_model_configured": bool(model_id),
+        "litellm_model_hash": stable_text_hash(model_id) if model_id else None,
+        "litellm_model_exported": False,
+        "required_model_prefix_count": len(required_prefixes),
+        "required_model_prefix_hashes": [stable_text_hash(value) for value in required_prefixes],
+        "required_model_prefixes_exported": False,
+        "model_prefix_ready": model_prefix_ready,
+        "model_discovery_required": model_discovery_required,
+        "discovered_model_count": len(discovered_models),
+        "discovered_model_hashes": [stable_text_hash(value) for value in discovered_models],
+        "discovered_models_exported": False,
+        "raw_setup_exported": False,
+        "diagnostics": diagnostics,
+    }
 
 
 def evaluate_provider_install_linkage_preflight(
@@ -14938,6 +15057,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     usage_limit = preflight.get("usage_limit") if isinstance(preflight.get("usage_limit"), dict) else {}
     install_linkage = preflight.get("install_linkage") if isinstance(preflight.get("install_linkage"), dict) else {}
     approval_repark = preflight.get("approval_repark") if isinstance(preflight.get("approval_repark"), dict) else {}
+    setup_preflight = preflight.get("setup_preflight") if isinstance(preflight.get("setup_preflight"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
@@ -15128,6 +15248,34 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "relink_failure_count": int(install_linkage.get("relink_failure_count") or 0),
                 "raw_paths_exported": False,
                 "raw_install_names_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_setup_litellm_model_discovery_missing",
+        "provider_setup_litellm_model_prefix_missing",
+        "provider_setup_npm_prefix_unwritable",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_setup_preflight",
+                "severity": "blocker",
+                "action": "repair provider setup metadata before installing CLI tools or activating LiteLLM-backed model routes",
+                "npm_global_install_required": bool(setup_preflight.get("npm_global_install_required")),
+                "npm_prefix_observed": bool(setup_preflight.get("npm_prefix_observed")),
+                "npm_prefix_user_owned": bool(setup_preflight.get("npm_prefix_user_owned")),
+                "npm_prefix_writable": bool(setup_preflight.get("npm_prefix_writable")),
+                "npm_install_command_arg_count": int(setup_preflight.get("npm_install_command_arg_count") or 0),
+                "litellm_adapter": bool(setup_preflight.get("litellm_adapter")),
+                "litellm_model_configured": bool(setup_preflight.get("litellm_model_configured")),
+                "required_model_prefix_count": int(setup_preflight.get("required_model_prefix_count") or 0),
+                "model_prefix_ready": bool(setup_preflight.get("model_prefix_ready")),
+                "model_discovery_required": bool(setup_preflight.get("model_discovery_required")),
+                "discovered_model_count": int(setup_preflight.get("discovered_model_count") or 0),
+                "raw_paths_exported": False,
+                "raw_commands_exported": False,
+                "raw_model_ids_exported": False,
             }
         )
     elif failure_mode in {
