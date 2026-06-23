@@ -11483,6 +11483,176 @@ def test_mock_llm_workflow_route_allows_resolver_miss_when_blocked_before_spawn(
     assert "PRIVATE_CHILD_SESSION_DO_NOT_EXPORT" not in serialized
 
 
+def test_mock_llm_workflow_route_reconstructs_web_researcher_from_nested_web_fetch_parent():
+    raw_input = {
+        "task_id": "fixture-mock-llm-web-researcher-nested-web-fetch",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "sub_agents": {
+            "parent_name": "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+            "agents": [
+                {
+                    "name": "__web_researcher",
+                    "expected_response_key": "research-queue",
+                    "turn_session_ids": ["PRIVATE_RESEARCH_SESSION_DO_NOT_EXPORT"],
+                    "persistence_required": True,
+                    "resolution": {
+                        "resolver_miss": True,
+                        "resolved_agent_name": "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                        "web_researcher_gate": {
+                            "target_name": "__web_researcher",
+                            "parent_path": [
+                                "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                                "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
+                            ],
+                            "bundle": {
+                                "root": {
+                                    "name": "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                                    "tools": {"builtins": []},
+                                    "sub_agents": [
+                                        {
+                                            "name": "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
+                                            "tools": {"builtins": [{"name": "web_fetch"}]},
+                                        }
+                                    ],
+                                }
+                            },
+                        },
+                    },
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "research-queue": [{"content": "nested web fetch research turn"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "research-turn",
+                    "agent": "__web_researcher",
+                    "response_key": "research-queue",
+                    "expect_contains": "research",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_web_researcher_nested_web_fetch_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    resolution = output["sub_agents"]["agents"][0]["resolution"]
+    gate = resolution["web_researcher_gate"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["sub_agents"]["resolution_guard_passed"] is True
+    assert resolution["resolver_miss"] is True
+    assert resolution["reconstructed_on_miss"] is True
+    assert resolution["fallback_to_parent_detected"] is False
+    assert resolution["guard_passed"] is True
+    assert resolution["decision"] == "reconstructed_child_spec"
+    assert gate["target_is_web_researcher"] is True
+    assert gate["root_has_web_fetch"] is False
+    assert gate["parent_path_found"] is True
+    assert gate["parent_has_web_fetch"] is True
+    assert gate["nested_parent_lookup_passed"] is True
+    assert gate["root_only_gate_would_miss"] is True
+    assert gate["reconstruction_supported"] is True
+    assert gate["decision"] == "nested_web_fetch_parent_accepted"
+    assert gate["raw_agent_names_exported"] is False
+    assert "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_RESEARCH_SESSION_DO_NOT_EXPORT" not in serialized
+
+
+def test_mock_llm_workflow_route_blocks_web_researcher_when_nested_web_fetch_parent_missing():
+    raw_input = {
+        "task_id": "fixture-mock-llm-web-researcher-parent-missing",
+        "provider": {"name": "external-chat-provider", "enabled": False},
+        "sub_agents": {
+            "parent_name": "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+            "agents": [
+                {
+                    "name": "__web_researcher",
+                    "expected_response_key": "research-queue",
+                    "turn_session_ids": ["PRIVATE_RESEARCH_SESSION_DO_NOT_EXPORT"],
+                    "persistence_required": True,
+                    "resolution": {
+                        "resolver_miss": True,
+                        "resolved_agent_name": "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                        "web_researcher_gate": {
+                            "target_name": "__web_researcher",
+                            "parent_path": [
+                                "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                                "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
+                            ],
+                            "bundle": {
+                                "root": {
+                                    "name": "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                                    "tools": {"builtins": []},
+                                    "sub_agents": [
+                                        {
+                                            "name": "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
+                                            "tools": {"builtins": []},
+                                        }
+                                    ],
+                                }
+                            },
+                        },
+                    },
+                }
+            ],
+        },
+        "mock_llm": {
+            "enabled": True,
+            "response_queues": {
+                "research-queue": [{"content": "nested web research turn"}],
+            },
+        },
+        "workflow": {
+            "steps": [
+                {
+                    "id": "research-turn",
+                    "agent": "__web_researcher",
+                    "response_key": "research-queue",
+                    "expect_contains": "research",
+                }
+            ]
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "mock_llm_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "mock_llm_web_researcher_parent_missing_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    resolution = output["sub_agents"]["agents"][0]["resolution"]
+    gate = resolution["web_researcher_gate"]
+
+    assert output["route_status"] == "failed"
+    assert output["failure_mode"] == "sub_agent_mock_route_failed"
+    assert output["sub_agents"]["resolution_guard_passed"] is False
+    assert resolution["resolver_miss"] is True
+    assert resolution["fallback_to_parent_detected"] is True
+    assert resolution["guard_passed"] is False
+    assert resolution["failure_mode"] == "parent_clone_fallback"
+    assert gate["parent_path_found"] is True
+    assert gate["parent_has_web_fetch"] is False
+    assert gate["nested_parent_lookup_passed"] is False
+    assert gate["reconstruction_supported"] is False
+    assert gate["decision"] == "web_fetch_parent_missing"
+    assert gate["failure_mode"] == "web_researcher_parent_resolution_miss"
+    assert "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_RESEARCH_SESSION_DO_NOT_EXPORT" not in serialized
+
+
 def test_mock_llm_workflow_route_fails_when_session_reuses_previous_id():
     raw_input = {
         "task_id": "fixture-mock-llm-session-reuse",

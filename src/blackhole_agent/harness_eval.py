@@ -14267,8 +14267,15 @@ def evaluate_mock_named_sub_agent_resolution(
     )
     reconstructed_on_miss = truthy(resolution.get("reconstructed_on_miss"))
     blocked_before_spawn = truthy(resolution.get("blocked_before_spawn"))
+    web_researcher_gate = evaluate_web_researcher_resolution_gate(resolution, name=name)
+    if resolver_miss and web_researcher_gate["reconstruction_supported"]:
+        reconstructed_on_miss = True
     fallback_to_parent = bool(
-        resolver_miss and parent_name and resolved_agent_name == parent_name and name != parent_name
+        resolver_miss
+        and not reconstructed_on_miss
+        and parent_name
+        and resolved_agent_name == parent_name
+        and name != parent_name
     )
     fail_closed_required = resolver_miss and not reconstructed_on_miss
     fail_closed_applied = fail_closed_required and blocked_before_spawn and not fallback_to_parent
@@ -14301,11 +14308,123 @@ def evaluate_mock_named_sub_agent_resolution(
         "guard_passed": guard_passed,
         "decision": decision,
         "failure_mode": failure_mode,
+        "web_researcher_gate": web_researcher_gate,
         "raw_agent_names_exported": False,
         "agent_name_hash": stable_text_hash(name),
         "parent_name_hash": stable_text_hash(parent_name) if parent_name else None,
         "resolved_agent_name_hash": stable_text_hash(resolved_agent_name) if resolved_agent_name else None,
     }
+
+
+def evaluate_web_researcher_resolution_gate(resolution: dict[str, Any], *, name: str) -> dict[str, Any]:
+    """Validate __web_researcher reconstruction can see nested web_fetch owners."""
+
+    gate = resolution.get("web_researcher_gate") if isinstance(resolution.get("web_researcher_gate"), dict) else {}
+    bundle = gate.get("bundle") if isinstance(gate.get("bundle"), dict) else {}
+    root = bundle.get("root") if isinstance(bundle.get("root"), dict) else {}
+    parent_path = string_list(gate.get("parent_path"))
+    target_name = optional_string(gate.get("target_name")) or optional_string(resolution.get("target_name")) or name
+    target_is_web_researcher = target_name == "__web_researcher"
+    declared = bool(gate or bundle or parent_path or target_is_web_researcher)
+
+    root_has_web_fetch = spec_declares_builtin_tool(root, "web_fetch")
+    parent_spec = find_bundle_spec_by_path(root, parent_path) if parent_path else None
+    parent_has_web_fetch = bool(parent_spec and spec_declares_builtin_tool(parent_spec, "web_fetch"))
+    any_nested_parent_has_web_fetch = any(
+        spec_declares_builtin_tool(spec, "web_fetch")
+        for depth, spec in iter_bundle_specs(root)
+        if depth > 0
+    )
+    nested_parent_lookup_passed = parent_has_web_fetch or (not parent_path and any_nested_parent_has_web_fetch)
+    reconstruction_supported = bool(target_is_web_researcher and (root_has_web_fetch or nested_parent_lookup_passed))
+    root_only_gate_would_miss = bool(target_is_web_researcher and not root_has_web_fetch and nested_parent_lookup_passed)
+
+    if not declared:
+        decision = "not_configured"
+        failure_mode = "none"
+    elif not target_is_web_researcher:
+        decision = "not_web_researcher"
+        failure_mode = "none"
+    elif reconstruction_supported:
+        decision = "nested_web_fetch_parent_accepted" if root_only_gate_would_miss else "root_web_fetch_parent_accepted"
+        failure_mode = "none"
+    else:
+        decision = "web_fetch_parent_missing"
+        failure_mode = "web_researcher_parent_resolution_miss"
+
+    return {
+        "declared": declared,
+        "target_is_web_researcher": target_is_web_researcher,
+        "root_has_web_fetch": root_has_web_fetch,
+        "parent_path_supplied": bool(parent_path),
+        "parent_path_hashes": [stable_text_hash(item) for item in parent_path],
+        "parent_path_found": parent_spec is not None if parent_path else False,
+        "parent_has_web_fetch": parent_has_web_fetch,
+        "nested_parent_has_web_fetch": any_nested_parent_has_web_fetch,
+        "nested_parent_lookup_passed": nested_parent_lookup_passed,
+        "root_only_gate_would_miss": root_only_gate_would_miss,
+        "reconstruction_supported": reconstruction_supported,
+        "decision": decision,
+        "failure_mode": failure_mode,
+        "raw_agent_names_exported": False,
+    }
+
+
+def spec_declares_builtin_tool(spec: dict[str, Any], tool_name: str) -> bool:
+    tools = spec.get("tools")
+    if isinstance(tools, list) and any(tool_entry_name(tool) == tool_name for tool in tools):
+        return True
+    if isinstance(tools, dict):
+        builtins = tools.get("builtins") if isinstance(tools.get("builtins"), list) else []
+        if any(tool_entry_name(tool) == tool_name for tool in builtins):
+            return True
+    builtins = spec.get("builtins") if isinstance(spec.get("builtins"), list) else []
+    return any(tool_entry_name(tool) == tool_name for tool in builtins)
+
+
+def tool_entry_name(entry: Any) -> str | None:
+    if isinstance(entry, str):
+        return entry
+    if isinstance(entry, dict):
+        return optional_string(entry.get("name"))
+    return optional_string(getattr(entry, "name", None))
+
+
+def iter_bundle_specs(root: dict[str, Any]) -> list[tuple[int, dict[str, Any]]]:
+    specs: list[tuple[int, dict[str, Any]]] = []
+    stack: list[tuple[int, dict[str, Any]]] = [(0, root)] if root else []
+    while stack:
+        depth, spec = stack.pop()
+        specs.append((depth, spec))
+        children = bundle_spec_children(spec)
+        for child in reversed(children):
+            stack.append((depth + 1, child))
+    return specs
+
+
+def find_bundle_spec_by_path(root: dict[str, Any], path: list[str]) -> dict[str, Any] | None:
+    spec = root
+    if not spec:
+        return None
+    if path and optional_string(spec.get("name")) == path[0]:
+        path = path[1:]
+    for part in path:
+        children = bundle_spec_children(spec)
+        spec = next((child for child in children if optional_string(child.get("name")) == part), None)
+        if spec is None:
+            return None
+    return spec
+
+
+def bundle_spec_children(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    children: list[dict[str, Any]] = []
+    for key in ("sub_agents", "agents", "children"):
+        raw_children = spec.get(key)
+        if isinstance(raw_children, list):
+            children.extend(child for child in raw_children if isinstance(child, dict))
+        elif isinstance(raw_children, dict):
+            children.extend(child for child in raw_children.values() if isinstance(child, dict))
+    return children
 
 
 def evaluate_embedded_native_tool_policy(native_tool_policy: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
