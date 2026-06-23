@@ -1653,6 +1653,12 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
         source_lineage=source_lineage,
     )
+    validation_lane_gate = skill_route_discovery_validation_lane_gate(
+        proposal_lanes=proposal_lanes,
+        activation_lanes=activation_lanes,
+        preactivation_trust_boundary=preactivation_trust_boundary,
+        supervisor_readiness=supervisor_readiness,
+    )
     implementation_intake_preflight = skill_route_discovery_implementation_intake_preflight(
         activation_lanes,
         preactivation_trust_boundary=preactivation_trust_boundary,
@@ -1886,6 +1892,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "provider_runtime_replay_sample": provider_runtime_replay_sample,
         "provider_runtime_diagnostic_panel": provider_runtime_diagnostic_panel,
         "preactivation_trust_boundary": preactivation_trust_boundary,
+        "validation_lane_gate": validation_lane_gate,
         "implementation_intake_preflight": implementation_intake_preflight,
         "local_lane_intake": local_lane_intake,
         "summary_signal_audit": summary_signal_audit,
@@ -11645,6 +11652,83 @@ def skill_route_discovery_supervisor_readiness(
         "remote_execution_allowed": False,
         "raw_evidence_exported": False,
         "restart_or_remote_activation_required": False,
+    }
+
+
+def skill_route_discovery_validation_lane_gate(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    activation_lanes: list[dict[str, Any]],
+    preactivation_trust_boundary: dict[str, Any],
+    supervisor_readiness: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose the local validation conditions that keep skill routes non-executable."""
+
+    allowed_lanes = {"documentation", "config", "test", "code_patch"}
+    proposal_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in proposal_lanes})
+    unsupported_lanes = sorted(set(proposal_kinds) - allowed_lanes)
+    runtime_actions = sorted({str(lane.get("runtime_action") or "") for lane in proposal_lanes})
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    validation_present = all(lane.get("required_validation") == validation_commands for lane in activation_lanes)
+    local_validation_required = bool(proposal_lanes) and all(
+        lane.get("local_validation_required") is True for lane in proposal_lanes
+    )
+    activation_ready = bool(activation_lanes) and all(lane.get("activation_ready") is True for lane in activation_lanes)
+    local_artifact_proof_ready = supervisor_readiness.get("local_artifact_proof_ready") is True
+    trust_boundary_passed = preactivation_trust_boundary.get("status") == "passed"
+    supervisor_ready = supervisor_readiness.get("decision") == "ready_for_supervisor_promotion"
+
+    diagnostics: list[str] = []
+    if not proposal_lanes:
+        diagnostics.append("no_skill_route_proposal_lanes")
+    if unsupported_lanes:
+        diagnostics.append("unsupported_validation_lanes_present")
+    if runtime_actions != ["none"]:
+        diagnostics.append("runtime_action_must_remain_none")
+    if not local_validation_required:
+        diagnostics.append("local_validation_required_missing")
+    if not validation_present:
+        diagnostics.append("required_replay_commands_missing")
+    if not local_artifact_proof_ready:
+        diagnostics.append("local_artifact_proof_not_ready")
+    if not trust_boundary_passed:
+        diagnostics.append("preactivation_trust_boundary_not_passed")
+    if not activation_ready:
+        diagnostics.append("activation_lanes_not_ready")
+
+    status = "ready" if supervisor_ready and not diagnostics else "blocked"
+    return {
+        "controller_surface": "skill_route_discovery_validation_lane_gate",
+        "status": status,
+        "decision": (
+            "validated_local_lanes_ready_for_supervisor_promotion"
+            if status == "ready"
+            else "keep_runtime_action_none_until_local_validation_passes"
+        ),
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lanes": [
+            lane for lane in ["documentation", "config", "test", "code_patch"] if lane in proposal_kinds
+        ],
+        "unsupported_lanes": unsupported_lanes,
+        "activation_lane_count": len(activation_lanes),
+        "ready_lane_count": sum(1 for lane in activation_lanes if lane.get("activation_ready") is True),
+        "blocked_lane_count": sum(1 for lane in activation_lanes if lane.get("activation_ready") is not True),
+        "required_validation": validation_commands,
+        "validation_present": validation_present,
+        "local_validation_required": local_validation_required,
+        "local_artifact_proof_ready": local_artifact_proof_ready,
+        "trust_boundary_passed": trust_boundary_passed,
+        "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
+        "diagnostics": diagnostics,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

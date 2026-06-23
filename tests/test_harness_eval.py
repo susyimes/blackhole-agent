@@ -1749,6 +1749,33 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
     }
+    assert output["validation_lane_gate"] == {
+        "controller_surface": "skill_route_discovery_validation_lane_gate",
+        "status": "ready",
+        "decision": "validated_local_lanes_ready_for_supervisor_promotion",
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "unsupported_lanes": [],
+        "activation_lane_count": 4,
+        "ready_lane_count": 4,
+        "blocked_lane_count": 0,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "validation_present": True,
+        "local_validation_required": True,
+        "local_artifact_proof_ready": True,
+        "trust_boundary_passed": True,
+        "supervisor_decision": "ready_for_supervisor_promotion",
+        "diagnostics": [],
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["implementation_intake_preflight"] == {
         "status": "ready",
         "implementation_allowed": True,
@@ -6604,6 +6631,11 @@ def test_skill_route_discovery_lane_requires_local_artifact_proof_for_handoff():
     assert output["supervisor_readiness"]["reason"] == "local_artifact_proof_not_ready"
     assert output["supervisor_readiness"]["local_artifact_proof_present"] is False
     assert output["supervisor_readiness"]["local_artifact_proof_ready"] is False
+    assert output["validation_lane_gate"]["status"] == "blocked"
+    assert output["validation_lane_gate"]["decision"] == "keep_runtime_action_none_until_local_validation_passes"
+    assert output["validation_lane_gate"]["diagnostics"] == ["local_artifact_proof_not_ready"]
+    assert output["validation_lane_gate"]["runtime_action_allowed"] is False
+    assert output["validation_lane_gate"]["external_skill_activation_allowed"] is False
     assert output["operator_handoff"]["status"] == "blocked"
     assert output["operator_handoff"]["local_artifact_proof_ready"] is False
     assert output["route_profile_review"]["profiles"] == ["skill_ecosystem_state_handoff"]

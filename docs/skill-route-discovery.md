@@ -563,6 +563,16 @@ only lane counts, proposal kinds, recovery hint codes, and replay commands; it
 does not export raw evidence URLs or upstream skill bodies, and it does not
 request restart, remote activation, installation, cloning, or execution.
 
+The harness also emits `validation_lane_gate`, a narrower operator checkpoint
+for the active validation lane. It repeats the allowed local lanes
+(`documentation`, `config`, `test`, and `code_patch`), selected local lanes,
+required replay commands, artifact-proof readiness, trust-boundary state, and
+supervisor decision. If any replay command, local artifact proof, trust boundary,
+or activation-lane condition is missing, the gate reports blocked and keeps
+`runtime_action: none`. It never permits external skill activation, external
+harness execution, provider runtime launch, remote execution, raw evidence URL
+export, or upstream body export.
+
 The final local handoff view is `operator_handoff`. It is derived from
 `implementation_intake_preflight`, `supervisor_readiness`, activation lanes, and
 body-free source lineage. It groups ready local artifact lanes by proposal kind,
