@@ -7,6 +7,7 @@ from blackhole_agent.skill_routing import (
     SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
     SKILL_ROUTE_DISCOVERY_DISABLED,
     SKILL_ROUTE_DISCOVERY_INVALID,
+    SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES,
     NO_SKILL_MATCH,
     ExternalSkillRouteCandidate,
     ExternalSkillEvidenceItem,
@@ -1341,6 +1342,91 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert all(row["runtime_action"] == "none" for row in target_rows.values())
     assert all(row["external_skill_activation_allowed"] is False for row in target_rows.values())
     assert all(row["raw_source_url_exported"] is False for row in target_rows.values())
+
+
+def test_skill_route_discovery_validation_profile_coverage_keeps_all_profiles_bounded():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "FableCodex",
+                "source_url": "https://github.com/baskduf/FableCodex",
+                "summary": "Codex skill workflow gate with review ledger, plugin boundary, tests, and config.",
+                "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+            },
+            {
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "summary": "Skill ecosystem profile handoff with task forest, local memory, privacy boundary, and validation.",
+                "suggested_lanes": ["config", "test", "documentation"],
+            },
+            {
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "summary": "Three.js browser game workflow skills with frontend QA and scaffold tests.",
+                "suggested_lanes": ["test", "documentation", "code_patch"],
+            },
+            {
+                "name": "minimal-skill-note",
+                "source_url": "https://github.com/example/minimal-skill-note",
+                "summary": "Small public agent skill note with local documentation only.",
+                "suggested_lanes": ["documentation"],
+            },
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    coverage = lane_map["validation_profile_coverage"]
+
+    assert coverage["controller_surface"] == "skill_route_discovery_validation_profile_coverage"
+    assert coverage["status"] == "ready"
+    assert coverage["decision"] == "validation_profiles_have_bounded_local_lanes"
+    assert coverage["required_validation_profiles"] == list(SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES)
+    assert coverage["ready_validation_profiles"] == list(SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES)
+    assert coverage["blocked_validation_profiles"] == []
+    assert coverage["ready_profile_count"] == 6
+    assert coverage["blocked_profile_count"] == 0
+    assert coverage["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert coverage["local_validation_required"] is True
+    assert coverage["runtime_action"] == "none"
+    assert coverage["external_skill_activation_allowed"] is False
+    assert coverage["external_harness_execution_allowed"] is False
+    assert coverage["provider_runtime_launch_allowed"] is False
+    assert coverage["remote_execution_allowed"] is False
+    assert coverage["raw_source_url_exported"] is False
+    assert coverage["raw_evidence_urls_exported"] is False
+    assert coverage["raw_upstream_body_exported"] is False
+
+    rows = {row["validation_profile"]: row for row in coverage["rows"]}
+    assert rows["skill_term"]["candidate_names"] == [
+        "compass-skills",
+        "FableCodex",
+        "minimal-skill-note",
+        "threejs-game-skills",
+    ]
+    assert rows["skill_term"]["signal_basis"] == ["matched_skill_term"]
+    assert rows["mixed_skill_workflow_probe"]["candidate_names"] == ["FableCodex"]
+    assert rows["mixed_skill_workflow_probe"]["selected_local_lanes"] == ["test"]
+    assert rows["mixed_skill_workflow_probe"]["signal_basis"] == ["route_probe_decision"]
+    assert rows["generic_skill_workflow"]["candidate_names"] == ["minimal-skill-note"]
+    assert rows["generic_skill_workflow"]["selected_local_lanes"] == ["documentation"]
+    assert rows["skill_ecosystem_state_handoff"]["candidate_names"] == ["compass-skills"]
+    assert rows["skill_ecosystem_state_handoff"]["selected_local_lanes"] == ["config"]
+    assert rows["game_frontend_workflow"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["game_frontend_workflow"]["selected_local_lanes"] == ["test"]
+    assert rows["codex_workflow_gate"]["candidate_names"] == ["FableCodex"]
+    assert rows["codex_workflow_gate"]["selected_local_lanes"] == ["test"]
+    for row in coverage["rows"]:
+        assert row["status"] == "ready"
+        assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
 
 
 def test_skill_route_discovery_mixed_codex_agent_workflow_probe_routes_first_through_skill_lanes():

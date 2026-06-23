@@ -50,6 +50,14 @@ SKILL_ROUTE_DISCOVERY_MIXED_REQUIRED_TERMS = ("codex", "workflow")
 SKILL_ROUTE_DISCOVERY_MIXED_SKILL_TERMS = ("skill", "skills")
 SKILL_ROUTE_DISCOVERY_MIXED_AGENT_TERMS = ("agent", "agents")
 SKILL_ROUTE_DISCOVERY_MIXED_LANE_ORDER = ("test", "documentation", "config", "code_patch")
+SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES = (
+    "skill_term",
+    "mixed_skill_workflow_probe",
+    "generic_skill_workflow",
+    "skill_ecosystem_state_handoff",
+    "game_frontend_workflow",
+    "codex_workflow_gate",
+)
 SKILL_ROUTE_DISCOVERY_DISABLED = "candidate_disabled"
 SKILL_ROUTE_DISCOVERY_INVALID = "invalid_candidate"
 SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE = "proposal_lane"
@@ -932,6 +940,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "downgraded_candidate_count": len(downgraded_candidates),
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
         "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
+        "validation_profile_coverage": _skill_route_discovery_validation_profile_coverage(
+            candidate_lane_inventory
+        ),
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
         "adoption_manifest": adoption_manifest,
@@ -1395,6 +1406,135 @@ def _skill_route_discovery_local_lane_matrix(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_validation_profile_coverage(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose coverage for the pass-3 skill-route validation profiles.
+
+    Some proposal terms, such as a plain skill term or a mixed workflow probe,
+    are evidence shapes rather than route profiles. This report normalizes both
+    kinds of signal into one bounded, body-free operator surface.
+    """
+
+    profile_rows: dict[str, dict[str, Any]] = {
+        profile: {
+            "validation_profile": profile,
+            "status": "not_observed",
+            "candidate_names": [],
+            "candidate_source_hashes": [],
+            "allowed_local_lanes": [],
+            "selected_local_lanes": [],
+            "route_profiles": [],
+            "signal_basis": [],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for profile in SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES
+    }
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        source_hash = _stable_hash(str(candidate.get("source_url") or candidate_name))
+        local_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        if not local_lanes:
+            continue
+
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        selected_lanes = [selected_lane] if selected_lane in local_lanes else [local_lanes[0]]
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        matched_terms = set(_string_list(candidate.get("matched_route_terms")))
+
+        observed_profiles = [profile for profile in route_profiles if profile in profile_rows]
+        if matched_terms & set(SKILL_ROUTE_DISCOVERY_MIXED_SKILL_TERMS):
+            observed_profiles.append("skill_term")
+        if str(candidate.get("route_probe_decision") or "") == "skill_route_discovery_first":
+            observed_profiles.append("mixed_skill_workflow_probe")
+
+        for profile in dict.fromkeys(observed_profiles):
+            row = profile_rows[profile]
+            row["status"] = "ready"
+            row["candidate_names"] = list(
+                dict.fromkeys((*_string_list(row.get("candidate_names")), candidate_name))
+            )
+            row["candidate_source_hashes"] = list(
+                dict.fromkeys((*_string_list(row.get("candidate_source_hashes")), source_hash))
+            )
+            row["allowed_local_lanes"] = [
+                lane
+                for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                if lane in {*_string_list(row.get("allowed_local_lanes")), *local_lanes}
+            ]
+            row["selected_local_lanes"] = list(
+                dict.fromkeys((*_string_list(row.get("selected_local_lanes")), *selected_lanes))
+            )
+            row["route_profiles"] = list(
+                dict.fromkeys((*_string_list(row.get("route_profiles")), *route_profiles))
+            )
+            signal_basis = {
+                "skill_term": ("matched_skill_term",),
+                "mixed_skill_workflow_probe": ("route_probe_decision",),
+            }.get(profile, ("route_profile",))
+            row["signal_basis"] = list(
+                dict.fromkeys(
+                    (
+                        *_string_list(row.get("signal_basis")),
+                        *signal_basis,
+                    )
+                )
+            )
+
+    rows = [profile_rows[profile] for profile in SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES]
+    ready_profiles = [
+        row["validation_profile"]
+        for row in rows
+        if row["status"] == "ready"
+    ]
+    blocked_profiles = [
+        row["validation_profile"]
+        for row in rows
+        if row["status"] != "ready"
+    ]
+
+    return {
+        "controller_surface": "skill_route_discovery_validation_profile_coverage",
+        "status": "ready" if rows and not blocked_profiles else "blocked",
+        "decision": (
+            "validation_profiles_have_bounded_local_lanes"
+            if rows and not blocked_profiles
+            else "collect_or_repair_skill_route_validation_profiles"
+        ),
+        "required_validation_profiles": list(SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES),
+        "ready_validation_profiles": ready_profiles,
+        "blocked_validation_profiles": blocked_profiles,
+        "ready_profile_count": len(ready_profiles),
+        "blocked_profile_count": len(blocked_profiles),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
     }

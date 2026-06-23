@@ -1465,6 +1465,17 @@ remote execution, upstream skill activation, raw source URL export, and upstream
 body export, and remains blocked if a candidate is rejected, downgraded, lacks a
 bounded lane, or misses required `skill_route_discovery_first` proof.
 
+The same lane map now emits `validation_profile_coverage` for pass-3
+source-registry review. It normalizes both route profiles and route signals into
+one operator-visible checklist: `skill_term`, `mixed_skill_workflow_probe`,
+`generic_skill_workflow`, `skill_ecosystem_state_handoff`,
+`game_frontend_workflow`, and `codex_workflow_gate`. Each row reports candidate
+names, source URL hashes, bounded local lanes, selected local lanes, and signal
+basis only. A ready row still means local validation is required and only
+documentation, config, test, or code_patch lanes are available; it does not
+install, enable, execute, launch a provider, run an external harness, perform
+remote execution, export raw source URLs, or export upstream bodies.
+
 Mixed Codex/workflow/skill repositories now get an explicit local probe before
 that split becomes ambiguous. When a selected item has skill-route evidence and
 also mentions Codex, plugins, examples, tests, evals, replay, harness, or other
