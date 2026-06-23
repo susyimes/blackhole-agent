@@ -18689,6 +18689,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     oneshot_marker = raw_input.get("oneshot_marker") if isinstance(raw_input.get("oneshot_marker"), dict) else {}
     observations = raw_input.get("observations") if isinstance(raw_input.get("observations"), list) else []
     report_artifacts = raw_input.get("artifacts") if isinstance(raw_input.get("artifacts"), dict) else {}
+    intake = raw_input.get("intake") if isinstance(raw_input.get("intake"), dict) else {}
     recovery = raw_input.get("recovery") if isinstance(raw_input.get("recovery"), dict) else {}
     stream_boundaries = (
         raw_input.get("streamed_tool_boundaries") if isinstance(raw_input.get("streamed_tool_boundaries"), dict) else {}
@@ -18796,6 +18797,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         report_artifacts=report_artifacts,
+        intake=intake,
         source_path=source_path,
     )
     if failure_mode == "none" and control_plane["failure_mode"] != "none":
@@ -19320,17 +19322,19 @@ def build_agent_workflow_control_plane(
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     report_artifacts: dict[str, Any],
+    intake: dict[str, Any],
     source_path: Path,
 ) -> dict[str, Any]:
     """Summarize intake, mid-flight, recovery, replay, and report readiness."""
 
     report_path = optional_string(report_artifacts.get("report_path"))
     replay_path = optional_string(report_artifacts.get("replay_path"))
+    intake_contract = evaluate_agent_workflow_intake_contract(intake)
     report_contract = evaluate_agent_workflow_report_contract(
         report_artifacts,
         required=validation_gate == "runner-harness-control-plane",
     )
-    intake_ready = bool(task_id and plan_steps)
+    intake_ready = bool(task_id and plan_steps) and bool(intake_contract["passed"])
     midflight_ready = (
         runner_invoked
         and bool(state_transitions)
@@ -19348,8 +19352,20 @@ def build_agent_workflow_control_plane(
         "report": report_ready,
     }
     missing_stages = [stage for stage, ready in stages.items() if not ready]
+    stage_diagnostics = build_agent_workflow_stage_diagnostics(
+        stages=stages,
+        intake_contract=intake_contract,
+        report_contract=report_contract,
+        recovery_handoff=recovery_handoff,
+        observation_result=observation_result,
+        stream_boundary_result=stream_boundary_result,
+        inbox_result=inbox_result,
+        validation_check_count=len(validation_checks),
+        replay_artifact_recorded=bool(replay_path),
+    )
     operator_replay_checklist = build_agent_workflow_operator_replay_checklist(
         missing_stages=missing_stages,
+        stage_diagnostics=stage_diagnostics,
         report_contract=report_contract,
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
@@ -19388,6 +19404,8 @@ def build_agent_workflow_control_plane(
             for stage, ready in stages.items()
         },
         "missing_stages": missing_stages,
+        "stage_diagnostics": stage_diagnostics,
+        "intake": intake_contract,
         "operator_replay_checklist": operator_replay_checklist,
         "replay": {
             "fixture_source_hash": stable_text_hash(source_path.as_posix()),
@@ -19447,6 +19465,7 @@ def build_agent_workflow_control_plane(
 def build_agent_workflow_operator_replay_checklist(
     *,
     missing_stages: list[str],
+    stage_diagnostics: list[dict[str, Any]],
     report_contract: dict[str, Any],
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
@@ -19466,6 +19485,14 @@ def build_agent_workflow_operator_replay_checklist(
         {
             "stage": stage,
             "action": action_by_stage.get(stage, "inspect_control_plane_stage"),
+            "reason": next(
+                (
+                    str(diagnostic.get("reason") or "stage_not_ready")
+                    for diagnostic in stage_diagnostics
+                    if diagnostic.get("stage") == stage
+                ),
+                "stage_not_ready",
+            ),
             "required_before_replay": True,
         }
         for stage in missing_stages
@@ -19522,10 +19549,156 @@ def build_agent_workflow_operator_replay_checklist(
         "action_code_hashes": [stable_text_hash(code) for code in action_codes],
         "required_report_sections": list(AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS),
         "missing_report_sections": list(report_contract.get("missing_sections", [])),
+        "stage_failure_reasons": [
+            {
+                "stage": str(diagnostic.get("stage")),
+                "reason": str(diagnostic.get("reason")),
+                "action": str(diagnostic.get("action")),
+            }
+            for diagnostic in stage_diagnostics
+            if not bool(diagnostic.get("ready"))
+        ],
         "raw_recovery_commands_exported": False,
         "raw_report_body_exported": False,
         "raw_artifact_paths_exported": False,
     }
+
+
+def evaluate_agent_workflow_intake_contract(intake: dict[str, Any]) -> dict[str, Any]:
+    """Summarize source evidence intake without exporting raw URLs or proposal text."""
+
+    required = bool(intake)
+    source_digest = optional_string(intake.get("source_digest"))
+    proposal_ids = string_list(intake.get("proposal_ids"))
+    evidence_urls = string_list(intake.get("evidence_urls"))
+    window = intake.get("capability_window") if isinstance(intake.get("capability_window"), dict) else {}
+    theme = optional_string(window.get("theme"))
+    current_pass = optional_int(window.get("current_pass"))
+    total_passes = optional_int(window.get("total_passes"))
+    required_profiles = string_list(window.get("required_route_profiles"))
+    has_source_digest = bool(source_digest)
+    has_proposals = bool(proposal_ids)
+    has_evidence = bool(evidence_urls)
+    has_window = bool(theme and current_pass is not None and total_passes is not None)
+    missing_fields: list[str] = []
+    if required and not has_source_digest:
+        missing_fields.append("source_digest")
+    if required and not has_proposals:
+        missing_fields.append("proposal_ids")
+    if required and not has_evidence:
+        missing_fields.append("evidence_urls")
+    if required and not has_window:
+        missing_fields.append("capability_window")
+    passed = (not required) or not missing_fields
+
+    return {
+        "required": required,
+        "passed": passed,
+        "failure_mode": "none" if passed else "intake_metadata_missing",
+        "source_digest_recorded": has_source_digest,
+        "source_digest_hash": stable_text_hash(source_digest) if source_digest else None,
+        "proposal_id_count": len(proposal_ids),
+        "proposal_id_hashes": [stable_text_hash(proposal_id) for proposal_id in sorted(proposal_ids)],
+        "evidence_url_count": len(evidence_urls),
+        "evidence_url_hashes": [stable_text_hash(url) for url in sorted(evidence_urls)],
+        "capability_window": {
+            "theme": theme,
+            "current_pass": current_pass,
+            "total_passes": total_passes,
+            "required_route_profile_count": len(required_profiles),
+            "required_route_profile_hashes": [stable_text_hash(profile) for profile in sorted(required_profiles)],
+        },
+        "missing_fields": missing_fields,
+        "raw_evidence_urls_exported": False,
+        "raw_proposal_bodies_exported": False,
+    }
+
+
+def build_agent_workflow_stage_diagnostics(
+    *,
+    stages: dict[str, bool],
+    intake_contract: dict[str, Any],
+    report_contract: dict[str, Any],
+    recovery_handoff: dict[str, Any],
+    observation_result: dict[str, Any],
+    stream_boundary_result: dict[str, Any],
+    inbox_result: dict[str, Any],
+    validation_check_count: int,
+    replay_artifact_recorded: bool,
+) -> list[dict[str, Any]]:
+    """Describe why each control-plane stage is or is not ready."""
+
+    diagnostics: list[dict[str, Any]] = []
+    for stage in ("intake", "midflight", "recovery", "replay", "report"):
+        ready = bool(stages.get(stage))
+        reason = "recorded"
+        action = "none"
+        evidence_counts: dict[str, Any] = {}
+        if stage == "intake":
+            evidence_counts = {
+                "proposal_id_count": intake_contract["proposal_id_count"],
+                "evidence_url_count": intake_contract["evidence_url_count"],
+            }
+            if not ready:
+                reason = str(intake_contract.get("failure_mode") or "intake_missing")
+                action = "record_source_digest_proposals_and_evidence_hashes"
+        elif stage == "midflight":
+            evidence_counts = {
+                "observation_count": observation_result["count"],
+                "stream_event_count": stream_boundary_result["event_count"],
+                "completion_message_count": inbox_result["completion_message_count"],
+            }
+            if not ready:
+                reason = first_control_plane_failure_reason(
+                    observation_result,
+                    stream_boundary_result,
+                    inbox_result,
+                    default="midflight_state_missing",
+                )
+                action = "record_runner_state_and_midflight_contracts"
+        elif stage == "recovery":
+            evidence_counts = {
+                "recovery_command_count": recovery_handoff["command_count"],
+                "blocker_count": len(recovery_handoff["blockers"]),
+            }
+            if not ready:
+                reason = "recovery_handoff_incomplete"
+                action = "record_rollback_ref_artifact_and_recovery_handoff"
+        elif stage == "replay":
+            evidence_counts = {
+                "validation_check_count": validation_check_count,
+                "replay_artifact_recorded": replay_artifact_recorded,
+            }
+            if not ready:
+                reason = "replay_validation_or_command_missing"
+                action = "record_validation_gate_checks_and_replay_command"
+        elif stage == "report":
+            evidence_counts = {
+                "recorded_section_count": report_contract["recorded_section_count"],
+                "missing_section_count": len(report_contract["missing_sections"]),
+            }
+            if not ready:
+                reason = str(report_contract.get("failure_mode") or "report_artifact_missing")
+                action = "record_report_artifact_with_required_sections"
+
+        diagnostics.append(
+            {
+                "stage": stage,
+                "ready": ready,
+                "reason": reason,
+                "action": action,
+                "evidence_counts": evidence_counts,
+                "raw_values_exported": False,
+            }
+        )
+    return diagnostics
+
+
+def first_control_plane_failure_reason(*results: dict[str, Any], default: str) -> str:
+    for result in results:
+        if not bool(result.get("passed", True)):
+            return str(result.get("failure_mode") or default)
+    return default
 
 
 def evaluate_agent_workflow_report_contract(

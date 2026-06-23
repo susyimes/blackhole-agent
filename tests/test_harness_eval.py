@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 64
-    assert payload["pass_count"] == 63
+    assert payload["fixture_count"] == 65
+    assert payload["pass_count"] == 64
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -127,6 +127,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
+    assert results["agent-workflow-route-control-plane-pass2-intake"]["passed"] is True
     assert results["agent-workflow-route-streamed-tool-boundary"]["passed"] is True
     assert results["agent-workflow-route-report-sections-missing"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
@@ -228,6 +229,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_STREAMED_TOOL_ARGUMENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMED_TOOL_RESULT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PASS2_ROUTE_INTAKE_OBSERVATION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_ASSISTANT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -247,6 +249,9 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_RENDERED_HTML_BODY_DO_NOT_EXPORT" not in serialized
     assert "private-link-do-not-export" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/lyra81604/zhengxi-views" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/visa/visa-vulnerability-agentic-harness" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
     assert "https://openrouter.ai" not in serialized

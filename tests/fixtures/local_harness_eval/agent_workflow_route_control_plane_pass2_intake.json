@@ -1,0 +1,212 @@
+{
+  "name": "agent-workflow-route-control-plane-pass2-intake",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-control-plane-pass2-intake",
+    "intake": {
+      "source_digest": "github-growth-20260623T163348.965512Z",
+      "proposal_ids": [
+        "p1-skill-route-discovery-fixtures",
+        "p4-agent-harness-eval-for-omnigent",
+        "10923527070-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/baskduf/FableCodex",
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/omnigent-ai/omnigent"
+      ],
+      "capability_window": {
+        "theme": "runner-harness-control",
+        "current_pass": 2,
+        "total_passes": 4,
+        "required_route_profiles": [
+          "generic_skill_workflow",
+          "skill_ecosystem_state_handoff",
+          "game_frontend_workflow",
+          "codex_workflow_gate",
+          "agent_harness_eval"
+        ]
+      }
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "midflight-state",
+          "status": "completed"
+        },
+        {
+          "id": "recovery-handoff",
+          "status": "completed"
+        },
+        {
+          "id": "replay-artifact",
+          "status": "completed"
+        },
+        {
+          "id": "report-artifact",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "observations": [
+      {
+        "id": "PRIVATE_PASS2_ROUTE_INTAKE_OBSERVATION_DO_NOT_EXPORT",
+        "phase": "midflight",
+        "load_bearing": true,
+        "reliable": true,
+        "observed": true
+      }
+    ],
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-control-plane-pass2-intake",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/blackhole-rollback/20260624T003348Z-runner-harness-control-pass2",
+      "artifact_path": "artifacts/rollback/20260624T003348Z-runner-harness-control-pass2.md"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git switch codex/blackhole-evolve/20260623T163500.431345-add-or-extend-local-tests-fixtures-for-skill-rou",
+        "git reset --hard refs/blackhole-rollback/20260624T003348Z-runner-harness-control-pass2",
+        "git clean -fd"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_control_plane"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/github-growth-20260623T163348Z-runner-harness-control-plane-pass2.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_control_plane_pass2_intake.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "control_plane.complete",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.required",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.passed",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.proposal_id_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.intake.evidence_url_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.intake.capability_window.theme",
+      "equals": "runner-harness-control"
+    },
+    {
+      "path": "control_plane.intake.capability_window.current_pass",
+      "equals": 2
+    },
+    {
+      "path": "control_plane.intake.capability_window.required_route_profile_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.intake.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "control_plane.stage_diagnostics.0.stage",
+      "equals": "intake"
+    },
+    {
+      "path": "control_plane.stage_diagnostics.0.ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.stage_diagnostics.0.evidence_counts.proposal_id_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.stage_diagnostics.1.stage",
+      "equals": "midflight"
+    },
+    {
+      "path": "control_plane.stage_diagnostics.2.stage",
+      "equals": "recovery"
+    },
+    {
+      "path": "control_plane.stage_diagnostics.3.stage",
+      "equals": "replay"
+    },
+    {
+      "path": "control_plane.stage_diagnostics.4.stage",
+      "equals": "report"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.status",
+      "equals": "ready"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.action_count",
+      "equals": 0
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.stage_failure_reasons",
+      "equals": []
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}
