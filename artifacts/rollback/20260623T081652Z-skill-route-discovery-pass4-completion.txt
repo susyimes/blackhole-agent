@@ -1,0 +1,14 @@
+Rollback point for skill-route-discovery pass 4 completion.
+
+Created: 2026-06-23T08:16:52Z source digest run
+Original branch: codex/blackhole-evolve/20260623T081757.204559-add-a-bounded-skill-route-discovery-lane-that-ma
+Original HEAD: 2ace810864ce672d909919cbff94f5c2b93710be
+Rollback ref: refs/blackhole-rollback/20260623T081652Z-skill-route-discovery-pass4
+
+Recovery commands, if an external operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260623T081757.204559-add-a-bounded-skill-route-discovery-lane-that-ma
+git reset --hard refs/blackhole-rollback/20260623T081652Z-skill-route-discovery-pass4
+
+Do not run the recovery commands automatically from the kernel. Rollback is an
+explicit supervisor or human operator decision.

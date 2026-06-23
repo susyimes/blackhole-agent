@@ -1878,6 +1878,7 @@ def _skill_route_discovery_adoption_manifest(
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
                 "replay_command": _skill_route_discovery_replay_command(selected_lane, route_profiles),
+                "promotion_proof": _skill_route_discovery_promotion_proof(selected_lane),
                 "selected_evidence_item_ids": _string_list(candidate.get("evidence_item_ids")),
                 "route_probe_decision": route_probe_decision,
                 "first_route_required": first_route_required,
@@ -1936,7 +1937,81 @@ def _skill_route_discovery_adoption_manifest(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "promotion_readiness": _skill_route_discovery_promotion_readiness(rows, ready=ready),
         "rows": rows,
+    }
+
+
+def _skill_route_discovery_promotion_readiness(
+    manifest_rows: Sequence[Mapping[str, Any]],
+    *,
+    ready: bool,
+) -> dict[str, Any]:
+    """Aggregate manifest rows into a rollback-backed supervisor handoff checklist."""
+
+    rows = [row for row in manifest_rows if isinstance(row, Mapping)]
+    ready_rows = [
+        row
+        for row in rows
+        if str(row.get("manifest_status") or "") == "ready_for_local_validation"
+        and row.get("local_validation_required") is True
+        and str(row.get("runtime_action") or "none") == "none"
+    ]
+    blocked_rows = [row for row in rows if row not in ready_rows]
+    replay_commands = [
+        str(row.get("replay_command") or "")
+        for row in ready_rows
+        if str(row.get("replay_command") or "").strip()
+    ]
+    selected_lanes = [
+        str(row.get("selected_local_lane") or "")
+        for row in ready_rows
+        if str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    target_path_hashes: list[str] = []
+    for row in ready_rows:
+        promotion_proof = row.get("promotion_proof")
+        if not isinstance(promotion_proof, Mapping):
+            continue
+        target_path_hashes.extend(_string_list(promotion_proof.get("target_path_hashes")))
+
+    status = "ready" if ready and rows and not blocked_rows else "blocked"
+    return {
+        "controller_surface": "skill_route_discovery_promotion_readiness",
+        "status": status,
+        "decision": (
+            "replay_bounded_lanes_then_external_supervisor_handoff"
+            if status == "ready"
+            else "repair_manifest_rows_before_promotion"
+        ),
+        "row_count": len(rows),
+        "ready_row_count": len(ready_rows),
+        "blocked_row_count": len(blocked_rows),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "required_evidence": [
+            "rollback_ref",
+            "rollback_artifact",
+            "changed_file_review",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "target_path_hashes": list(dict.fromkeys(target_path_hashes)),
+        "target_path_count": len(dict.fromkeys(target_path_hashes)),
+        "supervisor_handoff": "external_supervisor_only",
+        "kernel_restart_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

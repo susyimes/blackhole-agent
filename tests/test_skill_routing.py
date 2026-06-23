@@ -980,6 +980,45 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert adoption_manifest["raw_evidence_urls_exported"] is False
     assert adoption_manifest["raw_target_paths_exported"] is False
     assert adoption_manifest["raw_upstream_body_exported"] is False
+    assert adoption_manifest["promotion_readiness"] == {
+        "controller_surface": "skill_route_discovery_promotion_readiness",
+        "status": "ready",
+        "decision": "replay_bounded_lanes_then_external_supervisor_handoff",
+        "row_count": 3,
+        "ready_row_count": 3,
+        "blocked_row_count": 0,
+        "selected_local_lanes": ["config", "test"],
+        "replay_commands": [
+            "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow",
+            "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
+            "python -m pytest tests/test_skill_routing.py -q -k game_frontend",
+        ],
+        "required_evidence": [
+            "rollback_ref",
+            "rollback_artifact",
+            "changed_file_review",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "target_path_hashes": [
+            "sha256:9a38f861c194d9e5e004d0f4837e81c564d6cacca53d5f62e09fe0952684650d",
+            "sha256:35e8cf2fc42afff1abd6f9335f74413eac5addc1a1495417739324e0ae26a044",
+            "sha256:a162fbd0b395a34769d0b6de13b75f37e568c0eb3f0e54e51aad4f6bce17007d",
+        ],
+        "target_path_count": 3,
+        "supervisor_handoff": "external_supervisor_only",
+        "kernel_restart_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert {
         "install",
         "execute",
@@ -995,10 +1034,13 @@ def test_skill_route_discovery_proposal_lane_map_bounds_recognized_skill_evidenc
     assert manifest_rows["codex-fable5"]["replay_command"] == (
         "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
     )
+    assert manifest_rows["codex-fable5"]["promotion_proof"]["selected_local_lane"] == "test"
     assert manifest_rows["compass-skills"]["selected_local_lane"] == "config"
     assert manifest_rows["compass-skills"]["validation_target"] == "state_or_profile_boundary_metadata"
+    assert manifest_rows["compass-skills"]["promotion_proof"]["selected_local_lane"] == "config"
     assert manifest_rows["threejs-game-skills"]["selected_local_lane"] == "test"
     assert manifest_rows["threejs-game-skills"]["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert manifest_rows["threejs-game-skills"]["promotion_proof"]["selected_local_lane"] == "test"
     assert all(row["manifest_status"] == "ready_for_local_validation" for row in adoption_manifest["rows"])
     assert all(row["runtime_action"] == "none" for row in adoption_manifest["rows"])
     assert all(row["local_validation_required"] is True for row in adoption_manifest["rows"])
