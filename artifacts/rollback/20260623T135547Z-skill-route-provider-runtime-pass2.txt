@@ -1,0 +1,15 @@
+Rollback point for provider-runtime-control pass 2 skill-route discovery wake
+
+Created: 2026-06-23T13:55:47Z
+Original branch: codex/blackhole-evolve/20260623T135450.547098-add-or-run-a-bounded-local-skill-route-discovery
+Original HEAD: 21fbb002af5c00ac2b56851ff2919ae3b87e6359
+Local rollback ref: refs/rollback/20260623T135547Z-skill-route-provider-runtime-pass2
+
+Recovery commands:
+1. git switch codex/blackhole-evolve/20260623T135450.547098-add-or-run-a-bounded-local-skill-route-discovery
+2. git reset --hard 21fbb002af5c00ac2b56851ff2919ae3b87e6359
+3. Review untracked files before deleting any generated artifacts.
+
+Notes:
+- Rollback execution is explicit and destructive; this run does not execute it.
+- This artifact must not be deleted by the run that created it.

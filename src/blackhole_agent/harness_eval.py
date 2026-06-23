@@ -2657,6 +2657,16 @@ def skill_route_discovery_provider_runtime_diagnostic_panel(
         for lane in activation_lanes
         if isinstance(lane.get("provider_runtime_preflight"), dict)
     ]
+    lane_replay_samples = [
+        lane.get("provider_runtime_replay_sample")
+        for lane in activation_lanes
+        if isinstance(lane.get("provider_runtime_replay_sample"), dict)
+    ]
+    sample_recovery_plan = (
+        lane_replay_samples[0].get("operator_recovery_plan")
+        if lane_replay_samples and isinstance(lane_replay_samples[0].get("operator_recovery_plan"), dict)
+        else {}
+    )
     expected_preflight = skill_route_discovery_provider_runtime_preflight_contract()
     ready_lane_count = sum(1 for lane in activation_lanes if lane.get("activation_ready") is True)
     blocked_lane_count = len(activation_lanes) - ready_lane_count
@@ -2703,7 +2713,7 @@ def skill_route_discovery_provider_runtime_diagnostic_panel(
         and not recovery_hint_codes
     )
 
-    return {
+    panel = {
         "controller_surface": "provider_runtime_control",
         "status": "ready" if ready else "blocked",
         "decision": "replay_provider_runtime_preflight_before_promotion"
@@ -2727,6 +2737,12 @@ def skill_route_discovery_provider_runtime_diagnostic_panel(
         "raw_preflight_inputs_exported": False,
         "raw_diagnostics_exported": False,
     }
+    if lane_replay_samples:
+        panel["provider_runtime_replay_sample_present"] = True
+        panel["sample_operator_recovery_plan"] = sample_recovery_plan or (
+            skill_route_discovery_provider_runtime_sample_recovery_plan({})
+        )
+    return panel
 
 
 def skill_route_discovery_provider_runtime_replay_sample(
@@ -2799,6 +2815,43 @@ def skill_route_discovery_provider_runtime_replay_sample(
         "success_status_label": str(success_status.get("status_label") or ""),
         "success_claim_allowed": success_status.get("success_claim_allowed") is True,
         "operator_next_action": str(operator_plan.get("next_action") or ""),
+        "operator_recovery_plan": skill_route_discovery_provider_runtime_sample_recovery_plan(operator_plan),
+        "replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_sample_recovery_plan(
+    operator_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Project provider-runtime recovery metadata into skill-route handoff output."""
+
+    recovery_hint_codes = string_list(operator_plan.get("recovery_hint_codes"))
+    status_counts = operator_plan.get("status_counts")
+    status_counts = status_counts if isinstance(status_counts, dict) else {}
+    return {
+        "controller_surface": "skill_route_provider_runtime_recovery_plan",
+        "decision": str(operator_plan.get("decision") or ""),
+        "reason": str(operator_plan.get("reason") or ""),
+        "next_action": str(operator_plan.get("next_action") or ""),
+        "preflight_count": int(operator_plan.get("preflight_count") or 0),
+        "status_counts": {
+            "passed": int(status_counts.get("passed") or 0),
+            "degraded": int(status_counts.get("degraded") or 0),
+            "blocked": int(status_counts.get("blocked") or 0),
+        },
+        "recovery_step_count": int(operator_plan.get("recovery_step_count") or 0),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
         "replay_commands": [
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,

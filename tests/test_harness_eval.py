@@ -7457,6 +7457,28 @@ def test_skill_route_discovery_lane_blocks_on_provider_runtime_replay_sample_wit
     assert output["provider_runtime_replay_sample"]["raw_diagnostics_exported"] is False
     assert output["provider_runtime_replay_sample"]["provider_runtime_launch_allowed"] is False
     assert output["provider_runtime_replay_sample"]["remote_execution_allowed"] is False
+    assert output["provider_runtime_replay_sample"]["operator_recovery_plan"] == {
+        "controller_surface": "skill_route_provider_runtime_recovery_plan",
+        "decision": "blocked_recovery_required",
+        "reason": "provider_runtime_recovery_required",
+        "next_action": "resolve_recovery_steps_then_replay",
+        "preflight_count": 1,
+        "status_counts": {"passed": 0, "degraded": 0, "blocked": 1},
+        "recovery_step_count": 1,
+        "recovery_hint_codes": ["provider_env_missing"],
+        "recovery_hint_code_hashes": [stable_text_hash("provider_env_missing")],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+    }
     assert output["activation_lanes"][0]["provider_runtime_control"]["reason"] == (
         "provider_runtime_replay_not_ready"
     )
@@ -7486,6 +7508,29 @@ def test_skill_route_discovery_lane_blocks_on_provider_runtime_replay_sample_wit
         "provider_runtime_preflight_contract_present": True,
         "provider_runtime_preflight_contract_valid": True,
         "provider_runtime_control_present": True,
+        "provider_runtime_replay_sample_present": True,
+        "sample_operator_recovery_plan": {
+            "controller_surface": "skill_route_provider_runtime_recovery_plan",
+            "decision": "blocked_recovery_required",
+            "reason": "provider_runtime_recovery_required",
+            "next_action": "resolve_recovery_steps_then_replay",
+            "preflight_count": 1,
+            "status_counts": {"passed": 0, "degraded": 0, "blocked": 1},
+            "recovery_step_count": 1,
+            "recovery_hint_codes": ["provider_env_missing"],
+            "recovery_hint_code_hashes": [stable_text_hash("provider_env_missing")],
+            "replay_commands": [
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+                "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+            ],
+            "local_validation_required": True,
+            "body_free_diagnostics_only": True,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_preflight_inputs_exported": False,
+            "raw_diagnostics_exported": False,
+            "raw_provider_values_exported": False,
+        },
         "replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
             "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
