@@ -5889,6 +5889,80 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert activation_summary["raw_source_urls_exported"] is False
     assert activation_summary["raw_target_paths_exported"] is False
     assert activation_summary["raw_upstream_body_exported"] is False
+    runbook = pass3_handoff["promotion_runbook"]
+    assert runbook["controller_surface"] == "skill_route_discovery_pass3_promotion_runbook"
+    assert runbook["status"] == "ready"
+    assert runbook["decision"] == "supervisor_can_replay_ordered_pass3_runbook"
+    assert runbook["validation_gate"] == "focused-evidence-review"
+    assert runbook["activation_proof_status"] == "ready"
+    assert runbook["operator_checkpoint_status"] == "ready"
+    assert runbook["profile_validation_proof_status"] == "ready"
+    assert runbook["step_count"] == 2
+    assert runbook["ready_step_count"] == 2
+    assert runbook["blocked_step_count"] == 0
+    assert runbook["selected_local_lanes"] == ["config", "test"]
+    assert runbook["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert runbook["required_validation_command_hashes"] == sorted(
+        stable_text_hash(command)
+        for command in [
+            "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+            "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            "pytest tests/test_harness_eval.py -q -k proposal_interpretation",
+        ]
+    )
+    assert runbook["blockers"] == []
+    assert runbook["diagnostics"] == []
+    assert [
+        (
+            row["step"],
+            row["queue_role"],
+            row["selected_local_lane"],
+            row["route_profiles"],
+            row["profile_validation_gates"],
+            row["status"],
+            row["queue_fingerprint"],
+        )
+        for row in runbook["rows"]
+    ] == [
+        (
+            "replay_selected_current_pass_lane",
+            "selected_current_pass_lane",
+            "test",
+            ["codex_workflow_gate", "game_frontend_workflow"],
+            [
+                "skill_route_discovery_first_before_workflow_gate",
+                "local_frontend_validation_before_game_skill_activation",
+            ],
+            "ready",
+            expected_queue_fingerprints[0],
+        ),
+        (
+            "carry_queued_bounded_lane_to_final_pass",
+            "queued_bounded_lane",
+            "config",
+            ["skill_ecosystem_state_handoff"],
+            ["state_handoff_boundary_before_profile_or_memory_write"],
+            "ready",
+            expected_queue_fingerprints[1],
+        ),
+    ]
+    assert all(row["required_validation_hashes"] == [
+        stable_text_hash(command)
+        for command in skill_route_discovery_preactivation_validation_commands()
+    ] for row in runbook["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in runbook["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in runbook["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in runbook["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in runbook["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in runbook["rows"])
+    assert runbook["runtime_action_allowed"] is False
+    assert runbook["external_skill_activation_allowed"] is False
+    assert runbook["external_harness_execution_allowed"] is False
+    assert runbook["provider_runtime_launch_allowed"] is False
+    assert runbook["raw_evidence_urls_exported"] is False
+    assert runbook["raw_source_urls_exported"] is False
+    assert runbook["raw_target_paths_exported"] is False
+    assert runbook["raw_upstream_body_exported"] is False
     checkpoints = pass3_handoff["operator_checkpoint_list"]
     assert checkpoints["controller_surface"] == "skill_route_discovery_pass3_operator_checkpoint_list"
     assert checkpoints["status"] == "ready"
@@ -6024,6 +6098,21 @@ def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready()
     assert activation_summary["raw_evidence_urls_exported"] is False
     assert activation_summary["raw_source_urls_exported"] is False
     assert activation_summary["raw_target_paths_exported"] is False
+    runbook = pass3_handoff["promotion_runbook"]
+    assert runbook["status"] == "blocked"
+    assert runbook["decision"] == "repair_pass3_promotion_runbook_before_final_pass"
+    assert runbook["activation_proof_status"] == "blocked"
+    assert runbook["operator_checkpoint_status"] == "blocked"
+    assert runbook["profile_validation_proof_status"] == "blocked"
+    assert runbook["ready_step_count"] == 0
+    assert runbook["blocked_step_count"] == 1
+    assert runbook["step_count"] == 1
+    assert "profile_lane_acceptance_contract_not_ready" in runbook["blockers"]
+    assert all(row["status"] == "blocked" for row in runbook["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in runbook["rows"])
+    assert runbook["external_skill_activation_allowed"] is False
+    assert runbook["provider_runtime_launch_allowed"] is False
+    assert runbook["raw_evidence_urls_exported"] is False
     assert proof_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
     assert "profile_acceptance_contract_not_ready" in proof_rows["skill_ecosystem_state_handoff"]["blockers"]
     assert proof_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False

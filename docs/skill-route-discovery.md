@@ -1734,6 +1734,15 @@ target paths, or upstream bodies, and it keeps runtime action, external skill
 activation, external harness execution, provider launch, and remote execution
 denied until the focused local replay has passed.
 
+Pass-3 handoff packets now also include `promotion_runbook`, an ordered
+supervisor replay gate derived from `operator_checkpoint_list`,
+`profile_validation_proof`, and `activation_proof_summary`. The runbook keeps
+the selected current-pass lane and queued bounded lanes in replay order, repeats
+profile validation gates, hashes validation commands, and blocks promotion when
+any proof surface is blocked. It remains body-free and cannot activate upstream
+skills, execute external harnesses, launch providers, perform remote execution,
+or export raw source URLs, evidence URLs, target paths, or upstream bodies.
+
 Pass-4 completion reports include `final_route_handoff_manifest`, a compact
 body-free route manifest for the external supervisor. It presents one row per
 route profile with the selected bounded local lane, operator replay step,

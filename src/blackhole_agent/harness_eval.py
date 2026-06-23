@@ -5408,6 +5408,40 @@ def skill_route_discovery_pass3_handoff_packet(
         ready=ready,
         profile_validation_proof=profile_validation_proof,
     )
+    operator_checkpoint_list = {
+        "controller_surface": "skill_route_discovery_pass3_operator_checkpoint_list",
+        "status": "ready" if ready else "not_applicable" if current_pass != 3 else "blocked",
+        "decision": "operator_can_replay_pass3_checkpoints"
+        if ready
+        else "repair_pass3_checkpoints_before_final_pass",
+        "checkpoint_count": len(operator_checkpoints),
+        "selected_checkpoint_count": len(selected_rows),
+        "queued_checkpoint_count": len(queued_rows),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "rows": operator_checkpoints,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    promotion_runbook = skill_route_discovery_pass3_promotion_runbook(
+        ready=ready,
+        activation_proof_summary=activation_proof_summary,
+        operator_checkpoint_list=operator_checkpoint_list,
+        profile_validation_proof=profile_validation_proof,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -5452,34 +5486,8 @@ def skill_route_discovery_pass3_handoff_packet(
         "profile_activation_gates": profile_activation_gates,
         "profile_validation_proof": profile_validation_proof,
         "activation_proof_summary": activation_proof_summary,
-        "operator_checkpoint_list": {
-            "controller_surface": "skill_route_discovery_pass3_operator_checkpoint_list",
-            "status": "ready" if ready else "not_applicable" if current_pass != 3 else "blocked",
-            "decision": "operator_can_replay_pass3_checkpoints"
-            if ready
-            else "repair_pass3_checkpoints_before_final_pass",
-            "checkpoint_count": len(operator_checkpoints),
-            "selected_checkpoint_count": len(selected_rows),
-            "queued_checkpoint_count": len(queued_rows),
-            "evidence_ref_mode": "selected_item_ids_only",
-            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
-            "rows": operator_checkpoints,
-            "diagnostics": sorted(dict.fromkeys(diagnostics)),
-            "local_validation_required": True,
-            "body_free": True,
-            "runtime_action_allowed": False,
-            "external_skill_activation_allowed": False,
-            "external_skill_code_allowed": False,
-            "external_agent_activation_allowed": False,
-            "external_harness_execution_allowed": False,
-            "provider_runtime_launch_allowed": False,
-            "remote_execution_allowed": False,
-            "raw_evidence_exported": False,
-            "raw_evidence_urls_exported": False,
-            "raw_source_urls_exported": False,
-            "raw_target_paths_exported": False,
-            "raw_upstream_body_exported": False,
-        },
+        "operator_checkpoint_list": operator_checkpoint_list,
+        "promotion_runbook": promotion_runbook,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),
@@ -5491,6 +5499,145 @@ def skill_route_discovery_pass3_handoff_packet(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_promotion_runbook(
+    *,
+    ready: bool,
+    activation_proof_summary: dict[str, Any],
+    operator_checkpoint_list: dict[str, Any],
+    profile_validation_proof: dict[str, Any],
+) -> dict[str, Any]:
+    """Build one ordered supervisor replay gate from pass-3 proof surfaces."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    checkpoint_rows = operator_checkpoint_list.get("rows")
+    checkpoint_rows = checkpoint_rows if isinstance(checkpoint_rows, list) else []
+    proof_rows = profile_validation_proof.get("rows")
+    proof_rows = proof_rows if isinstance(proof_rows, list) else []
+    activation_rows = activation_proof_summary.get("rows")
+    activation_rows = activation_rows if isinstance(activation_rows, list) else []
+
+    proof_by_profile = {
+        optional_string(row.get("route_profile")) or "": row
+        for row in proof_rows
+        if isinstance(row, dict) and optional_string(row.get("route_profile"))
+    }
+    activation_by_profile = {
+        optional_string(row.get("route_profile")) or "": row
+        for row in activation_rows
+        if isinstance(row, dict) and optional_string(row.get("route_profile"))
+    }
+
+    steps: list[dict[str, Any]] = []
+    step_blockers: list[str] = []
+    for raw_row in checkpoint_rows:
+        checkpoint = raw_row if isinstance(raw_row, dict) else {}
+        profiles = string_list(checkpoint.get("route_profiles"))
+        profile_proofs = [proof_by_profile.get(profile, {}) for profile in profiles]
+        profile_summaries = [activation_by_profile.get(profile, {}) for profile in profiles]
+        blockers = sorted(
+            dict.fromkeys(
+                string_list(checkpoint.get("blockers"))
+                + [
+                    f"{profile}:profile_proof_not_ready"
+                    for profile, proof in zip(profiles, profile_proofs, strict=False)
+                    if proof.get("status") != "ready"
+                ]
+                + [
+                    f"{profile}:activation_summary_not_ready"
+                    for profile, summary in zip(profiles, profile_summaries, strict=False)
+                    if summary.get("status") != "ready"
+                ]
+            )
+        )
+        step_blockers.extend(blockers)
+        required_validation = string_list(checkpoint.get("required_validation"))
+        steps.append(
+            {
+                "step": optional_string(checkpoint.get("checkpoint")) or "",
+                "queue_position": int(checkpoint.get("queue_position") or len(steps) + 1),
+                "queue_role": optional_string(checkpoint.get("queue_role")) or "",
+                "status": "ready" if ready and not blockers else "blocked",
+                "selected_local_lane": optional_string(checkpoint.get("selected_local_lane")) or "",
+                "route_profiles": profiles,
+                "profile_validation_gates": [
+                    optional_string(proof.get("validation_gate")) or ""
+                    for proof in profile_proofs
+                    if optional_string(proof.get("validation_gate"))
+                ],
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_id_count": int(checkpoint.get("evidence_item_id_count") or 0),
+                "candidate_source_count": int(checkpoint.get("candidate_source_count") or 0),
+                "queue_fingerprint": optional_string(checkpoint.get("queue_fingerprint")) or "",
+                "required_validation": required_validation,
+                "required_validation_hashes": [stable_text_hash(command) for command in required_validation],
+                "provider_runtime_replay_commands": string_list(
+                    checkpoint.get("provider_runtime_replay_commands")
+                ),
+                "blockers": blockers,
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    promotion_ready = (
+        ready
+        and operator_checkpoint_list.get("status") == "ready"
+        and activation_proof_summary.get("status") == "ready"
+        and profile_validation_proof.get("status") == "ready"
+        and bool(steps)
+        and not step_blockers
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass3_promotion_runbook",
+        "status": "ready" if promotion_ready else "blocked",
+        "decision": "supervisor_can_replay_ordered_pass3_runbook"
+        if promotion_ready
+        else "repair_pass3_promotion_runbook_before_final_pass",
+        "validation_gate": "focused-evidence-review",
+        "activation_proof_status": optional_string(activation_proof_summary.get("status")) or "",
+        "operator_checkpoint_status": optional_string(operator_checkpoint_list.get("status")) or "",
+        "profile_validation_proof_status": optional_string(profile_validation_proof.get("status")) or "",
+        "step_count": len(steps),
+        "ready_step_count": len([step for step in steps if step.get("status") == "ready"]),
+        "blocked_step_count": len([step for step in steps if step.get("status") != "ready"]),
+        "selected_local_lanes": string_list(activation_proof_summary.get("selected_local_lanes")),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "required_validation_command_hashes": string_list(
+            activation_proof_summary.get("required_validation_command_hashes")
+        ),
+        "rows": steps,
+        "diagnostics": sorted(dict.fromkeys(string_list(profile_validation_proof.get("diagnostics")))),
+        "blockers": sorted(dict.fromkeys(step_blockers)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,

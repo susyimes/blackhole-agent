@@ -1,0 +1,11 @@
+Rollback point for github-growth-20260623T091652.873843Z
+
+Original branch: codex/blackhole-evolve/20260623T091814.526345-add-local-validation-for-provider-auth-and-base-
+Original HEAD: 55a693f9fff0622710819c36d58ba1fc05550de5
+Local rollback ref: refs/rollback/20260623T091652Z-skill-route-discovery-pass3
+
+Recovery commands:
+  git reset --hard 55a693f9fff0622710819c36d58ba1fc05550de5
+  git clean -fd
+
+Rollback is explicit and destructive; do not run these commands without operator approval.
