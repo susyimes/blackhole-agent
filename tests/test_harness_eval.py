@@ -3862,6 +3862,88 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         assert row["raw_evidence_urls_exported"] is False
         assert row["raw_source_urls_exported"] is False
         assert row["raw_upstream_body_exported"] is False
+    proposal_catalog = output["proposal_validation_lane_catalog"]
+    assert proposal_catalog["controller_surface"] == "skill_route_discovery_proposal_validation_lane_catalog"
+    assert proposal_catalog["status"] == "ready"
+    assert proposal_catalog["decision"] == "validate_grouped_bounded_local_lanes"
+    assert proposal_catalog["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert proposal_catalog["lane_count"] == 4
+    assert proposal_catalog["candidate_count"] == 4
+    assert proposal_catalog["rows_bounded"] is True
+    assert proposal_catalog["rows_runtime_safe"] is True
+    assert proposal_catalog["all_rows_require_local_validation"] is True
+    assert proposal_catalog["unsupported_lane_count"] == 0
+    assert proposal_catalog["blocked_requested_action_count"] == 0
+    assert proposal_catalog["diagnostics"] == []
+    assert proposal_catalog["source_lineage"] == {
+        "body_free": True,
+        "lineage_mode": "single_or_independent_sources",
+        "candidate_source_count": 4,
+        "related_source_count": 0,
+        "fork_or_mirror_lineage_collapsed": False,
+    }
+    assert proposal_catalog["blocked_discovery_actions"] == [
+        "clone_and_run",
+        "delete_local_skill",
+        "enable",
+        "execute",
+        "install",
+        "run",
+    ]
+    assert proposal_catalog["runtime_action_allowed"] is False
+    assert proposal_catalog["external_skill_activation_allowed"] is False
+    assert proposal_catalog["external_harness_execution_allowed"] is False
+    assert proposal_catalog["provider_runtime_launch_allowed"] is False
+    assert proposal_catalog["remote_execution_allowed"] is False
+    assert proposal_catalog["raw_evidence_exported"] is False
+    assert proposal_catalog["raw_source_urls_exported"] is False
+    assert proposal_catalog["raw_evidence_urls_exported"] is False
+    assert proposal_catalog["raw_upstream_body_exported"] is False
+    assert [row["proposal_kind"] for row in proposal_catalog["rows"]] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    expected_profile_set = {
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    }
+    expected_item_ids = [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-threejs",
+        "p2-skill-route-discovery-zhengxi-views",
+        "p3-mixed-codex-skill-workflow-probe",
+    ]
+    expected_source_hashes = [
+        stable_text_hash("https://github.com/baskduf/FableCodex"),
+        stable_text_hash("https://github.com/dongshuyan/compass-skills"),
+        stable_text_hash("https://github.com/lyra81604/zhengxi-views"),
+        stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+    ]
+    for row in proposal_catalog["rows"]:
+        assert row["candidate_count"] == 4
+        assert set(row["route_profiles"]) == expected_profile_set
+        assert row["evidence_item_ids"] == expected_item_ids
+        assert row["source_hashes"] == expected_source_hashes
+        assert row["evidence_item_id_count"] == 4
+        assert row["unsupported_lane_count"] == 0
+        assert row["blocked_requested_action_count"] == 0
+        assert row["validation_error_count"] == 0
+        assert row["lanes_bounded"] is True
+        assert row["activation_ready"] is True
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
     intake_rows = {
         tuple(row["route_profiles"]): row
         for row in output["candidate_lane_intake"]["rows"]

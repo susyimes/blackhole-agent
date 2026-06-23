@@ -1774,6 +1774,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         evidence_strength=evidence_strength,
         source_lineage=source_lineage,
     )
+    proposal_validation_lane_catalog = skill_route_discovery_proposal_validation_lane_catalog(
+        lane_map=lane_map,
+        activation_lanes=activation_lanes,
+        activation_gate=activation_gate,
+        evidence_strength=evidence_strength,
+        source_lineage=source_lineage,
+    )
     candidate_lane_intake = skill_route_discovery_candidate_lane_intake(
         lane_map=lane_map,
         activation_gate=activation_gate,
@@ -1994,6 +2001,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "term_route_review": term_route_review,
         "mixed_local_lane_probe": mixed_local_lane_probe,
         "evidence_lane_matrix": evidence_lane_matrix,
+        "proposal_validation_lane_catalog": proposal_validation_lane_catalog,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
         "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
@@ -10972,6 +10980,197 @@ def skill_route_discovery_evidence_lane_matrix(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_proposal_validation_lane_catalog(
+    *,
+    lane_map: dict[str, Any],
+    activation_lanes: list[dict[str, Any]],
+    activation_gate: dict[str, Any],
+    evidence_strength: dict[str, Any],
+    source_lineage: dict[str, Any],
+) -> dict[str, Any]:
+    """Group discovered skill evidence by bounded local proposal lane."""
+
+    from blackhole_agent.skill_routing import (
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+        SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS,
+    )
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    proposal_lanes = lane_map.get("proposal_lanes")
+    proposal_lanes = proposal_lanes if isinstance(proposal_lanes, list) else []
+    downgraded_candidates = lane_map.get("downgraded_candidates")
+    downgraded_candidates = downgraded_candidates if isinstance(downgraded_candidates, list) else []
+    rejected_candidates = lane_map.get("rejected_candidates")
+    rejected_candidates = rejected_candidates if isinstance(rejected_candidates, list) else []
+    activation_by_kind = {
+        str(lane.get("proposal_kind") or ""): lane
+        for lane in activation_lanes
+        if str(lane.get("proposal_kind") or "")
+    }
+
+    downgraded_lanes_by_candidate: dict[tuple[str, str], set[str]] = {}
+    validation_errors_by_candidate: dict[tuple[str, str], list[str]] = {}
+    for entry in downgraded_candidates:
+        key = (str(entry.get("name") or ""), str(entry.get("source_url") or ""))
+        downgraded_lanes_by_candidate.setdefault(key, set()).update(string_list(entry.get("rejected_lanes")))
+        validation_errors_by_candidate.setdefault(key, []).extend(string_list(entry.get("validation_errors")))
+    for entry in rejected_candidates:
+        key = (str(entry.get("name") or ""), str(entry.get("source_url") or ""))
+        validation_errors_by_candidate.setdefault(key, []).extend(string_list(entry.get("validation_errors")))
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lane in proposal_lanes:
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        if proposal_kind:
+            grouped.setdefault(proposal_kind, []).append(lane)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for proposal_kind in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+        lanes = grouped.get(proposal_kind, [])
+        if not lanes:
+            continue
+        activation_lane = activation_by_kind.get(proposal_kind, {})
+        candidate_names = sorted(
+            {str(lane.get("candidate_name") or "") for lane in lanes if lane.get("candidate_name")}
+        )
+        source_urls = sorted({str(lane.get("source_url") or "") for lane in lanes if lane.get("source_url")})
+        evidence_item_ids = sorted(
+            {
+                item_id
+                for lane in lanes
+                for item_id in string_list(lane.get("evidence_item_ids"))
+            }
+        )
+        route_profiles = sorted(
+            {
+                profile
+                for lane in lanes
+                for profile in string_list(lane.get("route_profiles"))
+            }
+        )
+        unsupported_lanes = sorted(
+            {
+                unsupported_lane
+                for lane in lanes
+                for unsupported_lane in downgraded_lanes_by_candidate.get(
+                    (str(lane.get("candidate_name") or ""), str(lane.get("source_url") or "")),
+                    set(),
+                )
+            }
+        )
+        validation_errors = sorted(
+            {
+                error
+                for lane in lanes
+                for error in validation_errors_by_candidate.get(
+                    (str(lane.get("candidate_name") or ""), str(lane.get("source_url") or "")),
+                    []
+                )
+            }
+        )
+        blocked_actions = sorted(
+            set(unsupported_lanes) & set(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS)
+        )
+        lane_bounded = proposal_kind in allowed_lanes
+        runtime_action = str(activation_lane.get("runtime_action") or "none")
+        local_validation_required = all(lane.get("local_validation_required") is True for lane in lanes)
+
+        if not lane_bounded:
+            diagnostics.append(f"{proposal_kind}:proposal_lane_unbounded")
+        if runtime_action != "none":
+            diagnostics.append(f"{proposal_kind}:runtime_action_must_be_none")
+        if not local_validation_required:
+            diagnostics.append(f"{proposal_kind}:local_validation_required_missing")
+
+        rows.append(
+            {
+                "proposal_kind": proposal_kind,
+                "candidate_count": len(candidate_names),
+                "candidate_name_hashes": [stable_text_hash(name) for name in candidate_names],
+                "source_hashes": [stable_text_hash(url) for url in source_urls],
+                "route_profiles": route_profiles,
+                "evidence_item_ids": evidence_item_ids,
+                "evidence_item_id_count": len(evidence_item_ids),
+                "unsupported_lane_count": len(unsupported_lanes),
+                "unsupported_lanes": unsupported_lanes,
+                "blocked_requested_action_count": len(blocked_actions),
+                "blocked_requested_action_hashes": [stable_text_hash(action) for action in blocked_actions],
+                "validation_error_count": len(validation_errors),
+                "lanes_bounded": lane_bounded,
+                "activation_ready": activation_lane.get("activation_ready") is True,
+                "activation_blockers": string_list(activation_lane.get("activation_blockers")),
+                "local_validation_required": local_validation_required,
+                "runtime_action": runtime_action,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    rows_bounded = bool(rows) and all(row["lanes_bounded"] for row in rows)
+    rows_runtime_safe = bool(rows) and all(row["runtime_action"] == "none" for row in rows)
+    all_rows_require_validation = bool(rows) and all(row["local_validation_required"] for row in rows)
+    all_rows_ready = bool(rows) and all(row["activation_ready"] for row in rows)
+    ready = (
+        rows_bounded
+        and rows_runtime_safe
+        and all_rows_require_validation
+        and all_rows_ready
+        and not diagnostics
+        and activation_gate.get("local_proposal_activation_allowed") is True
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_proposal_validation_lane_catalog",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "validate_grouped_bounded_local_lanes"
+        if ready
+        else "review_grouped_local_lanes_before_activation",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "lane_count": len(rows),
+        "candidate_count": len(
+            {
+                str(lane.get("candidate_name") or "")
+                for lane in proposal_lanes
+                if str(lane.get("candidate_name") or "")
+            }
+        ),
+        "evidence_tier": str(evidence_strength.get("tier") or ""),
+        "activation_decision": str(activation_gate.get("decision") or ""),
+        "rows": rows,
+        "rows_bounded": rows_bounded,
+        "rows_runtime_safe": rows_runtime_safe,
+        "all_rows_require_local_validation": all_rows_require_validation,
+        "unsupported_lane_count": sum(row["unsupported_lane_count"] for row in rows),
+        "blocked_requested_action_count": sum(row["blocked_requested_action_count"] for row in rows),
+        "source_lineage": {
+            "body_free": source_lineage.get("body_free") is True,
+            "lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+            "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+            "related_source_count": int(source_lineage.get("related_source_count") or 0),
+            "fork_or_mirror_lineage_collapsed": source_lineage.get("fork_or_mirror_lineage_collapsed") is True,
+        },
+        "blocked_discovery_actions": list(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS),
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,

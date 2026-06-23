@@ -643,6 +643,19 @@ runtime action and external skill activation denied. A ready triage plan means
 the lane can be locally reviewed and validated; supervisor handoff can still be
 blocked later when local artifact proof is missing.
 
+The pass-2 lane output also includes `proposal_validation_lane_catalog`. This
+catalog groups the current skill/workflow repository window by local proposal
+lane before activation, so FableCodex, COMPASS Skills, zhengxi-views, and
+Three.js game-skill evidence can be inspected as documentation, config, test,
+and code_patch validation candidates without choosing a runtime route. Each row
+contains only selected item IDs, hashed candidate names, hashed source URLs,
+route profiles, unsupported-lane counts, activation blockers, and the local
+validation requirement. Unsupported runtime-shaped suggestions are counted as
+downgraded or blocked actions, while `runtime_action`, external skill
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw evidence URL export, and upstream body export remain
+denied.
+
 The discovery lane also emits a body-free `route_profile_catalog` and repeats
 bounded `route_profiles` on proposal and triage rows. Current profiles include
 `codex_workflow_gate` for FableCodex-style workflow gates,
