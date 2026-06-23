@@ -468,6 +468,162 @@ def test_provider_runtime_preflight_blocks_chat_config_that_resolves_to_response
     assert "PRIVATE" not in serialized
 
 
+def test_provider_runtime_preflight_preserves_nested_chat_wire_api_shapes():
+    old_shape = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-openai-nested-wire-api",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "openai": {
+                    "wire_api": "chat",
+                    "base_url": "PRIVATE_BASE_URL_DO_NOT_EXPORT",
+                    "models": {"default": "PRIVATE_MODEL_DO_NOT_EXPORT"},
+                },
+                "supported_wire_apis": ["chat", "responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "generated_model_api": "openai-completions",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_openai_nested_wire_api_inline.json",
+    )
+    new_shape = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-provider-config-openai-nested-wire-api",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "provider_config": {
+                    "openai": {
+                        "wire_api": "openai-chat-completions",
+                        "base_url": "PRIVATE_BASE_URL_DO_NOT_EXPORT",
+                        "models": {"default": "PRIVATE_MODEL_DO_NOT_EXPORT"},
+                    }
+                },
+                "supported_wire_apis": ["chat", "responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "generated_model_api": "openai-completions",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR
+        / "provider_runtime_preflight_provider_config_openai_nested_wire_api_inline.json",
+    )
+    serialized = json.dumps({"old_shape": old_shape, "new_shape": new_shape}, sort_keys=True)
+
+    for output in (old_shape, new_shape):
+        assert output["route_status"] == "passed"
+        assert output["failure_mode"] == "none"
+        assert output["wire_api"]["configured"] is True
+        assert output["wire_api"]["selected"] == "chat"
+        assert output["wire_api"]["runner_selected"] == "chat"
+        assert output["wire_api"]["runner_matches_config"] is True
+        assert output["wire_api"]["raw_value_exported"] is False
+        assert output["wire_api"]["runner_raw_value_exported"] is False
+
+    assert "PRIVATE_BASE_URL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_MODEL_DO_NOT_EXPORT" not in serialized
+    assert "openai-chat-completions" not in serialized
+    assert "openai-completions" not in serialized
+
+
+def test_provider_runtime_preflight_reports_missing_or_incompatible_nested_chat_wire_api():
+    missing = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-nested-wire-api-missing",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "wire_api_required": True,
+                "openai": {
+                    "base_url": "PRIVATE_BASE_URL_DO_NOT_EXPORT",
+                    "models": {"default": "PRIVATE_MODEL_DO_NOT_EXPORT"},
+                },
+                "supported_wire_apis": ["chat", "responses"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_nested_wire_api_missing_inline.json",
+    )
+    incompatible = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-nested-wire-api-runner-mismatch",
+            "provider": {
+                "name": "omnigent-openai-compatible",
+                "harness": "omnigent",
+                "openai": {
+                    "wire_api": "chat",
+                    "base_url": "PRIVATE_BASE_URL_DO_NOT_EXPORT",
+                    "models": {"default": "PRIVATE_MODEL_DO_NOT_EXPORT"},
+                },
+                "supported_wire_apis": ["chat", "responses"],
+                "exercised_wire_apis": ["chat"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "generated_model_api": "openai-responses",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR
+        / "provider_runtime_preflight_nested_wire_api_runner_mismatch_inline.json",
+    )
+    serialized = json.dumps({"missing": missing, "incompatible": incompatible}, sort_keys=True)
+
+    assert missing["route_status"] == "blocked"
+    assert missing["failure_mode"] == "provider_wire_api_missing"
+    assert missing["runtime"]["runner_invoked"] is False
+    assert missing["preflight"]["diagnostics"] == ["provider wire API is required but was not configured"]
+    assert missing["recovery_hints"][0]["code"] == "provider_wire_api_missing"
+    assert missing["recovery_hints"][0]["wire_api_configured"] is False
+    assert missing["recovery_hints"][0]["wire_api_selected"] == "unknown"
+
+    assert incompatible["route_status"] == "blocked"
+    assert incompatible["failure_mode"] == "provider_wire_api_runner_mismatch"
+    assert incompatible["runtime"]["runner_invoked"] is False
+    assert incompatible["wire_api"]["selected"] == "chat"
+    assert incompatible["wire_api"]["runner_selected"] == "responses"
+    assert incompatible["preflight"]["diagnostics"] == [
+        "provider wire API was configured but resolved to a different runner route"
+    ]
+    assert incompatible["recovery_hints"][0]["code"] == "provider_wire_api_runner_mismatch"
+    assert incompatible["recovery_hints"][0]["runner_wire_api_selected"] == "responses"
+
+    assert "PRIVATE_BASE_URL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_MODEL_DO_NOT_EXPORT" not in serialized
+    assert "openai-responses" not in serialized
+
+
 def test_provider_runtime_preflight_clears_stale_approval_verdict_on_repark():
     output = evaluate_harness_behavior(
         "provider_runtime_preflight",

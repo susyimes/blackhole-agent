@@ -14930,7 +14930,7 @@ def evaluate_provider_wire_api_preflight(
     """Validate provider wire API routing before a provider harness can launch."""
 
     required = truthy(provider.get("wire_api_required")) or truthy(runtime.get("wire_api_required"))
-    raw_wire_api = runtime.get("wire_api", provider.get("wire_api"))
+    raw_wire_api = resolve_provider_wire_api_value(provider=provider, runtime=runtime)
     selected_wire_api = normalize_provider_wire_api(raw_wire_api)
     configured = selected_wire_api != "unknown"
     raw_runner_wire_api = next(
@@ -15022,6 +15022,31 @@ def evaluate_provider_wire_api_preflight(
         "raw_value_exported": False,
         "diagnostics": diagnostics,
     }
+
+
+def resolve_provider_wire_api_value(*, provider: dict[str, Any], runtime: dict[str, Any]) -> Any:
+    """Return the configured provider wire API from old and nested config shapes."""
+
+    for container in (runtime, provider):
+        if "wire_api" in container:
+            return container.get("wire_api")
+    for container in (runtime, provider):
+        for key in ("openai", "provider_config", "config"):
+            value = nested_provider_wire_api(container.get(key))
+            if value is not None:
+                return value
+    return None
+
+
+def nested_provider_wire_api(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return None
+    if "wire_api" in value:
+        return value.get("wire_api")
+    openai_config = value.get("openai")
+    if isinstance(openai_config, dict) and "wire_api" in openai_config:
+        return openai_config.get("wire_api")
+    return None
 
 
 def evaluate_provider_auth_precedence_preflight(
@@ -15128,7 +15153,11 @@ def normalize_provider_wire_api(value: Any) -> str:
         "chat": "chat",
         "chat_completion": "chat",
         "chat_completions": "chat",
+        "openai_completion": "chat",
+        "openai_completions": "chat",
         "openai_chat": "chat",
+        "openai_chat_completion": "chat",
+        "openai_chat_completions": "chat",
         "responses": "responses",
         "response": "responses",
         "openai_responses": "responses",
