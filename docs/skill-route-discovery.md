@@ -1120,6 +1120,18 @@ external harness execution, provider launch, remote execution, raw evidence URL
 export, raw source URL export, raw target path export, and upstream body export
 remain denied.
 
+The same pass-2 packet now includes `profile_lane_matrix`, a direct
+profile-by-profile lane map derived from the acceptance contract. It records the
+profile, selected bounded local lane, validation scope, validation gate, pass
+role, accepted status, and lane-bounded boolean for generic skill workflows,
+COMPASS-style state handoff, Three.js/game frontend workflows, and
+FableCodex/Codex workflow gates. This matrix is the operator-visible bridge from
+skill evidence to local replay lanes: every row must stay inside
+documentation, config, test, or code_patch; every row keeps `runtime_action:
+none`; and the matrix repeats denials for external skill activation, external
+harness execution, provider launch, remote execution, raw evidence URL export,
+raw source URL export, raw target path export, and upstream body export.
+
 The same row now carries `recovery_replay_packet`, an operator replay packet for
 the selected skill-route action. It translates provider-runtime recovery hint
 codes into scoped replay steps such as adding a body-free sample, repairing

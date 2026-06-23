@@ -5033,6 +5033,44 @@ def skill_route_discovery_pass2_handoff_packet(
         and all(row["accepted_for_local_validation"] for row in profile_summary_rows)
         and set(route_profiles).issubset({row["route_profile"] for row in profile_summary_rows})
     )
+    profile_matrix_rows: list[dict[str, Any]] = []
+    for summary_row in profile_summary_rows:
+        selected_lane = optional_string(summary_row.get("expected_first_local_lane")) or ""
+        allowed = string_list(summary_row.get("allowed_local_lanes"))
+        profile_matrix_rows.append(
+            {
+                "route_profile": summary_row["route_profile"],
+                "pass_role": summary_row["pass_role"],
+                "selected_local_lane": selected_lane,
+                "validation_scope": summary_row["validation_scope"],
+                "validation_gate": summary_row["validation_gate"],
+                "allowed_local_lanes": allowed,
+                "lane_bounded": selected_lane in allowed_lanes and set(allowed).issubset(allowed_lanes),
+                "accepted_for_local_validation": summary_row["accepted_for_local_validation"],
+                "diagnostics": summary_row["diagnostics"],
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+    profile_matrix_ready = (
+        profile_summary_ready
+        and bool(profile_matrix_rows)
+        and all(row["lane_bounded"] for row in profile_matrix_rows)
+        and all(row["accepted_for_local_validation"] for row in profile_matrix_rows)
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass2_handoff_packet",
@@ -5108,6 +5146,48 @@ def skill_route_discovery_pass2_handoff_packet(
             "provider_runtime_replay_commands": string_list(
                 current_action.get("provider_runtime_replay_commands")
             ),
+            "local_validation_required": True,
+            "body_free": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        "profile_lane_matrix": {
+            "controller_surface": "skill_route_discovery_pass2_profile_lane_matrix",
+            "status": "ready" if profile_matrix_ready else "not_applicable" if current_pass != 2 else "blocked",
+            "decision": "profile_lanes_mapped_to_bounded_pass2_lanes"
+            if profile_matrix_ready
+            else "repair_profile_lane_matrix_before_pass2_handoff",
+            "matrix_scope": "pass2_profile_acceptance_rows",
+            "profile_acceptance_contract_status": profile_contract_status,
+            "profile_count": len(profile_matrix_rows),
+            "selected_current_pass_profile_count": sum(
+                1 for row in profile_matrix_rows if row["pass_role"] == "selected_current_pass_profile"
+            ),
+            "queued_profile_count": sum(
+                1 for row in profile_matrix_rows if row["pass_role"] == "queued_profile_for_later_pass"
+            ),
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "selected_local_lanes": sorted(
+                {
+                    row["selected_local_lane"]
+                    for row in profile_matrix_rows
+                    if row["selected_local_lane"]
+                }
+            ),
+            "route_profiles": [row["route_profile"] for row in profile_matrix_rows],
+            "rows": profile_matrix_rows,
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+            "evidence_ref_mode": "selected_item_ids_only",
             "local_validation_required": True,
             "body_free": True,
             "runtime_action_allowed": False,

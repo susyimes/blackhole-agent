@@ -12488,6 +12488,40 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert pass2_summary["secondary_lane_status"] == "blocked_until_local_corroboration"
     assert pass2_summary["secondary_harness_eval_allowed"] is False
 
+    pass2_matrix = output["pass2_handoff_packet"]["profile_lane_matrix"]
+    matrix_serialized = json.dumps(pass2_matrix, sort_keys=True)
+    assert pass2_matrix["controller_surface"] == "skill_route_discovery_pass2_profile_lane_matrix"
+    assert pass2_matrix["status"] == "ready"
+    assert pass2_matrix["decision"] == "profile_lanes_mapped_to_bounded_pass2_lanes"
+    assert pass2_matrix["matrix_scope"] == "pass2_profile_acceptance_rows"
+    assert pass2_matrix["profile_acceptance_contract_status"] == "ready"
+    assert pass2_matrix["profile_count"] == 4
+    assert pass2_matrix["selected_current_pass_profile_count"] == 3
+    assert pass2_matrix["queued_profile_count"] == 1
+    assert pass2_matrix["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert pass2_matrix["selected_local_lanes"] == ["config", "test"]
+    matrix_rows = {row["route_profile"]: row for row in pass2_matrix["rows"]}
+    assert matrix_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert matrix_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert matrix_rows["source_cited_domain_research"]["selected_local_lane"] == "test"
+    assert matrix_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(row["lane_bounded"] is True for row in pass2_matrix["rows"])
+    assert all(row["accepted_for_local_validation"] is True for row in pass2_matrix["rows"])
+    assert all(row["local_validation_required"] is True for row in pass2_matrix["rows"])
+    assert all(row["runtime_action"] == "none" for row in pass2_matrix["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in pass2_matrix["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in pass2_matrix["rows"])
+    assert pass2_matrix["runtime_action_allowed"] is False
+    assert pass2_matrix["external_skill_activation_allowed"] is False
+    assert pass2_matrix["external_harness_execution_allowed"] is False
+    assert pass2_matrix["provider_runtime_launch_allowed"] is False
+    assert pass2_matrix["remote_execution_allowed"] is False
+    assert pass2_matrix["raw_evidence_urls_exported"] is False
+    assert pass2_matrix["raw_source_urls_exported"] is False
+    assert pass2_matrix["raw_target_paths_exported"] is False
+    assert pass2_matrix["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in matrix_serialized
+
     pass2_rows = {row["route_profile"]: row for row in pass2_summary["rows"]}
     assert pass2_rows["codex_workflow_gate"]["pass_role"] == "selected_current_pass_profile"
     assert pass2_rows["codex_workflow_gate"]["expected_first_local_lane"] == "test"
@@ -12514,6 +12548,164 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
     assert "https://github.com/" not in pass2_serialized
+
+
+def test_skill_route_discovery_pass2_profile_lane_matrix_covers_generic_skill_profiles():
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-pass2-generic-profile-matrix",
+            "capability_window": {
+                "theme": "skill-route-discovery",
+                "capability_slice": "Convert skill and route evidence into bounded local lanes before activation.",
+                "current_pass": 2,
+                "total_passes": 4,
+                "required_route_profiles": [
+                    "generic_skill_workflow",
+                    "skill_ecosystem_state_handoff",
+                    "game_frontend_workflow",
+                    "codex_workflow_gate",
+                ],
+                "evidence_urls": [
+                    "https://github.com/baskduf/FableCodex",
+                    "https://github.com/dongshuyan/compass-skills",
+                    "https://github.com/majidmanzarpour/threejs-game-skills",
+                ],
+            },
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "generic-skill-workflow",
+                    "source_url": "https://github.com/example/generic-skill-workflow",
+                    "evidence_summary": (
+                        "Reusable agent skill workflow with selected digest item ids, "
+                        "body-free repository summary, local artifact target, and validation notes."
+                    ),
+                    "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    "evidence_item_ids": ["p4-skill-route-fixture-tests"],
+                    "evidence_urls": ["https://github.com/example/generic-skill-workflow"],
+                },
+                {
+                    "name": "compass-skills",
+                    "source_url": "https://github.com/dongshuyan/compass-skills",
+                    "evidence_summary": (
+                        "Skill ecosystem with task clarification, repo-local local memory, "
+                        "handoff prompts, collaboration profile, route metadata, validation evidence, "
+                        "and privacy boundary notes."
+                    ),
+                    "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    "evidence_item_ids": ["p3-skill-route-discovery-catalog"],
+                    "evidence_urls": ["https://github.com/dongshuyan/compass-skills"],
+                },
+                {
+                    "name": "threejs-game-skills",
+                    "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                    "evidence_summary": (
+                        "Three.js browser game director skill bundle with QA validation, "
+                        "screenshot and canvas checks, asset/provider boundary notes, and generation limits."
+                    ),
+                    "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    "evidence_item_ids": ["p5-game-frontend-skill-profile-check"],
+                    "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"],
+                },
+                {
+                    "name": "codex-fable5",
+                    "source_url": "https://github.com/baskduf/FableCodex",
+                    "evidence_summary": (
+                        "Codex agent skill workflow gate with review ledger, verification habit, "
+                        "plugin routing docs, and local test coverage notes."
+                    ),
+                    "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    "evidence_item_ids": ["p1-skill-route-discovery-matrix"],
+                    "evidence_urls": ["https://github.com/baskduf/FableCodex"],
+                },
+            ],
+            "state_handoff_boundary": {
+                "retention_policy_documented": True,
+                "privacy_boundary_documented": True,
+                "local_target_metadata_only": True,
+                "upstream_presence_grants_write": False,
+            },
+            "local_artifact_proofs": [
+                {
+                    "proposal_kind": "documentation",
+                    "changed_files": ["docs/skill-route-discovery.md"],
+                    "validation_commands": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+                    "rollback_artifact": "artifacts/rollback/20260623T101652Z-skill-route-pass2-profile-lanes.md",
+                    "review_note": "Generic skill workflow documentation lane remains bounded.",
+                },
+                {
+                    "proposal_kind": "config",
+                    "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+                    "validation_commands": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+                    "rollback_artifact": "artifacts/rollback/20260623T101652Z-skill-route-pass2-profile-lanes.md",
+                    "review_note": "State-handoff config lane remains metadata-only.",
+                },
+                {
+                    "proposal_kind": "test",
+                    "changed_files": ["tests/test_harness_eval.py"],
+                    "validation_commands": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+                    "rollback_artifact": "artifacts/rollback/20260623T101652Z-skill-route-pass2-profile-lanes.md",
+                    "review_note": "Profile fixture lanes replay through local tests.",
+                },
+                {
+                    "proposal_kind": "code_patch",
+                    "changed_files": ["src/blackhole_agent/harness_eval.py"],
+                    "validation_commands": ["pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"],
+                    "rollback_artifact": "artifacts/rollback/20260623T101652Z-skill-route-pass2-profile-lanes.md",
+                    "review_note": "Code-patch lane remains a local harness/controller target.",
+                },
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_pass2_generic_profile_matrix_inline.json",
+    )
+    serialized = json.dumps(output["pass2_handoff_packet"], sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    matrix = output["pass2_handoff_packet"]["profile_lane_matrix"]
+    assert matrix["status"] == "blocked"
+    assert matrix["diagnostics"] == [
+        "pass_validation_replay_queue_not_ready",
+        "validation_readiness_summary_not_ready",
+    ]
+    assert matrix["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    rows = {row["route_profile"]: row for row in matrix["rows"]}
+    assert set(rows) == {
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+        "game_frontend_workflow",
+        "codex_workflow_gate",
+    }
+    assert rows["generic_skill_workflow"]["selected_local_lane"] == "documentation"
+    assert rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert set(matrix["selected_local_lanes"]) <= {
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    }
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in matrix["rows"]
+    )
+    assert all(row["lane_bounded"] is True for row in matrix["rows"])
+    assert all(row["accepted_for_local_validation"] is True for row in matrix["rows"])
+    assert all(row["runtime_action"] == "none" for row in matrix["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in matrix["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in matrix["rows"])
+    assert matrix["provider_runtime_launch_allowed"] is False
+    assert matrix["remote_execution_allowed"] is False
+    assert matrix["raw_evidence_urls_exported"] is False
+    assert matrix["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
 
 
 def test_skill_route_discovery_generic_pull_request_prompts_for_local_validation():
