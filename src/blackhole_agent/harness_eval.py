@@ -19348,6 +19348,14 @@ def build_agent_workflow_control_plane(
         "report": report_ready,
     }
     missing_stages = [stage for stage, ready in stages.items() if not ready]
+    operator_replay_checklist = build_agent_workflow_operator_replay_checklist(
+        missing_stages=missing_stages,
+        report_contract=report_contract,
+        recovery_handoff=recovery_handoff,
+        observation_result=observation_result,
+        stream_boundary_result=stream_boundary_result,
+        inbox_result=inbox_result,
+    )
 
     if missing_stages:
         failure_mode = "control_plane_stage_missing"
@@ -19380,6 +19388,7 @@ def build_agent_workflow_control_plane(
             for stage, ready in stages.items()
         },
         "missing_stages": missing_stages,
+        "operator_replay_checklist": operator_replay_checklist,
         "replay": {
             "fixture_source_hash": stable_text_hash(source_path.as_posix()),
             "validation_gate_recorded": bool(validation_gate),
@@ -19432,6 +19441,90 @@ def build_agent_workflow_control_plane(
                 "operator_action": inbox_result["recovery"]["operator_action"],
             },
         },
+    }
+
+
+def build_agent_workflow_operator_replay_checklist(
+    *,
+    missing_stages: list[str],
+    report_contract: dict[str, Any],
+    recovery_handoff: dict[str, Any],
+    observation_result: dict[str, Any],
+    stream_boundary_result: dict[str, Any],
+    inbox_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Return body-free operator actions for replaying an incomplete workflow route."""
+
+    action_by_stage = {
+        "intake": "record_task_id_and_plan_steps",
+        "midflight": "record_runner_state_and_midflight_contracts",
+        "recovery": "record_rollback_ref_artifact_and_recovery_handoff",
+        "replay": "record_validation_gate_checks_and_replay_command",
+        "report": "record_report_artifact_with_required_sections",
+    }
+    actions: list[dict[str, Any]] = [
+        {
+            "stage": stage,
+            "action": action_by_stage.get(stage, "inspect_control_plane_stage"),
+            "required_before_replay": True,
+        }
+        for stage in missing_stages
+    ]
+    for section in report_contract.get("missing_sections", []):
+        actions.append(
+            {
+                "stage": "report",
+                "action": f"add_report_section_{section}",
+                "required_before_replay": True,
+            }
+        )
+    if bool(recovery_handoff.get("required")) and not bool(recovery_handoff.get("ready")):
+        actions.append(
+            {
+                "stage": "recovery",
+                "action": "complete_recovery_handoff",
+                "required_before_replay": True,
+            }
+        )
+    if not bool(observation_result.get("passed", True)):
+        actions.append(
+            {
+                "stage": "midflight",
+                "action": str(observation_result.get("failure_mode") or "inspect_observation_contract"),
+                "required_before_replay": True,
+            }
+        )
+    if not bool(stream_boundary_result.get("passed", True)):
+        actions.append(
+            {
+                "stage": "midflight",
+                "action": str(stream_boundary_result.get("failure_mode") or "inspect_stream_boundary_contract"),
+                "required_before_replay": True,
+            }
+        )
+    if not bool(inbox_result.get("passed", True)):
+        recovery = inbox_result.get("recovery") if isinstance(inbox_result.get("recovery"), dict) else {}
+        actions.append(
+            {
+                "stage": "midflight",
+                "action": str(recovery.get("operator_action") or inbox_result.get("failure_mode")),
+                "required_before_replay": True,
+            }
+        )
+
+    action_codes = sorted(dict.fromkeys(str(action["action"]) for action in actions))
+    return {
+        "controller_surface": "runner_harness_operator_replay_checklist",
+        "status": "ready" if not actions else "blocked",
+        "decision": "ready_for_operator_replay" if not actions else "complete_checklist_before_replay",
+        "action_count": len(actions),
+        "actions": actions,
+        "action_code_hashes": [stable_text_hash(code) for code in action_codes],
+        "required_report_sections": list(AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS),
+        "missing_report_sections": list(report_contract.get("missing_sections", [])),
+        "raw_recovery_commands_exported": False,
+        "raw_report_body_exported": False,
+        "raw_artifact_paths_exported": False,
     }
 
 

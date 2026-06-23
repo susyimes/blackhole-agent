@@ -128,6 +128,18 @@
       "equals": true
     },
     {
+      "path": "control_plane.operator_replay_checklist.status",
+      "equals": "ready"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.action_count",
+      "equals": 0
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.raw_recovery_commands_exported",
+      "equals": false
+    },
+    {
       "path": "control_plane.observation_contract.load_bearing_count",
       "equals": 1
     },

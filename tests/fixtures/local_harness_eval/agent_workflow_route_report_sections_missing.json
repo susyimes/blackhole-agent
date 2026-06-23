@@ -88,6 +88,34 @@
       "equals": false
     },
     {
+      "path": "control_plane.operator_replay_checklist.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.decision",
+      "equals": "complete_checklist_before_replay"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.action_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.actions.0.action",
+      "equals": "record_report_artifact_with_required_sections"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.actions.1.action",
+      "equals": "add_report_section_replay"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.actions.2.action",
+      "equals": "add_report_section_review_notes"
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.raw_report_body_exported",
+      "equals": false
+    },
+    {
       "path": "control_plane.recovery.ready",
       "equals": true
     }
