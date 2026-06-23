@@ -205,6 +205,15 @@ Runner-generated wire API metadata is part of the provider preflight contract. A
 
 Provider tool-dispatch metadata is also checked before launch. If a non-OpenAI model route enables the `web_search` builtin, the preflight requires either a registered local runner dispatch handler or local dispatch replay evidence; otherwise it blocks as `provider_tool_dispatch_missing`. OpenAI native web-search passthrough remains allowed without a local handler. Tool names are represented by counts and hashes, and raw tool config bodies, arguments, provider responses, URLs, and credentials are not exported.
 
+Provider model inventory source attribution is checked before launch as
+metadata only. Fixtures can supply `model_inventory` rows for
+`sys_list_models`-style output, including cursor-native worker rows. A
+dispatchable row whose source resolves to `none`, `unknown`, or an empty value
+blocks as `provider_model_source_none`; a required but absent inventory blocks
+as `provider_model_inventory_missing`. Worker labels, source labels, and model
+identifiers are hashed or counted only, so the check catches misleading
+inventory rows without exporting raw provider config or model ids.
+
 Old runner/host to current server compatibility is also modeled inside
 `provider_runtime_preflight`. A fixture can declare `runner_compat` for the
 Config-2-style bridge where the runner and host are pinned as one colocated old

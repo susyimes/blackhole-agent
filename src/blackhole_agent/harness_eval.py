@@ -14850,6 +14850,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
     auth_header_preflight = evaluate_provider_auth_header_preflight(provider=provider, runtime=runtime)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
+    model_inventory_preflight = evaluate_provider_model_inventory_preflight(provider=provider, runtime=runtime)
     wire_api_preflight = evaluate_provider_wire_api_preflight(provider=provider, runtime=runtime)
     tool_dispatch_preflight = evaluate_provider_tool_dispatch_preflight(provider=provider, runtime=runtime)
     gateway_base_url_preflight = evaluate_provider_gateway_base_url_preflight(provider=provider, runtime=runtime)
@@ -14943,6 +14944,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
+        or not model_inventory_preflight["ok"]
         or not wire_api_preflight["ok"]
         or not tool_dispatch_preflight["ok"]
         or not gateway_base_url_preflight["ok"]
@@ -14972,6 +14974,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
+    diagnostics.extend(model_inventory_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
     diagnostics.extend(tool_dispatch_preflight["diagnostics"])
     diagnostics.extend(gateway_base_url_preflight["diagnostics"])
@@ -15006,6 +15009,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not auth_header_preflight["ok"]
             else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
+            else model_inventory_preflight["failure_mode"]
+            if not model_inventory_preflight["ok"]
             else wire_api_preflight["failure_mode"]
             if not wire_api_preflight["ok"]
             else tool_dispatch_preflight["failure_mode"]
@@ -15111,6 +15116,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "runner_compat": runner_compat_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
+        "model_inventory": model_inventory_preflight,
         "wire_api": wire_api_preflight,
         "tool_dispatch": tool_dispatch_preflight,
         "gateway_base_url": gateway_base_url_preflight,
@@ -15836,6 +15842,110 @@ def evaluate_provider_model_command_preflight(
         "command_arg_count": len(normalized_parts),
         "command_hashes": [stable_text_hash(part) for part in normalized_parts],
         "raw_command_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def evaluate_provider_model_inventory_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate model inventory source attribution before worker launch.
+
+    Inventory rows are metadata-only. Worker names, source labels, and model ids
+    are hashed so sys_list_models-style regressions can be replayed without
+    exporting provider config bodies or model identifiers.
+    """
+
+    raw_inventory = (
+        provider.get("model_inventory")
+        or provider.get("sys_list_models")
+        or runtime.get("model_inventory")
+        or runtime.get("sys_list_models")
+    )
+    rows = [row for row in raw_inventory if isinstance(row, dict)] if isinstance(raw_inventory, list) else []
+    required = (
+        truthy(provider.get("model_inventory_source_required"))
+        or truthy(runtime.get("model_inventory_source_required"))
+        or truthy(provider.get("source_attribution_required"))
+        or truthy(runtime.get("source_attribution_required"))
+    )
+    configured = bool(rows)
+    missing_inventory = required and not configured
+    row_summaries: list[dict[str, Any]] = []
+    missing_source_rows = 0
+
+    for row in rows:
+        worker_label = (
+            optional_string(row.get("worker"))
+            or optional_string(row.get("name"))
+            or optional_string(row.get("provider"))
+            or "unknown-worker"
+        )
+        worker_provider = (
+            optional_string(row.get("worker_provider"))
+            or optional_string(row.get("provider_kind"))
+            or optional_string(row.get("kind"))
+            or worker_label
+        )
+        source = (
+            optional_string(row.get("source"))
+            or optional_string(row.get("model_source"))
+            or optional_string(row.get("provider_source"))
+            or ""
+        ).strip()
+        normalized_source = source.lower()
+        models = row.get("models")
+        model_count = len(models) if isinstance(models, list) else len(string_list(models))
+        dispatchable = (
+            truthy(row.get("dispatchable"))
+            or truthy(row.get("runnable"))
+            or truthy(row.get("available"))
+            or bool(model_count)
+        )
+        source_missing = dispatchable and normalized_source in {"", "none", "unknown", "unavailable", "no_provider"}
+        if source_missing:
+            missing_source_rows += 1
+        row_summaries.append(
+            {
+                "worker_hash": stable_text_hash(worker_label),
+                "worker_provider_hash": stable_text_hash(worker_provider),
+                "source_hash": stable_text_hash(normalized_source) if normalized_source else None,
+                "source_configured": bool(normalized_source),
+                "source_is_none": normalized_source == "none",
+                "dispatchable": dispatchable,
+                "model_count": model_count,
+            }
+        )
+
+    ok = not missing_inventory and missing_source_rows == 0
+    diagnostics: list[str] = []
+    if missing_inventory:
+        diagnostics.append("provider model inventory source attribution is required but no inventory rows were supplied")
+    if missing_source_rows:
+        diagnostics.append("dispatchable provider model inventory rows must report a concrete source")
+
+    if missing_inventory:
+        failure_mode = "provider_model_inventory_missing"
+    elif missing_source_rows:
+        failure_mode = "provider_model_source_none"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "configured": configured,
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "row_count": len(row_summaries),
+        "dispatchable_row_count": sum(1 for row in row_summaries if row["dispatchable"]),
+        "missing_source_row_count": missing_source_rows,
+        "rows": row_summaries,
+        "raw_inventory_exported": False,
+        "raw_worker_names_exported": False,
+        "raw_source_values_exported": False,
+        "raw_model_ids_exported": False,
         "diagnostics": diagnostics,
     }
 
@@ -16811,6 +16921,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
+    model_inventory = preflight.get("model_inventory") if isinstance(preflight.get("model_inventory"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
     tool_dispatch = preflight.get("tool_dispatch") if isinstance(preflight.get("tool_dispatch"), dict) else {}
     gateway_base_url = (
@@ -16938,6 +17049,23 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_required": bool(model_command.get("required")),
                 "command_configured": bool(model_command.get("configured")),
                 "command_arg_count": int(model_command.get("command_arg_count") or 0),
+            }
+        )
+    elif failure_mode in {"provider_model_inventory_missing", "provider_model_source_none"}:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_model_inventory",
+                "severity": "blocker",
+                "action": "repair provider model inventory source attribution before exposing dispatchable worker rows",
+                "inventory_required": bool(model_inventory.get("required")),
+                "inventory_configured": bool(model_inventory.get("configured")),
+                "inventory_row_count": int(model_inventory.get("row_count") or 0),
+                "dispatchable_row_count": int(model_inventory.get("dispatchable_row_count") or 0),
+                "missing_source_row_count": int(model_inventory.get("missing_source_row_count") or 0),
+                "raw_inventory_exported": False,
+                "raw_model_ids_exported": False,
             }
         )
     elif failure_mode == "provider_approval_repark_pending":

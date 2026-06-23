@@ -9346,6 +9346,123 @@ def test_provider_runtime_preflight_blocks_missing_or_malformed_model_command_be
     assert "omnigent run" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_dispatchable_worker_inventory_with_none_source():
+    blocked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-cursor-native-source-none",
+            "provider": {
+                "name": "omnigent-yaml-agent",
+                "harness": "omnigent",
+                "model_inventory_source_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_inventory": [
+                    {
+                        "worker": "cursor",
+                        "worker_provider": "cursor-native",
+                        "dispatchable": True,
+                        "source": "none",
+                        "models": ["PRIVATE_CURSOR_MODEL_DO_NOT_EXPORT"],
+                    }
+                ],
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_cursor_native_source_none_inline.json",
+    )
+    passed = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-cursor-native-source-ready",
+            "provider": {
+                "name": "omnigent-yaml-agent",
+                "harness": "omnigent",
+                "model_inventory_source_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_inventory": [
+                    {
+                        "worker": "cursor",
+                        "worker_provider": "cursor-native",
+                        "dispatchable": True,
+                        "source": "cursor-native",
+                        "models": ["PRIVATE_CURSOR_MODEL_DO_NOT_EXPORT"],
+                    }
+                ],
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_cursor_native_source_ready_inline.json",
+    )
+    serialized = json.dumps({"blocked": blocked, "passed": passed}, sort_keys=True)
+    serialized_inventory = json.dumps(
+        {
+            "blocked": blocked["model_inventory"],
+            "passed": passed["model_inventory"],
+            "recovery_hints": blocked["recovery_hints"],
+        },
+        sort_keys=True,
+    )
+
+    assert blocked["route_status"] == "blocked"
+    assert blocked["failure_mode"] == "provider_model_source_none"
+    assert blocked["runtime"]["runner_invoked"] is False
+    assert blocked["model_inventory"]["required"] is True
+    assert blocked["model_inventory"]["configured"] is True
+    assert blocked["model_inventory"]["row_count"] == 1
+    assert blocked["model_inventory"]["dispatchable_row_count"] == 1
+    assert blocked["model_inventory"]["missing_source_row_count"] == 1
+    assert blocked["model_inventory"]["rows"][0]["dispatchable"] is True
+    assert blocked["model_inventory"]["rows"][0]["source_is_none"] is True
+    assert blocked["model_inventory"]["raw_inventory_exported"] is False
+    assert blocked["model_inventory"]["raw_worker_names_exported"] is False
+    assert blocked["model_inventory"]["raw_source_values_exported"] is False
+    assert blocked["model_inventory"]["raw_model_ids_exported"] is False
+    assert blocked["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_model_source_none",
+            "scope": "provider_model_inventory",
+            "severity": "blocker",
+            "action": "repair provider model inventory source attribution before exposing dispatchable worker rows",
+            "inventory_required": True,
+            "inventory_configured": True,
+            "inventory_row_count": 1,
+            "dispatchable_row_count": 1,
+            "missing_source_row_count": 1,
+            "raw_inventory_exported": False,
+            "raw_model_ids_exported": False,
+        }
+    ]
+    assert blocked["supervisor_replay"]["decision"] == "blocked_before_provider_launch"
+    assert blocked["supervisor_replay"]["reason"] == "provider_model_source_none"
+    assert blocked["supervisor_replay"]["provider_runtime_launch_allowed"] is False
+
+    assert passed["route_status"] == "passed"
+    assert passed["failure_mode"] == "none"
+    assert passed["runtime"]["runner_invoked"] is True
+    assert passed["model_inventory"]["ok"] is True
+    assert passed["model_inventory"]["missing_source_row_count"] == 0
+    assert passed["model_inventory"]["rows"][0]["source_is_none"] is False
+
+    assert "PRIVATE_CURSOR_MODEL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CURSOR_MODEL_DO_NOT_EXPORT" not in serialized_inventory
+    assert "cursor-native" not in serialized_inventory
+
+
 def test_provider_runtime_preflight_blocks_litellm_bedrock_auth_fallback_before_launch():
     missing_passthrough = evaluate_harness_behavior(
         "provider_runtime_preflight",
