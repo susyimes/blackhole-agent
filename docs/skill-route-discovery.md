@@ -423,6 +423,17 @@ work, but the matrix keeps install, enable, run, execute, clone-and-run,
 provider launch, remote execution, raw upstream body export, and external skill
 activation denied before supervisor promotion.
 
+The harness also emits `bounded_profile_lane_matrix`, a profile-by-profile
+view derived from the validation lane plan. It compares required capability
+window profiles with observed route profiles, records missing-profile
+diagnostics, lists only available documentation, config, test, and code_patch
+lanes, and preserves selected lane distinctions such as
+`generic_skill_workflow`, `skill_ecosystem_state_handoff`,
+`game_frontend_workflow`, `source_cited_domain_research`, and
+`codex_workflow_gate`. This matrix is for local validation planning only: it
+does not add lanes, export raw URLs, launch providers, execute upstream code, or
+permit external skill activation.
+
 Each checklist row and activation row also carries
 `inspection_requirements`. This is the bounded local inspection contract for
 mapping a public skill repository into work: selected digest item IDs or frozen

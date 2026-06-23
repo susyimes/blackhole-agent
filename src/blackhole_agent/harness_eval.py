@@ -1761,6 +1761,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         route_discovery_catalog=route_discovery_catalog,
     )
+    bounded_profile_lane_matrix = skill_route_discovery_bounded_profile_lane_matrix(
+        raw_input=raw_input,
+        validation_lane_plan=validation_lane_plan,
+    )
     validation_work_queue = skill_route_discovery_validation_work_queue(
         validation_lane_plan=validation_lane_plan,
         candidate_lane_intake=candidate_lane_intake,
@@ -1908,6 +1912,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_lane_selection": preactivation_lane_selection,
         "route_discovery_catalog": route_discovery_catalog,
         "validation_lane_plan": validation_lane_plan,
+        "bounded_profile_lane_matrix": bounded_profile_lane_matrix,
         "validation_work_queue": validation_work_queue,
         "current_action": current_action,
         "current_action_provider_runtime_preflight": current_action_provider_runtime_preflight,
@@ -4033,6 +4038,139 @@ def skill_route_discovery_validation_lane_plan(
         ],
         "local_validation_required": True,
         "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_bounded_profile_lane_matrix(
+    *,
+    raw_input: dict[str, Any],
+    validation_lane_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Show which bounded local lanes are available for each route profile."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    plan_rows = validation_lane_plan.get("rows")
+    plan_rows = plan_rows if isinstance(plan_rows, list) else []
+    allowed_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    allowed_lane_set = set(allowed_lanes)
+    required_profiles = sorted(dict.fromkeys(string_list(window.get("required_route_profiles"))))
+    observed_profiles = sorted(
+        {
+            optional_string(row.get("route_profile")) or "generic_skill_workflow"
+            for row in plan_rows
+            if isinstance(row, dict)
+        }
+    )
+    profiles = sorted(dict.fromkeys([*required_profiles, *observed_profiles]))
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for profile in profiles:
+        matching_rows = [
+            row
+            for row in plan_rows
+            if isinstance(row, dict)
+            and (optional_string(row.get("route_profile")) or "generic_skill_workflow") == profile
+        ]
+        lane_order: list[str] = []
+        selected_lanes: list[str] = []
+        candidate_source_hashes: list[str] = []
+        evidence_item_ids: list[str] = []
+        candidate_count = 0
+        row_diagnostics: list[str] = []
+        for row in matching_rows:
+            local_lanes = [lane for lane in string_list(row.get("allowed_local_lanes")) if lane in allowed_lane_set]
+            lane_order.extend(local_lanes)
+            selected_lane = optional_string(row.get("selected_local_lane")) or ""
+            if selected_lane:
+                selected_lanes.append(selected_lane)
+            candidate_source_hashes.extend(string_list(row.get("candidate_source_hashes")))
+            evidence_item_ids.extend(string_list(row.get("evidence_item_ids")))
+            candidate_count += int(row.get("candidate_count") or 0)
+            row_diagnostics.extend(string_list(row.get("diagnostics")))
+            unsupported = [
+                lane
+                for lane in string_list(row.get("allowed_local_lanes"))
+                if lane and lane not in allowed_lane_set
+            ]
+            if unsupported:
+                row_diagnostics.append("unsupported_local_lane_present")
+        lane_order = [lane for lane in allowed_lanes if lane in set(lane_order)]
+        selected_lanes = [lane for lane in allowed_lanes if lane in set(selected_lanes)]
+        present = bool(matching_rows)
+        if not present:
+            row_diagnostics.append("route_profile_missing")
+        if present and not lane_order:
+            row_diagnostics.append("bounded_local_lanes_missing")
+        if any(lane not in allowed_lane_set for lane in selected_lanes):
+            row_diagnostics.append("selected_local_lane_not_bounded")
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        diagnostics.extend(f"{profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "route_profile": profile,
+                "present": present,
+                "candidate_count": candidate_count,
+                "selected_local_lanes": selected_lanes,
+                "available_local_lanes": lane_order,
+                "lane_count": len(lane_order),
+                "lanes_bounded": set(lane_order) <= allowed_lane_set,
+                "evidence_item_ids": sorted(dict.fromkeys(evidence_item_ids)),
+                "evidence_item_id_count": len(set(evidence_item_ids)),
+                "candidate_source_hashes": sorted(dict.fromkeys(candidate_source_hashes)),
+                "candidate_source_count": len(set(candidate_source_hashes)),
+                "diagnostics": row_diagnostics,
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    diagnostics = sorted(dict.fromkeys(diagnostics))
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_bounded_profile_lane_matrix",
+        "status": "ready" if ready else "review" if rows else "blocked",
+        "decision": "profile_lanes_bounded_for_local_validation"
+        if ready
+        else "repair_profile_lane_matrix_before_activation",
+        "required_route_profiles": required_profiles,
+        "observed_route_profiles": observed_profiles,
+        "missing_route_profiles": [
+            profile for profile in required_profiles if profile not in set(observed_profiles)
+        ],
+        "allowed_local_lanes": allowed_lanes,
+        "profile_count": len(rows),
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,

@@ -3645,6 +3645,48 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
         "skill_ecosystem_state_handoff",
         "source_cited_domain_research",
     ]
+    bounded_matrix = output["bounded_profile_lane_matrix"]
+    assert bounded_matrix["controller_surface"] == "skill_route_discovery_bounded_profile_lane_matrix"
+    assert bounded_matrix["status"] == "ready"
+    assert bounded_matrix["decision"] == "profile_lanes_bounded_for_local_validation"
+    assert bounded_matrix["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert bounded_matrix["required_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert bounded_matrix["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert bounded_matrix["missing_route_profiles"] == []
+    assert bounded_matrix["diagnostics"] == []
+    matrix_rows = {row["route_profile"]: row for row in bounded_matrix["rows"]}
+    assert set(matrix_rows) == {
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    }
+    assert matrix_rows["codex_workflow_gate"]["selected_local_lanes"] == ["test"]
+    assert matrix_rows["game_frontend_workflow"]["selected_local_lanes"] == ["test"]
+    assert matrix_rows["skill_ecosystem_state_handoff"]["selected_local_lanes"] == ["config"]
+    assert matrix_rows["source_cited_domain_research"]["selected_local_lanes"] == ["test"]
+    for row in matrix_rows.values():
+        assert row["present"] is True
+        assert row["available_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+        assert row["lanes_bounded"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
     intake_rows = {
         tuple(row["route_profiles"]): row
         for row in output["candidate_lane_intake"]["rows"]
@@ -4045,6 +4087,74 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_skill_route_discovery_bounded_profile_lane_matrix_preserves_generic_profile():
+    commands = skill_route_discovery_preactivation_validation_commands()
+    input_payload = {
+        "task_id": "fixture-skill-route-discovery-generic-profile-matrix",
+        "capability_window": {
+            "theme": "skill-route-discovery",
+            "current_pass": 2,
+            "total_passes": 4,
+            "required_route_profiles": ["generic_skill_workflow"],
+        },
+        "source_kind": "candidates",
+        "candidates": [
+            {
+                "name": "generic-agent-skill",
+                "source_url": "https://github.com/example/generic-agent-skill",
+                "evidence_summary": (
+                    "Agent skill workflow with prompts, route metadata, validation notes, "
+                    "and local documentation boundaries."
+                ),
+                "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                "route_hints": ["skill_route_discovery"],
+                "evidence_item_ids": ["generic-skill-workflow"],
+                "evidence_urls": ["https://github.com/example/generic-agent-skill"],
+            }
+        ],
+        "local_artifact_proofs": [
+            {
+                "proposal_kind": proposal_kind,
+                "changed_files": ["tests/test_harness_eval.py"],
+                "validation_commands": commands,
+                "rollback_artifact": "artifacts/rollback/generic-profile-matrix.md",
+                "review_note": "Generic profile matrix remains bounded to local validation lanes.",
+            }
+            for proposal_kind in ["documentation", "config", "test", "code_patch"]
+        ],
+    }
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        input_payload,
+        source_path=None,
+    )
+    matrix = output["bounded_profile_lane_matrix"]
+    rows = {row["route_profile"]: row for row in matrix["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert matrix["status"] == "ready"
+    assert matrix["required_route_profiles"] == ["generic_skill_workflow"]
+    assert matrix["observed_route_profiles"] == ["generic_skill_workflow"]
+    assert matrix["missing_route_profiles"] == []
+    assert rows["generic_skill_workflow"]["present"] is True
+    assert rows["generic_skill_workflow"]["available_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert rows["generic_skill_workflow"]["selected_local_lanes"] == ["test"]
+    assert rows["generic_skill_workflow"]["lanes_bounded"] is True
+    assert rows["generic_skill_workflow"]["runtime_action"] == "none"
+    assert rows["generic_skill_workflow"]["external_skill_activation_allowed"] is False
+    assert rows["generic_skill_workflow"]["provider_runtime_launch_allowed"] is False
+    assert rows["generic_skill_workflow"]["raw_evidence_urls_exported"] is False
+    assert matrix["runtime_action_allowed"] is False
+    assert matrix["external_skill_activation_allowed"] is False
 
 
 def test_skill_route_discovery_summary_signal_audit_bounds_compass_summary_intake():
