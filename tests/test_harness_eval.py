@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 60
-    assert payload["pass_count"] == 59
+    assert payload["fixture_count"] == 61
+    assert payload["pass_count"] == 60
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -159,6 +159,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-approval-repark-pending"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
+    assert results["provider-runtime-preflight-openrouter-harness-base-url-mismatch"]["passed"] is True
     assert results["provider-runtime-preflight-omnigent-model-command-missing"]["passed"] is True
     assert results["provider-runtime-preflight-runner-compat-bridge-missing"]["passed"] is True
     assert results["provider-runtime-preflight-wire-api-chat"]["passed"] is True
@@ -241,6 +242,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/visa/visa-vulnerability-agentic-harness" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+    assert "https://openrouter.ai" not in serialized
 
     failing_assertions = results["fail-harness-summary"]["assertions"]
     assert failing_assertions[0]["passed"] is True
@@ -371,6 +373,91 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
     assert unsupported["wire_api"]["exercised"] is True
 
     assert "PRIVATE" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_gateway_base_url_harness_mismatch_without_url_export():
+    claude_mismatch = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-openrouter-claude-mismatch",
+            "provider": {
+                "name": "omnigent-claude-openrouter",
+                "harness": "claude-code",
+                "gateway": "openrouter",
+                "base_url": "https://openrouter.ai/api/v1",
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_gateway_base_url_claude_mismatch_inline.json",
+    )
+    codex_match = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-openrouter-codex-match",
+            "provider": {
+                "name": "omnigent-codex-openrouter",
+                "harness": "codex",
+                "gateway": "openrouter",
+                "base_url": "https://openrouter.ai/api/v1",
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_gateway_base_url_codex_match_inline.json",
+    )
+    serialized = json.dumps({"claude_mismatch": claude_mismatch, "codex_match": codex_match}, sort_keys=True)
+
+    assert claude_mismatch["route_status"] == "blocked"
+    assert claude_mismatch["failure_mode"] == "provider_gateway_base_url_harness_mismatch"
+    assert claude_mismatch["gateway_base_url"]["gateway"] == "openrouter"
+    assert claude_mismatch["gateway_base_url"]["harness_family"] == "claude"
+    assert claude_mismatch["gateway_base_url"]["expected_endpoint"] == "anthropic_compatible_api"
+    assert claude_mismatch["gateway_base_url"]["selected_endpoint"] == "openai_compatible_v1"
+    assert claude_mismatch["gateway_base_url"]["endpoint_matches_harness"] is False
+    assert claude_mismatch["gateway_base_url"]["raw_base_url_exported"] is False
+    assert claude_mismatch["runtime"]["runner_invoked"] is False
+    assert claude_mismatch["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["claude-code"],
+            "value_recorded": False,
+            "code": "provider_gateway_base_url_harness_mismatch",
+            "scope": "provider_gateway_base_url",
+            "severity": "blocker",
+            "action": "configure the gateway base URL shape expected by the selected provider harness before launch",
+            "gateway": "openrouter",
+            "harness_family": "claude",
+            "expected_endpoint": "anthropic_compatible_api",
+            "selected_endpoint": "openai_compatible_v1",
+            "endpoint_matches_harness": False,
+            "base_url_configured": True,
+            "base_url_recorded": False,
+            "raw_base_url_exported": False,
+        }
+    ]
+
+    assert codex_match["route_status"] == "passed"
+    assert codex_match["gateway_base_url"]["harness_family"] == "codex"
+    assert codex_match["gateway_base_url"]["expected_endpoint"] == "openai_compatible_v1"
+    assert codex_match["gateway_base_url"]["selected_endpoint"] == "openai_compatible_v1"
+    assert codex_match["gateway_base_url"]["endpoint_matches_harness"] is True
+    assert codex_match["runtime"]["runner_invoked"] is True
+
+    assert "https://openrouter.ai" not in serialized
+    assert "api/v1" not in serialized
 
 
 def test_provider_runtime_preflight_blocks_chat_config_that_resolves_to_responses_runner_route():

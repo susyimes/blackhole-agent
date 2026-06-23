@@ -14006,6 +14006,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     auth_header_preflight = evaluate_provider_auth_header_preflight(provider=provider, runtime=runtime)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     wire_api_preflight = evaluate_provider_wire_api_preflight(provider=provider, runtime=runtime)
+    gateway_base_url_preflight = evaluate_provider_gateway_base_url_preflight(provider=provider, runtime=runtime)
     review_model_preflight = evaluate_provider_review_model_preflight(provider=provider, runtime=runtime)
     usage_limit_preflight = evaluate_provider_usage_limit_preflight(provider=provider, runtime=runtime)
     install_linkage_preflight = evaluate_provider_install_linkage_preflight(provider=provider, runtime=runtime)
@@ -14097,6 +14098,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not wire_api_preflight["ok"]
+        or not gateway_base_url_preflight["ok"]
         or not auth_precedence_preflight["ok"]
         or env_preflight_failed
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
@@ -14124,6 +14126,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
+    diagnostics.extend(gateway_base_url_preflight["diagnostics"])
     diagnostics.extend(auth_precedence_preflight["diagnostics"])
     diagnostics.extend(
         build_provider_env_diagnostics(
@@ -14157,6 +14160,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not model_command_preflight["ok"]
             else wire_api_preflight["failure_mode"]
             if not wire_api_preflight["ok"]
+            else gateway_base_url_preflight["failure_mode"]
+            if not gateway_base_url_preflight["ok"]
             else auth_precedence_preflight["failure_mode"]
             if not auth_precedence_preflight["ok"]
             else "provider_env_missing"
@@ -14257,6 +14262,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "wire_api": wire_api_preflight,
+        "gateway_base_url": gateway_base_url_preflight,
         "auth_precedence": auth_precedence_preflight,
     }
     recovery_hints = provider_runtime_recovery_hints_for_preflight(output)
@@ -15206,6 +15212,169 @@ def nested_provider_wire_api(value: Any) -> Any:
     return None
 
 
+def evaluate_provider_gateway_base_url_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate harness-specific gateway base URL shape without exporting URLs."""
+
+    raw_policy = provider.get("gateway_base_url", runtime.get("gateway_base_url"))
+    policy = raw_policy if isinstance(raw_policy, dict) else {}
+    base_url = (
+        optional_string(policy.get("base_url"))
+        or optional_string(provider.get("gateway_base_url"))
+        or optional_string(runtime.get("gateway_base_url"))
+        or optional_string(provider.get("base_url"))
+        or optional_string(runtime.get("base_url"))
+    )
+    harness = optional_string(policy.get("harness") or provider.get("harness") or runtime.get("harness")) or ""
+    gateway = normalize_provider_gateway(
+        policy.get("gateway")
+        or policy.get("provider")
+        or provider.get("gateway")
+        or provider.get("gateway_provider")
+        or runtime.get("gateway")
+        or runtime.get("gateway_provider")
+        or gateway_from_base_url(base_url)
+    )
+    expected_endpoint = normalize_gateway_endpoint_kind(
+        policy.get("expected_endpoint")
+        or policy.get("expected_endpoint_kind")
+        or provider.get("expected_gateway_endpoint")
+        or runtime.get("expected_gateway_endpoint")
+    )
+    inferred_expected = infer_gateway_endpoint_for_harness(gateway=gateway, harness=harness)
+    if expected_endpoint == "unknown":
+        expected_endpoint = inferred_expected
+    selected_endpoint = classify_gateway_base_url_endpoint(base_url)
+    required = (
+        truthy(policy.get("required"))
+        or truthy(provider.get("gateway_base_url_required"))
+        or truthy(runtime.get("gateway_base_url_required"))
+        or bool(policy)
+        or expected_endpoint != "unknown"
+    )
+    configured = bool(base_url)
+    parsed = urlparse(base_url) if base_url else None
+    malformed = bool(base_url and (parsed is None or parsed.scheme not in {"http", "https"} or not parsed.netloc))
+    endpoint_matches_harness = (
+        expected_endpoint == "unknown"
+        or selected_endpoint == "unknown"
+        or selected_endpoint == expected_endpoint
+    )
+    missing = required and not configured
+    mismatch = configured and not malformed and not endpoint_matches_harness
+    ok = not missing and not malformed and not mismatch
+
+    diagnostics: list[str] = []
+    if missing:
+        diagnostics.append("gateway base URL is required before provider harness launch")
+    if malformed:
+        diagnostics.append("gateway base URL must be an absolute http(s) URL")
+    if mismatch:
+        diagnostics.append("gateway base URL endpoint shape does not match the selected provider harness")
+
+    if missing:
+        failure_mode = "provider_gateway_base_url_missing"
+    elif malformed:
+        failure_mode = "provider_gateway_base_url_malformed"
+    elif mismatch:
+        failure_mode = "provider_gateway_base_url_harness_mismatch"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "configured": configured,
+        "gateway": gateway,
+        "gateway_hash": stable_text_hash(gateway) if gateway != "unknown" else None,
+        "harness_family": normalize_gateway_harness_family(harness),
+        "expected_endpoint": expected_endpoint,
+        "selected_endpoint": selected_endpoint,
+        "endpoint_matches_harness": endpoint_matches_harness,
+        "malformed": malformed,
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "base_url_hash": stable_text_hash(base_url) if base_url else None,
+        "base_url_recorded": False,
+        "raw_base_url_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_provider_gateway(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "open_router": "openrouter",
+        "openrouter": "openrouter",
+        "litellm": "litellm",
+        "lite_llm": "litellm",
+        "ollama": "ollama",
+        "azure_openai": "azure_openai",
+    }
+    return aliases.get(text, text or "unknown")
+
+
+def gateway_from_base_url(base_url: str | None) -> str:
+    parsed = urlparse(base_url or "")
+    host = (parsed.hostname or "").lower()
+    if "openrouter.ai" in host:
+        return "openrouter"
+    if "ollama" in host:
+        return "ollama"
+    return "unknown"
+
+
+def normalize_gateway_endpoint_kind(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "anthropic": "anthropic_compatible_api",
+        "anthropic_api": "anthropic_compatible_api",
+        "anthropic_compatible": "anthropic_compatible_api",
+        "anthropic_compatible_api": "anthropic_compatible_api",
+        "api": "anthropic_compatible_api",
+        "openai": "openai_compatible_v1",
+        "openai_api": "openai_compatible_v1",
+        "openai_compatible": "openai_compatible_v1",
+        "openai_compatible_v1": "openai_compatible_v1",
+        "v1": "openai_compatible_v1",
+    }
+    return aliases.get(text, "unknown")
+
+
+def infer_gateway_endpoint_for_harness(*, gateway: str, harness: str) -> str:
+    if gateway != "openrouter":
+        return "unknown"
+    family = normalize_gateway_harness_family(harness)
+    if family == "claude":
+        return "anthropic_compatible_api"
+    if family in {"codex", "openai_agents"}:
+        return "openai_compatible_v1"
+    return "unknown"
+
+
+def normalize_gateway_harness_family(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if "claude" in text or "anthropic" in text:
+        return "claude"
+    if "openai" in text and "agent" in text:
+        return "openai_agents"
+    if "codex" in text:
+        return "codex"
+    return text or "unknown"
+
+
+def classify_gateway_base_url_endpoint(base_url: str | None) -> str:
+    parsed = urlparse(base_url or "")
+    path = parsed.path.rstrip("/").lower()
+    if path.endswith("/api/v1") or path == "/v1":
+        return "openai_compatible_v1"
+    if path.endswith("/api"):
+        return "anthropic_compatible_api"
+    return "unknown"
+
+
 def evaluate_provider_auth_precedence_preflight(
     *,
     provider: dict[str, Any],
@@ -15639,6 +15808,9 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
+    gateway_base_url = (
+        preflight.get("gateway_base_url") if isinstance(preflight.get("gateway_base_url"), dict) else {}
+    )
     auth_precedence = preflight.get("auth_precedence") if isinstance(preflight.get("auth_precedence"), dict) else {}
     failure_mode = optional_string(preflight.get("failure_mode")) or "none"
     harness = optional_string(provider.get("harness")) or optional_string(provider.get("name")) or "unknown-provider"
@@ -15831,6 +16003,28 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "runner_wire_api_matches_config": bool(wire_api.get("runner_matches_config")),
                 "raw_value_exported": False,
                 "runner_raw_value_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_gateway_base_url_harness_mismatch",
+        "provider_gateway_base_url_malformed",
+        "provider_gateway_base_url_missing",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_gateway_base_url",
+                "severity": "blocker",
+                "action": "configure the gateway base URL shape expected by the selected provider harness before launch",
+                "gateway": optional_string(gateway_base_url.get("gateway")) or "unknown",
+                "harness_family": optional_string(gateway_base_url.get("harness_family")) or "unknown",
+                "expected_endpoint": optional_string(gateway_base_url.get("expected_endpoint")) or "unknown",
+                "selected_endpoint": optional_string(gateway_base_url.get("selected_endpoint")) or "unknown",
+                "endpoint_matches_harness": bool(gateway_base_url.get("endpoint_matches_harness")),
+                "base_url_configured": bool(gateway_base_url.get("configured")),
+                "base_url_recorded": False,
+                "raw_base_url_exported": False,
             }
         )
     elif failure_mode in {

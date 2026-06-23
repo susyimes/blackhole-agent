@@ -1,0 +1,77 @@
+{
+  "name": "provider-runtime-preflight-openrouter-harness-base-url-mismatch",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-openrouter-harness-base-url-mismatch",
+    "provider": {
+      "name": "omnigent-claude-openrouter",
+      "harness": "claude-code",
+      "gateway": "openrouter",
+      "base_url": "https://openrouter.ai/api/v1"
+    },
+    "sandbox": {
+      "active": false,
+      "type": "none"
+    },
+    "runtime": {
+      "platform": "linux",
+      "cli_resolved_in_runner": true,
+      "launch_transport": "subprocess"
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ],
+      "passthrough": []
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_gateway_base_url_harness_mismatch"
+    },
+    {
+      "path": "gateway_base_url.gateway",
+      "equals": "openrouter"
+    },
+    {
+      "path": "gateway_base_url.harness_family",
+      "equals": "claude"
+    },
+    {
+      "path": "gateway_base_url.expected_endpoint",
+      "equals": "anthropic_compatible_api"
+    },
+    {
+      "path": "gateway_base_url.selected_endpoint",
+      "equals": "openai_compatible_v1"
+    },
+    {
+      "path": "gateway_base_url.endpoint_matches_harness",
+      "equals": false
+    },
+    {
+      "path": "gateway_base_url.raw_base_url_exported",
+      "equals": false
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "provider_gateway_base_url_harness_mismatch"
+    },
+    {
+      "path": "supervisor_replay.provider_runtime_launch_allowed",
+      "equals": false
+    }
+  ]
+}
