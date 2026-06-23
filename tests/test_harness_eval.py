@@ -4004,6 +4004,40 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert completion["completion_recovery"]["recovery_hint_codes"] == [
         "provider_runtime_preflight_sample_missing"
     ]
+    final_diagnostics = completion["provider_runtime_final_diagnostics"]
+    replay_workflow = final_diagnostics["operator_replay_workflow"]
+    assert final_diagnostics["status"] == "blocked"
+    assert final_diagnostics["decision"] == "repair_provider_runtime_sample_before_supervisor_replay"
+    assert replay_workflow["controller_surface"] == "provider_runtime_operator_replay_workflow"
+    assert replay_workflow["status"] == "blocked"
+    assert replay_workflow["decision"] == "repair_provider_runtime_sample_before_supervisor_replay"
+    assert replay_workflow["provider_runtime_theme"] is True
+    assert replay_workflow["step_count"] == 4
+    assert replay_workflow["ready_step_count"] == 1
+    assert replay_workflow["blocked_step_count"] == 3
+    assert replay_workflow["completion_blocker_count"] == 2
+    assert replay_workflow["recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+    assert replay_workflow["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert replay_workflow["skill_route_validation_commands"] == (
+        skill_route_discovery_preactivation_validation_commands()
+    )
+    assert replay_workflow["body_free_diagnostics_only"] is True
+    assert replay_workflow["provider_runtime_launch_allowed"] is False
+    assert replay_workflow["remote_execution_allowed"] is False
+    assert replay_workflow["raw_preflight_inputs_exported"] is False
+    assert replay_workflow["raw_provider_values_exported"] is False
+    workflow_rows = {row["step"]: row for row in replay_workflow["steps"]}
+    assert workflow_rows["provider_runtime_sample_gate"]["status"] == "blocked"
+    assert workflow_rows["provider_runtime_sample_gate"]["ready"] is False
+    assert workflow_rows["provider_runtime_recovery_summary"]["status"] == "missing"
+    assert workflow_rows["provider_runtime_recovery_summary"]["sample_provided"] is False
+    assert workflow_rows["provider_runtime_recovery_summary"]["success_claim_allowed"] is False
+    assert workflow_rows["provider_runtime_diagnostic_panel"]["status"] == "ready"
+    assert workflow_rows["provider_runtime_diagnostic_panel"]["ready"] is True
+    assert workflow_rows["completion_handoff"]["status"] == "blocked"
     assert "OPENAI_API_KEY" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
@@ -4191,6 +4225,45 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
         "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
         "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
     ]
+    replay_workflow = final_diagnostics["operator_replay_workflow"]
+    assert replay_workflow["controller_surface"] == "provider_runtime_operator_replay_workflow"
+    assert replay_workflow["status"] == "ready"
+    assert replay_workflow["decision"] == "provider_runtime_final_diagnostics_ready_for_supervisor_replay"
+    assert replay_workflow["supervisor_next_action"] == (
+        "supervisor_replay_provider_runtime_preflight_then_promote"
+    )
+    assert replay_workflow["provider_runtime_theme"] is True
+    assert replay_workflow["planned_window_complete"] is True
+    assert replay_workflow["proposal_kind_count"] == 4
+    assert replay_workflow["route_profile_count"] == 3
+    assert replay_workflow["step_count"] == 4
+    assert replay_workflow["ready_step_count"] == 4
+    assert replay_workflow["blocked_step_count"] == 0
+    assert replay_workflow["completion_blocker_count"] == 0
+    assert replay_workflow["recovery_hint_count"] == 0
+    assert replay_workflow["recovery_hint_codes"] == []
+    assert replay_workflow["provider_runtime_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    assert replay_workflow["skill_route_validation_commands"] == (
+        skill_route_discovery_preactivation_validation_commands()
+    )
+    assert [row["step"] for row in replay_workflow["steps"]] == [
+        "provider_runtime_sample_gate",
+        "provider_runtime_recovery_summary",
+        "provider_runtime_diagnostic_panel",
+        "completion_handoff",
+    ]
+    assert all(row["ready"] is True for row in replay_workflow["steps"])
+    assert replay_workflow["body_free_diagnostics_only"] is True
+    assert replay_workflow["runtime_action_allowed"] is False
+    assert replay_workflow["external_skill_activation_allowed"] is False
+    assert replay_workflow["provider_runtime_launch_allowed"] is False
+    assert replay_workflow["remote_execution_allowed"] is False
+    assert replay_workflow["raw_preflight_inputs_exported"] is False
+    assert replay_workflow["raw_diagnostics_exported"] is False
+    assert replay_workflow["raw_provider_values_exported"] is False
     assert completion["completion_handoff"]["provider_runtime_final_diagnostics"] == final_diagnostics
     assert final_diagnostics["body_free_diagnostics_only"] is True
     assert final_diagnostics["runtime_action_allowed"] is False

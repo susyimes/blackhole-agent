@@ -1114,6 +1114,19 @@ external skill code, external harness execution, provider launch, remote
 execution, raw evidence URLs, raw source URLs, raw preflight inputs, raw
 diagnostics, raw provider values, raw target paths, and upstream bodies.
 
+Final provider-runtime diagnostics also include
+`provider_runtime_operator_replay_workflow`. This is the flat operator checklist
+for the same handoff: provider-runtime sample gate, provider-runtime recovery
+summary, diagnostic panel, and completion handoff each get a status, decision,
+readiness boolean, and recovery-code hashes. The workflow repeats the local
+provider-runtime replay commands and the skill-route validation commands so a
+supervisor can replay the path without expanding nested packets. It is a
+diagnostic and recovery surface only: it does not grant runtime action, external
+skill activation, external skill code execution, external harness execution,
+provider launch, remote execution, raw evidence URL export, raw source URL
+export, raw preflight input export, raw diagnostic export, raw provider value
+export, raw target path export, or upstream body export.
+
 For final pass skill-route handoff, `capability_window_completion` also emits
 `completion_report`. This is the compact operator summary to read before
 traversing the nested activation packet, final closure, and provider-runtime

@@ -8958,6 +8958,21 @@ def skill_route_discovery_provider_runtime_final_diagnostics(
             provider_runtime_completion_handoff.get("supervisor_next_action")
         ) or "repair_provider_runtime_completion_handoff"
 
+    operator_replay_workflow = skill_route_discovery_provider_runtime_operator_replay_workflow(
+        diagnostic_status=diagnostic_status,
+        diagnostic_decision=diagnostic_decision,
+        supervisor_next_action=supervisor_next_action,
+        provider_runtime_theme=provider_runtime_theme,
+        planned_window_complete=planned_window_complete,
+        proposal_kinds=proposal_kinds,
+        route_profiles=route_profiles,
+        diagnostics=diagnostics,
+        provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
+        provider_runtime_sample_gate=provider_runtime_sample_gate,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+        provider_runtime_completion_handoff=provider_runtime_completion_handoff,
+    )
+
     return {
         "controller_surface": "provider_runtime_final_diagnostics",
         "status": diagnostic_status,
@@ -8984,11 +8999,142 @@ def skill_route_discovery_provider_runtime_final_diagnostics(
         "recovery_hint_count": len(recovery_hint_codes),
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "operator_replay_workflow": operator_replay_workflow,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_operator_replay_workflow(
+    *,
+    diagnostic_status: str,
+    diagnostic_decision: str,
+    supervisor_next_action: str,
+    provider_runtime_theme: bool,
+    planned_window_complete: bool,
+    proposal_kinds: list[str],
+    route_profiles: list[str],
+    diagnostics: list[str],
+    provider_runtime_diagnostic_panel: dict[str, Any],
+    provider_runtime_sample_gate: dict[str, Any],
+    provider_runtime_replay_sample: dict[str, Any],
+    provider_runtime_completion_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose final provider-runtime replay as an ordered, body-free workflow."""
+
+    panel_status = optional_string(provider_runtime_diagnostic_panel.get("status")) or "blocked"
+    gate_status = optional_string(provider_runtime_sample_gate.get("status")) or "blocked"
+    handoff_status = optional_string(provider_runtime_completion_handoff.get("status")) or "blocked"
+    sample_route_status = optional_string(provider_runtime_replay_sample.get("route_status")) or "missing"
+    recovery_hint_codes = sorted(
+        dict.fromkeys(
+            (
+                *string_list(provider_runtime_diagnostic_panel.get("recovery_hint_codes")),
+                *string_list(provider_runtime_completion_handoff.get("recovery_hint_codes")),
+            )
+        )
+    )
+    completion_blockers = sorted(dict.fromkeys(str(diagnostic) for diagnostic in diagnostics if str(diagnostic)))
+    sample_provided = provider_runtime_replay_sample.get("provided") is True
+    sample_ready_for_local_replay = provider_runtime_replay_sample.get("ready_for_local_replay") is True
+    sample_ready_for_supervisor_promotion = (
+        provider_runtime_replay_sample.get("ready_for_supervisor_promotion") is True
+    )
+    success_claim_allowed = provider_runtime_replay_sample.get("success_claim_allowed") is True
+
+    steps = [
+        {
+            "step": "provider_runtime_sample_gate",
+            "status": gate_status,
+            "decision": optional_string(provider_runtime_sample_gate.get("decision")) or "",
+            "ready": gate_status == "ready",
+            "recovery_hint_code_hashes": [
+                stable_text_hash(code)
+                for code in string_list(provider_runtime_sample_gate.get("recovery_hint_codes"))
+            ],
+        },
+        {
+            "step": "provider_runtime_recovery_summary",
+            "status": sample_route_status,
+            "decision": optional_string(provider_runtime_replay_sample.get("supervisor_decision")) or "",
+            "ready": sample_ready_for_local_replay and sample_ready_for_supervisor_promotion,
+            "sample_provided": sample_provided,
+            "success_claim_allowed": success_claim_allowed,
+            "recovery_hint_code_hashes": [
+                stable_text_hash(code)
+                for code in string_list(provider_runtime_replay_sample.get("recovery_hint_codes"))
+            ],
+        },
+        {
+            "step": "provider_runtime_diagnostic_panel",
+            "status": panel_status,
+            "decision": optional_string(provider_runtime_diagnostic_panel.get("decision")) or "",
+            "ready": panel_status == "ready",
+            "recovery_hint_code_hashes": [
+                stable_text_hash(code)
+                for code in string_list(provider_runtime_diagnostic_panel.get("recovery_hint_codes"))
+            ],
+        },
+        {
+            "step": "completion_handoff",
+            "status": handoff_status,
+            "decision": optional_string(provider_runtime_completion_handoff.get("decision")) or "",
+            "ready": handoff_status == "ready",
+            "recovery_hint_code_hashes": [
+                stable_text_hash(code)
+                for code in string_list(provider_runtime_completion_handoff.get("recovery_hint_codes"))
+            ],
+        },
+    ]
+    ready_step_count = sum(1 for step in steps if step["ready"])
+    blocked_step_count = len(steps) - ready_step_count
+
+    return {
+        "controller_surface": "provider_runtime_operator_replay_workflow",
+        "status": diagnostic_status,
+        "decision": diagnostic_decision,
+        "supervisor_next_action": supervisor_next_action,
+        "provider_runtime_theme": provider_runtime_theme,
+        "planned_window_complete": planned_window_complete,
+        "proposal_kind_count": len(proposal_kinds),
+        "proposal_kind_hashes": [stable_text_hash(kind) for kind in proposal_kinds],
+        "route_profile_count": len(route_profiles),
+        "route_profile_hashes": [stable_text_hash(profile) for profile in route_profiles],
+        "step_count": len(steps),
+        "ready_step_count": ready_step_count,
+        "blocked_step_count": blocked_step_count,
+        "steps": steps,
+        "completion_blocker_count": len(completion_blockers),
+        "completion_blocker_hashes": [stable_text_hash(blocker) for blocker in completion_blockers],
+        "recovery_hint_count": len(recovery_hint_codes),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "provider_runtime_replay_commands": [
+            PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+            PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+        ],
+        "skill_route_validation_commands": skill_route_discovery_preactivation_validation_commands(),
         "local_validation_required": True,
         "body_free": True,
         "body_free_diagnostics_only": True,

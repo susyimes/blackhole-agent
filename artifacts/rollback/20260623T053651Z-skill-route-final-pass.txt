@@ -1,0 +1,8 @@
+Rollback point: 20260623T053651Z-skill-route-final-pass
+Original branch: codex/blackhole-evolve/20260623T053757.999363-add-or-extend-local-validation-coverage-for-skil
+Original HEAD: 567dec372c46aeb58ad637cafdd965961aaebe45
+Rollback ref: refs/rollback/20260623T053651Z-skill-route-final-pass
+Recovery commands:
+git switch codex/blackhole-evolve/20260623T053757.999363-add-or-extend-local-validation-coverage-for-skil
+git reset --hard refs/rollback/20260623T053651Z-skill-route-final-pass
+git clean -fd
