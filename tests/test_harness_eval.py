@@ -11731,6 +11731,7 @@ def test_mock_llm_workflow_route_reconstructs_web_researcher_from_nested_web_fet
                             "target_name": "__web_researcher",
                             "parent_path": [
                                 "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT",
+                                "PRIVATE_INTERMEDIATE_PARENT_DO_NOT_EXPORT",
                                 "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
                             ],
                             "bundle": {
@@ -11739,8 +11740,14 @@ def test_mock_llm_workflow_route_reconstructs_web_researcher_from_nested_web_fet
                                     "tools": {"builtins": []},
                                     "sub_agents": [
                                         {
-                                            "name": "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
-                                            "tools": {"builtins": [{"name": "web_fetch"}]},
+                                            "name": "PRIVATE_INTERMEDIATE_PARENT_DO_NOT_EXPORT",
+                                            "tools": {"builtins": []},
+                                            "sub_agents": [
+                                                {
+                                                    "name": "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT",
+                                                    "tools": {"builtins": [{"name": "web_fetch"}]},
+                                                }
+                                            ],
                                         }
                                     ],
                                 }
@@ -11787,14 +11794,18 @@ def test_mock_llm_workflow_route_reconstructs_web_researcher_from_nested_web_fet
     assert resolution["decision"] == "reconstructed_child_spec"
     assert gate["target_is_web_researcher"] is True
     assert gate["root_has_web_fetch"] is False
+    assert gate["parent_path_depth"] == 3
     assert gate["parent_path_found"] is True
+    assert gate["matching_parent_depth"] == 2
     assert gate["parent_has_web_fetch"] is True
     assert gate["nested_parent_lookup_passed"] is True
+    assert gate["nested_web_fetch_depths"] == [2]
     assert gate["root_only_gate_would_miss"] is True
     assert gate["reconstruction_supported"] is True
     assert gate["decision"] == "nested_web_fetch_parent_accepted"
     assert gate["raw_agent_names_exported"] is False
     assert "PRIVATE_ROOT_COORDINATOR_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_INTERMEDIATE_PARENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_NESTED_FETCH_PARENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RESEARCH_SESSION_DO_NOT_EXPORT" not in serialized
 
@@ -11872,7 +11883,9 @@ def test_mock_llm_workflow_route_blocks_web_researcher_when_nested_web_fetch_par
     assert resolution["guard_passed"] is False
     assert resolution["failure_mode"] == "parent_clone_fallback"
     assert gate["parent_path_found"] is True
+    assert gate["matching_parent_depth"] == 1
     assert gate["parent_has_web_fetch"] is False
+    assert gate["nested_web_fetch_depths"] == []
     assert gate["nested_parent_lookup_passed"] is False
     assert gate["reconstruction_supported"] is False
     assert gate["decision"] == "web_fetch_parent_missing"

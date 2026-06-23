@@ -1,0 +1,14 @@
+Rollback point for blackhole-agent self-evolution run
+
+Original branch: codex/blackhole-evolve/20260623T105758.169972-add-a-local-regression-test-for-resolver-gate-ha
+Original HEAD: ec00db0514c17d0dffdf52bcb638e5618e463b6e
+Local rollback ref: refs/rollback/20260623T105653Z-nested-tool-parent-resolver-gate
+Rollback artifact: artifacts/rollback/20260623T105653Z-nested-tool-parent-resolver-gate.txt
+
+Recovery commands:
+    git reset --hard refs/rollback/20260623T105653Z-nested-tool-parent-resolver-gate
+    git clean -fd
+
+Context:
+    Source digest github-growth-20260623T105653.035465Z; proposal p1-nested-tool-parent-resolver-gate / p2-nested-tool-parent-resolver-patch.
+    Rollback execution is explicit and destructive; supervisor or operator must choose it.

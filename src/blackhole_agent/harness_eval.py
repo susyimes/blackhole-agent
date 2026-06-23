@@ -14410,11 +14410,13 @@ def evaluate_web_researcher_resolution_gate(resolution: dict[str, Any], *, name:
     root_has_web_fetch = spec_declares_builtin_tool(root, "web_fetch")
     parent_spec = find_bundle_spec_by_path(root, parent_path) if parent_path else None
     parent_has_web_fetch = bool(parent_spec and spec_declares_builtin_tool(parent_spec, "web_fetch"))
-    any_nested_parent_has_web_fetch = any(
-        spec_declares_builtin_tool(spec, "web_fetch")
+    matching_parent_depth = bundle_spec_depth_by_path(root, parent_path) if parent_path else None
+    nested_web_fetch_depths = [
+        depth
         for depth, spec in iter_bundle_specs(root)
-        if depth > 0
-    )
+        if depth > 0 and spec_declares_builtin_tool(spec, "web_fetch")
+    ]
+    any_nested_parent_has_web_fetch = bool(nested_web_fetch_depths)
     nested_parent_lookup_passed = parent_has_web_fetch or (not parent_path and any_nested_parent_has_web_fetch)
     reconstruction_supported = bool(target_is_web_researcher and (root_has_web_fetch or nested_parent_lookup_passed))
     root_only_gate_would_miss = bool(target_is_web_researcher and not root_has_web_fetch and nested_parent_lookup_passed)
@@ -14437,10 +14439,13 @@ def evaluate_web_researcher_resolution_gate(resolution: dict[str, Any], *, name:
         "target_is_web_researcher": target_is_web_researcher,
         "root_has_web_fetch": root_has_web_fetch,
         "parent_path_supplied": bool(parent_path),
+        "parent_path_depth": len(parent_path),
         "parent_path_hashes": [stable_text_hash(item) for item in parent_path],
         "parent_path_found": parent_spec is not None if parent_path else False,
+        "matching_parent_depth": matching_parent_depth,
         "parent_has_web_fetch": parent_has_web_fetch,
         "nested_parent_has_web_fetch": any_nested_parent_has_web_fetch,
+        "nested_web_fetch_depths": nested_web_fetch_depths,
         "nested_parent_lookup_passed": nested_parent_lookup_passed,
         "root_only_gate_would_miss": root_only_gate_would_miss,
         "reconstruction_supported": reconstruction_supported,
@@ -14494,6 +14499,21 @@ def find_bundle_spec_by_path(root: dict[str, Any], path: list[str]) -> dict[str,
         if spec is None:
             return None
     return spec
+
+
+def bundle_spec_depth_by_path(root: dict[str, Any], path: list[str]) -> int | None:
+    if not root:
+        return None
+    normalized_path = path[1:] if path and optional_string(root.get("name")) == path[0] else path
+    depth = 0
+    spec = root
+    for part in normalized_path:
+        children = bundle_spec_children(spec)
+        spec = next((child for child in children if optional_string(child.get("name")) == part), None)
+        if spec is None:
+            return None
+        depth += 1
+    return depth
 
 
 def bundle_spec_children(spec: dict[str, Any]) -> list[dict[str, Any]]:
