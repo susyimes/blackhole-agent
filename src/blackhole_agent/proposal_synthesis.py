@@ -2069,6 +2069,7 @@ def normalize_candidate(
     missing_refs = [ref for ref in evidence_refs if ref not in items_by_id]
     if missing_refs:
         errors.append("evidence_refs contain unknown item ids: " + ", ".join(missing_refs))
+    errors.extend(candidate_low_detail_pr_evidence_errors(kind, evidence_refs, items_by_id))
     errors.extend(candidate_route_hint_lane_errors(kind, evidence_refs, items_by_id))
     validation_task = str(candidate.get("validation_task") or "").strip()
     if not validation_task:
@@ -2125,6 +2126,29 @@ def normalize_candidate(
         "action_lane": str(candidate.get("action_lane") or "").strip(),
     }
     return normalized, errors
+
+
+def candidate_low_detail_pr_evidence_errors(
+    kind: str,
+    evidence_refs: list[str],
+    items_by_id: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Reject behavior proposals supported only by generic PR/review metadata."""
+
+    if kind in {"follow_up_issue", "no_action"}:
+        return []
+    known_refs = [ref for ref in evidence_refs if ref in items_by_id]
+    if not known_refs:
+        return []
+    low_detail_refs = [
+        ref for ref in known_refs if digest_item_has_generic_pull_request_detail(items_by_id[ref])
+    ]
+    if len(low_detail_refs) != len(known_refs):
+        return []
+    return [
+        "generic or untitled pull request/review evidence requires a non-generic corroborating item "
+        "before behavior proposals"
+    ]
 
 
 def candidate_route_hint_lane_errors(

@@ -2586,6 +2586,18 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
             "self_model_reading": {"status": "unchanged"},
             "proposals": [
                 {
+                    "proposal_id": "pr-pressure-context",
+                    "kind": "no_action",
+                    "summary": "Treat repeated generic PR events as aggregate uncertainty only.",
+                    "evidence_refs": ["pr-1", "pr-2"],
+                    "added_risk_flags": [],
+                    "validation_task": "Record the selected generic PR refs as low-detail context without local behavior change.",
+                    "rationale": "The selected events show repeated generic PR activity but no PR-specific implementation detail.",
+                    "uncertainty": "Most PR items were truncated and titles were generic, so PR-specific details are unknown.",
+                    "self_effect": "Keeps proposal generation from overclaiming high-volume PR streams.",
+                    "action_lane": "aggregate_uncertainty_context",
+                },
+                {
                     "proposal_id": "pr-pressure-route",
                     "kind": "code_patch",
                     "summary": "Improve PR-event digest resilience under truncation.",
@@ -2594,19 +2606,7 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
                     "validation_task": "Replay a synthetic high-volume PR-event digest locally.",
                     "rationale": "The selected events show repeated generic PR activity.",
                     "uncertainty": "Most PR items were truncated and titles were generic, so PR-specific details are unknown.",
-                    "self_effect": "Keeps proposal generation bounded under high-volume PR streams.",
-                    "action_lane": "local_validation_candidate",
-                },
-                {
-                    "proposal_id": "pr-pressure-route",
-                    "kind": "code_patch",
-                    "summary": "Duplicate route that should be rejected.",
-                    "evidence_refs": ["pr-1", "pr-2"],
-                    "added_risk_flags": [],
-                    "validation_task": "Replay the same synthetic fixture.",
-                    "rationale": "Duplicate evidence should not create a second route.",
-                    "uncertainty": "Duplicate candidate.",
-                    "self_effect": "Would duplicate proposal generation.",
+                    "self_effect": "Would incorrectly promote generic PR metadata into a behavior patch.",
                     "action_lane": "local_validation_candidate",
                 },
                 {
@@ -2631,13 +2631,111 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
     assert review.status == "accepted"
     assert review.accepted_count == 1
     assert review.rejected_count == 2
-    assert review.accepted_candidates[0]["proposal_id"] == "pr-pressure-route"
+    assert review.accepted_candidates[0]["proposal_id"] == "pr-pressure-context"
     assert review.accepted_candidates[0]["evidence_refs"] == ["pr-1", "pr-2"]
-    assert any("proposal_id must be unique" in rejected["errors"] for rejected in review.rejected_candidates)
+    assert any(
+        "generic or untitled pull request/review evidence requires a non-generic corroborating item"
+        in " ".join(rejected["errors"])
+        for rejected in review.rejected_candidates
+    )
     assert any(
         "evidence_refs contain unknown item ids: pr-9" in rejected["errors"]
         for rejected in review.rejected_candidates
     )
+
+
+def test_repeated_untitled_review_events_require_non_generic_corroboration_for_behavior_proposals():
+    digest = {
+        "digest_id": "github-growth-review-anchor-pressure",
+        "generated_at": "2026-06-23T02:56:52Z",
+        "items": [
+            {
+                "item_id": "review-1",
+                "source_url": "https://github.com/omnigent-ai/omnigent/pull/598#pullrequestreview-4541005030",
+                "event_kind": "PullRequestReviewEvent",
+                "summary": "submitted pull request review (commented): untitled pull request",
+                "relevance_reason": "review anchor exposed without inspected finding details",
+                "risk_flags": [],
+                "confidence": 0.82,
+            },
+            {
+                "item_id": "review-2",
+                "source_url": "https://github.com/omnigent-ai/omnigent/pull/769#pullrequestreview-4549609007",
+                "event_kind": "PullRequestReviewEvent",
+                "summary": "submitted pull request review (commented): untitled pull request",
+                "relevance_reason": "review anchor exposed without inspected finding details",
+                "risk_flags": [],
+                "confidence": 0.81,
+            },
+            {
+                "item_id": "review-3",
+                "source_url": "https://github.com/omnigent-ai/omnigent/pull/833#pullrequestreview-4542080133",
+                "event_kind": "PullRequestReviewEvent",
+                "summary": "submitted pull request review (commented): untitled pull request",
+                "relevance_reason": "review anchor exposed without inspected finding details",
+                "risk_flags": [],
+                "confidence": 0.8,
+            },
+            {
+                "item_id": "covered-push",
+                "source_url": "https://github.com/omnigent-ai/omnigent/commit/validation123",
+                "event_kind": "PushEvent",
+                "summary": "test(runner): add context budget validation coverage",
+                "relevance_reason": "commit message names test coverage for runner behavior",
+                "risk_flags": [],
+                "confidence": 0.7,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=180)
+
+    review_only_response = {
+        "schema_version": 1,
+        "input_digest_id": "github-growth-review-anchor-pressure",
+        "run_interpretation": "Repeated low-detail review anchors are uncertainty context.",
+        "self_model_reading": {"status": "unchanged"},
+        "proposals": [
+            {
+                "proposal_id": "review-anchor-feature-route",
+                "kind": "test",
+                "summary": "Add a feature-specific test from untitled review anchors.",
+                "evidence_refs": ["review-1", "review-2"],
+                "added_risk_flags": [],
+                "validation_task": "Run a focused proposal interpreter test.",
+                "rationale": "Repeated review anchors suggest a useful local validation route.",
+                "uncertainty": "Review titles are generic and missing detail, so the upstream finding is unknown.",
+                "self_effect": "Would overfit low-detail public review activity.",
+                "action_lane": "local_validation_candidate",
+            }
+        ],
+        "rejected_items": [],
+    }
+    corroborated_response = {
+        **review_only_response,
+        "proposals": [
+            {
+                **review_only_response["proposals"][0],
+                "proposal_id": "review-anchor-corroborated-route",
+                "evidence_refs": ["review-1", "covered-push"],
+                "rationale": "The review anchor is low-detail, while the push independently names test coverage.",
+            }
+        ],
+    }
+
+    review_only = review_llm_proposal_response(json.dumps(review_only_response), evidence_package, mode="hybrid")
+    corroborated = review_llm_proposal_response(json.dumps(corroborated_response), evidence_package, mode="hybrid")
+
+    uncertainty = evidence_package["context_budget"]["evidence_truncation_uncertainty"]
+    assert uncertainty["selected_generic_pr_count"] == 3
+    assert uncertainty["repeated_generic_pr_cluster_count"] == 1
+    assert review_only.status == "rejected"
+    assert any(
+        "generic or untitled pull request/review evidence requires a non-generic corroborating item"
+        in error
+        for error in review_only.rejected_candidates[0]["errors"]
+    )
+    assert corroborated.status == "accepted"
+    assert corroborated.accepted_candidates[0]["evidence_refs"] == ["review-1", "covered-push"]
 
 
 def test_generic_pr_opened_and_labeled_metadata_is_clustered_and_downweighted():

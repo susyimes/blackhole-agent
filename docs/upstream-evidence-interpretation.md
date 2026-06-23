@@ -293,3 +293,12 @@ copying a behavior. In this repository they should narrow the route toward
 local confirmation first: inspect the bounded evidence, record uncertainty, and
 only draft a `code_patch` after a concrete upstream detail or local failing test
 supports the proposed behavior.
+
+For repeated untitled pull request or pull request review clusters, generic
+metadata is aggregate uncertainty, not feature evidence. Proposal review may
+accept `no_action` or follow-up context from those selected item IDs, but
+documentation, test, config, or code behavior proposals must also cite at least
+one non-generic selected evidence item such as a repository-level route summary,
+specific issue text, inspected review finding, named commit message, or local
+failing test signal. This prevents repeated low-detail review anchors from
+outranking a single concrete validation signal.
