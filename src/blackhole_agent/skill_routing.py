@@ -928,6 +928,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         rejected_candidates,
         downgraded_candidates,
     )
+    privacy_review_panel = _skill_route_discovery_privacy_review_panel(
+        candidate_lane_inventory,
+        rejected_candidates,
+        downgraded_candidates,
+    )
 
     return {
         "schema_version": 1,
@@ -947,6 +952,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "route_profile_handoff_queue": route_profile_handoff_queue,
         "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
         "adoption_manifest": adoption_manifest,
+        "privacy_review_panel": privacy_review_panel,
         "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
@@ -2196,6 +2202,122 @@ def _skill_route_discovery_promotion_proof(lane: str) -> dict[str, Any]:
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def _skill_route_discovery_privacy_review_panel(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    rejected_candidates: Sequence[Mapping[str, Any]],
+    downgraded_candidates: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize privacy-sensitive skill-route evidence without exporting bodies."""
+
+    review_rows: list[dict[str, Any]] = []
+    for candidate in candidate_lane_inventory:
+        review_reasons = _skill_route_discovery_privacy_review_reasons(candidate)
+        if not review_reasons:
+            continue
+        handoff_metadata = candidate.get("handoff_metadata")
+        selected_lane = (
+            str(handoff_metadata.get("selected_local_lane") or "")
+            if isinstance(handoff_metadata, Mapping)
+            else ""
+        )
+        review_rows.append(
+            {
+                "candidate_name": str(candidate.get("candidate_name") or ""),
+                "candidate_source_hash": _stable_hash(str(candidate.get("source_url") or "")),
+                "route_profiles": _string_list(candidate.get("route_profiles")),
+                "selected_local_lane": selected_lane,
+                "review_reasons": review_reasons,
+                "validation_gates": _skill_route_discovery_validation_gates(candidate),
+                "review_gate": "privacy-leakage-human-review",
+                "review_behavior": "body_free_boundary_review_only",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+                "sensitive_value_export_allowed": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_privacy_review_panel",
+        "status": "review_required" if review_rows else "not_required",
+        "decision": (
+            "keep_privacy_sensitive_skill_routes_review_only_until_boundary_validated"
+            if review_rows
+            else "no_privacy_sensitive_skill_route_boundary_detected"
+        ),
+        "review_gate": "privacy-leakage-human-review",
+        "review_only_risk_flags": ["privacy-leakage"],
+        "review_row_count": len(review_rows),
+        "review_candidate_names": [row["candidate_name"] for row in review_rows],
+        "downgraded_candidate_count": len(downgraded_candidates),
+        "rejected_candidate_count": len(rejected_candidates),
+        "rows": review_rows,
+        "local_validation_required": bool(review_rows),
+        "runtime_action": "none",
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "sensitive_value_export_allowed": False,
+    }
+
+
+def _skill_route_discovery_privacy_review_reasons(candidate: Mapping[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    route_profiles = set(_string_list(candidate.get("route_profiles")))
+    if "skill_ecosystem_state_handoff" in route_profiles:
+        reasons.append("state_or_profile_boundary")
+    if "source_cited_domain_research" in route_profiles:
+        reasons.append("advice_or_domain_research_boundary")
+
+    boundary = candidate.get("state_profile_boundary")
+    if isinstance(boundary, Mapping) and boundary.get("privacy_boundary_required") is True:
+        reasons.append("privacy_boundary_required")
+    if isinstance(boundary, Mapping) and (
+        boundary.get("profile_write_allowed") is False or boundary.get("memory_write_allowed") is False
+    ):
+        reasons.append("profile_or_memory_write_denied")
+
+    domain_boundary = candidate.get("domain_research_boundary")
+    if isinstance(domain_boundary, Mapping) and domain_boundary.get("private_context_export_allowed") is False:
+        reasons.append("private_context_export_denied")
+    if isinstance(domain_boundary, Mapping) and domain_boundary.get("provider_runtime_launch_allowed") is False:
+        reasons.append("provider_runtime_launch_denied")
+
+    return list(dict.fromkeys(reasons))
+
+
+def _skill_route_discovery_validation_gates(candidate: Mapping[str, Any]) -> list[str]:
+    contract = candidate.get("route_validation_contract")
+    if not isinstance(contract, Mapping):
+        return []
+    rows = contract.get("rows")
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return []
+    return list(
+        dict.fromkeys(
+            str(row.get("validation_gate"))
+            for row in rows
+            if isinstance(row, Mapping) and str(row.get("validation_gate") or "").strip()
+        )
+    )
 
 
 def _stable_hash(value: str) -> str:

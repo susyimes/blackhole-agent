@@ -1437,6 +1437,69 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert all(row["raw_source_url_exported"] is False for row in target_rows.values())
 
 
+def test_skill_route_discovery_privacy_review_panel_is_body_free_for_sensitive_profiles():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "provider_runtime_pass2_four_item_evidence.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    panel = lane_map["privacy_review_panel"]
+    assert panel["controller_surface"] == "skill_route_discovery_privacy_review_panel"
+    assert panel["status"] == "review_required"
+    assert panel["decision"] == "keep_privacy_sensitive_skill_routes_review_only_until_boundary_validated"
+    assert panel["review_gate"] == "privacy-leakage-human-review"
+    assert panel["review_only_risk_flags"] == ["privacy-leakage"]
+    assert panel["review_row_count"] == 2
+    assert panel["review_candidate_names"] == ["compass-skills", "zhengxi-views"]
+    assert panel["runtime_action"] == "none"
+    assert panel["profile_write_allowed"] is False
+    assert panel["memory_write_allowed"] is False
+    assert panel["provider_runtime_launch_allowed"] is False
+    assert panel["external_skill_activation_allowed"] is False
+    assert panel["external_harness_execution_allowed"] is False
+    assert panel["remote_execution_allowed"] is False
+    assert panel["raw_source_url_exported"] is False
+    assert panel["raw_evidence_urls_exported"] is False
+    assert panel["raw_target_paths_exported"] is False
+    assert panel["raw_upstream_body_exported"] is False
+    assert panel["sensitive_value_export_allowed"] is False
+
+    rows = {row["candidate_name"]: row for row in panel["rows"]}
+    assert rows["compass-skills"]["candidate_source_hash"].startswith("sha256:")
+    assert rows["compass-skills"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert rows["compass-skills"]["selected_local_lane"] == "config"
+    assert rows["compass-skills"]["review_reasons"] == [
+        "state_or_profile_boundary",
+        "privacy_boundary_required",
+        "profile_or_memory_write_denied",
+    ]
+    assert rows["compass-skills"]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+
+    assert rows["zhengxi-views"]["candidate_source_hash"].startswith("sha256:")
+    assert rows["zhengxi-views"]["route_profiles"] == ["source_cited_domain_research"]
+    assert rows["zhengxi-views"]["selected_local_lane"] == "test"
+    assert rows["zhengxi-views"]["review_reasons"] == [
+        "advice_or_domain_research_boundary",
+        "private_context_export_denied",
+        "provider_runtime_launch_denied",
+    ]
+    assert rows["zhengxi-views"]["validation_gates"] == [
+        "source_citation_and_advice_boundary_before_domain_skill_activation"
+    ]
+    assert all("source_url" not in row for row in panel["rows"])
+    assert all("evidence_urls" not in row for row in panel["rows"])
+    assert all(row["runtime_action"] == "none" for row in panel["rows"])
+    assert all(row["sensitive_value_export_allowed"] is False for row in panel["rows"])
+
+
 def test_skill_route_discovery_validation_profile_coverage_keeps_all_profiles_bounded():
     registry = build_skill_route_discovery_registry_from_summaries(
         [

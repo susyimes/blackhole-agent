@@ -116,6 +116,19 @@ runtime action, external skill activation, external harness execution, provider
 launch, remote execution, raw source URL export, and upstream body export
 denied.
 
+Pass-2 lane maps also emit `privacy_review_panel`, a body-free operator surface
+for skill-route evidence that touches state/profile handoff, private-context
+export, provider launch, or advisory/domain research boundaries. COMPASS-style
+state handoff rows remain in the selected local config lane while requiring
+`privacy-leakage-human-review`; source-cited domain research rows remain in the
+selected local test lane while denying private-context export and provider
+runtime launch. The panel carries candidate source hashes, route profiles,
+selected local lanes, review reason codes, and validation gates only. It does
+not export raw source URLs, raw evidence URLs, raw target paths, upstream
+bodies, or sensitive values, and it does not authorize profile writes, memory
+writes, external skill activation, external harness execution, provider launch,
+remote execution, or runtime action.
+
 Provider/runtime-control passes follow the same rule. If a skill workflow item
 mentions provider setup, runtime launch, model commands, harnesses, or recovery
 workflow, the route may still choose only documentation, config, test, or
