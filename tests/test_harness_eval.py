@@ -9774,8 +9774,10 @@ def test_agent_workflow_route_validates_harness_owned_compaction_boundary():
         "runner_compaction_allowed": False,
         "persist_before_mirror_update_required": True,
         "resume_replay_required": True,
+        "controller_metadata_required": True,
         "raw_summary_exported": False,
         "raw_context_exported": False,
+        "raw_controller_metadata_exported": False,
     }
     assert output["control_plane"]["compaction_contract"]["required"] is True
     assert output["control_plane"]["compaction_contract"]["owner"] == "harness"
@@ -9783,8 +9785,38 @@ def test_agent_workflow_route_validates_harness_owned_compaction_boundary():
     assert output["control_plane"]["compaction_contract"]["persist_status_checked"] is True
     assert output["control_plane"]["compaction_contract"]["mirror_update_after_persist"] is True
     assert output["control_plane"]["compaction_contract"]["resume_replay_ready"] is True
+    assert output["control_plane"]["compaction_contract"]["controller_metadata"] == {
+        "required": True,
+        "provided": True,
+        "passed": True,
+        "failure_mode": "none",
+        "field_count": 4,
+        "required_fields": [
+            "source_digest",
+            "controller_branch",
+            "controller_head",
+            "rollback_ref",
+            "recovery_commands",
+        ],
+        "missing_fields": [],
+        "source_digest_hash": stable_text_hash("github-growth-20260624T153904.842598Z"),
+        "controller_branch_hash": stable_text_hash("PRIVATE_CONTROLLER_BRANCH_DO_NOT_EXPORT"),
+        "controller_head_hash": stable_text_hash("PRIVATE_CONTROLLER_HEAD_DO_NOT_EXPORT"),
+        "rollback_ref_hash": stable_text_hash("PRIVATE_ROLLBACK_REF_DO_NOT_EXPORT"),
+        "recovery_command_count": 2,
+        "recovery_command_hashes": [
+            stable_text_hash("PRIVATE_RECOVERY_COMMAND_1_DO_NOT_EXPORT"),
+            stable_text_hash("PRIVATE_RECOVERY_COMMAND_2_DO_NOT_EXPORT"),
+        ],
+        "raw_metadata_exported": False,
+        "raw_recovery_commands_exported": False,
+    }
     assert output["control_plane"]["operator_replay_checklist"]["status"] == "ready"
     assert "PRIVATE_COMPACTION_SUMMARY_REF_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CONTROLLER_BRANCH_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CONTROLLER_HEAD_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_ROLLBACK_REF_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_RECOVERY_COMMAND_1_DO_NOT_EXPORT" not in serialized
     assert "CompactionComplete" not in serialized
 
     runner_owned = dict(fixture["input"])
@@ -9828,6 +9860,28 @@ def test_agent_workflow_route_validates_harness_owned_compaction_boundary():
     assert split_brain_gate["control_plane"]["stage_diagnostics"][1]["reason"] == (
         "compaction_persist_status_unchecked"
     )
+
+    missing_metadata = dict(fixture["input"])
+    missing_metadata["compaction"] = dict(fixture["input"]["compaction"])
+    missing_metadata["compaction"].pop("controller_metadata")
+    missing_metadata_gate = evaluate_harness_behavior(
+        "agent_workflow_route",
+        missing_metadata,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_compaction_metadata_missing_inline.json",
+    )
+
+    assert missing_metadata_gate["route_status"] == "failed_recoverable"
+    assert missing_metadata_gate["failure_mode"] == "compaction_controller_metadata_missing"
+    assert missing_metadata_gate["control_plane"]["compaction_contract"]["controller_metadata"][
+        "missing_fields"
+    ] == [
+        "source_digest",
+        "controller_branch",
+        "controller_head",
+        "rollback_ref",
+        "recovery_commands",
+    ]
+    assert missing_metadata_gate["control_plane"]["operator_replay_checklist"]["status"] == "blocked"
 
 
 def test_agent_workflow_route_orchestrator_inbox_delivery_contract():

@@ -20826,6 +20826,10 @@ def evaluate_agent_workflow_compaction(compaction: dict[str, Any]) -> dict[str, 
     runner_compaction_disabled = truthy(compaction.get("runner_compaction_disabled", True))
     runner_claim_only = truthy(compaction.get("runner_claim_only"))
     raw_summary_exported = truthy(compaction.get("raw_summary_exported") or compaction.get("summary_exported"))
+    controller_metadata = evaluate_agent_workflow_compaction_controller_metadata(
+        compaction.get("controller_metadata"),
+        required=required,
+    )
 
     blockers: list[str] = []
     if required and owner != "harness":
@@ -20836,6 +20840,8 @@ def evaluate_agent_workflow_compaction(compaction: dict[str, Any]) -> dict[str, 
         blockers.append("compaction_summary_missing")
     if required and not token_count_recorded:
         blockers.append("compaction_token_count_missing")
+    if required and not controller_metadata["passed"]:
+        blockers.append("compaction_controller_metadata_missing")
     if required and not persisted:
         blockers.append("compaction_persistence_missing")
     if required and not persist_checked:
@@ -20868,15 +20874,63 @@ def evaluate_agent_workflow_compaction(compaction: dict[str, Any]) -> dict[str, 
         "resume_replay_ready": resume_replay_ready,
         "runner_compaction_disabled": runner_compaction_disabled,
         "runner_claim_only": runner_claim_only,
+        "controller_metadata": controller_metadata,
         "blockers": blockers,
         "policy": {
             "owner_required": "harness",
             "runner_compaction_allowed": False,
             "persist_before_mirror_update_required": True,
             "resume_replay_required": True,
+            "controller_metadata_required": True,
             "raw_summary_exported": False,
             "raw_context_exported": False,
+            "raw_controller_metadata_exported": False,
         },
+    }
+
+
+def evaluate_agent_workflow_compaction_controller_metadata(value: Any, *, required: bool) -> dict[str, Any]:
+    """Check that compaction preserved replay metadata without exporting values."""
+
+    metadata = value if isinstance(value, dict) else {}
+    recovery_commands = metadata.get("recovery_commands") if isinstance(metadata.get("recovery_commands"), list) else []
+    command_values = [command for command in (optional_string(item) for item in recovery_commands) if command]
+    field_values = {
+        "source_digest": optional_string(metadata.get("source_digest")),
+        "controller_branch": optional_string(metadata.get("controller_branch") or metadata.get("original_branch")),
+        "controller_head": optional_string(metadata.get("controller_head") or metadata.get("original_head")),
+        "rollback_ref": optional_string(metadata.get("rollback_ref") or metadata.get("local_rollback_ref")),
+    }
+    missing_fields = [field for field, field_value in field_values.items() if not field_value]
+    if not command_values:
+        missing_fields.append("recovery_commands")
+
+    provided = bool(metadata)
+    passed = not required or (provided and not missing_fields)
+    return {
+        "required": required,
+        "provided": provided,
+        "passed": passed,
+        "failure_mode": "none" if passed else "compaction_controller_metadata_missing",
+        "field_count": sum(1 for field_value in field_values.values() if field_value),
+        "required_fields": [
+            "source_digest",
+            "controller_branch",
+            "controller_head",
+            "rollback_ref",
+            "recovery_commands",
+        ],
+        "missing_fields": missing_fields,
+        "source_digest_hash": stable_text_hash(field_values["source_digest"]) if field_values["source_digest"] else None,
+        "controller_branch_hash": stable_text_hash(field_values["controller_branch"])
+        if field_values["controller_branch"]
+        else None,
+        "controller_head_hash": stable_text_hash(field_values["controller_head"]) if field_values["controller_head"] else None,
+        "rollback_ref_hash": stable_text_hash(field_values["rollback_ref"]) if field_values["rollback_ref"] else None,
+        "recovery_command_count": len(command_values),
+        "recovery_command_hashes": [stable_text_hash(command) for command in command_values],
+        "raw_metadata_exported": False,
+        "raw_recovery_commands_exported": False,
     }
 
 
@@ -21106,9 +21160,11 @@ def build_agent_workflow_control_plane(
             "resume_replay_ready": compaction_result["resume_replay_ready"],
             "runner_compaction_disabled": compaction_result["runner_compaction_disabled"],
             "runner_claim_only": compaction_result["runner_claim_only"],
+            "controller_metadata": compaction_result["controller_metadata"],
             "blockers": compaction_result["blockers"],
             "raw_summary_exported": False,
             "raw_context_exported": False,
+            "raw_controller_metadata_exported": False,
         },
         "stream_boundary_contract": {
             "required": stream_boundary_result["required"],

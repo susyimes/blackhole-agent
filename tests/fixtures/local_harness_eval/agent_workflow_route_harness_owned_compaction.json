@@ -36,6 +36,16 @@
       "summary_ref": "PRIVATE_COMPACTION_SUMMARY_REF_DO_NOT_EXPORT",
       "summary_model_recorded": true,
       "token_count": 2048,
+      "controller_metadata": {
+        "source_digest": "github-growth-20260624T153904.842598Z",
+        "controller_branch": "PRIVATE_CONTROLLER_BRANCH_DO_NOT_EXPORT",
+        "controller_head": "PRIVATE_CONTROLLER_HEAD_DO_NOT_EXPORT",
+        "rollback_ref": "PRIVATE_ROLLBACK_REF_DO_NOT_EXPORT",
+        "recovery_commands": [
+          "PRIVATE_RECOVERY_COMMAND_1_DO_NOT_EXPORT",
+          "PRIVATE_RECOVERY_COMMAND_2_DO_NOT_EXPORT"
+        ]
+      },
       "persisted": true,
       "persist_status_checked": true,
       "mirror_update_after_persist": true,
@@ -129,6 +139,14 @@
     {
       "path": "control_plane.compaction_contract.resume_replay_ready",
       "equals": true
+    },
+    {
+      "path": "control_plane.compaction_contract.controller_metadata.passed",
+      "equals": true
+    },
+    {
+      "path": "control_plane.compaction_contract.controller_metadata.recovery_command_count",
+      "equals": 2
     },
     {
       "path": "control_plane.operator_replay_checklist.status",
