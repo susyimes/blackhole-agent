@@ -1948,6 +1948,22 @@ grant external agent activation, external harness execution, provider launch,
 remote execution, raw source URL export, raw evidence-body export, raw
 claim-body export, or upstream body export.
 
+Source digest `github-growth-20260624T043356.363880Z` rechecked Omnigent as a
+general-agent/meta-harness signal. The reusable lesson is not to adopt its
+runner behavior, but to make harness-specific assumptions visible before local
+activation: Omnigent's public PR review around per-turn ACP token accounting
+distinguishes stream-specific behavior from another harness's accounting path
+and treats local tests/e2e evidence as the gate. Locally, the
+`agent_harness_eval_lane` replay now emits
+`general_agent_route_review_queue`. The queue turns each mapped or unmapped
+general-agent claim into a bounded local review row with a selected
+documentation or test lane, required validation command, activation blockers,
+and denied runtime/external actions. Unmapped claims such as local data
+grounding remain blocked until a future pass maps them to a local validation
+contract or records them as evidence-only; mapped Omnigent-style claims still
+do not authorize upstream harness execution, provider launch, remote execution,
+raw source URL export, or upstream body export.
+
 ## Evidence Citation And Uncertainty
 
 When `skill_route_discovery` appears in a frozen proposal evidence package,

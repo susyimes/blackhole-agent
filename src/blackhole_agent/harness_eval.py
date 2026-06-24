@@ -1134,6 +1134,13 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         },
         review_notes=review_notes,
     )
+    general_agent_route_review_queue = build_general_agent_route_review_queue(
+        activation_gate=activation_gate,
+        activation_lanes=activation_lanes,
+        claim_evaluation=claim_evaluation,
+        claim_remediation_plan=claim_remediation_plan,
+        project_intake_probe=project_intake_probe,
+    )
 
     return {
         "schema_version": 1,
@@ -1159,6 +1166,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activation_gate": activation_gate,
         "activation_lanes": activation_lanes,
         "activation_review": activation_review,
+        "general_agent_route_review_queue": general_agent_route_review_queue,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
@@ -1550,6 +1558,100 @@ def build_agent_harness_eval_activation_review(
         "raw_evidence_bodies_exported": False,
         "raw_claim_bodies_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def build_general_agent_route_review_queue(
+    *,
+    activation_gate: dict[str, Any],
+    activation_lanes: list[dict[str, Any]],
+    claim_evaluation: dict[str, Any],
+    claim_remediation_plan: dict[str, Any],
+    project_intake_probe: dict[str, Any],
+) -> dict[str, Any]:
+    """Render mapped and unmapped general-agent claims as bounded local review work."""
+
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    activation_allowed = activation_gate.get("local_eval_activation_allowed") is True
+    claim_rows = claim_evaluation.get("rows") if isinstance(claim_evaluation.get("rows"), list) else []
+    remediation_by_claim = {
+        str(row.get("claim_id") or ""): row
+        for row in claim_remediation_plan.get("rows", [])
+        if isinstance(row, dict) and str(row.get("claim_id") or "").strip()
+    }
+    lane_kinds = sorted({str(lane.get("proposal_kind") or "") for lane in activation_lanes if lane.get("proposal_kind")})
+    rows: list[dict[str, Any]] = []
+    for claim_row in claim_rows:
+        if not isinstance(claim_row, dict):
+            continue
+        claim_id = str(claim_row.get("claim_id") or "")
+        mapped = claim_row.get("mapped") is True
+        remediation = remediation_by_claim.get(claim_id, {})
+        selected_lane = "test" if mapped else "documentation"
+        if selected_lane not in lane_kinds and lane_kinds:
+            selected_lane = lane_kinds[0]
+        activation_blockers = [] if activation_allowed and mapped else ["unmapped_agent_claims" if not mapped else "activation_gate_not_ready"]
+        rows.append(
+            {
+                "item_id": str(claim_row.get("item_id") or ""),
+                "claim_id": claim_id,
+                "claim_status": str(claim_row.get("status") or ""),
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": list(remediation.get("recommended_lanes", [])) if remediation else [],
+                "local_capabilities": string_list(claim_row.get("local_capabilities")),
+                "required_validation": string_list(claim_row.get("required_validation")) or [validation_command],
+                "activation_ready": activation_allowed and mapped and not activation_blockers,
+                "activation_blockers": activation_blockers,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_claim_body_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready_count = sum(1 for row in rows if row["activation_ready"])
+    blocked_count = len(rows) - ready_count
+    probe_ready = project_intake_probe.get("status") == "ready"
+    unmapped_count = int(claim_evaluation.get("unmapped_claim_count") or 0)
+    if rows and activation_allowed and blocked_count == 0 and probe_ready:
+        status = "ready"
+        decision = "general_agent_claims_ready_for_local_eval"
+    elif rows:
+        status = "blocked"
+        decision = "review_general_agent_claim_lanes_before_local_eval"
+    else:
+        status = "empty"
+        decision = "collect_general_agent_claims_before_local_eval"
+
+    return {
+        "controller_surface": "general_agent_route_review_queue",
+        "status": status,
+        "decision": decision,
+        "activation_scope": "local_eval_only",
+        "activation_gate_decision": str(activation_gate.get("decision") or ""),
+        "claim_count": len(rows),
+        "mapped_claim_count": int(claim_evaluation.get("mapped_claim_count") or 0),
+        "unmapped_claim_count": unmapped_count,
+        "ready_claim_count": ready_count,
+        "blocked_claim_count": blocked_count,
+        "project_intake_probe_status": str(project_intake_probe.get("status") or "incomplete"),
+        "allowed_local_lanes": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "selected_local_lanes": sorted({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "required_validation": [validation_command],
+        "local_validation_required": True,
+        "local_eval_activation_allowed": activation_allowed and blocked_count == 0 and bool(rows) and probe_ready,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_claim_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 

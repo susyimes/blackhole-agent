@@ -1422,6 +1422,33 @@ def test_agent_harness_eval_lane_turns_public_harness_evidence_into_local_eval_l
         "raw_claim_bodies_exported": False,
         "raw_upstream_body_exported": False,
     }
+    assert output["general_agent_route_review_queue"] == {
+        "controller_surface": "general_agent_route_review_queue",
+        "status": "empty",
+        "decision": "collect_general_agent_claims_before_local_eval",
+        "activation_scope": "local_eval_only",
+        "activation_gate_decision": "ready_for_local_eval_activation",
+        "claim_count": 0,
+        "mapped_claim_count": 0,
+        "unmapped_claim_count": 0,
+        "ready_claim_count": 0,
+        "blocked_claim_count": 0,
+        "project_intake_probe_status": "incomplete",
+        "allowed_local_lanes": ["documentation", "test", "code_patch"],
+        "selected_local_lanes": [],
+        "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+        "local_validation_required": True,
+        "local_eval_activation_allowed": False,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_claim_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": [],
+    }
     assert output["review_notes"] == [
         {
             "item_id": "visa-harness-security-boundary",
@@ -1480,6 +1507,29 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert output["activation_review"]["remote_execution_allowed"] is False
     assert output["activation_review"]["raw_source_urls_exported"] is False
     assert output["activation_review"]["raw_claim_bodies_exported"] is False
+    queue = output["general_agent_route_review_queue"]
+    assert queue["controller_surface"] == "general_agent_route_review_queue"
+    assert queue["status"] == "blocked"
+    assert queue["decision"] == "review_general_agent_claim_lanes_before_local_eval"
+    assert queue["activation_gate_decision"] == "map_agent_claims_before_activation"
+    assert queue["claim_count"] == 7
+    assert queue["mapped_claim_count"] == 6
+    assert queue["unmapped_claim_count"] == 1
+    assert queue["ready_claim_count"] == 0
+    assert queue["blocked_claim_count"] == 7
+    assert queue["project_intake_probe_status"] == "ready"
+    assert queue["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert queue["selected_local_lanes"] == ["documentation", "test"]
+    assert queue["required_validation"] == ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"]
+    assert queue["local_eval_activation_allowed"] is False
+    assert queue["runtime_action"] == "none"
+    assert queue["external_agent_activation_allowed"] is False
+    assert queue["external_harness_execution_allowed"] is False
+    assert queue["provider_launch_allowed"] is False
+    assert queue["remote_execution_allowed"] is False
+    assert queue["raw_source_urls_exported"] is False
+    assert queue["raw_claim_bodies_exported"] is False
+    assert queue["raw_upstream_body_exported"] is False
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation", "test"]
     assert output["claim_evaluation"]["controller_surface"] == "agent_harness_claim_mapping"
     assert output["claim_evaluation"]["mapping_status"] == "partial"
@@ -1558,6 +1608,27 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert rows_by_claim[
         ("xuefeng-agent-domain-advisor", "local_data_grounding")
     ]["status"] == "unmapped_evidence_only"
+    queue_rows_by_claim = {
+        (row["item_id"], row["claim_id"]): row
+        for row in queue["rows"]
+    }
+    assert queue_rows_by_claim[
+        ("omnigent-general-agent-framework", "multi_agent_orchestration")
+    ]["selected_local_lane"] == "test"
+    assert queue_rows_by_claim[
+        ("omnigent-general-agent-framework", "multi_agent_orchestration")
+    ]["required_validation"] == ["pytest tests/test_harness_eval.py -q -k agent_workflow_route"]
+    assert queue_rows_by_claim[
+        ("xuefeng-agent-domain-advisor", "local_data_grounding")
+    ]["selected_local_lane"] == "documentation"
+    assert queue_rows_by_claim[
+        ("xuefeng-agent-domain-advisor", "local_data_grounding")
+    ]["queued_local_lanes"] == ["documentation", "test"]
+    assert queue_rows_by_claim[
+        ("xuefeng-agent-domain-advisor", "local_data_grounding")
+    ]["activation_blockers"] == ["unmapped_agent_claims"]
+    assert all(row["runtime_action"] == "none" for row in queue["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in queue["rows"])
     probe_rows = {
         row["item_id"]: row
         for row in output["project_intake_probe"]["rows"]
