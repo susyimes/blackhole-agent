@@ -166,6 +166,24 @@ def test_known_failure_metadata_preflight_contract_is_documented():
     assert missing_architecture == []
 
 
+def test_windows_runner_degraded_mode_contract_is_documented():
+    architecture = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "When Windows-native support explicitly allows degraded mode",
+        "`provider_windows_runner_degraded_mode`",
+        "`local_replay_only: true`",
+        "provider runtime launch denied",
+        "`provider_windows_runner_capability_unavailable`",
+        "dependency names, capability names",
+        "Windows dependency names, Windows capability names",
+    ]
+
+    missing_architecture = [phrase for phrase in required_phrases if phrase not in architecture]
+
+    assert missing_architecture == []
+
+
 def test_skill_route_discovery_doc_records_bounded_matrix():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

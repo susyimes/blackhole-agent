@@ -16103,6 +16103,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         runtime=runtime,
         runner_env=runner_env,
     )
+    windows_runner_degraded = bool(windows_runner_preflight.get("degraded"))
     runner_compat_preflight = evaluate_provider_runner_compat_preflight(
         provider=provider,
         runtime=runtime,
@@ -16188,7 +16189,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not startup_preflight["ok"]
         or not runner_state_preflight["ok"]
         or not turn_outcome_preflight["ok"]
-        or not windows_runner_preflight["ok"]
+        or (not windows_runner_preflight["ok"] and not windows_runner_degraded)
         or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
@@ -16201,7 +16202,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not prompt_preflight["prompt_scan"]["prompt_detected"]
         or not browser_preflight["url_safety"]["ok"]
     )
-    runner_invoked = not blocked
+    runner_invoked = not blocked and not bool(windows_runner_preflight.get("local_replay_only"))
     diagnostics = build_provider_runtime_diagnostics(
         incompatible_sandbox=incompatible_sandbox,
         native_terminal_timeout_risk=native_terminal_timeout_risk,
@@ -16289,7 +16290,12 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if native_terminal_timeout_risk
             else "sandbox_runtime_preflight_failed"
         )
-    elif degraded or mock_auth_substitution or browser_preflight["browser_tooling"]["configure_checks_skipped"]:
+    elif (
+        degraded
+        or windows_runner_degraded
+        or mock_auth_substitution
+        or browser_preflight["browser_tooling"]["configure_checks_skipped"]
+    ):
         route_status = "degraded"
         failure_mode = "none"
     else:
@@ -16353,12 +16359,13 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             "native_terminal_timeout_risk": native_terminal_timeout_risk,
             "install_tree_readable": install_tree_readable,
             "supervisor_unwrapped": degraded,
-            "native_file_shell_tools_disabled": degraded,
+            "native_file_shell_tools_disabled": degraded or windows_runner_degraded,
             "runner_invoked": runner_invoked,
         },
         "preflight": {
             "ok": not blocked,
             "degraded": degraded
+            or windows_runner_degraded
             or mock_auth_substitution
             or browser_preflight["browser_tooling"]["configure_checks_skipped"],
             "blocked_before_launch": blocked,
@@ -16558,6 +16565,29 @@ def evaluate_provider_windows_runner_preflight(
         command_shape_valid = False
         command_shape = "string"
 
+    allow_degraded_mode = truthy(
+        config.get("allow_degraded_mode")
+        or config.get("degraded_mode_allowed")
+        or config.get("native_degraded_mode_allowed")
+    )
+    required_dependencies = string_list(config.get("required_dependencies"))
+    available_dependencies = set(string_list(config.get("available_dependencies")))
+    declared_missing_dependencies = string_list(config.get("missing_dependencies"))
+    missing_dependencies = sorted(
+        set(declared_missing_dependencies)
+        | (set(required_dependencies) - available_dependencies if required_dependencies and available_dependencies else set())
+    )
+    required_capabilities = string_list(config.get("required_capabilities"))
+    available_capabilities = set(string_list(config.get("available_capabilities")))
+    unsupported_capabilities = sorted(
+        set(string_list(config.get("unsupported_capabilities")))
+        | (
+            set(required_capabilities) - available_capabilities
+            if required_capabilities and available_capabilities
+            else set()
+        )
+    )
+
     workspace = optional_string(config.get("workspace") or runtime.get("workspace") or runner_env.get("workspace"))
     workspace_resolved = truthy(config.get("workspace_resolved", config.get("workspace_exists", bool(workspace))))
     workspace_inside_repo = truthy(
@@ -16578,6 +16608,10 @@ def evaluate_provider_windows_runner_preflight(
     diagnostics: list[str] = []
     if windows_platform and not powershell_family:
         diagnostics.append("Windows provider runner must declare PowerShell or pwsh shell metadata before launch")
+    if missing_dependencies:
+        diagnostics.append("Windows provider runner required dependency metadata is unavailable")
+    if unsupported_capabilities:
+        diagnostics.append("Windows provider runner required native capability metadata is unavailable")
     if not command_shape_valid:
         diagnostics.append("Windows provider runner command must be represented as an argv list, not a shell body")
     if path_arg_count and (quoted_path_arg_count < path_arg_count or not path_args_quoted):
@@ -16589,8 +16623,26 @@ def evaluate_provider_windows_runner_preflight(
     if windows_platform and not replayed:
         diagnostics.append("Windows provider runner local replay proof must be recorded before launch")
 
-    if windows_platform and not powershell_family:
+    path_args_valid = not path_arg_count or (quoted_path_arg_count >= path_arg_count and path_args_quoted)
+    workspace_valid = not workspace or (workspace_resolved and workspace_inside_repo)
+    native_support_unavailable = bool(
+        windows_platform and (not powershell_family or missing_dependencies or unsupported_capabilities)
+    )
+    degraded = bool(
+        allow_degraded_mode
+        and native_support_unavailable
+        and command_shape_valid
+        and path_args_valid
+        and workspace_valid
+        and replayed
+    )
+
+    if degraded:
+        failure_mode = "none"
+    elif windows_platform and not powershell_family:
         failure_mode = "provider_windows_runner_shell_unsupported"
+    elif missing_dependencies or unsupported_capabilities:
+        failure_mode = "provider_windows_runner_capability_unavailable"
     elif not command_shape_valid:
         failure_mode = "provider_windows_runner_command_malformed"
     elif path_arg_count and (quoted_path_arg_count < path_arg_count or not path_args_quoted):
@@ -16617,6 +16669,16 @@ def evaluate_provider_windows_runner_preflight(
         "command_shape_valid": command_shape_valid,
         "command_arg_count": len(command_args),
         "command_hashes": [stable_text_hash(part) for part in command_args],
+        "degraded": degraded,
+        "allow_degraded_mode": allow_degraded_mode,
+        "local_replay_only": degraded,
+        "provider_runtime_launch_allowed": False,
+        "required_dependency_count": len(required_dependencies),
+        "missing_dependency_count": len(missing_dependencies),
+        "missing_dependency_hashes": [stable_text_hash(value) for value in missing_dependencies],
+        "required_capability_count": len(required_capabilities),
+        "unsupported_capability_count": len(unsupported_capabilities),
+        "unsupported_capability_hashes": [stable_text_hash(value) for value in unsupported_capabilities],
         "path_arg_count": path_arg_count,
         "quoted_path_arg_count": quoted_path_arg_count,
         "path_args_quoted": path_args_quoted,
@@ -19073,6 +19135,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
         )
     elif failure_mode in {
         "provider_windows_runner_command_malformed",
+        "provider_windows_runner_capability_unavailable",
         "provider_windows_runner_path_unquoted",
         "provider_windows_runner_replay_missing",
         "provider_windows_runner_shell_unsupported",
@@ -19092,6 +19155,14 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "command_shape": optional_string(windows_runner.get("command_shape")) or "unknown",
                 "command_shape_valid": bool(windows_runner.get("command_shape_valid")),
                 "command_arg_count": int(windows_runner.get("command_arg_count") or 0),
+                "allow_degraded_mode": bool(windows_runner.get("allow_degraded_mode")),
+                "degraded": bool(windows_runner.get("degraded")),
+                "local_replay_only": bool(windows_runner.get("local_replay_only")),
+                "provider_runtime_launch_allowed": bool(windows_runner.get("provider_runtime_launch_allowed")),
+                "required_dependency_count": int(windows_runner.get("required_dependency_count") or 0),
+                "missing_dependency_count": int(windows_runner.get("missing_dependency_count") or 0),
+                "required_capability_count": int(windows_runner.get("required_capability_count") or 0),
+                "unsupported_capability_count": int(windows_runner.get("unsupported_capability_count") or 0),
                 "path_arg_count": int(windows_runner.get("path_arg_count") or 0),
                 "quoted_path_arg_count": int(windows_runner.get("quoted_path_arg_count") or 0),
                 "workspace_configured": bool(windows_runner.get("workspace_configured")),
@@ -19102,6 +19173,31 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "raw_paths_exported": False,
                 "raw_workspace_exported": False,
                 "shell_body_exported": False,
+            }
+        )
+    if bool(windows_runner.get("degraded")):
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_windows_runner_degraded_mode",
+                "scope": "provider_windows_runner",
+                "severity": "notice",
+                "action": "keep Windows-native provider startup in local replay mode until missing shell, dependency, or capability evidence is repaired",
+                "platform": optional_string(windows_runner.get("platform")) or "unknown",
+                "shell_family": optional_string(windows_runner.get("shell_family")) or "unknown",
+                "allow_degraded_mode": bool(windows_runner.get("allow_degraded_mode")),
+                "local_replay_only": bool(windows_runner.get("local_replay_only")),
+                "provider_runtime_launch_allowed": bool(windows_runner.get("provider_runtime_launch_allowed")),
+                "required_dependency_count": int(windows_runner.get("required_dependency_count") or 0),
+                "missing_dependency_count": int(windows_runner.get("missing_dependency_count") or 0),
+                "required_capability_count": int(windows_runner.get("required_capability_count") or 0),
+                "unsupported_capability_count": int(windows_runner.get("unsupported_capability_count") or 0),
+                "raw_command_exported": False,
+                "raw_paths_exported": False,
+                "raw_workspace_exported": False,
+                "shell_body_exported": False,
+                "raw_dependency_names_exported": False,
+                "raw_capability_names_exported": False,
             }
         )
     elif failure_mode in {

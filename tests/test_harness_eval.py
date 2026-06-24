@@ -1118,6 +1118,135 @@ def test_provider_runtime_preflight_blocks_malformed_windows_runner_before_launc
     assert "pwsh.exe" not in serialized
 
 
+def test_provider_runtime_preflight_windows_degraded_mode_is_local_replay_only():
+    degraded = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-windows-degraded-inline",
+            "provider": {
+                "name": "omnigent-windows-provider",
+                "harness": "omnigent",
+            },
+            "runtime": {
+                "platform": "windows",
+                "launch_transport": "subprocess",
+                "windows_runner": {
+                    "required": True,
+                    "allow_degraded_mode": True,
+                    "shell": "cmd.exe",
+                    "command": [
+                        "python",
+                        "C:\\PRIVATE WORKSPACE\\agent\\runner.py",
+                        "--workspace",
+                        "C:\\PRIVATE WORKSPACE\\agent",
+                    ],
+                    "workspace": "C:\\PRIVATE WORKSPACE\\agent",
+                    "workspace_resolved": True,
+                    "workspace_inside_repo": True,
+                    "path_arg_count": 2,
+                    "quoted_path_arg_count": 2,
+                    "path_args_quoted": True,
+                    "local_replay_evidence": True,
+                    "required_dependencies": ["PRIVATE_SYSTEMROOT_DO_NOT_EXPORT", "PRIVATE_USERPROFILE_DO_NOT_EXPORT"],
+                    "missing_dependencies": ["PRIVATE_USERPROFILE_DO_NOT_EXPORT"],
+                    "required_capabilities": ["PRIVATE_CONPTY_DO_NOT_EXPORT", "PRIVATE_EGRESS_PROXY_DO_NOT_EXPORT"],
+                    "unsupported_capabilities": ["PRIVATE_EGRESS_PROXY_DO_NOT_EXPORT"],
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_windows_degraded_inline.json",
+    )
+    blocked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-windows-capability-blocked-inline",
+            "provider": {
+                "name": "omnigent-windows-provider",
+                "harness": "omnigent",
+            },
+            "runtime": {
+                "platform": "windows",
+                "launch_transport": "subprocess",
+                "windows_runner": {
+                    "required": True,
+                    "shell": "pwsh.exe",
+                    "command": ["python", "runner.py"],
+                    "workspace": "C:\\PRIVATE WORKSPACE\\agent",
+                    "workspace_resolved": True,
+                    "workspace_inside_repo": True,
+                    "local_replay_evidence": True,
+                    "required_capabilities": ["PRIVATE_EGRESS_PROXY_DO_NOT_EXPORT"],
+                    "unsupported_capabilities": ["PRIVATE_EGRESS_PROXY_DO_NOT_EXPORT"],
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_windows_capability_blocked_inline.json",
+    )
+    serialized = json.dumps({"degraded": degraded, "blocked": blocked}, sort_keys=True)
+
+    assert degraded["route_status"] == "degraded"
+    assert degraded["failure_mode"] == "none"
+    assert degraded["runtime"]["runner_invoked"] is False
+    assert degraded["runtime"]["native_file_shell_tools_disabled"] is True
+    assert degraded["windows_runner"]["degraded"] is True
+    assert degraded["windows_runner"]["allow_degraded_mode"] is True
+    assert degraded["windows_runner"]["local_replay_only"] is True
+    assert degraded["windows_runner"]["provider_runtime_launch_allowed"] is False
+    assert degraded["windows_runner"]["missing_dependency_count"] == 1
+    assert degraded["windows_runner"]["unsupported_capability_count"] == 1
+    assert degraded["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["omnigent"],
+            "value_recorded": False,
+            "code": "provider_windows_runner_degraded_mode",
+            "scope": "provider_windows_runner",
+            "severity": "notice",
+            "action": "keep Windows-native provider startup in local replay mode until missing shell, dependency, or capability evidence is repaired",
+            "platform": "windows",
+            "shell_family": "cmd",
+            "allow_degraded_mode": True,
+            "local_replay_only": True,
+            "provider_runtime_launch_allowed": False,
+            "required_dependency_count": 2,
+            "missing_dependency_count": 1,
+            "required_capability_count": 2,
+            "unsupported_capability_count": 1,
+            "raw_command_exported": False,
+            "raw_paths_exported": False,
+            "raw_workspace_exported": False,
+            "shell_body_exported": False,
+            "raw_dependency_names_exported": False,
+            "raw_capability_names_exported": False,
+        }
+    ]
+    assert degraded["operator_recovery_plan"]["decision"] == "degraded_local_replay_only"
+    assert degraded["supervisor_replay"]["ready_for_provider_launch"] is False
+    assert degraded["supervisor_replay"]["recovery_hint_codes"] == ["provider_windows_runner_degraded_mode"]
+
+    assert blocked["route_status"] == "blocked"
+    assert blocked["failure_mode"] == "provider_windows_runner_capability_unavailable"
+    assert blocked["windows_runner"]["degraded"] is False
+    assert blocked["recovery_hints"][0]["code"] == "provider_windows_runner_capability_unavailable"
+    assert blocked["recovery_hints"][0]["missing_dependency_count"] == 0
+    assert blocked["recovery_hints"][0]["unsupported_capability_count"] == 1
+
+    assert "PRIVATE_SYSTEMROOT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_USERPROFILE_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CONPTY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EGRESS_PROXY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE WORKSPACE" not in serialized
+    assert "cmd.exe" not in serialized
+
+
 def test_provider_runtime_preflight_clears_stale_approval_verdict_on_repark():
     output = evaluate_harness_behavior(
         "provider_runtime_preflight",
