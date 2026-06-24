@@ -87,8 +87,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 65
-    assert payload["pass_count"] == 64
+    assert payload["fixture_count"] == 66
+    assert payload["pass_count"] == 65
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -134,6 +134,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-provider-registration-host-owner-mismatch"]["passed"] is True
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
+    assert results["agent-workflow-route-harness-owned-compaction"]["passed"] is True
     assert results["headless-tool-roundtrip-function-call"]["passed"] is True
     assert results["known-failure-metadata-preflight-removed"]["passed"] is True
     assert results["mock-e2e-runner-tier-host-native-misc"]["passed"] is True
@@ -230,6 +231,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_STREAMED_TOOL_RESULT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAMED_TOOL_CALL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_PASS2_ROUTE_INTAKE_OBSERVATION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_COMPACTION_SUMMARY_REF_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_ASSISTANT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_MODEL_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
@@ -8858,6 +8860,80 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert missing_handoff["control_plane"]["recovery"]["ready"] is False
     assert missing_handoff["control_plane"]["recovery"]["blockers"] == ["recovery_commands_missing"]
     assert "PRIVATE_RECOVERY_REF_DO_NOT_EXPORT" not in missing_serialized
+
+
+def test_agent_workflow_route_validates_harness_owned_compaction_boundary():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_harness_owned_compaction.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["compaction"]["passed"] is True
+    assert output["compaction"]["policy"] == {
+        "owner_required": "harness",
+        "runner_compaction_allowed": False,
+        "persist_before_mirror_update_required": True,
+        "resume_replay_required": True,
+        "raw_summary_exported": False,
+        "raw_context_exported": False,
+    }
+    assert output["control_plane"]["compaction_contract"]["required"] is True
+    assert output["control_plane"]["compaction_contract"]["owner"] == "harness"
+    assert output["control_plane"]["compaction_contract"]["persisted"] is True
+    assert output["control_plane"]["compaction_contract"]["persist_status_checked"] is True
+    assert output["control_plane"]["compaction_contract"]["mirror_update_after_persist"] is True
+    assert output["control_plane"]["compaction_contract"]["resume_replay_ready"] is True
+    assert output["control_plane"]["operator_replay_checklist"]["status"] == "ready"
+    assert "PRIVATE_COMPACTION_SUMMARY_REF_DO_NOT_EXPORT" not in serialized
+    assert "CompactionComplete" not in serialized
+
+    runner_owned = dict(fixture["input"])
+    runner_owned["compaction"] = dict(fixture["input"]["compaction"], owner="runner")
+    runner_owned_gate = evaluate_harness_behavior(
+        "agent_workflow_route",
+        runner_owned,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_runner_owned_compaction_inline.json",
+    )
+
+    assert runner_owned_gate["route_status"] == "failed_recoverable"
+    assert runner_owned_gate["failure_mode"] == "compaction_not_harness_owned"
+    assert runner_owned_gate["control_plane"]["complete"] is False
+    assert runner_owned_gate["control_plane"]["compaction_contract"]["blockers"] == [
+        "compaction_not_harness_owned"
+    ]
+    assert runner_owned_gate["control_plane"]["operator_replay_checklist"]["status"] == "blocked"
+    assert any(
+        action["action"] == "compaction_not_harness_owned"
+        for action in runner_owned_gate["control_plane"]["operator_replay_checklist"]["actions"]
+    )
+
+    split_brain_risk = dict(fixture["input"])
+    split_brain_risk["compaction"] = dict(
+        fixture["input"]["compaction"],
+        persist_status_checked=False,
+        mirror_update_after_persist=False,
+    )
+    split_brain_gate = evaluate_harness_behavior(
+        "agent_workflow_route",
+        split_brain_risk,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_compaction_split_brain_inline.json",
+    )
+
+    assert split_brain_gate["route_status"] == "failed_recoverable"
+    assert split_brain_gate["failure_mode"] == "compaction_persist_status_unchecked"
+    assert split_brain_gate["control_plane"]["compaction_contract"]["blockers"] == [
+        "compaction_persist_status_unchecked",
+        "compaction_mirror_updated_before_persist",
+    ]
+    assert split_brain_gate["control_plane"]["stage_diagnostics"][1]["reason"] == (
+        "compaction_persist_status_unchecked"
+    )
 
 
 def test_agent_workflow_route_orchestrator_inbox_delivery_contract():

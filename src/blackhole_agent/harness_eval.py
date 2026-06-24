@@ -18691,6 +18691,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     report_artifacts = raw_input.get("artifacts") if isinstance(raw_input.get("artifacts"), dict) else {}
     intake = raw_input.get("intake") if isinstance(raw_input.get("intake"), dict) else {}
     recovery = raw_input.get("recovery") if isinstance(raw_input.get("recovery"), dict) else {}
+    compaction = raw_input.get("compaction") if isinstance(raw_input.get("compaction"), dict) else {}
     stream_boundaries = (
         raw_input.get("streamed_tool_boundaries") if isinstance(raw_input.get("streamed_tool_boundaries"), dict) else {}
     )
@@ -18724,6 +18725,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         validation_checks=validation_checks,
     )
     observation_result = evaluate_agent_workflow_observations(observations)
+    compaction_result = evaluate_agent_workflow_compaction(compaction)
     stream_boundary_result = evaluate_agent_workflow_stream_boundaries(stream_boundaries)
     inbox_result = evaluate_agent_workflow_orchestrator_inbox(orchestrator_inbox)
     state_transitions = build_agent_workflow_state_transitions(
@@ -18743,6 +18745,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             recovery_handoff_ready=bool(recovery_handoff["ready"]),
             observations_passed=observation_result["passed"],
             observations_failure_mode=observation_result["failure_mode"],
+            compaction_passed=compaction_result["passed"],
+            compaction_failure_mode=compaction_result["failure_mode"],
             stream_boundaries_passed=stream_boundary_result["passed"],
             stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
             inbox_delivery_passed=inbox_result["passed"],
@@ -18763,6 +18767,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         recovery_handoff_ready=bool(recovery_handoff["ready"]),
         observations_passed=observation_result["passed"],
         observations_failure_mode=observation_result["failure_mode"],
+        compaction_passed=compaction_result["passed"],
+        compaction_failure_mode=compaction_result["failure_mode"],
         stream_boundaries_passed=stream_boundary_result["passed"],
         stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
         inbox_delivery_passed=inbox_result["passed"],
@@ -18794,6 +18800,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         rollback_available=rollback_available,
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
+        compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         report_artifacts=report_artifacts,
@@ -18836,6 +18843,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         "oneshot_marker": marker_result,
         "lifecycle": lifecycle_result,
         "observations": observation_result,
+        "compaction": compaction_result,
         "streamed_tool_boundaries": stream_boundary_result,
         "orchestrator_inbox": inbox_result,
         "validation": {
@@ -18867,6 +18875,8 @@ def agent_workflow_failure_mode(
     recovery_handoff_ready: bool = True,
     observations_passed: bool = True,
     observations_failure_mode: str = "none",
+    compaction_passed: bool = True,
+    compaction_failure_mode: str = "none",
     stream_boundaries_passed: bool = True,
     stream_boundaries_failure_mode: str = "none",
     inbox_delivery_passed: bool = True,
@@ -18882,6 +18892,8 @@ def agent_workflow_failure_mode(
         return "nonzero_exit"
     if not observations_passed:
         return observations_failure_mode
+    if not compaction_passed:
+        return compaction_failure_mode
     if not stream_boundaries_passed:
         return stream_boundaries_failure_mode
     if not inbox_delivery_passed:
@@ -19262,6 +19274,96 @@ def normalize_agent_workflow_observation_phase(value: Any) -> str:
     return phase if phase in allowed else "other"
 
 
+def evaluate_agent_workflow_compaction(compaction: dict[str, Any]) -> dict[str, Any]:
+    """Validate harness-owned compaction handoff without exporting summaries."""
+
+    required = truthy(compaction.get("required"))
+    owner = normalize_agent_workflow_compaction_owner(compaction.get("owner") or compaction.get("performed_by"))
+    event = optional_string(compaction.get("event") or compaction.get("event_type"))
+    completed = truthy(compaction.get("completed", not required))
+    summary_ref = optional_string(compaction.get("summary_ref"))
+    summary_model = optional_string(compaction.get("summary_model"))
+    summary_recorded = truthy(compaction.get("summary_recorded")) or bool(summary_ref)
+    summary_model_recorded = truthy(compaction.get("summary_model_recorded")) or bool(summary_model)
+    token_count_recorded = optional_int(compaction.get("token_count")) is not None or truthy(
+        compaction.get("token_count_recorded")
+    )
+    persisted = truthy(compaction.get("persisted"))
+    persist_checked = truthy(compaction.get("persist_status_checked") or compaction.get("server_acknowledged"))
+    mirror_update_after_persist = truthy(compaction.get("mirror_update_after_persist"))
+    resume_replay_ready = truthy(
+        compaction.get("resume_replay_ready") or compaction.get("replay_marker_recorded")
+    )
+    runner_compaction_disabled = truthy(compaction.get("runner_compaction_disabled", True))
+    runner_claim_only = truthy(compaction.get("runner_claim_only"))
+    raw_summary_exported = truthy(compaction.get("raw_summary_exported") or compaction.get("summary_exported"))
+
+    blockers: list[str] = []
+    if required and owner != "harness":
+        blockers.append("compaction_not_harness_owned")
+    if required and not completed:
+        blockers.append("compaction_event_incomplete")
+    if required and not summary_recorded:
+        blockers.append("compaction_summary_missing")
+    if required and not token_count_recorded:
+        blockers.append("compaction_token_count_missing")
+    if required and not persisted:
+        blockers.append("compaction_persistence_missing")
+    if required and not persist_checked:
+        blockers.append("compaction_persist_status_unchecked")
+    if required and not mirror_update_after_persist:
+        blockers.append("compaction_mirror_updated_before_persist")
+    if required and not resume_replay_ready:
+        blockers.append("compaction_resume_replay_missing")
+    if required and not runner_compaction_disabled:
+        blockers.append("runner_compaction_still_enabled")
+    if required and runner_claim_only:
+        blockers.append("compaction_runner_claim_only")
+    if raw_summary_exported:
+        blockers.append("compaction_raw_summary_export_risk")
+
+    return {
+        "required": required,
+        "passed": not blockers,
+        "failure_mode": blockers[0] if blockers else "none",
+        "owner": owner,
+        "event_recorded": bool(event),
+        "event_hash": stable_text_hash(event) if event else None,
+        "completed": completed,
+        "summary_recorded": summary_recorded,
+        "summary_model_recorded": summary_model_recorded,
+        "token_count_recorded": token_count_recorded,
+        "persisted": persisted,
+        "persist_status_checked": persist_checked,
+        "mirror_update_after_persist": mirror_update_after_persist,
+        "resume_replay_ready": resume_replay_ready,
+        "runner_compaction_disabled": runner_compaction_disabled,
+        "runner_claim_only": runner_claim_only,
+        "blockers": blockers,
+        "policy": {
+            "owner_required": "harness",
+            "runner_compaction_allowed": False,
+            "persist_before_mirror_update_required": True,
+            "resume_replay_required": True,
+            "raw_summary_exported": False,
+            "raw_context_exported": False,
+        },
+    }
+
+
+def normalize_agent_workflow_compaction_owner(value: Any) -> str:
+    owner = (optional_string(value) or "none").strip().lower().replace("-", "_")
+    aliases = {
+        "executor": "harness",
+        "executor_harness": "harness",
+        "provider_harness": "harness",
+        "runner_side": "runner",
+        "runner_mirror": "runner",
+    }
+    owner = aliases.get(owner, owner)
+    return owner if owner in {"harness", "runner", "server", "none", "unknown"} else "unknown"
+
+
 def evaluate_agent_workflow_recovery_handoff(
     recovery: dict[str, Any],
     *,
@@ -19319,6 +19421,7 @@ def build_agent_workflow_control_plane(
     rollback_available: bool,
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
+    compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     report_artifacts: dict[str, Any],
@@ -19340,6 +19443,7 @@ def build_agent_workflow_control_plane(
         and bool(state_transitions)
         and bool(stream_boundary_result["passed"])
         and bool(inbox_result["passed"])
+        and bool(compaction_result["passed"])
     )
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
     replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
@@ -19358,6 +19462,7 @@ def build_agent_workflow_control_plane(
         report_contract=report_contract,
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
+        compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         validation_check_count=len(validation_checks),
@@ -19369,6 +19474,7 @@ def build_agent_workflow_control_plane(
         report_contract=report_contract,
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
+        compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
     )
@@ -19379,6 +19485,8 @@ def build_agent_workflow_control_plane(
         failure_mode = str(report_contract["failure_mode"])
     elif not observation_result["passed"]:
         failure_mode = str(observation_result["failure_mode"])
+    elif not compaction_result["passed"]:
+        failure_mode = str(compaction_result["failure_mode"])
     elif not stream_boundary_result["passed"]:
         failure_mode = str(stream_boundary_result["failure_mode"])
     elif not inbox_result["passed"]:
@@ -19392,6 +19500,7 @@ def build_agent_workflow_control_plane(
         "complete": (
             not missing_stages
             and observation_result["passed"]
+            and compaction_result["passed"]
             and stream_boundary_result["passed"]
             and inbox_result["passed"]
         ),
@@ -19428,6 +19537,26 @@ def build_agent_workflow_control_plane(
             "flaky_observations_allowed_only_when_non_load_bearing": (
                 observation_result["failed_load_bearing_count"] == 0
             ),
+        },
+        "compaction_contract": {
+            "required": compaction_result["required"],
+            "passed": compaction_result["passed"],
+            "failure_mode": compaction_result["failure_mode"],
+            "owner": compaction_result["owner"],
+            "event_recorded": compaction_result["event_recorded"],
+            "completed": compaction_result["completed"],
+            "summary_recorded": compaction_result["summary_recorded"],
+            "summary_model_recorded": compaction_result["summary_model_recorded"],
+            "token_count_recorded": compaction_result["token_count_recorded"],
+            "persisted": compaction_result["persisted"],
+            "persist_status_checked": compaction_result["persist_status_checked"],
+            "mirror_update_after_persist": compaction_result["mirror_update_after_persist"],
+            "resume_replay_ready": compaction_result["resume_replay_ready"],
+            "runner_compaction_disabled": compaction_result["runner_compaction_disabled"],
+            "runner_claim_only": compaction_result["runner_claim_only"],
+            "blockers": compaction_result["blockers"],
+            "raw_summary_exported": False,
+            "raw_context_exported": False,
         },
         "stream_boundary_contract": {
             "required": stream_boundary_result["required"],
@@ -19469,6 +19598,7 @@ def build_agent_workflow_operator_replay_checklist(
     report_contract: dict[str, Any],
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
+    compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
 ) -> dict[str, Any]:
@@ -19518,6 +19648,14 @@ def build_agent_workflow_operator_replay_checklist(
             {
                 "stage": "midflight",
                 "action": str(observation_result.get("failure_mode") or "inspect_observation_contract"),
+                "required_before_replay": True,
+            }
+        )
+    if not bool(compaction_result.get("passed", True)):
+        actions.append(
+            {
+                "stage": "midflight",
+                "action": str(compaction_result.get("failure_mode") or "inspect_compaction_contract"),
                 "required_before_replay": True,
             }
         )
@@ -19621,6 +19759,7 @@ def build_agent_workflow_stage_diagnostics(
     report_contract: dict[str, Any],
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
+    compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     validation_check_count: int,
@@ -19645,12 +19784,15 @@ def build_agent_workflow_stage_diagnostics(
         elif stage == "midflight":
             evidence_counts = {
                 "observation_count": observation_result["count"],
+                "compaction_required": compaction_result["required"],
+                "compaction_blocker_count": len(compaction_result["blockers"]),
                 "stream_event_count": stream_boundary_result["event_count"],
                 "completion_message_count": inbox_result["completion_message_count"],
             }
             if not ready:
                 reason = first_control_plane_failure_reason(
                     observation_result,
+                    compaction_result,
                     stream_boundary_result,
                     inbox_result,
                     default="midflight_state_missing",

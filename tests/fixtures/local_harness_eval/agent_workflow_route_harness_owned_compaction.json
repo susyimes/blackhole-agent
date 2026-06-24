@@ -1,0 +1,142 @@
+{
+  "name": "agent-workflow-route-harness-owned-compaction",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-harness-owned-compaction",
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "invoke-harness",
+          "status": "completed"
+        },
+        {
+          "id": "persist-compaction",
+          "status": "completed"
+        },
+        {
+          "id": "resume-replay",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "compaction": {
+      "required": true,
+      "owner": "harness",
+      "event": "CompactionComplete",
+      "completed": true,
+      "summary_ref": "PRIVATE_COMPACTION_SUMMARY_REF_DO_NOT_EXPORT",
+      "summary_model_recorded": true,
+      "token_count": 2048,
+      "persisted": true,
+      "persist_status_checked": true,
+      "mirror_update_after_persist": true,
+      "resume_replay_ready": true,
+      "runner_compaction_disabled": true,
+      "runner_claim_only": false,
+      "raw_summary_exported": false
+    },
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-harness-compaction",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/rollback/fixture-route-harness-owned-compaction",
+      "artifact_path": "artifacts/rollback/fixture-route-harness-owned-compaction.txt"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git reset --hard fixture-route-harness-compaction-head"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k harness_owned_compaction"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/fixture-route-harness-owned-compaction.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_harness_owned_compaction.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "compaction.passed",
+      "equals": true
+    },
+    {
+      "path": "compaction.owner",
+      "equals": "harness"
+    },
+    {
+      "path": "control_plane.compaction_contract.required",
+      "equals": true
+    },
+    {
+      "path": "control_plane.compaction_contract.persist_status_checked",
+      "equals": true
+    },
+    {
+      "path": "control_plane.compaction_contract.mirror_update_after_persist",
+      "equals": true
+    },
+    {
+      "path": "control_plane.compaction_contract.resume_replay_ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.status",
+      "equals": "ready"
+    },
+    {
+      "path": "control_plane.complete",
+      "equals": true
+    }
+  ]
+}
