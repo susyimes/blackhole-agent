@@ -1274,6 +1274,57 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert all(row["raw_source_url_exported"] is False for row in profile_queue["rows"])
     assert all(row["raw_upstream_body_exported"] is False for row in profile_queue["rows"])
 
+    pass1_matrix = lane_map["pass1_validation_matrix"]
+    assert pass1_matrix["controller_surface"] == "skill_route_discovery_pass1_validation_matrix"
+    assert pass1_matrix["status"] == "ready"
+    assert pass1_matrix["decision"] == "replay_pass1_bounded_lanes_before_activation"
+    assert pass1_matrix["row_count"] == 3
+    assert pass1_matrix["ready_row_count"] == 3
+    assert pass1_matrix["blocked_row_count"] == 0
+    assert pass1_matrix["blocked_candidate_names"] == []
+    assert pass1_matrix["selected_local_lanes"] == ["config", "test"]
+    assert pass1_matrix["queued_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert pass1_matrix["replay_commands"] == [
+        "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow",
+        "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
+        "python -m pytest tests/test_skill_routing.py -q -k game_frontend",
+    ]
+    assert pass1_matrix["required_evidence"] == [
+        "rollback_artifact",
+        "focused_local_validation",
+        "changed_file_review",
+        "review_note",
+    ]
+    assert pass1_matrix["local_validation_required"] is True
+    assert pass1_matrix["runtime_action"] == "none"
+    assert pass1_matrix["external_skill_activation_allowed"] is False
+    assert pass1_matrix["external_harness_execution_allowed"] is False
+    assert pass1_matrix["provider_runtime_launch_allowed"] is False
+    assert pass1_matrix["remote_execution_allowed"] is False
+    assert pass1_matrix["raw_source_url_exported"] is False
+    assert pass1_matrix["raw_evidence_urls_exported"] is False
+    assert pass1_matrix["raw_target_paths_exported"] is False
+    assert pass1_matrix["raw_upstream_body_exported"] is False
+    pass1_rows = {row["candidate_name"]: row for row in pass1_matrix["rows"]}
+    assert pass1_rows["codex-fable5"]["selected_local_lane"] == "test"
+    assert pass1_rows["codex-fable5"]["queued_local_lanes"] == ["documentation", "config", "code_patch"]
+    assert pass1_rows["codex-fable5"]["promotion_proof"]["selected_local_lane"] == "test"
+    assert pass1_rows["codex-fable5"]["promotion_proof"]["raw_target_paths_exported"] is False
+    assert pass1_rows["codex-fable5"]["first_route_required"] is True
+    assert pass1_rows["codex-fable5"]["first_route_confirmed"] is True
+    assert pass1_rows["codex-fable5"]["activation_ready"] is True
+    assert pass1_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert pass1_rows["compass-skills"]["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k state_handoff"
+    )
+    assert pass1_rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert pass1_rows["threejs-game-skills"]["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert all(row["runtime_action"] == "none" for row in pass1_matrix["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in pass1_matrix["rows"])
+    assert all(row["raw_source_url_exported"] is False for row in pass1_matrix["rows"])
+    assert all(row["raw_target_paths_exported"] is False for row in pass1_matrix["rows"])
+    assert all(row["raw_upstream_body_exported"] is False for row in pass1_matrix["rows"])
+
     next_step = lane_map["next_validation_step"]
     assert next_step["controller_surface"] == "skill_route_discovery_next_validation_step"
     assert next_step["status"] == "ready"

@@ -945,6 +945,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
+        "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
         "adoption_manifest": adoption_manifest,
         "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
         "candidate_lane_inventory": candidate_lane_inventory,
@@ -1692,6 +1693,113 @@ def _skill_route_discovery_next_validation_step(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_pass1_validation_matrix(
+    local_activation_targets: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Flatten pass-1 activation targets into a replayable lane matrix."""
+
+    raw_rows = local_activation_targets.get("rows")
+    target_rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    rows: list[dict[str, Any]] = []
+    blocked_candidate_names: list[str] = []
+    selected_lanes: list[str] = []
+    queued_lanes: list[str] = []
+    replay_commands: list[str] = []
+
+    for raw_row in target_rows:
+        if not isinstance(raw_row, Mapping):
+            continue
+        candidate_name = str(raw_row.get("candidate_name") or "")
+        selected_lane = str(raw_row.get("selected_local_lane") or "")
+        queued_local_lanes = [
+            lane
+            for lane in _string_list(raw_row.get("queued_local_lanes"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        route_profiles = _string_list(raw_row.get("route_profiles")) or ["generic_skill_workflow"]
+        replay_command = str(raw_row.get("replay_command") or "")
+        promotion_proof = raw_row.get("promotion_proof")
+        promotion_proof = promotion_proof if isinstance(promotion_proof, Mapping) else {}
+        activation_ready = raw_row.get("activation_ready") is True
+        activation_blockers = _string_list(raw_row.get("activation_blockers"))
+
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_lanes.append(selected_lane)
+        queued_lanes.extend(queued_local_lanes)
+        if replay_command:
+            replay_commands.append(replay_command)
+        if not activation_ready and candidate_name:
+            blocked_candidate_names.append(candidate_name)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": str(raw_row.get("candidate_source_hash") or ""),
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": queued_local_lanes,
+                "validation_gates": _string_list(raw_row.get("validation_gates")),
+                "validation_target": str(raw_row.get("validation_target") or ""),
+                "replay_command": replay_command,
+                "promotion_proof": dict(promotion_proof),
+                "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
+                "first_route_required": raw_row.get("first_route_required") is True,
+                "first_route_confirmed": raw_row.get("first_route_confirmed") is True,
+                "activation_ready": activation_ready,
+                "activation_blockers": activation_blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not blocked_candidate_names
+    return {
+        "controller_surface": "skill_route_discovery_pass1_validation_matrix",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "replay_pass1_bounded_lanes_before_activation"
+            if ready
+            else "repair_pass1_bounded_lanes_before_activation"
+        ),
+        "row_count": len(rows),
+        "ready_row_count": len([row for row in rows if row["activation_ready"] is True]),
+        "blocked_row_count": len([row for row in rows if row["activation_ready"] is not True]),
+        "blocked_candidate_names": blocked_candidate_names,
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "queued_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(queued_lanes)
+        ],
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "required_evidence": [
+            "rollback_artifact",
+            "focused_local_validation",
+            "changed_file_review",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 

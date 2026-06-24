@@ -1672,6 +1672,16 @@ target list, not an activation grant: runtime action, upstream skill activation,
 external harness execution, provider launch, remote execution, profile writes,
 memory writes, and source/body export remain denied.
 
+Pass-1 lane maps now also emit `pass1_validation_matrix`, a compact replay
+matrix derived only from `local_activation_targets`. It gives the supervisor one
+row per bounded candidate with selected and queued local lanes, route profiles,
+validation gates, replay command, selected item IDs, promotion proof hashes, and
+activation blockers. The matrix is ready only when every row is ready for local
+validation. It is not a new activation lane: runtime action, upstream skill
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw evidence URL export, raw target path export, and upstream
+body export remain denied.
+
 The same core lane map now exposes `next_validation_step`, a compact pass-2
 handoff selector derived only from `local_activation_targets`. It chooses one
 ready bounded replay target for the supervisor to run next, prioritizing
