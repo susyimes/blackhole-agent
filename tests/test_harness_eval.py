@@ -1010,6 +1010,114 @@ def test_provider_runtime_preflight_blocks_unreplayed_old_runner_host_compat_bri
     assert "Config 2" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_malformed_windows_runner_before_launch():
+    blocked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-windows-runner-malformed-inline",
+            "provider": {
+                "name": "omnigent-windows-provider",
+                "harness": "omnigent",
+            },
+            "runtime": {
+                "platform": "windows",
+                "launch_transport": "subprocess",
+                "windows_runner": {
+                    "required": True,
+                    "shell": "cmd.exe",
+                    "command": "python PRIVATE_SCRIPT_DO_NOT_EXPORT --workspace C:\\PRIVATE WORKSPACE\\agent",
+                    "workspace": "C:\\PRIVATE WORKSPACE\\agent",
+                    "workspace_resolved": True,
+                    "workspace_inside_repo": False,
+                    "path_arg_count": 2,
+                    "quoted_path_arg_count": 0,
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_windows_runner_malformed_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-windows-runner-ready-inline",
+            "provider": {
+                "name": "omnigent-windows-provider",
+                "harness": "omnigent",
+            },
+            "runtime": {
+                "platform": "windows",
+                "launch_transport": "subprocess",
+                "windows_runner": {
+                    "required": True,
+                    "shell": "pwsh.exe",
+                    "command": [
+                        "python",
+                        "C:\\PRIVATE WORKSPACE\\agent\\runner.py",
+                        "--workspace",
+                        "C:\\PRIVATE WORKSPACE\\agent",
+                    ],
+                    "workspace": "C:\\PRIVATE WORKSPACE\\agent",
+                    "workspace_resolved": True,
+                    "workspace_inside_repo": True,
+                    "path_arg_count": 2,
+                    "quoted_path_arg_count": 2,
+                    "path_args_quoted": True,
+                    "local_replay_evidence": True,
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_windows_runner_ready_inline.json",
+    )
+    serialized = json.dumps({"blocked": blocked, "ready": ready}, sort_keys=True)
+
+    assert blocked["route_status"] == "blocked"
+    assert blocked["failure_mode"] == "provider_windows_runner_shell_unsupported"
+    assert blocked["runtime"]["runner_invoked"] is False
+    assert blocked["windows_runner"]["shell_family"] == "cmd"
+    assert blocked["windows_runner"]["powershell_family"] is False
+    assert blocked["windows_runner"]["command_shape"] == "string"
+    assert blocked["windows_runner"]["command_shape_valid"] is False
+    assert blocked["windows_runner"]["path_arg_count"] == 2
+    assert blocked["windows_runner"]["quoted_path_arg_count"] == 0
+    assert blocked["windows_runner"]["workspace_inside_repo"] is False
+    assert blocked["windows_runner"]["raw_command_exported"] is False
+    assert blocked["windows_runner"]["raw_paths_exported"] is False
+    assert blocked["windows_runner"]["raw_workspace_exported"] is False
+    assert blocked["windows_runner"]["shell_body_exported"] is False
+    assert blocked["preflight"]["diagnostics"] == [
+        "Windows provider runner must declare PowerShell or pwsh shell metadata before launch",
+        "Windows provider runner command must be represented as an argv list, not a shell body",
+        "Windows provider runner path arguments must be quoted or passed as argv elements",
+        "Windows provider runner workspace must resolve inside the current repository",
+        "Windows provider runner local replay proof must be recorded before launch",
+    ]
+    assert blocked["recovery_hints"][0]["code"] == "provider_windows_runner_shell_unsupported"
+    assert blocked["recovery_hints"][0]["scope"] == "provider_windows_runner"
+    assert blocked["supervisor_replay"]["ready_for_provider_launch"] is False
+
+    assert ready["route_status"] == "passed"
+    assert ready["failure_mode"] == "none"
+    assert ready["windows_runner"]["shell_family"] == "pwsh"
+    assert ready["windows_runner"]["command_arg_count"] == 4
+    assert ready["windows_runner"]["workspace_inside_repo"] is True
+    assert ready["windows_runner"]["local_replay_evidence"] is True
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert "PRIVATE_SCRIPT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE WORKSPACE" not in serialized
+    assert "C:\\\\" not in serialized
+    assert "cmd.exe" not in serialized
+    assert "pwsh.exe" not in serialized
+
+
 def test_provider_runtime_preflight_clears_stale_approval_verdict_on_repark():
     output = evaluate_harness_behavior(
         "provider_runtime_preflight",

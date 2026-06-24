@@ -16098,6 +16098,11 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     startup_preflight = evaluate_provider_startup_preflight(provider=provider, runtime=runtime)
     runner_state_preflight = evaluate_provider_runner_state_preflight(provider=provider, runtime=runtime)
     turn_outcome_preflight = evaluate_provider_turn_outcome_preflight(raw_input, provider=provider, runtime=runtime)
+    windows_runner_preflight = evaluate_provider_windows_runner_preflight(
+        provider=provider,
+        runtime=runtime,
+        runner_env=runner_env,
+    )
     runner_compat_preflight = evaluate_provider_runner_compat_preflight(
         provider=provider,
         runtime=runtime,
@@ -16183,6 +16188,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not startup_preflight["ok"]
         or not runner_state_preflight["ok"]
         or not turn_outcome_preflight["ok"]
+        or not windows_runner_preflight["ok"]
         or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
@@ -16216,6 +16222,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(startup_preflight["diagnostics"])
     diagnostics.extend(runner_state_preflight["diagnostics"])
     diagnostics.extend(turn_outcome_preflight["diagnostics"])
+    diagnostics.extend(windows_runner_preflight["diagnostics"])
     diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
@@ -16254,6 +16261,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not runner_state_preflight["ok"]
             else turn_outcome_preflight["failure_mode"]
             if not turn_outcome_preflight["ok"]
+            else windows_runner_preflight["failure_mode"]
+            if not windows_runner_preflight["ok"]
             else runner_compat_preflight["failure_mode"]
             if not runner_compat_preflight["ok"]
             else auth_header_preflight["failure_mode"]
@@ -16367,6 +16376,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "startup_preflight": startup_preflight,
         "runner_state": runner_state_preflight,
         "turn_outcome": turn_outcome_preflight,
+        "windows_runner": windows_runner_preflight,
         "runner_compat": runner_compat_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
@@ -16486,6 +16496,169 @@ def evaluate_provider_turn_outcome_preflight(
         "raw_output_exported": False,
         "credential_values_exported": False,
     }
+
+
+def evaluate_provider_windows_runner_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    runner_env: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate Windows-native runner launch metadata before provider start.
+
+    Windows failures are often command-shape and workspace-resolution problems.
+    This preflight keeps only counts, hashes, and booleans so an operator can
+    replay the fix without exporting local paths or shell command bodies.
+    """
+
+    raw_config = (
+        runtime.get("windows_runner")
+        or provider.get("windows_runner")
+        or runner_env.get("windows_runner")
+        or runtime.get("windows_preflight")
+        or provider.get("windows_preflight")
+        or runner_env.get("windows_preflight")
+    )
+    config = raw_config if isinstance(raw_config, dict) else {}
+    platform = (
+        optional_string(config.get("platform") or runtime.get("platform") or runner_env.get("platform")) or ""
+    ).lower()
+    windows_platform = platform in {"windows", "win32", "win64", "nt"}
+    required = (
+        truthy(config.get("required"))
+        or truthy(runtime.get("windows_runner_preflight_required"))
+        or truthy(provider.get("windows_runner_preflight_required"))
+        or (windows_platform and bool(config))
+    )
+    if not required:
+        return {
+            "required": False,
+            "observed": bool(config),
+            "ok": True,
+            "failure_mode": "none",
+            "platform": platform or "unknown",
+            "windows_platform": windows_platform,
+            "diagnostics": [],
+            "raw_command_exported": False,
+            "raw_paths_exported": False,
+            "raw_workspace_exported": False,
+            "shell_body_exported": False,
+        }
+
+    shell = (
+        optional_string(config.get("shell") or runtime.get("shell") or runner_env.get("shell")) or ""
+    ).lower()
+    shell_family = normalize_windows_shell_family(shell)
+    powershell_family = shell_family in {"powershell", "pwsh"}
+    raw_command = config.get("command") or config.get("command_args") or runtime.get("command")
+    command_args = [str(part) for part in raw_command if isinstance(part, str)] if isinstance(raw_command, list) else []
+    command_shape = optional_string(config.get("command_shape")) or ("argv" if command_args else "unknown")
+    command_shape_valid = truthy(config.get("command_shape_valid")) or command_shape in {"argv", "list", "array"}
+    if isinstance(raw_command, str):
+        command_shape_valid = False
+        command_shape = "string"
+
+    workspace = optional_string(config.get("workspace") or runtime.get("workspace") or runner_env.get("workspace"))
+    workspace_resolved = truthy(config.get("workspace_resolved", config.get("workspace_exists", bool(workspace))))
+    workspace_inside_repo = truthy(
+        config.get("workspace_inside_repo", config.get("workspace_within_repo", config.get("cwd_inside_repo", True)))
+    )
+    path_arg_count = nonnegative_int(config.get("path_arg_count"), default=0)
+    quoted_path_arg_count = nonnegative_int(config.get("quoted_path_arg_count"), default=0)
+    if path_arg_count == 0:
+        path_arg_count = sum(1 for arg in command_args if looks_like_windows_path(arg))
+        quoted_path_arg_count = sum(1 for arg in command_args if looks_like_windows_path(arg) and windows_path_is_quoted(arg))
+    path_args_quoted = truthy(config.get("path_args_quoted", path_arg_count == quoted_path_arg_count))
+    replayed = truthy(
+        config.get("local_replay_evidence")
+        or config.get("local_replay_evidence_replayed")
+        or config.get("resolution_proof_replayed")
+    )
+
+    diagnostics: list[str] = []
+    if windows_platform and not powershell_family:
+        diagnostics.append("Windows provider runner must declare PowerShell or pwsh shell metadata before launch")
+    if not command_shape_valid:
+        diagnostics.append("Windows provider runner command must be represented as an argv list, not a shell body")
+    if path_arg_count and (quoted_path_arg_count < path_arg_count or not path_args_quoted):
+        diagnostics.append("Windows provider runner path arguments must be quoted or passed as argv elements")
+    if workspace and not workspace_resolved:
+        diagnostics.append("Windows provider runner workspace did not resolve before launch")
+    if workspace and not workspace_inside_repo:
+        diagnostics.append("Windows provider runner workspace must resolve inside the current repository")
+    if windows_platform and not replayed:
+        diagnostics.append("Windows provider runner local replay proof must be recorded before launch")
+
+    if windows_platform and not powershell_family:
+        failure_mode = "provider_windows_runner_shell_unsupported"
+    elif not command_shape_valid:
+        failure_mode = "provider_windows_runner_command_malformed"
+    elif path_arg_count and (quoted_path_arg_count < path_arg_count or not path_args_quoted):
+        failure_mode = "provider_windows_runner_path_unquoted"
+    elif workspace and not workspace_resolved:
+        failure_mode = "provider_windows_runner_workspace_unresolved"
+    elif workspace and not workspace_inside_repo:
+        failure_mode = "provider_windows_runner_workspace_outside_repo"
+    elif windows_platform and not replayed:
+        failure_mode = "provider_windows_runner_replay_missing"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "observed": bool(config),
+        "ok": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "platform": platform or "unknown",
+        "windows_platform": windows_platform,
+        "shell_family": shell_family,
+        "powershell_family": powershell_family,
+        "command_shape": command_shape,
+        "command_shape_valid": command_shape_valid,
+        "command_arg_count": len(command_args),
+        "command_hashes": [stable_text_hash(part) for part in command_args],
+        "path_arg_count": path_arg_count,
+        "quoted_path_arg_count": quoted_path_arg_count,
+        "path_args_quoted": path_args_quoted,
+        "workspace_configured": bool(workspace),
+        "workspace_hash": stable_text_hash(workspace) if workspace else None,
+        "workspace_resolved": workspace_resolved,
+        "workspace_inside_repo": workspace_inside_repo,
+        "local_replay_evidence": replayed,
+        "raw_command_exported": False,
+        "raw_paths_exported": False,
+        "raw_workspace_exported": False,
+        "shell_body_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_windows_shell_family(value: str) -> str:
+    shell = value.strip().lower()
+    if shell in {"powershell", "powershell.exe", "windows powershell"}:
+        return "powershell"
+    if shell in {"pwsh", "pwsh.exe", "powershell core"}:
+        return "pwsh"
+    if shell in {"cmd", "cmd.exe"}:
+        return "cmd"
+    if shell in {"bash", "bash.exe", "sh"}:
+        return "posix"
+    return shell or "unknown"
+
+
+def looks_like_windows_path(value: str) -> bool:
+    stripped = value.strip().strip("'\"")
+    return bool(
+        len(stripped) >= 3
+        and stripped[1] == ":"
+        and stripped[0].isalpha()
+        and ("\\" in stripped or "/" in stripped)
+    )
+
+
+def windows_path_is_quoted(value: str) -> bool:
+    stripped = value.strip()
+    return bool((stripped.startswith('"') and stripped.endswith('"')) or (stripped.startswith("'") and stripped.endswith("'")))
 
 
 def evaluate_provider_tool_dispatch_preflight(
@@ -18471,6 +18644,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     )
     runner_state = preflight.get("runner_state") if isinstance(preflight.get("runner_state"), dict) else {}
     turn_outcome = preflight.get("turn_outcome") if isinstance(preflight.get("turn_outcome"), dict) else {}
+    windows_runner = preflight.get("windows_runner") if isinstance(preflight.get("windows_runner"), dict) else {}
     runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
@@ -18895,6 +19069,39 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "raw_error_body_exported": False,
                 "raw_output_exported": False,
                 "credential_values_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_windows_runner_command_malformed",
+        "provider_windows_runner_path_unquoted",
+        "provider_windows_runner_replay_missing",
+        "provider_windows_runner_shell_unsupported",
+        "provider_windows_runner_workspace_outside_repo",
+        "provider_windows_runner_workspace_unresolved",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_windows_runner",
+                "severity": "blocker",
+                "action": "repair Windows shell, argv, path quoting, workspace resolution, and local replay proof before provider launch",
+                "platform": optional_string(windows_runner.get("platform")) or "unknown",
+                "shell_family": optional_string(windows_runner.get("shell_family")) or "unknown",
+                "powershell_family": bool(windows_runner.get("powershell_family")),
+                "command_shape": optional_string(windows_runner.get("command_shape")) or "unknown",
+                "command_shape_valid": bool(windows_runner.get("command_shape_valid")),
+                "command_arg_count": int(windows_runner.get("command_arg_count") or 0),
+                "path_arg_count": int(windows_runner.get("path_arg_count") or 0),
+                "quoted_path_arg_count": int(windows_runner.get("quoted_path_arg_count") or 0),
+                "workspace_configured": bool(windows_runner.get("workspace_configured")),
+                "workspace_resolved": bool(windows_runner.get("workspace_resolved")),
+                "workspace_inside_repo": bool(windows_runner.get("workspace_inside_repo")),
+                "local_replay_evidence": bool(windows_runner.get("local_replay_evidence")),
+                "raw_command_exported": False,
+                "raw_paths_exported": False,
+                "raw_workspace_exported": False,
+                "shell_body_exported": False,
             }
         )
     elif failure_mode in {
