@@ -193,6 +193,54 @@
       "equals": "report"
     },
     {
+      "path": "control_plane.workflow_handoff.controller_surface",
+      "equals": "runner_harness_workflow_handoff"
+    },
+    {
+      "path": "control_plane.workflow_handoff.status",
+      "equals": "ready"
+    },
+    {
+      "path": "control_plane.workflow_handoff.stage_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.workflow_handoff.ready_stage_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.workflow_handoff.blocked_stage_count",
+      "equals": 0
+    },
+    {
+      "path": "control_plane.workflow_handoff.source_intake.capability_theme",
+      "equals": "runner-harness-control"
+    },
+    {
+      "path": "control_plane.workflow_handoff.source_intake.evidence_url_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.workflow_handoff.midflight_state.state_transition_count",
+      "equals": 6
+    },
+    {
+      "path": "control_plane.workflow_handoff.recovery.command_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.workflow_handoff.replay.replay_artifact_recorded",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_handoff.report.report_artifact_recorded",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_handoff.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
       "path": "control_plane.operator_replay_checklist.status",
       "equals": "ready"
     },

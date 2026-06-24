@@ -19702,6 +19702,20 @@ def build_agent_workflow_control_plane(
         validation_check_count=len(validation_checks),
         replay_artifact_recorded=bool(replay_path),
     )
+    workflow_handoff = build_agent_workflow_handoff(
+        stage_diagnostics=stage_diagnostics,
+        intake_contract=intake_contract,
+        state_transition_count=len(state_transitions),
+        observation_result=observation_result,
+        compaction_result=compaction_result,
+        stream_boundary_result=stream_boundary_result,
+        inbox_result=inbox_result,
+        recovery_handoff=recovery_handoff,
+        validation_check_count=len(validation_checks),
+        replay_artifact_hash=stable_text_hash(replay_path) if replay_path else None,
+        report_contract=report_contract,
+        report_artifact_hash=stable_text_hash(report_path) if report_path else None,
+    )
     operator_replay_checklist = build_agent_workflow_operator_replay_checklist(
         missing_stages=missing_stages,
         stage_diagnostics=stage_diagnostics,
@@ -19748,6 +19762,7 @@ def build_agent_workflow_control_plane(
         },
         "missing_stages": missing_stages,
         "stage_diagnostics": stage_diagnostics,
+        "workflow_handoff": workflow_handoff,
         "intake": intake_contract,
         "operator_replay_checklist": operator_replay_checklist,
         "replay": {
@@ -19822,6 +19837,103 @@ def build_agent_workflow_control_plane(
                 "operator_action": inbox_result["recovery"]["operator_action"],
             },
         },
+    }
+
+
+def build_agent_workflow_handoff(
+    *,
+    stage_diagnostics: list[dict[str, Any]],
+    intake_contract: dict[str, Any],
+    state_transition_count: int,
+    observation_result: dict[str, Any],
+    compaction_result: dict[str, Any],
+    stream_boundary_result: dict[str, Any],
+    inbox_result: dict[str, Any],
+    recovery_handoff: dict[str, Any],
+    validation_check_count: int,
+    replay_artifact_hash: str | None,
+    report_contract: dict[str, Any],
+    report_artifact_hash: str | None,
+) -> dict[str, Any]:
+    """Return one ordered, body-free handoff packet for operator replay."""
+
+    blocked_stages = [diagnostic for diagnostic in stage_diagnostics if not bool(diagnostic.get("ready"))]
+    ready = not blocked_stages
+    window = intake_contract.get("capability_window") if isinstance(intake_contract.get("capability_window"), dict) else {}
+    return {
+        "controller_surface": "runner_harness_workflow_handoff",
+        "status": "ready" if ready else "blocked",
+        "decision": "ready_for_report_handoff" if ready else "repair_control_plane_before_report_handoff",
+        "stage_count": len(stage_diagnostics),
+        "ready_stage_count": len(stage_diagnostics) - len(blocked_stages),
+        "blocked_stage_count": len(blocked_stages),
+        "ordered_stages": [
+            {
+                "stage": str(diagnostic.get("stage")),
+                "ready": bool(diagnostic.get("ready")),
+                "reason": str(diagnostic.get("reason") or "stage_not_ready"),
+                "action": str(diagnostic.get("action") or "inspect_control_plane_stage"),
+                "evidence_counts": diagnostic.get("evidence_counts")
+                if isinstance(diagnostic.get("evidence_counts"), dict)
+                else {},
+                "raw_values_exported": False,
+            }
+            for diagnostic in stage_diagnostics
+        ],
+        "source_intake": {
+            "required": intake_contract["required"],
+            "passed": intake_contract["passed"],
+            "source_digest_recorded": intake_contract["source_digest_recorded"],
+            "proposal_id_count": intake_contract["proposal_id_count"],
+            "evidence_url_count": intake_contract["evidence_url_count"],
+            "pull_request_event_count": intake_contract["pull_request_events"]["event_count"],
+            "usable_pull_request_event_count": intake_contract["pull_request_events"]["usable_event_count"],
+            "capability_theme": window.get("theme"),
+            "capability_pass": window.get("current_pass"),
+            "capability_total_passes": window.get("total_passes"),
+        },
+        "midflight_state": {
+            "state_transition_count": state_transition_count,
+            "load_bearing_observation_count": observation_result["load_bearing_count"],
+            "failed_load_bearing_observation_count": observation_result["failed_load_bearing_count"],
+            "compaction_required": compaction_result["required"],
+            "compaction_blocker_count": len(compaction_result["blockers"]),
+            "stream_event_count": stream_boundary_result["event_count"],
+            "completion_message_count": inbox_result["completion_message_count"],
+        },
+        "recovery": {
+            "required": recovery_handoff["required"],
+            "ready": recovery_handoff["ready"],
+            "operator_required": recovery_handoff["operator_required"],
+            "command_count": recovery_handoff["command_count"],
+            "blocker_count": len(recovery_handoff["blockers"]),
+            "replay_ready": recovery_handoff["replay_ready"],
+        },
+        "replay": {
+            "validation_check_count": validation_check_count,
+            "replay_artifact_recorded": bool(replay_artifact_hash),
+            "replay_artifact_hash": replay_artifact_hash,
+        },
+        "report": {
+            "required": report_contract["required"],
+            "passed": report_contract["passed"],
+            "recorded_section_count": report_contract["recorded_section_count"],
+            "missing_section_count": len(report_contract["missing_sections"]),
+            "report_artifact_recorded": bool(report_artifact_hash),
+            "report_artifact_hash": report_artifact_hash,
+        },
+        "blocked_stage_reasons": [
+            {
+                "stage": str(diagnostic.get("stage")),
+                "reason": str(diagnostic.get("reason") or "stage_not_ready"),
+                "action": str(diagnostic.get("action") or "inspect_control_plane_stage"),
+            }
+            for diagnostic in blocked_stages
+        ],
+        "raw_evidence_urls_exported": False,
+        "raw_recovery_commands_exported": False,
+        "raw_report_body_exported": False,
+        "raw_artifact_paths_exported": False,
     }
 
 

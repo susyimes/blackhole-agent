@@ -8992,6 +8992,26 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert output["control_plane"]["recovery"]["raw_recovery_commands_exported"] is False
     assert output["control_plane"]["recovery"]["raw_replay_command_exported"] is False
     assert output["control_plane"]["recovery"]["raw_rollback_refs_exported"] is False
+    handoff = output["control_plane"]["workflow_handoff"]
+    assert handoff["controller_surface"] == "runner_harness_workflow_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "ready_for_report_handoff"
+    assert handoff["stage_count"] == 5
+    assert handoff["ready_stage_count"] == 5
+    assert handoff["blocked_stage_count"] == 0
+    assert [stage["stage"] for stage in handoff["ordered_stages"]] == [
+        "intake",
+        "midflight",
+        "recovery",
+        "replay",
+        "report",
+    ]
+    assert handoff["midflight_state"]["state_transition_count"] == 6
+    assert handoff["recovery"]["command_count"] == 2
+    assert handoff["replay"]["replay_artifact_recorded"] is True
+    assert handoff["report"]["report_artifact_recorded"] is True
+    assert handoff["raw_recovery_commands_exported"] is False
+    assert handoff["raw_artifact_paths_exported"] is False
     assert output["observations"]["passed"] is True
     assert output["observations"]["items"][1]["phase"] == "teardown"
     assert output["observations"]["items"][1]["load_bearing"] is False
@@ -9088,6 +9108,14 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert missing_handoff["control_plane"]["missing_stages"] == ["recovery"]
     assert missing_handoff["control_plane"]["recovery"]["ready"] is False
     assert missing_handoff["control_plane"]["recovery"]["blockers"] == ["recovery_commands_missing"]
+    assert missing_handoff["control_plane"]["workflow_handoff"]["status"] == "blocked"
+    assert missing_handoff["control_plane"]["workflow_handoff"]["blocked_stage_reasons"] == [
+        {
+            "stage": "recovery",
+            "reason": "recovery_handoff_incomplete",
+            "action": "record_rollback_ref_artifact_and_recovery_handoff",
+        }
+    ]
     assert "PRIVATE_RECOVERY_REF_DO_NOT_EXPORT" not in missing_serialized
 
 
