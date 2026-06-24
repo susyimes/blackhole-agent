@@ -1,0 +1,85 @@
+{
+  "name": "agent-harness-policy-eval-denies-external-harness",
+  "behavior": "agent_harness_policy_eval",
+  "input": {
+    "task_id": "fixture-agent-harness-policy-eval-denies-external-harness",
+    "policy_decisions": [
+      {
+        "policy_id": "PRIVATE_DENY_POLICY_ID_DO_NOT_EXPORT",
+        "action_id": "PRIVATE_EXTERNAL_HARNESS_ACTION_DO_NOT_EXPORT",
+        "outcome": "deny",
+        "sequence_index": 3,
+        "policy_body": "PRIVATE_DENY_POLICY_BODY_DO_NOT_EXPORT"
+      }
+    ],
+    "action_plan": [
+      {
+        "action_id": "PRIVATE_EXTERNAL_HARNESS_ACTION_DO_NOT_EXPORT",
+        "action_kind": "external_harness_execution",
+        "sequence_index": 4,
+        "command": "PRIVATE_EXTERNAL_HARNESS_COMMAND_DO_NOT_EXPORT",
+        "provider_config": {
+          "api_key": "PRIVATE_EXTERNAL_PROVIDER_TOKEN_DO_NOT_EXPORT"
+        }
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "policy_outcome_disallowed"
+    },
+    {
+      "path": "policy_gate.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "policy_gate.decision",
+      "equals": "stop_before_harness_action"
+    },
+    {
+      "path": "policy_gate.execution_blocked_before_action",
+      "equals": true
+    },
+    {
+      "path": "policy_gate.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "execution_plan.action_execution_attempted",
+      "equals": false
+    },
+    {
+      "path": "action_rows.0.policy_checked_before_action",
+      "equals": true
+    },
+    {
+      "path": "action_rows.0.execution_allowed_after_policy",
+      "equals": false
+    },
+    {
+      "path": "action_rows.0.execution_attempted",
+      "equals": false
+    },
+    {
+      "path": "action_rows.0.blockers",
+      "equals": [
+        "policy_outcome_disallowed",
+        "forbidden_harness_action",
+        "unsupported_harness_action_kind"
+      ]
+    },
+    {
+      "path": "privacy.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_credentials_exported",
+      "equals": false
+    }
+  ]
+}

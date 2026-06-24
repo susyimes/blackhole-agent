@@ -88,13 +88,14 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 69
-    assert payload["pass_count"] == 68
+    assert payload["fixture_count"] == 71
+    assert payload["pass_count"] == 70
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
         "external_harness_adapter_contract",
         "agent_harness_eval_lane",
+        "agent_harness_policy_eval",
         "agent_harness_provider_registration",
         "agent_workflow_route",
         "harness_run_summary",
@@ -119,6 +120,14 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_ONESHOT_MARKER_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HEADLESS_TEXT_EVENT_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_FUNCTION_ARGUMENT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_POLICY_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_LOCAL_FIXTURE_ACTION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HARNESS_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PROVIDER_TOKEN_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_DENY_POLICY_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_HARNESS_ACTION_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_HARNESS_COMMAND_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EXTERNAL_PROVIDER_TOKEN_DO_NOT_EXPORT" not in serialized
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
@@ -126,6 +135,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
+    assert results["agent-harness-policy-eval-allow-local-fixture"]["passed"] is True
+    assert results["agent-harness-policy-eval-denies-external-harness"]["passed"] is True
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
     assert results["agent-workflow-route-control-plane-pass2-intake"]["passed"] is True
@@ -273,6 +284,47 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_agent_harness_policy_eval_blocks_when_policy_does_not_precede_action():
+    output = evaluate_harness_behavior(
+        "agent_harness_policy_eval",
+        {
+            "task_id": "fixture-agent-harness-policy-ordering",
+            "policy_decisions": [
+                {
+                    "policy_id": "PRIVATE_LATE_POLICY_ID_DO_NOT_EXPORT",
+                    "action_id": "PRIVATE_LATE_ACTION_ID_DO_NOT_EXPORT",
+                    "outcome": "allow",
+                    "sequence_index": 5,
+                    "policy_body": "PRIVATE_LATE_POLICY_BODY_DO_NOT_EXPORT",
+                }
+            ],
+            "action_plan": [
+                {
+                    "action_id": "PRIVATE_LATE_ACTION_ID_DO_NOT_EXPORT",
+                    "action_kind": "fixture_eval",
+                    "sequence_index": 4,
+                    "command": "PRIVATE_LATE_COMMAND_DO_NOT_EXPORT",
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_harness_policy_ordering_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "policy_check_not_before_action"
+    assert output["policy_gate"]["policy_evaluated_before_action"] is False
+    assert output["policy_gate"]["execution_blocked_before_action"] is True
+    assert output["execution_plan"]["action_execution_attempted"] is False
+    assert output["action_rows"][0]["execution_allowed_after_policy"] is False
+    assert output["action_rows"][0]["execution_attempted"] is False
+    assert output["action_rows"][0]["blockers"] == ["policy_check_not_before_action"]
+    assert "PRIVATE_LATE_POLICY_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_LATE_ACTION_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_LATE_POLICY_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_LATE_COMMAND_DO_NOT_EXPORT" not in serialized
 
 
 def test_agent_workflow_route_pr_migration_intake_deduplicates_and_recomputes_scope():

@@ -41,6 +41,7 @@ SAFETY_BOUNDARY_REVIEW_FLAGS = {
 SUPPORTED_LOCAL_HARNESS_BEHAVIORS = [
     "external_harness_adapter_contract",
     "agent_harness_eval_lane",
+    "agent_harness_policy_eval",
     "agent_harness_provider_registration",
     "agent_workflow_route",
     "harness_run_summary",
@@ -114,6 +115,23 @@ CI_ROUND_TRIP_HANG_MARKERS = (
 )
 AGENT_HARNESS_EVAL_HINT = "agent_harness_eval"
 AGENT_HARNESS_EVAL_ALLOWED_LANES = ("documentation", "test", "code_patch")
+AGENT_HARNESS_POLICY_EVAL_COMMAND = "pytest tests/test_harness_eval.py -q -k agent_harness_policy_eval"
+AGENT_HARNESS_POLICY_ALLOWED_OUTCOMES = {"allow", "ask", "deny", "review_required"}
+AGENT_HARNESS_POLICY_BLOCKING_OUTCOMES = {"ask", "deny", "review_required"}
+AGENT_HARNESS_POLICY_ALLOWED_ACTION_KINDS = {
+    "controller_replay",
+    "fixture_eval",
+    "local_validation",
+    "mock_harness",
+    "report_generation",
+}
+AGENT_HARNESS_POLICY_FORBIDDEN_ACTION_KINDS = {
+    "credential_access",
+    "external_harness_execution",
+    "provider_launch",
+    "remote_execution",
+    "upstream_agent_activation",
+}
 AGENT_HARNESS_EVAL_DETAIL_MARKERS = (
     "deterministic",
     "fixture",
@@ -567,6 +585,8 @@ def evaluate_harness_behavior(behavior: str, raw_input: dict[str, Any], *, sourc
         return evaluate_external_harness_adapter_contract(raw_input, source_path=source_path)
     if behavior == "agent_harness_eval_lane":
         return evaluate_agent_harness_eval_lane(raw_input, source_path=source_path)
+    if behavior == "agent_harness_policy_eval":
+        return evaluate_agent_harness_policy_eval(raw_input, source_path=source_path)
     if behavior == "agent_harness_provider_registration":
         return evaluate_agent_harness_provider_registration(raw_input, source_path=source_path)
     if behavior == "agent_workflow_route":
@@ -1192,6 +1212,172 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
             "offensive_behavior_local_execution": False,
         },
     }
+
+
+def evaluate_agent_harness_policy_eval(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    """Validate that local harness action plans are policy-gated before execution."""
+
+    task_id = optional_string(raw_input.get("task_id")) or source_path.stem
+    raw_policies = raw_input.get("policy_decisions") if isinstance(raw_input.get("policy_decisions"), list) else []
+    raw_actions = raw_input.get("action_plan") if isinstance(raw_input.get("action_plan"), list) else []
+    policies = [policy for policy in raw_policies if isinstance(policy, dict)]
+    actions = [action for action in raw_actions if isinstance(action, dict)]
+    policy_by_action: dict[str, list[dict[str, Any]]] = {}
+    policy_rows: list[dict[str, Any]] = []
+
+    for index, policy in enumerate(policies, start=1):
+        action_id = optional_string(policy.get("action_id")) or ""
+        outcome = normalize_agent_harness_policy_outcome(policy.get("outcome"))
+        sequence_index = optional_int(policy.get("sequence_index"))
+        row = {
+            "policy_id_hash": stable_text_hash(optional_string(policy.get("policy_id")) or f"policy-{index}"),
+            "action_id_hash": stable_text_hash(action_id) if action_id else None,
+            "outcome": outcome,
+            "sequence_index": sequence_index,
+            "known_outcome": outcome in AGENT_HARNESS_POLICY_ALLOWED_OUTCOMES,
+            "raw_policy_body_exported": False,
+        }
+        policy_rows.append(row)
+        if action_id:
+            policy_by_action.setdefault(action_id, []).append(
+                {
+                    "outcome": outcome,
+                    "sequence_index": sequence_index,
+                    "known_outcome": row["known_outcome"],
+                }
+            )
+
+    action_rows: list[dict[str, Any]] = []
+    for index, action in enumerate(actions, start=1):
+        action_id = optional_string(action.get("action_id")) or f"action-{index}"
+        action_kind = optional_string(action.get("action_kind")) or "unknown"
+        sequence_index = optional_int(action.get("sequence_index"))
+        matching_policies = policy_by_action.get(action_id, [])
+        earliest_policy_index = min(
+            (
+                int(policy["sequence_index"])
+                for policy in matching_policies
+                if policy.get("sequence_index") is not None
+            ),
+            default=None,
+        )
+        policy_checked_before_action = bool(
+            matching_policies
+            and earliest_policy_index is not None
+            and sequence_index is not None
+            and earliest_policy_index < sequence_index
+        )
+        outcomes = sorted({str(policy.get("outcome") or "unknown") for policy in matching_policies})
+        blocking_outcomes = sorted(outcome for outcome in outcomes if outcome in AGENT_HARNESS_POLICY_BLOCKING_OUTCOMES)
+        unknown_outcome_count = sum(1 for policy in matching_policies if not policy.get("known_outcome"))
+        forbidden_action = action_kind in AGENT_HARNESS_POLICY_FORBIDDEN_ACTION_KINDS
+        allowed_action_kind = action_kind in AGENT_HARNESS_POLICY_ALLOWED_ACTION_KINDS
+        blockers: list[str] = []
+        if not matching_policies:
+            blockers.append("policy_not_evaluated")
+        if matching_policies and not policy_checked_before_action:
+            blockers.append("policy_check_not_before_action")
+        if unknown_outcome_count:
+            blockers.append("policy_outcome_unknown")
+        if blocking_outcomes:
+            blockers.append("policy_outcome_disallowed")
+        if forbidden_action:
+            blockers.append("forbidden_harness_action")
+        if not allowed_action_kind:
+            blockers.append("unsupported_harness_action_kind")
+        execution_allowed = not blockers and outcomes == ["allow"]
+        action_rows.append(
+            {
+                "action_id_hash": stable_text_hash(action_id),
+                "action_kind": action_kind,
+                "action_sequence_index": sequence_index,
+                "policy_checked_before_action": policy_checked_before_action,
+                "policy_outcomes": outcomes,
+                "policy_blocking_outcomes": blocking_outcomes,
+                "policy_count": len(matching_policies),
+                "blocking_policy_count": len(blocking_outcomes) + unknown_outcome_count,
+                "execution_allowed_after_policy": execution_allowed,
+                "execution_attempted": False,
+                "blockers": blockers,
+                "raw_action_command_exported": False,
+                "raw_provider_config_exported": False,
+                "raw_policy_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row for row in action_rows if row["blockers"]]
+    allowed_rows = [row for row in action_rows if row["execution_allowed_after_policy"]]
+    missing_action_rows = not action_rows
+    if missing_action_rows:
+        failure_mode = "no_harness_actions_declared"
+    elif blocked_rows:
+        failure_mode = str(blocked_rows[0]["blockers"][0])
+    else:
+        failure_mode = "none"
+    route_status = "passed" if failure_mode == "none" else "blocked"
+    execution_blocked_before_action = bool(blocked_rows) and all(row["execution_attempted"] is False for row in blocked_rows)
+
+    return {
+        "schema_version": 1,
+        "behavior": "agent_harness_policy_eval",
+        "task_id": task_id,
+        "route_status": route_status,
+        "failure_mode": failure_mode,
+        "policy_gate": {
+            "controller_surface": "agent_harness_policy_eval_gate",
+            "status": "ready" if failure_mode == "none" else "blocked",
+            "decision": "policy_checked_actions_ready_for_local_dry_run"
+            if failure_mode == "none"
+            else "stop_before_harness_action",
+            "policy_evaluated_before_action": bool(action_rows)
+            and all(row["policy_checked_before_action"] for row in action_rows),
+            "execution_blocked_before_action": execution_blocked_before_action,
+            "allowed_action_count": len(allowed_rows),
+            "blocked_action_count": len(blocked_rows),
+            "policy_count": len(policy_rows),
+            "action_count": len(action_rows),
+            "required_validation": [AGENT_HARNESS_POLICY_EVAL_COMMAND],
+            "local_validation_required": True,
+            "runtime_action": "dry_run_only",
+            "external_harness_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "execution_plan": {
+            "status": "ready" if failure_mode == "none" else "blocked",
+            "dry_run_only": True,
+            "action_execution_attempted": False,
+            "all_actions_policy_checked_before_execution": bool(action_rows)
+            and all(row["policy_checked_before_action"] for row in action_rows),
+            "all_allowed_actions_local_only": all(
+                row["action_kind"] in AGENT_HARNESS_POLICY_ALLOWED_ACTION_KINDS for row in allowed_rows
+            ),
+            "blocked_action_count": len(blocked_rows),
+            "allowed_action_count": len(allowed_rows),
+            "raw_commands_exported": False,
+            "raw_provider_config_exported": False,
+        },
+        "policy_rows": policy_rows,
+        "action_rows": action_rows,
+        "privacy": {
+            "raw_commands_exported": False,
+            "raw_policy_bodies_exported": False,
+            "raw_provider_config_exported": False,
+            "raw_credentials_exported": False,
+            "action_ids_hashed": True,
+            "policy_ids_hashed": True,
+            "external_harness_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+    }
+
+
+def normalize_agent_harness_policy_outcome(value: Any) -> str:
+    outcome = optional_string(value)
+    if not outcome:
+        return "unknown"
+    return outcome.strip().lower().replace("-", "_")
 
 
 def agent_harness_eval_record_text(record: dict[str, Any]) -> str:

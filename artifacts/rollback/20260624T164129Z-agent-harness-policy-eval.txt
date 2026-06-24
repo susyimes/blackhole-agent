@@ -1,0 +1,12 @@
+Rollback point for github-growth-20260624T163904.091392Z
+
+Original branch: codex/blackhole-evolve/20260624T164038.428994-add-or-extend-local-validation-tests-for-provide
+Original HEAD: fbf2e5a9d235f56f3cf5f817807d14bcea2753dc
+Local rollback ref: refs/rollback/20260624T164129Z-agent-harness-policy-eval
+
+Recovery commands:
+  git reset --hard fbf2e5a9d235f56f3cf5f817807d14bcea2753dc
+  git clean -fd
+
+Notes:
+  Rollback execution is explicit and destructive. A human operator or external supervisor policy must choose it.

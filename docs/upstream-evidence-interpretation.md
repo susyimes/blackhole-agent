@@ -101,6 +101,15 @@ produce only documentation, test, or code patch proposals, and it must keep
 external harness execution out of scope until a separate runtime capability and
 validation path exist.
 
+When the reusable lesson is explicit policy enforcement before harness actions,
+use `agent_harness_policy_eval` as the local dry-run lane. The fixture must show
+the action plan, the policy decision for each action, and sequence metadata that
+proves policy ran first. The report may mark a local fixture or controller
+replay action as policy-allowed, but it still records `execution_attempted:
+false`; any missing, late, DENY, ASK, review-required, or unknown policy outcome
+blocks before action. External harness execution, provider launch, remote
+execution, credential access, and upstream agent activation remain forbidden.
+
 Security-adjacent harness evidence, including vulnerability discovery,
 adversarial verification, exploit validation, or unauthorized-access context,
 is boundary evidence. It can be recorded as a review note, but it must not

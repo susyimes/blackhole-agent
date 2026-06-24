@@ -2005,6 +2005,19 @@ agent activation. This is the intended lane for comparing Omnigent-style
 meta-harness evidence with domain-agent evidence such as xuefeng-agent before
 any local behavior change is proposed.
 
+For final-pass skill-route windows that carry Omnigent-style policy or harness
+execution pressure, the secondary bridge can now use `agent_harness_policy_eval`
+as the pre-execution lane. That lane validates only local fixture, controller
+replay, report-generation, mock-harness, or local-validation action plans, and
+requires an earlier policy decision before each action is considered runnable.
+ASK, DENY, review-required, missing, late, or unknown policy outcomes block
+before execution; external harness execution, provider launch, remote execution,
+credential access, and upstream agent activation remain forbidden action kinds.
+The replay command is `pytest tests/test_harness_eval.py -q -k
+agent_harness_policy_eval`, and reports hash action/policy ids while omitting
+raw commands, provider config, credentials, policy bodies, source URLs, and
+upstream bodies.
+
 The same replay now emits `project_intake_probe` before local behavior adoption
 is considered. This panel records five body-free shape categories for each
 general-agent project: install shape, entrypoints, dependency boundaries, task

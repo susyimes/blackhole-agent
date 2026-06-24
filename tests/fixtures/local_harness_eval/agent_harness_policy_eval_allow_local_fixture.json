@@ -1,0 +1,73 @@
+{
+  "name": "agent-harness-policy-eval-allow-local-fixture",
+  "behavior": "agent_harness_policy_eval",
+  "input": {
+    "task_id": "fixture-agent-harness-policy-eval-allow-local-fixture",
+    "policy_decisions": [
+      {
+        "policy_id": "PRIVATE_POLICY_ID_DO_NOT_EXPORT",
+        "action_id": "PRIVATE_LOCAL_FIXTURE_ACTION_DO_NOT_EXPORT",
+        "outcome": "allow",
+        "sequence_index": 1,
+        "policy_body": "PRIVATE_POLICY_BODY_DO_NOT_EXPORT"
+      }
+    ],
+    "action_plan": [
+      {
+        "action_id": "PRIVATE_LOCAL_FIXTURE_ACTION_DO_NOT_EXPORT",
+        "action_kind": "fixture_eval",
+        "sequence_index": 2,
+        "command": "PRIVATE_HARNESS_COMMAND_DO_NOT_EXPORT",
+        "provider_config": {
+          "token": "PRIVATE_PROVIDER_TOKEN_DO_NOT_EXPORT"
+        }
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "policy_gate.status",
+      "equals": "ready"
+    },
+    {
+      "path": "policy_gate.policy_evaluated_before_action",
+      "equals": true
+    },
+    {
+      "path": "policy_gate.allowed_action_count",
+      "equals": 1
+    },
+    {
+      "path": "execution_plan.action_execution_attempted",
+      "equals": false
+    },
+    {
+      "path": "execution_plan.all_actions_policy_checked_before_execution",
+      "equals": true
+    },
+    {
+      "path": "action_rows.0.execution_allowed_after_policy",
+      "equals": true
+    },
+    {
+      "path": "action_rows.0.execution_attempted",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_commands_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_provider_config_exported",
+      "equals": false
+    }
+  ]
+}
