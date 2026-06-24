@@ -177,6 +177,17 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
         "https://github.com/pretinhuu1-boop/threejs-game-skills",
+        "`github-growth-20260624T055355.537474Z`",
+        "`skill_route_discovery` is a bounded local capability\nroute, not a skill activation route",
+        "may map only to documentation, config,\ntest, or code_patch work",
+        "each selected lane must carry local validation before\nactivation",
+        "FableCodex-style workflow evidence can select the\n`codex_workflow_gate` profile",
+        "COMPASS-style state or collaboration evidence can\nselect `skill_ecosystem_state_handoff`",
+        "source-cited domain skill evidence can\nselect `source_cited_domain_research`",
+        "Three.js or Phaser skill bundles can\nselect `game_frontend_workflow`",
+        "Proposal evidence refs must cite selected digest `item_id` values,\nnot raw repository URLs",
+        "truncated item IDs, or\nnon-selected evidence",
+        "candidates must not supply or expand them",
         "No upstream code, install scripts, prompts, or skill bodies were adopted.",
         "FableCodex describes Codex workflow gates, COMPASS Skills\n"
         "describes local skills for clarification, task memory, and collaboration\n"

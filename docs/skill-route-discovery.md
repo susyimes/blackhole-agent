@@ -58,6 +58,20 @@ test lane that checks citation and advice boundaries. Omnigent-style harness
 movement remains a blocked secondary bridge after skill-route validation; it
 does not authorize external harness execution, provider launch, remote
 execution, or upstream skill activation.
+Source digest `github-growth-20260624T055355.537474Z` reuses the same
+upstream-evidence-to-capability window for pass 3 and makes the local
+interpretation explicit: `skill_route_discovery` is a bounded local capability
+route, not a skill activation route. It may map only to documentation, config,
+test, or code_patch work; each selected lane must carry local validation before
+activation. FableCodex-style workflow evidence can select the
+`codex_workflow_gate` profile, COMPASS-style state or collaboration evidence can
+select `skill_ecosystem_state_handoff`, source-cited domain skill evidence can
+select `source_cited_domain_research`, and Three.js or Phaser skill bundles can
+select `game_frontend_workflow`. These profiles are examples for routing and
+review only. Proposal evidence refs must cite selected digest `item_id` values,
+not raw repository URLs, owner/repository names, truncated item IDs, or
+non-selected evidence. The review layer may derive accepted source URLs from the
+selected item IDs, but candidates must not supply or expand them.
 
 The bounded evidence reviewed for these runs is:
 
