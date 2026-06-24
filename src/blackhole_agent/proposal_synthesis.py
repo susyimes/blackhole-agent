@@ -59,6 +59,27 @@ SKILL_WORKFLOW_CONTEXT_TERMS = (
     "workflow gates",
     "workflow routing",
 )
+NEGATED_SKILL_WORKFLOW_TERMS = (
+    "lacks skill",
+    "no skill",
+    "not a skill",
+    "not skill",
+    "without skill",
+)
+CONCRETE_SKILL_WORKFLOW_TERMS = (
+    "agent skill",
+    "agent skills",
+    "codex skill",
+    "codex skills",
+    "director skill",
+    "skill package",
+    "skill pack",
+    "skill repository",
+    "skill.md",
+    "skills/",
+    "workflow skill",
+    "workflow skills",
+)
 SKILL_ROUTE_ACTIVITY_EVENT_KINDS = {
     "ForkEvent",
     "PushEvent",
@@ -587,6 +608,10 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
         "skill_route_boundary_report": build_skill_route_boundary_report(package_items),
         "route_activation_preflight": build_route_activation_preflight(package_items),
+        "skill_route_pass3_handoff": build_skill_route_pass3_handoff(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+        ),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -799,6 +824,130 @@ def build_route_activation_preflight(items: list[Any]) -> dict[str, Any]:
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_skill_route_pass3_handoff(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+) -> dict[str, Any]:
+    """Summarize pass-3 route evidence as a bounded supervisor handoff."""
+
+    candidate_panel = build_skill_route_local_lane_candidates(items)
+    general_eval = build_general_agent_project_eval_lane(items)
+    activation_preflight = build_route_activation_preflight(items)
+    selected_item_ids = sorted(
+        {
+            str(item_id)
+            for item_id in (
+                context_budget.get("selected_item_ids", [])
+                if isinstance(context_budget, dict)
+                else []
+            )
+            if str(item_id).strip()
+        }
+    )
+    truncated_item_ids = sorted(
+        {
+            str(item_id)
+            for item_id in (
+                context_budget.get("truncated_item_ids", [])
+                if isinstance(context_budget, dict)
+                else []
+            )
+            if str(item_id).strip()
+        }
+    )
+    skill_rows = [
+        {
+            "item_id": str(row.get("item_id") or ""),
+            "route_class": "skill_workflow",
+            "primary_route": "skill_route_discovery",
+            "local_lanes": [str(lane) for lane in row.get("local_lanes", [])],
+            "route_profiles": [str(profile) for profile in row.get("route_profiles", [])],
+            "lane_status": str(row.get("lane_status") or ""),
+            "secondary_lane_status": str(row.get("secondary_lane_status") or ""),
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+        for row in candidate_panel.get("rows", [])
+        if isinstance(row, dict)
+    ]
+    general_rows = [
+        {
+            "item_id": str(row.get("item_id") or ""),
+            "route_class": "general_agent_project",
+            "primary_route": "agent_harness_eval_required",
+            "allowed_local_lanes": [str(lane) for lane in row.get("allowed_local_lanes", [])],
+            "skill_route_discovery_inherited": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+        for row in general_eval.get("candidates", [])
+        if isinstance(row, dict)
+    ]
+    skill_lanes_bounded = all(
+        row["local_lanes"]
+        and set(row["local_lanes"]).issubset(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+        and row["lane_status"] == "bounded"
+        for row in skill_rows
+    )
+    general_lanes_bounded = all(
+        row["allowed_local_lanes"]
+        and set(row["allowed_local_lanes"]).issubset(GENERAL_AGENT_PROJECT_EVAL_LANES)
+        and row["skill_route_discovery_inherited"] is False
+        for row in general_rows
+    )
+    status = (
+        "ready"
+        if activation_preflight.get("status") == "ready"
+        and skill_lanes_bounded
+        and general_lanes_bounded
+        else "review"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass3_handoff",
+        "status": status,
+        "decision": (
+            "continue_bounded_skill_route_window_before_activation"
+            if status == "ready"
+            else "review_skill_route_window_before_activation"
+        ),
+        "capability_pass": "3_of_4",
+        "skill_workflow_count": len(skill_rows),
+        "general_agent_project_count": len(general_rows),
+        "skill_workflow_item_ids": [row["item_id"] for row in skill_rows],
+        "general_agent_project_item_ids": [row["item_id"] for row in general_rows],
+        "selected_item_ids": selected_item_ids,
+        "truncated_item_ids": truncated_item_ids,
+        "evidence_ref_scope": "selected_item_ids_only",
+        "skill_route_rows": skill_rows,
+        "general_agent_rows": general_rows,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "allowed_general_agent_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "required_local_validation": [
+            str(command)
+            for command in activation_preflight.get("required_local_validation", [])
+            if str(command).strip()
+        ],
+        "local_validation_required": True,
+        "skill_route_lane_limit_reaffirmed": skill_lanes_bounded,
+        "general_agent_eval_split_reaffirmed": general_lanes_bounded,
+        "activation_blockers": [
+            str(blocker)
+            for blocker in activation_preflight.get("activation_blockers", [])
+            if str(blocker).strip()
+        ],
+        "runtime_action": "none",
+        "body_free": True,
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,
@@ -1261,6 +1410,10 @@ def _route_hints_from_text(text: str) -> list[str]:
 
 
 def _has_skill_workflow_route_signal(text: str) -> bool:
+    if any(term in text for term in NEGATED_SKILL_WORKFLOW_TERMS) and not any(
+        term in text for term in CONCRETE_SKILL_WORKFLOW_TERMS
+    ):
+        return False
     if any(term in text for term in SKILL_WORKFLOW_ROUTE_TERMS):
         return True
     return "workflow" in text and any(term in text for term in SKILL_WORKFLOW_CONTEXT_TERMS)

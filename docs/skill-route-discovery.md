@@ -1596,6 +1596,25 @@ install, enable, run, clone, scaffold, launch providers, execute an external
 harness, activate an external agent, activate upstream skill code, perform
 remote execution, or export raw source URLs.
 
+For pass 3 handoff, the same map emits `skill_route_pass3_handoff`. This is a
+body-free supervisor packet for the active skill-route-discovery window: skill
+workflow repositories such as COMPASS Skills, zhengxi-views, and Three.js Game
+Skills keep `primary_route: skill_route_discovery` with only documentation,
+config, test, or code_patch lanes, while adjacent general agent projects such
+as Omnigent keep `primary_route: agent_harness_eval_required` with
+documentation, test, or code_patch evaluation lanes. The packet records selected
+item IDs, route rows, lane limits, replay commands, and activation blockers
+only. It requires local validation, exports no raw source URLs or upstream
+bodies, performs no runtime action, and grants no external skill, agent,
+harness, provider, or remote-execution activation.
+
+The classifier treats negated skill language as boundary evidence rather than a
+positive skill-route signal. Phrases such as `not skill discovery inheritance`
+do not create `skill_route_discovery` unless the same selected item also names a
+concrete skill artifact such as `SKILL.md`, `agent skill`, `skill package`, or a
+skills directory. This keeps general agent/meta-harness evidence visible for
+`agent_harness_eval` without inheriting skill lanes by accident.
+
 The source-registry lane map also emits `adoption_manifest`, a body-free
 operator handoff for public skill ecosystem evidence before any adoption
 decision. The manifest records each candidate's route profiles, bounded local

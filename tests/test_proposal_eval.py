@@ -622,6 +622,133 @@ def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
     assert "permissions" not in lane_map
 
 
+def test_route_hint_lane_map_exposes_current_pass3_skill_route_handoff():
+    digest = {
+        "digest_id": "github-growth-20260624T095356.034961Z",
+        "generated_at": "2026-06-24T09:53:56.034961Z",
+        "items": [
+            {
+                "item_id": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "COMPASS Skills personal alignment skills system for AI agents with SKILL.md "
+                    "task clarification, repo-local task memory, handoff prompts, and profile workflows."
+                ),
+                "relevance_reason": "Skill workflow repository evidence maps to bounded local skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.84,
+            },
+            {
+                "item_id": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Agent Skill repository with SKILL.md, references, scripts, source-cited corpus search, "
+                    "and domain research workflow constraints."
+                ),
+                "relevance_reason": "Source-cited skill workflow evidence should stay in bounded local lanes.",
+                "risk_flags": [],
+                "confidence": 0.83,
+            },
+            {
+                "item_id": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Codex and Claude Code skills for Three.js browser game workflows, director routing, "
+                    "gameplay, graphics, UI, QA, and release checks."
+                ),
+                "relevance_reason": "Game skill workflow evidence maps to bounded local skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.82,
+            },
+            {
+                "item_id": "omnigent-general-agent",
+                "source_url": "https://github.com/omnigent-ai/omnigent",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Omnigent open-source AI agent framework and meta-harness for orchestrating agent "
+                    "runtimes, policies, sandboxing, and real-time collaboration."
+                ),
+                "relevance_reason": (
+                    "General agent project evidence requires agent_harness_eval validation, not skill "
+                    "discovery inheritance."
+                ),
+                "risk_flags": [],
+                "confidence": 0.81,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=360)
+
+    lane_map = build_route_hint_lane_map(evidence_package)
+    handoff = lane_map["skill_route_pass3_handoff"]
+
+    assert lane_map["ok"] is True
+    assert lane_map["route_class_counts"] == {"general_agent_project": 1, "skill_workflow": 3}
+    assert handoff["controller_surface"] == "skill_route_discovery_pass3_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == "3_of_4"
+    assert handoff["skill_workflow_item_ids"] == [
+        "compass-skills",
+        "zhengxi-views",
+        "threejs-game-skills",
+    ]
+    assert handoff["general_agent_project_item_ids"] == ["omnigent-general-agent"]
+    assert set(handoff["selected_item_ids"]) == {
+        "compass-skills",
+        "zhengxi-views",
+        "threejs-game-skills",
+        "omnigent-general-agent",
+    }
+    assert handoff["evidence_ref_scope"] == "selected_item_ids_only"
+    assert handoff["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert handoff["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert handoff["skill_route_lane_limit_reaffirmed"] is True
+    assert handoff["general_agent_eval_split_reaffirmed"] is True
+    assert handoff["local_validation_required"] is True
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["raw_source_url_export_allowed"] is False
+    assert handoff["upstream_body_export_allowed"] is False
+    assert all(
+        set(row["local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in handoff["skill_route_rows"]
+    )
+    assert handoff["general_agent_rows"] == [
+        {
+            "item_id": "omnigent-general-agent",
+            "route_class": "general_agent_project",
+            "primary_route": "agent_harness_eval_required",
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "skill_route_discovery_inherited": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+    ]
+
+
+def test_route_classifier_does_not_treat_negated_skill_inheritance_as_skill_signal():
+    classification = classify_digest_item_route(
+        {
+            "event_kind": "RepositoryTrend",
+            "summary": (
+                "omnigent-ai/omnigent: general AI agent framework and meta-harness with policy, "
+                "sandboxing, and runtime orchestration."
+            ),
+            "relevance_reason": "General agent movement requires harness evaluation, not skill discovery inheritance.",
+        }
+    )
+
+    assert classification["route_class"] == "general_agent_project"
+    assert classification["route_hints"] == ["agent_harness_eval", "governance_policy"]
+    assert classification["allowed_lanes"] == []
+    assert classification["evaluation_lane"] == "agent_harness_eval_required"
+
+
 def test_skill_route_profile_classifies_phaser_game_engine_evidence_as_frontend_workflow():
     classification = classify_digest_item_route(
         {
