@@ -1891,6 +1891,14 @@ activation, external harness execution, provider launch, remote execution, raw
 source URL export, raw target path export, and upstream body export remain
 denied.
 
+The guard also emits `replay_contract`, a body-free command-alignment check for
+the same final surfaces. The activation handoff, replay checklist, final route
+handoff manifest, and route validation lane queue must all carry the
+skill-route local replay command, while the secondary harness bridge must carry
+both the skill-route replay command and the later `agent_harness_eval_lane`
+command. The contract exports command hashes rather than raw commands and
+blocks completion if a final surface drops the expected local replay path.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

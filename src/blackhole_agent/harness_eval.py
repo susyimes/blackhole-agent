@@ -8,7 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlparse
 
 
@@ -8515,6 +8515,12 @@ def skill_route_discovery_completion_consistency_guard(
 ) -> dict[str, Any]:
     """Cross-check final pass handoff panels before reporting slice closure."""
 
+    def panel_commands(panel: Mapping[str, Any], *keys: str) -> list[str]:
+        commands: list[str] = []
+        for key in keys:
+            commands.extend(string_list(panel.get(key)))
+        return sorted(dict.fromkeys(commands))
+
     selected_lane_set = set(selected_local_lanes)
     manifest_lane_set = set(string_list(final_route_handoff_manifest.get("selected_local_lanes")))
     queue_lane_set = set(string_list(route_validation_lane_queue.get("selected_local_lanes")))
@@ -8525,6 +8531,18 @@ def skill_route_discovery_completion_consistency_guard(
         "final_route_handoff_manifest": optional_string(final_route_handoff_manifest.get("status")) or "",
         "route_validation_lane_queue": optional_string(route_validation_lane_queue.get("status")) or "",
         "secondary_harness_bridge": optional_string(secondary_harness_bridge.get("status")) or "",
+    }
+    required_skill_route_commands = skill_route_discovery_preactivation_validation_commands()
+    required_bridge_commands = [
+        SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
+        SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND,
+    ]
+    replay_contract = {
+        "activation_handoff": panel_commands(activation_handoff, "required_validation"),
+        "completion_replay_checklist": panel_commands(completion_replay_checklist, "replay_commands"),
+        "final_route_handoff_manifest": panel_commands(final_route_handoff_manifest, "required_validation"),
+        "route_validation_lane_queue": panel_commands(route_validation_lane_queue, "required_validation"),
+        "secondary_harness_bridge": panel_commands(secondary_harness_bridge, "required_validation"),
     }
 
     diagnostics = list(blocked_reasons)
@@ -8555,9 +8573,22 @@ def skill_route_discovery_completion_consistency_guard(
         diagnostics.append("secondary_harness_bridge_allows_external_harness_execution")
     if secondary_harness_bridge.get("provider_runtime_launch_allowed") is not False:
         diagnostics.append("secondary_harness_bridge_allows_provider_runtime_launch")
+    for panel, commands in replay_contract.items():
+        expected_commands = (
+            required_bridge_commands
+            if panel == "secondary_harness_bridge"
+            else required_skill_route_commands
+        )
+        missing_commands = [command for command in expected_commands if command not in commands]
+        if missing_commands:
+            diagnostics.append(f"{panel}_missing_replay_commands")
 
     diagnostics = sorted(dict.fromkeys(diagnostic for diagnostic in diagnostics if diagnostic))
     guard_ready = ready and not diagnostics
+    replay_contract_hashes = {
+        panel: [stable_text_hash(command) for command in commands]
+        for panel, commands in replay_contract.items()
+    }
     return {
         "controller_surface": "skill_route_discovery_completion_consistency_guard",
         "status": "ready" if guard_ready else "blocked",
@@ -8573,6 +8604,37 @@ def skill_route_discovery_completion_consistency_guard(
         "ready_lane_count": int(route_validation_lane_queue.get("ready_lane_count") or 0),
         "blocked_profile_count": int(final_route_handoff_manifest.get("blocked_profile_count") or 0),
         "blocked_lane_count": int(route_validation_lane_queue.get("blocked_lane_count") or 0),
+        "replay_contract": {
+            "controller_surface": "skill_route_discovery_completion_replay_contract",
+            "status": "ready"
+            if all(
+                all(
+                    command in commands
+                    for command in (
+                        required_bridge_commands
+                        if panel == "secondary_harness_bridge"
+                        else required_skill_route_commands
+                    )
+                )
+                for panel, commands in replay_contract.items()
+            )
+            else "blocked",
+            "panels": sorted(replay_contract),
+            "skill_route_validation_command_hashes": [
+                stable_text_hash(command) for command in required_skill_route_commands
+            ],
+            "secondary_bridge_validation_command_hashes": [
+                stable_text_hash(command) for command in required_bridge_commands
+            ],
+            "panel_command_hashes": replay_contract_hashes,
+            "raw_commands_exported": False,
+            "local_validation_required": True,
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
         "completion_blocker_count": len(blocked_reasons),
         "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
         "diagnostic_count": len(diagnostics),

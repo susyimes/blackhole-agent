@@ -10,6 +10,7 @@ from blackhole_agent.harness_eval import (
     skill_route_discovery_inspection_requirements,
     skill_route_discovery_provider_runtime_control,
     skill_route_discovery_provider_runtime_preflight_contract,
+    skill_route_discovery_completion_consistency_guard,
     skill_route_discovery_preactivation_trust_boundary,
     skill_route_discovery_preactivation_validation_commands,
 )
@@ -5401,6 +5402,28 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     }
     assert consistency_guard["ready_profile_count"] == consistency_guard["ready_lane_count"] == 3
     assert consistency_guard["blocked_profile_count"] == consistency_guard["blocked_lane_count"] == 0
+    replay_contract = consistency_guard["replay_contract"]
+    assert replay_contract["controller_surface"] == "skill_route_discovery_completion_replay_contract"
+    assert replay_contract["status"] == "ready"
+    assert replay_contract["panels"] == [
+        "activation_handoff",
+        "completion_replay_checklist",
+        "final_route_handoff_manifest",
+        "route_validation_lane_queue",
+        "secondary_harness_bridge",
+    ]
+    assert replay_contract["skill_route_validation_command_hashes"] == [
+        stable_text_hash(command)
+        for command in skill_route_discovery_preactivation_validation_commands()
+    ]
+    assert replay_contract["secondary_bridge_validation_command_hashes"] == [
+        stable_text_hash("pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"),
+        stable_text_hash("pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"),
+    ]
+    assert set(replay_contract["panel_command_hashes"]) == set(replay_contract["panels"])
+    assert replay_contract["raw_commands_exported"] is False
+    assert replay_contract["runtime_action_allowed"] is False
+    assert replay_contract["external_harness_execution_allowed"] is False
     assert consistency_guard["completion_blocker_count"] == 0
     assert consistency_guard["diagnostic_count"] == 0
     assert consistency_guard["diagnostic_hashes"] == []
@@ -5429,6 +5452,41 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_completion_guard_blocks_missing_replay_contract():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    report = output["capability_window_completion"]["completion_report"]
+    queue_without_replay = json.loads(json.dumps(report["route_validation_lane_queue"]))
+    queue_without_replay["required_validation"] = []
+
+    guard = skill_route_discovery_completion_consistency_guard(
+        ready=True,
+        selected_local_lanes=report["selected_local_lanes"],
+        activation_handoff=report["activation_handoff"],
+        completion_replay_checklist=report["completion_replay_checklist"],
+        final_route_handoff_manifest=report["final_route_handoff_manifest"],
+        route_validation_lane_queue=queue_without_replay,
+        secondary_harness_bridge=report["secondary_harness_bridge"],
+        blocked_reasons=[],
+    )
+
+    assert guard["status"] == "blocked"
+    assert guard["replay_contract"]["status"] == "blocked"
+    assert guard["diagnostic_count"] == 1
+    assert stable_text_hash("route_validation_lane_queue_missing_replay_commands") in guard[
+        "diagnostic_hashes"
+    ]
+    assert guard["replay_contract"]["raw_commands_exported"] is False
+    assert guard["runtime_action_allowed"] is False
+    assert guard["external_harness_execution_allowed"] is False
 
 
 def test_skill_route_discovery_provider_runtime_control_pass_surfaces_degraded_recovery_packet():
