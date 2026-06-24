@@ -14,6 +14,7 @@ TOPICAL_MATCH = "topical_match"
 NO_SKILL_MATCH = "no_match"
 AMBIGUOUS_SKILL_MATCH = "ambiguous_match"
 SKILL_ROUTE_DISCOVERY_HINT = "skill_route_discovery"
+SKILL_ROUTE_DISCOVERY_ROUTE_CLASS = "external_skill_route_discovery_classification"
 SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
 SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS: Mapping[str, tuple[str, ...]] = {
     "documentation": ("docs/skill-route-discovery.md",),
@@ -355,6 +356,7 @@ class ExternalSkillRouteCandidate:
             "name": self.name,
             "related_source_urls": list(dict.fromkeys(self.related_source_urls)),
             "requested_actions": list(self.requested_actions),
+            "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
             "route_profiles": list(_skill_route_discovery_route_profiles(self)),
             "route_hints": list(self.route_hints),
             "matched_route_terms": list(
@@ -852,6 +854,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "candidate_name": name,
                 "source_url": source_url,
                 "proposal_kinds": list(dict.fromkeys(allowed_lanes)),
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
                 "route_profiles": route_profiles,
                 "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
                 "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
@@ -891,6 +894,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "discovery_event_kind": str(candidate.get("discovery_event_kind") or "unknown"),
                     "source_url": source_url,
                     "proposal_kind": lane,
+                    "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
                     "route_profiles": route_profiles,
                     "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
                     "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
@@ -936,6 +940,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
 
     return {
         "schema_version": 1,
+        "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
         "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
         "allowed_proposal_kinds": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "source_registry_status": str(registry.get("registry_status") or ""),

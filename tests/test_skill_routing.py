@@ -7,6 +7,7 @@ from blackhole_agent.skill_routing import (
     SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
     SKILL_ROUTE_DISCOVERY_DISABLED,
     SKILL_ROUTE_DISCOVERY_INVALID,
+    SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
     SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES,
     NO_SKILL_MATCH,
     ExternalSkillRouteCandidate,
@@ -1725,6 +1726,70 @@ def test_skill_route_discovery_proposal_lane_map_cites_only_item_evidence_urls()
     assert all("https://github.com/example/non-item-evidence" not in lane["evidence_urls"] for lane in lane_map["proposal_lanes"])
 
 
+def test_skill_route_discovery_current_window_skill_workflow_signals_stay_classification_only():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "provider_runtime_pass2_four_item_evidence.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 4
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+    assert lane_map["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert lane_map["allowed_proposal_kinds"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane_map["proposal_lane_count"] == 16
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    inventory_by_name = {row["candidate_name"]: row for row in lane_map["candidate_lane_inventory"]}
+    expected_profiles = {
+        "FableCodex": ["codex_workflow_gate"],
+        "compass-skills": ["skill_ecosystem_state_handoff"],
+        "threejs-game-skills": ["game_frontend_workflow"],
+        "zhengxi-views": ["source_cited_domain_research"],
+    }
+    expected_selected_lanes = {
+        "FableCodex": "test",
+        "compass-skills": "config",
+        "threejs-game-skills": "test",
+        "zhengxi-views": "test",
+    }
+
+    assert set(candidates_by_name) == set(expected_profiles)
+    for name, expected_profile in expected_profiles.items():
+        candidate = candidates_by_name[name]
+        inventory = inventory_by_name[name]
+        assert candidate["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert candidate["route_hints"] == ["skill_route_discovery"]
+        assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert candidate["requested_actions"] == []
+        assert candidate["route_profiles"] == expected_profile
+        assert inventory["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert inventory["route_profiles"] == expected_profile
+        assert inventory["proposal_kinds"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert inventory["handoff_metadata"]["selected_local_lane"] == expected_selected_lanes[name]
+        assert inventory["runtime_action"] == "none"
+        assert inventory["external_skill_activation_allowed"] is False
+
+    for lane in lane_map["proposal_lanes"]:
+        assert lane["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert lane["route_hint"] == "skill_route_discovery"
+        assert lane["proposal_kind"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        assert lane["runtime_action"] == "none"
+        assert lane["external_skill_activation_allowed"] is False
+        assert lane["provider_runtime_launch_allowed"] is False
+        assert lane["local_validation_required"] is True
+
+
 def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
     registry = build_skill_route_discovery_registry(
         [
@@ -1747,6 +1812,7 @@ def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
             "candidate_name": "lane-overreach",
             "source_url": "https://github.com/example/lane-overreach",
             "proposal_kinds": ["documentation"],
+            "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
             "route_profiles": ["generic_skill_workflow"],
             "matched_route_terms": [],
             "discovery_event_kind": "unknown",
