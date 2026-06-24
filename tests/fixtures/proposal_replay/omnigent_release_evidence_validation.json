@@ -99,8 +99,8 @@
   },
   "expected": {
     "status": "accepted",
-    "accepted_count": 3,
-    "rejected_count": 0,
+    "accepted_count": 2,
+    "rejected_count": 1,
     "selected_item_ids": [
       "omnigent-release-runbook-pr",
       "omnigent-tested-workflow-push",
@@ -111,16 +111,25 @@
       "release-runbook-privacy-review": [
         "omnigent-release-runbook-pr"
       ],
-      "generic-release-workflow-push": [
-        "omnigent-generic-workflow-push"
-      ],
       "tested-release-workflow-push": [
         "omnigent-tested-workflow-push"
       ]
     },
+    "rejected_error_substrings": [
+      "generic push or untitled pull request/review evidence requires a non-generic corroborating item before behavior proposals"
+    ],
     "context_budget_preflight": {
       "status": "within_budget",
       "items_truncated": false,
+      "evidence_truncation_uncertainty": {
+        "missing_detail_risk": true,
+        "reasons": [
+          "generic_push_items_have_missing_validation_or_route_detail"
+        ],
+        "selected_generic_push_count": 1,
+        "truncated_generic_push_count": 0,
+        "citation_scope": "cite_selected_item_ids_only"
+      },
       "self_model_truncated": false
     },
     "proposal_controls": {
@@ -131,12 +140,6 @@
         ],
         "implementation_scope": "reviewable_proposal_only",
         "validation_gate": "privacy-leakage-human-review"
-      },
-      "generic-release-workflow-push": {
-        "kind": "test",
-        "risk_flags": [],
-        "implementation_scope": "local_validation_candidate",
-        "validation_gate": "narrow-local-verification"
       },
       "tested-release-workflow-push": {
         "kind": "test",
@@ -150,14 +153,6 @@
         "status": "blocked_by_safety_boundary",
         "safety_block": true,
         "blocks_autonomous_apply": true
-      },
-      "generic-release-workflow-push": {
-        "status": "ready",
-        "requires_unit_test_or_coverage": true,
-        "has_unit_test_signal": true,
-        "validation_gaps": [],
-        "safety_block": false,
-        "blocks_autonomous_apply": false
       },
       "tested-release-workflow-push": {
         "status": "ready",

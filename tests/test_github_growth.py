@@ -2568,6 +2568,8 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
         "truncated_event_kind_counts": {"PullRequestEvent": 7},
         "selected_generic_pr_count": 3,
         "truncated_generic_pr_count": 7,
+        "selected_generic_push_count": 0,
+        "truncated_generic_push_count": 0,
         "selected_generic_pr_cluster_count": 1,
         "truncated_generic_pr_cluster_count": 1,
         "repeated_generic_pr_cluster_count": 1,
@@ -2634,7 +2636,7 @@ def test_pr_event_digest_pressure_records_uncertainty_and_rejects_duplicate_prop
     assert review.accepted_candidates[0]["proposal_id"] == "pr-pressure-context"
     assert review.accepted_candidates[0]["evidence_refs"] == ["pr-1", "pr-2"]
     assert any(
-        "generic or untitled pull request/review evidence requires a non-generic corroborating item"
+        "generic push or untitled pull request/review evidence requires a non-generic corroborating item"
         in " ".join(rejected["errors"])
         for rejected in review.rejected_candidates
     )
@@ -2730,7 +2732,7 @@ def test_repeated_untitled_review_events_require_non_generic_corroboration_for_b
     assert uncertainty["repeated_generic_pr_cluster_count"] == 1
     assert review_only.status == "rejected"
     assert any(
-        "generic or untitled pull request/review evidence requires a non-generic corroborating item"
+        "generic push or untitled pull request/review evidence requires a non-generic corroborating item"
         in error
         for error in review_only.rejected_candidates[0]["errors"]
     )
@@ -2969,6 +2971,8 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
             "truncated_event_kind_counts": {},
             "selected_generic_pr_count": 0,
             "truncated_generic_pr_count": 0,
+            "selected_generic_push_count": 0,
+            "truncated_generic_push_count": 0,
             "selected_generic_pr_cluster_count": 0,
             "truncated_generic_pr_cluster_count": 0,
             "repeated_generic_pr_cluster_count": 0,

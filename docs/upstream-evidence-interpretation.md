@@ -302,3 +302,12 @@ one non-generic selected evidence item such as a repository-level route summary,
 specific issue text, inspected review finding, named commit message, or local
 failing test signal. This prevents repeated low-detail review anchors from
 outranking a single concrete validation signal.
+
+The same rule applies to generic push or main-branch movement. A push item whose
+message only shows freshness, broad workflow polish, or missing validation
+detail is supporting context, not an implementation trigger. Proposal review
+should reject documentation, test, config, or code behavior proposals that cite
+only that weak push evidence. A push-derived proposal becomes eligible only when
+the selected evidence itself names a concrete corroborating signal, such as
+tests, e2e replay, coverage, a review finding, a route hint with bounded local
+validation, or a separate non-generic selected item.

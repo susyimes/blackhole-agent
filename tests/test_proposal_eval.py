@@ -55,8 +55,8 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     assert report.case_count == 12
     assert report.passed_count == 12
     assert report.failed_count == 0
-    assert report.accepted_count == 24
-    assert report.rejected_count == 10
+    assert report.accepted_count == 23
+    assert report.rejected_count == 11
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -82,7 +82,16 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     assert release.proposal_validation_preflights["release-runbook-privacy-review"]["status"] == (
         "blocked_by_safety_boundary"
     )
-    assert release.proposal_validation_preflights["generic-release-workflow-push"]["status"] == "ready"
+    assert "generic-release-workflow-push" not in release.proposal_validation_preflights
+    assert any(
+        "generic push or untitled pull request/review evidence requires a non-generic corroborating item"
+        in error
+        for error in release.rejected_errors
+    )
+    assert (
+        release.context_budget_preflight["evidence_truncation_uncertainty"]["selected_generic_push_count"]
+        == 1
+    )
     assert release.proposal_validation_preflights["tested-release-workflow-push"]["status"] == "ready"
     current = results_by_name["current-wake-agent-harness-validation"]
     assert current.proposal_validation_preflights["p1-local-agent-harness-validation"]["status"] == "ready"

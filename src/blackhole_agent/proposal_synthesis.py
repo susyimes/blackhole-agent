@@ -1659,6 +1659,8 @@ def build_evidence_truncation_uncertainty(
     truncated_event_kind_counts: dict[str, int] = {}
     selected_generic_pr_count = 0
     truncated_generic_pr_count = 0
+    selected_generic_push_count = 0
+    truncated_generic_push_count = 0
     selected_generic_pr_cluster_keys: set[str] = set()
     truncated_generic_pr_cluster_keys: set[str] = set()
     generic_pr_cluster_counts = digest_generic_pr_cluster_counts(raw_items)
@@ -1675,6 +1677,8 @@ def build_evidence_truncation_uncertainty(
                 cluster_key = digest_generic_pr_cluster_key(raw_item)
                 if cluster_key:
                     selected_generic_pr_cluster_keys.add(cluster_key)
+            if digest_item_has_generic_push_detail(raw_item):
+                selected_generic_push_count += 1
         elif item_id in truncated_item_ids:
             truncated_event_kind_counts[event_kind] = truncated_event_kind_counts.get(event_kind, 0) + 1
             if digest_item_has_generic_pull_request_detail(raw_item):
@@ -1682,6 +1686,8 @@ def build_evidence_truncation_uncertainty(
                 cluster_key = digest_generic_pr_cluster_key(raw_item)
                 if cluster_key:
                     truncated_generic_pr_cluster_keys.add(cluster_key)
+            if digest_item_has_generic_push_detail(raw_item):
+                truncated_generic_push_count += 1
 
     truncated_pr_activity_count = sum(
         count for kind, count in truncated_event_kind_counts.items() if kind in PR_ACTIVITY_EVENT_KINDS
@@ -1693,6 +1699,8 @@ def build_evidence_truncation_uncertainty(
         reasons.append("truncated_pull_request_activity_may_hide_pr_specific_details")
     if selected_generic_pr_count or truncated_generic_pr_count:
         reasons.append("generic_or_untitled_pull_request_items_have_missing_title_context")
+    if selected_generic_push_count or truncated_generic_push_count:
+        reasons.append("generic_push_items_have_missing_validation_or_route_detail")
     repeated_generic_pr_cluster_count = sum(1 for count in generic_pr_cluster_counts.values() if count > 1)
     if repeated_generic_pr_cluster_count:
         reasons.append("repeated_generic_pull_request_metadata_clustered_and_downweighted")
@@ -1704,6 +1712,8 @@ def build_evidence_truncation_uncertainty(
         "truncated_event_kind_counts": dict(sorted(truncated_event_kind_counts.items())),
         "selected_generic_pr_count": selected_generic_pr_count,
         "truncated_generic_pr_count": truncated_generic_pr_count,
+        "selected_generic_push_count": selected_generic_push_count,
+        "truncated_generic_push_count": truncated_generic_push_count,
         "selected_generic_pr_cluster_count": len(selected_generic_pr_cluster_keys),
         "truncated_generic_pr_cluster_count": len(truncated_generic_pr_cluster_keys),
         "repeated_generic_pr_cluster_count": repeated_generic_pr_cluster_count,
@@ -1719,6 +1729,47 @@ def digest_item_has_generic_pull_request_detail(item: dict[str, Any]) -> bool:
         return False
     text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
     return "untitled pull request" in text or "generic" in text or "truncated" in text or not text.strip()
+
+
+def digest_item_has_generic_push_detail(item: dict[str, Any]) -> bool:
+    """Return whether a push item is only activity/freshness evidence."""
+
+    event_kind = str(item.get("event_kind") or "")
+    if event_kind != "PushEvent":
+        return False
+    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
+    if not text.strip():
+        return True
+    concrete_validation_terms = (
+        "e2e",
+        "test(",
+        "test:",
+        "tests",
+        "tested",
+        "validation",
+        "validate",
+        "review finding",
+        "reviewed",
+        "harness",
+        "preflight",
+        "fixture",
+        "coverage",
+    )
+    if any(term in text for term in concrete_validation_terms):
+        return False
+    generic_push_terms = (
+        "generic",
+        "workflow polish",
+        "activity",
+        "freshness",
+        "missing test evidence",
+        "low-detail",
+        "low detail",
+    )
+    if any(term in text for term in generic_push_terms):
+        return True
+    main_branch_generic_terms = ("chore", "misc", "polish", "sync", "update", "updates")
+    return "main" in text and any(term in text for term in main_branch_generic_terms)
 
 
 def build_context_budget_preflight(evidence_package: dict[str, Any]) -> dict[str, Any]:
@@ -2069,7 +2120,7 @@ def normalize_candidate(
     missing_refs = [ref for ref in evidence_refs if ref not in items_by_id]
     if missing_refs:
         errors.append("evidence_refs contain unknown item ids: " + ", ".join(missing_refs))
-    errors.extend(candidate_low_detail_pr_evidence_errors(kind, evidence_refs, items_by_id))
+    errors.extend(candidate_low_detail_movement_evidence_errors(kind, evidence_refs, items_by_id))
     errors.extend(candidate_route_hint_lane_errors(kind, evidence_refs, items_by_id))
     validation_task = str(candidate.get("validation_task") or "").strip()
     if not validation_task:
@@ -2080,9 +2131,12 @@ def normalize_candidate(
     uncertainty = str(candidate.get("uncertainty") or "").strip()
     if not uncertainty:
         errors.append("uncertainty must not be empty")
-    elif candidate_requires_missing_detail_uncertainty(kind, evidence_truncation_uncertainty) and not (
-        uncertainty_mentions_missing_detail_risk(uncertainty)
-    ):
+    elif candidate_requires_missing_detail_uncertainty(
+        kind,
+        evidence_refs,
+        items_by_id,
+        evidence_truncation_uncertainty,
+    ) and not uncertainty_mentions_missing_detail_risk(uncertainty):
         errors.append("uncertainty must record context_budget missing_detail_risk")
     dangerous_text = " ".join(
         str(candidate.get(key) or "") for key in ("summary", "validation_task", "rationale", "self_effect")
@@ -2128,12 +2182,12 @@ def normalize_candidate(
     return normalized, errors
 
 
-def candidate_low_detail_pr_evidence_errors(
+def candidate_low_detail_movement_evidence_errors(
     kind: str,
     evidence_refs: list[str],
     items_by_id: dict[str, dict[str, Any]],
 ) -> list[str]:
-    """Reject behavior proposals supported only by generic PR/review metadata."""
+    """Reject behavior proposals supported only by generic activity metadata."""
 
     if kind in {"follow_up_issue", "no_action"}:
         return []
@@ -2141,12 +2195,17 @@ def candidate_low_detail_pr_evidence_errors(
     if not known_refs:
         return []
     low_detail_refs = [
-        ref for ref in known_refs if digest_item_has_generic_pull_request_detail(items_by_id[ref])
+        ref
+        for ref in known_refs
+        if (
+            digest_item_has_generic_pull_request_detail(items_by_id[ref])
+            or digest_item_has_generic_push_detail(items_by_id[ref])
+        )
     ]
     if len(low_detail_refs) != len(known_refs):
         return []
     return [
-        "generic or untitled pull request/review evidence requires a non-generic corroborating item "
+        "generic push or untitled pull request/review evidence requires a non-generic corroborating item "
         "before behavior proposals"
     ]
 
@@ -2189,15 +2248,37 @@ def candidate_route_hint_lane_errors(
 
 def candidate_requires_missing_detail_uncertainty(
     kind: str,
+    evidence_refs: list[str],
+    items_by_id: dict[str, dict[str, Any]],
     evidence_truncation_uncertainty: dict[str, Any] | None,
 ) -> bool:
     """Return whether a proposal must explicitly carry context-budget inference limits."""
 
-    if kind == "no_action":
+    if kind in {"follow_up_issue", "no_action"}:
         return False
     if not isinstance(evidence_truncation_uncertainty, dict):
         return False
-    return bool(evidence_truncation_uncertainty.get("missing_detail_risk"))
+    if not evidence_truncation_uncertainty.get("missing_detail_risk"):
+        return False
+    reasons = {
+        str(reason)
+        for reason in evidence_truncation_uncertainty.get("reasons", [])
+        if str(reason).strip()
+    }
+    generic_selected_reasons = {
+        "generic_or_untitled_pull_request_items_have_missing_title_context",
+        "generic_push_items_have_missing_validation_or_route_detail",
+    }
+    if reasons and reasons <= generic_selected_reasons:
+        return any(
+            ref in items_by_id
+            and (
+                digest_item_has_generic_pull_request_detail(items_by_id[ref])
+                or digest_item_has_generic_push_detail(items_by_id[ref])
+            )
+            for ref in evidence_refs
+        )
+    return True
 
 
 def uncertainty_mentions_missing_detail_risk(uncertainty: str) -> bool:
