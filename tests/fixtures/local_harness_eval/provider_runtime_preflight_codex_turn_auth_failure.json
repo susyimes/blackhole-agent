@@ -1,0 +1,83 @@
+{
+  "name": "provider-runtime-preflight-codex-turn-auth-failure",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-codex-turn-auth-failure",
+    "provider": {
+      "name": "codex-native",
+      "harness": "codex-native"
+    },
+    "runtime": {
+      "platform": "linux",
+      "launch_transport": "subprocess",
+      "cli_resolved_in_runner": true
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ]
+    },
+    "turn_outcome": {
+      "terminal_event": "turn/completed",
+      "assistant_output_present": false,
+      "output_empty": true,
+      "item_types": [
+        "error"
+      ],
+      "error_item_count": 1,
+      "status_code": 401,
+      "error_class": "auth",
+      "raw_error_body": "PRIVATE_PROVIDER_401_BODY_DO_NOT_EXPORT",
+      "credential_value": "PRIVATE_PROVIDER_TOKEN_DO_NOT_EXPORT"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_turn_auth_failed"
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "turn_outcome.auth_failure_detected",
+      "equals": true
+    },
+    {
+      "path": "turn_outcome.empty_success_guardrail_triggered",
+      "equals": true
+    },
+    {
+      "path": "turn_outcome.error_status_class",
+      "equals": "4xx"
+    },
+    {
+      "path": "turn_outcome.raw_error_body_exported",
+      "equals": false
+    },
+    {
+      "path": "turn_outcome.credential_values_exported",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "provider_turn_auth_failed"
+    },
+    {
+      "path": "operator_recovery_plan.recovery_hint_codes.0",
+      "equals": "provider_turn_auth_failed"
+    },
+    {
+      "path": "supervisor_replay.provider_runtime_launch_allowed",
+      "equals": false
+    }
+  ]
+}

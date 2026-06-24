@@ -88,8 +88,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 67
-    assert payload["pass_count"] == 66
+    assert payload["fixture_count"] == 68
+    assert payload["pass_count"] == 67
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -162,6 +162,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["provider-runtime-preflight-claude-long-status-prompt-scan"]["passed"] is True
     assert results["provider-runtime-preflight-native-claude-iterm2-tmux-timeout-risk"]["passed"] is True
     assert results["provider-runtime-preflight-approval-repark-pending"]["passed"] is True
+    assert results["provider-runtime-preflight-codex-turn-auth-failure"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-mock-auth"]["passed"] is True
     assert results["provider-runtime-preflight-openai-agents-no-worker-env-skip"]["passed"] is True
     assert results["provider-runtime-preflight-openrouter-harness-base-url-mismatch"]["passed"] is True
@@ -239,6 +240,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_REVIEW_PROMPT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_REVIEW_OUTPUT_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_PROVIDER_429_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PROVIDER_401_BODY_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_PROVIDER_TOKEN_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HOMEBREW_PREFIX_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_JITER_DYLIB_PATH_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_JITER_RELINK_ERROR_DO_NOT_EXPORT" not in serialized

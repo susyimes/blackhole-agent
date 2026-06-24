@@ -16097,6 +16097,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     setup_preflight = evaluate_provider_setup_preflight(provider=provider, runtime=runtime)
     startup_preflight = evaluate_provider_startup_preflight(provider=provider, runtime=runtime)
     runner_state_preflight = evaluate_provider_runner_state_preflight(provider=provider, runtime=runtime)
+    turn_outcome_preflight = evaluate_provider_turn_outcome_preflight(raw_input, provider=provider, runtime=runtime)
     runner_compat_preflight = evaluate_provider_runner_compat_preflight(
         provider=provider,
         runtime=runtime,
@@ -16181,6 +16182,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not setup_preflight["ok"]
         or not startup_preflight["ok"]
         or not runner_state_preflight["ok"]
+        or not turn_outcome_preflight["ok"]
         or not runner_compat_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
@@ -16213,6 +16215,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(setup_preflight["diagnostics"])
     diagnostics.extend(startup_preflight["diagnostics"])
     diagnostics.extend(runner_state_preflight["diagnostics"])
+    diagnostics.extend(turn_outcome_preflight["diagnostics"])
     diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
@@ -16249,6 +16252,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not startup_preflight["ok"]
             else runner_state_preflight["failure_mode"]
             if not runner_state_preflight["ok"]
+            else turn_outcome_preflight["failure_mode"]
+            if not turn_outcome_preflight["ok"]
             else runner_compat_preflight["failure_mode"]
             if not runner_compat_preflight["ok"]
             else auth_header_preflight["failure_mode"]
@@ -16361,6 +16366,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "setup_preflight": setup_preflight,
         "startup_preflight": startup_preflight,
         "runner_state": runner_state_preflight,
+        "turn_outcome": turn_outcome_preflight,
         "runner_compat": runner_compat_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
@@ -16388,6 +16394,98 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         recovery_hints=recovery_hints,
     )
     return output
+
+
+def evaluate_provider_turn_outcome_preflight(
+    raw_input: dict[str, Any],
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Classify provider terminal turns without exporting turn bodies or credentials."""
+
+    turn_outcome = raw_input.get("turn_outcome")
+    if not isinstance(turn_outcome, dict):
+        turn_outcome = provider.get("turn_outcome")
+    if not isinstance(turn_outcome, dict):
+        turn_outcome = runtime.get("turn_outcome")
+    if not isinstance(turn_outcome, dict):
+        return {
+            "ok": True,
+            "configured": False,
+            "failure_mode": "none",
+            "diagnostics": [],
+            "terminal_event": "unknown",
+            "terminal_event_completed": False,
+            "assistant_output_present": True,
+            "output_empty": False,
+            "error_item_present": False,
+            "error_item_count": 0,
+            "item_type_count": 0,
+            "error_status_class": "unknown",
+            "auth_failure_detected": False,
+            "empty_success_guardrail_triggered": False,
+            "raw_error_body_exported": False,
+            "raw_output_exported": False,
+            "credential_values_exported": False,
+        }
+
+    terminal_event = optional_string(turn_outcome.get("terminal_event")) or optional_string(
+        turn_outcome.get("method")
+    ) or "unknown"
+    terminal_event_completed = terminal_event in {"turn/completed", "completed", "idle"}
+    assistant_output_present = turn_outcome.get("assistant_output_present")
+    if assistant_output_present is None:
+        assistant_output_present = turn_outcome.get("last_agent_message_present")
+    output_empty = truthy(turn_outcome.get("output_empty")) or assistant_output_present is False
+    error_item_count = nonnegative_int(turn_outcome.get("error_item_count"), default=0)
+    item_types = string_list(turn_outcome.get("item_types"))
+    error_item_present = error_item_count > 0 or "error" in {item_type.lower() for item_type in item_types}
+    status_code = optional_int(turn_outcome.get("status_code") or turn_outcome.get("http_status"))
+    status_class = f"{status_code // 100}xx" if status_code is not None and status_code >= 100 else "unknown"
+    error_class = (optional_string(turn_outcome.get("error_class")) or "").lower()
+    auth_failure_detected = bool(
+        status_code in {401, 403}
+        or error_class in {"auth", "authentication", "credential", "unauthorized"}
+        or truthy(turn_outcome.get("auth_failure"))
+    )
+    require_nonempty_output = turn_outcome.get("require_nonempty_output") is not False
+    empty_success_guardrail = bool(
+        terminal_event_completed and output_empty and (error_item_present or auth_failure_detected)
+    )
+    suspect_empty_completion = bool(terminal_event_completed and output_empty and require_nonempty_output)
+
+    diagnostics: list[str] = []
+    failure_mode = "none"
+    if auth_failure_detected and empty_success_guardrail:
+        failure_mode = "provider_turn_auth_failed"
+        diagnostics.append("provider terminal turn carried auth failure metadata and empty output")
+    elif empty_success_guardrail:
+        failure_mode = "provider_turn_error_item_reported"
+        diagnostics.append("provider terminal turn carried error metadata and empty output")
+    elif suspect_empty_completion:
+        failure_mode = "provider_turn_empty_success_suspect"
+        diagnostics.append("provider terminal turn completed with empty output and no assistant message")
+
+    return {
+        "ok": failure_mode == "none",
+        "configured": True,
+        "failure_mode": failure_mode,
+        "diagnostics": diagnostics,
+        "terminal_event": terminal_event if terminal_event in {"turn/completed", "completed", "failed", "idle"} else "other",
+        "terminal_event_completed": terminal_event_completed,
+        "assistant_output_present": bool(assistant_output_present),
+        "output_empty": output_empty,
+        "error_item_present": error_item_present,
+        "error_item_count": error_item_count,
+        "item_type_count": len(item_types),
+        "error_status_class": status_class,
+        "auth_failure_detected": auth_failure_detected,
+        "empty_success_guardrail_triggered": empty_success_guardrail or suspect_empty_completion,
+        "raw_error_body_exported": False,
+        "raw_output_exported": False,
+        "credential_values_exported": False,
+    }
 
 
 def evaluate_provider_tool_dispatch_preflight(
@@ -18372,6 +18470,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
         preflight.get("startup_preflight") if isinstance(preflight.get("startup_preflight"), dict) else {}
     )
     runner_state = preflight.get("runner_state") if isinstance(preflight.get("runner_state"), dict) else {}
+    turn_outcome = preflight.get("turn_outcome") if isinstance(preflight.get("turn_outcome"), dict) else {}
     runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
@@ -18771,6 +18870,31 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "raw_runner_logs_exported": False,
                 "raw_callback_bodies_exported": False,
                 "raw_policy_bodies_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_turn_auth_failed",
+        "provider_turn_empty_success_suspect",
+        "provider_turn_error_item_reported",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_turn_outcome",
+                "severity": "blocker",
+                "action": "surface provider terminal turn errors before reporting an empty successful completion",
+                "terminal_event_completed": bool(turn_outcome.get("terminal_event_completed")),
+                "assistant_output_present": bool(turn_outcome.get("assistant_output_present")),
+                "output_empty": bool(turn_outcome.get("output_empty")),
+                "error_item_present": bool(turn_outcome.get("error_item_present")),
+                "error_item_count": int(turn_outcome.get("error_item_count") or 0),
+                "error_status_class": optional_string(turn_outcome.get("error_status_class")) or "unknown",
+                "auth_failure_detected": bool(turn_outcome.get("auth_failure_detected")),
+                "empty_success_guardrail_triggered": bool(turn_outcome.get("empty_success_guardrail_triggered")),
+                "raw_error_body_exported": False,
+                "raw_output_exported": False,
+                "credential_values_exported": False,
             }
         )
     elif failure_mode in {
