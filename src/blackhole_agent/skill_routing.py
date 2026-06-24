@@ -956,6 +956,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "downgraded_candidate_count": len(downgraded_candidates),
         "route_profile_catalog": _skill_route_discovery_route_profile_catalog(proposal_lanes),
         "local_lane_matrix": _skill_route_discovery_local_lane_matrix(candidate_lane_inventory),
+        "bounded_route_profile_matrix": _skill_route_discovery_bounded_route_profile_matrix(
+            candidate_lane_inventory
+        ),
         "validation_profile_coverage": _skill_route_discovery_validation_profile_coverage(
             candidate_lane_inventory
         ),
@@ -1428,6 +1431,143 @@ def _skill_route_discovery_local_lane_matrix(
         "raw_upstream_body_exported": False,
         "rows": rows,
     }
+
+
+def _skill_route_discovery_bounded_route_profile_matrix(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Map observed skill-route profiles to bounded local validation lanes."""
+
+    rows_by_profile: dict[str, dict[str, Any]] = {}
+    observed_lanes: list[str] = []
+    required_profiles = (
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    )
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        source_hash = _stable_hash(str(candidate.get("source_url") or candidate_name))
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        proposal_kinds = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        observed_lanes.extend(proposal_kinds)
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        if selected_lane not in proposal_kinds:
+            selected_lane = proposal_kinds[0] if proposal_kinds else ""
+
+        for profile in route_profiles:
+            row = rows_by_profile.get(profile)
+            if row is None:
+                row = {
+                    "route_profile": profile,
+                    "status": "ready" if selected_lane else "blocked",
+                    "candidate_names": [],
+                    "candidate_source_hashes": [],
+                    "allowed_local_lanes": [],
+                    "selected_local_lanes": [],
+                    "validation_targets": [],
+                    "replay_commands": [],
+                    "activation_boundary": _skill_route_discovery_profile_activation_boundary(profile),
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+                rows_by_profile[profile] = row
+            elif not selected_lane:
+                row["status"] = "blocked"
+
+            row["candidate_names"] = list(
+                dict.fromkeys((*_string_list(row.get("candidate_names")), candidate_name))
+            )
+            row["candidate_source_hashes"] = list(
+                dict.fromkeys((*_string_list(row.get("candidate_source_hashes")), source_hash))
+            )
+            row["allowed_local_lanes"] = [
+                lane
+                for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                if lane in {*_string_list(row.get("allowed_local_lanes")), *proposal_kinds}
+            ]
+            row["selected_local_lanes"] = list(
+                dict.fromkeys((*_string_list(row.get("selected_local_lanes")), selected_lane))
+            )
+            row["validation_targets"] = list(
+                dict.fromkeys(
+                    (
+                        *_string_list(row.get("validation_targets")),
+                        _skill_route_discovery_validation_target(selected_lane, (profile,)),
+                    )
+                )
+            )
+            row["replay_commands"] = list(
+                dict.fromkeys(
+                    (
+                        *_string_list(row.get("replay_commands")),
+                        _skill_route_discovery_replay_command(selected_lane, (profile,)),
+                    )
+                )
+            )
+
+    rows = [rows_by_profile[profile] for profile in sorted(rows_by_profile)]
+    blocked_profiles = [row["route_profile"] for row in rows if row["status"] != "ready"]
+    observed_profiles = [row["route_profile"] for row in rows]
+    return {
+        "controller_surface": "skill_route_discovery_bounded_route_profile_matrix",
+        "status": "ready" if rows and not blocked_profiles else "blocked",
+        "decision": (
+            "route_profiles_mapped_to_bounded_local_lanes"
+            if rows and not blocked_profiles
+            else "repair_route_profile_lane_mapping_before_activation"
+        ),
+        "required_profiles": list(required_profiles),
+        "observed_route_profiles": observed_profiles,
+        "covered_required_profiles": [
+            profile for profile in required_profiles if profile in set(observed_profiles)
+        ],
+        "missing_required_profiles": [
+            profile for profile in required_profiles if profile not in set(observed_profiles)
+        ],
+        "observed_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(observed_lanes)
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "blocked_route_profiles": blocked_profiles,
+        "row_count": len(rows),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_profile_activation_boundary(profile: str) -> str:
+    return {
+        "game_frontend_workflow": "validate_local_frontend_or_workflow_check_before_any_scaffold_or_asset_path",
+        "skill_ecosystem_state_handoff": "validate_state_privacy_and_metadata_boundary_before_profile_or_memory_write",
+        "generic_skill_workflow": "validate_body_free_local_artifact_before_skill_activation",
+        "codex_workflow_gate": "prove_skill_route_discovery_first_before_secondary_workflow_handling",
+        "source_cited_domain_research": "validate_citation_and_advice_boundary_before_domain_behavior",
+    }.get(profile, "validate_bounded_local_lane_before_activation")
 
 
 def _skill_route_discovery_validation_profile_coverage(

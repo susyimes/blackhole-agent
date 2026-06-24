@@ -1843,6 +1843,96 @@ def test_skill_route_discovery_current_window_skill_workflow_signals_stay_classi
         assert lane["local_validation_required"] is True
 
 
+def test_skill_route_discovery_bounded_route_profile_matrix_covers_skill_workflow_lanes():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            {
+                "item_id": "generic-skill-workflow",
+                "item_kind": "repository",
+                "name": "minimal-skill-note",
+                "source_url": "https://github.com/example/minimal-skill-note",
+                "title": "Minimal public agent skill note",
+                "summary": "Small public agent skill note with local documentation evidence only.",
+                "route_hints": ["skill_route_discovery", "runtime_execution"],
+                "topics": ["skills"],
+                "suggested_lanes": ["documentation", "install", "runtime_execution"],
+            },
+            {
+                "item_id": "state-handoff-skill",
+                "item_kind": "repository",
+                "name": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "title": "COMPASS Skills state handoff profile",
+                "summary": "Skill ecosystem with task forest, local memory, collaboration profile, handoff, and privacy boundary.",
+                "route_hints": ["skill_route_discovery", "provider_runtime"],
+                "topics": ["skills", "memory", "profile"],
+                "suggested_lanes": ["config", "test", "install"],
+            },
+            {
+                "item_id": "game-frontend-skill",
+                "item_kind": "repository",
+                "name": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "title": "Three.js game skills director",
+                "summary": "Three.js browser game workflow skills with frontend QA, gameplay validation, and asset boundary notes.",
+                "route_hints": ["skill_route_discovery", "external_harness"],
+                "topics": ["threejs", "game", "skills"],
+                "suggested_lanes": ["test", "documentation", "execute"],
+            },
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    matrix = lane_map["bounded_route_profile_matrix"]
+    rows = {row["route_profile"]: row for row in matrix["rows"]}
+
+    assert matrix["controller_surface"] == "skill_route_discovery_bounded_route_profile_matrix"
+    assert matrix["status"] == "ready"
+    assert matrix["decision"] == "route_profiles_mapped_to_bounded_local_lanes"
+    assert matrix["required_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert matrix["covered_required_profiles"] == matrix["required_profiles"]
+    assert matrix["missing_required_profiles"] == []
+    assert matrix["observed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert matrix["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert matrix["runtime_action"] == "none"
+    assert matrix["external_skill_activation_allowed"] is False
+    assert matrix["external_harness_execution_allowed"] is False
+    assert matrix["provider_runtime_launch_allowed"] is False
+    assert matrix["remote_execution_allowed"] is False
+    assert matrix["raw_source_url_exported"] is False
+    assert matrix["raw_evidence_urls_exported"] is False
+    assert matrix["raw_target_paths_exported"] is False
+    assert matrix["raw_upstream_body_exported"] is False
+
+    assert rows["generic_skill_workflow"]["candidate_names"] == ["minimal-skill-note"]
+    assert rows["generic_skill_workflow"]["selected_local_lanes"] == ["documentation"]
+    assert rows["generic_skill_workflow"]["validation_targets"] == ["body_free_route_profile_note"]
+    assert rows["skill_ecosystem_state_handoff"]["candidate_names"] == ["compass-skills"]
+    assert rows["skill_ecosystem_state_handoff"]["selected_local_lanes"] == ["config"]
+    assert rows["skill_ecosystem_state_handoff"]["validation_targets"] == ["state_or_profile_boundary_metadata"]
+    assert rows["game_frontend_workflow"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["game_frontend_workflow"]["selected_local_lanes"] == ["test"]
+    assert rows["game_frontend_workflow"]["validation_targets"] == ["local_frontend_render_or_workflow_check"]
+
+    for row in matrix["rows"]:
+        assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["status"] == "ready"
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+
 def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
     registry = build_skill_route_discovery_registry(
         [

@@ -482,6 +482,11 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "do not create install, scaffold, asset-generation, browser-run,\n"
         "profile-writing, upstream dataset import, advice generation, provider-launch,\n"
         "remote-execution, or external skill activation",
+        "`bounded_route_profile_matrix`",
+        "maps observed `generic_skill_workflow`,\n"
+        "`game_frontend_workflow`, and `skill_ecosystem_state_handoff` evidence",
+        "selected local lane, validation target, replay command, candidate source hashes",
+        "raw target path export, and upstream body export remain denied",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

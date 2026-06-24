@@ -143,6 +143,16 @@ bodies, or sensitive values, and it does not authorize profile writes, memory
 writes, external skill activation, external harness execution, provider launch,
 remote execution, or runtime action.
 
+Lane maps also emit `bounded_route_profile_matrix`, a compact profile-to-lane
+view for pass-2 review. The matrix maps observed `generic_skill_workflow`,
+`game_frontend_workflow`, and `skill_ecosystem_state_handoff` evidence to only
+the bounded documentation, config, test, or code_patch lanes, then records the
+selected local lane, validation target, replay command, candidate source hashes,
+and activation boundary for each profile. It is classification metadata only:
+runtime action, external skill activation, external harness execution, provider
+launch, remote execution, raw source URL export, raw evidence URL export, raw
+target path export, and upstream body export remain denied.
+
 Provider/runtime-control passes follow the same rule. If a skill workflow item
 mentions provider setup, runtime launch, model commands, harnesses, or recovery
 workflow, the route may still choose only documentation, config, test, or

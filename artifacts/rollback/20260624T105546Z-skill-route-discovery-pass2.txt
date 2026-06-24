@@ -1,0 +1,7 @@
+Rollback point for skill-route-discovery-pass2
+Original branch: codex/blackhole-evolve/20260624T105546.947705-add-or-improve-local-validation-for-provider-con
+Original HEAD: 3196f4a168861a0bd9cf3939504e26c3b8d04bcb
+Rollback ref: refs/rollback/20260624T105546Z-skill-route-discovery-pass2
+Recovery commands:
+  git switch codex/blackhole-evolve/20260624T105546.947705-add-or-improve-local-validation-for-provider-con
+  git reset --hard refs/rollback/20260624T105546Z-skill-route-discovery-pass2
