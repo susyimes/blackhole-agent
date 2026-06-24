@@ -6197,6 +6197,7 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     current_action = output["current_action"]
     handoff_packet = output["pass1_handoff_packet"]
     pass1_queue = output["pass1_validation_queue"]
+    pass1_replay_plan = pass1_queue["pass1_replay_lane_plan"]
     mixed_probe = output["mixed_local_lane_probe"]
     serialized = json.dumps(output, sort_keys=True)
 
@@ -6245,10 +6246,43 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert pass1_queue["profile_validation_lane_count"] == 3
     assert pass1_queue["ready_profile_validation_lane_count"] == 3
     assert pass1_queue["mixed_skill_workflow_secondary_lane_status"] == "blocked_until_local_corroboration"
+    assert pass1_replay_plan["controller_surface"] == "skill_route_discovery_pass1_replay_lane_plan"
+    assert pass1_replay_plan["status"] == "ready"
+    assert pass1_replay_plan["decision"] == "replay_pass1_current_lane_then_queued_profile_lanes"
+    assert pass1_replay_plan["replay_step_count"] == 2
+    assert pass1_replay_plan["selected_current_pass_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+    ]
+    assert pass1_replay_plan["queued_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert pass1_replay_plan["selected_local_lanes"] == ["documentation", "test"]
+    assert pass1_replay_plan["evidence_ref_mode"] == "selected_item_ids_only"
+    assert pass1_replay_plan["diagnostics"] == []
     queue_rows_by_id = {row["proposal_id"]: row for row in pass1_queue["rows"]}
     validation_lanes_by_profile = {
         row["route_profile"]: row for row in pass1_queue["profile_validation_lanes"]
     }
+    replay_rows = pass1_replay_plan["rows"]
+    assert replay_rows[0]["queue_role"] == "selected_current_pass_lane"
+    assert replay_rows[0]["route_profiles"] == ["codex_workflow_gate", "game_frontend_workflow"]
+    assert replay_rows[0]["selected_local_lane"] == "test"
+    assert replay_rows[0]["validation_gates"] == [
+        "local_frontend_validation_before_game_skill_activation",
+        "skill_route_discovery_first_before_workflow_gate",
+    ]
+    assert replay_rows[0]["evidence_item_ids"] == [
+        "p2-threejs-game-skill-docs",
+        "p3-codex-workflow-gate-config",
+    ]
+    assert replay_rows[0]["first_route_required"] is True
+    assert replay_rows[0]["first_route_confirmed"] is True
+    assert replay_rows[1]["queue_role"] == "queued_bounded_lane"
+    assert replay_rows[1]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert replay_rows[1]["selected_local_lane"] == "documentation"
+    assert replay_rows[1]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+    assert replay_rows[1]["evidence_item_ids"] == ["p1-skill-route-discovery-compass"]
     assert validation_lanes_by_profile["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
     assert validation_lanes_by_profile["skill_ecosystem_state_handoff"]["validation_gate"] == (
         "state_handoff_boundary_before_profile_or_memory_write"
@@ -6293,8 +6327,13 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert queue_rows_by_id["trend:omnigent-ai/omnigent"]["skill_route_discovery_inherited"] is False
     assert all(row["runtime_action"] == "none" for row in pass1_queue["rows"])
     assert all(row["external_harness_execution_allowed"] is False for row in pass1_queue["rows"])
+    assert all(row["runtime_action"] == "none" for row in pass1_replay_plan["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in pass1_replay_plan["rows"])
     assert pass1_queue["runtime_action_allowed"] is False
     assert pass1_queue["external_skill_activation_allowed"] is False
+    assert pass1_replay_plan["runtime_action_allowed"] is False
+    assert pass1_replay_plan["external_skill_activation_allowed"] is False
+    assert pass1_replay_plan["raw_source_urls_exported"] is False
     assert pass1_queue["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
 

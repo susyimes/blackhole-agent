@@ -7175,6 +7175,13 @@ def skill_route_discovery_pass1_validation_queue(
         and all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows)
         and not diagnostics
     )
+    pass1_replay_lane_plan = skill_route_discovery_pass1_replay_lane_plan(
+        current_pass=current_pass,
+        total_passes=int(window.get("total_passes") or 0),
+        ready=ready,
+        pass_validation_replay_queue=pass_validation_replay_queue,
+        profile_validation_lanes=profile_validation_lanes,
+    )
     return {
         "controller_surface": "skill_route_discovery_pass1_validation_queue",
         "status": "ready" if ready else "not_applicable" if current_pass != 1 else "blocked",
@@ -7207,6 +7214,7 @@ def skill_route_discovery_pass1_validation_queue(
             1 for row in profile_validation_lanes if row["queue_status"] == "ready"
         ),
         "profile_validation_lanes": profile_validation_lanes,
+        "pass1_replay_lane_plan": pass1_replay_lane_plan,
         "mixed_skill_workflow_secondary_lane_status": mixed_probe_status,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
@@ -7216,6 +7224,131 @@ def skill_route_discovery_pass1_validation_queue(
             PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
         ],
         "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass1_replay_lane_plan(
+    *,
+    current_pass: int,
+    total_passes: int,
+    ready: bool,
+    pass_validation_replay_queue: dict[str, Any],
+    profile_validation_lanes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build an operator replay plan from the pass-1 queue rows."""
+
+    queue_rows = pass_validation_replay_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    profile_rows_by_name = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in profile_validation_lanes
+        if isinstance(row, dict)
+    }
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for queue_row in queue_rows:
+        if not isinstance(queue_row, dict):
+            continue
+        route_profiles = string_list(queue_row.get("route_profiles"))
+        profile_rows = [profile_rows_by_name[profile] for profile in route_profiles if profile in profile_rows_by_name]
+        validation_gates = sorted(
+            {
+                gate
+                for profile_row in profile_rows
+                for gate in [optional_string(profile_row.get("validation_gate")) or ""]
+                if gate
+            }
+        )
+        row_diagnostics: list[str] = []
+        if not profile_rows:
+            row_diagnostics.append("profile_validation_lane_missing")
+        if queue_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(queue_row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if queue_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if queue_row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        diagnostics.extend(f"{int(queue_row.get('queue_position') or 0)}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "queue_position": int(queue_row.get("queue_position") or len(rows) + 1),
+                "queue_role": optional_string(queue_row.get("queue_role")) or "queued_bounded_lane",
+                "selected_local_lane": optional_string(queue_row.get("selected_local_lane")) or "none",
+                "route_profiles": route_profiles,
+                "validation_gates": validation_gates,
+                "evidence_item_ids": string_list(queue_row.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(queue_row.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(queue_row.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(queue_row.get("candidate_source_hashes"))),
+                "queue_fingerprint": optional_string(queue_row.get("queue_fingerprint")) or "",
+                "fingerprint_basis": optional_string(queue_row.get("fingerprint_basis")) or "",
+                "replay_commands": string_list(queue_row.get("replay_commands")),
+                "provider_runtime_replay_commands": string_list(queue_row.get("provider_runtime_replay_commands")),
+                "first_route_required": any(row.get("first_route_required") is True for row in profile_rows),
+                "first_route_confirmed": any(row.get("first_route_confirmed") is True for row in profile_rows),
+                "queue_status": "ready" if not row_diagnostics else "blocked",
+                "diagnostics": sorted(dict.fromkeys(row_diagnostics)),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_pass1_replay_lane_plan",
+        "status": "ready" if current_pass == 1 and ready and rows and not diagnostics else "blocked",
+        "decision": "replay_pass1_current_lane_then_queued_profile_lanes"
+        if current_pass == 1 and ready and rows and not diagnostics
+        else "repair_pass1_replay_lane_plan_before_activation",
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "replay_step_count": len(rows),
+        "selected_current_pass_profiles": sorted(
+            {
+                profile
+                for row in rows
+                if row["queue_role"] == "selected_current_pass_lane"
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "queued_profile_count": sum(1 for row in rows if row["queue_role"] == "queued_bounded_lane"),
+        "queued_profiles": sorted(
+            {
+                profile
+                for row in rows
+                if row["queue_role"] == "queued_bounded_lane"
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "selected_local_lanes": sorted({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": bool(rows),
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,

@@ -1817,6 +1817,18 @@ source URLs or upstream bodies, install or enable upstream skills, execute an
 external harness, launch providers, write memory/profile state, or perform
 remote execution.
 
+`pass1_validation_queue` also emits `pass1_replay_lane_plan` for current
+pass-1 windows. This is the compact supervisor replay order: first the selected
+current-pass lane and then queued bounded profile lanes. Each row carries only
+selected digest item IDs, candidate source hashes, validation gates, queue
+fingerprints, and local replay commands. It does not export raw GitHub URLs,
+raw target paths, upstream bodies, or sensitive values, and it continues to
+deny runtime action, external skill activation, external harness execution,
+provider launch, remote execution, profile writes, and memory writes. The
+surface lets an operator validate COMPASS state-handoff, FableCodex
+workflow-gate, and game/frontend workflow lanes without inferring replay order
+from multiple panels.
+
 Pass-3 handoff packets also emit `profile_activation_gates`. This is the final
 pre-activation profile view for the active window: it maps each observed route
 profile to its selected bounded local lane, queue role, selected item IDs,
