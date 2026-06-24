@@ -8191,6 +8191,7 @@ def skill_route_discovery_capability_window_completion(
         profile_validation_replay=profile_validation_replay,
         activity_signal_panel=activity_signal_panel,
         profile_completion_check=profile_completion_check,
+        evidence_url_hashes=evidence_url_hashes,
         route_profile_review=route_profile_review,
         mixed_local_lane_probe=mixed_local_lane_probe,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
@@ -8315,6 +8316,7 @@ def skill_route_discovery_completion_report(
     profile_validation_replay: dict[str, Any],
     activity_signal_panel: dict[str, Any],
     profile_completion_check: dict[str, Any],
+    evidence_url_hashes: list[str],
     route_profile_review: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
@@ -8338,11 +8340,19 @@ def skill_route_discovery_completion_report(
         mixed_local_lane_probe=mixed_local_lane_probe,
         local_lane_closure=local_lane_closure,
     )
+    current_window_evidence_gate = skill_route_discovery_current_window_evidence_gate(
+        planned_window_complete=planned_window_complete,
+        profile_completion_check=profile_completion_check,
+        route_profiles=route_profiles,
+        selected_evidence_refs=selected_evidence_refs,
+        evidence_url_hashes=evidence_url_hashes,
+    )
     ready = (
         status == "ready"
         and activation_packet.get("status") == "ready"
         and local_lane_closure.get("status") == "ready"
         and profile_validation_gate.get("status") == "ready"
+        and current_window_evidence_gate.get("status") == "ready"
         and final_slice_closure.get("supervisor_handoff_ready") is True
         and provider_runtime_completion_handoff.get("status") in {"ready", "not_applicable"}
         and not diagnostics
@@ -8355,6 +8365,8 @@ def skill_route_discovery_completion_report(
             blocked_reasons.append("local_lane_closure_not_ready")
         if profile_validation_gate.get("status") != "ready":
             blocked_reasons.append("profile_validation_gate_not_ready")
+        if current_window_evidence_gate.get("status") != "ready":
+            blocked_reasons.extend(string_list(current_window_evidence_gate.get("diagnostics")))
         if final_slice_closure.get("supervisor_handoff_ready") is not True:
             blocked_reasons.append("final_slice_closure_not_ready")
         if provider_runtime_completion_handoff.get("status") not in {"ready", "not_applicable"}:
@@ -8464,6 +8476,7 @@ def skill_route_discovery_completion_report(
         "selected_evidence_ref_hashes": [stable_text_hash(ref) for ref in selected_evidence_refs],
         "local_lane_closure": local_lane_closure,
         "profile_validation_gate": profile_validation_gate,
+        "current_window_evidence_gate": current_window_evidence_gate,
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
@@ -10990,6 +11003,63 @@ def skill_route_discovery_profile_completion_check(
         "observed_profile_count": len(observed),
         "planned_window_complete": planned_window_complete,
         "enforced": enforced,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_current_window_evidence_gate(
+    *,
+    planned_window_complete: bool,
+    profile_completion_check: dict[str, Any],
+    route_profiles: list[str],
+    selected_evidence_refs: list[str],
+    evidence_url_hashes: list[str],
+) -> dict[str, Any]:
+    """Check final-pass evidence coverage without exposing upstream URLs."""
+
+    required_profiles = string_list(profile_completion_check.get("required_route_profiles"))
+    observed_profiles = sorted(dict.fromkeys(route_profiles))
+    missing_profiles = string_list(profile_completion_check.get("missing_route_profiles"))
+    selected_ref_hashes = [stable_text_hash(ref) for ref in sorted(dict.fromkeys(selected_evidence_refs))]
+    evidence_hashes = sorted(dict.fromkeys(string_list(evidence_url_hashes)))
+    enforced = planned_window_complete and bool(required_profiles)
+    diagnostics: list[str] = []
+    if enforced and missing_profiles:
+        diagnostics.append("current_window_required_profiles_missing")
+    if enforced and not selected_ref_hashes:
+        diagnostics.append("current_window_selected_evidence_refs_missing")
+    if enforced and not evidence_hashes:
+        diagnostics.append("current_window_evidence_url_hashes_missing")
+
+    ready = not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_current_window_evidence_gate",
+        "status": "ready" if ready else "blocked",
+        "decision": "current_window_evidence_ready_for_completion"
+        if ready
+        else "replay_current_window_evidence_before_completion",
+        "planned_window_complete": planned_window_complete,
+        "enforced": enforced,
+        "required_route_profiles": required_profiles,
+        "observed_route_profiles": observed_profiles,
+        "missing_route_profiles": missing_profiles,
+        "required_profile_count": len(required_profiles),
+        "observed_profile_count": len(observed_profiles),
+        "selected_evidence_ref_count": len(selected_ref_hashes),
+        "selected_evidence_ref_hashes": selected_ref_hashes,
+        "evidence_url_hash_count": len(evidence_hashes),
+        "evidence_url_hashes": evidence_hashes,
+        "diagnostics": diagnostics,
+        "diagnostic_count": len(diagnostics),
+        "local_validation_required": True,
         "body_free": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,

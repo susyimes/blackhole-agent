@@ -3206,6 +3206,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     completion_consistency_guard = output["capability_window_completion"]["completion_report"][
         "completion_consistency_guard"
     ]
+    current_window_evidence_gate = output["capability_window_completion"]["completion_report"][
+        "current_window_evidence_gate"
+    ]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -3230,6 +3233,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         ],
         "local_lane_closure": local_lane_closure,
         "profile_validation_gate": profile_validation_gate,
+        "current_window_evidence_gate": current_window_evidence_gate,
         "activation_handoff": activation_handoff,
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
@@ -3419,6 +3423,42 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     assert all(row["runtime_action_allowed"] is False for row in activation_packet["rows"])
     assert activation_packet["external_skill_activation_allowed"] is False
     assert output["capability_window_completion"]["completion_report"] == completion_report
+    assert current_window_evidence_gate == {
+        "controller_surface": "skill_route_discovery_current_window_evidence_gate",
+        "status": "ready",
+        "decision": "current_window_evidence_ready_for_completion",
+        "planned_window_complete": True,
+        "enforced": False,
+        "required_route_profiles": [],
+        "observed_route_profiles": ["codex_workflow_gate"],
+        "missing_route_profiles": [],
+        "required_profile_count": 0,
+        "observed_profile_count": 1,
+        "selected_evidence_ref_count": 3,
+        "selected_evidence_ref_hashes": [
+            stable_text_hash("fablecodex-issue-15"),
+            stable_text_hash("fablecodex-issue-18"),
+            stable_text_hash("fablecodex-repo"),
+        ],
+        "evidence_url_hash_count": 3,
+        "evidence_url_hashes": sorted([
+            stable_text_hash("https://github.com/baskduf/FableCodex"),
+            stable_text_hash("https://github.com/dongshuyan/compass-skills"),
+            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+        ]),
+        "diagnostics": [],
+        "diagnostic_count": 0,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert output["capability_window_completion"]["completion_report"]["runtime_action_allowed"] is False
     assert output["capability_window_completion"]["completion_report"]["raw_evidence_urls_exported"] is False
     assert "https://github.com/baskduf/FableCodex" not in serialized
@@ -5153,6 +5193,39 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert profile_gate["provider_runtime_launch_allowed"] is False
     assert profile_gate["raw_evidence_urls_exported"] is False
     assert profile_gate["raw_source_urls_exported"] is False
+    current_window_gate = output["capability_window_completion"]["completion_report"][
+        "current_window_evidence_gate"
+    ]
+    assert current_window_gate["controller_surface"] == "skill_route_discovery_current_window_evidence_gate"
+    assert current_window_gate["status"] == "ready"
+    assert current_window_gate["decision"] == "current_window_evidence_ready_for_completion"
+    assert current_window_gate["planned_window_complete"] is True
+    assert current_window_gate["enforced"] is True
+    assert current_window_gate["required_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert current_window_gate["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert current_window_gate["missing_route_profiles"] == []
+    assert current_window_gate["selected_evidence_ref_count"] == 3
+    assert current_window_gate["evidence_url_hash_count"] == 3
+    assert current_window_gate["evidence_url_hashes"] == sorted(
+        [
+            stable_text_hash("https://github.com/baskduf/FableCodex"),
+            stable_text_hash("https://github.com/dongshuyan/compass-skills"),
+            stable_text_hash("https://github.com/majidmanzarpour/threejs-game-skills"),
+        ]
+    )
+    assert current_window_gate["diagnostics"] == []
+    assert current_window_gate["runtime_action_allowed"] is False
+    assert current_window_gate["external_skill_activation_allowed"] is False
+    assert current_window_gate["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in json.dumps(current_window_gate, sort_keys=True)
     audit = output["capability_window_completion"]["completion_report"]["completion_audit"]
     assert audit["controller_surface"] == "skill_route_discovery_completion_audit"
     assert audit["status"] == "ready"

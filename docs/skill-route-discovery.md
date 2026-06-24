@@ -1913,6 +1913,21 @@ both the skill-route replay command and the later `agent_harness_eval_lane`
 command. The contract exports command hashes rather than raw commands and
 blocks completion if a final surface drops the expected local replay path.
 
+Pass-4 completion now also emits `current_window_evidence_gate`. This is the
+operator-visible link between the upstream evidence window and local capability
+closure: when the planned final pass declares required route profiles, the gate
+checks that the observed route profiles cover that requirement, that selected
+digest evidence refs are present, and that the source evidence is represented
+only as URL hashes. This lets FableCodex-style skill/workflow evidence,
+COMPASS-style skill ecosystem state handoff evidence, and Three.js workflow
+evidence become a single local completion gate without importing upstream skill
+code or exporting raw GitHub URLs. Omnigent-style generic movement remains
+supporting context for a separate agent-harness route unless it carries concrete
+route hints or local code matches. The gate can block the completion report, but
+it does not grant runtime action, external skill activation, external harness
+execution, provider launch, remote execution, raw evidence URL export, raw
+source URL export, or upstream body export.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy
