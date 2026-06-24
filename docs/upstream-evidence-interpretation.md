@@ -63,6 +63,14 @@ skill, add executable tool routes, or treat a repository name as permission to
 load code. A later change may promote a candidate only after a separate local
 validation path proves the behavior and records the activation boundary.
 
+For completion handoff, skill-route evidence should produce an operator-visible
+workflow that binds the selected local lanes to rollback evidence, replay
+commands, changed-file review, and any privacy review gate. This workflow is
+still a local validation surface: it may tell the external supervisor that the
+local lane is ready for review, but it must not push, promote, restart the
+kernel, launch a provider, execute an external harness, or activate upstream
+skill code.
+
 Repository lifecycle signals do not change that boundary. A newly discovered
 skill repository is recorded as `record_only_no_install`, and a deleted upstream
 skill repository is recorded as `record_only_no_local_deletion`. Malformed

@@ -937,6 +937,12 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         rejected_candidates,
         downgraded_candidates,
     )
+    completion_workflow = _skill_route_discovery_completion_workflow(
+        local_activation_targets,
+        adoption_manifest,
+        privacy_review_panel,
+        route_profile_handoff_queue,
+    )
 
     return {
         "schema_version": 1,
@@ -958,6 +964,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
         "adoption_manifest": adoption_manifest,
         "privacy_review_panel": privacy_review_panel,
+        "completion_workflow": completion_workflow,
         "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
@@ -2121,6 +2128,106 @@ def _skill_route_discovery_promotion_readiness(
         "target_path_count": len(dict.fromkeys(target_path_hashes)),
         "supervisor_handoff": "external_supervisor_only",
         "kernel_restart_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_completion_workflow(
+    local_activation_targets: Mapping[str, Any],
+    adoption_manifest: Mapping[str, Any],
+    privacy_review_panel: Mapping[str, Any],
+    route_profile_handoff_queue: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Render a rollback-aware operator workflow for completing local lanes."""
+
+    raw_target_rows = local_activation_targets.get("rows")
+    target_rows = (
+        raw_target_rows
+        if isinstance(raw_target_rows, Sequence) and not isinstance(raw_target_rows, (str, bytes))
+        else []
+    )
+    rows = [row for row in target_rows if isinstance(row, Mapping)]
+    ready_rows = [row for row in rows if row.get("activation_ready") is True]
+    blocked_rows = [row for row in rows if row.get("activation_ready") is not True]
+    replay_commands = [
+        str(row.get("replay_command") or "")
+        for row in ready_rows
+        if str(row.get("replay_command") or "").strip()
+    ]
+    validation_targets = [
+        str(row.get("validation_target") or "")
+        for row in ready_rows
+        if str(row.get("validation_target") or "").strip()
+    ]
+    selected_lanes = [
+        str(row.get("selected_local_lane") or "")
+        for row in ready_rows
+        if str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    blocked_candidate_names = [
+        str(row.get("candidate_name") or "")
+        for row in blocked_rows
+        if str(row.get("candidate_name") or "").strip()
+    ]
+    promotion_readiness = adoption_manifest.get("promotion_readiness")
+    promotion_readiness = promotion_readiness if isinstance(promotion_readiness, Mapping) else {}
+
+    targets_ready = local_activation_targets.get("status") == "ready" and bool(ready_rows) and not blocked_rows
+    manifest_ready = adoption_manifest.get("status") == "ready"
+    profile_queue_ready = route_profile_handoff_queue.get("status") == "ready"
+    workflow_ready = targets_ready and manifest_ready and profile_queue_ready
+    privacy_review_required = privacy_review_panel.get("status") == "review_required"
+
+    return {
+        "controller_surface": "skill_route_discovery_completion_workflow",
+        "status": "ready" if workflow_ready else "blocked",
+        "decision": (
+            "complete_bounded_local_validation_then_external_supervisor_handoff"
+            if workflow_ready
+            else "repair_bounded_skill_route_lanes_before_completion"
+        ),
+        "candidate_count": len(rows),
+        "ready_candidate_count": len(ready_rows),
+        "blocked_candidate_count": len(blocked_rows),
+        "blocked_candidate_names": blocked_candidate_names,
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "validation_targets": list(dict.fromkeys(validation_targets)),
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "required_evidence": [
+            "rollback_ref",
+            "rollback_artifact",
+            "focused_local_validation",
+            "changed_file_review",
+            "review_note",
+        ],
+        "operator_sequence": [
+            "confirm_rollback_ref_and_artifact_exist",
+            "run_replay_commands_for_selected_local_lanes",
+            "review_changed_files_and_privacy_panel",
+            "leave_activation_to_external_supervisor",
+        ],
+        "privacy_review_required": privacy_review_required,
+        "privacy_review_gate": str(privacy_review_panel.get("review_gate") or ""),
+        "privacy_review_candidate_count": int(privacy_review_panel.get("review_row_count") or 0),
+        "promotion_readiness_status": str(promotion_readiness.get("status") or ""),
+        "promotion_readiness_decision": str(promotion_readiness.get("decision") or ""),
+        "supervisor_handoff": "external_supervisor_only",
+        "rollback_ref_required": True,
+        "rollback_artifact_required": True,
+        "kernel_self_restart_allowed": False,
+        "restart_or_remote_activation_required": False,
+        "promotion_or_push_performed": False,
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,

@@ -1437,6 +1437,59 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert all(row["external_skill_activation_allowed"] is False for row in target_rows.values())
     assert all(row["raw_source_url_exported"] is False for row in target_rows.values())
 
+    completion = lane_map["completion_workflow"]
+    assert completion["controller_surface"] == "skill_route_discovery_completion_workflow"
+    assert completion["status"] == "ready"
+    assert completion["decision"] == "complete_bounded_local_validation_then_external_supervisor_handoff"
+    assert completion["candidate_count"] == 3
+    assert completion["ready_candidate_count"] == 3
+    assert completion["blocked_candidate_count"] == 0
+    assert completion["blocked_candidate_names"] == []
+    assert completion["selected_local_lanes"] == ["config", "test"]
+    assert completion["validation_targets"] == [
+        "skill_route_first_probe_regression",
+        "state_or_profile_boundary_metadata",
+        "local_frontend_render_or_workflow_check",
+    ]
+    assert completion["replay_commands"] == [
+        "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow",
+        "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
+        "python -m pytest tests/test_skill_routing.py -q -k game_frontend",
+    ]
+    assert completion["required_evidence"] == [
+        "rollback_ref",
+        "rollback_artifact",
+        "focused_local_validation",
+        "changed_file_review",
+        "review_note",
+    ]
+    assert completion["operator_sequence"] == [
+        "confirm_rollback_ref_and_artifact_exist",
+        "run_replay_commands_for_selected_local_lanes",
+        "review_changed_files_and_privacy_panel",
+        "leave_activation_to_external_supervisor",
+    ]
+    assert completion["privacy_review_required"] is True
+    assert completion["privacy_review_gate"] == "privacy-leakage-human-review"
+    assert completion["privacy_review_candidate_count"] == 1
+    assert completion["promotion_readiness_status"] == "ready"
+    assert completion["supervisor_handoff"] == "external_supervisor_only"
+    assert completion["rollback_ref_required"] is True
+    assert completion["rollback_artifact_required"] is True
+    assert completion["kernel_self_restart_allowed"] is False
+    assert completion["restart_or_remote_activation_required"] is False
+    assert completion["promotion_or_push_performed"] is False
+    assert completion["local_validation_required"] is True
+    assert completion["runtime_action"] == "none"
+    assert completion["external_skill_activation_allowed"] is False
+    assert completion["external_harness_execution_allowed"] is False
+    assert completion["provider_runtime_launch_allowed"] is False
+    assert completion["remote_execution_allowed"] is False
+    assert completion["raw_source_url_exported"] is False
+    assert completion["raw_evidence_urls_exported"] is False
+    assert completion["raw_target_paths_exported"] is False
+    assert completion["raw_upstream_body_exported"] is False
+
 
 def test_skill_route_discovery_privacy_review_panel_is_body_free_for_sensitive_profiles():
     fixture_path = (
