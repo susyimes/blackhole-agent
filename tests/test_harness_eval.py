@@ -1010,6 +1010,171 @@ def test_provider_runtime_preflight_blocks_unreplayed_old_runner_host_compat_bri
     assert "Config 2" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_malformed_kubernetes_sandbox_without_cluster_access():
+    base_input = {
+        "provider": {
+            "name": "omnigent-kubernetes-provider",
+            "harness": "omnigent",
+        },
+        "runtime": {
+            "platform": "linux",
+            "launch_transport": "subprocess",
+        },
+        "runner_env": {
+            "parent_env_keys": ["PATH"],
+            "allowlist": ["PATH"],
+        },
+    }
+    missing = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            **base_input,
+            "task_id": "fixture-provider-runtime-preflight-kubernetes-missing-inline",
+            "sandbox": {
+                "provider": "kubernetes",
+                "kubernetes": {
+                    "namespace": "omnigent-sandboxes",
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_kubernetes_missing_inline.json",
+    )
+    malformed = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            **base_input,
+            "task_id": "fixture-provider-runtime-preflight-kubernetes-malformed-inline",
+            "sandbox": {
+                "provider": "kubernetes",
+                "kubernetes": {
+                    "namespace": "Omnigent Sandboxes",
+                    "image": "registry.example/runner:latest; PRIVATE_SHELL_DO_NOT_EXPORT",
+                    "service_account": "runner_sa",
+                    "secret_name": "runner-creds",
+                    "node_selector": {
+                        "omnigent.ai/runner ready": "true",
+                    },
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_kubernetes_malformed_inline.json",
+    )
+    credential = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            **base_input,
+            "task_id": "fixture-provider-runtime-preflight-kubernetes-credential-inline",
+            "sandbox": {
+                "provider": "kubernetes",
+                "kubernetes": {
+                    "namespace": "omnigent-sandboxes",
+                    "image": "registry.example/omnigent-runner:latest",
+                    "service_account": "omnigent-runner",
+                    "env": {
+                        "PRIVATE_API_TOKEN_DO_NOT_EXPORT": "PRIVATE_TOKEN_VALUE_DO_NOT_EXPORT",
+                    },
+                    "requires_launch_token": True,
+                    "server_minted_launch_token": True,
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_kubernetes_credential_inline.json",
+    )
+    token = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            **base_input,
+            "task_id": "fixture-provider-runtime-preflight-kubernetes-token-inline",
+            "sandbox": {
+                "provider": "kubernetes",
+                "kubernetes": {
+                    "namespace": "omnigent-sandboxes",
+                    "image": "registry.example/omnigent-runner:latest",
+                    "service_account": "omnigent-runner",
+                    "requires_launch_token": True,
+                    "server_minted_launch_token": False,
+                    "launch_token_value_configured": True,
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_kubernetes_token_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            **base_input,
+            "task_id": "fixture-provider-runtime-preflight-kubernetes-ready-inline",
+            "sandbox": {
+                "provider": "kubernetes",
+                "kubernetes": {
+                    "namespace": "omnigent-sandboxes",
+                    "image": "registry.example/omnigent-runner:latest",
+                    "service_account": "omnigent-runner",
+                    "secret_name": "omnigent-creds",
+                    "node_selector": {
+                        "omnigent.ai/runner-ready": "true",
+                        "kubernetes.io/arch": "amd64",
+                    },
+                    "requires_launch_token": True,
+                    "server_minted_launch_token": True,
+                },
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_kubernetes_ready_inline.json",
+    )
+    serialized = json.dumps(
+        {
+            "missing": missing,
+            "malformed": malformed,
+            "credential": credential,
+            "token": token,
+            "ready": ready,
+        },
+        sort_keys=True,
+    )
+
+    assert missing["route_status"] == "blocked"
+    assert missing["failure_mode"] == "provider_kubernetes_sandbox_config_missing"
+    assert missing["kubernetes_sandbox"]["namespace_configured"] is True
+    assert missing["kubernetes_sandbox"]["image_configured"] is False
+    assert missing["kubernetes_sandbox"]["service_account_configured"] is False
+    assert missing["kubernetes_sandbox"]["cluster_access_attempted"] is False
+    assert missing["recovery_hints"][0]["scope"] == "provider_kubernetes_sandbox"
+    assert missing["runtime"]["runner_invoked"] is False
+
+    assert malformed["route_status"] == "blocked"
+    assert malformed["failure_mode"] == "provider_kubernetes_sandbox_config_malformed"
+    assert malformed["kubernetes_sandbox"]["malformed_name_count"] == 2
+    assert malformed["kubernetes_sandbox"]["malformed_selector_count"] == 1
+    assert malformed["kubernetes_sandbox"]["raw_image_exported"] is False
+
+    assert credential["route_status"] == "blocked"
+    assert credential["failure_mode"] == "provider_kubernetes_sandbox_credential_env_inline"
+    assert credential["kubernetes_sandbox"]["credential_env_key_count"] == 1
+    assert credential["recovery_hints"][0]["credential_values_exported"] is False
+
+    assert token["route_status"] == "blocked"
+    assert token["failure_mode"] == "provider_kubernetes_sandbox_token_value_configured"
+    assert token["kubernetes_sandbox"]["requires_launch_token"] is True
+    assert token["kubernetes_sandbox"]["server_minted_launch_token"] is False
+    assert token["kubernetes_sandbox"]["launch_token_value_configured"] is True
+
+    assert ready["route_status"] == "passed"
+    assert ready["failure_mode"] == "none"
+    assert ready["kubernetes_sandbox"]["provider_runtime_launch_allowed"] is True
+    assert ready["kubernetes_sandbox"]["node_selector_count"] == 2
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert "PRIVATE_SHELL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_API_TOKEN_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_TOKEN_VALUE_DO_NOT_EXPORT" not in serialized
+    assert "registry.example" not in serialized
+    assert "omnigent-sandboxes" not in serialized
+    assert "omnigent-runner" not in serialized
+    assert "omnigent-creds" not in serialized
+    assert "runner-ready" not in serialized
+
+
 def test_provider_runtime_preflight_blocks_malformed_windows_runner_before_launch():
     blocked = evaluate_harness_behavior(
         "provider_runtime_preflight",

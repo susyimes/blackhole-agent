@@ -16109,6 +16109,11 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         runtime=runtime,
         runner_env=runner_env,
     )
+    kubernetes_sandbox_preflight = evaluate_provider_kubernetes_sandbox_preflight(
+        provider=provider,
+        runtime=runtime,
+        sandbox=sandbox,
+    )
 
     provider_name = optional_string(provider.get("name")) or "external-sdk-provider"
     harness = optional_string(provider.get("harness")) or provider_name
@@ -16191,6 +16196,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not turn_outcome_preflight["ok"]
         or (not windows_runner_preflight["ok"] and not windows_runner_degraded)
         or not runner_compat_preflight["ok"]
+        or not kubernetes_sandbox_preflight["ok"]
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not model_inventory_preflight["ok"]
@@ -16225,6 +16231,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(turn_outcome_preflight["diagnostics"])
     diagnostics.extend(windows_runner_preflight["diagnostics"])
     diagnostics.extend(runner_compat_preflight["diagnostics"])
+    diagnostics.extend(kubernetes_sandbox_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(model_inventory_preflight["diagnostics"])
@@ -16266,6 +16273,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not windows_runner_preflight["ok"]
             else runner_compat_preflight["failure_mode"]
             if not runner_compat_preflight["ok"]
+            else kubernetes_sandbox_preflight["failure_mode"]
+            if not kubernetes_sandbox_preflight["ok"]
             else auth_header_preflight["failure_mode"]
             if not auth_header_preflight["ok"]
             else model_command_preflight["failure_mode"]
@@ -16385,6 +16394,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "turn_outcome": turn_outcome_preflight,
         "windows_runner": windows_runner_preflight,
         "runner_compat": runner_compat_preflight,
+        "kubernetes_sandbox": kubernetes_sandbox_preflight,
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "model_inventory": model_inventory_preflight,
@@ -17880,6 +17890,183 @@ def normalize_runner_compat_direction(value: Any) -> str:
     return aliases.get(text, text or "unknown")
 
 
+def evaluate_provider_kubernetes_sandbox_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    sandbox: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate Kubernetes managed-sandbox metadata without contacting a cluster."""
+
+    kubernetes_config = (
+        sandbox.get("kubernetes")
+        if isinstance(sandbox.get("kubernetes"), dict)
+        else runtime.get("kubernetes")
+        if isinstance(runtime.get("kubernetes"), dict)
+        else provider.get("kubernetes")
+        if isinstance(provider.get("kubernetes"), dict)
+        else {}
+    )
+    provider_label = (
+        optional_string(sandbox.get("provider"))
+        or optional_string(runtime.get("sandbox_provider"))
+        or optional_string(provider.get("sandbox_provider"))
+        or optional_string(kubernetes_config.get("provider"))
+        or ""
+    ).lower()
+    required = (
+        provider_label == "kubernetes"
+        or truthy(kubernetes_config.get("required"))
+        or truthy(sandbox.get("kubernetes_required"))
+        or truthy(runtime.get("kubernetes_sandbox_required"))
+        or truthy(provider.get("kubernetes_sandbox_required"))
+    )
+    if not required:
+        return {
+            "ok": True,
+            "required": False,
+            "configured": False,
+            "provider": provider_label or "none",
+            "failure_mode": "none",
+            "diagnostics": [],
+            "raw_config_exported": False,
+        }
+
+    namespace = optional_string(kubernetes_config.get("namespace"))
+    image = optional_string(kubernetes_config.get("image"))
+    service_account = optional_string(kubernetes_config.get("service_account"))
+    secret_name = optional_string(kubernetes_config.get("secret_name"))
+    node_selector = kubernetes_config.get("node_selector") if isinstance(kubernetes_config.get("node_selector"), dict) else {}
+    env = kubernetes_config.get("env") if isinstance(kubernetes_config.get("env"), dict) else {}
+    requires_launch_token = truthy(kubernetes_config.get("requires_launch_token"))
+    server_minted_launch_token = truthy(kubernetes_config.get("server_minted_launch_token"))
+    launch_token_value_configured = truthy(kubernetes_config.get("launch_token_value_configured"))
+
+    missing_fields = [
+        field
+        for field, value in (
+            ("namespace", namespace),
+            ("image", image),
+            ("service_account", service_account),
+        )
+        if not value
+    ]
+    malformed_names = [
+        field
+        for field, value in (
+            ("namespace", namespace),
+            ("service_account", service_account),
+            ("secret_name", secret_name),
+        )
+        if value and not is_kubernetes_dns_label(value)
+    ]
+    malformed_selector_count = sum(
+        1
+        for key, value in node_selector.items()
+        if not is_kubernetes_label_key(str(key)) or not is_kubernetes_label_value(str(value))
+    )
+    image_malformed = bool(image and not is_kubernetes_image_reference_metadata_shape(image))
+    credential_env_key_count = sum(1 for key in env if looks_like_credential_env_name(str(key)))
+    token_config_invalid = requires_launch_token and not server_minted_launch_token
+    token_value_inline = launch_token_value_configured
+
+    diagnostics: list[str] = []
+    if missing_fields:
+        diagnostics.append("Kubernetes sandbox provider requires namespace, image, and service account metadata")
+    if malformed_names:
+        diagnostics.append("Kubernetes sandbox namespace, service account, and secret names must be DNS labels")
+    if image_malformed:
+        diagnostics.append("Kubernetes sandbox image metadata must be an argv-safe image reference")
+    if malformed_selector_count:
+        diagnostics.append("Kubernetes sandbox node selector labels must use Kubernetes label key/value metadata")
+    if credential_env_key_count:
+        diagnostics.append("Kubernetes sandbox env must not inline credential-looking keys")
+    if token_config_invalid:
+        diagnostics.append("Kubernetes sandbox launch-token options require server-minted token metadata")
+    if token_value_inline:
+        diagnostics.append("Kubernetes sandbox launch-token values must not be stored in provider config")
+
+    if missing_fields:
+        failure_mode = "provider_kubernetes_sandbox_config_missing"
+    elif malformed_names or image_malformed or malformed_selector_count:
+        failure_mode = "provider_kubernetes_sandbox_config_malformed"
+    elif credential_env_key_count:
+        failure_mode = "provider_kubernetes_sandbox_credential_env_inline"
+    elif token_value_inline:
+        failure_mode = "provider_kubernetes_sandbox_token_value_configured"
+    elif token_config_invalid:
+        failure_mode = "provider_kubernetes_sandbox_launch_token_missing"
+    else:
+        failure_mode = "none"
+
+    return {
+        "ok": failure_mode == "none",
+        "required": True,
+        "configured": bool(kubernetes_config),
+        "provider": "kubernetes",
+        "namespace_configured": bool(namespace),
+        "image_configured": bool(image),
+        "service_account_configured": bool(service_account),
+        "secret_name_configured": bool(secret_name),
+        "node_selector_count": len(node_selector),
+        "malformed_name_count": len(malformed_names),
+        "malformed_selector_count": malformed_selector_count,
+        "env_key_count": len(env),
+        "credential_env_key_count": credential_env_key_count,
+        "requires_launch_token": requires_launch_token,
+        "server_minted_launch_token": server_minted_launch_token,
+        "launch_token_value_configured": launch_token_value_configured,
+        "provider_runtime_launch_allowed": failure_mode == "none",
+        "failure_mode": failure_mode,
+        "diagnostics": diagnostics,
+        "raw_config_exported": False,
+        "raw_namespace_exported": False,
+        "raw_image_exported": False,
+        "raw_service_account_exported": False,
+        "raw_secret_name_exported": False,
+        "raw_node_selector_exported": False,
+        "raw_env_key_names_exported": False,
+        "credential_values_exported": False,
+        "cluster_access_attempted": False,
+    }
+
+
+def is_kubernetes_dns_label(value: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?", value))
+
+
+def is_kubernetes_label_key(value: str) -> bool:
+    if "/" in value:
+        prefix, name = value.split("/", 1)
+        return is_kubernetes_dns_subdomain(prefix) and is_kubernetes_label_name(name)
+    return is_kubernetes_label_name(value)
+
+
+def is_kubernetes_dns_subdomain(value: str) -> bool:
+    return bool(value) and len(value) <= 253 and all(is_kubernetes_dns_label(part) for part in value.split("."))
+
+
+def is_kubernetes_label_name(value: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9]([-.A-Za-z0-9_]{0,61}[A-Za-z0-9])?", value))
+
+
+def is_kubernetes_label_value(value: str) -> bool:
+    return value == "" or is_kubernetes_label_name(value)
+
+
+def is_kubernetes_image_reference_metadata_shape(value: str) -> bool:
+    if any(char.isspace() for char in value):
+        return False
+    if any(char in value for char in (";", "|", "&", "$", "`", "<", ">")):
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/@-]{0,254}", value))
+
+
+def looks_like_credential_env_name(value: str) -> bool:
+    normalized = value.strip().upper()
+    return bool(re.search(r"(^|_)(TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)($|_)", normalized))
+
+
 def evaluate_provider_auth_header_preflight(
     *,
     provider: dict[str, Any],
@@ -18708,6 +18895,9 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     turn_outcome = preflight.get("turn_outcome") if isinstance(preflight.get("turn_outcome"), dict) else {}
     windows_runner = preflight.get("windows_runner") if isinstance(preflight.get("windows_runner"), dict) else {}
     runner_compat = preflight.get("runner_compat") if isinstance(preflight.get("runner_compat"), dict) else {}
+    kubernetes_sandbox = (
+        preflight.get("kubernetes_sandbox") if isinstance(preflight.get("kubernetes_sandbox"), dict) else {}
+    )
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     model_inventory = preflight.get("model_inventory") if isinstance(preflight.get("model_inventory"), dict) else {}
@@ -18998,6 +19188,46 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "cwd_recorded": False,
                 "env_values_recorded": False,
                 "raw_config_exported": False,
+            }
+        )
+    elif failure_mode in {
+        "provider_kubernetes_sandbox_config_malformed",
+        "provider_kubernetes_sandbox_config_missing",
+        "provider_kubernetes_sandbox_credential_env_inline",
+        "provider_kubernetes_sandbox_launch_token_missing",
+        "provider_kubernetes_sandbox_token_value_configured",
+    }:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_kubernetes_sandbox",
+                "severity": "blocker",
+                "action": "repair Kubernetes sandbox provider metadata before launching a managed runner pod",
+                "namespace_configured": bool(kubernetes_sandbox.get("namespace_configured")),
+                "image_configured": bool(kubernetes_sandbox.get("image_configured")),
+                "service_account_configured": bool(kubernetes_sandbox.get("service_account_configured")),
+                "secret_name_configured": bool(kubernetes_sandbox.get("secret_name_configured")),
+                "node_selector_count": int(kubernetes_sandbox.get("node_selector_count") or 0),
+                "malformed_name_count": int(kubernetes_sandbox.get("malformed_name_count") or 0),
+                "malformed_selector_count": int(kubernetes_sandbox.get("malformed_selector_count") or 0),
+                "env_key_count": int(kubernetes_sandbox.get("env_key_count") or 0),
+                "credential_env_key_count": int(kubernetes_sandbox.get("credential_env_key_count") or 0),
+                "requires_launch_token": bool(kubernetes_sandbox.get("requires_launch_token")),
+                "server_minted_launch_token": bool(kubernetes_sandbox.get("server_minted_launch_token")),
+                "launch_token_value_configured": bool(kubernetes_sandbox.get("launch_token_value_configured")),
+                "provider_runtime_launch_allowed": bool(
+                    kubernetes_sandbox.get("provider_runtime_launch_allowed")
+                ),
+                "cluster_access_attempted": bool(kubernetes_sandbox.get("cluster_access_attempted")),
+                "raw_config_exported": False,
+                "raw_namespace_exported": False,
+                "raw_image_exported": False,
+                "raw_service_account_exported": False,
+                "raw_secret_name_exported": False,
+                "raw_node_selector_exported": False,
+                "raw_env_key_names_exported": False,
+                "credential_values_exported": False,
             }
         )
     elif failure_mode == "provider_install_linkage_unresolved":

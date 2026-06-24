@@ -184,6 +184,27 @@ def test_windows_runner_degraded_mode_contract_is_documented():
     assert missing_architecture == []
 
 
+def test_kubernetes_sandbox_provider_preflight_contract_is_documented():
+    architecture = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "Kubernetes managed-sandbox provider metadata",
+        "`kubernetes_sandbox` block",
+        "`provider_kubernetes_sandbox_config_missing`",
+        "`provider_kubernetes_sandbox_config_malformed`",
+        "`provider_kubernetes_sandbox_credential_env_inline`",
+        "`provider_kubernetes_sandbox_launch_token_missing`",
+        "`provider_kubernetes_sandbox_token_value_configured`",
+        "`cluster_access_attempted: false`",
+        "Kubernetes namespaces, Kubernetes images, Kubernetes service accounts",
+        "Kubernetes token values",
+    ]
+
+    missing_architecture = [phrase for phrase in required_phrases if phrase not in architecture]
+
+    assert missing_architecture == []
+
+
 def test_skill_route_discovery_doc_records_bounded_matrix():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
