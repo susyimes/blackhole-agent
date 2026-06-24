@@ -19989,6 +19989,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     orchestrator_inbox = (
         raw_input.get("orchestrator_inbox") if isinstance(raw_input.get("orchestrator_inbox"), dict) else {}
     )
+    watchdog = raw_input.get("watchdog") if isinstance(raw_input.get("watchdog"), dict) else {}
 
     runner_invoked = truthy(runner.get("invoked"))
     runner_returncode = optional_int(runner.get("returncode")) if runner_invoked else None
@@ -20019,6 +20020,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     compaction_result = evaluate_agent_workflow_compaction(compaction)
     stream_boundary_result = evaluate_agent_workflow_stream_boundaries(stream_boundaries)
     inbox_result = evaluate_agent_workflow_orchestrator_inbox(orchestrator_inbox)
+    watchdog_result = evaluate_agent_workflow_watchdog(watchdog, runner_timed_out=runner_timed_out)
     state_transitions = build_agent_workflow_state_transitions(
         plan_steps=plan_steps,
         oneshot_marker_ready=marker_result["ready"],
@@ -20042,6 +20044,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
             inbox_delivery_passed=inbox_result["passed"],
             inbox_delivery_failure_mode=inbox_result["failure_mode"],
+            watchdog_passed=watchdog_result["passed"],
+            watchdog_failure_mode=watchdog_result["failure_mode"],
         ),
         rollback_available=rollback_available,
     )
@@ -20064,6 +20068,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
         inbox_delivery_passed=inbox_result["passed"],
         inbox_delivery_failure_mode=inbox_result["failure_mode"],
+        watchdog_passed=watchdog_result["passed"],
+        watchdog_failure_mode=watchdog_result["failure_mode"],
     )
     if failure_mode == "none":
         route_status = "passed"
@@ -20094,6 +20100,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
+        watchdog_result=watchdog_result,
         report_artifacts=report_artifacts,
         intake=intake,
         source_path=source_path,
@@ -20137,6 +20144,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         "compaction": compaction_result,
         "streamed_tool_boundaries": stream_boundary_result,
         "orchestrator_inbox": inbox_result,
+        "watchdog": watchdog_result,
         "validation": {
             "gate": validation_gate,
             "gate_recorded": bool(validation_gate),
@@ -20172,12 +20180,16 @@ def agent_workflow_failure_mode(
     stream_boundaries_failure_mode: str = "none",
     inbox_delivery_passed: bool = True,
     inbox_delivery_failure_mode: str = "none",
+    watchdog_passed: bool = True,
+    watchdog_failure_mode: str = "none",
 ) -> str:
     if not oneshot_marker_ready:
         return "oneshot_marker_missing"
     if not runner_invoked:
         return "runner_not_invoked"
     if runner_timed_out:
+        if not watchdog_passed:
+            return watchdog_failure_mode
         return "timeout"
     if runner_returncode not in (None, 0):
         return "nonzero_exit"
@@ -20196,6 +20208,99 @@ def agent_workflow_failure_mode(
     if not validation_passed:
         return "validation_failed"
     return "none"
+
+
+def evaluate_agent_workflow_watchdog(watchdog: dict[str, Any], *, runner_timed_out: bool) -> dict[str, Any]:
+    """Summarize idle-watchdog root-cause metadata without exporting raw bodies."""
+
+    configured = truthy(watchdog.get("configured"))
+    timeout_seconds = optional_int(watchdog.get("timeout_seconds"))
+    idle_seconds = optional_int(watchdog.get("idle_seconds"))
+    raw_events = watchdog.get("recent_transport_errors") if isinstance(watchdog.get("recent_transport_errors"), list) else []
+    transport_errors = [
+        normalize_agent_workflow_transport_error(event, index)
+        for index, event in enumerate(raw_events, start=1)
+        if isinstance(event, dict)
+    ]
+    root_cause = next((event for event in reversed(transport_errors) if event["classification"] != "unknown"), None)
+    root_cause_classification = str(root_cause["classification"]) if root_cause else "none"
+    includes_root_cause = bool(root_cause and runner_timed_out)
+
+    if runner_timed_out and configured and transport_errors and root_cause is None:
+        failure_mode = "watchdog_timeout_root_cause_unclassified"
+    elif runner_timed_out and includes_root_cause:
+        failure_mode = "watchdog_timeout_with_transport_root_cause"
+    else:
+        failure_mode = "none"
+
+    return {
+        "configured": configured,
+        "timeout_seconds": timeout_seconds,
+        "idle_seconds": idle_seconds,
+        "runner_timed_out": runner_timed_out,
+        "recent_transport_error_count": len(transport_errors),
+        "root_cause_attached": includes_root_cause,
+        "root_cause_classification": root_cause_classification,
+        "failure_mode": failure_mode,
+        "passed": failure_mode == "none",
+        "transport_errors": transport_errors,
+        "privacy": {
+            "raw_error_bodies_exported": False,
+            "raw_request_bodies_exported": False,
+            "raw_urls_exported": False,
+            "raw_headers_exported": False,
+        },
+    }
+
+
+def normalize_agent_workflow_transport_error(event: dict[str, Any], ordinal: int) -> dict[str, Any]:
+    event_id = optional_string(event.get("id") or event.get("event_id"))
+    return {
+        "ordinal": ordinal,
+        "event_id_hash": stable_text_hash(event_id) if event_id else None,
+        "transport": normalize_agent_workflow_transport_label(event.get("transport")),
+        "classification": classify_agent_workflow_transport_error(event),
+        "age_seconds": optional_int(event.get("age_seconds")),
+        "raw_error_exported": False,
+        "raw_request_exported": False,
+    }
+
+
+def normalize_agent_workflow_transport_label(value: Any) -> str:
+    label = (optional_string(value) or "unknown").strip().lower().replace("-", "_")
+    return label if label in {"forwarder", "websocket", "http", "subprocess", "native", "unknown"} else "other"
+
+
+def classify_agent_workflow_transport_error(event: dict[str, Any]) -> str:
+    declared = (optional_string(event.get("classification")) or "").strip().lower().replace("-", "_")
+    if declared in {
+        "connection_refused",
+        "connection_reset",
+        "dns_failure",
+        "network_unreachable",
+        "no_route_to_host",
+        "timeout",
+    }:
+        return declared
+
+    raw = " ".join(
+        text
+        for key in ("errno", "error", "message", "summary")
+        if (text := optional_string(event.get(key)))
+    ).casefold()
+    if "no route to host" in raw or "errno 113" in raw or "winerror 10065" in raw:
+        return "no_route_to_host"
+    if "network is unreachable" in raw or "enetunreach" in raw:
+        return "network_unreachable"
+    if "connection refused" in raw or "econnrefused" in raw:
+        return "connection_refused"
+    if "connection reset" in raw or "econnreset" in raw:
+        return "connection_reset"
+    if "timed out" in raw or "timeout" in raw:
+        return "timeout"
+    if "dns" in raw or "name resolution" in raw or "getaddrinfo" in raw:
+        return "dns_failure"
+    return "unknown"
 
 
 def evaluate_agent_workflow_orchestrator_inbox(inbox: dict[str, Any]) -> dict[str, Any]:
@@ -20715,6 +20820,7 @@ def build_agent_workflow_control_plane(
     compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
+    watchdog_result: dict[str, Any],
     report_artifacts: dict[str, Any],
     intake: dict[str, Any],
     source_path: Path,
@@ -20735,6 +20841,7 @@ def build_agent_workflow_control_plane(
         and bool(stream_boundary_result["passed"])
         and bool(inbox_result["passed"])
         and bool(compaction_result["passed"])
+        and bool(watchdog_result["passed"])
     )
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
     replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
@@ -20756,6 +20863,7 @@ def build_agent_workflow_control_plane(
         compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
+        watchdog_result=watchdog_result,
         validation_check_count=len(validation_checks),
         replay_artifact_recorded=bool(replay_path),
     )
@@ -20767,6 +20875,7 @@ def build_agent_workflow_control_plane(
         compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
+        watchdog_result=watchdog_result,
         recovery_handoff=recovery_handoff,
         validation_check_count=len(validation_checks),
         replay_artifact_hash=stable_text_hash(replay_path) if replay_path else None,
@@ -20782,6 +20891,7 @@ def build_agent_workflow_control_plane(
         compaction_result=compaction_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
+        watchdog_result=watchdog_result,
     )
 
     if missing_stages:
@@ -20796,6 +20906,8 @@ def build_agent_workflow_control_plane(
         failure_mode = str(stream_boundary_result["failure_mode"])
     elif not inbox_result["passed"]:
         failure_mode = str(inbox_result["failure_mode"])
+    elif not watchdog_result["passed"]:
+        failure_mode = str(watchdog_result["failure_mode"])
     else:
         failure_mode = "none"
 
@@ -20808,6 +20920,7 @@ def build_agent_workflow_control_plane(
             and compaction_result["passed"]
             and stream_boundary_result["passed"]
             and inbox_result["passed"]
+            and watchdog_result["passed"]
         ),
         "failure_mode": failure_mode,
         "stages": {
@@ -20894,6 +21007,19 @@ def build_agent_workflow_control_plane(
                 "operator_action": inbox_result["recovery"]["operator_action"],
             },
         },
+        "watchdog_contract": {
+            "configured": watchdog_result["configured"],
+            "passed": watchdog_result["passed"],
+            "failure_mode": watchdog_result["failure_mode"],
+            "timeout_seconds": watchdog_result["timeout_seconds"],
+            "idle_seconds": watchdog_result["idle_seconds"],
+            "runner_timed_out": watchdog_result["runner_timed_out"],
+            "recent_transport_error_count": watchdog_result["recent_transport_error_count"],
+            "root_cause_attached": watchdog_result["root_cause_attached"],
+            "root_cause_classification": watchdog_result["root_cause_classification"],
+            "raw_error_bodies_exported": False,
+            "raw_request_bodies_exported": False,
+        },
     }
 
 
@@ -20906,6 +21032,7 @@ def build_agent_workflow_handoff(
     compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
+    watchdog_result: dict[str, Any],
     recovery_handoff: dict[str, Any],
     validation_check_count: int,
     replay_artifact_hash: str | None,
@@ -20957,6 +21084,8 @@ def build_agent_workflow_handoff(
             "compaction_blocker_count": len(compaction_result["blockers"]),
             "stream_event_count": stream_boundary_result["event_count"],
             "completion_message_count": inbox_result["completion_message_count"],
+            "watchdog_root_cause_attached": watchdog_result["root_cause_attached"],
+            "watchdog_root_cause_classification": watchdog_result["root_cause_classification"],
         },
         "recovery": {
             "required": recovery_handoff["required"],
@@ -21004,6 +21133,7 @@ def build_agent_workflow_operator_replay_checklist(
     compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
+    watchdog_result: dict[str, Any],
 ) -> dict[str, Any]:
     """Return body-free operator actions for replaying an incomplete workflow route."""
 
@@ -21076,6 +21206,14 @@ def build_agent_workflow_operator_replay_checklist(
             {
                 "stage": "midflight",
                 "action": str(recovery.get("operator_action") or inbox_result.get("failure_mode")),
+                "required_before_replay": True,
+            }
+        )
+    if not bool(watchdog_result.get("passed", True)):
+        actions.append(
+            {
+                "stage": "midflight",
+                "action": str(watchdog_result.get("failure_mode") or "inspect_watchdog_root_cause_contract"),
                 "required_before_replay": True,
             }
         )
@@ -21330,6 +21468,7 @@ def build_agent_workflow_stage_diagnostics(
     compaction_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
+    watchdog_result: dict[str, Any],
     validation_check_count: int,
     replay_artifact_recorded: bool,
 ) -> list[dict[str, Any]]:
@@ -21358,6 +21497,8 @@ def build_agent_workflow_stage_diagnostics(
                 "compaction_blocker_count": len(compaction_result["blockers"]),
                 "stream_event_count": stream_boundary_result["event_count"],
                 "completion_message_count": inbox_result["completion_message_count"],
+                "watchdog_transport_error_count": watchdog_result["recent_transport_error_count"],
+                "watchdog_root_cause_attached": watchdog_result["root_cause_attached"],
             }
             if not ready:
                 reason = first_control_plane_failure_reason(
@@ -21365,6 +21506,7 @@ def build_agent_workflow_stage_diagnostics(
                     compaction_result,
                     stream_boundary_result,
                     inbox_result,
+                    watchdog_result,
                     default="midflight_state_missing",
                 )
                 action = "record_runner_state_and_midflight_contracts"

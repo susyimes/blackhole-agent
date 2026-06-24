@@ -11389,6 +11389,59 @@ def test_agent_workflow_route_fails_when_lifecycle_trace_misses_required_phase()
     assert output["rollback"]["recovery_mode"] == "explicit_operator_reset"
 
 
+def test_agent_workflow_route_watchdog_timeout_preserves_transport_root_cause_without_bodies():
+    raw_input = {
+        "task_id": "fixture-route-watchdog-root-cause",
+        "plan": {"steps": [{"id": "inspect"}, {"id": "run"}, {"id": "recover"}]},
+        "runner": {"invoked": True, "returncode": None, "timed_out": True},
+        "watchdog": {
+            "configured": True,
+            "timeout_seconds": 240,
+            "idle_seconds": 240,
+            "recent_transport_errors": [
+                {
+                    "id": "PRIVATE_EVENT_ID_DO_NOT_EXPORT",
+                    "transport": "forwarder",
+                    "error": "POST /session PRIVATE_REQUEST_BODY_DO_NOT_EXPORT failed: No route to host",
+                    "request": "PRIVATE_REQUEST_BODY_DO_NOT_EXPORT",
+                    "age_seconds": 3,
+                }
+            ],
+        },
+        "validation": {"gate": "narrow-local-verification", "checks": [{"name": "pytest", "returncode": 0}]},
+        "rollback": {
+            "created": True,
+            "ref": "refs/rollback/fixture-route-watchdog-root-cause",
+            "artifact_path": "artifacts/rollback/fixture-route-watchdog-root-cause.txt",
+        },
+    }
+
+    output = evaluate_harness_behavior(
+        "agent_workflow_route",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_watchdog_root_cause_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed_recoverable"
+    assert output["failure_mode"] == "watchdog_timeout_with_transport_root_cause"
+    assert output["watchdog"]["timeout_seconds"] == 240
+    assert output["watchdog"]["idle_seconds"] == 240
+    assert output["watchdog"]["root_cause_attached"] is True
+    assert output["watchdog"]["root_cause_classification"] == "no_route_to_host"
+    assert output["control_plane"]["watchdog_contract"]["root_cause_classification"] == "no_route_to_host"
+    assert output["watchdog"]["privacy"] == {
+        "raw_error_bodies_exported": False,
+        "raw_request_bodies_exported": False,
+        "raw_urls_exported": False,
+        "raw_headers_exported": False,
+    }
+    assert "PRIVATE_REQUEST_BODY_DO_NOT_EXPORT" not in serialized
+    assert "POST /session" not in serialized
+    assert "No route to host" not in serialized
+    assert "PRIVATE_EVENT_ID_DO_NOT_EXPORT" not in serialized
+
+
 def test_mock_llm_workflow_route_exercises_provider_disabled_path_without_external_calls():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "mock_llm_workflow_route_provider_disabled.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
