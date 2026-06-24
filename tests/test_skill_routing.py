@@ -19,6 +19,7 @@ from blackhole_agent.skill_routing import (
     build_skill_route_discovery_registry,
     build_skill_route_discovery_registry_from_evidence_items,
     build_skill_route_discovery_registry_from_summaries,
+    build_skill_route_discovery_registry_validation_lane,
     build_skill_routing_index,
     rank_skills_for_task,
     select_skill_for_task,
@@ -241,6 +242,111 @@ def test_external_skill_route_discovery_fixture_stays_classification_only():
         ]
         for candidate in registry["candidates"]
     )
+
+
+def test_skill_route_discovery_registry_validation_lane_checks_route_availability():
+    registry = build_skill_route_discovery_registry(
+        [
+            ExternalSkillRouteCandidate(
+                name="compass-skills",
+                source_url="https://github.com/dongshuyan/compass-skills",
+                evidence_summary="Skill ecosystem state handoff profiles and config metadata.",
+                candidate_lanes=("config", "test"),
+            ),
+            ExternalSkillRouteCandidate(
+                name="threejs-game-skills",
+                source_url="https://github.com/majidmanzarpour/threejs-game-skills",
+                evidence_summary="Three.js browser game skill workflow with validation checks.",
+                candidate_lanes=("test", "code_patch"),
+            ),
+        ]
+    )
+
+    validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert validation_lane["controller_surface"] == "skill_route_discovery_registry_validation_lane"
+    assert validation_lane["status"] == "ready"
+    assert validation_lane["decision"] == "skill_route_registry_ready_for_local_lane_mapping"
+    assert validation_lane["diagnostics"] == []
+    assert validation_lane["candidate_count"] == 2
+    assert validation_lane["available_route_count"] == 2
+    assert validation_lane["unavailable_route_count"] == 0
+    assert validation_lane["validation_gate"] == "skill_route_discovery_registry_validation_before_activation"
+    assert validation_lane["runtime_action"] == "none"
+    assert validation_lane["external_skill_activation_allowed"] is False
+    assert lane_map["registry_validation_lane"] == validation_lane
+
+    rows_by_name = {row["candidate_name"]: row for row in validation_lane["rows"]}
+    assert rows_by_name["compass-skills"]["route_available"] is True
+    assert rows_by_name["compass-skills"]["route_hint_available"] is True
+    assert rows_by_name["compass-skills"]["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert rows_by_name["compass-skills"]["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert rows_by_name["compass-skills"]["allowed_candidate_lanes"] == ["config", "test"]
+    assert "skill_ecosystem_state_handoff" in rows_by_name["compass-skills"]["route_profiles"]
+    assert rows_by_name["threejs-game-skills"]["allowed_candidate_lanes"] == ["test", "code_patch"]
+    assert "game_frontend_workflow" in rows_by_name["threejs-game-skills"]["route_profiles"]
+
+
+def test_skill_route_discovery_registry_validation_lane_reports_malformed_records():
+    registry = build_skill_route_discovery_registry(
+        [
+            ExternalSkillRouteCandidate(
+                name="enabled-route",
+                source_url="https://github.com/example/enabled-route",
+                candidate_lanes=("documentation", "runtime_execution"),
+                enabled=True,
+            )
+        ]
+    )
+    registry["candidate_count"] = 3
+    registry["candidates"].append(
+        {
+            "name": "missing-route-metadata",
+            "source_url": "https://github.com/example/missing-route-metadata",
+            "candidate_lanes": ["documentation"],
+            "route_hints": [],
+            "validation_errors": [],
+            "enabled": False,
+        }
+    )
+    registry["candidates"].append("not-a-candidate")
+
+    validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
+
+    assert validation_lane["status"] == "blocked"
+    assert validation_lane["decision"] == "repair_skill_route_registry_before_lane_activation"
+    assert validation_lane["candidate_count"] == 3
+    assert validation_lane["available_route_count"] == 0
+    assert validation_lane["unavailable_route_count"] == 3
+    assert validation_lane["runtime_action"] == "none"
+    assert validation_lane["external_skill_activation_allowed"] is False
+    assert validation_lane["external_harness_execution_allowed"] is False
+    assert validation_lane["diagnostics"] == [
+        (
+            "candidates[0].validation_errors:"
+            "external_skill_route_candidates_must_start_disabled,"
+            "unsupported_candidate_lanes:runtime_execution"
+        ),
+        "candidates[0].enabled_must_be_false",
+        "candidates[1].route_class_missing",
+        "candidates[1].route_status_missing",
+        "candidates[1].route_profiles_missing",
+        "candidates[1].route_hints_missing_skill_route_discovery",
+        "candidates[1].route_class_mismatch",
+        "candidates[1].route_status_must_be_disabled_or_invalid",
+        "candidates[2].entry_must_be_an_object",
+    ]
+    assert validation_lane["rows"][0]["validation_error_count"] == 2
+    assert validation_lane["rows"][0]["route_available"] is False
+    assert validation_lane["rows"][1]["diagnostics"] == [
+        "candidates[1].route_class_missing",
+        "candidates[1].route_status_missing",
+        "candidates[1].route_profiles_missing",
+        "candidates[1].route_hints_missing_skill_route_discovery",
+        "candidates[1].route_class_mismatch",
+        "candidates[1].route_status_must_be_disabled_or_invalid",
+    ]
 
 
 def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():

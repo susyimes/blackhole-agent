@@ -1,0 +1,17 @@
+Rollback point for skill route registry validation lane run.
+
+Original branch:
+codex/blackhole-evolve/20260624T111622.108333-add-a-local-validation-lane-for-agent-registry-c
+
+Original HEAD:
+6d473bc7ae13fbb0b92eb3860f4883be8bc26f26
+
+Local rollback ref:
+refs/rollback/blackhole-evolve-20260624T191751Z
+
+Recovery commands:
+git reset --hard refs/rollback/blackhole-evolve-20260624T191751Z
+git clean -fd
+
+Notes:
+Rollback execution is explicit and destructive. This artifact must not be deleted by the run that created it.

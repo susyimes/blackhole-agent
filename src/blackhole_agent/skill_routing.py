@@ -756,6 +756,162 @@ def build_skill_route_discovery_registry_from_evidence_items(
     return registry
 
 
+def build_skill_route_discovery_registry_validation_lane(registry: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate registry shape and route availability before proposal activation."""
+
+    diagnostics: list[str] = []
+    if registry.get("schema_version") != 1:
+        diagnostics.append("registry.schema_version_must_be_1")
+    if registry.get("route_hint") != SKILL_ROUTE_DISCOVERY_HINT:
+        diagnostics.append("registry.route_hint_mismatch")
+    if registry.get("allowed_candidate_lanes") != list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES):
+        diagnostics.append("registry.allowed_candidate_lanes_mismatch")
+    if registry.get("allowed_source_hosts") != list(SKILL_ROUTE_DISCOVERY_ALLOWED_SOURCE_HOSTS):
+        diagnostics.append("registry.allowed_source_hosts_mismatch")
+
+    raw_candidates = registry.get("candidates")
+    if not isinstance(raw_candidates, Sequence) or isinstance(raw_candidates, (str, bytes)):
+        return {
+            "controller_surface": "skill_route_discovery_registry_validation_lane",
+            "status": "blocked",
+            "decision": "repair_skill_route_registry_before_lane_activation",
+            "diagnostics": ["registry.candidates_must_be_a_sequence", *diagnostics],
+            "candidate_count": 0,
+            "available_route_count": 0,
+            "unavailable_route_count": 0,
+            "rows": [],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        }
+
+    candidates = list(raw_candidates)
+    declared_candidate_count = registry.get("candidate_count")
+    if declared_candidate_count != len(candidates):
+        diagnostics.append(f"registry.candidate_count_mismatch:{declared_candidate_count}!={len(candidates)}")
+
+    rows: list[dict[str, Any]] = []
+    for index, raw_candidate in enumerate(candidates):
+        prefix = f"candidates[{index}]"
+        if not isinstance(raw_candidate, Mapping):
+            diagnostics.append(f"{prefix}.entry_must_be_an_object")
+            rows.append(
+                {
+                    "candidate_index": index,
+                    "candidate_name": "",
+                    "route_available": False,
+                    "diagnostics": [f"{prefix}.entry_must_be_an_object"],
+                }
+            )
+            continue
+
+        candidate = dict(raw_candidate)
+        name = str(candidate.get("name") or "")
+        candidate_diagnostics: list[str] = []
+        missing_fields: set[str] = set()
+        for field_name in (
+            "name",
+            "source_url",
+            "candidate_lanes",
+            "route_hints",
+            "route_class",
+            "route_status",
+            "route_profiles",
+            "validation_errors",
+            "enabled",
+        ):
+            if field_name not in candidate:
+                missing_fields.add(field_name)
+                candidate_diagnostics.append(f"{prefix}.{field_name}_missing")
+
+        candidate_lanes = _string_list(candidate.get("candidate_lanes"))
+        allowed_lanes = [lane for lane in candidate_lanes if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES]
+        unsupported_lanes = sorted(set(candidate_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES))
+        route_hints = _string_list(candidate.get("route_hints"))
+        route_profiles = _string_list(candidate.get("route_profiles"))
+        validation_errors = _string_list(candidate.get("validation_errors"))
+
+        if not name:
+            candidate_diagnostics.append(f"{prefix}.name_empty")
+        if not str(candidate.get("source_url") or ""):
+            candidate_diagnostics.append(f"{prefix}.source_url_empty")
+        if not allowed_lanes:
+            candidate_diagnostics.append(f"{prefix}.no_allowed_candidate_lanes")
+        if unsupported_lanes:
+            candidate_diagnostics.append(f"{prefix}.unsupported_candidate_lanes:" + ",".join(unsupported_lanes))
+        if SKILL_ROUTE_DISCOVERY_HINT not in route_hints:
+            candidate_diagnostics.append(f"{prefix}.route_hints_missing_skill_route_discovery")
+        if candidate.get("route_class") != SKILL_ROUTE_DISCOVERY_ROUTE_CLASS:
+            candidate_diagnostics.append(f"{prefix}.route_class_mismatch")
+        if str(candidate.get("route_status") or "") not in {
+            SKILL_ROUTE_DISCOVERY_DISABLED,
+            SKILL_ROUTE_DISCOVERY_INVALID,
+        }:
+            candidate_diagnostics.append(f"{prefix}.route_status_must_be_disabled_or_invalid")
+        if validation_errors:
+            candidate_diagnostics.append(f"{prefix}.validation_errors:" + ",".join(validation_errors))
+        if candidate.get("enabled") is not False:
+            candidate_diagnostics.append(f"{prefix}.enabled_must_be_false")
+        if "route_profiles" not in missing_fields and not route_profiles:
+            candidate_diagnostics.append(f"{prefix}.route_profiles_missing")
+        if "validation_errors" not in missing_fields and (
+            not isinstance(candidate.get("validation_errors"), Sequence)
+            or isinstance(candidate.get("validation_errors"), (str, bytes))
+        ):
+            candidate_diagnostics.append(f"{prefix}.validation_errors_must_be_a_sequence")
+
+        route_available = not candidate_diagnostics and not validation_errors
+        diagnostics.extend(candidate_diagnostics)
+        rows.append(
+            {
+                "candidate_index": index,
+                "candidate_name": name,
+                "route_available": route_available,
+                "route_hint_available": SKILL_ROUTE_DISCOVERY_HINT in route_hints,
+                "route_class": str(candidate.get("route_class") or ""),
+                "route_status": str(candidate.get("route_status") or ""),
+                "route_profiles": route_profiles,
+                "allowed_candidate_lanes": allowed_lanes,
+                "validation_error_count": len(validation_errors),
+                "diagnostics": candidate_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+            }
+        )
+
+    available_route_count = sum(1 for row in rows if row["route_available"])
+    status = "ready" if rows and not diagnostics else "blocked"
+    return {
+        "controller_surface": "skill_route_discovery_registry_validation_lane",
+        "status": status,
+        "decision": (
+            "skill_route_registry_ready_for_local_lane_mapping"
+            if status == "ready"
+            else "repair_skill_route_registry_before_lane_activation"
+        ),
+        "diagnostics": diagnostics,
+        "candidate_count": len(rows),
+        "declared_candidate_count": declared_candidate_count,
+        "available_route_count": available_route_count,
+        "unavailable_route_count": len(rows) - available_route_count,
+        "allowed_candidate_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "required_route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+        "required_route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+        "validation_gate": "skill_route_discovery_registry_validation_before_activation",
+        "rows": rows,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+
+
 def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -> dict[str, Any]:
     """Convert a disabled discovery registry into bounded local proposal lanes.
 
@@ -943,6 +1099,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         privacy_review_panel,
         route_profile_handoff_queue,
     )
+    registry_validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
 
     return {
         "schema_version": 1,
@@ -969,6 +1126,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "privacy_review_panel": privacy_review_panel,
         "completion_workflow": completion_workflow,
         "next_validation_step": _skill_route_discovery_next_validation_step(local_activation_targets),
+        "registry_validation_lane": registry_validation_lane,
         "candidate_lane_inventory": candidate_lane_inventory,
         "proposal_lanes": proposal_lanes,
         "rejected_candidates": rejected_candidates,
