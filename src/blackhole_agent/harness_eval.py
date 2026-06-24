@@ -5781,6 +5781,16 @@ def skill_route_discovery_pass3_handoff_packet(
         profile_validation_proof=profile_validation_proof,
         promotion_runbook=promotion_runbook,
     )
+    runner_harness_control_plane = skill_route_discovery_pass3_control_plane(
+        ready=ready,
+        current_action=current_action,
+        pass_validation_replay_queue=pass_validation_replay_queue,
+        operator_checkpoint_list=operator_checkpoint_list,
+        profile_validation_proof=profile_validation_proof,
+        activation_proof_summary=activation_proof_summary,
+        promotion_runbook=promotion_runbook,
+        diagnostics=diagnostics,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -5828,6 +5838,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "operator_checkpoint_list": operator_checkpoint_list,
         "promotion_runbook": promotion_runbook,
         "local_validation_probe": local_validation_probe,
+        "runner_harness_control_plane": runner_harness_control_plane,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),
@@ -6143,6 +6154,142 @@ def skill_route_discovery_pass3_promotion_runbook(
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_control_plane(
+    *,
+    ready: bool,
+    current_action: dict[str, Any],
+    pass_validation_replay_queue: dict[str, Any],
+    operator_checkpoint_list: dict[str, Any],
+    profile_validation_proof: dict[str, Any],
+    activation_proof_summary: dict[str, Any],
+    promotion_runbook: dict[str, Any],
+    diagnostics: list[str],
+) -> dict[str, Any]:
+    """Expose pass-3 skill-route handoff as a five-stage runner workflow."""
+
+    queue_rows = pass_validation_replay_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    checkpoint_rows = operator_checkpoint_list.get("rows")
+    checkpoint_rows = checkpoint_rows if isinstance(checkpoint_rows, list) else []
+    proof_rows = profile_validation_proof.get("rows")
+    proof_rows = proof_rows if isinstance(proof_rows, list) else []
+    runbook_rows = promotion_runbook.get("rows")
+    runbook_rows = runbook_rows if isinstance(runbook_rows, list) else []
+
+    stage_specs = [
+        (
+            "intake",
+            pass_validation_replay_queue.get("status") == "ready" and bool(queue_rows),
+            "pass_validation_replay_queue",
+        ),
+        (
+            "midflight",
+            current_action.get("status") == "ready"
+            and operator_checkpoint_list.get("status") == "ready"
+            and bool(checkpoint_rows),
+            "current_action_and_operator_checkpoints",
+        ),
+        (
+            "recovery",
+            profile_validation_proof.get("status") == "ready" and bool(proof_rows),
+            "profile_validation_proof",
+        ),
+        (
+            "replay",
+            promotion_runbook.get("status") == "ready" and bool(runbook_rows),
+            "promotion_runbook",
+        ),
+        (
+            "report",
+            activation_proof_summary.get("status") == "ready",
+            "activation_proof_summary",
+        ),
+    ]
+    stages = [
+        {
+            "stage": stage,
+            "status": "ready" if stage_ready else "blocked",
+            "artifact": artifact,
+            "artifact_hash": stable_text_hash(artifact),
+            "operator_visible": True,
+            "body_free": True,
+            "raw_artifact_paths_exported": False,
+        }
+        for stage, stage_ready, artifact in stage_specs
+    ]
+    missing_stages = [stage["stage"] for stage in stages if stage["status"] != "ready"]
+    replay_command_hashes = sorted(
+        {
+            stable_text_hash(command)
+            for row in runbook_rows
+            for command in string_list(row.get("required_validation"))
+        }
+    )
+    provider_replay_command_hashes = sorted(
+        {
+            stable_text_hash(command)
+            for row in runbook_rows
+            for command in string_list(row.get("provider_runtime_replay_commands"))
+        }
+    )
+    workflow_fingerprint = stable_json_hash(
+        {
+            "current_pass": int(current_action.get("current_pass") or 0),
+            "next_pass": int(current_action.get("next_pass") or 0),
+            "queue_fingerprints": string_list(pass_validation_replay_queue.get("queue_fingerprints")),
+            "activation_rows": [
+                {
+                    "route_profile": optional_string(row.get("route_profile")) or "",
+                    "selected_local_lane": optional_string(row.get("selected_local_lane")) or "",
+                    "status": optional_string(row.get("status")) or "",
+                }
+                for row in activation_proof_summary.get("rows", [])
+                if isinstance(row, dict)
+            ],
+            "stage_statuses": [(stage["stage"], stage["status"]) for stage in stages],
+            "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        }
+    )
+    control_ready = ready and not missing_stages and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_pass3_runner_harness_control_plane",
+        "status": "ready" if control_ready else "blocked",
+        "decision": "pass3_runner_workflow_ready_for_supervisor_replay"
+        if control_ready
+        else "repair_pass3_runner_workflow_before_replay",
+        "stage_order": [stage["stage"] for stage in stages],
+        "stage_count": len(stages),
+        "ready_stage_count": len(stages) - len(missing_stages),
+        "blocked_stage_count": len(missing_stages),
+        "missing_stages": missing_stages,
+        "stages": stages,
+        "workflow_fingerprint": workflow_fingerprint,
+        "queue_count": int(pass_validation_replay_queue.get("queue_count") or len(queue_rows)),
+        "checkpoint_count": int(operator_checkpoint_list.get("checkpoint_count") or len(checkpoint_rows)),
+        "profile_count": int(profile_validation_proof.get("profile_count") or len(proof_rows)),
+        "runbook_step_count": int(promotion_runbook.get("step_count") or len(runbook_rows)),
+        "report_profile_count": int(activation_proof_summary.get("profile_count") or 0),
+        "replay_command_hashes": replay_command_hashes,
+        "provider_runtime_replay_command_hashes": provider_replay_command_hashes,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "raw_artifact_paths_exported": False,
     }
 
 

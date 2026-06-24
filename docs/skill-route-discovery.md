@@ -802,6 +802,18 @@ write profiles, launch providers, perform remote execution, export raw evidence
 URLs, export raw source URLs, export raw target paths, or export upstream
 bodies.
 
+The pass-3 handoff packet also carries `runner_harness_control_plane`, a
+five-stage operator view over the same local artifacts: intake from
+`pass_validation_replay_queue`, mid-flight state from `current_action` and
+operator checkpoints, recovery from `profile_validation_proof`, replay from the
+promotion runbook, and report state from `activation_proof_summary`. The
+control plane records stage readiness, artifact-name hashes, replay command
+hashes, provider-runtime replay command hashes, and a workflow fingerprint. It
+does not export raw artifact paths, raw source URLs, raw evidence URLs, raw
+target paths, or upstream bodies, and it keeps runtime action, external skill
+activation, external harness execution, provider launch, and remote execution
+disabled.
+
 On final scheduled passes for this capability slice, the harness emits
 `capability_window_completion`. This panel consumes the route profile review,
 activation manifest, operator handoff, supervisor readiness, and

@@ -6580,6 +6580,50 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert local_probe["raw_evidence_urls_exported"] is False
     assert local_probe["raw_source_urls_exported"] is False
     assert local_probe["raw_upstream_body_exported"] is False
+    control_plane = pass3_handoff["runner_harness_control_plane"]
+    assert control_plane["controller_surface"] == "skill_route_discovery_pass3_runner_harness_control_plane"
+    assert control_plane["status"] == "ready"
+    assert control_plane["decision"] == "pass3_runner_workflow_ready_for_supervisor_replay"
+    assert control_plane["stage_order"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert control_plane["stage_count"] == 5
+    assert control_plane["ready_stage_count"] == 5
+    assert control_plane["blocked_stage_count"] == 0
+    assert control_plane["missing_stages"] == []
+    assert [(stage["stage"], stage["status"], stage["artifact"]) for stage in control_plane["stages"]] == [
+        ("intake", "ready", "pass_validation_replay_queue"),
+        ("midflight", "ready", "current_action_and_operator_checkpoints"),
+        ("recovery", "ready", "profile_validation_proof"),
+        ("replay", "ready", "promotion_runbook"),
+        ("report", "ready", "activation_proof_summary"),
+    ]
+    assert all(stage["operator_visible"] is True for stage in control_plane["stages"])
+    assert all(stage["raw_artifact_paths_exported"] is False for stage in control_plane["stages"])
+    assert control_plane["queue_count"] == 2
+    assert control_plane["checkpoint_count"] == 2
+    assert control_plane["profile_count"] == 3
+    assert control_plane["runbook_step_count"] == 2
+    assert control_plane["report_profile_count"] == 3
+    assert control_plane["replay_command_hashes"] == sorted(
+        stable_text_hash(command) for command in skill_route_discovery_preactivation_validation_commands()
+    )
+    assert control_plane["provider_runtime_replay_command_hashes"] == sorted(
+        stable_text_hash(command)
+        for command in [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ]
+    )
+    assert control_plane["diagnostics"] == []
+    assert control_plane["runtime_action_allowed"] is False
+    assert control_plane["external_skill_activation_allowed"] is False
+    assert control_plane["external_harness_execution_allowed"] is False
+    assert control_plane["provider_runtime_launch_allowed"] is False
+    assert control_plane["remote_execution_allowed"] is False
+    assert control_plane["raw_evidence_urls_exported"] is False
+    assert control_plane["raw_source_urls_exported"] is False
+    assert control_plane["raw_target_paths_exported"] is False
+    assert control_plane["raw_upstream_body_exported"] is False
+    assert control_plane["raw_artifact_paths_exported"] is False
     checkpoints = pass3_handoff["operator_checkpoint_list"]
     assert checkpoints["controller_surface"] == "skill_route_discovery_pass3_operator_checkpoint_list"
     assert checkpoints["status"] == "ready"
@@ -6751,6 +6795,30 @@ def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready()
     assert local_probe["external_skill_activation_allowed"] is False
     assert local_probe["provider_runtime_launch_allowed"] is False
     assert local_probe["raw_evidence_urls_exported"] is False
+    control_plane = pass3_handoff["runner_harness_control_plane"]
+    assert control_plane["status"] == "blocked"
+    assert control_plane["decision"] == "repair_pass3_runner_workflow_before_replay"
+    assert control_plane["stage_order"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert control_plane["ready_stage_count"] == 0
+    assert control_plane["blocked_stage_count"] == 5
+    assert control_plane["missing_stages"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert {
+        stage["stage"]: stage["status"]
+        for stage in control_plane["stages"]
+    } == {
+        "intake": "blocked",
+        "midflight": "blocked",
+        "recovery": "blocked",
+        "replay": "blocked",
+        "report": "blocked",
+    }
+    assert "profile_lane_acceptance_contract_not_ready" in control_plane["diagnostics"]
+    assert control_plane["runtime_action_allowed"] is False
+    assert control_plane["external_skill_activation_allowed"] is False
+    assert control_plane["external_harness_execution_allowed"] is False
+    assert control_plane["provider_runtime_launch_allowed"] is False
+    assert control_plane["raw_evidence_urls_exported"] is False
+    assert control_plane["raw_artifact_paths_exported"] is False
     assert proof_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
     assert "profile_acceptance_contract_not_ready" in proof_rows["skill_ecosystem_state_handoff"]["blockers"]
     assert proof_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
