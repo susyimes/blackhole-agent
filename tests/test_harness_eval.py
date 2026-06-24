@@ -4731,6 +4731,13 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert pass2_packet["next_pass"] == 3
     assert pass2_packet["selected_local_lanes"] == ["test"]
     assert pass2_packet["queued_local_lanes"] == ["config"]
+    assert pass2_packet["local_artifact_review_count"] == 2
+    assert pass2_packet["local_artifact_review_ready_count"] == 2
+    assert set(pass2_packet["target_path_hashes"]) == {
+        stable_text_hash("src/blackhole_agent/proposal_synthesis.py"),
+        stable_text_hash("tests/test_harness_eval.py"),
+        stable_text_hash("tests/test_skill_routing.py"),
+    }
     assert pass2_packet["mixed_skill_workflow_candidate_count"] == 1
     assert pass2_packet["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
     assert pass2_packet["mixed_skill_workflow_probe_status"] == "ready"
@@ -4754,6 +4761,14 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert all(row["evidence_ref_mode"] == "selected_item_ids_only" for row in checkpoints["rows"])
     assert all(row["queue_fingerprint"] for row in checkpoints["rows"])
     assert all(row["blockers"] == [] for row in checkpoints["rows"])
+    assert [row["artifact_contract_kind"] for row in checkpoints["rows"]] == ["test", "config"]
+    assert [row["target_path_count"] for row in checkpoints["rows"]] == [2, 1]
+    assert all(row["local_artifact_review"]["status"] == "ready" for row in checkpoints["rows"])
+    assert all(
+        row["operator_review_requirements"]
+        == ["changed_file_review", "focused_local_validation", "rollback_artifact", "review_note"]
+        for row in checkpoints["rows"]
+    )
     assert all(row["runtime_action_allowed"] is False for row in checkpoints["rows"])
     assert all(row["external_skill_activation_allowed"] is False for row in checkpoints["rows"])
     assert all(row["external_agent_activation_allowed"] is False for row in checkpoints["rows"])
@@ -4775,6 +4790,8 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert contract["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
     assert contract["selected_local_lanes"] == ["test"]
     assert contract["queued_local_lanes"] == ["config"]
+    assert contract["local_artifact_review_count"] == 2
+    assert contract["local_artifact_review_ready_count"] == 2
     assert contract["route_profiles"] == [
         "codex_workflow_gate",
         "game_frontend_workflow",
@@ -4803,6 +4820,8 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert all(row["acceptance_gates"]["raw_source_urls_not_exported"] is True for row in contract["rows"])
     assert all(row["acceptance_gates"]["raw_target_paths_not_exported"] is True for row in contract["rows"])
     assert all(row["acceptance_gates"]["raw_upstream_body_not_exported"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["local_artifact_review_ready"] is True for row in contract["rows"])
+    assert all(row["acceptance_gates"]["target_paths_hashed"] is True for row in contract["rows"])
     assert all(row["acceptance_gates"]["checkpoint_ready"] is True for row in contract["rows"])
     assert contract["secondary_harness_eval_allowed"] is False
     assert contract["runtime_action_allowed"] is False
@@ -6611,6 +6630,13 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert replay_queue["queue_count"] == 2
     assert replay_queue["selected_queue_count"] == 1
     assert replay_queue["queued_queue_count"] == 1
+    assert replay_queue["local_artifact_review_count"] == 2
+    assert replay_queue["local_artifact_review_ready_count"] == 2
+    assert set(replay_queue["target_path_hashes"]) == {
+        stable_text_hash("src/blackhole_agent/proposal_synthesis.py"),
+        stable_text_hash("tests/test_harness_eval.py"),
+        stable_text_hash("tests/test_skill_routing.py"),
+    }
     assert replay_queue["route_profiles"] == [
         "codex_workflow_gate",
         "game_frontend_workflow",
@@ -6635,6 +6661,10 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert replay_queue["rows"][1]["selected_local_lane"] == "config"
     assert replay_queue["rows"][1]["route_profiles"] == ["skill_ecosystem_state_handoff"]
     assert replay_queue["rows"][1]["evidence_item_ids"] == ["p1-skill-route-discovery-compass"]
+    assert [row["artifact_contract_kind"] for row in replay_queue["rows"]] == ["test", "config"]
+    assert [row["target_path_count"] for row in replay_queue["rows"]] == [2, 1]
+    assert all(row["local_artifact_review"]["status"] == "ready" for row in replay_queue["rows"])
+    assert all(row["raw_target_paths_exported"] is False for row in replay_queue["rows"])
     expected_queue_fingerprints = [
         stable_json_hash(
             {

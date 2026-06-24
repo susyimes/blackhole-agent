@@ -4724,6 +4724,48 @@ def skill_route_discovery_validation_work_step(selected_lane: str) -> str:
     return steps.get(selected_lane, "repair_unbounded_validation_work_item")
 
 
+def skill_route_discovery_local_artifact_review_packet(selected_lane: str) -> dict[str, Any]:
+    """Summarize the local artifact review required before replaying a lane."""
+
+    artifact_contract = skill_route_discovery_local_artifact_contract(selected_lane)
+    target_paths = string_list(artifact_contract.get("target_paths"))
+    bounded = selected_lane in SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS
+    return {
+        "controller_surface": "skill_route_discovery_local_artifact_review_packet",
+        "status": "ready" if bounded and target_paths else "blocked",
+        "decision": "review_changed_files_and_validation_before_lane_replay"
+        if bounded and target_paths
+        else "repair_local_artifact_contract_before_lane_replay",
+        "proposal_kind": selected_lane,
+        "artifact_contract_kind": selected_lane if bounded else "unbounded",
+        "required_review_surface": optional_string(artifact_contract.get("required_review_surface"))
+        or "changed_files_and_validation",
+        "target_path_count": len(target_paths),
+        "target_path_hashes": [stable_text_hash(path) for path in sorted(dict.fromkeys(target_paths))],
+        "operator_review_requirements": [
+            "changed_file_review",
+            "focused_local_validation",
+            "rollback_artifact",
+            "review_note",
+        ],
+        "local_only": artifact_contract.get("local_only") is True,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]) -> dict[str, Any]:
     """Lift the selected bounded lane into a compact supervisor action row."""
 
@@ -4851,6 +4893,7 @@ def skill_route_discovery_pass_validation_replay_queue(
     queue_rows: list[dict[str, Any]] = []
 
     if selected_lane and selected_lane != "none":
+        local_artifact_review = skill_route_discovery_local_artifact_review_packet(selected_lane)
         queue_rows.append(
             {
                 "queue_position": 1,
@@ -4867,6 +4910,13 @@ def skill_route_discovery_pass_validation_replay_queue(
                 "replay_commands": string_list(current_action.get("required_validation")),
                 "provider_runtime_replay_commands": string_list(
                     current_action.get("provider_runtime_replay_commands")
+                ),
+                "local_artifact_review": local_artifact_review,
+                "artifact_contract_kind": str(local_artifact_review.get("artifact_contract_kind") or ""),
+                "target_path_count": int(local_artifact_review.get("target_path_count") or 0),
+                "target_path_hashes": string_list(local_artifact_review.get("target_path_hashes")),
+                "operator_review_requirements": string_list(
+                    local_artifact_review.get("operator_review_requirements")
                 ),
                 "supervisor_next_action": str(current_action.get("supervisor_next_action") or ""),
                 "local_validation_required": True,
@@ -4890,6 +4940,7 @@ def skill_route_discovery_pass_validation_replay_queue(
         queued_lane = optional_string(queued_target.get("selected_local_lane")) or ""
         if not queued_lane:
             continue
+        local_artifact_review = skill_route_discovery_local_artifact_review_packet(queued_lane)
         queue_rows.append(
             {
                 "queue_position": len(queue_rows) + 1,
@@ -4906,6 +4957,13 @@ def skill_route_discovery_pass_validation_replay_queue(
                 "replay_commands": string_list(current_action.get("required_validation")),
                 "provider_runtime_replay_commands": string_list(
                     current_action.get("provider_runtime_replay_commands")
+                ),
+                "local_artifact_review": local_artifact_review,
+                "artifact_contract_kind": str(local_artifact_review.get("artifact_contract_kind") or ""),
+                "target_path_count": int(local_artifact_review.get("target_path_count") or 0),
+                "target_path_hashes": string_list(local_artifact_review.get("target_path_hashes")),
+                "operator_review_requirements": string_list(
+                    local_artifact_review.get("operator_review_requirements")
                 ),
                 "supervisor_next_action": "replay_after_selected_current_pass_lane",
                 "local_validation_required": True,
@@ -4943,7 +5001,13 @@ def skill_route_discovery_pass_validation_replay_queue(
 
     plan_diagnostics = string_list(validation_lane_plan.get("diagnostics"))
     replay_diagnostics = string_list(profile_validation_replay.get("diagnostics"))
-    diagnostics = sorted(dict.fromkeys((*plan_diagnostics, *replay_diagnostics)))
+    artifact_diagnostics = [
+        f"rows[{index}].local_artifact_review_not_ready"
+        for index, row in enumerate(queue_rows)
+        if isinstance(row.get("local_artifact_review"), dict)
+        and row["local_artifact_review"].get("status") != "ready"
+    ]
+    diagnostics = sorted(dict.fromkeys((*plan_diagnostics, *replay_diagnostics, *artifact_diagnostics)))
     ready = status == "ready" and bool(queue_rows) and not diagnostics
     selected_queue_count = sum(1 for row in queue_rows if row["queue_role"] == "selected_current_pass_lane")
     queued_queue_count = sum(1 for row in queue_rows if row["queue_role"] == "queued_bounded_lane")
@@ -4989,6 +5053,20 @@ def skill_route_discovery_pass_validation_replay_queue(
         ),
         "queue_fingerprints": [str(row["queue_fingerprint"]) for row in queue_rows],
         "fingerprint_basis": "queue_role_lane_profiles_evidence_hashes",
+        "local_artifact_review_count": len(queue_rows),
+        "local_artifact_review_ready_count": sum(
+            1
+            for row in queue_rows
+            if isinstance(row.get("local_artifact_review"), dict)
+            and row["local_artifact_review"].get("status") == "ready"
+        ),
+        "target_path_hashes": sorted(
+            {
+                path_hash
+                for row in queue_rows
+                for path_hash in string_list(row.get("target_path_hashes"))
+            }
+        ),
         "rows": queue_rows,
         "diagnostics": diagnostics,
         "required_validation": string_list(current_action.get("required_validation")),
@@ -5041,6 +5119,14 @@ def skill_route_discovery_pass2_handoff_packet(
         if selected_lane not in allowed_lanes:
             diagnostics.append(f"rows[{index}].selected_local_lane_not_bounded")
             continue
+        local_artifact_review = row.get("local_artifact_review")
+        local_artifact_review = (
+            local_artifact_review
+            if isinstance(local_artifact_review, dict)
+            else skill_route_discovery_local_artifact_review_packet(selected_lane)
+        )
+        if local_artifact_review.get("status") != "ready":
+            diagnostics.append(f"rows[{index}].local_artifact_review_not_ready")
         rows.append(
             {
                 "queue_position": int(row.get("queue_position") or len(rows) + 1),
@@ -5060,6 +5146,15 @@ def skill_route_discovery_pass2_handoff_packet(
                 or "queue_role_lane_profiles_evidence_hashes",
                 "replay_commands": string_list(row.get("replay_commands")),
                 "provider_runtime_replay_commands": string_list(row.get("provider_runtime_replay_commands")),
+                "local_artifact_review": local_artifact_review,
+                "artifact_contract_kind": optional_string(row.get("artifact_contract_kind"))
+                or optional_string(local_artifact_review.get("artifact_contract_kind"))
+                or "",
+                "target_path_count": int(row.get("target_path_count") or local_artifact_review.get("target_path_count") or 0),
+                "target_path_hashes": string_list(row.get("target_path_hashes"))
+                or string_list(local_artifact_review.get("target_path_hashes")),
+                "operator_review_requirements": string_list(row.get("operator_review_requirements"))
+                or string_list(local_artifact_review.get("operator_review_requirements")),
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -5131,6 +5226,11 @@ def skill_route_discovery_pass2_handoff_packet(
                 "activation_blockers": preview_blockers,
                 "required_validation": row["replay_commands"],
                 "provider_runtime_replay_commands": row["provider_runtime_replay_commands"],
+                "local_artifact_review": row["local_artifact_review"],
+                "artifact_contract_kind": row["artifact_contract_kind"],
+                "target_path_count": row["target_path_count"],
+                "target_path_hashes": row["target_path_hashes"],
+                "operator_review_requirements": row["operator_review_requirements"],
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -5157,6 +5257,12 @@ def skill_route_discovery_pass2_handoff_packet(
             "raw_source_urls_not_exported": row["raw_source_urls_exported"] is False,
             "raw_target_paths_not_exported": row["raw_target_paths_exported"] is False,
             "raw_upstream_body_not_exported": row["raw_upstream_body_exported"] is False,
+            "local_artifact_review_ready": (
+                isinstance(row.get("local_artifact_review"), dict)
+                and row["local_artifact_review"].get("status") == "ready"
+            ),
+            "target_paths_hashed": row["target_path_count"] == len(row["target_path_hashes"])
+            and row["target_path_count"] > 0,
             "checkpoint_ready": ready,
         }
         acceptance_rows.append(
@@ -5170,6 +5276,11 @@ def skill_route_discovery_pass2_handoff_packet(
                 "evidence_item_id_count": row["evidence_item_id_count"],
                 "candidate_source_count": row["candidate_source_count"],
                 "queue_fingerprint": row["queue_fingerprint"],
+                "local_artifact_review": row["local_artifact_review"],
+                "artifact_contract_kind": row["artifact_contract_kind"],
+                "target_path_count": row["target_path_count"],
+                "target_path_hashes": row["target_path_hashes"],
+                "operator_review_requirements": row["operator_review_requirements"],
                 "acceptance_gates": acceptance_gates,
                 "accepted": all(acceptance_gates.values()),
                 "required_validation": row["replay_commands"],
@@ -5205,6 +5316,11 @@ def skill_route_discovery_pass2_handoff_packet(
                 "evidence_item_id_count": row["evidence_item_id_count"],
                 "candidate_source_count": row["candidate_source_count"],
                 "queue_fingerprint": row["queue_fingerprint"],
+                "local_artifact_review": row["local_artifact_review"],
+                "artifact_contract_kind": row["artifact_contract_kind"],
+                "target_path_count": row["target_path_count"],
+                "target_path_hashes": row["target_path_hashes"],
+                "operator_review_requirements": row["operator_review_requirements"],
                 "status": "ready" if ready else "blocked",
                 "blockers": preview_blockers,
                 "required_validation": row["replay_commands"],
@@ -5366,6 +5482,20 @@ def skill_route_discovery_pass2_handoff_packet(
                 source_hash
                 for row in rows
                 for source_hash in string_list(row.get("candidate_source_hashes"))
+            }
+        ),
+        "local_artifact_review_count": len(rows),
+        "local_artifact_review_ready_count": sum(
+            1
+            for row in rows
+            if isinstance(row.get("local_artifact_review"), dict)
+            and row["local_artifact_review"].get("status") == "ready"
+        ),
+        "target_path_hashes": sorted(
+            {
+                path_hash
+                for row in rows
+                for path_hash in string_list(row.get("target_path_hashes"))
             }
         ),
         "mixed_skill_workflow_candidate_count": mixed_candidate_count,
@@ -5543,6 +5673,13 @@ def skill_route_discovery_pass2_handoff_packet(
             "queued_local_lanes": sorted({row["selected_local_lane"] for row in queued_rows}),
             "route_profiles": route_profiles,
             "evidence_ref_mode": "selected_item_ids_only",
+            "local_artifact_review_count": len(acceptance_rows),
+            "local_artifact_review_ready_count": sum(
+                1
+                for row in acceptance_rows
+                if isinstance(row.get("local_artifact_review"), dict)
+                and row["local_artifact_review"].get("status") == "ready"
+            ),
             "secondary_route_gates": secondary_route_gates,
             "secondary_lane": secondary_lane,
             "secondary_lane_status": secondary_lane_status,

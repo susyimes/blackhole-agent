@@ -130,6 +130,18 @@ runtime action, external skill activation, external harness execution, provider
 launch, remote execution, raw source URL export, and upstream body export
 denied.
 
+Source digest `github-growth-20260624T155904.194675Z` continues the pass-2
+skill-route-discovery window across COMPASS Skills, zhengxi-views, and
+Omnigent-style MCP/tool-route movement. The reusable local lesson is that a
+bounded lane queue should be replayable from the operator surface itself. The
+pass replay queue and pass-2 handoff now carry a `local_artifact_review` packet
+per selected or queued lane with the artifact kind, changed-file target hashes,
+review requirements, and the same denials for runtime action, upstream skill
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw target path export, and upstream body export. This makes
+the selected `test` lane and queued `config` lane auditable before activation
+without importing upstream skill bodies or executing external projects.
+
 Pass-2 lane maps also emit `privacy_review_panel`, a body-free operator surface
 for skill-route evidence that touches state/profile handoff, private-context
 export, provider launch, or advisory/domain research boundaries. COMPASS-style
