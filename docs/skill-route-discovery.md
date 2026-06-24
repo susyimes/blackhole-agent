@@ -1997,6 +1997,21 @@ grant external agent activation, external harness execution, provider launch,
 remote execution, raw source URL export, raw evidence-body export, raw
 claim-body export, or upstream body export.
 
+Source digest `github-growth-20260624T073355.748356Z` completes the
+runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
+Three.js Game Skills route window. The pass-4 completion report now includes
+`runner_harness_control_plane`, an operator-visible five-stage packet covering
+intake, mid-flight state, recovery, replay, and report readiness. It derives
+from existing body-free completion gates: current-window evidence coverage,
+final slice closure, route validation lane queue, activation handoff, replay
+checklist, final route manifest, secondary harness bridge, and consistency
+guard. The packet hashes replay commands and artifact labels, records no raw
+repository URLs, paths, command bodies, or upstream content, and keeps runtime
+action, upstream skill activation, external harness execution, provider launch,
+remote execution, profile writes, and memory writes denied. Its purpose is to
+make the completed skill-route workflow replayable by a supervisor without
+turning public skill repositories into executable local routes.
+
 Source digest `github-growth-20260624T043356.363880Z` rechecked Omnigent as a
 general-agent/meta-harness signal. The reusable lesson is not to adopt its
 runner behavior, but to make harness-specific assumptions visible before local

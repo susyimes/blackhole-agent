@@ -8599,6 +8599,18 @@ def skill_route_discovery_completion_report(
         secondary_harness_bridge=secondary_harness_bridge,
         blocked_reasons=blocked_reasons,
     )
+    runner_harness_control_plane = skill_route_discovery_completion_runner_harness_control_plane(
+        ready=ready,
+        current_window_evidence_gate=current_window_evidence_gate,
+        final_slice_closure=final_slice_closure,
+        activation_handoff=activation_handoff,
+        completion_replay_checklist=completion_replay_checklist,
+        final_route_handoff_manifest=final_route_handoff_manifest,
+        route_validation_lane_queue=route_validation_lane_queue,
+        secondary_harness_bridge=secondary_harness_bridge,
+        completion_consistency_guard=completion_consistency_guard,
+        blocked_reasons=blocked_reasons,
+    )
     report_ready = ready and completion_consistency_guard["status"] == "ready"
 
     return {
@@ -8632,6 +8644,7 @@ def skill_route_discovery_completion_report(
         "secondary_harness_bridge": secondary_harness_bridge,
         "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
+        "runner_harness_control_plane": runner_harness_control_plane,
         "missing_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
         "activation_packet_status": optional_string(activation_packet.get("status")) or "",
         "final_slice_closure_status": optional_string(final_slice_closure.get("status")) or "",
@@ -8659,6 +8672,171 @@ def skill_route_discovery_completion_report(
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_completion_runner_harness_control_plane(
+    *,
+    ready: bool,
+    current_window_evidence_gate: dict[str, Any],
+    final_slice_closure: dict[str, Any],
+    activation_handoff: dict[str, Any],
+    completion_replay_checklist: dict[str, Any],
+    final_route_handoff_manifest: dict[str, Any],
+    route_validation_lane_queue: dict[str, Any],
+    secondary_harness_bridge: dict[str, Any],
+    completion_consistency_guard: dict[str, Any],
+    blocked_reasons: list[str],
+) -> dict[str, Any]:
+    """Expose final skill-route completion as a five-stage runner workflow."""
+
+    selected_local_lanes = string_list(final_route_handoff_manifest.get("selected_local_lanes"))
+    replay_commands = sorted(
+        dict.fromkeys(
+            string_list(completion_replay_checklist.get("replay_commands"))
+            + string_list(final_route_handoff_manifest.get("required_validation"))
+            + string_list(route_validation_lane_queue.get("required_validation"))
+        )
+    )
+    provider_replay_commands = sorted(
+        dict.fromkeys(
+            string_list(completion_replay_checklist.get("provider_runtime_replay_commands"))
+            + string_list(final_route_handoff_manifest.get("provider_runtime_replay_commands"))
+            + string_list(route_validation_lane_queue.get("provider_runtime_replay_commands"))
+        )
+    )
+    stage_specs = [
+        (
+            "intake",
+            current_window_evidence_gate.get("status") == "ready"
+            and int(current_window_evidence_gate.get("selected_evidence_ref_count") or 0) > 0
+            and int(current_window_evidence_gate.get("evidence_url_hash_count") or 0) > 0,
+            "current_window_evidence_gate",
+        ),
+        (
+            "midflight",
+            final_slice_closure.get("status") == "ready"
+            and route_validation_lane_queue.get("status") == "ready"
+            and int(route_validation_lane_queue.get("lane_count") or 0) > 0,
+            "final_slice_closure_and_route_validation_lane_queue",
+        ),
+        (
+            "recovery",
+            completion_replay_checklist.get("status") == "ready"
+            and activation_handoff.get("status") == "ready"
+            and completion_replay_checklist.get("external_supervisor_required") is True,
+            "completion_replay_checklist_and_activation_handoff",
+        ),
+        (
+            "replay",
+            final_route_handoff_manifest.get("status") == "ready"
+            and route_validation_lane_queue.get("status") == "ready"
+            and bool(replay_commands),
+            "final_route_handoff_manifest_and_validation_queue",
+        ),
+        (
+            "report",
+            completion_consistency_guard.get("status") == "ready",
+            "completion_consistency_guard",
+        ),
+    ]
+    stages = [
+        {
+            "stage": stage,
+            "status": "ready" if stage_ready else "blocked",
+            "artifact": artifact,
+            "artifact_hash": stable_text_hash(artifact),
+            "operator_visible": True,
+            "body_free": True,
+            "raw_artifact_paths_exported": False,
+        }
+        for stage, stage_ready, artifact in stage_specs
+    ]
+    missing_stages = [stage["stage"] for stage in stages if stage["status"] != "ready"]
+    diagnostics = sorted(
+        dict.fromkeys(list(blocked_reasons) + [f"{stage}_stage_not_ready" for stage in missing_stages])
+    )
+    control_ready = ready and not missing_stages and not blocked_reasons
+
+    return {
+        "controller_surface": "skill_route_discovery_pass4_runner_harness_control_plane",
+        "status": "ready" if control_ready else "blocked",
+        "decision": "pass4_runner_workflow_ready_for_supervisor_replay"
+        if control_ready
+        else "repair_pass4_runner_workflow_before_replay",
+        "stage_order": [stage["stage"] for stage in stages],
+        "stage_count": len(stages),
+        "ready_stage_count": len(stages) - len(missing_stages),
+        "blocked_stage_count": len(missing_stages),
+        "missing_stages": missing_stages,
+        "stages": stages,
+        "source_intake": {
+            "status": optional_string(current_window_evidence_gate.get("status")) or "",
+            "required_route_profiles": string_list(current_window_evidence_gate.get("required_route_profiles")),
+            "observed_route_profiles": string_list(current_window_evidence_gate.get("observed_route_profiles")),
+            "missing_route_profiles": string_list(current_window_evidence_gate.get("missing_route_profiles")),
+            "selected_evidence_ref_count": int(
+                current_window_evidence_gate.get("selected_evidence_ref_count") or 0
+            ),
+            "evidence_url_hash_count": int(current_window_evidence_gate.get("evidence_url_hash_count") or 0),
+            "raw_evidence_urls_exported": False,
+        },
+        "midflight_state": {
+            "final_slice_status": optional_string(final_slice_closure.get("status")) or "",
+            "lane_queue_status": optional_string(route_validation_lane_queue.get("status")) or "",
+            "selected_local_lanes": selected_local_lanes,
+            "ready_lane_count": int(route_validation_lane_queue.get("ready_lane_count") or 0),
+            "blocked_lane_count": int(route_validation_lane_queue.get("blocked_lane_count") or 0),
+            "push_event_freshness_signal": route_validation_lane_queue.get("push_event_freshness_signal")
+            is True,
+            "push_event_authoritative": route_validation_lane_queue.get("push_event_authoritative") is True,
+        },
+        "recovery": {
+            "status": optional_string(completion_replay_checklist.get("status")) or "",
+            "activation_handoff_status": optional_string(activation_handoff.get("status")) or "",
+            "recovery_hint_codes": string_list(completion_replay_checklist.get("recovery_hint_codes")),
+            "external_supervisor_required": completion_replay_checklist.get("external_supervisor_required")
+            is True,
+            "restart_required_by_kernel": completion_replay_checklist.get("restart_required_by_kernel") is True,
+            "raw_recovery_commands_exported": False,
+        },
+        "replay": {
+            "manifest_status": optional_string(final_route_handoff_manifest.get("status")) or "",
+            "lane_queue_status": optional_string(route_validation_lane_queue.get("status")) or "",
+            "secondary_bridge_status": optional_string(secondary_harness_bridge.get("status")) or "",
+            "replay_command_hashes": [stable_text_hash(command) for command in replay_commands],
+            "provider_runtime_replay_command_hashes": [
+                stable_text_hash(command) for command in provider_replay_commands
+            ],
+            "raw_replay_commands_exported": False,
+        },
+        "report": {
+            "consistency_guard_status": optional_string(completion_consistency_guard.get("status")) or "",
+            "replay_contract_status": optional_string(
+                completion_consistency_guard.get("replay_contract", {}).get("status")
+                if isinstance(completion_consistency_guard.get("replay_contract"), dict)
+                else None
+            )
+            or "",
+            "diagnostic_count": int(completion_consistency_guard.get("diagnostic_count") or 0),
+            "raw_report_body_exported": False,
+        },
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "raw_artifact_paths_exported": False,
     }
 
 

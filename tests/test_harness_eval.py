@@ -3236,6 +3236,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     current_window_evidence_gate = output["capability_window_completion"]["completion_report"][
         "current_window_evidence_gate"
     ]
+    runner_harness_control_plane = output["capability_window_completion"]["completion_report"][
+        "runner_harness_control_plane"
+    ]
     completion_report = {
         "controller_surface": "skill_route_discovery_completion_report",
         "status": "ready",
@@ -3269,6 +3272,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "secondary_harness_bridge": secondary_harness_bridge,
         "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
+        "runner_harness_control_plane": runner_harness_control_plane,
         "missing_route_profiles": [],
         "activation_packet_status": "ready",
         "final_slice_closure_status": "ready",
@@ -6982,6 +6986,71 @@ def test_skill_route_discovery_pass4_current_window_includes_source_cited_domain
     assert bridge_rows["source_cited_domain_research"]["local_eval_activation_allowed"] is False
     assert consistency_guard["ready_profile_count"] == consistency_guard["ready_lane_count"] == 4
     assert consistency_guard["status"] == "ready"
+
+
+def test_skill_route_discovery_pass4_exposes_runner_harness_control_plane():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    completion_report = output["capability_window_completion"]["completion_report"]
+    control_plane = completion_report["runner_harness_control_plane"]
+    serialized = json.dumps(control_plane, sort_keys=True)
+
+    assert control_plane["controller_surface"] == "skill_route_discovery_pass4_runner_harness_control_plane"
+    assert control_plane["status"] == "ready"
+    assert control_plane["decision"] == "pass4_runner_workflow_ready_for_supervisor_replay"
+    assert control_plane["stage_order"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert control_plane["stage_count"] == 5
+    assert control_plane["ready_stage_count"] == 5
+    assert control_plane["blocked_stage_count"] == 0
+    assert control_plane["missing_stages"] == []
+    assert [stage["status"] for stage in control_plane["stages"]] == ["ready"] * 5
+    assert all(stage["operator_visible"] is True for stage in control_plane["stages"])
+    assert all(stage["raw_artifact_paths_exported"] is False for stage in control_plane["stages"])
+
+    assert control_plane["source_intake"]["required_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert control_plane["source_intake"]["missing_route_profiles"] == []
+    assert control_plane["source_intake"]["selected_evidence_ref_count"] == 3
+    assert control_plane["source_intake"]["evidence_url_hash_count"] == 3
+    assert control_plane["source_intake"]["raw_evidence_urls_exported"] is False
+
+    assert control_plane["midflight_state"]["selected_local_lanes"] == ["config", "test"]
+    assert control_plane["midflight_state"]["ready_lane_count"] == 3
+    assert control_plane["midflight_state"]["blocked_lane_count"] == 0
+    assert control_plane["midflight_state"]["push_event_freshness_signal"] is True
+    assert control_plane["midflight_state"]["push_event_authoritative"] is False
+
+    assert control_plane["recovery"]["recovery_hint_codes"] == ["no_recovery_required"]
+    assert control_plane["recovery"]["external_supervisor_required"] is True
+    assert control_plane["recovery"]["restart_required_by_kernel"] is False
+    assert control_plane["recovery"]["raw_recovery_commands_exported"] is False
+
+    assert len(control_plane["replay"]["replay_command_hashes"]) == 3
+    assert len(control_plane["replay"]["provider_runtime_replay_command_hashes"]) == 2
+    assert control_plane["replay"]["raw_replay_commands_exported"] is False
+    assert control_plane["report"]["consistency_guard_status"] == "ready"
+    assert control_plane["report"]["replay_contract_status"] == "ready"
+    assert control_plane["report"]["diagnostic_count"] == 0
+    assert control_plane["report"]["raw_report_body_exported"] is False
+    assert control_plane["runtime_action_allowed"] is False
+    assert control_plane["external_skill_activation_allowed"] is False
+    assert control_plane["external_harness_execution_allowed"] is False
+    assert control_plane["provider_runtime_launch_allowed"] is False
+    assert control_plane["remote_execution_allowed"] is False
+    assert control_plane["raw_evidence_urls_exported"] is False
+    assert control_plane["raw_source_urls_exported"] is False
+    assert control_plane["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in serialized
+
 
 def test_skill_route_discovery_completion_blocks_missing_required_profiles():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_fablecodex.json"
