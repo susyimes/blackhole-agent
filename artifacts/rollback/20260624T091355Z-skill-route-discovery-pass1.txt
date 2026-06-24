@@ -1,0 +1,17 @@
+Rollback point for skill-route-discovery pass 1.
+
+Original branch:
+codex/blackhole-evolve/20260624T091517.449296-add-or-extend-a-local-skill-route-discovery-vali
+
+Original HEAD:
+b2efa06af4aa21b0ba3bf4d36a3d19493ff3b437
+
+Local rollback ref:
+refs/rollback/blackhole-agent/20260624T091355-skill-route-discovery-pass1
+
+Recovery commands:
+git fetch . refs/rollback/blackhole-agent/20260624T091355-skill-route-discovery-pass1
+git reset --hard refs/rollback/blackhole-agent/20260624T091355-skill-route-discovery-pass1
+
+Run scope:
+Add or extend local skill route discovery validation for bounded lanes and no evidence URL expansion.

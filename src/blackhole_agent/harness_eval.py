@@ -1766,6 +1766,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         proposal_kinds=proposal_kinds,
         lanes_bounded=lanes_bounded,
     )
+    evidence_url_expansion_policy = skill_route_discovery_evidence_url_expansion_policy(lane_map)
     evidence_strength = skill_route_discovery_evidence_strength(raw_input, source_kind=source_kind)
     uncertainty = skill_route_discovery_lane_uncertainty(proposal_lanes, evidence_strength=evidence_strength)
     provider_runtime_replay_sample = skill_route_discovery_provider_runtime_replay_sample(
@@ -2048,7 +2049,14 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     }
     if int(registry.get("duplicate_summary_count") or 0):
         registry_summary["duplicate_summary_count"] = registry["duplicate_summary_count"]
-    for registry_count_key in ("summary_count", "ignored_summary_count", "duplicate_summary_count"):
+    for registry_count_key in (
+        "summary_count",
+        "ignored_summary_count",
+        "duplicate_summary_count",
+        "evidence_item_count",
+        "ignored_evidence_item_count",
+        "duplicate_evidence_item_count",
+    ):
         if registry_count_key in registry:
             registry_summary[registry_count_key] = int(registry.get(registry_count_key) or 0)
 
@@ -2075,6 +2083,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "local_lane_matrix": lane_map["local_lane_matrix"],
         },
         "route_hint_lane_policy": route_hint_lane_policy,
+        "evidence_url_expansion_policy": evidence_url_expansion_policy,
         "evidence_strength": evidence_strength,
         "source_lineage": source_lineage,
         "uncertainty": uncertainty,
@@ -13373,6 +13382,72 @@ def skill_route_discovery_activation_gate(failure_mode: str) -> dict[str, Any]:
         "reason": failure_mode,
         "local_proposal_activation_allowed": local_proposal_activation_allowed,
         "external_skill_activation_allowed": False,
+    }
+
+
+def skill_route_discovery_evidence_url_expansion_policy(lane_map: dict[str, Any]) -> dict[str, Any]:
+    """Check lane evidence provenance without exporting upstream URLs."""
+
+    candidate_inventory = (
+        lane_map.get("candidate_lane_inventory")
+        if isinstance(lane_map.get("candidate_lane_inventory"), list)
+        else []
+    )
+    proposal_lanes = lane_map.get("proposal_lanes") if isinstance(lane_map.get("proposal_lanes"), list) else []
+    inventory_urls_by_candidate = {
+        str(candidate.get("candidate_name") or ""): set(string_list(candidate.get("evidence_urls")))
+        for candidate in candidate_inventory
+        if isinstance(candidate, dict)
+    }
+    lane_urls_by_candidate: dict[str, set[str]] = {}
+    lane_counts_by_candidate: dict[str, int] = {}
+    for lane in proposal_lanes:
+        if not isinstance(lane, dict):
+            continue
+        candidate_name = str(lane.get("candidate_name") or "")
+        lane_counts_by_candidate[candidate_name] = lane_counts_by_candidate.get(candidate_name, 0) + 1
+        lane_urls_by_candidate.setdefault(candidate_name, set()).update(string_list(lane.get("evidence_urls")))
+
+    rows: list[dict[str, Any]] = []
+    expansion_count = 0
+    for candidate_name in sorted(inventory_urls_by_candidate):
+        inventory_urls = inventory_urls_by_candidate[candidate_name]
+        lane_urls = lane_urls_by_candidate.get(candidate_name, set())
+        expanded_url_count = len(lane_urls - inventory_urls)
+        expansion_count += expanded_url_count
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "inventory_evidence_url_count": len(inventory_urls),
+                "lane_evidence_url_count": len(lane_urls),
+                "proposal_lane_count": lane_counts_by_candidate.get(candidate_name, 0),
+                "evidence_url_expansion_detected": expanded_url_count > 0,
+                "expanded_evidence_url_count": expanded_url_count,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_evidence_url_expansion_policy",
+        "status": "ready" if expansion_count == 0 else "blocked",
+        "decision": "proposal_lanes_reuse_selected_evidence_urls_only"
+        if expansion_count == 0
+        else "block_lane_activation_until_evidence_url_expansion_is_removed",
+        "candidate_count": len(rows),
+        "proposal_lane_count": len(proposal_lanes),
+        "evidence_url_expansion_count": expansion_count,
+        "evidence_url_expansion_allowed": False,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 

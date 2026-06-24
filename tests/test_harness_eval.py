@@ -88,8 +88,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 68
-    assert payload["pass_count"] == 67
+    assert payload["fixture_count"] == 69
+    assert payload["pass_count"] == 68
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -180,6 +180,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-pass4-closure"]["passed"] is True
     assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
     assert results["skill-route-discovery-lane-current-window-pass1"]["passed"] is True
+    assert results["skill-route-discovery-current-pass-skill-shapes"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
@@ -2038,6 +2039,7 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert rows_by_claim[
         ("omnigent-general-agent-framework", "policy_or_sandbox_control")
     ]["required_validation"] == ["pytest tests/test_harness_eval.py -q -k native_tool_call_policy"]
+
     assert rows_by_claim[
         ("xuefeng-agent-domain-advisor", "local_data_grounding")
     ]["status"] == "unmapped_evidence_only"
@@ -2100,6 +2102,57 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert all(row["source_url_hash"].startswith("sha256:") for row in probe_rows.values())
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
     assert "https://github.com/ziqihe10-droid/xuefeng-agent" not in serialized
+
+
+def test_skill_route_discovery_current_pass_skill_shapes_stay_bounded_without_url_expansion():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_current_pass_skill_shapes.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["registry"]["ignored_evidence_item_count"] == 0
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert set(output["lane_map"]["proposal_kinds"]) == {"documentation", "config", "test", "code_patch"}
+    assert output["route_hint_lane_policy"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert output["route_hint_lane_policy"]["runtime_action_allowed"] is False
+    assert output["activation_gate"]["external_skill_activation_allowed"] is False
+
+    expansion_policy = output["evidence_url_expansion_policy"]
+    assert expansion_policy["controller_surface"] == "skill_route_discovery_evidence_url_expansion_policy"
+    assert expansion_policy["status"] == "ready"
+    assert expansion_policy["decision"] == "proposal_lanes_reuse_selected_evidence_urls_only"
+    assert expansion_policy["candidate_count"] == 3
+    assert expansion_policy["evidence_url_expansion_allowed"] is False
+    assert expansion_policy["evidence_url_expansion_count"] == 0
+    assert expansion_policy["runtime_action_allowed"] is False
+    assert expansion_policy["external_skill_activation_allowed"] is False
+    assert expansion_policy["raw_evidence_urls_exported"] is False
+    assert expansion_policy["raw_source_urls_exported"] is False
+    assert [row["candidate_name"] for row in expansion_policy["rows"]] == [
+        "compass-skills",
+        "threejs-game-skills",
+        "zhengxi-views",
+    ]
+    assert all(row["inventory_evidence_url_count"] == 1 for row in expansion_policy["rows"])
+    assert all(row["lane_evidence_url_count"] == 1 for row in expansion_policy["rows"])
+    assert all(row["evidence_url_expansion_detected"] is False for row in expansion_policy["rows"])
+    assert all(lane["runtime_action"] == "none" for lane in output["proposal_lanes"])
+    assert all(lane["local_validation_required"] is True for lane in output["proposal_lanes"])
+    assert all(lane["evidence_url_count"] == 1 for lane in output["proposal_lanes"])
+    assert "https://github.com/" not in serialized
 
 
 def test_agent_harness_eval_lane_blocks_unbounded_or_weak_routes():
@@ -2315,6 +2368,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "enabled_candidate_count": 0,
         "invalid_candidate_count": 0,
         "executable_skill_count": 0,
+        "evidence_item_count": 3,
+        "ignored_evidence_item_count": 0,
+        "duplicate_evidence_item_count": 0,
     }
     assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
     assert output["lane_map"]["proposal_lane_count"] == 4
