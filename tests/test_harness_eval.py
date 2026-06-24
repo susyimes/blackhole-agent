@@ -88,8 +88,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 66
-    assert payload["pass_count"] == 65
+    assert payload["fixture_count"] == 67
+    assert payload["pass_count"] == 66
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -129,6 +129,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-oneshot-marker-absent"]["passed"] is True
     assert results["agent-workflow-route-control-plane-replay"]["passed"] is True
     assert results["agent-workflow-route-control-plane-pass2-intake"]["passed"] is True
+    assert results["agent-workflow-route-pr-migration-intake"]["passed"] is True
     assert results["agent-workflow-route-streamed-tool-boundary"]["passed"] is True
     assert results["agent-workflow-route-report-sections-missing"]["passed"] is True
     assert results["agent-harness-provider-registration-qwencode-missing-config"]["passed"] is True
@@ -268,6 +269,32 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_agent_workflow_route_pr_migration_intake_deduplicates_and_recomputes_scope():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_pr_migration_intake.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    pr_intake = output["control_plane"]["intake"]["pull_request_events"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert pr_intake["event_count"] == 3
+    assert pr_intake["duplicate_event_count"] == 1
+    assert pr_intake["generic_or_untitled_event_count"] == 1
+    assert pr_intake["usable_event_count"] == 1
+    assert pr_intake["recomputed_scope_matches_unique_pr_events"] is True
+    assert pr_intake["recomputed_gates_match_unique_pr_events"] is True
+    assert pr_intake["recomputed_proposals_match_unique_pr_events"] is True
+    assert pr_intake["raw_titles_exported"] is False
+    assert pr_intake["raw_event_urls_exported"] is False
+    assert "untitled pull request" not in serialized
+    assert "https://github.com/omnigent-ai/omnigent/pull/1082" not in serialized
 
 
 def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before_launch():

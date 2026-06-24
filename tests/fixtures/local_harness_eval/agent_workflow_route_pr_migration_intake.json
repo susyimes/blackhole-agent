@@ -1,0 +1,237 @@
+{
+  "name": "agent-workflow-route-pr-migration-intake",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-route-pr-migration-intake",
+    "intake": {
+      "source_digest": "github-growth-20260624T063355.562521Z",
+      "proposal_ids": [
+        "p5-e2e-pull-request-migration-doc",
+        "13800089549-1",
+        "10934545269-2"
+      ],
+      "evidence_urls": [
+        "https://github.com/omnigent-ai/omnigent"
+      ],
+      "pull_request_events": [
+        {
+          "event_id": "omnigent-migrate-e2e-pull-request",
+          "repository": "omnigent-ai/omnigent",
+          "event_kind": "pull_request",
+          "number": 1082,
+          "title": "migrate e2e pull request",
+          "proposal_ids": [
+            "p5-e2e-pull-request-migration-doc",
+            "13800089549-1"
+          ],
+          "requested_scope": "local_validation_candidate",
+          "requested_validation_gate": "narrow-local-verification",
+          "source_url": "https://github.com/omnigent-ai/omnigent/pull/1082"
+        },
+        {
+          "event_id": "omnigent-migrate-e2e-pull-request",
+          "repository": "omnigent-ai/omnigent",
+          "event_kind": "pull_request",
+          "number": 1082,
+          "title": "migrate e2e pull request",
+          "proposal_ids": [
+            "p5-e2e-pull-request-migration-doc",
+            "13800089549-1"
+          ],
+          "requested_scope": "local_validation_candidate",
+          "requested_validation_gate": "narrow-local-verification",
+          "source_url": "https://github.com/omnigent-ai/omnigent/pull/1082"
+        },
+        {
+          "event_id": "omnigent-untitled-pull-request",
+          "repository": "omnigent-ai/omnigent",
+          "event_kind": "pull_request",
+          "number": 1093,
+          "title": "untitled pull request",
+          "proposal_ids": [
+            "10934545269-2"
+          ],
+          "requested_scope": "local_validation_candidate",
+          "requested_validation_gate": "narrow-local-verification",
+          "source_url": "https://github.com/omnigent-ai/omnigent/pull/1093"
+        }
+      ],
+      "controller_recomputed": {
+        "proposal_ids": [
+          "p5-e2e-pull-request-migration-doc",
+          "13800089549-1"
+        ],
+        "final_scope": "local_validation_candidate",
+        "validation_gates": [
+          "narrow-local-verification"
+        ]
+      },
+      "capability_window": {
+        "theme": "runner-harness-control",
+        "current_pass": 1,
+        "total_passes": 4,
+        "required_route_profiles": [
+          "agent_workflow_route"
+        ]
+      }
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "midflight-state",
+          "status": "completed"
+        },
+        {
+          "id": "recovery-handoff",
+          "status": "completed"
+        },
+        {
+          "id": "replay-artifact",
+          "status": "completed"
+        },
+        {
+          "id": "report-artifact",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "observations": [
+      {
+        "id": "PRIVATE_PR_MIGRATION_INTAKE_OBSERVATION_DO_NOT_EXPORT",
+        "phase": "midflight",
+        "load_bearing": true,
+        "reliable": true,
+        "observed": true
+      }
+    ],
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-pr-migration-intake",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/blackhole-rollback/20260624T063355Z-runner-harness-control-pr-intake",
+      "artifact_path": "artifacts/rollback/20260624T063355Z-runner-harness-control-pr-intake.md"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git switch codex/blackhole-evolve/20260624T063500.912461-document-a-local-validation-checklist-for-pull-r",
+        "git reset --hard refs/blackhole-rollback/20260624T063355Z-runner-harness-control-pr-intake",
+        "git clean -fd"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_pr_migration_intake"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/github-growth-20260624T063355Z-runner-harness-control-pr-intake.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_pr_migration_intake.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "control_plane.complete",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.required",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.passed",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.event_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.duplicate_event_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.generic_or_untitled_event_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.usable_event_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.generic_or_untitled_events_excluded_from_final_scope",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.recomputed_scope_matches_unique_pr_events",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.recomputed_gates_match_unique_pr_events",
+      "equals": true
+    },
+    {
+      "path": "control_plane.intake.pull_request_events.recomputed_proposals_match_unique_pr_events",
+      "equals": true
+    },
+    {
+      "path": "control_plane.stage_diagnostics.0.evidence_counts.pull_request_event_count",
+      "equals": 3
+    },
+    {
+      "path": "control_plane.stage_diagnostics.0.evidence_counts.usable_pull_request_event_count",
+      "equals": 1
+    },
+    {
+      "path": "control_plane.operator_replay_checklist.status",
+      "equals": "ready"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

@@ -19943,6 +19943,7 @@ def evaluate_agent_workflow_intake_contract(intake: dict[str, Any]) -> dict[str,
     source_digest = optional_string(intake.get("source_digest"))
     proposal_ids = string_list(intake.get("proposal_ids"))
     evidence_urls = string_list(intake.get("evidence_urls"))
+    pr_event_contract = evaluate_agent_workflow_pull_request_intake(intake)
     window = intake.get("capability_window") if isinstance(intake.get("capability_window"), dict) else {}
     theme = optional_string(window.get("theme"))
     current_pass = optional_int(window.get("current_pass"))
@@ -19961,12 +19962,14 @@ def evaluate_agent_workflow_intake_contract(intake: dict[str, Any]) -> dict[str,
         missing_fields.append("evidence_urls")
     if required and not has_window:
         missing_fields.append("capability_window")
-    passed = (not required) or not missing_fields
+    if required and not pr_event_contract["passed"]:
+        missing_fields.append("pull_request_events")
+    passed = ((not required) or not missing_fields) and bool(pr_event_contract["passed"])
 
     return {
         "required": required,
         "passed": passed,
-        "failure_mode": "none" if passed else "intake_metadata_missing",
+        "failure_mode": "none" if passed else first_intake_failure_mode(pr_event_contract),
         "source_digest_recorded": has_source_digest,
         "source_digest_hash": stable_text_hash(source_digest) if source_digest else None,
         "proposal_id_count": len(proposal_ids),
@@ -19980,10 +19983,172 @@ def evaluate_agent_workflow_intake_contract(intake: dict[str, Any]) -> dict[str,
             "required_route_profile_count": len(required_profiles),
             "required_route_profile_hashes": [stable_text_hash(profile) for profile in sorted(required_profiles)],
         },
+        "pull_request_events": pr_event_contract,
         "missing_fields": missing_fields,
         "raw_evidence_urls_exported": False,
         "raw_proposal_bodies_exported": False,
     }
+
+
+def first_intake_failure_mode(pr_event_contract: dict[str, Any]) -> str:
+    if not bool(pr_event_contract.get("passed", True)):
+        return str(pr_event_contract.get("failure_mode") or "pull_request_intake_failed")
+    return "intake_metadata_missing"
+
+
+def evaluate_agent_workflow_pull_request_intake(intake: dict[str, Any]) -> dict[str, Any]:
+    """Validate PR event intake before scope/gate recomputation, without exporting PR bodies."""
+
+    raw_events = intake.get("pull_request_events")
+    events = raw_events if isinstance(raw_events, list) else []
+    recomputed = intake.get("controller_recomputed") if isinstance(intake.get("controller_recomputed"), dict) else {}
+    required = bool(events or recomputed)
+    rows: list[dict[str, Any]] = []
+    seen_keys: set[str] = set()
+    duplicate_count = 0
+    generic_title_count = 0
+    missing_required_field_count = 0
+    usable_proposal_ids: set[str] = set()
+    usable_scopes: set[str] = set()
+    usable_gates: set[str] = set()
+
+    for index, event in enumerate(events, start=1):
+        if not isinstance(event, dict):
+            continue
+        event_kind = normalize_pr_event_kind(event.get("event_kind") or event.get("kind"))
+        title = optional_string(event.get("title"))
+        title_generic = is_generic_pull_request_title(title)
+        if title_generic:
+            generic_title_count += 1
+        event_id = optional_string(event.get("event_id"))
+        repository = optional_string(event.get("repository"))
+        number = optional_string(event.get("number") or event.get("pull_request_number"))
+        source_url = optional_string(event.get("source_url"))
+        proposal_ids = string_list(event.get("proposal_ids"))
+        requested_scope = optional_string(event.get("requested_scope"))
+        requested_gate = optional_string(event.get("requested_validation_gate"))
+        dedup_key = event_id or "|".join([repository, number, event_kind, source_url])
+        duplicate = bool(dedup_key and dedup_key in seen_keys)
+        if dedup_key:
+            seen_keys.add(dedup_key)
+        if duplicate:
+            duplicate_count += 1
+        missing_fields = [
+            field
+            for field, present in {
+                "event_kind": event_kind == "pull_request",
+                "repository_or_source_url": bool(repository or source_url),
+                "proposal_ids": bool(proposal_ids),
+                "requested_scope": bool(requested_scope),
+                "requested_validation_gate": bool(requested_gate),
+            }.items()
+            if not present
+        ]
+        if missing_fields:
+            missing_required_field_count += len(missing_fields)
+        usable = not duplicate and not title_generic and not missing_fields and event_kind == "pull_request"
+        if usable:
+            usable_proposal_ids.update(proposal_ids)
+            usable_scopes.add(requested_scope)
+            usable_gates.add(requested_gate)
+        rows.append(
+            {
+                "ordinal": index,
+                "event_hash": stable_text_hash(dedup_key or f"event-{index}"),
+                "event_kind": event_kind,
+                "duplicate": duplicate,
+                "title_generic_or_missing": title_generic,
+                "proposal_id_count": len(proposal_ids),
+                "proposal_id_hashes": [stable_text_hash(proposal_id) for proposal_id in sorted(proposal_ids)],
+                "requested_scope_hash": stable_text_hash(requested_scope) if requested_scope else None,
+                "requested_validation_gate_hash": stable_text_hash(requested_gate) if requested_gate else None,
+                "missing_required_fields": missing_fields,
+                "usable_for_recomputed_scope": usable,
+                "raw_title_exported": False,
+                "raw_source_url_exported": False,
+            }
+        )
+
+    recomputed_proposal_ids = set(string_list(recomputed.get("proposal_ids")))
+    recomputed_scope = optional_string(recomputed.get("final_scope"))
+    recomputed_gates = set(string_list(recomputed.get("validation_gates")))
+    if not recomputed_gates and optional_string(recomputed.get("validation_gate")):
+        recomputed_gates.add(str(optional_string(recomputed.get("validation_gate"))))
+
+    expected_scope = stable_single_value(usable_scopes)
+    recomputed_scope_matches = (not required) or bool(expected_scope and recomputed_scope == expected_scope)
+    recomputed_proposals_match = (not required) or recomputed_proposal_ids == usable_proposal_ids
+    recomputed_gates_match = (not required) or recomputed_gates == usable_gates
+    usable_event_count = sum(1 for row in rows if row["usable_for_recomputed_scope"])
+
+    blockers: list[str] = []
+    if required and not usable_event_count:
+        blockers.append("pull_request_intake_no_specific_events")
+    if missing_required_field_count:
+        blockers.append("pull_request_fixture_requirements_missing")
+    if required and not recomputed_scope_matches:
+        blockers.append("controller_final_scope_not_recomputed_from_unique_pr_events")
+    if required and not recomputed_proposals_match:
+        blockers.append("controller_proposal_ids_not_recomputed_from_unique_pr_events")
+    if required and not recomputed_gates_match:
+        blockers.append("controller_validation_gates_not_recomputed_from_unique_pr_events")
+
+    passed = not blockers
+    return {
+        "required": required,
+        "passed": passed,
+        "failure_mode": "none" if passed else blockers[0],
+        "event_count": len(rows),
+        "unique_event_count": len(rows) - duplicate_count,
+        "duplicate_event_count": duplicate_count,
+        "generic_or_untitled_event_count": generic_title_count,
+        "usable_event_count": usable_event_count,
+        "missing_required_field_count": missing_required_field_count,
+        "deduplication_expected": required,
+        "generic_or_untitled_events_excluded_from_final_scope": True,
+        "controller_recomputed_final_scope": bool(recomputed_scope),
+        "controller_recomputed_validation_gates": bool(recomputed_gates),
+        "controller_recomputed_proposal_ids": bool(recomputed_proposal_ids),
+        "recomputed_scope_matches_unique_pr_events": recomputed_scope_matches,
+        "recomputed_gates_match_unique_pr_events": recomputed_gates_match,
+        "recomputed_proposals_match_unique_pr_events": recomputed_proposals_match,
+        "final_scope_hash": stable_text_hash(recomputed_scope) if recomputed_scope else None,
+        "validation_gate_hashes": [stable_text_hash(gate) for gate in sorted(recomputed_gates)],
+        "proposal_id_hashes": [stable_text_hash(proposal_id) for proposal_id in sorted(recomputed_proposal_ids)],
+        "rows": rows,
+        "blockers": blockers,
+        "raw_titles_exported": False,
+        "raw_event_urls_exported": False,
+        "raw_proposal_bodies_exported": False,
+    }
+
+
+def normalize_pr_event_kind(value: Any) -> str:
+    kind = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "pr": "pull_request",
+        "pullrequest": "pull_request",
+    }
+    return aliases.get(kind, kind)
+
+
+def is_generic_pull_request_title(value: str | None) -> bool:
+    title = normalize_title_label(value or "")
+    return title in {
+        "",
+        "pr",
+        "pull request",
+        "pull-request",
+        "untitled",
+        "untitled pr",
+        "untitled pull request",
+    }
+
+
+def stable_single_value(values: set[str]) -> str | None:
+    if len(values) != 1:
+        return None
+    return next(iter(values))
 
 
 def build_agent_workflow_stage_diagnostics(
@@ -20011,6 +20176,8 @@ def build_agent_workflow_stage_diagnostics(
             evidence_counts = {
                 "proposal_id_count": intake_contract["proposal_id_count"],
                 "evidence_url_count": intake_contract["evidence_url_count"],
+                "pull_request_event_count": intake_contract["pull_request_events"]["event_count"],
+                "usable_pull_request_event_count": intake_contract["pull_request_events"]["usable_event_count"],
             }
             if not ready:
                 reason = str(intake_contract.get("failure_mode") or "intake_missing")
