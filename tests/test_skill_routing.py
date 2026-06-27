@@ -1682,6 +1682,100 @@ def test_skill_route_discovery_current_window_pass1_proposal_intake_is_bounded()
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
 
+    preflight_queue = lane_map["pass3_preflight_queue"]
+    assert preflight_queue["controller_surface"] == "skill_route_discovery_pass3_preflight_queue"
+    assert preflight_queue["status"] == "blocked"
+    assert preflight_queue["decision"] == "repair_pass3_skill_route_preflight_before_final_pass"
+    assert preflight_queue["capability_pass"] == 3
+    assert preflight_queue["total_passes"] == 4
+    assert preflight_queue["route_index_status"] == "blocked"
+    assert preflight_queue["activation_handoff_status"] == "ready"
+    assert preflight_queue["required_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert preflight_queue["observed_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert preflight_queue["missing_route_profiles"] == []
+    assert preflight_queue["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert preflight_queue["selected_local_lanes"] == ["test", "documentation", "config"]
+    assert set(preflight_queue["queue_blockers"]) == {
+        "p1_skill_route_discovery_index:missing_selected_item_ids_or_frozen_fixture",
+        "p1_skill_route_discovery_index:route_index_row_not_ready",
+        "p2_skill_workflow_docs:missing_selected_item_ids_or_frozen_fixture",
+        "p2_skill_workflow_docs:route_index_row_not_ready",
+        "p3_skill_route_metadata_config:missing_selected_item_ids_or_frozen_fixture",
+        "p3_skill_route_metadata_config:route_index_row_not_ready",
+    }
+    assert preflight_queue["row_count"] == 3
+    assert preflight_queue["ready_row_count"] == 0
+    assert preflight_queue["blocked_proposal_ids"] == [
+        "p1_skill_route_discovery_index",
+        "p2_skill_workflow_docs",
+        "p3_skill_route_metadata_config",
+    ]
+    assert preflight_queue["required_evidence"] == [
+        "pass3_route_discovery_index",
+        "pass3_activation_handoff",
+        "selected_item_ids_or_frozen_fixture",
+        "rollback_artifact",
+        "focused_local_validation",
+    ]
+    assert preflight_queue["runtime_action"] == "none"
+    assert preflight_queue["external_skill_activation_allowed"] is False
+    assert preflight_queue["external_harness_execution_allowed"] is False
+    assert preflight_queue["provider_runtime_launch_allowed"] is False
+    assert preflight_queue["remote_execution_allowed"] is False
+    assert preflight_queue["profile_write_allowed"] is False
+    assert preflight_queue["memory_write_allowed"] is False
+    assert preflight_queue["raw_source_url_exported"] is False
+    assert preflight_queue["raw_evidence_urls_exported"] is False
+    assert preflight_queue["raw_target_paths_exported"] is False
+    assert preflight_queue["raw_upstream_body_exported"] is False
+
+    queue_rows = {row["proposal_id"]: row for row in preflight_queue["rows"]}
+    assert queue_rows["p1_skill_route_discovery_index"]["candidate_names"] == ["zhengxi-views"]
+    assert queue_rows["p1_skill_route_discovery_index"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert queue_rows["p1_skill_route_discovery_index"]["selected_local_lane"] == "test"
+    assert queue_rows["p2_skill_workflow_docs"]["candidate_names"] == [
+        "threejs-game-skills",
+        "zhengxi-views",
+    ]
+    assert queue_rows["p2_skill_workflow_docs"]["selected_local_lane"] == "documentation"
+    assert queue_rows["p3_skill_route_metadata_config"]["candidate_names"] == ["compass-skills"]
+    assert queue_rows["p3_skill_route_metadata_config"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert queue_rows["p3_skill_route_metadata_config"]["selected_local_lane"] == "config"
+
+    for row in queue_rows.values():
+        assert row["status"] == "blocked"
+        assert row["queue_decision"] == "blocked_before_final_pass_replay"
+        assert set(row["activation_blockers"]) == {
+            "missing_selected_item_ids_or_frozen_fixture",
+            "route_index_row_not_ready",
+        }
+        assert row["candidate_source_hashes"][0].startswith("sha256:")
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
 
 def test_skill_route_discovery_current_pass_validation_cases_accept_generic_python_skill_signal():
     registry = build_skill_route_discovery_registry_from_summaries(
@@ -1778,6 +1872,30 @@ def test_skill_route_discovery_current_pass_validation_cases_accept_generic_pyth
     assert pass3_handoff["external_skill_activation_allowed"] is False
     assert pass3_handoff["provider_runtime_launch_allowed"] is False
     assert pass3_handoff["remote_execution_allowed"] is False
+
+    preflight_queue = lane_map["pass3_preflight_queue"]
+    assert preflight_queue["status"] == "blocked"
+    assert preflight_queue["decision"] == "repair_pass3_skill_route_preflight_before_final_pass"
+    assert preflight_queue["route_index_status"] == "blocked"
+    assert preflight_queue["activation_handoff_status"] == "blocked"
+    assert preflight_queue["observed_route_profiles"] == []
+    assert preflight_queue["missing_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert preflight_queue["blocked_proposal_ids"] == [
+        "p1_skill_route_discovery_index",
+        "p2_skill_workflow_docs",
+        "p3_skill_route_metadata_config",
+    ]
+    assert "missing_required_route_profiles:source_cited_domain_research,game_frontend_workflow,skill_ecosystem_state_handoff" in (
+        preflight_queue["queue_blockers"]
+    )
+    assert preflight_queue["runtime_action"] == "none"
+    assert preflight_queue["external_skill_activation_allowed"] is False
+    assert preflight_queue["provider_runtime_launch_allowed"] is False
+    assert preflight_queue["remote_execution_allowed"] is False
 
 
 def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profiles():
@@ -1904,6 +2022,87 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert "runtime_execution" not in serialized
     assert "install" not in serialized
     assert "https://github.com/" not in serialized
+
+    preflight_queue = lane_map["pass3_preflight_queue"]
+    assert preflight_queue["controller_surface"] == "skill_route_discovery_pass3_preflight_queue"
+    assert preflight_queue["status"] == "ready"
+    assert preflight_queue["decision"] == "pass3_skill_route_preflight_ready_for_final_pass_replay"
+    assert preflight_queue["capability_pass"] == 3
+    assert preflight_queue["total_passes"] == 4
+    assert preflight_queue["operator_handoff"] == "external_supervisor_replay_before_final_pass"
+    assert preflight_queue["route_index_status"] == "ready"
+    assert preflight_queue["activation_handoff_status"] == "ready"
+    assert preflight_queue["required_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert preflight_queue["observed_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert preflight_queue["missing_route_profiles"] == []
+    assert preflight_queue["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert preflight_queue["selected_local_lanes"] == ["test", "documentation", "config"]
+    assert preflight_queue["queue_blockers"] == []
+    assert preflight_queue["row_count"] == 3
+    assert preflight_queue["ready_row_count"] == 3
+    assert preflight_queue["blocked_proposal_ids"] == []
+    assert preflight_queue["required_evidence"] == [
+        "pass3_route_discovery_index",
+        "pass3_activation_handoff",
+        "selected_item_ids_or_frozen_fixture",
+        "rollback_artifact",
+        "focused_local_validation",
+    ]
+    assert preflight_queue["runtime_action"] == "none"
+    assert preflight_queue["external_skill_activation_allowed"] is False
+    assert preflight_queue["external_harness_execution_allowed"] is False
+    assert preflight_queue["provider_runtime_launch_allowed"] is False
+    assert preflight_queue["remote_execution_allowed"] is False
+    assert preflight_queue["profile_write_allowed"] is False
+    assert preflight_queue["memory_write_allowed"] is False
+    assert preflight_queue["raw_source_url_exported"] is False
+    assert preflight_queue["raw_evidence_urls_exported"] is False
+    assert preflight_queue["raw_target_paths_exported"] is False
+    assert preflight_queue["raw_upstream_body_exported"] is False
+
+    queue_rows = {row["proposal_id"]: row for row in preflight_queue["rows"]}
+    assert queue_rows["p1_skill_route_discovery_index"]["candidate_names"] == ["zhengxi-views"]
+    assert queue_rows["p1_skill_route_discovery_index"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert queue_rows["p1_skill_route_discovery_index"]["selected_local_lane"] == "test"
+    assert queue_rows["p2_skill_workflow_docs"]["candidate_names"] == [
+        "threejs-game-skills",
+        "zhengxi-views",
+    ]
+    assert queue_rows["p2_skill_workflow_docs"]["selected_local_lane"] == "documentation"
+    assert queue_rows["p3_skill_route_metadata_config"]["candidate_names"] == ["compass-skills"]
+    assert queue_rows["p3_skill_route_metadata_config"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert queue_rows["p3_skill_route_metadata_config"]["selected_local_lane"] == "config"
+
+    for row in queue_rows.values():
+        assert row["status"] == "ready"
+        assert row["queue_decision"] == "ready_for_final_pass_replay"
+        assert row["activation_blockers"] == []
+        assert row["candidate_source_hashes"][0].startswith("sha256:")
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
 
     assert all(
         lane["proposal_kind"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES

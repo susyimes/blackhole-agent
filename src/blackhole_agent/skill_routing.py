@@ -1224,6 +1224,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "pass3_activation_handoff": _skill_route_discovery_pass3_activation_handoff(
             candidate_lane_inventory
         ),
+        "pass3_preflight_queue": _skill_route_discovery_pass3_preflight_queue(
+            candidate_lane_inventory
+        ),
         "pass4_local_lane_validation": _skill_route_discovery_pass4_local_lane_validation(
             candidate_lane_inventory
         ),
@@ -2978,6 +2981,168 @@ def _skill_route_discovery_pass3_activation_handoff(
             "rollback_artifact",
             "focused_local_validation",
             "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass3_preflight_queue(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose pass-3 profile coverage and replay commands before final pass.
+
+    The queue joins the pass-3 route index with activation handoff status so a
+    supervisor can see whether each active profile has a bounded local lane
+    before any final-pass completion workflow is considered.
+    """
+
+    required_route_profiles = (
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    )
+    route_index = _skill_route_discovery_pass3_route_discovery_index(candidate_lane_inventory)
+    activation_handoff = _skill_route_discovery_pass3_activation_handoff(candidate_lane_inventory)
+    activation_rows = [
+        row for row in activation_handoff.get("rows", []) if isinstance(row, Mapping)
+    ]
+
+    rows: list[dict[str, Any]] = []
+    observed_profiles: list[str] = []
+    selected_lanes: list[str] = []
+    replay_commands: list[str] = []
+    queue_blockers: list[str] = []
+
+    for index_row in route_index.get("rows", []):
+        if not isinstance(index_row, Mapping):
+            continue
+        proposal_id = str(index_row.get("proposal_id") or "")
+        route_profiles = _string_list(index_row.get("route_profiles"))
+        allowed_local_lanes = _string_list(index_row.get("allowed_local_lanes"))
+        selected_local_lane = str(index_row.get("selected_local_lane") or "")
+        replay_command = str(index_row.get("replay_command") or "")
+        activation_blockers = _string_list(index_row.get("activation_blockers"))
+        matching_activation_rows = [
+            row
+            for row in activation_rows
+            if set(_string_list(row.get("route_profiles"))) & set(route_profiles)
+        ]
+        for activation_row in matching_activation_rows:
+            activation_blockers.extend(_string_list(activation_row.get("activation_blockers")))
+
+        if str(index_row.get("status") or "") != "ready":
+            activation_blockers.append("route_index_row_not_ready")
+        if matching_activation_rows and any(
+            str(row.get("activation_decision") or "") != "ready_for_supervisor_replay"
+            for row in matching_activation_rows
+        ):
+            activation_blockers.append("activation_handoff_row_not_ready")
+        if not matching_activation_rows and activation_handoff.get("status") != "ready":
+            activation_blockers.append("activation_handoff_row_missing")
+        if selected_local_lane not in allowed_local_lanes:
+            activation_blockers.append("selected_lane_not_bounded")
+        if not _string_list(index_row.get("selected_evidence_item_ids")):
+            activation_blockers.append("missing_selected_item_ids_or_frozen_fixture")
+
+        observed_profiles.extend(route_profiles)
+        if selected_local_lane:
+            selected_lanes.append(selected_local_lane)
+        if replay_command:
+            replay_commands.append(replay_command)
+        if activation_blockers:
+            queue_blockers.extend(f"{proposal_id}:{blocker}" for blocker in activation_blockers)
+
+        rows.append(
+            {
+                "proposal_id": proposal_id,
+                "status": "ready" if not activation_blockers else "blocked",
+                "queue_decision": (
+                    "ready_for_final_pass_replay"
+                    if not activation_blockers
+                    else "blocked_before_final_pass_replay"
+                ),
+                "candidate_names": _string_list(index_row.get("candidate_names")),
+                "candidate_source_hashes": _string_list(index_row.get("candidate_source_hashes")),
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": allowed_local_lanes,
+                "selected_local_lane": selected_local_lane if selected_local_lane in allowed_local_lanes else "",
+                "selected_evidence_item_ids": _string_list(index_row.get("selected_evidence_item_ids")),
+                "validation_gates": _string_list(index_row.get("validation_gates")),
+                "validation_target": str(index_row.get("validation_target") or ""),
+                "replay_command": replay_command,
+                "activation_blockers": list(dict.fromkeys(activation_blockers)),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    observed_required_profiles = [
+        profile for profile in required_route_profiles if profile in set(observed_profiles)
+    ]
+    missing_route_profiles = [
+        profile for profile in required_route_profiles if profile not in set(observed_profiles)
+    ]
+    if missing_route_profiles:
+        queue_blockers.append("missing_required_route_profiles:" + ",".join(missing_route_profiles))
+
+    ready = (
+        bool(rows)
+        and not queue_blockers
+        and route_index.get("status") == "ready"
+        and activation_handoff.get("status") == "ready"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass3_preflight_queue",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "pass3_skill_route_preflight_ready_for_final_pass_replay"
+            if ready
+            else "repair_pass3_skill_route_preflight_before_final_pass"
+        ),
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "operator_handoff": "external_supervisor_replay_before_final_pass",
+        "route_index_status": str(route_index.get("status") or ""),
+        "activation_handoff_status": str(activation_handoff.get("status") or ""),
+        "required_route_profiles": list(required_route_profiles),
+        "observed_route_profiles": observed_required_profiles,
+        "missing_route_profiles": missing_route_profiles,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": list(dict.fromkeys(selected_lanes)),
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "queue_blockers": list(dict.fromkeys(queue_blockers)),
+        "row_count": len(rows),
+        "ready_row_count": len([row for row in rows if row["status"] == "ready"]),
+        "blocked_proposal_ids": [row["proposal_id"] for row in rows if row["status"] != "ready"],
+        "required_evidence": [
+            "pass3_route_discovery_index",
+            "pass3_activation_handoff",
+            "selected_item_ids_or_frozen_fixture",
+            "rollback_artifact",
+            "focused_local_validation",
         ],
         "local_validation_required": True,
         "runtime_action": "none",

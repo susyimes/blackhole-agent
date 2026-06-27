@@ -215,6 +215,19 @@ harness execution, provider launch, remote execution, raw source URL export,
 raw evidence URL export, raw target path export, and upstream body export
 remains denied.
 
+Source digest `github-growth-20260627T134310.685675Z` continues the active
+pass 3 by adding `pass3_preflight_queue`. The queue joins the
+`pass3_route_discovery_index` and `pass3_activation_handoff` surfaces so an
+operator can see, before final-pass replay, whether the required
+`source_cited_domain_research`, `game_frontend_workflow`, and
+`skill_ecosystem_state_handoff` profiles are present, which bounded local
+lanes are selected, which replay commands should be run, and which proposal IDs
+remain blocked. It is still a discovery preflight only: allowed local lanes are
+only documentation, config, test, or code_patch; runtime action, external skill
+activation, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw source URL export, raw evidence URL export,
+raw target path export, and upstream body export remain denied.
+
 Source digest `github-growth-20260627T130311.159432Z` restarts pass 1 for the
 same slice with the active proposal IDs
 `proposal-skill-route-discovery-generic-zhengxi-views`,
