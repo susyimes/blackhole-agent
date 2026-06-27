@@ -298,6 +298,7 @@ class ExternalSkillRouteCandidate:
     route_profiles: tuple[str, ...] = ()
     source_layout_signals: tuple[str, ...] = ()
     source_metadata_signals: tuple[str, ...] = ()
+    public_activity_signals: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
@@ -332,6 +333,7 @@ class ExternalSkillRouteCandidate:
                 or value.get("metadata_signals")
                 or value.get("repository_metadata_signals")
             ),
+            public_activity_signals=_public_activity_signals(value),
             requested_actions=_string_tuple(value.get("requested_actions")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
@@ -381,6 +383,7 @@ class ExternalSkillRouteCandidate:
             "name": self.name,
             "related_source_urls": list(dict.fromkeys(self.related_source_urls)),
             "requested_actions": list(self.requested_actions),
+            "public_activity_signals": list(self.public_activity_signals),
             "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
             "route_profiles": list(_skill_route_discovery_route_profiles(self)),
             "route_hints": list(self.route_hints),
@@ -1023,6 +1026,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         probe_metadata = _skill_route_discovery_mixed_probe_metadata(candidate, allowed_lanes)
         state_boundary_metadata = _skill_route_discovery_state_boundary_metadata(candidate)
         domain_research_boundary_metadata = _skill_route_discovery_domain_research_boundary_metadata(candidate)
+        public_activity_policy = _skill_route_discovery_public_activity_policy_field(candidate)
         route_profiles = _string_list(candidate.get("route_profiles"))
         validation_contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
         handoff_metadata = _skill_route_discovery_handoff_metadata(
@@ -1058,6 +1062,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 **probe_metadata,
                 **state_boundary_metadata,
                 **domain_research_boundary_metadata,
+                **public_activity_policy,
             }
         )
 
@@ -1102,6 +1107,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     **probe_metadata,
                     **state_boundary_metadata,
                     **domain_research_boundary_metadata,
+                    **public_activity_policy,
                 }
             )
 
@@ -1395,6 +1401,31 @@ def _skill_route_discovery_domain_research_boundary_metadata(candidate: Mapping[
             "private_context_export_allowed": False,
             "review_surface": "skill_route_discovery_domain_research_preflight",
         }
+    }
+
+
+def _skill_route_discovery_public_activity_policy_field(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    signals = _string_list(candidate.get("public_activity_signals"))
+    if not signals:
+        return {}
+    return {"public_activity_policy": _skill_route_discovery_public_activity_policy(signals)}
+
+
+def _skill_route_discovery_public_activity_policy(signals: Sequence[str]) -> dict[str, Any]:
+    """Keep stars, forks, and similar public activity out of activation decisions."""
+
+    return {
+        "signals": list(dict.fromkeys(str(signal) for signal in signals if str(signal).strip())),
+        "signal_count": len(signals),
+        "effect": "supporting_context_only_no_runtime_action",
+        "candidate_count_effect": "none",
+        "proposal_lane_count_effect": "none",
+        "activation_readiness_effect": "none",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
     }
 
 
@@ -3742,6 +3773,9 @@ def _merge_external_skill_route_candidates(
         requested_actions=tuple(dict.fromkeys((*left.requested_actions, *right.requested_actions))),
         validation_status=left.validation_status,
         enabled=left.enabled or right.enabled,
+        public_activity_signals=tuple(
+            dict.fromkeys((*left.public_activity_signals, *right.public_activity_signals))
+        ),
     )
 
 
@@ -3764,6 +3798,32 @@ def _candidate_uncertainty_reasons(candidate: ExternalSkillRouteCandidate) -> tu
         reasons.append("missing_detail_risk")
 
     return tuple(dict.fromkeys(reasons))
+
+
+def _public_activity_signals(value: Mapping[str, Any]) -> tuple[str, ...]:
+    """Normalize public popularity or fork metadata without preserving counts."""
+
+    explicit = _string_tuple(
+        value.get("public_activity_signals")
+        or value.get("activity_signals")
+        or value.get("repository_activity_signals")
+    )
+    signals = list(explicit)
+    for field_name, signal_name in (
+        ("star_count", "stars_present"),
+        ("stars", "stars_present"),
+        ("fork_count", "forks_present"),
+        ("forks", "forks_present"),
+        ("forked_from", "fork_lineage_present"),
+        ("upstream_source_url", "fork_lineage_present"),
+        ("watcher_count", "watchers_present"),
+        ("watchers", "watchers_present"),
+    ):
+        raw_value = value.get(field_name)
+        if raw_value in (None, "", [], ()):
+            continue
+        signals.append(signal_name)
+    return tuple(dict.fromkeys(signals))
 
 
 def _candidate_uncertainty_message(reasons: Sequence[str]) -> str:

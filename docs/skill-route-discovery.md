@@ -158,6 +158,21 @@ launch, remote execution, profile writes, memory writes, raw source URL export,
 raw evidence URL export, raw target path export, and upstream body export remain
 denied.
 
+Source digest `github-growth-20260627T114310.634245Z` starts a fresh pass over
+the same skill-route-discovery slice with Three.js Game Skills, zhengxi-views,
+and COMPASS Skills evidence. The local regression fixture
+`current_window_pass1_skill_route_lanes.json` converts those public repository
+signals into classification records only. Three.js/browser-game evidence
+selects `game_frontend_workflow`; generic skill workflow evidence can select
+`generic_skill_workflow`; COMPASS-style route/profile evidence selects
+`skill_ecosystem_state_handoff`. Each route may expose only documentation,
+config, test, or code_patch lanes and must cite selected proposal or digest item
+IDs. Unsupported install, runtime, provider, or execution lanes are downgraded
+out of the proposal lane map. Public activity such as stars, forks, trend
+presence, or fork-lineage references is supporting context only: it does not
+increase candidate count, proposal lane count, activation readiness, or runtime
+authority.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
@@ -167,6 +182,7 @@ The bounded evidence reviewed for these runs is:
 - `https://github.com/lyra81604/zhengxi-views`
 - `https://github.com/majidmanzarpour/threejs-game-skills`
 - `https://github.com/pretinhuu1-boop/threejs-game-skills`
+- `https://github.com/wisdomedeki761/threejs-game-skills`
 - `https://github.com/xiaoguomeiyitian/threejs-game-skills`
 
 No upstream code, install scripts, prompts, or skill bodies were adopted.

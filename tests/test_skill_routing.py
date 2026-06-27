@@ -701,6 +701,78 @@ def test_skill_route_discovery_current_window_game_frontend_evidence_stays_bound
     assert game_inventory["route_validation_contract"]["remote_execution_allowed"] is False
 
 
+def test_skill_route_discovery_current_pass_skill_routes_ignore_activity_pressure():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass1_skill_route_lanes.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry(payload["candidates"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "invalid_candidates_present"
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 3
+    assert lane_map["candidate_count"] == 3
+    assert lane_map["proposal_lane_count"] == 12
+    assert lane_map["downgraded_candidate_count"] == 3
+    assert lane_map["rejected_candidate_count"] == 0
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    assert candidates_by_name["threejs-game-skills"]["route_hints"] == ["skill_route_discovery"]
+    assert candidates_by_name["threejs-game-skills"]["route_profiles"] == ["game_frontend_workflow"]
+    assert candidates_by_name["threejs-game-skills"]["public_activity_signals"] == [
+        "stars_present",
+        "forks_present",
+    ]
+    assert candidates_by_name["zhengxi-views"]["route_profiles"] == ["generic_skill_workflow"]
+    assert candidates_by_name["compass-skills"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+
+    inventory_by_name = {row["candidate_name"]: row for row in lane_map["candidate_lane_inventory"]}
+    assert set(inventory_by_name) == {"zhengxi-views", "threejs-game-skills", "compass-skills"}
+    assert all(
+        set(row["proposal_kinds"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        for row in inventory_by_name.values()
+    )
+    assert all(row["runtime_action"] == "none" for row in inventory_by_name.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in inventory_by_name.values())
+    assert all(
+        row["public_activity_policy"]["effect"] == "supporting_context_only_no_runtime_action"
+        for row in inventory_by_name.values()
+    )
+    assert all(
+        row["public_activity_policy"]["proposal_lane_count_effect"] == "none"
+        for row in inventory_by_name.values()
+    )
+    game_contract_row = inventory_by_name["threejs-game-skills"]["route_validation_contract"]["rows"][0]
+    assert game_contract_row["route_profile"] == "game_frontend_workflow"
+    assert game_contract_row["validation_gate"] == "local_frontend_validation_before_game_skill_activation"
+    assert game_contract_row["preferred_local_lanes"] == ["test", "documentation", "code_patch", "config"]
+    assert game_contract_row["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert game_contract_row["blocked_activation_reason"] == (
+        "upstream_scaffold_or_provider_boundary_not_validated"
+    )
+    assert game_contract_row["local_validation_required"] is True
+    assert game_contract_row["runtime_action"] == "none"
+    assert game_contract_row["external_skill_activation_allowed"] is False
+    assert inventory_by_name["threejs-game-skills"]["handoff_metadata"]["selected_local_lane"] == "test"
+    assert inventory_by_name["compass-skills"]["handoff_metadata"]["selected_local_lane"] == "config"
+    assert inventory_by_name["compass-skills"]["state_profile_boundary"]["memory_write_allowed"] is False
+
+    for lane in lane_map["proposal_lanes"]:
+        assert lane["proposal_kind"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        assert lane["evidence_item_ids"]
+        assert lane["runtime_action"] == "none"
+        assert lane["external_skill_activation_allowed"] is False
+        assert lane["provider_runtime_launch_allowed"] is False
+        assert lane["public_activity_policy"]["activation_readiness_effect"] == "none"
+
+
 def test_skill_route_discovery_provider_runtime_pass2_four_item_matrix_requires_local_validation():
     fixture_path = (
         Path(__file__).parent

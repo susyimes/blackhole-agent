@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260627T114310.634245Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 1,
+    "total_passes": 4
+  },
+  "candidates": [
+    {
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "evidence_summary": "Public source-cited Python agent skill workflow with local validation notes and advisory boundary language.",
+      "route_hints": ["skill_route_discovery"],
+      "route_profiles": ["generic_skill_workflow"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "evidence_item_ids": ["p2-generic-skill-route-discovery"],
+      "public_activity_signals": ["repository_trend"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "evidence_summary": "Three.js browser game director skill package with specialist workflows, QA, browser checks, scaffold helpers, and provider asset-generation boundary notes.",
+      "route_hints": ["skill_route_discovery"],
+      "route_profiles": ["game_frontend_workflow"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution", "install"],
+      "evidence_item_ids": ["p1-threejs-game-skill-route-discovery"],
+      "related_source_urls": ["https://github.com/wisdomedeki761/threejs-game-skills"],
+      "star_count": 536,
+      "fork_count": 58,
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "evidence_summary": "Skill ecosystem state handoff package with task memory, collaboration profile, route metadata, clarification workflow, and privacy boundary notes.",
+      "route_hints": ["skill_route_discovery"],
+      "route_profiles": ["skill_ecosystem_state_handoff"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "evidence_item_ids": ["p3-skill-ecosystem-state-handoff"],
+      "public_activity_signals": ["repository_trend"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    }
+  ]
+}
