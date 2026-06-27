@@ -2191,6 +2191,19 @@ lanes, accept raw repository URLs, export upstream bodies, install upstream
 skills, execute external harnesses, launch providers, perform remote execution,
 or grant runtime action.
 
+The lane map now also exposes `pass4_completion_handoff`, a compact final
+operator checklist derived from `pass4_local_lane_validation`. It records the
+required rollback ref and artifact contract, hashed replay commands, per-profile
+inspection requirements, recovery hint codes, and the handoff mode
+`external_supervisor_replay_without_kernel_restart`. The accepted skill-route
+rows still map only to documentation, config, test, or code_patch lanes, and the
+adjacent general-agent boundary remains
+`agent_harness_eval_required` with `skill_route_discovery_inherited: false`.
+This panel is a replay and recovery handoff only: runtime action remains
+`none`, external skill activation and external harness execution remain false,
+and raw source URLs, raw evidence URLs, raw target paths, and upstream bodies
+are not exported.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

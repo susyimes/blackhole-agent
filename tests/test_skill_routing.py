@@ -2534,6 +2534,92 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
         "raw_upstream_body_exported": False,
     }
 
+    handoff = lane_map["pass4_completion_handoff"]
+    assert handoff["controller_surface"] == "skill_route_discovery_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "handoff_current_skill_route_window_to_supervisor_replay"
+    assert handoff["depends_on_controller_surface"] == "skill_route_discovery_pass4_local_lane_validation"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["handoff_mode"] == "external_supervisor_replay_without_kernel_restart"
+    assert handoff["candidate_count"] == 3
+    assert handoff["ready_candidate_count"] == 3
+    assert handoff["blocked_candidate_names"] == []
+    assert handoff["covered_route_profiles"] == [
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert handoff["selected_local_lanes"] == ["config", "test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert len(handoff["replay_command_hashes"]) == 3
+    assert all(command_hash.startswith("sha256:") for command_hash in handoff["replay_command_hashes"])
+    assert handoff["rollback_contract"] == {
+        "rollback_ref_required": True,
+        "rollback_artifact_required": True,
+        "rollback_execution": "explicit_destructive_operator_action_only",
+    }
+    assert handoff["adjacent_general_agent_project_boundary"] == {
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "direct_local_change_proposals_allowed": False,
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    assert [step["step"] for step in handoff["operator_steps"]] == [
+        "verify_rollback_ref_and_artifact",
+        "run_pass4_replay_commands",
+        "inspect_changed_files_against_selected_lanes",
+        "confirm_external_activation_boundary",
+        "handoff_to_configured_supervisor",
+    ]
+    assert all(step["recovery_hint_code"] for step in handoff["operator_steps"])
+    assert handoff["activation_boundary"] == (
+        "supervisor_may_review_local_diff_after_replay; "
+        "kernel_does_not_restart_or_activate_external_skills"
+    )
+    assert handoff["local_validation_required"] is True
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["raw_source_url_exported"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_target_paths_exported"] is False
+    assert handoff["raw_upstream_body_exported"] is False
+
+    handoff_rows = {row["candidate_name"]: row for row in handoff["rows"]}
+    assert set(handoff_rows) == {"compass-skills", "threejs-game-skills", "zhengxi-views"}
+    assert handoff_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert handoff_rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert handoff_rows["zhengxi-views"]["selected_local_lane"] == "test"
+    for row in handoff_rows.values():
+        assert row["row_status"] == "ready"
+        assert row["candidate_source_hash"].startswith("sha256:")
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert row["inspection_requirements"] == [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "changed_file_review_against_selected_lane",
+            "focused_local_validation_result",
+            "rollback_artifact_and_ref",
+            "review_note_for_uncertainty_or_blockers",
+        ]
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
 
 def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded():
     fixture_path = (

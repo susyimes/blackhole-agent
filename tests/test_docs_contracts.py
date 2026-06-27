@@ -428,6 +428,15 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "derived from `final_route_handoff_manifest`,\n"
         "`route_validation_lane_queue`, and `secondary_harness_bridge`",
         "does not add\nlanes, accept raw repository URLs, export upstream bodies",
+        "`pass4_completion_handoff`",
+        "derived from `pass4_local_lane_validation`",
+        "required rollback ref and artifact contract",
+        "per-profile\ninspection requirements",
+        "recovery hint codes",
+        "`external_supervisor_replay_without_kernel_restart`",
+        "`agent_harness_eval_required` with `skill_route_discovery_inherited: false`",
+        "raw source URLs, raw evidence URLs, raw target paths, and upstream bodies\n"
+        "are not exported",
         "rollback\nnotes require a rollback ref and artifact before source changes",
         "runtime action\nremains `none`, and external skill activation remains false",
         "Each checklist row and activation row also carries\n`inspection_requirements`",
