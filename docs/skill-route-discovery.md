@@ -85,6 +85,20 @@ not raw repository URLs, owner/repository names, truncated item IDs, or
 non-selected evidence. The review layer may derive accepted source URLs from the
 selected item IDs, but candidates must not supply or expand them.
 
+Source digest `github-growth-20260627T090310.946057Z` starts another
+skill-route-discovery pass focused on converting carried proposal evidence into
+bounded local lanes before activation. The local lane map now emits
+`proposal_intake_lane`, an operator-facing review surface that groups active
+proposal IDs by route profile: generic or source-cited skill evidence maps to
+`p1-skill-route-discovery-generic`, Three.js/browser-game skill evidence maps
+to `p2-game-frontend-skill-profile`, and COMPASS-style state/profile handoff
+evidence maps to `p3-skill-ecosystem-handoff`. This surface records candidate
+names, source hashes, selected bounded lanes, validation gates, validation
+targets, and replay commands. It does not add lanes, export raw source URLs,
+export raw target paths, read upstream bodies, install upstream skills, execute
+external harnesses, launch providers, write memory/profile state, perform
+remote execution, or grant runtime action.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`

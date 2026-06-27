@@ -217,6 +217,24 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS: Mapping[str, Mapping[s
         "blocked_activation_reason": "generic_skill_evidence_requires_local_corroboration",
     },
 }
+SKILL_ROUTE_DISCOVERY_PROPOSAL_INTAKE_HINTS: Mapping[str, Mapping[str, str]] = {
+    "generic_skill_workflow": {
+        "proposal_id": "p1-skill-route-discovery-generic",
+        "proposal_track": "generic_python_skill_repository",
+    },
+    "source_cited_domain_research": {
+        "proposal_id": "p1-skill-route-discovery-generic",
+        "proposal_track": "generic_python_skill_repository",
+    },
+    "game_frontend_workflow": {
+        "proposal_id": "p2-game-frontend-skill-profile",
+        "proposal_track": "game_frontend_workflow",
+    },
+    "skill_ecosystem_state_handoff": {
+        "proposal_id": "p3-skill-ecosystem-handoff",
+        "proposal_track": "skill_ecosystem_state_handoff",
+    },
+}
 
 VALIDATION_WEIGHTS: Mapping[str, int] = {
     "validated": 12,
@@ -1119,6 +1137,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "validation_profile_coverage": _skill_route_discovery_validation_profile_coverage(
             candidate_lane_inventory
         ),
+        "proposal_intake_lane": _skill_route_discovery_proposal_intake_lane(candidate_lane_inventory),
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
         "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
@@ -1856,6 +1875,149 @@ def _skill_route_discovery_validation_profile_coverage(
         "remote_execution_allowed": False,
         "raw_source_url_exported": False,
         "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_proposal_intake_lane(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Map observed route profiles back to current-window proposal lanes.
+
+    The intake lane is a proposal-review surface, not an activation surface. It
+    lets the controller see that carried proposal IDs have local lane coverage
+    before deciding which concrete patch, doc, config, or test lane to replay.
+    """
+
+    rows_by_proposal: dict[str, dict[str, Any]] = {}
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        source_url = str(candidate.get("source_url") or candidate_name)
+        local_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        if not local_lanes:
+            continue
+
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        if selected_lane not in local_lanes:
+            selected_lane = local_lanes[0]
+        validation_gates = _string_list(handoff_metadata.get("validation_gates"))
+        evidence_item_ids = _string_list(candidate.get("evidence_item_ids"))
+
+        for profile in route_profiles:
+            hint = SKILL_ROUTE_DISCOVERY_PROPOSAL_INTAKE_HINTS.get(profile)
+            if hint is None:
+                continue
+            proposal_id = hint["proposal_id"]
+            row = rows_by_proposal.setdefault(
+                proposal_id,
+                {
+                    "proposal_id": proposal_id,
+                    "proposal_track": hint["proposal_track"],
+                    "status": "ready",
+                    "candidate_names": [],
+                    "candidate_source_hashes": [],
+                    "route_profiles": [],
+                    "allowed_local_lanes": [],
+                    "selected_local_lanes": [],
+                    "validation_gates": [],
+                    "validation_targets": [],
+                    "replay_commands": [],
+                    "selected_evidence_item_ids": [],
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                },
+            )
+            row["candidate_names"] = list(
+                dict.fromkeys((*_string_list(row.get("candidate_names")), candidate_name))
+            )
+            row["candidate_source_hashes"] = list(
+                dict.fromkeys((*_string_list(row.get("candidate_source_hashes")), _stable_hash(source_url)))
+            )
+            row["route_profiles"] = list(
+                dict.fromkeys((*_string_list(row.get("route_profiles")), profile))
+            )
+            row["allowed_local_lanes"] = [
+                lane
+                for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                if lane in {*_string_list(row.get("allowed_local_lanes")), *local_lanes}
+            ]
+            row["selected_local_lanes"] = list(
+                dict.fromkeys((*_string_list(row.get("selected_local_lanes")), selected_lane))
+            )
+            row["validation_gates"] = list(
+                dict.fromkeys((*_string_list(row.get("validation_gates")), *validation_gates))
+            )
+            row["validation_targets"] = list(
+                dict.fromkeys(
+                    (
+                        *_string_list(row.get("validation_targets")),
+                        _skill_route_discovery_validation_target(selected_lane, (profile,)),
+                    )
+                )
+            )
+            row["replay_commands"] = list(
+                dict.fromkeys(
+                    (
+                        *_string_list(row.get("replay_commands")),
+                        _skill_route_discovery_replay_command(selected_lane, (profile,)),
+                    )
+                )
+            )
+            row["selected_evidence_item_ids"] = list(
+                dict.fromkeys((*_string_list(row.get("selected_evidence_item_ids")), *evidence_item_ids))
+            )
+
+    rows = [rows_by_proposal[proposal_id] for proposal_id in sorted(rows_by_proposal)]
+    blocked_rows = [
+        row["proposal_id"]
+        for row in rows
+        if not row["allowed_local_lanes"] or not row["selected_local_lanes"]
+    ]
+
+    return {
+        "controller_surface": "skill_route_discovery_proposal_intake_lane",
+        "status": "ready" if rows and not blocked_rows else "blocked",
+        "decision": (
+            "current_window_proposals_mapped_to_bounded_local_lanes"
+            if rows and not blocked_rows
+            else "collect_or_repair_current_window_proposal_lanes"
+        ),
+        "proposal_count": len(rows),
+        "ready_proposal_count": len(rows) - len(blocked_rows),
+        "blocked_proposal_ids": blocked_rows,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "required_evidence": [
+            "body_free_repository_summary",
+            "route_hints",
+            "focused_local_validation",
+            "rollback_artifact",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
     }

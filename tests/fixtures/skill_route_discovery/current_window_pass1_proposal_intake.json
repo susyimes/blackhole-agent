@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260627T090310.946057Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 1,
+    "total_passes": 4
+  },
+  "summaries": [
+    {
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "summary": "Public Python-oriented agent skill repository for source-cited domain views with route hints, validation notes, advisory boundary language, and local test examples.",
+      "topics": ["agent-skill", "python", "source-cited", "validation", "research"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "observed_paths": [
+        "SKILL.md",
+        "skills/zhengxi-views/SKILL.md",
+        "tests/test_source_citations.py",
+        "scripts/validate_references.py"
+      ],
+      "metadata_files": ["skill.yml"]
+    },
+    {
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "summary": "Three.js browser game skill director with specialist workflows, gameplay QA, release verification, scaffold helpers, and asset workflow notes.",
+      "topics": ["agent-skills", "threejs", "browser-game", "qa"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "observed_paths": [
+        "skills/game-designer/SKILL.md",
+        "skills/threejs-debugger/SKILL.md",
+        "scaffold/vite-threejs-game/template.ts",
+        "qa/browser-checklist.md"
+      ]
+    },
+    {
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "summary": "Skill ecosystem state handoff package with task forest, local memory, collaboration profile, route metadata, clarification workflow, and privacy boundary notes.",
+      "topics": ["agent-skills", "workflow", "profiles", "local-memory"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "observed_paths": [
+        "skills/clarifier/SKILL.md",
+        "profiles/collaboration.md",
+        "task-forest/README.md",
+        "config/skills.sh.json"
+      ],
+      "metadata_files": ["skills.sh.json"]
+    }
+  ]
+}
