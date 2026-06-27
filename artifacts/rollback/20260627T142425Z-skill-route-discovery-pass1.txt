@@ -1,0 +1,18 @@
+Rollback point for github-growth-20260627T142310.634775Z
+
+Original branch:
+codex/blackhole-evolve/20260627T142425.749796-add-local-skill-route-discovery-fixtures-coverin
+
+Original HEAD:
+d3c6d0e125992854583e6cd09354006670597327
+
+Local rollback ref:
+refs/rollback/20260627T142425Z-skill-route-discovery-pass1
+
+Recovery commands:
+git update-ref refs/rollback/20260627T142425Z-skill-route-discovery-pass1 d3c6d0e125992854583e6cd09354006670597327
+git switch codex/blackhole-evolve/20260627T142425.749796-add-local-skill-route-discovery-fixtures-coverin
+git reset --hard refs/rollback/20260627T142425Z-skill-route-discovery-pass1
+
+Rollback execution is explicit and destructive. A human operator or supervisor
+policy must choose it before reset or clean commands run.

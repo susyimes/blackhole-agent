@@ -244,6 +244,21 @@ route discovery queue and cannot bypass recomputed runtime gates, profile or
 memory write denial, external skill activation denial, provider launch denial,
 raw evidence URL hashing, or upstream body exclusion.
 
+Source digest `github-growth-20260627T142310.634775Z` starts the active
+skill-route-discovery window with COMPASS Skills, zhengxi-views, Three.js Game
+Skills, and Qwen-AgentWorld evidence. The lane map now emits
+`active_pass1_evidence_lane`, which keeps COMPASS-style state handoff,
+source-cited zhengxi-views skill evidence, and Three.js/browser-game skill
+evidence in bounded local documentation, config, test, or code_patch lanes with
+local validation required. General-agent evidence such as Qwen-AgentWorld does
+not inherit `skill_route_discovery` without skill workflow signals; it is
+recorded as an adjacent `agent_harness_eval_required` row with no direct
+runtime or code_patch route until a local agent-harness evaluation path is
+established. The surface exports hashes and selected IDs only, and denies
+runtime action, external skill or agent activation, external harness execution,
+provider launch, remote execution, raw source URL export, raw evidence URL
+export, target path export, and upstream body export.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
