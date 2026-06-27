@@ -2135,7 +2135,7 @@ def test_skill_route_discovery_pass3_local_validation_lane_probes_current_skill_
 
     lane = lane_map["pass3_local_validation_lane"]
     assert lane["controller_surface"] == "skill_route_discovery_pass3_local_validation_lane"
-    assert lane["source_digest"] == "github-growth-20260627T170310.779794Z"
+    assert lane["source_digest"] == "github-growth-20260627T194729.481658Z"
     assert lane["status"] == "ready"
     assert lane["decision"] == "pass3_skill_route_local_lanes_ready_for_validation"
     assert lane["capability_pass"] == 3
@@ -2166,6 +2166,33 @@ def test_skill_route_discovery_pass3_local_validation_lane_probes_current_skill_
         "focused_local_validation",
         "review_note",
     ]
+    replay_contract = lane["operator_replay_contract"]
+    assert replay_contract["controller_surface"] == "skill_route_discovery_pass3_operator_replay_contract"
+    assert replay_contract["status"] == "ready"
+    assert replay_contract["decision"] == "supervisor_can_replay_pass3_skill_lanes_before_final_pass"
+    assert replay_contract["proposal_ids"] == [
+        "p1-skill-route-discovery-index",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert replay_contract["blocked_proposal_ids"] == []
+    assert replay_contract["row_count"] == 3
+    assert replay_contract["ready_row_count"] == 3
+    assert replay_contract["selected_local_lanes"] == ["test", "documentation", "config"]
+    assert all(command_hash.startswith("sha256:") for command_hash in replay_contract["replay_command_hashes"])
+    assert replay_contract["rollback_artifact_required"] is True
+    assert replay_contract["rollback_ref_required"] is True
+    assert replay_contract["operator_next_action"] == "run_replay_commands_then_continue_to_final_pass"
+    assert replay_contract["runtime_action"] == "none"
+    assert replay_contract["external_skill_activation_allowed"] is False
+    assert replay_contract["external_harness_execution_allowed"] is False
+    assert replay_contract["provider_runtime_launch_allowed"] is False
+    assert replay_contract["remote_execution_allowed"] is False
+    assert replay_contract["raw_replay_commands_exported"] is False
+    assert replay_contract["raw_source_url_exported"] is False
+    assert replay_contract["raw_evidence_urls_exported"] is False
+    assert replay_contract["raw_target_paths_exported"] is False
+    assert replay_contract["raw_upstream_body_exported"] is False
     assert lane["local_validation_required"] is True
     assert lane["runtime_action"] == "none"
     assert lane["external_skill_activation_allowed"] is False
@@ -2212,6 +2239,26 @@ def test_skill_route_discovery_pass3_local_validation_lane_probes_current_skill_
         assert row["status"] == "ready"
         assert row["activation_blockers"] == []
         assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        bounded_contract = row["bounded_lane_contract"]
+        assert bounded_contract["controller_surface"] == "skill_route_discovery_pass3_bounded_lane_contract"
+        assert bounded_contract["selected_lane_bounded"] is True
+        assert bounded_contract["allowed_lane_count"] == len(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert set(bounded_contract["unsupported_lanes_removed"]) <= {
+            "install",
+            "provider_runtime",
+            "runtime_execution",
+        }
+        assert bounded_contract["activation_gate"] == "local_validation_before_activation"
+        assert bounded_contract["local_validation_required"] is True
+        assert bounded_contract["runtime_action"] == "none"
+        assert bounded_contract["external_skill_activation_allowed"] is False
+        assert bounded_contract["external_harness_execution_allowed"] is False
+        assert bounded_contract["provider_runtime_launch_allowed"] is False
+        assert bounded_contract["remote_execution_allowed"] is False
+        assert bounded_contract["raw_source_url_exported"] is False
+        assert bounded_contract["raw_evidence_urls_exported"] is False
+        assert bounded_contract["raw_target_paths_exported"] is False
+        assert bounded_contract["raw_upstream_body_exported"] is False
         assert row["candidate_source_hashes"][0].startswith("sha256:")
         assert row["local_validation_required"] is True
         assert row["runtime_action"] == "none"

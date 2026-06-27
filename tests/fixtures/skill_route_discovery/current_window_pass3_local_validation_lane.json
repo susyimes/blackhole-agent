@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_digest": "github-growth-20260627T170310.779794Z",
+  "source_digest": "github-growth-20260627T194729.481658Z",
   "capability_window": {
     "theme": "skill-route-discovery",
     "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",

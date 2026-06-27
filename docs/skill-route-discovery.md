@@ -318,6 +318,20 @@ activation, external harness execution, provider launch, remote execution,
 profile writes, memory writes, raw source URL export, raw evidence URL export,
 raw target path export, and upstream body export remain denied.
 
+Source digest `github-growth-20260627T194729.481658Z` keeps pass 3 active and
+turns the same lane into an operator replay contract. Each pass-3 row now
+exposes a `bounded_lane_contract` that proves the selected lane is one of
+documentation, config, test, or code_patch and records any removed install,
+runtime, or provider pressure. The lane also emits
+`operator_replay_contract`, a compact supervisor handoff with proposal IDs,
+selected bounded lanes, hashed replay commands, rollback artifact/ref
+requirements, and the next replay action. This contract is not an activation
+grant: local validation is still required before final-pass promotion, and
+runtime action, upstream skill activation, external harness execution, provider
+launch, remote execution, profile writes, memory writes, raw source URL export,
+raw evidence URL export, raw target path export, raw replay command export, and
+upstream body export remain denied.
+
 Source digest `github-growth-20260627T184730.160071Z` completes the current
 pass-4 window over COMPASS Skills, zhengxi-views, Three.js Game Skills, and
 Qwen-AgentWorld. The final handoff keeps the three skill workflow records in

@@ -3868,6 +3868,23 @@ def _skill_route_discovery_pass3_local_validation_lane(
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": spec["validation_target"],
                 "replay_command": spec["replay_command"],
+                "bounded_lane_contract": {
+                    "controller_surface": "skill_route_discovery_pass3_bounded_lane_contract",
+                    "selected_lane_bounded": selected_lane in bounded_lanes,
+                    "allowed_lane_count": len(bounded_lanes),
+                    "unsupported_lanes_removed": sorted(dict.fromkeys(matched_downgraded_lanes)),
+                    "activation_gate": "local_validation_before_activation",
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                },
                 "downgraded_lane_names": list(dict.fromkeys(matched_downgraded_lanes)),
                 "uncertainty": next((note for note in row_uncertainty_notes if note), ""),
                 "activation_blockers": blockers,
@@ -3896,7 +3913,7 @@ def _skill_route_discovery_pass3_local_validation_lane(
             if ready
             else "repair_pass3_skill_route_local_lanes_before_activation"
         ),
-        "source_digest": "github-growth-20260627T170310.779794Z",
+        "source_digest": "github-growth-20260627T194729.481658Z",
         "capability_pass": 3,
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
@@ -3920,6 +3937,7 @@ def _skill_route_discovery_pass3_local_validation_lane(
             "focused_local_validation",
             "review_note",
         ],
+        "operator_replay_contract": _skill_route_discovery_pass3_operator_replay_contract(rows, ready),
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
@@ -3933,6 +3951,70 @@ def _skill_route_discovery_pass3_local_validation_lane(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass3_operator_replay_contract(
+    rows: Sequence[Mapping[str, Any]],
+    ready: bool,
+) -> dict[str, Any]:
+    """Give the supervisor one body-free replay contract for pass-3 skill lanes."""
+
+    blocked_proposal_ids = [
+        str(row.get("proposal_id") or "")
+        for row in rows
+        if str(row.get("status") or "") != "ready"
+    ]
+    replay_commands = [
+        str(row.get("replay_command") or "")
+        for row in rows
+        if str(row.get("replay_command") or "").strip()
+    ]
+    return {
+        "controller_surface": "skill_route_discovery_pass3_operator_replay_contract",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "supervisor_can_replay_pass3_skill_lanes_before_final_pass"
+            if ready
+            else "repair_pass3_skill_lanes_before_supervisor_replay"
+        ),
+        "proposal_ids": [
+            str(row.get("proposal_id") or "")
+            for row in rows
+            if str(row.get("proposal_id") or "").strip()
+        ],
+        "blocked_proposal_ids": [proposal_id for proposal_id in blocked_proposal_ids if proposal_id],
+        "row_count": len(rows),
+        "ready_row_count": len(rows) - len(blocked_proposal_ids),
+        "selected_local_lanes": list(
+            dict.fromkeys(
+                str(row.get("selected_local_lane") or "")
+                for row in rows
+                if str(row.get("selected_local_lane") or "").strip()
+            )
+        ),
+        "replay_command_hashes": [_stable_hash(command) for command in dict.fromkeys(replay_commands)],
+        "rollback_artifact_required": True,
+        "rollback_ref_required": True,
+        "activation_gate": "local_validation_before_activation",
+        "operator_next_action": (
+            "run_replay_commands_then_continue_to_final_pass"
+            if ready
+            else "repair_blocked_rows_then_rebuild_pass3_local_validation_lane"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
