@@ -3741,6 +3741,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     secondary_harness_bridge = output["capability_window_completion"]["completion_report"][
         "secondary_harness_bridge"
     ]
+    final_lane_policy_inventory = output["capability_window_completion"]["completion_report"][
+        "final_lane_policy_inventory"
+    ]
     provider_runtime_interpretation_panel = output["capability_window_completion"]["completion_report"][
         "provider_runtime_interpretation_panel"
     ]
@@ -3784,6 +3787,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "final_route_handoff_manifest": final_route_handoff_manifest,
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
+        "final_lane_policy_inventory": final_lane_policy_inventory,
         "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
         "runner_harness_control_plane": runner_harness_control_plane,
@@ -6018,6 +6022,45 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert secondary_bridge["provider_runtime_launch_allowed"] is False
     assert secondary_bridge["remote_execution_allowed"] is False
     assert secondary_bridge["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    inventory = output["capability_window_completion"]["completion_report"]["final_lane_policy_inventory"]
+    serialized = json.dumps(inventory, sort_keys=True)
+    assert inventory["controller_surface"] == "skill_route_discovery_final_lane_policy_inventory"
+    assert inventory["status"] == "ready"
+    assert inventory["decision"] == "final_skill_route_lanes_ready_for_operator_policy_review"
+    assert inventory["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert inventory["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert inventory["covered_allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert inventory["selected_local_lanes"] == ["config", "test"]
+    assert inventory["row_count"] == 3
+    assert inventory["ready_row_count"] == 3
+    assert inventory["blocked_row_count"] == 0
+    assert inventory["selected_evidence_ref_count"] == 3
+    assert inventory["evidence_url_hash_count"] == 3
+    assert inventory["agent_harness_eval_required_count"] == 1
+    inventory_rows = {row["route_profile"]: row for row in inventory["rows"]}
+    assert inventory_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert inventory_rows["codex_workflow_gate"]["agent_harness_eval_required"] is True
+    assert inventory_rows["codex_workflow_gate"]["secondary_lane_status"] == (
+        "blocked_until_local_corroboration"
+    )
+    assert inventory_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert inventory_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(row["lane_allowed"] is True for row in inventory["rows"])
+    assert all(row["proposal_kind_present"] is True for row in inventory["rows"])
+    assert all(row["selected_lane_in_allowed_set"] is True for row in inventory["rows"])
+    assert all(row["required_validation_count"] == 3 for row in inventory["rows"])
+    assert all(row["diagnostic_count"] == 0 for row in inventory["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in inventory["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in inventory["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in inventory["rows"])
+    assert inventory["runtime_action_allowed"] is False
+    assert inventory["external_skill_activation_allowed"] is False
+    assert inventory["external_harness_execution_allowed"] is False
+    assert inventory["provider_runtime_launch_allowed"] is False
+    assert inventory["remote_execution_allowed"] is False
+    assert inventory["raw_evidence_urls_exported"] is False
+    assert inventory["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
     consistency_guard = output["capability_window_completion"]["completion_report"]["completion_consistency_guard"]
     serialized = json.dumps(consistency_guard, sort_keys=True)

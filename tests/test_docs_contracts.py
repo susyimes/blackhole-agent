@@ -422,6 +422,12 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "`completion_consistency_guard`",
         "selected local lane set must match across those surfaces",
         "Diagnostics are reported only as hashes",
+        "`final_lane_policy_inventory`",
+        "allowed local lane set, proposal kinds, selected local lanes",
+        "replay-command hashes",
+        "derived from `final_route_handoff_manifest`,\n"
+        "`route_validation_lane_queue`, and `secondary_harness_bridge`",
+        "does not add\nlanes, accept raw repository URLs, export upstream bodies",
         "rollback\nnotes require a rollback ref and artifact before source changes",
         "runtime action\nremains `none`, and external skill activation remains false",
         "Each checklist row and activation row also carries\n`inspection_requirements`",

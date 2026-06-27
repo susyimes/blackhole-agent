@@ -2020,6 +2020,17 @@ it does not grant runtime action, external skill activation, external harness
 execution, provider launch, remote execution, raw evidence URL export, raw
 source URL export, or upstream body export.
 
+Pass-4 completion also emits `final_lane_policy_inventory`. This is the
+operator-facing inventory for the completed skill-route slice: it repeats the
+allowed local lane set, proposal kinds, selected local lanes, evidence-ref and
+evidence-URL hash counts, profile rows, replay-command hashes, and whether a
+later agent-harness evaluation remains blocked behind local corroboration. The
+inventory is derived from `final_route_handoff_manifest`,
+`route_validation_lane_queue`, and `secondary_harness_bridge`; it does not add
+lanes, accept raw repository URLs, export upstream bodies, install upstream
+skills, execute external harnesses, launch providers, perform remote execution,
+or grant runtime action.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

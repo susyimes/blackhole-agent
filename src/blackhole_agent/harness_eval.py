@@ -9241,6 +9241,15 @@ def skill_route_discovery_completion_report(
         final_route_handoff_manifest=final_route_handoff_manifest,
         route_validation_lane_queue=route_validation_lane_queue,
     )
+    final_lane_policy_inventory = skill_route_discovery_final_lane_policy_inventory(
+        ready=ready,
+        proposal_kinds=proposal_kinds,
+        current_window_evidence_gate=current_window_evidence_gate,
+        final_route_handoff_manifest=final_route_handoff_manifest,
+        route_validation_lane_queue=route_validation_lane_queue,
+        secondary_harness_bridge=secondary_harness_bridge,
+        blocked_reasons=blocked_reasons,
+    )
     provider_runtime_interpretation_panel = skill_route_discovery_provider_runtime_interpretation_panel(
         ready=ready,
         theme=theme,
@@ -9304,6 +9313,7 @@ def skill_route_discovery_completion_report(
         "final_route_handoff_manifest": final_route_handoff_manifest,
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
+        "final_lane_policy_inventory": final_lane_policy_inventory,
         "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
         "runner_harness_control_plane": runner_harness_control_plane,
@@ -10268,6 +10278,148 @@ def skill_route_discovery_secondary_harness_bridge(
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_final_lane_policy_inventory(
+    *,
+    ready: bool,
+    proposal_kinds: list[str],
+    current_window_evidence_gate: dict[str, Any],
+    final_route_handoff_manifest: dict[str, Any],
+    route_validation_lane_queue: dict[str, Any],
+    secondary_harness_bridge: dict[str, Any],
+    blocked_reasons: list[str],
+) -> dict[str, Any]:
+    """Summarize final-pass route lanes without adding activation authority."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    allowed_lane_set = set(allowed_lanes)
+    queue_rows = route_validation_lane_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    bridge_rows = secondary_harness_bridge.get("rows")
+    bridge_rows = bridge_rows if isinstance(bridge_rows, list) else []
+    bridge_by_profile = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in bridge_rows
+        if isinstance(row, dict)
+    }
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for queue_row in queue_rows:
+        if not isinstance(queue_row, dict):
+            continue
+        route_profile = optional_string(queue_row.get("route_profile")) or "generic_skill_workflow"
+        selected_lane = optional_string(queue_row.get("selected_local_lane")) or ""
+        bridge_row = bridge_by_profile.get(route_profile, {})
+        row_diagnostics = string_list(queue_row.get("diagnostics"))
+        lane_allowed = selected_lane in allowed_lane_set
+        if not lane_allowed:
+            row_diagnostics.append("selected_lane_not_allowed")
+        if selected_lane and selected_lane not in proposal_kinds:
+            row_diagnostics.append("selected_lane_missing_from_proposal_kinds")
+        if optional_string(queue_row.get("status")) != "ready":
+            row_diagnostics.append("route_validation_lane_not_ready")
+        if optional_string(bridge_row.get("status")) not in {"", "ready"}:
+            row_diagnostics.append("secondary_bridge_not_ready")
+        if queue_row.get("runtime_action_allowed") is not False:
+            row_diagnostics.append("runtime_action_not_denied")
+        if queue_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if queue_row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        if queue_row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_not_denied")
+        if queue_row.get("remote_execution_allowed") is not False:
+            row_diagnostics.append("remote_execution_not_denied")
+        if queue_row.get("raw_evidence_urls_exported") is not False:
+            row_diagnostics.append("raw_evidence_urls_exported")
+        if queue_row.get("raw_source_urls_exported") is not False:
+            row_diagnostics.append("raw_source_urls_exported")
+
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        diagnostics.extend(f"{route_profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "route_profile": route_profile,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "selected_local_lane": selected_lane,
+                "lane_allowed": lane_allowed,
+                "proposal_kind_present": selected_lane in proposal_kinds,
+                "selected_lane_in_allowed_set": lane_allowed,
+                "evidence_item_id_count": int(queue_row.get("evidence_item_id_count") or 0),
+                "candidate_source_count": int(queue_row.get("candidate_source_count") or 0),
+                "agent_harness_eval_required": bridge_row.get("agent_harness_eval_required") is True,
+                "secondary_lane_status": optional_string(bridge_row.get("secondary_lane_status")) or "",
+                "required_validation_count": len(string_list(queue_row.get("required_validation"))),
+                "required_validation_hashes": [
+                    stable_text_hash(command) for command in string_list(queue_row.get("required_validation"))
+                ],
+                "diagnostic_count": len(row_diagnostics),
+                "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in row_diagnostics],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    rows = sorted(rows, key=lambda row: row["route_profile"])
+    selected_lanes = sorted(dict.fromkeys(row["selected_local_lane"] for row in rows if row["selected_local_lane"]))
+    covered_allowed_lanes = [lane for lane in allowed_lanes if lane in proposal_kinds]
+    inventory_ready = (
+        ready
+        and bool(rows)
+        and not diagnostics
+        and optional_string(current_window_evidence_gate.get("status")) == "ready"
+        and optional_string(final_route_handoff_manifest.get("status")) == "ready"
+        and optional_string(route_validation_lane_queue.get("status")) == "ready"
+        and optional_string(secondary_harness_bridge.get("status")) == "ready"
+        and not blocked_reasons
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_final_lane_policy_inventory",
+        "status": "ready" if inventory_ready else "blocked",
+        "decision": "final_skill_route_lanes_ready_for_operator_policy_review"
+        if inventory_ready
+        else "repair_final_skill_route_lane_policy_before_handoff",
+        "allowed_local_lanes": allowed_lanes,
+        "proposal_kinds": sorted(dict.fromkeys(proposal_kinds)),
+        "covered_allowed_lanes": covered_allowed_lanes,
+        "selected_local_lanes": selected_lanes,
+        "selected_local_lane_count": len(selected_lanes),
+        "row_count": len(rows),
+        "ready_row_count": sum(1 for row in rows if row["status"] == "ready"),
+        "blocked_row_count": sum(1 for row in rows if row["status"] != "ready"),
+        "selected_evidence_ref_count": int(current_window_evidence_gate.get("selected_evidence_ref_count") or 0),
+        "evidence_url_hash_count": int(current_window_evidence_gate.get("evidence_url_hash_count") or 0),
+        "agent_harness_eval_required_count": int(
+            secondary_harness_bridge.get("agent_harness_eval_required_count") or 0
+        ),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 

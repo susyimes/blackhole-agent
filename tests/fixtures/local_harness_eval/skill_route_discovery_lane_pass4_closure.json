@@ -251,6 +251,34 @@
       "equals": false
     },
     {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.allowed_local_lanes",
+      "equals": ["documentation", "config", "test", "code_patch"]
+    },
+    {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.selected_local_lanes",
+      "equals": ["config", "test"]
+    },
+    {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.row_count",
+      "equals": 3
+    },
+    {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.agent_harness_eval_required_count",
+      "equals": 1
+    },
+    {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.final_lane_policy_inventory.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
       "path": "capability_window_completion.final_slice_closure.runtime_action_allowed",
       "equals": false
     },
