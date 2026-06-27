@@ -2630,6 +2630,97 @@ def test_skill_route_discovery_pass2_route_classification_fixture_is_bounded():
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
 
+    growth_summary = lane_map["growth_route_summary_artifact"]
+    assert growth_summary["controller_surface"] == "skill_route_discovery_growth_route_summary_artifact"
+    assert growth_summary["status"] == "ready"
+    assert growth_summary["decision"] == "summarize_pass2_skill_routes_for_operator_review"
+    assert growth_summary["capability_pass"] == 2
+    assert growth_summary["review_gate"] == "focused-evidence-review"
+    assert growth_summary["artifact_contract"] == "body_free_hash_only_growth_route_summary"
+    assert growth_summary["candidate_count"] == 3
+    assert growth_summary["proposal_count"] == 3
+    assert growth_summary["ready_proposal_count"] == 3
+    assert growth_summary["blocked_proposal_ids"] == []
+    assert growth_summary["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert growth_summary["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert growth_summary["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert growth_summary["downgraded_lane_names"] == [
+        "install",
+        "provider_runtime",
+        "runtime_execution",
+    ]
+    assert growth_summary["selected_evidence_item_ids"] == [
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-handoff-config",
+    ]
+    assert growth_summary["validation_targets"] == [
+        "generic_skill_workflow_fixture_stays_bounded",
+        "game_frontend_workflow_profile_maps_to_local_validation",
+        "skill_ecosystem_state_handoff_maps_to_metadata_only_config",
+    ]
+    assert growth_summary["source_surface_statuses"] == {
+        "pass2_fixture_validation_lane": "ready",
+        "pass2_profile_lane_handoff": "ready",
+        "pass2_validation_handoff": "ready",
+    }
+    assert growth_summary["required_evidence"] == [
+        "route_classification_fixture",
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "changed_file_review",
+        "review_note",
+    ]
+    assert growth_summary["operator_handoff"] == "external_supervisor_review_before_activation"
+    assert growth_summary["local_validation_required"] is True
+    assert growth_summary["runtime_action"] == "none"
+    assert growth_summary["external_skill_activation_allowed"] is False
+    assert growth_summary["external_agent_activation_allowed"] is False
+    assert growth_summary["external_harness_execution_allowed"] is False
+    assert growth_summary["provider_runtime_launch_allowed"] is False
+    assert growth_summary["remote_execution_allowed"] is False
+    assert growth_summary["profile_write_allowed"] is False
+    assert growth_summary["memory_write_allowed"] is False
+    assert growth_summary["raw_source_url_exported"] is False
+    assert growth_summary["raw_evidence_urls_exported"] is False
+    assert growth_summary["raw_target_paths_exported"] is False
+    assert growth_summary["raw_upstream_body_exported"] is False
+    assert growth_summary["raw_replay_commands_exported"] is False
+    assert all(command_hash.startswith("sha256:") for command_hash in growth_summary["replay_command_hashes"])
+
+    serialized_summary = json.dumps(growth_summary, sort_keys=True)
+    assert "https://github.com/" not in serialized_summary
+    assert "python -m pytest" not in serialized_summary
+    summary_rows = {row["proposal_id"]: row for row in growth_summary["rows"]}
+    assert set(summary_rows) == set(handoff_rows)
+    for row in summary_rows.values():
+        assert row["status"] == "ready"
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["candidate_source_hashes"]
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+        assert row["selected_evidence_item_ids"]
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert row["raw_replay_command_exported"] is False
+
 
 def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_window():
     fixture_path = (

@@ -1198,6 +1198,22 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         candidate_lane_inventory
     )
     registry_validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
+    pass2_fixture_validation_lane = _skill_route_discovery_pass2_fixture_validation_lane(
+        candidate_lane_inventory
+    )
+    pass2_profile_lane_handoff = _skill_route_discovery_pass2_profile_lane_handoff(
+        candidate_lane_inventory
+    )
+    pass2_validation_handoff = _skill_route_discovery_pass2_validation_handoff(
+        local_activation_targets,
+        route_profile_handoff_queue,
+    )
+    growth_route_summary_artifact = _skill_route_discovery_growth_route_summary_artifact(
+        pass2_fixture_validation_lane,
+        pass2_profile_lane_handoff,
+        pass2_validation_handoff,
+        downgraded_candidates,
+    )
 
     return {
         "schema_version": 1,
@@ -1228,12 +1244,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_pass_validation_cases": _skill_route_discovery_current_pass_validation_cases(
             candidate_lane_inventory
         ),
-        "pass2_fixture_validation_lane": _skill_route_discovery_pass2_fixture_validation_lane(
-            candidate_lane_inventory
-        ),
-        "pass2_profile_lane_handoff": _skill_route_discovery_pass2_profile_lane_handoff(
-            candidate_lane_inventory
-        ),
+        "pass2_fixture_validation_lane": pass2_fixture_validation_lane,
+        "pass2_profile_lane_handoff": pass2_profile_lane_handoff,
+        "growth_route_summary_artifact": growth_route_summary_artifact,
         "pass3_route_discovery_index": _skill_route_discovery_pass3_route_discovery_index(
             candidate_lane_inventory
         ),
@@ -1253,10 +1266,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
         "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
-        "pass2_validation_handoff": _skill_route_discovery_pass2_validation_handoff(
-            local_activation_targets,
-            route_profile_handoff_queue,
-        ),
+        "pass2_validation_handoff": pass2_validation_handoff,
         "adoption_manifest": adoption_manifest,
         "privacy_review_panel": privacy_review_panel,
         "completion_workflow": completion_workflow,
@@ -4290,6 +4300,152 @@ def _skill_route_discovery_pass2_validation_handoff(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_growth_route_summary_artifact(
+    pass2_fixture_validation_lane: Mapping[str, Any],
+    pass2_profile_lane_handoff: Mapping[str, Any],
+    pass2_validation_handoff: Mapping[str, Any],
+    downgraded_candidates: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize pass-2 skill-route growth without exporting executable inputs."""
+
+    raw_handoff_rows = pass2_profile_lane_handoff.get("rows")
+    handoff_rows = (
+        raw_handoff_rows
+        if isinstance(raw_handoff_rows, Sequence) and not isinstance(raw_handoff_rows, (str, bytes))
+        else []
+    )
+    downgraded_lane_names: list[str] = []
+    for candidate in downgraded_candidates:
+        if not isinstance(candidate, Mapping):
+            continue
+        downgraded_lane_names.extend(_string_list(candidate.get("rejected_lanes")))
+
+    rows: list[dict[str, Any]] = []
+    observed_route_profiles: list[str] = []
+    selected_local_lanes: list[str] = []
+    selected_evidence_item_ids: list[str] = []
+    validation_targets: list[str] = []
+    replay_command_hashes: list[str] = []
+    blocked_proposal_ids: list[str] = []
+
+    for raw_row in handoff_rows:
+        if not isinstance(raw_row, Mapping):
+            continue
+        proposal_id = str(raw_row.get("proposal_id") or "")
+        route_profiles = _string_list(raw_row.get("route_profiles"))
+        selected_lane = str(raw_row.get("selected_local_lane") or "")
+        validation_target = str(raw_row.get("validation_target") or "")
+        replay_command = str(raw_row.get("replay_command") or "")
+        activation_blockers = _string_list(raw_row.get("activation_blockers"))
+        row_status = str(raw_row.get("status") or "")
+
+        observed_route_profiles.extend(route_profiles)
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_local_lanes.append(selected_lane)
+        selected_evidence_item_ids.extend(_string_list(raw_row.get("selected_evidence_item_ids")))
+        if validation_target:
+            validation_targets.append(validation_target)
+        if replay_command:
+            replay_command_hashes.append(_stable_hash(replay_command))
+        if row_status != "ready" and proposal_id:
+            blocked_proposal_ids.append(proposal_id)
+
+        rows.append(
+            {
+                "proposal_id": proposal_id,
+                "status": "ready" if row_status == "ready" and not activation_blockers else "blocked",
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "validation_target": validation_target,
+                "validation_gates": _string_list(raw_row.get("validation_gates")),
+                "candidate_source_hashes": _string_list(raw_row.get("candidate_source_hashes")),
+                "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
+                "replay_command_hash": _stable_hash(replay_command) if replay_command else "",
+                "activation_blockers": activation_blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+                "raw_replay_command_exported": False,
+            }
+        )
+
+    ready = (
+        bool(rows)
+        and not blocked_proposal_ids
+        and pass2_fixture_validation_lane.get("status") == "ready"
+        and pass2_profile_lane_handoff.get("status") == "ready"
+        and pass2_validation_handoff.get("status") == "ready"
+        and all(row["status"] == "ready" for row in rows)
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_growth_route_summary_artifact",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "summarize_pass2_skill_routes_for_operator_review"
+            if ready
+            else "repair_pass2_skill_route_surfaces_before_summary_handoff"
+        ),
+        "capability_pass": 2,
+        "review_gate": "focused-evidence-review",
+        "artifact_contract": "body_free_hash_only_growth_route_summary",
+        "candidate_count": int(pass2_fixture_validation_lane.get("candidate_count") or 0),
+        "proposal_count": len(rows),
+        "ready_proposal_count": len([row for row in rows if row["status"] == "ready"]),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "observed_route_profiles": sorted(dict.fromkeys(observed_route_profiles)),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_local_lanes)
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "downgraded_lane_names": sorted(dict.fromkeys(downgraded_lane_names)),
+        "selected_evidence_item_ids": list(dict.fromkeys(selected_evidence_item_ids)),
+        "validation_targets": list(dict.fromkeys(validation_targets)),
+        "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
+        "source_surface_statuses": {
+            "pass2_fixture_validation_lane": str(pass2_fixture_validation_lane.get("status") or ""),
+            "pass2_profile_lane_handoff": str(pass2_profile_lane_handoff.get("status") or ""),
+            "pass2_validation_handoff": str(pass2_validation_handoff.get("status") or ""),
+        },
+        "required_evidence": [
+            "route_classification_fixture",
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "changed_file_review",
+            "review_note",
+        ],
+        "operator_handoff": "external_supervisor_review_before_activation",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "raw_replay_commands_exported": False,
         "rows": rows,
     }
 

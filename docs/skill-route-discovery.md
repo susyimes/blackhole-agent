@@ -187,6 +187,19 @@ surface that checks route class, selected bounded lane, evidence item IDs or
 frozen fixture presence, and `local_validation_required: true` before any later
 activation handoff.
 
+Source digest `github-growth-20260627T180729.492580Z` continues pass 2 with a
+growth-route summary artifact for the same COMPASS Skills, zhengxi-views, and
+Three.js Game Skills window. The lane map now emits
+`growth_route_summary_artifact`, derived from the pass-2 fixture validation
+lane, profile lane handoff, and validation handoff. It gives operators one
+compact body-free summary of proposal IDs, route profiles, selected bounded
+lanes, downgraded unsupported lane pressure, selected evidence item IDs,
+validation targets, and replay-command hashes. It deliberately does not export
+raw GitHub URLs, raw replay commands, local target paths, or upstream bodies,
+and it continues to deny runtime action, external skill or agent activation,
+external harness execution, provider launch, remote execution, profile writes,
+and memory writes.
+
 Source digest `github-growth-20260627T132310.624297Z` keeps pass 2 active and
 adds `pass2_profile_lane_handoff` beside the fixture validation lane. This
 operator surface maps the active proposal IDs
