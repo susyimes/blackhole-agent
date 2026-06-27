@@ -1,0 +1,22 @@
+Rollback point for source digest github-growth-20260627T110310.772544Z
+
+Original branch: codex/blackhole-evolve/20260627T110426.674804-create-a-local-skill-route-discovery-probe-for-a
+Original HEAD: e48a89bfc41e7be65e7f0c06c2fa723853c516bd
+Local rollback ref: refs/rollback/20260627T110309Z-skill-route-discovery-pass3
+
+Recovery commands, for an explicit human or supervisor rollback only:
+
+git switch codex/blackhole-evolve/20260627T110426.674804-create-a-local-skill-route-discovery-probe-for-a
+git reset --hard e48a89bfc41e7be65e7f0c06c2fa723853c516bd
+
+Run scope:
+
+- Capability theme: skill-route-discovery
+- Pass: 3 of 4
+- Primary expected change: convert skill and route evidence into bounded local lanes that can be validated before activation.
+- Source evidence URLs: https://github.com/lyra81604/zhengxi-views, https://github.com/majidmanzarpour/threejs-game-skills, https://github.com/dongshuyan/compass-skills
+
+Notes:
+
+- Rollback is destructive and must not be executed by this kernel run.
+- This artifact must remain available after the run for audit and recovery.

@@ -1151,6 +1151,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_pass_validation_cases": _skill_route_discovery_current_pass_validation_cases(
             candidate_lane_inventory
         ),
+        "pass3_activation_handoff": _skill_route_discovery_pass3_activation_handoff(
+            candidate_lane_inventory
+        ),
         "pass4_local_lane_validation": _skill_route_discovery_pass4_local_lane_validation(
             candidate_lane_inventory
         ),
@@ -2307,6 +2310,127 @@ def _skill_route_discovery_current_pass_validation_cases(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass3_activation_handoff(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Prepare the active skill-route pass for supervisor replay.
+
+    Pass 3 is the review handoff between current validation cases and final
+    completion. It does not activate upstream skills; it makes the activation
+    blockers and local replay commands visible before a supervisor can promote
+    the route.
+    """
+
+    proposal_aliases = {
+        "p1_skill_route_discovery_generic_views": "p1-skill-route-discovery-zhengxi-views",
+        "p2_skill_route_discovery_game_frontend": "p2-game-frontend-skill-route",
+        "p3_skill_ecosystem_state_handoff_config": "p3-skill-ecosystem-state-handoff",
+    }
+    validation_cases = _skill_route_discovery_current_pass_validation_cases(candidate_lane_inventory)
+    focused_review = _skill_route_discovery_focused_evidence_review_lane(candidate_lane_inventory)
+
+    rows: list[dict[str, Any]] = []
+    for case_row in validation_cases["rows"]:
+        if not isinstance(case_row, Mapping):
+            continue
+        case_proposal_id = str(case_row.get("proposal_id") or "")
+        status = str(case_row.get("status") or "blocked")
+        activation_blockers = []
+        if status != "ready":
+            activation_blockers.append("current_pass_validation_case_not_ready")
+        if not _string_list(case_row.get("candidate_names")):
+            activation_blockers.append("missing_candidate_evidence")
+        if not _string_list(case_row.get("selected_local_lane")):
+            activation_blockers.append("missing_selected_local_lane")
+
+        rows.append(
+            {
+                "proposal_id": proposal_aliases.get(case_proposal_id, case_proposal_id),
+                "source_case_id": case_proposal_id,
+                "status": status,
+                "activation_decision": (
+                    "ready_for_supervisor_replay"
+                    if status == "ready" and not activation_blockers
+                    else "blocked_before_activation"
+                ),
+                "candidate_names": _string_list(case_row.get("candidate_names")),
+                "candidate_source_hashes": _string_list(case_row.get("candidate_source_hashes")),
+                "route_profiles": _string_list(case_row.get("route_profiles")),
+                "allowed_local_lanes": _string_list(case_row.get("allowed_local_lanes")),
+                "selected_local_lane": str(case_row.get("selected_local_lane") or ""),
+                "selected_evidence_item_ids": _string_list(case_row.get("selected_evidence_item_ids")),
+                "validation_gate": str(case_row.get("validation_gate") or ""),
+                "validation_target": str(case_row.get("validation_target") or ""),
+                "replay_command": str(case_row.get("replay_command") or ""),
+                "activation_blockers": activation_blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row["proposal_id"] for row in rows if row["activation_decision"] != "ready_for_supervisor_replay"]
+    replay_commands = list(dict.fromkeys(row["replay_command"] for row in rows if row["replay_command"]))
+    focused_review_ready = focused_review.get("status") == "ready"
+    status = "ready" if rows and not blocked_rows and focused_review_ready else "blocked"
+    return {
+        "controller_surface": "skill_route_discovery_pass3_activation_handoff",
+        "status": status,
+        "decision": (
+            "pass3_skill_route_handoff_ready_for_supervisor_replay"
+            if status == "ready"
+            else "repair_pass3_skill_route_handoff_before_activation"
+        ),
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [row["proposal_id"] for row in rows],
+        "ready_proposal_count": len(rows) - len(blocked_rows),
+        "blocked_proposal_ids": blocked_rows,
+        "focused_review_status": str(focused_review.get("status") or ""),
+        "focused_review_blocked_proposal_ids": _string_list(focused_review.get("blocked_proposal_ids")),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": list(
+            dict.fromkeys(row["selected_local_lane"] for row in rows if row["selected_local_lane"])
+        ),
+        "replay_commands": replay_commands,
+        "recovery_workflow": (
+            "run_replay_commands_then_recheck_pass3_activation_handoff"
+            if status == "ready"
+            else "repair_blocked_rows_then_rerun_current_pass_validation_cases"
+        ),
+        "required_evidence": [
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
         "raw_source_url_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,

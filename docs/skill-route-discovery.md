@@ -144,6 +144,20 @@ selected item IDs only, denies runtime action, external skill activation,
 external harness execution, provider launch, remote execution, raw source URL
 export, raw target path export, and upstream body export.
 
+Source digest `github-growth-20260627T110310.772544Z` continues that pass with
+`pass3_activation_handoff`. The handoff maps the current proposal IDs
+`p1-skill-route-discovery-zhengxi-views`,
+`p2-game-frontend-skill-route`, and
+`p3-skill-ecosystem-state-handoff` to the validation cases already derived from
+zhengxi-views, Three.js Game Skills, and COMPASS Skills evidence. Its purpose is
+operator replay before final-pass completion: each row carries the selected
+bounded local lane, validation gate, validation target, replay command,
+candidate source hashes, and activation blockers. It is not an activation grant.
+Runtime action, external skill activation, external harness execution, provider
+launch, remote execution, profile writes, memory writes, raw source URL export,
+raw evidence URL export, raw target path export, and upstream body export remain
+denied.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`

@@ -1533,6 +1533,83 @@ def test_skill_route_discovery_current_window_pass1_proposal_intake_is_bounded()
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
 
+    pass3_handoff = lane_map["pass3_activation_handoff"]
+    assert pass3_handoff["controller_surface"] == "skill_route_discovery_pass3_activation_handoff"
+    assert pass3_handoff["status"] == "ready"
+    assert pass3_handoff["decision"] == "pass3_skill_route_handoff_ready_for_supervisor_replay"
+    assert pass3_handoff["capability_pass"] == 3
+    assert pass3_handoff["total_passes"] == 4
+    assert pass3_handoff["review_gate"] == "focused-evidence-review"
+    assert pass3_handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-game-frontend-skill-route",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert pass3_handoff["ready_proposal_count"] == 3
+    assert pass3_handoff["blocked_proposal_ids"] == []
+    assert pass3_handoff["focused_review_status"] == "ready"
+    assert pass3_handoff["focused_review_blocked_proposal_ids"] == []
+    assert pass3_handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert pass3_handoff["selected_local_lanes"] == ["test", "documentation", "config"]
+    assert pass3_handoff["recovery_workflow"] == "run_replay_commands_then_recheck_pass3_activation_handoff"
+    assert pass3_handoff["required_evidence"] == [
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "review_note",
+    ]
+    assert pass3_handoff["local_validation_required"] is True
+    assert pass3_handoff["runtime_action"] == "none"
+    assert pass3_handoff["external_skill_activation_allowed"] is False
+    assert pass3_handoff["external_harness_execution_allowed"] is False
+    assert pass3_handoff["provider_runtime_launch_allowed"] is False
+    assert pass3_handoff["remote_execution_allowed"] is False
+    assert pass3_handoff["profile_write_allowed"] is False
+    assert pass3_handoff["memory_write_allowed"] is False
+    assert pass3_handoff["raw_source_url_exported"] is False
+    assert pass3_handoff["raw_evidence_urls_exported"] is False
+    assert pass3_handoff["raw_target_paths_exported"] is False
+    assert pass3_handoff["raw_upstream_body_exported"] is False
+
+    handoff_rows = {row["proposal_id"]: row for row in pass3_handoff["rows"]}
+    assert set(handoff_rows) == set(pass3_handoff["proposal_ids"])
+    assert handoff_rows["p1-skill-route-discovery-zhengxi-views"]["source_case_id"] == (
+        "p1_skill_route_discovery_generic_views"
+    )
+    assert handoff_rows["p1-skill-route-discovery-zhengxi-views"]["candidate_names"] == ["zhengxi-views"]
+    assert handoff_rows["p1-skill-route-discovery-zhengxi-views"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert handoff_rows["p1-skill-route-discovery-zhengxi-views"]["selected_local_lane"] == "test"
+    assert handoff_rows["p2-game-frontend-skill-route"]["candidate_names"] == ["threejs-game-skills"]
+    assert handoff_rows["p2-game-frontend-skill-route"]["route_profiles"] == ["game_frontend_workflow"]
+    assert handoff_rows["p2-game-frontend-skill-route"]["selected_local_lane"] == "documentation"
+    assert handoff_rows["p3-skill-ecosystem-state-handoff"]["candidate_names"] == ["compass-skills"]
+    assert handoff_rows["p3-skill-ecosystem-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert handoff_rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+
+    for row in handoff_rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_decision"] == "ready_for_supervisor_replay"
+        assert row["activation_blockers"] == []
+        assert row["candidate_source_hashes"][0].startswith("sha256:")
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
 
 def test_skill_route_discovery_current_pass_validation_cases_accept_generic_python_skill_signal():
     registry = build_skill_route_discovery_registry_from_summaries(
@@ -1605,6 +1682,30 @@ def test_skill_route_discovery_current_pass_validation_cases_accept_generic_pyth
     assert rows["p1_skill_route_discovery_generic_views"]["external_harness_execution_allowed"] is False
     assert rows["p1_skill_route_discovery_generic_views"]["provider_runtime_launch_allowed"] is False
     assert rows["p1_skill_route_discovery_generic_views"]["remote_execution_allowed"] is False
+
+    pass3_handoff = lane_map["pass3_activation_handoff"]
+    assert pass3_handoff["status"] == "blocked"
+    assert pass3_handoff["decision"] == "repair_pass3_skill_route_handoff_before_activation"
+    assert pass3_handoff["ready_proposal_count"] == 1
+    assert pass3_handoff["blocked_proposal_ids"] == [
+        "p2-game-frontend-skill-route",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert pass3_handoff["recovery_workflow"] == "repair_blocked_rows_then_rerun_current_pass_validation_cases"
+    handoff_rows = {row["proposal_id"]: row for row in pass3_handoff["rows"]}
+    assert handoff_rows["p1-skill-route-discovery-zhengxi-views"]["activation_decision"] == (
+        "ready_for_supervisor_replay"
+    )
+    assert handoff_rows["p2-game-frontend-skill-route"]["activation_decision"] == "blocked_before_activation"
+    assert handoff_rows["p2-game-frontend-skill-route"]["activation_blockers"] == [
+        "current_pass_validation_case_not_ready",
+        "missing_candidate_evidence",
+        "missing_selected_local_lane",
+    ]
+    assert pass3_handoff["runtime_action"] == "none"
+    assert pass3_handoff["external_skill_activation_allowed"] is False
+    assert pass3_handoff["provider_runtime_launch_allowed"] is False
+    assert pass3_handoff["remote_execution_allowed"] is False
 
 
 def test_skill_route_discovery_current_pass2_focused_evidence_review_is_bounded():
