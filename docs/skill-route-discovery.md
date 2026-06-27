@@ -2455,6 +2455,22 @@ URLs or upstream bodies, and it denies runtime action, upstream skill
 activation, external agent activation, external harness execution, provider
 launch, and remote execution.
 
+Source digest `github-growth-20260627T214729.514933Z` keeps the active pass-1
+window on the same skill-route-discovery slice and adds
+`active_window_route_lane_matrix`. This matrix maps active proposal IDs into one
+row per bounded route: source-cited or generic skill repositories, game/frontend
+skill repositories, and skill-ecosystem handoff repositories stay in
+`skill_route_discovery` with only documentation, config, test, or code_patch as
+local lanes. General-agent benchmark evidence such as Qwen-AgentWorld stays in
+`agent_harness_eval_required` with documentation, test, or code_patch eval
+lanes and `skill_route_discovery_inherited: false`. The matrix is body-free and
+may expose proposal IDs, selected digest item IDs, source hashes, route profiles,
+validation gates, and replay commands; it must not export raw source URLs,
+upstream README bodies, provider inputs, target path bodies, or execution
+requests. Trend summaries are non-adoption evidence: they can open a bounded
+local validation lane, but they do not install, enable, run, or promote upstream
+skill or agent code.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes

@@ -6706,6 +6706,100 @@ def test_skill_route_discovery_pass1_registry_handoff_gates_qwen_agentworld_as_a
     assert "Qwen-AgentWorld" not in serialized
 
 
+def test_skill_route_discovery_active_window_matrix_separates_skill_and_agent_lanes():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_20260627_pass1_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = copy.deepcopy(fixture["input"])
+    input_payload["capability_window"]["anchoring_proposals"] = [
+        "p1-skill-route-discovery-matrix",
+        "p2-skill-route-docs",
+        "p3-skill-ecosystem-state-handoff",
+        "p3-agent-harness-eval-fixtures",
+    ]
+    input_payload["capability_window"]["evidence_urls"] = [
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+    ]
+    input_payload["evidence_items"][0]["item_id"] = "p1-skill-route-discovery-matrix"
+    input_payload["evidence_items"][1]["item_id"] = "p2-skill-route-docs"
+    input_payload["evidence_items"][2]["item_id"] = "p3-skill-ecosystem-state-handoff"
+    input_payload["evidence_items"].append(
+        {
+            "item_id": "p3-agent-harness-eval-fixtures",
+            "item_kind": "repository",
+            "name": "Qwen-AgentWorld",
+            "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+            "title": "General agent world-model benchmark evidence",
+            "summary": (
+                "General agent project with simulated agent environments, benchmark scoring, "
+                "terminal, web, SWE, Android, OS, MCP, and search domains."
+            ),
+            "topics": ["general-agent", "benchmark", "agent-harness"],
+            "suggested_lanes": ["documentation", "test", "code_patch"],
+        }
+    )
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_active_window_matrix_inline.json",
+    )
+    serialized = json.dumps(output["active_window_route_lane_matrix"], sort_keys=True)
+
+    matrix = output["active_window_route_lane_matrix"]
+    rows_by_id = {row["proposal_id"]: row for row in matrix["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert matrix["controller_surface"] == "skill_route_discovery_active_window_route_lane_matrix"
+    assert matrix["status"] == "ready"
+    assert matrix["decision"] == "active_window_routes_mapped_to_bounded_local_lanes"
+    assert matrix["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert matrix["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+    assert matrix["row_count"] == 4
+    assert matrix["skill_route_row_count"] == 3
+    assert matrix["agent_harness_eval_required_count"] == 1
+    assert matrix["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert matrix["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+
+    assert rows_by_id["p1-skill-route-discovery-matrix"]["primary_route"] == "skill_route_discovery"
+    assert rows_by_id["p1-skill-route-discovery-matrix"]["selected_local_lane"] == "documentation"
+    assert rows_by_id["p1-skill-route-discovery-matrix"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows_by_id["p2-skill-route-docs"]["primary_route"] == "skill_route_discovery"
+    assert rows_by_id["p2-skill-route-docs"]["selected_local_lane"] == "test"
+    assert rows_by_id["p2-skill-route-docs"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows_by_id["p3-skill-ecosystem-state-handoff"]["primary_route"] == "skill_route_discovery"
+    assert rows_by_id["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    assert rows_by_id["p3-skill-ecosystem-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+
+    agent_row = rows_by_id["p3-agent-harness-eval-fixtures"]
+    assert agent_row["primary_route"] == "agent_harness_eval_required"
+    assert agent_row["agent_harness_eval_required"] is True
+    assert agent_row["skill_route_discovery_inherited"] is False
+    assert agent_row["selected_local_lane"] == "none"
+    assert agent_row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert agent_row["blocked_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert agent_row["external_harness_execution_allowed"] is False
+    assert agent_row["provider_runtime_launch_allowed"] is False
+
+    assert all(row["local_validation_required"] is True for row in matrix["rows"])
+    assert all(row["runtime_action"] == "none" for row in matrix["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in matrix["rows"])
+    assert matrix["runtime_action_allowed"] is False
+    assert matrix["external_skill_activation_allowed"] is False
+    assert matrix["external_harness_execution_allowed"] is False
+    assert matrix["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "Qwen-AgentWorld" not in serialized
+
+
 def test_skill_route_discovery_lane_carries_current_source_digest_into_active_pass():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_20260627_pass1_window.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
