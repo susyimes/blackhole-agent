@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260627T170310.779794Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 3,
+    "total_passes": 4
+  },
+  "candidates": [
+    {
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "evidence_summary": "Public Python agent skill workflow with SKILL.md-style routing evidence, workflow validation notes, and repository-level view examples. Details were not inspected beyond the body-free digest evidence.",
+      "route_profiles": ["generic_skill_workflow"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "source_layout_signals": ["skill_markdown", "validation_script"],
+      "evidence_item_ids": ["p1-skill-route-discovery-index"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "evidence_summary": "Public Three.js browser game skill workflow with director/specialist skill language, frontend workflow checks, QA validation, scripts, scaffold helpers, and optional provider asset-generation pressure.",
+      "route_profiles": ["game_frontend_workflow"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset"],
+      "evidence_item_ids": ["p2-game-frontend-skill-profile"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "evidence_summary": "Public skill ecosystem evidence for task clarification, profile/state handoff, local memory boundaries, routing metadata, and collaboration workflow notes.",
+      "route_profiles": ["skill_ecosystem_state_handoff"],
+      "candidate_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "source_metadata_signals": ["skill_registry_metadata"],
+      "evidence_item_ids": ["p3-skill-ecosystem-state-handoff"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    }
+  ]
+}

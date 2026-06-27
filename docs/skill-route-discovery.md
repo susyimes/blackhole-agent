@@ -259,6 +259,20 @@ runtime action, external skill or agent activation, external harness execution,
 provider launch, remote execution, raw source URL export, raw evidence URL
 export, target path export, and upstream body export.
 
+Source digest `github-growth-20260627T170310.779794Z` advances pass 3 of the
+same skill-route-discovery slice with a current local validation lane. The lane
+map now emits `pass3_local_validation_lane`, keyed to
+`p1-skill-route-discovery-index`, `p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff`. It treats zhengxi-views as generic skill
+workflow evidence, Three.js Game Skills as `game_frontend_workflow`, and
+COMPASS Skills as `skill_ecosystem_state_handoff`. Each row selects only a
+bounded local lane, records source hashes and selected evidence item IDs,
+downgrades install/runtime/provider pressure, and carries uncertainty when
+repository details were not inspected. Runtime action, upstream skill
+activation, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw source URL export, raw evidence URL export,
+raw target path export, and upstream body export remain denied.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`

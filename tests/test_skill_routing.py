@@ -2113,6 +2113,124 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
 
 
+def test_skill_route_discovery_pass3_local_validation_lane_probes_current_skill_workflows():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass3_local_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry(payload["candidates"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "invalid_candidates_present"
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert lane_map["proposal_lane_count"] == 12
+    assert lane_map["downgraded_candidate_count"] == 3
+    assert lane_map["rejected_candidate_count"] == 0
+
+    lane = lane_map["pass3_local_validation_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_pass3_local_validation_lane"
+    assert lane["source_digest"] == "github-growth-20260627T170310.779794Z"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "pass3_skill_route_local_lanes_ready_for_validation"
+    assert lane["capability_pass"] == 3
+    assert lane["total_passes"] == 4
+    assert lane["review_gate"] == "focused-evidence-review"
+    assert lane["operator_handoff"] == "external_supervisor_replay_before_final_pass"
+    assert lane["proposal_count"] == 3
+    assert lane["ready_proposal_count"] == 3
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert lane["downgraded_lane_names"] == [
+        "install",
+        "provider_runtime",
+        "runtime_execution",
+    ]
+    assert any("missing_detail_risk" in note for note in lane["uncertainty_notes"])
+    assert lane["required_evidence"] == [
+        "three_skill_workflow_item_shapes",
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "review_note",
+    ]
+    assert lane["local_validation_required"] is True
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_target_paths_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    assert set(rows) == {
+        "p1-skill-route-discovery-index",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-state-handoff",
+    }
+    assert rows["p1-skill-route-discovery-index"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p1-skill-route-discovery-index"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p1-skill-route-discovery-index"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-index"]["selected_evidence_item_ids"] == [
+        "p1-skill-route-discovery-index"
+    ]
+
+    assert rows["p2-game-frontend-skill-profile"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["p2-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p2-game-frontend-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p2-game-frontend-skill-profile"]["validation_target"] == (
+        "document_game_frontend_workflow_without_expanding_lanes"
+    )
+
+    assert rows["p3-skill-ecosystem-state-handoff"]["candidate_names"] == ["compass-skills"]
+    assert rows["p3-skill-ecosystem-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    assert rows["p3-skill-ecosystem-state-handoff"]["validation_target"] == (
+        "state_handoff_metadata_stays_local_and_body_free"
+    )
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["candidate_source_hashes"][0].startswith("sha256:")
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert not {"provider_runtime", "runtime_execution", "install"} & set(row["allowed_local_lanes"])
+
+    serialized_lane = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized_lane
+
+
 def test_skill_route_discovery_current_pass2_focused_evidence_review_is_bounded():
     fixture_path = (
         Path(__file__).parent
