@@ -2235,6 +2235,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         pass1_validation_queue=pass1_validation_queue,
         pass1_route_registry_handoff=pass1_route_registry_handoff,
     )
+    active_window_activation_candidate_lane = skill_route_discovery_active_window_activation_candidate_lane(
+        active_window_route_lane_matrix=active_window_route_lane_matrix,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -2364,6 +2367,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass1_validation_queue": pass1_validation_queue,
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
         "active_window_route_lane_matrix": active_window_route_lane_matrix,
+        "active_window_activation_candidate_lane": active_window_activation_candidate_lane,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -8669,6 +8673,137 @@ def skill_route_discovery_active_window_route_lane_matrix(
         "required_validation": [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND],
         "agent_harness_eval_replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
         if agent_rows
+        else [],
+        "local_validation_required": bool(rows),
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_active_window_activation_candidate_lane(
+    *,
+    active_window_route_lane_matrix: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize active pass-1 rows as bounded supervisor replay candidates."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_skill_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    allowed_agent_eval_lanes = ["documentation", "test", "code_patch"]
+    matrix_rows = active_window_route_lane_matrix.get("rows")
+    matrix_rows = matrix_rows if isinstance(matrix_rows, list) else []
+    diagnostics = string_list(active_window_route_lane_matrix.get("diagnostics"))
+
+    rows: list[dict[str, Any]] = []
+    for matrix_row in matrix_rows:
+        if not isinstance(matrix_row, dict):
+            continue
+        primary_route = optional_string(matrix_row.get("primary_route")) or ""
+        selected_lane = optional_string(matrix_row.get("selected_local_lane")) or "none"
+        row_diagnostics = string_list(matrix_row.get("diagnostics"))
+        if primary_route == "skill_route_discovery":
+            lane_ready = (
+                selected_lane in allowed_skill_lanes
+                and matrix_row.get("ready_for_local_replay") is True
+                and not row_diagnostics
+            )
+            activation_status = "candidate_ready" if lane_ready else "candidate_blocked"
+            supervisor_replay_step = "replay_bounded_skill_route_validation_lane"
+            activation_blockers = [] if lane_ready else sorted(dict.fromkeys(row_diagnostics or ["local_replay_not_ready"]))
+        else:
+            lane_ready = False
+            activation_status = "blocked_adjacent_eval"
+            supervisor_replay_step = "route_to_agent_harness_eval_after_skill_lane"
+            activation_blockers = sorted(
+                dict.fromkeys(row_diagnostics or ["agent_harness_eval_required_before_runtime_behavior"])
+            )
+
+        rows.append(
+            {
+                "proposal_id": optional_string(matrix_row.get("proposal_id")) or "",
+                "primary_route": primary_route,
+                "activation_status": activation_status,
+                "supervisor_replay_step": supervisor_replay_step,
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": string_list(matrix_row.get("allowed_local_lanes")),
+                "route_profiles": string_list(matrix_row.get("route_profiles")),
+                "validation_gates": string_list(matrix_row.get("validation_gates")),
+                "evidence_ref_mode": optional_string(matrix_row.get("evidence_ref_mode")) or "selected_item_ids_only",
+                "evidence_item_ids": string_list(matrix_row.get("evidence_item_ids")),
+                "evidence_item_id_count": len(string_list(matrix_row.get("evidence_item_ids"))),
+                "candidate_source_hashes": string_list(matrix_row.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(matrix_row.get("candidate_source_hashes"))),
+                "activation_blockers": activation_blockers,
+                "ready_for_supervisor_replay": lane_ready,
+                "skill_route_discovery_inherited": matrix_row.get("skill_route_discovery_inherited") is True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    skill_rows = [row for row in rows if row["primary_route"] == "skill_route_discovery"]
+    adjacent_rows = [row for row in rows if row["primary_route"] == "agent_harness_eval_required"]
+    ready_skill_rows = [row for row in skill_rows if row["ready_for_supervisor_replay"] is True]
+    ready = (
+        active_window_route_lane_matrix.get("status") == "ready"
+        and bool(skill_rows)
+        and len(ready_skill_rows) == len(skill_rows)
+        and not diagnostics
+        and all(row["selected_local_lane"] in allowed_skill_lanes for row in skill_rows)
+        and all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows)
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_active_window_activation_candidate_lane",
+        "status": "ready" if ready else "blocked",
+        "decision": "active_pass1_skill_route_candidates_ready_for_supervisor_replay"
+        if ready
+        else "repair_active_pass1_activation_candidates_before_supervisor_replay",
+        "current_pass": int(active_window_route_lane_matrix.get("current_pass") or 0),
+        "total_passes": int(active_window_route_lane_matrix.get("total_passes") or 0),
+        "candidate_count": len(rows),
+        "ready_candidate_count": len(ready_skill_rows),
+        "blocked_candidate_count": len(rows) - len(ready_skill_rows),
+        "skill_route_candidate_count": len(skill_rows),
+        "adjacent_eval_candidate_count": len(adjacent_rows),
+        "selected_local_lanes": sorted(
+            {row["selected_local_lane"] for row in skill_rows if row["selected_local_lane"] in allowed_skill_lanes}
+        ),
+        "allowed_skill_route_lanes": allowed_skill_lanes,
+        "allowed_agent_harness_eval_lanes": allowed_agent_eval_lanes,
+        "route_profiles": sorted(
+            {profile for row in skill_rows for profile in string_list(row.get("route_profiles"))}
+        ),
+        "proposal_ids": [row["proposal_id"] for row in rows if row["proposal_id"]],
+        "supervisor_next_action": "replay_ready_skill_route_lanes_then_gate_adjacent_eval"
+        if adjacent_rows
+        else "replay_ready_skill_route_lanes",
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "required_validation": [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND],
+        "agent_harness_eval_replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+        if adjacent_rows
         else [],
         "local_validation_required": bool(rows),
         "body_free": True,

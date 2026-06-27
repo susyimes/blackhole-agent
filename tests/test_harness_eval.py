@@ -6749,7 +6749,9 @@ def test_skill_route_discovery_active_window_matrix_separates_skill_and_agent_la
     serialized = json.dumps(output["active_window_route_lane_matrix"], sort_keys=True)
 
     matrix = output["active_window_route_lane_matrix"]
+    activation_lane = output["active_window_activation_candidate_lane"]
     rows_by_id = {row["proposal_id"]: row for row in matrix["rows"]}
+    activation_rows_by_id = {row["proposal_id"]: row for row in activation_lane["rows"]}
 
     assert output["route_status"] == "passed"
     assert matrix["controller_surface"] == "skill_route_discovery_active_window_route_lane_matrix"
@@ -6798,6 +6800,58 @@ def test_skill_route_discovery_active_window_matrix_separates_skill_and_agent_la
     assert matrix["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
     assert "Qwen-AgentWorld" not in serialized
+
+    assert activation_lane["controller_surface"] == (
+        "skill_route_discovery_active_window_activation_candidate_lane"
+    )
+    assert activation_lane["status"] == "ready"
+    assert activation_lane["decision"] == (
+        "active_pass1_skill_route_candidates_ready_for_supervisor_replay"
+    )
+    assert activation_lane["candidate_count"] == 4
+    assert activation_lane["ready_candidate_count"] == 3
+    assert activation_lane["blocked_candidate_count"] == 1
+    assert activation_lane["skill_route_candidate_count"] == 3
+    assert activation_lane["adjacent_eval_candidate_count"] == 1
+    assert activation_lane["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert activation_lane["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert activation_lane["supervisor_next_action"] == (
+        "replay_ready_skill_route_lanes_then_gate_adjacent_eval"
+    )
+    assert activation_lane["required_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    ]
+    assert activation_lane["agent_harness_eval_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    ]
+    assert activation_rows_by_id["p1-skill-route-discovery-matrix"]["activation_status"] == (
+        "candidate_ready"
+    )
+    assert activation_rows_by_id["p2-skill-route-docs"]["activation_status"] == "candidate_ready"
+    assert activation_rows_by_id["p3-skill-ecosystem-state-handoff"]["activation_status"] == (
+        "candidate_ready"
+    )
+    assert activation_rows_by_id["p3-agent-harness-eval-fixtures"]["activation_status"] == (
+        "blocked_adjacent_eval"
+    )
+    assert activation_rows_by_id["p3-agent-harness-eval-fixtures"]["ready_for_supervisor_replay"] is False
+    assert activation_rows_by_id["p3-agent-harness-eval-fixtures"]["activation_blockers"] == [
+        "agent_harness_eval_required_before_runtime_behavior"
+    ]
+    assert all(
+        row["supervisor_replay_step"] == "replay_bounded_skill_route_validation_lane"
+        for row in activation_lane["rows"]
+        if row["primary_route"] == "skill_route_discovery"
+    )
+    assert all(row["runtime_action"] == "none" for row in activation_lane["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in activation_lane["rows"])
+    assert activation_lane["runtime_action_allowed"] is False
+    assert activation_lane["external_harness_execution_allowed"] is False
+    assert activation_lane["raw_source_urls_exported"] is False
 
 
 def test_skill_route_discovery_lane_carries_current_source_digest_into_active_pass():

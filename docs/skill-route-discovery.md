@@ -2488,6 +2488,20 @@ requests. Trend summaries are non-adoption evidence: they can open a bounded
 local validation lane, but they do not install, enable, run, or promote upstream
 skill or agent code.
 
+Source digest `github-growth-20260627T230729.530583Z` keeps pass 1 focused on
+operator-visible activation candidates for the same bounded lane set. The
+derived `active_window_activation_candidate_lane` summarizes the route matrix as
+supervisor replay rows: generic/source-cited skill workflow evidence such as
+zhengxi-views can become a documentation or test replay candidate, Three.js game
+skill evidence can become a local test/code_patch candidate only after frontend
+validation, and COMPASS-style state handoff evidence can become a config
+candidate without profile or memory writes. Adjacent agent-harness evidence such
+as Qwen-AgentWorld remains a blocked adjacent-eval row until the local
+`agent_harness_eval_lane` is replayed. The activation candidate lane exports
+proposal IDs, selected item IDs, route profiles, source hashes, validation
+commands, and blockers; it does not export raw repository URLs, upstream bodies,
+target paths, provider payloads, or execution requests.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes
