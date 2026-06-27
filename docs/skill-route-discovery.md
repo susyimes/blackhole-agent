@@ -304,6 +304,14 @@ runtime action, external skill or agent activation, external harness execution,
 provider launch, remote execution, raw source URL export, raw evidence URL
 export, target path export, and upstream body export.
 
+Source digest `github-growth-20260627T202729.517326Z` replays the active pass-1
+shape for the current wake. The registry now preserves caller-provided source
+digest metadata from frozen evidence items, and the harness lane summary
+surfaces the active pass-1 digest/status without exporting raw evidence URLs or
+the full upstream body. Older fixtures that do not carry digest metadata keep
+the previous fallback digest only for compatibility; current operator replay
+should prefer the carried digest when present.
+
 Source digest `github-growth-20260627T170310.779794Z` advances pass 3 of the
 same skill-route-discovery slice with a current local validation lane. The lane
 map now emits `pass3_local_validation_lane`, keyed to

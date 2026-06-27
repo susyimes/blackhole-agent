@@ -2603,6 +2603,7 @@ def test_skill_route_discovery_active_pass1_fixtures_queue_general_agent_evidenc
     assert active_window["blocked_proposal_ids"] == []
     assert active_window["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert active_window["selected_local_lanes"] == ["documentation", "config", "test"]
+
     assert active_window["required_evidence"] == [
         "selected_item_ids_or_frozen_fixture",
         "body_free_repository_summary",
@@ -2679,6 +2680,43 @@ def test_skill_route_discovery_active_pass1_fixtures_queue_general_agent_evidenc
     assert active_window_adjacent["skill_route_discovery_inherited"] is False
     assert active_window_adjacent["direct_runtime_route_allowed"] is False
     assert active_window_adjacent["direct_code_patch_route_allowed"] is False
+
+
+def test_skill_route_discovery_active_pass1_lane_uses_current_source_digest():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_pass1_skill_route_fixtures.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260627T202729.517326Z"
+    active_lane = lane_map["active_pass1_evidence_lane"]
+    assert active_lane["status"] == "ready"
+    assert active_lane["source_digest"] == payload["source_digest"]
+    assert active_lane["accepted_skill_route_count"] == 3
+    assert active_lane["adjacent_general_agent_count"] == 1
+    assert active_lane["covered_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert active_lane["selected_local_lanes"] == ["config", "test"]
+
+    adjacent_row = active_lane["adjacent_general_agent_rows"][0]
+    assert adjacent_row["item_id"] == "p3-current-qwen-agentworld-general-agent"
+    assert adjacent_row["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent_row["skill_route_discovery_inherited"] is False
+    assert adjacent_row["direct_runtime_route_allowed"] is False
+    assert adjacent_row["direct_code_patch_route_allowed"] is False
+    assert adjacent_row["external_harness_execution_allowed"] is False
+
+    serialized = json.dumps(active_lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
 
 
 def test_skill_route_discovery_pass2_route_classification_fixture_is_bounded():

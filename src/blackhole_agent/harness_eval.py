@@ -1933,6 +1933,17 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         registry = build_skill_route_discovery_registry(candidates)
     else:
         registry = build_skill_route_discovery_registry([])
+    source_digest = (
+        optional_string(raw_input.get("source_digest"))
+        or optional_string(
+            raw_input.get("capability_window", {}).get("source_digest")
+            if isinstance(raw_input.get("capability_window"), dict)
+            else None
+        )
+        or ""
+    )
+    if source_digest:
+        registry["source_digest"] = source_digest
 
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
     proposal_lanes = lane_map["proposal_lanes"]
@@ -2276,6 +2287,22 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "lane_runtime_safe": lane_runtime_safe,
             "local_validation_required": validation_required,
             "uncertainty_reasons": uncertainty["reasons"],
+            "active_pass1_source_digest": str(
+                (
+                    lane_map.get("active_pass1_evidence_lane")
+                    if isinstance(lane_map.get("active_pass1_evidence_lane"), dict)
+                    else {}
+                ).get("source_digest")
+                or ""
+            ),
+            "active_pass1_evidence_status": str(
+                (
+                    lane_map.get("active_pass1_evidence_lane")
+                    if isinstance(lane_map.get("active_pass1_evidence_lane"), dict)
+                    else {}
+                ).get("status")
+                or ""
+            ),
             "local_lane_matrix": lane_map["local_lane_matrix"],
         },
         "route_hint_lane_policy": route_hint_lane_policy,

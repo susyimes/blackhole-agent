@@ -750,8 +750,11 @@ def build_skill_route_discovery_registry_from_evidence_items(
     ignored_count = 0
     duplicate_count = 0
     seen_evidence_urls: set[str] = set()
+    source_digest = ""
 
     for item in items:
+        if isinstance(item, Mapping) and not source_digest:
+            source_digest = str(item.get("source_digest") or "").strip()
         evidence_item = _coerce_external_skill_evidence_item(item)
         summary = evidence_item.to_summary()
         route_classification = _route_classification_mapping(item) if isinstance(item, Mapping) else {}
@@ -844,6 +847,8 @@ def build_skill_route_discovery_registry_from_evidence_items(
     registry["ignored_evidence_item_count"] = ignored_count
     registry["ignored_evidence_items"] = ignored_items
     registry["duplicate_evidence_item_count"] = duplicate_count
+    if source_digest:
+        registry["source_digest"] = source_digest
     return registry
 
 
@@ -1249,6 +1254,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "active_pass1_evidence_lane": _skill_route_discovery_active_pass1_evidence_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
         ),
         "active_window_pass1_route_lanes": _skill_route_discovery_active_window_pass1_route_lanes(
             candidate_lane_inventory,
@@ -2246,6 +2252,8 @@ def _skill_route_discovery_proposal_intake_lane(
 def _skill_route_discovery_active_pass1_evidence_lane(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str = "",
 ) -> dict[str, Any]:
     """Expose the active pass-1 evidence split before any activation route."""
 
@@ -2368,7 +2376,7 @@ def _skill_route_discovery_active_pass1_evidence_lane(
             if ready
             else "repair_active_pass1_evidence_split_before_activation"
         ),
-        "source_digest": "github-growth-20260627T142310.634775Z",
+        "source_digest": source_digest or "github-growth-20260627T142310.634775Z",
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
             "p1-skill-route-discovery-fixtures",
@@ -2401,6 +2409,12 @@ def _skill_route_discovery_active_pass1_evidence_lane(
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
     }
+
+
+def _skill_route_discovery_source_digest(registry: Mapping[str, Any]) -> str:
+    """Return caller-provided digest metadata without deriving it from URLs."""
+
+    return str(registry.get("source_digest") or "").strip()
 
 
 def _skill_route_discovery_active_window_pass1_route_lanes(

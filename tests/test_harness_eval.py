@@ -6634,6 +6634,33 @@ def test_skill_route_discovery_pass1_registry_handoff_gates_qwen_agentworld_as_a
     assert "Qwen-AgentWorld" not in serialized
 
 
+def test_skill_route_discovery_lane_carries_current_source_digest_into_active_pass():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_20260627_pass1_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = copy.deepcopy(fixture["input"])
+    current_fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_pass1_skill_route_fixtures.json"
+    )
+    current_fixture = json.loads(current_fixture_path.read_text(encoding="utf-8"))
+    input_payload["source_digest"] = current_fixture["source_digest"]
+    input_payload["evidence_items"] = current_fixture["items"]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+
+    lane_summary = output["lane_map"]
+    assert output["route_status"] == "passed"
+    assert lane_summary["active_pass1_source_digest"] == "github-growth-20260627T202729.517326Z"
+    assert lane_summary["active_pass1_evidence_status"] == "ready"
+    assert lane_summary["lane_runtime_safe"] is True
+
+
 def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass3_selection.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
