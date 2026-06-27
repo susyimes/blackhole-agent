@@ -1141,6 +1141,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "focused_evidence_review_lane": _skill_route_discovery_focused_evidence_review_lane(
             candidate_lane_inventory
         ),
+        "pass4_local_lane_validation": _skill_route_discovery_pass4_local_lane_validation(
+            candidate_lane_inventory
+        ),
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
         "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
@@ -2155,6 +2158,162 @@ def _skill_route_discovery_focused_evidence_review_lane(
             "focused_local_validation",
             "review_note",
         ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass4_local_lane_validation(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Close the skill-route slice with bounded local validation lanes.
+
+    This packet is the final-pass operator view for skill-route evidence. It
+    confirms the active skill workflow profiles can become only local
+    documentation, config, test, or code_patch work, while adjacent general
+    agent projects without skill workflow signals remain in the separate agent
+    harness evaluation queue.
+    """
+
+    required_profiles = (
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    )
+    rows: list[dict[str, Any]] = []
+    observed_profiles: list[str] = []
+    selected_lanes: list[str] = []
+    replay_commands: list[str] = []
+    blocked_candidates: list[str] = []
+
+    for candidate in candidate_lane_inventory:
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        if not set(route_profiles).intersection(required_profiles):
+            continue
+
+        candidate_name = str(candidate.get("candidate_name") or "")
+        source_hash = _stable_hash(str(candidate.get("source_url") or candidate_name))
+        allowed_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        if selected_lane not in allowed_lanes:
+            selected_lane = allowed_lanes[0] if allowed_lanes else ""
+
+        validation_gates = _string_list(handoff_metadata.get("validation_gates"))
+        validation_target = _skill_route_discovery_validation_target(selected_lane, route_profiles)
+        replay_command = _skill_route_discovery_replay_command(selected_lane, route_profiles)
+        row_ready = bool(
+            selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and allowed_lanes
+            and validation_gates
+            and candidate.get("local_validation_required") is True
+            and str(candidate.get("runtime_action") or "none") == "none"
+            and candidate.get("external_skill_activation_allowed") is False
+        )
+        if not row_ready and candidate_name:
+            blocked_candidates.append(candidate_name)
+
+        observed_profiles.extend(route_profiles)
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_lanes.append(selected_lane)
+        if replay_command:
+            replay_commands.append(replay_command)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": source_hash,
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": allowed_lanes,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": _string_list(candidate.get("evidence_item_ids")),
+                "validation_gates": validation_gates,
+                "validation_target": validation_target,
+                "replay_command": replay_command,
+                "row_status": "ready" if row_ready else "blocked",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    observed_profile_set = set(observed_profiles)
+    missing_profiles = [profile for profile in required_profiles if profile not in observed_profile_set]
+    ready = bool(rows) and not blocked_candidates and not missing_profiles
+    return {
+        "controller_surface": "skill_route_discovery_pass4_local_lane_validation",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "complete_skill_route_slice_with_bounded_local_lanes"
+            if ready
+            else "repair_skill_route_pass4_local_lanes_before_completion"
+        ),
+        "proposal_ids": [
+            "p1-skill-route-discovery-index",
+            "p2-skill-ecosystem-handoff-doc",
+        ],
+        "capability_slice_complete": ready,
+        "required_route_profiles": list(required_profiles),
+        "covered_route_profiles": [
+            profile for profile in required_profiles if profile in observed_profile_set
+        ],
+        "missing_route_profiles": missing_profiles,
+        "candidate_count": len(rows),
+        "ready_candidate_count": len([row for row in rows if row["row_status"] == "ready"]),
+        "blocked_candidate_names": blocked_candidates,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "required_evidence": [
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "general_agent_project_policy": {
+            "proposal_id": "p3-agent-harness-eval-queue",
+            "when": "general_agent_project_without_skill_workflow_signal",
+            "evaluation_lane": "agent_harness_eval_required",
+            "allowed_local_lanes": [],
+            "direct_local_change_proposals_allowed": False,
+            "required_before_implementation": "local_agent_harness_eval_route_established",
+            "replay_command": "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,

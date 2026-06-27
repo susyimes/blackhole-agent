@@ -113,6 +113,20 @@ not add evidence URLs, export raw source URLs, export target paths, read
 upstream bodies, install or enable upstream skills, execute external harnesses,
 launch providers, perform remote execution, or grant runtime action.
 
+Source digest `github-growth-20260627T100311.166711Z` completes the current
+skill-route-discovery pass by adding `pass4_local_lane_validation` to the same
+lane map. This packet checks the carried COMPASS, zhengxi-views, and Three.js
+skill workflow examples as one final local validation surface: each row must
+keep `route_hint: skill_route_discovery`, select only documentation, config,
+test, or code_patch lanes, carry `local_validation_required: true`, and deny
+runtime action, upstream skill activation, external harness execution, provider
+launch, remote execution, raw source URL export, raw target path export, and
+upstream body export. Adjacent Qwen-AgentWorld-style general-agent or benchmark
+projects do not inherit this route unless they have skill workflow signals.
+Without those signals, they stay in `agent_harness_eval_required` with no
+direct local change proposals until a local agent-harness evaluation route is
+established.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
