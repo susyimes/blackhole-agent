@@ -88,8 +88,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 72
-    assert payload["pass_count"] == 71
+    assert payload["fixture_count"] == 73
+    assert payload["pass_count"] == 72
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -131,6 +131,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
 
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
+    assert results["skill-route-discovery-lane-pass3-current-profiles"]["passed"] is True
     assert results["external-harness-adapter-contract-databricks-genie"]["passed"] is True
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
@@ -6989,6 +6990,52 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert profile_gates["raw_evidence_urls_exported"] is False
     assert profile_gates["raw_source_urls_exported"] is False
     assert profile_gates["raw_upstream_body_exported"] is False
+    route_profile_contract = pass3_handoff["route_profile_lane_contract"]
+    assert route_profile_contract["controller_surface"] == (
+        "skill_route_discovery_pass3_route_profile_lane_contract"
+    )
+    assert route_profile_contract["status"] == "ready"
+    assert route_profile_contract["decision"] == (
+        "route_profiles_mapped_to_bounded_local_lanes_before_final_pass"
+    )
+    assert route_profile_contract["validation_gate"] == "focused-evidence-review"
+    assert route_profile_contract["profile_activation_gate_status"] == "ready"
+    assert route_profile_contract["profile_count"] == 3
+    assert route_profile_contract["ready_profile_count"] == 3
+    assert route_profile_contract["blocked_profile_count"] == 0
+    assert route_profile_contract["blocked_profiles"] == []
+    assert route_profile_contract["selected_local_lanes"] == ["config", "test"]
+    assert route_profile_contract["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    contract_rows = {row["route_profile"]: row for row in route_profile_contract["rows"]}
+    assert contract_rows["codex_workflow_gate"]["selected_local_lane"] == "test"
+    assert contract_rows["codex_workflow_gate"]["route_probe_decision"] == "skill_route_discovery_first"
+    assert contract_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert contract_rows["game_frontend_workflow"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert contract_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert contract_rows["skill_ecosystem_state_handoff"]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert all(row["status"] == "ready" for row in route_profile_contract["rows"])
+    assert all(row["diagnostics"] == [] for row in route_profile_contract["rows"])
+    assert all(row["local_validation_required"] is True for row in route_profile_contract["rows"])
+    assert all(row["runtime_action"] == "none" for row in route_profile_contract["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in route_profile_contract["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in route_profile_contract["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in route_profile_contract["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in route_profile_contract["rows"])
+    assert all(row["raw_source_urls_exported"] is False for row in route_profile_contract["rows"])
+    assert route_profile_contract["runtime_action_allowed"] is False
+    assert route_profile_contract["external_skill_activation_allowed"] is False
+    assert route_profile_contract["external_harness_execution_allowed"] is False
+    assert route_profile_contract["provider_runtime_launch_allowed"] is False
+    assert route_profile_contract["raw_evidence_urls_exported"] is False
+    assert route_profile_contract["raw_source_urls_exported"] is False
     validation_proof = pass3_handoff["profile_validation_proof"]
     assert validation_proof["controller_surface"] == "skill_route_discovery_pass3_profile_validation_proof"
     assert validation_proof["status"] == "ready"
@@ -7501,6 +7548,21 @@ def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready()
     assert gate_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
     assert gate_rows["skill_ecosystem_state_handoff"]["external_skill_activation_allowed"] is False
     assert gate_rows["skill_ecosystem_state_handoff"]["provider_runtime_launch_allowed"] is False
+    route_profile_contract = pass3_handoff["route_profile_lane_contract"]
+    contract_rows = {row["route_profile"]: row for row in route_profile_contract["rows"]}
+    assert route_profile_contract["status"] == "blocked"
+    assert route_profile_contract["profile_activation_gate_status"] == "blocked"
+    assert route_profile_contract["blocked_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert "profile_lane_acceptance_contract_not_ready" in (
+        contract_rows["skill_ecosystem_state_handoff"]["diagnostics"]
+    )
+    assert route_profile_contract["runtime_action_allowed"] is False
+    assert route_profile_contract["external_skill_activation_allowed"] is False
+    assert route_profile_contract["provider_runtime_launch_allowed"] is False
 
 
 def test_skill_route_discovery_catalog_links_profiles_to_provider_runtime_replay():

@@ -249,6 +249,8 @@ When a skill-route validation window includes sampled provider/runtime preflight
 
 For pass-2 skill-route windows, the same lane emits `local_lane_acceptance_contract` inside `pass2_handoff_packet`. The contract turns selected and queued route evidence into per-lane acceptance gates for bounded lane membership, local validation, no runtime action, denied external skill/harness/provider/remote execution, and omitted raw upstream evidence. This gives supervisors a direct replay contract for COMPASS-style state handoff, game/frontend skill bundles, and mixed Codex/workflow/skill evidence without treating upstream repositories as installable or executable.
 
+For pass-3 skill-route windows, `pass3_handoff_packet.route_profile_lane_contract` converts each accepted route profile into one bounded local lane before the final pass. Generic skill workflow, game frontend workflow, and skill ecosystem state-handoff profiles can map only to documentation, config, test, or code_patch lanes; each row requires local validation, denies runtime action, external skill or harness execution, provider launch, and remote execution, and exports selected item ids plus source hashes rather than raw upstream URLs or bodies.
+
 When skill-route evidence is blocked or degraded, the same lane emits
 body-free diagnostics and recovery hints. Sparse generic PR/push movement, lane
 downgrades, rejected candidates, and failed preactivation trust checks are
