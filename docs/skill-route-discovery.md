@@ -127,6 +127,23 @@ Without those signals, they stay in `agent_harness_eval_required` with no
 direct local change proposals until a local agent-harness evaluation route is
 established.
 
+Source digest `github-growth-20260627T102312.650770Z` starts the next
+skill-route-discovery pass by adding `current_pass_validation_cases` to the
+lane map. This operator surface names the active proposal IDs
+`p1_skill_route_discovery_generic_views`,
+`p2_skill_route_discovery_game_frontend`, and
+`p3_skill_ecosystem_state_handoff_config`, then binds each to a matched route
+profile, selected local lane, validation target, and replay command. Generic
+Python agent-skill workflow evidence may satisfy the first case through
+`generic_skill_workflow`; source-cited variants remain in
+`source_cited_domain_research` and keep the stricter test lane. Game frontend
+signals may choose only a documentation/config/test/code_patch lane after
+`skill_route_discovery`, and COMPASS-style state handoff signals remain bounded
+to local config or validation metadata. The surface exports source hashes and
+selected item IDs only, denies runtime action, external skill activation,
+external harness execution, provider launch, remote execution, raw source URL
+export, raw target path export, and upstream body export.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`

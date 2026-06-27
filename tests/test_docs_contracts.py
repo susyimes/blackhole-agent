@@ -493,6 +493,12 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "`game_frontend_workflow`, and `skill_ecosystem_state_handoff` evidence",
         "selected local lane, validation target, replay command, candidate source hashes",
         "raw target path export, and upstream body export remain denied",
+        "`current_pass_validation_cases`",
+        "`p1_skill_route_discovery_generic_views`",
+        "`p2_skill_route_discovery_game_frontend`",
+        "`p3_skill_ecosystem_state_handoff_config`",
+        "Generic\nPython agent-skill workflow evidence may satisfy the first case through\n`generic_skill_workflow`",
+        "Game frontend\nsignals may choose only a documentation/config/test/code_patch lane after\n`skill_route_discovery`",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]
