@@ -800,6 +800,83 @@ def test_skill_route_discovery_provider_runtime_pass2_four_item_matrix_requires_
         "source_citation_and_advice_boundary_before_domain_skill_activation"
     ]
 
+    pass2_handoff = lane_map["pass2_validation_handoff"]
+    assert pass2_handoff["controller_surface"] == "skill_route_discovery_pass2_validation_handoff"
+    assert pass2_handoff["status"] == "ready"
+    assert pass2_handoff["decision"] == "handoff_pass2_profiles_to_bounded_local_validation"
+    assert pass2_handoff["candidate_count"] == 4
+    assert pass2_handoff["route_profile_count"] == 4
+    assert pass2_handoff["blocked_candidate_names"] == []
+    assert pass2_handoff["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert pass2_handoff["selected_local_lanes"] == ["config", "test"]
+    assert pass2_handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert pass2_handoff["validation_targets"] == [
+        "skill_route_first_probe_regression",
+        "state_or_profile_boundary_metadata",
+        "source_citation_and_advice_boundary_check",
+        "local_frontend_render_or_workflow_check",
+    ]
+    assert pass2_handoff["replay_commands"] == [
+        "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow",
+        "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
+        "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research",
+        "python -m pytest tests/test_skill_routing.py -q -k game_frontend",
+    ]
+    assert pass2_handoff["required_evidence"] == [
+        "selected_item_ids_or_frozen_fixture",
+        "rollback_artifact",
+        "focused_local_validation",
+        "changed_file_review",
+        "review_note",
+    ]
+    assert pass2_handoff["local_validation_required"] is True
+    assert pass2_handoff["runtime_action"] == "none"
+    assert pass2_handoff["external_skill_activation_allowed"] is False
+    assert pass2_handoff["external_agent_activation_allowed"] is False
+    assert pass2_handoff["external_harness_execution_allowed"] is False
+    assert pass2_handoff["provider_runtime_launch_allowed"] is False
+    assert pass2_handoff["remote_execution_allowed"] is False
+    assert pass2_handoff["raw_source_url_exported"] is False
+    assert pass2_handoff["raw_evidence_urls_exported"] is False
+    assert pass2_handoff["raw_target_paths_exported"] is False
+    assert pass2_handoff["raw_upstream_body_exported"] is False
+
+    pass2_rows = {row["candidate_name"]: row for row in pass2_handoff["rows"]}
+    assert pass2_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert pass2_rows["compass-skills"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert pass2_rows["zhengxi-views"]["selected_local_lane"] == "test"
+    assert pass2_rows["zhengxi-views"]["route_profiles"] == ["source_cited_domain_research"]
+    assert pass2_rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert pass2_rows["threejs-game-skills"]["route_profiles"] == ["game_frontend_workflow"]
+    assert all(set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES) for row in pass2_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is True for row in pass2_rows.values())
+    assert all(row["agent_harness_eval_required"] is False for row in pass2_rows.values())
+    assert all(row["runtime_action"] == "none" for row in pass2_rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in pass2_rows.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in pass2_rows.values())
+
+    adjacent_policy = pass2_handoff["adjacent_general_agent_policy"]
+    assert adjacent_policy == {
+        "primary_route": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "allowed_local_lanes": ["documentation", "test", "code_patch"],
+        "required_before_implementation": "local_agent_harness_eval",
+        "replay_command": "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
     next_step = lane_map["next_validation_step"]
     assert next_step["status"] == "ready"
     assert next_step["selected_candidate_name"] == "FableCodex"

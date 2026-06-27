@@ -1122,6 +1122,10 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
         "pass1_validation_matrix": _skill_route_discovery_pass1_validation_matrix(local_activation_targets),
+        "pass2_validation_handoff": _skill_route_discovery_pass2_validation_handoff(
+            local_activation_targets,
+            route_profile_handoff_queue,
+        ),
         "adoption_manifest": adoption_manifest,
         "privacy_review_panel": privacy_review_panel,
         "completion_workflow": completion_workflow,
@@ -2117,6 +2121,171 @@ def _skill_route_discovery_pass1_validation_matrix(
         "raw_upstream_body_exported": False,
         "rows": rows,
     }
+
+
+def _skill_route_discovery_pass2_validation_handoff(
+    local_activation_targets: Mapping[str, Any],
+    route_profile_handoff_queue: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-2 profile lanes as a bounded operator validation handoff."""
+
+    raw_rows = local_activation_targets.get("rows")
+    target_rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    rows: list[dict[str, Any]] = []
+    blocked_candidate_names: list[str] = []
+    selected_lanes: list[str] = []
+    validation_targets: list[str] = []
+    replay_commands: list[str] = []
+    route_profiles: list[str] = []
+
+    ordered_target_rows = sorted(
+        (row for row in target_rows if isinstance(row, Mapping)),
+        key=_skill_route_discovery_pass2_handoff_sort_key,
+    )
+    for raw_row in ordered_target_rows:
+        if not isinstance(raw_row, Mapping):
+            continue
+        candidate_name = str(raw_row.get("candidate_name") or "")
+        selected_lane = str(raw_row.get("selected_local_lane") or "")
+        candidate_profiles = _string_list(raw_row.get("route_profiles")) or ["generic_skill_workflow"]
+        queued_local_lanes = [
+            lane
+            for lane in _string_list(raw_row.get("queued_local_lanes"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        validation_target = str(raw_row.get("validation_target") or "")
+        replay_command = str(raw_row.get("replay_command") or "")
+        activation_ready = raw_row.get("activation_ready") is True
+        activation_blockers = _string_list(raw_row.get("activation_blockers"))
+
+        route_profiles.extend(candidate_profiles)
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_lanes.append(selected_lane)
+        if validation_target:
+            validation_targets.append(validation_target)
+        if replay_command:
+            replay_commands.append(replay_command)
+        if not activation_ready and candidate_name:
+            blocked_candidate_names.append(candidate_name)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": str(raw_row.get("candidate_source_hash") or ""),
+                "route_profiles": candidate_profiles,
+                "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": queued_local_lanes,
+                "validation_target": validation_target,
+                "replay_command": replay_command,
+                "validation_gates": _string_list(raw_row.get("validation_gates")),
+                "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
+                "activation_ready": activation_ready,
+                "activation_blockers": activation_blockers,
+                "skill_route_discovery_inherited": True,
+                "agent_harness_eval_required": False,
+                "agent_harness_eval_allowed_after": "local_skill_route_validation",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    queue_rows = route_profile_handoff_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, Sequence) and not isinstance(queue_rows, (str, bytes)) else []
+    profile_queue_ready = route_profile_handoff_queue.get("status") == "ready"
+    rows_ready = bool(rows) and not blocked_candidate_names and all(
+        row["selected_local_lane"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        and row["activation_ready"] is True
+        and row["runtime_action"] == "none"
+        and row["external_skill_activation_allowed"] is False
+        for row in rows
+    )
+    ready = rows_ready and profile_queue_ready
+
+    return {
+        "controller_surface": "skill_route_discovery_pass2_validation_handoff",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "handoff_pass2_profiles_to_bounded_local_validation"
+            if ready
+            else "repair_pass2_profile_lanes_before_validation_handoff"
+        ),
+        "candidate_count": len(rows),
+        "route_profile_count": len(set(route_profiles)),
+        "ready_candidate_count": len([row for row in rows if row["activation_ready"] is True]),
+        "blocked_candidate_count": len([row for row in rows if row["activation_ready"] is not True]),
+        "blocked_candidate_names": blocked_candidate_names,
+        "observed_route_profiles": sorted(
+            dict.fromkeys(profile for profile in route_profiles if profile)
+        ),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "validation_targets": list(dict.fromkeys(validation_targets)),
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "profile_handoff_queue_status": str(route_profile_handoff_queue.get("status") or ""),
+        "profile_handoff_queue_count": len([row for row in queue_rows if isinstance(row, Mapping)]),
+        "required_evidence": [
+            "selected_item_ids_or_frozen_fixture",
+            "rollback_artifact",
+            "focused_local_validation",
+            "changed_file_review",
+            "review_note",
+        ],
+        "adjacent_general_agent_policy": {
+            "primary_route": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "required_before_implementation": "local_agent_harness_eval",
+            "replay_command": "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass2_handoff_sort_key(row: Mapping[str, Any]) -> tuple[int, str]:
+    profiles = set(_string_list(row.get("route_profiles")))
+    if "codex_workflow_gate" in profiles:
+        rank = 0
+    elif "skill_ecosystem_state_handoff" in profiles:
+        rank = 1
+    elif "source_cited_domain_research" in profiles:
+        rank = 2
+    elif "game_frontend_workflow" in profiles:
+        rank = 3
+    else:
+        rank = 4
+    return (rank, str(row.get("candidate_name") or "").casefold())
 
 
 def _skill_route_discovery_route_profile_handoff_queue(

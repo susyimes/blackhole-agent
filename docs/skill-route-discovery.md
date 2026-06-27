@@ -1617,6 +1617,21 @@ it does not add lanes, expose raw source URLs, export upstream bodies, run an
 external harness, launch a provider, perform remote execution, activate an
 external agent, or activate upstream skill code.
 
+The skill-route proposal lane map now also emits `pass2_validation_handoff`.
+This is the pass-2 operator surface for the active skill-route-discovery window:
+COMPASS-style skill ecosystems, zhengxi-views-style source-cited domain skills,
+and Three.js-style game frontend skills are converted into selected local
+validation lanes before any activation. Each row keeps
+`primary_route: skill_route_discovery`, exposes only documentation, config,
+test, or code_patch as allowed local lanes, requires local validation, and
+denies runtime action, upstream skill activation, external harness execution,
+provider launch, remote execution, raw source URL export, target-path export,
+and upstream body export. Adjacent general-agent projects remain outside this
+handoff through `adjacent_general_agent_policy`: they require
+`agent_harness_eval_required`, allow only documentation, test, or code_patch
+evaluation lanes, and keep `skill_route_discovery_inherited: false` until a
+local harness replay succeeds.
+
 The route-hint map now also emits `route_activation_preflight`, a supervisor
 gate that turns the split into an activation-readiness decision before local
 work is selected. It lists skill-route rows, general-agent rows, bounded local
