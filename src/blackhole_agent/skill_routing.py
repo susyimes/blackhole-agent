@@ -305,6 +305,7 @@ class ExternalSkillRouteCandidate:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillRouteCandidate":
+        route_classification = _route_classification_mapping(value)
         name = str(value.get("name") or "").strip()
         source_url = str(value.get("source_url") or "").strip()
         if not name:
@@ -316,22 +317,41 @@ class ExternalSkillRouteCandidate:
             source_url=source_url,
             evidence_summary=str(value.get("evidence_summary") or ""),
             discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
-            route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
-            candidate_lanes=_string_tuple(value.get("candidate_lanes")) or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
+            route_hints=_string_tuple(
+                value.get("route_hints")
+                or route_classification.get("route_hints")
+                or route_classification.get("route_hint")
+            )
+            or (SKILL_ROUTE_DISCOVERY_HINT,),
+            candidate_lanes=_string_tuple(
+                value.get("candidate_lanes")
+                or route_classification.get("candidate_lanes")
+                or route_classification.get("allowed_local_lanes")
+                or route_classification.get("allowed_lanes")
+            )
+            or SKILL_ROUTE_DISCOVERY_ALLOWED_LANES,
             evidence_item_ids=_string_tuple(value.get("evidence_item_ids")),
             evidence_urls=_string_tuple(value.get("evidence_urls")),
             evidence_item_urls=_string_tuple(value.get("evidence_item_urls")),
             related_source_urls=_string_tuple(value.get("related_source_urls")),
-            route_profiles=_string_tuple(value.get("route_profiles")),
+            route_profiles=_string_tuple(
+                value.get("route_profiles")
+                or route_classification.get("route_profiles")
+                or route_classification.get("route_profile")
+            ),
             source_layout_signals=_string_tuple(
                 value.get("source_layout_signals")
                 or value.get("layout_signals")
                 or value.get("file_layout_signals")
+                or route_classification.get("source_layout_signals")
+                or route_classification.get("layout_signals")
             ),
             source_metadata_signals=_string_tuple(
                 value.get("source_metadata_signals")
                 or value.get("metadata_signals")
                 or value.get("repository_metadata_signals")
+                or route_classification.get("source_metadata_signals")
+                or route_classification.get("metadata_signals")
             ),
             public_activity_signals=_public_activity_signals(value),
             requested_actions=_string_tuple(value.get("requested_actions")),
@@ -1157,6 +1177,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_pass_validation_cases": _skill_route_discovery_current_pass_validation_cases(
             candidate_lane_inventory
         ),
+        "pass2_fixture_validation_lane": _skill_route_discovery_pass2_fixture_validation_lane(
+            candidate_lane_inventory
+        ),
         "pass3_activation_handoff": _skill_route_discovery_pass3_activation_handoff(
             candidate_lane_inventory
         ),
@@ -1260,6 +1283,18 @@ def _coerce_external_skill_evidence_item(
     if isinstance(value, ExternalSkillEvidenceItem):
         return value
     return ExternalSkillEvidenceItem.from_mapping(value)
+
+
+def _route_classification_mapping(value: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Return frozen fixture route metadata without requiring a top-level shape."""
+
+    route_classification = value.get("route_classification")
+    if isinstance(route_classification, Mapping):
+        return route_classification
+    classification = value.get("classification")
+    if isinstance(classification, Mapping):
+        return classification
+    return {}
 
 
 def _looks_like_skill_repository_summary(summary: ExternalSkillRepositorySummary) -> bool:
@@ -2334,6 +2369,128 @@ def _skill_route_discovery_current_pass_validation_cases(
             "matched_skill_or_agent_topics",
             "focused_local_validation",
             "rollback_artifact",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass2_fixture_validation_lane(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Validate frozen pass-2 route fixtures before activation handoff."""
+
+    rows: list[dict[str, Any]] = []
+    blocked_candidate_names: list[str] = []
+    selected_lanes: list[str] = []
+    observed_profiles: list[str] = []
+    replay_commands: list[str] = []
+
+    for candidate in sorted(
+        candidate_lane_inventory,
+        key=lambda item: str(item.get("candidate_name") or "").casefold(),
+    ):
+        candidate_name = str(candidate.get("candidate_name") or "")
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        allowed_local_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        validation_gates = _string_list(handoff_metadata.get("validation_gates"))
+        selected_evidence_item_ids = _string_list(candidate.get("evidence_item_ids"))
+        selected_lanes.append(selected_lane)
+        observed_profiles.extend(route_profiles)
+
+        blockers: list[str] = []
+        if str(candidate.get("route_class") or "") != SKILL_ROUTE_DISCOVERY_ROUTE_CLASS:
+            blockers.append("route_class_mismatch")
+        if not allowed_local_lanes:
+            blockers.append("missing_bounded_local_lanes")
+        if set(allowed_local_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES):
+            blockers.append("unbounded_local_lane_present")
+        if selected_lane not in allowed_local_lanes:
+            blockers.append("selected_lane_not_allowed")
+        if candidate.get("local_validation_required") is not True:
+            blockers.append("local_validation_required_not_preserved")
+        if str(candidate.get("runtime_action") or "none") != "none":
+            blockers.append("runtime_action_requested")
+        if candidate.get("external_skill_activation_allowed") is not False:
+            blockers.append("external_skill_activation_not_denied")
+        if blockers and candidate_name:
+            blocked_candidate_names.append(candidate_name)
+
+        replay_command = _skill_route_discovery_replay_command(selected_lane, route_profiles)
+        if replay_command:
+            replay_commands.append(replay_command)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": _stable_hash(str(candidate.get("source_url") or candidate_name)),
+                "route_class": str(candidate.get("route_class") or ""),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": allowed_local_lanes,
+                "selected_local_lane": selected_lane if selected_lane in allowed_local_lanes else "",
+                "selected_evidence_item_ids": selected_evidence_item_ids,
+                "validation_gates": validation_gates,
+                "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
+                "replay_command": replay_command,
+                "fixture_status": "ready" if not blockers else "blocked",
+                "activation_blockers": blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not blocked_candidate_names
+    return {
+        "controller_surface": "skill_route_discovery_pass2_fixture_validation_lane",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "pass2_route_fixtures_ready_for_bounded_local_validation"
+            if ready
+            else "repair_pass2_route_fixtures_before_activation"
+        ),
+        "capability_pass": 2,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "candidate_count": len(rows),
+        "ready_candidate_count": len([row for row in rows if row["fixture_status"] == "ready"]),
+        "blocked_candidate_names": blocked_candidate_names,
+        "observed_route_profiles": sorted(dict.fromkeys(profile for profile in observed_profiles if profile)),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "required_evidence": [
+            "route_classification_fixture",
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
         ],
         "local_validation_required": True,
         "runtime_action": "none",

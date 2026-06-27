@@ -1887,6 +1887,113 @@ def test_skill_route_discovery_current_pass2_focused_evidence_review_is_bounded(
         assert row["raw_upstream_body_exported"] is False
 
 
+def test_skill_route_discovery_pass2_route_classification_fixture_is_bounded():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass2_route_classification_fixture.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry(payload["candidates"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "invalid_candidates_present"
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 3
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    assert candidates_by_name["zhengxi-views"]["route_profiles"] == ["generic_skill_workflow"]
+    assert candidates_by_name["zhengxi-views"]["source_layout_signals"] == [
+        "skill_markdown",
+        "validation_script",
+    ]
+    assert candidates_by_name["zhengxi-views"]["validation_errors"] == [
+        "unsupported_candidate_lanes:provider_runtime"
+    ]
+    assert candidates_by_name["threejs-game-skills"]["validation_errors"] == [
+        "unsupported_candidate_lanes:runtime_execution"
+    ]
+    assert candidates_by_name["compass-skills"]["validation_errors"] == [
+        "unsupported_candidate_lanes:install"
+    ]
+
+    assert lane_map["proposal_lane_count"] == 12
+    assert lane_map["downgraded_candidate_count"] == 3
+    assert lane_map["rejected_candidate_count"] == 0
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+
+    fixture_lane = lane_map["pass2_fixture_validation_lane"]
+    assert fixture_lane["controller_surface"] == "skill_route_discovery_pass2_fixture_validation_lane"
+    assert fixture_lane["status"] == "ready"
+    assert fixture_lane["decision"] == "pass2_route_fixtures_ready_for_bounded_local_validation"
+    assert fixture_lane["capability_pass"] == 2
+    assert fixture_lane["review_gate"] == "focused-evidence-review"
+    assert fixture_lane["candidate_count"] == 3
+    assert fixture_lane["ready_candidate_count"] == 3
+    assert fixture_lane["blocked_candidate_names"] == []
+    assert fixture_lane["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert fixture_lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert fixture_lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert fixture_lane["required_evidence"] == [
+        "route_classification_fixture",
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+    ]
+    assert fixture_lane["local_validation_required"] is True
+    assert fixture_lane["runtime_action"] == "none"
+    assert fixture_lane["external_skill_activation_allowed"] is False
+    assert fixture_lane["external_harness_execution_allowed"] is False
+    assert fixture_lane["provider_runtime_launch_allowed"] is False
+    assert fixture_lane["remote_execution_allowed"] is False
+    assert fixture_lane["raw_source_url_exported"] is False
+    assert fixture_lane["raw_evidence_urls_exported"] is False
+    assert fixture_lane["raw_target_paths_exported"] is False
+    assert fixture_lane["raw_upstream_body_exported"] is False
+
+    rows = {row["candidate_name"]: row for row in fixture_lane["rows"]}
+    assert rows["zhengxi-views"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["zhengxi-views"]["selected_local_lane"] == "documentation"
+    assert rows["zhengxi-views"]["selected_evidence_item_ids"] == [
+        "p1-skill-route-discovery-generic"
+    ]
+    assert rows["threejs-game-skills"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["threejs-game-skills"]["selected_local_lane"] == "test"
+    assert rows["compass-skills"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert rows["compass-skills"]["selected_local_lane"] == "config"
+
+    for row in rows.values():
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert row["route_hint"] == "skill_route_discovery"
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["fixture_status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["candidate_source_hash"].startswith("sha256:")
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+
 def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_window():
     fixture_path = (
         Path(__file__).parent

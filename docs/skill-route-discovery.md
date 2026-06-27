@@ -173,6 +173,20 @@ presence, or fork-lineage references is supporting context only: it does not
 increase candidate count, proposal lane count, activation readiness, or runtime
 authority.
 
+Source digest `github-growth-20260627T120310.659503Z` advances pass 2 by adding
+a route-classification fixture lane for the same proposal family. Frozen
+fixtures may place `route_hints`, `route_profiles`, allowed local lanes, and
+layout or metadata signals under a nested `route_classification` object so the
+digest can hand off compact evidence without importing upstream bodies. The
+loader still validates that the candidate is disabled, the source is a plain
+public GitHub repository URL, and the resulting lanes are bounded to
+documentation, config, test, or code_patch. Unsupported nested lanes such as
+provider_runtime, runtime_execution, and install are downgraded out of proposal
+lanes. The emitted `pass2_fixture_validation_lane` gives operators one replay
+surface that checks route class, selected bounded lane, evidence item IDs or
+frozen fixture presence, and `local_validation_required: true` before any later
+activation handoff.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
