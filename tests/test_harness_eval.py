@@ -15243,6 +15243,58 @@ def test_skill_route_discovery_pass2_profile_lane_matrix_covers_generic_skill_pr
     assert "https://github.com/" not in serialized
 
 
+def test_skill_route_discovery_pass2_current_window_fixture_replays_bounded_lanes():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_pass2_current_window_generic_lanes.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["pass2_handoff_packet"], sort_keys=True)
+    lane_map = output["lane_map"]
+    pass2_packet = output["pass2_handoff_packet"]
+    profile_matrix = pass2_packet["profile_lane_matrix"]
+    profile_rows = {row["route_profile"]: row for row in profile_matrix["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert lane_map["proposal_lane_count"] == 12
+    assert lane_map["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert pass2_packet["status"] == "ready"
+    assert pass2_packet["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert pass2_packet["selected_local_lanes"] == ["test"]
+    assert pass2_packet["queued_local_lanes"] == ["config", "documentation"]
+    assert profile_matrix["status"] == "ready"
+    assert profile_matrix["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert profile_matrix["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert profile_rows["generic_skill_workflow"]["selected_local_lane"] == "documentation"
+    assert profile_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert profile_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in profile_matrix["rows"]
+    )
+    assert all(row["lane_bounded"] is True for row in profile_matrix["rows"])
+    assert all(row["accepted_for_local_validation"] is True for row in profile_matrix["rows"])
+    assert all(row["local_validation_required"] is True for row in profile_matrix["rows"])
+    assert all(row["runtime_action"] == "none" for row in profile_matrix["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_matrix["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in profile_matrix["rows"])
+    assert profile_matrix["provider_runtime_launch_allowed"] is False
+    assert profile_matrix["remote_execution_allowed"] is False
+    assert profile_matrix["raw_evidence_urls_exported"] is False
+    assert profile_matrix["raw_source_urls_exported"] is False
+    assert profile_matrix["raw_target_paths_exported"] is False
+    assert profile_matrix["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
 def test_skill_route_discovery_generic_pull_request_prompts_for_local_validation():
     output = evaluate_harness_behavior(
         "skill_route_discovery_lane",
