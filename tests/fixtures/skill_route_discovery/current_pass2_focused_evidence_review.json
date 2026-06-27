@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260627T092310.871194Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "item_id": "p1-compass-skill-ecosystem-handoff",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "COMPASS Skills agent skill ecosystem",
+      "summary": "Skill ecosystem for AI agents with task clarification, local memory, collaboration profile handoff, route metadata, and validation checks.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "workflow", "profiles", "local-memory"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"]
+    },
+    {
+      "item_id": "p2-zhengxi-source-cited-skill",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "zhengxi views source cited domain research skill",
+      "summary": "Source-cited domain research agent skill with public view evidence, citation traceability, advisory framing, and uncertainty limits.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "domain-research", "citations", "investment"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"]
+    },
+    {
+      "item_id": "p3-threejs-game-frontend-skill",
+      "item_kind": "repository",
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "title": "Three.js game skill director",
+      "summary": "Director skill package for Three.js browser games with gameplay, graphics, QA, release verification, scaffold helpers, and optional asset workflows.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "threejs", "browser-game", "qa"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

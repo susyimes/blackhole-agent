@@ -99,6 +99,20 @@ export raw target paths, read upstream bodies, install upstream skills, execute
 external harnesses, launch providers, write memory/profile state, perform
 remote execution, or grant runtime action.
 
+Source digest `github-growth-20260627T092310.871194Z` continues the same
+skill-route-discovery window with COMPASS Skills, zhengxi-views, and Three.js
+Game Skills as the active focused-evidence-review set. The local lane map now
+also emits `focused_evidence_review_lane`, which groups the active pass
+proposal IDs `p1-skill-route-discovery-baseline`,
+`p2-skill-ecosystem-documentation`, and
+`p3-game-frontend-skill-validation` before activation. This surface is a
+bounded review lane only: it may choose documentation, config, test, or
+code_patch validation work, and it must carry a frozen fixture or selected item
+IDs, a rollback artifact, focused local validation, and a review note. It does
+not add evidence URLs, export raw source URLs, export target paths, read
+upstream bodies, install or enable upstream skills, execute external harnesses,
+launch providers, perform remote execution, or grant runtime action.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
