@@ -1194,8 +1194,10 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         privacy_review_panel,
         route_profile_handoff_queue,
     )
+    ignored_evidence_items = _mapping_list(registry.get("ignored_evidence_items"))
     pass4_local_lane_validation = _skill_route_discovery_pass4_local_lane_validation(
-        candidate_lane_inventory
+        candidate_lane_inventory,
+        ignored_evidence_items,
     )
     registry_validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
     pass2_fixture_validation_lane = _skill_route_discovery_pass2_fixture_validation_lane(
@@ -1239,7 +1241,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "active_pass1_evidence_lane": _skill_route_discovery_active_pass1_evidence_lane(
             candidate_lane_inventory,
-            _mapping_list(registry.get("ignored_evidence_items")),
+            ignored_evidence_items,
         ),
         "current_pass_validation_cases": _skill_route_discovery_current_pass_validation_cases(
             candidate_lane_inventory
@@ -3566,6 +3568,7 @@ def _skill_route_discovery_pass3_local_validation_lane(
 
 def _skill_route_discovery_pass4_local_lane_validation(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Close the skill-route slice with bounded local validation lanes.
 
@@ -3655,7 +3658,19 @@ def _skill_route_discovery_pass4_local_lane_validation(
 
     observed_profile_set = set(observed_profiles)
     missing_profiles = [profile for profile in required_profiles if profile not in observed_profile_set]
-    ready = bool(rows) and not blocked_candidates and not missing_profiles
+    adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
+        ignored_evidence_items,
+        proposal_id="p3-agent-harness-eval-for-general-agent-projects",
+    )
+    adjacent_ready = all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["skill_route_discovery_inherited"] is False
+        and row["direct_runtime_route_allowed"] is False
+        and row["direct_code_patch_route_allowed"] is False
+        and row["runtime_action"] == "none"
+        for row in adjacent_rows
+    )
+    ready = bool(rows) and not blocked_candidates and not missing_profiles and adjacent_ready
     return {
         "controller_surface": "skill_route_discovery_pass4_local_lane_validation",
         "status": "ready" if ready else "blocked",
@@ -3678,6 +3693,7 @@ def _skill_route_discovery_pass4_local_lane_validation(
         "missing_route_profiles": missing_profiles,
         "candidate_count": len(rows),
         "ready_candidate_count": len([row for row in rows if row["row_status"] == "ready"]),
+        "adjacent_general_agent_count": len(adjacent_rows),
         "blocked_candidate_names": blocked_candidates,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "selected_local_lanes": [
@@ -3704,7 +3720,7 @@ def _skill_route_discovery_pass4_local_lane_validation(
             "proposal_id": "p4-p5-agent-harness-eval-queue",
             "when": "general_agent_project_without_skill_workflow_signal",
             "evaluation_lane": "agent_harness_eval_required",
-            "allowed_local_lanes": [],
+            "allowed_local_lanes": ["documentation", "test", "code_patch"] if adjacent_rows else [],
             "direct_local_change_proposals_allowed": False,
             "required_before_implementation": "local_agent_harness_eval_route_established",
             "replay_command": "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
@@ -3728,7 +3744,45 @@ def _skill_route_discovery_pass4_local_lane_validation(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
     }
+
+
+def _skill_route_discovery_adjacent_general_agent_rows(
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    proposal_id: str,
+) -> list[dict[str, Any]]:
+    """Represent non-skill general-agent evidence as eval-only adjacent rows."""
+
+    return [
+        {
+            "proposal_id": proposal_id,
+            "item_id": str(item.get("item_id") or ""),
+            "item_kind": str(item.get("item_kind") or ""),
+            "name": str(item.get("name") or ""),
+            "source_hash": str(item.get("source_hash") or ""),
+            "ignored_reason": str(item.get("ignored_reason") or ""),
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "required_before_implementation": "local_agent_harness_eval_route_established",
+            "replay_command": "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for item in ignored_evidence_items
+    ]
 
 
 def _skill_route_discovery_pass4_completion_handoff(
@@ -3802,6 +3856,42 @@ def _skill_route_discovery_pass4_completion_handoff(
 
     general_policy = pass4_local_lane_validation.get("general_agent_project_policy")
     general_policy = general_policy if isinstance(general_policy, Mapping) else {}
+    raw_adjacent_rows = pass4_local_lane_validation.get("adjacent_general_agent_rows")
+    adjacent_rows = (
+        raw_adjacent_rows
+        if isinstance(raw_adjacent_rows, Sequence) and not isinstance(raw_adjacent_rows, (str, bytes))
+        else []
+    )
+    adjacent_general_agent_rows = [
+        {
+            "proposal_id": str(row.get("proposal_id") or ""),
+            "item_id": str(row.get("item_id") or ""),
+            "item_kind": str(row.get("item_kind") or ""),
+            "name": str(row.get("name") or ""),
+            "source_hash": str(row.get("source_hash") or ""),
+            "ignored_reason": str(row.get("ignored_reason") or ""),
+            "evaluation_lane": str(row.get("evaluation_lane") or "agent_harness_eval_required"),
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes": _string_list(row.get("allowed_local_lanes")),
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "required_before_implementation": str(
+                row.get("required_before_implementation") or "local_agent_harness_eval_route_established"
+            ),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for row in adjacent_rows
+        if isinstance(row, Mapping)
+    ]
     pass4_ready = pass4_local_lane_validation.get("status") == "ready"
     rows_ready = bool(rows) and not blocked_candidate_names and all(
         row["row_status"] == "ready" for row in rows
@@ -3848,6 +3938,7 @@ def _skill_route_discovery_pass4_completion_handoff(
         ],
         "candidate_count": len(rows),
         "ready_candidate_count": len([row for row in rows if row["row_status"] == "ready"]),
+        "adjacent_general_agent_count": len(adjacent_general_agent_rows),
         "blocked_candidate_names": blocked_candidate_names,
         "covered_route_profiles": sorted(dict.fromkeys(profile for profile in route_profiles if profile)),
         "selected_local_lanes": [
@@ -3868,6 +3959,8 @@ def _skill_route_discovery_pass4_completion_handoff(
                 general_policy.get("required_before_implementation")
                 or "local_agent_harness_eval_route_established"
             ),
+            "allowed_local_lanes_after_eval": _string_list(general_policy.get("allowed_local_lanes")),
+            "adjacent_record_count": len(adjacent_general_agent_rows),
             "runtime_action": "none",
             "external_agent_activation_allowed": False,
             "external_harness_execution_allowed": False,
@@ -3889,6 +3982,7 @@ def _skill_route_discovery_pass4_completion_handoff(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+        "adjacent_general_agent_rows": adjacent_general_agent_rows,
     }
 
 

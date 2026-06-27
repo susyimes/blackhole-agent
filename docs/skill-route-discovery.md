@@ -286,6 +286,19 @@ activation, external harness execution, provider launch, remote execution,
 profile writes, memory writes, raw source URL export, raw evidence URL export,
 raw target path export, and upstream body export remain denied.
 
+Source digest `github-growth-20260627T184730.160071Z` completes the current
+pass-4 window over COMPASS Skills, zhengxi-views, Three.js Game Skills, and
+Qwen-AgentWorld. The final handoff keeps the three skill workflow records in
+`pass4_local_lane_validation` and `pass4_completion_handoff` with selected
+local lanes limited to documentation, config, test, or code_patch. Adjacent
+general-agent evidence such as Qwen-AgentWorld is represented as an
+`agent_harness_eval_required` row, not as inherited skill-route evidence. It
+may name later documentation, test, or code_patch evaluation lanes only after a
+local agent-harness eval route is established; direct runtime action, direct
+code_patch activation, external agent activation, external harness execution,
+provider launch, remote execution, raw source URL export, raw evidence URL
+export, target path export, and upstream body export remain denied.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
