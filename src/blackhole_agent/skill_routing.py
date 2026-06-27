@@ -295,6 +295,7 @@ class ExternalSkillRouteCandidate:
     evidence_urls: tuple[str, ...] = ()
     evidence_item_urls: tuple[str, ...] = ()
     related_source_urls: tuple[str, ...] = ()
+    route_profiles: tuple[str, ...] = ()
     source_layout_signals: tuple[str, ...] = ()
     source_metadata_signals: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
@@ -320,6 +321,7 @@ class ExternalSkillRouteCandidate:
             evidence_urls=_string_tuple(value.get("evidence_urls")),
             evidence_item_urls=_string_tuple(value.get("evidence_item_urls")),
             related_source_urls=_string_tuple(value.get("related_source_urls")),
+            route_profiles=_string_tuple(value.get("route_profiles")),
             source_layout_signals=_string_tuple(
                 value.get("source_layout_signals")
                 or value.get("layout_signals")
@@ -353,6 +355,11 @@ class ExternalSkillRouteCandidate:
         unsupported_lanes = sorted(set(self.candidate_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES))
         if unsupported_lanes:
             errors.append("unsupported_candidate_lanes:" + ",".join(unsupported_lanes))
+        unsupported_profiles = sorted(
+            set(self.route_profiles) - set(SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS)
+        )
+        if unsupported_profiles:
+            errors.append("unsupported_route_profiles:" + ",".join(unsupported_profiles))
         blocked_actions = sorted(set(self.requested_actions) & set(SKILL_ROUTE_DISCOVERY_BLOCKED_ACTIONS))
         if blocked_actions:
             errors.append("blocked_discovery_actions:" + ",".join(blocked_actions))
@@ -1294,6 +1301,9 @@ def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> t
 
 def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate) -> tuple[str, ...]:
     """Classify the shape of external skill evidence without enabling it."""
+
+    if candidate.route_profiles:
+        return tuple(dict.fromkeys(candidate.route_profiles))
 
     text = " ".join(
         part
