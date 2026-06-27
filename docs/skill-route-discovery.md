@@ -173,6 +173,21 @@ presence, or fork-lineage references is supporting context only: it does not
 increase candidate count, proposal lane count, activation readiness, or runtime
 authority.
 
+Source digest `github-growth-20260627T190729.505995Z` opens another pass-1
+window over the same skill-route-discovery slice. The lane map now emits
+`active_window_pass1_route_lanes`, an operator-facing packet keyed to the active
+proposal IDs `p1-skill-route-discovery-generic`,
+`p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff`. Generic or source-cited skill evidence such
+as zhengxi-views must expose documentation, config, test, and code_patch as
+bounded local lanes, with the test lane selected first for citation and
+advice-boundary validation. Three.js game/frontend skill evidence can select a
+documentation lane, but any code_patch work remains behind local frontend
+validation. COMPASS-style state handoff evidence can select a config lane, but
+profile and memory writes remain denied. Adjacent general-agent evidence such
+as Qwen-AgentWorld stays in `agent_harness_eval_required` and does not inherit
+skill-route runtime or code_patch authority.
+
 Source digest `github-growth-20260627T120310.659503Z` advances pass 2 by adding
 a route-classification fixture lane for the same proposal family. Frozen
 fixtures may place `route_hints`, `route_profiles`, allowed local lanes, and

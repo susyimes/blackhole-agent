@@ -2432,6 +2432,97 @@ def test_skill_route_discovery_active_pass1_fixtures_queue_general_agent_evidenc
     assert adjacent_row["provider_runtime_launch_allowed"] is False
     assert adjacent_row["remote_execution_allowed"] is False
 
+    active_window = lane_map["active_window_pass1_route_lanes"]
+    assert active_window["controller_surface"] == "skill_route_discovery_active_window_pass1_route_lanes"
+    assert active_window["status"] == "ready"
+    assert active_window["decision"] == "active_window_pass1_skill_route_lanes_ready_for_local_validation"
+    assert active_window["source_digest"] == "github-growth-20260627T190729.505995Z"
+    assert active_window["review_gate"] == "focused-evidence-review"
+    assert active_window["proposal_ids"] == [
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert active_window["blocked_proposal_ids"] == []
+    assert active_window["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert active_window["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert active_window["required_evidence"] == [
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "review_note",
+    ]
+    assert active_window["runtime_action"] == "none"
+    assert active_window["external_skill_activation_allowed"] is False
+    assert active_window["external_agent_activation_allowed"] is False
+    assert active_window["external_harness_execution_allowed"] is False
+    assert active_window["provider_runtime_launch_allowed"] is False
+    assert active_window["profile_write_allowed"] is False
+    assert active_window["memory_write_allowed"] is False
+    assert active_window["remote_execution_allowed"] is False
+    assert active_window["raw_source_url_exported"] is False
+    assert active_window["raw_evidence_urls_exported"] is False
+    assert active_window["raw_target_paths_exported"] is False
+    assert active_window["raw_upstream_body_exported"] is False
+
+    window_rows = {row["proposal_id"]: row for row in active_window["rows"]}
+    assert set(window_rows) == {
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-state-handoff",
+    }
+    assert window_rows["p1-skill-route-discovery-generic"]["candidate_names"] == ["zhengxi-views"]
+    assert window_rows["p1-skill-route-discovery-generic"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert window_rows["p1-skill-route-discovery-generic"]["proposal_kind"] == "test"
+    assert window_rows["p1-skill-route-discovery-generic"]["selected_local_lane"] == "test"
+    assert window_rows["p2-game-frontend-skill-profile"]["candidate_names"] == [
+        "threejs-game-skills"
+    ]
+    assert window_rows["p2-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert window_rows["p2-game-frontend-skill-profile"]["proposal_kind"] == "documentation"
+    assert window_rows["p2-game-frontend-skill-profile"]["selected_local_lane"] == "documentation"
+    assert window_rows["p2-game-frontend-skill-profile"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert window_rows["p3-skill-ecosystem-state-handoff"]["candidate_names"] == ["compass-skills"]
+    assert window_rows["p3-skill-ecosystem-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert window_rows["p3-skill-ecosystem-state-handoff"]["proposal_kind"] == "config"
+    assert window_rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    assert window_rows["p3-skill-ecosystem-state-handoff"]["profile_write_allowed"] is False
+    assert window_rows["p3-skill-ecosystem-state-handoff"]["memory_write_allowed"] is False
+
+    for row in active_window["rows"]:
+        assert row["status"] == "ready"
+        assert row["route_hint"] == "skill_route_discovery"
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["selected_evidence_item_ids"]
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+        assert row["code_patch_approval_gate"] == "selected_lane_local_validation_before_code_patch"
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    active_window_adjacent = active_window["adjacent_general_agent_rows"][0]
+    assert active_window_adjacent["item_id"] == "p3-qwen-agentworld-general-agent"
+    assert active_window_adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert active_window_adjacent["skill_route_discovery_inherited"] is False
+    assert active_window_adjacent["direct_runtime_route_allowed"] is False
+    assert active_window_adjacent["direct_code_patch_route_allowed"] is False
+
 
 def test_skill_route_discovery_pass2_route_classification_fixture_is_bounded():
     fixture_path = (
