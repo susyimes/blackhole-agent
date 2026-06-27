@@ -3176,6 +3176,51 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
 
+    replay_manifest = lane_map["pass4_operator_replay_manifest"]
+    assert replay_manifest["controller_surface"] == "skill_route_discovery_pass4_operator_replay_manifest"
+    assert replay_manifest["status"] == "ready"
+    assert replay_manifest["decision"] == "supervisor_can_replay_selected_local_lanes_before_activation_review"
+    assert replay_manifest["depends_on_controller_surface"] == "skill_route_discovery_pass4_completion_handoff"
+    assert replay_manifest["handoff_mode"] == "body_free_operator_replay_manifest"
+    assert replay_manifest["candidate_count"] == 3
+    assert replay_manifest["ready_candidate_count"] == 3
+    assert replay_manifest["selected_local_lanes"] == ["config", "test"]
+    assert [row["lane"] for row in replay_manifest["lane_artifact_targets"]] == ["config", "test"]
+    assert [row["artifact_target_count"] for row in replay_manifest["lane_artifact_targets"]] == [1, 2]
+    for row in replay_manifest["lane_artifact_targets"]:
+        assert all(target_hash.startswith("sha256:") for target_hash in row["artifact_target_hashes"])
+        assert row["changed_file_review"] == "must_match_selected_lane_or_be_recorded_as_review_note"
+    assert replay_manifest["replay_command_hashes"] == handoff["replay_command_hashes"]
+    assert [row["candidate_name"] for row in replay_manifest["candidate_rows"]] == [
+        "compass-skills",
+        "threejs-game-skills",
+        "zhengxi-views",
+    ]
+    assert replay_manifest["operator_replay_requirements"] == [
+        "confirm_rollback_ref_and_artifact",
+        "run_selected_lane_replay_commands_from_pass4_local_lane_validation",
+        "compare_changed_files_with_hashed_lane_artifact_targets",
+        "record_any_unmatched_file_as_review_note_or_blocker",
+        "keep_activation_external_to_the_kernel",
+    ]
+    assert replay_manifest["completion_blocker_hints"] == [
+        "rollback_contract_missing",
+        "pass4_replay_not_confirmed",
+        "lane_artifact_review_missing",
+        "external_activation_boundary_weakened",
+    ]
+    assert replay_manifest["local_validation_required"] is True
+    assert replay_manifest["runtime_action"] == "none"
+    assert replay_manifest["external_skill_activation_allowed"] is False
+    assert replay_manifest["external_harness_execution_allowed"] is False
+    assert replay_manifest["provider_runtime_launch_allowed"] is False
+    assert replay_manifest["remote_execution_allowed"] is False
+    assert replay_manifest["raw_source_url_exported"] is False
+    assert replay_manifest["raw_evidence_urls_exported"] is False
+    assert replay_manifest["raw_target_paths_exported"] is False
+    assert replay_manifest["raw_upstream_body_exported"] is False
+    assert replay_manifest["raw_replay_command_exported"] is False
+
 
 def test_skill_route_discovery_pass4_completion_handoff_queues_adjacent_general_agent_evidence():
     fixture_path = (
@@ -3305,6 +3350,25 @@ def test_skill_route_discovery_pass4_completion_handoff_queues_adjacent_general_
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
     assert "install" not in serialized
+
+    replay_manifest = lane_map["pass4_operator_replay_manifest"]
+    assert replay_manifest["status"] == "ready"
+    assert replay_manifest["adjacent_general_agent_project_boundary"] == {
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "adjacent_record_count": 1,
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    serialized_manifest = json.dumps(replay_manifest, sort_keys=True)
+    assert "https://github.com/" not in serialized_manifest
+    assert "runtime_execution" not in serialized_manifest
+    assert "install" not in serialized_manifest
 
 
 def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded():

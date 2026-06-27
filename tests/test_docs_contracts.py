@@ -434,6 +434,9 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "per-profile\ninspection requirements",
         "recovery hint codes",
         "`external_supervisor_replay_without_kernel_restart`",
+        "`pass4_operator_replay_manifest`",
+        "compare changed files with hashed lane artifact\ntargets",
+        "raw target paths, raw replay commands, raw source URLs",
         "`agent_harness_eval_required` with `skill_route_discovery_inherited: false`",
         "raw source URLs, raw evidence URLs, raw target paths, and upstream bodies\n"
         "are not exported",

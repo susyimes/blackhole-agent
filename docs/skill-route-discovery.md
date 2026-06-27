@@ -2305,6 +2305,19 @@ This panel is a replay and recovery handoff only: runtime action remains
 and raw source URLs, raw evidence URLs, raw target paths, and upstream bodies
 are not exported.
 
+Final-pass completion also exposes `pass4_operator_replay_manifest`, a
+body-free replay packet derived from `pass4_completion_handoff`. It gives the
+external supervisor one compact checklist for the selected local lanes: confirm
+the rollback ref and artifact, replay the selected local lane commands from
+`pass4_local_lane_validation`, compare changed files with hashed lane artifact
+targets, record unmatched files as review notes or blockers, and keep activation
+outside the kernel. The manifest records only candidate names, route profiles,
+selected lane names, candidate source hashes, replay-command hashes, artifact
+target hashes, recovery hint codes, and the adjacent general-agent boundary.
+It does not export raw target paths, raw replay commands, raw source URLs, raw
+evidence URLs, upstream bodies, install instructions, external harness
+execution, provider launch, remote execution, or runtime action.
+
 The `agent_harness_eval_lane` replay now carries a body-free
 `claim_evaluation` matrix for this general-agent path. Each recognized public
 record can contribute behavior claims such as multi-agent orchestration, policy

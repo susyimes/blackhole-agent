@@ -1199,6 +1199,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         candidate_lane_inventory,
         ignored_evidence_items,
     )
+    pass4_completion_handoff = _skill_route_discovery_pass4_completion_handoff(
+        pass4_local_lane_validation
+    )
     registry_validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
     pass2_fixture_validation_lane = _skill_route_discovery_pass2_fixture_validation_lane(
         candidate_lane_inventory
@@ -1271,8 +1274,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             candidate_lane_inventory
         ),
         "pass4_local_lane_validation": pass4_local_lane_validation,
-        "pass4_completion_handoff": _skill_route_discovery_pass4_completion_handoff(
-            pass4_local_lane_validation
+        "pass4_completion_handoff": pass4_completion_handoff,
+        "pass4_operator_replay_manifest": _skill_route_discovery_pass4_operator_replay_manifest(
+            pass4_completion_handoff
         ),
         "local_activation_targets": local_activation_targets,
         "route_profile_handoff_queue": route_profile_handoff_queue,
@@ -4435,6 +4439,111 @@ def _skill_route_discovery_pass4_completion_handoff(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_general_agent_rows,
+    }
+
+
+def _skill_route_discovery_pass4_operator_replay_manifest(
+    pass4_completion_handoff: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Summarize final-pass replay requirements without exposing raw paths."""
+
+    raw_rows = pass4_completion_handoff.get("rows")
+    rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    selected_lanes = [
+        lane
+        for lane in _string_list(pass4_completion_handoff.get("selected_local_lanes"))
+        if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    lane_artifact_rows = [
+        {
+            "lane": lane,
+            "artifact_target_hashes": [
+                _stable_hash(target)
+                for target in SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS.get(lane, ())
+            ],
+            "artifact_target_count": len(SKILL_ROUTE_DISCOVERY_LOCAL_ARTIFACT_TARGETS.get(lane, ())),
+            "changed_file_review": "must_match_selected_lane_or_be_recorded_as_review_note",
+        }
+        for lane in selected_lanes
+    ]
+    candidate_rows = [
+        {
+            "candidate_name": str(row.get("candidate_name") or ""),
+            "route_profiles": _string_list(row.get("route_profiles")),
+            "selected_local_lane": str(row.get("selected_local_lane") or ""),
+            "candidate_source_hash": str(row.get("candidate_source_hash") or ""),
+            "replay_command_hash": str(row.get("replay_command_hash") or ""),
+            "row_status": str(row.get("row_status") or "blocked"),
+        }
+        for row in rows
+        if isinstance(row, Mapping)
+    ]
+    ready = (
+        pass4_completion_handoff.get("status") == "ready"
+        and bool(candidate_rows)
+        and all(row["row_status"] == "ready" for row in candidate_rows)
+        and bool(lane_artifact_rows)
+    )
+    adjacent_boundary = pass4_completion_handoff.get("adjacent_general_agent_project_boundary")
+    adjacent_boundary = adjacent_boundary if isinstance(adjacent_boundary, Mapping) else {}
+
+    return {
+        "controller_surface": "skill_route_discovery_pass4_operator_replay_manifest",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "supervisor_can_replay_selected_local_lanes_before_activation_review"
+            if ready
+            else "repair_pass4_replay_manifest_before_supervisor_handoff"
+        ),
+        "depends_on_controller_surface": "skill_route_discovery_pass4_completion_handoff",
+        "handoff_mode": "body_free_operator_replay_manifest",
+        "candidate_count": len(candidate_rows),
+        "ready_candidate_count": len([row for row in candidate_rows if row["row_status"] == "ready"]),
+        "selected_local_lanes": selected_lanes,
+        "lane_artifact_targets": lane_artifact_rows,
+        "replay_command_hashes": _string_list(pass4_completion_handoff.get("replay_command_hashes")),
+        "candidate_rows": candidate_rows,
+        "operator_replay_requirements": [
+            "confirm_rollback_ref_and_artifact",
+            "run_selected_lane_replay_commands_from_pass4_local_lane_validation",
+            "compare_changed_files_with_hashed_lane_artifact_targets",
+            "record_any_unmatched_file_as_review_note_or_blocker",
+            "keep_activation_external_to_the_kernel",
+        ],
+        "completion_blocker_hints": [
+            "rollback_contract_missing",
+            "pass4_replay_not_confirmed",
+            "lane_artifact_review_missing",
+            "external_activation_boundary_weakened",
+        ],
+        "adjacent_general_agent_project_boundary": {
+            "evaluation_lane": str(adjacent_boundary.get("evaluation_lane") or "agent_harness_eval_required"),
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes_after_eval": _string_list(
+                adjacent_boundary.get("allowed_local_lanes_after_eval")
+            ),
+            "adjacent_record_count": int(adjacent_boundary.get("adjacent_record_count") or 0),
+            "required_before_implementation": str(
+                adjacent_boundary.get("required_before_implementation")
+                or "local_agent_harness_eval_route_established"
+            ),
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "raw_replay_command_exported": False,
     }
 
 
