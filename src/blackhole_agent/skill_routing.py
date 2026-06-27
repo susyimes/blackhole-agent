@@ -753,7 +753,22 @@ def build_skill_route_discovery_registry_from_evidence_items(
     for item in items:
         evidence_item = _coerce_external_skill_evidence_item(item)
         summary = evidence_item.to_summary()
-        if summary is None or not _looks_like_skill_repository_summary(summary):
+        route_classification = _route_classification_mapping(item) if isinstance(item, Mapping) else {}
+        explicit_route_metadata = bool(
+            _string_list(route_classification.get("route_profiles"))
+            or _string_list(
+                route_classification.get("source_layout_signals")
+                or route_classification.get("layout_signals")
+            )
+            or _string_list(
+                route_classification.get("source_metadata_signals")
+                or route_classification.get("metadata_signals")
+            )
+        )
+        if summary is None or (
+            not _looks_like_skill_repository_summary(summary)
+            and not explicit_route_metadata
+        ):
             ignored_count += 1
             continue
 
@@ -765,6 +780,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
                 "evidence_urls": [],
                 "item_ids": [],
                 "lanes": [],
+                "route_profiles": [],
                 "source_layout_signals": [],
                 "source_metadata_signals": [],
                 "name": summary.name,
@@ -782,7 +798,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
 
         bucket["evidence_urls"].append(evidence_url)
         bucket["lanes"].extend(_bounded_skill_discovery_lanes(summary))
-        route_classification = _route_classification_mapping(item) if isinstance(item, Mapping) else {}
+        bucket["route_profiles"].extend(_string_list(route_classification.get("route_profiles")))
         bucket["source_layout_signals"].extend(
             _string_list(
                 route_classification.get("source_layout_signals")
@@ -804,6 +820,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
             evidence_summary=" ".join(dict.fromkeys(bucket["summaries"])),
             discovery_event_kind=str(bucket["discovery_event_kind"]),
             candidate_lanes=tuple(dict.fromkeys(bucket["lanes"])) or ("documentation",),
+            route_profiles=tuple(dict.fromkeys(bucket["route_profiles"])),
             evidence_item_ids=tuple(dict.fromkeys(bucket["item_ids"])),
             evidence_item_urls=tuple(bucket["evidence_urls"]),
             evidence_urls=tuple(bucket["evidence_urls"]),

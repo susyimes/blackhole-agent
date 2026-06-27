@@ -88,8 +88,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 74
-    assert payload["pass_count"] == 73
+    assert payload["fixture_count"] == 75
+    assert payload["pass_count"] == 74
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -192,6 +192,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-pass4-closure"]["passed"] is True
     assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
     assert results["skill-route-discovery-lane-current-window-pass1"]["passed"] is True
+    assert results["skill-route-discovery-lane-20260627-pass1-window"]["passed"] is True
     assert results["skill-route-discovery-current-pass-skill-shapes"]["passed"] is True
     assert results["skill-route-discovery-threejs-fork-cluster-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
@@ -6452,6 +6453,106 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert pass1_replay_plan["external_skill_activation_allowed"] is False
     assert pass1_replay_plan["raw_source_urls_exported"] is False
     assert pass1_queue["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_20260627_pass1_window_maps_profiles_to_bounded_lanes():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_20260627_pass1_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    allowed_lanes = {"documentation", "config", "test", "code_patch"}
+    matrix_rows = {
+        row["route_profile"]: row
+        for row in output["bounded_profile_lane_matrix"]["rows"]
+    }
+    pass1_queue = output["pass1_validation_queue"]
+    queue_rows_by_id = {row["proposal_id"]: row for row in pass1_queue["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert output["route_hint_lane_policy"]["selected_local_lanes"] == [
+        "code_patch",
+        "config",
+        "documentation",
+        "test",
+    ]
+    assert output["route_hint_lane_policy"]["runtime_action_allowed"] is False
+    assert output["activation_gate"]["external_skill_activation_allowed"] is False
+    assert output["evidence_url_expansion_policy"]["evidence_url_expansion_allowed"] is False
+    assert output["privacy"]["raw_evidence_urls_exported"] is False
+
+    assert output["current_action"]["selected_local_lane"] == "test"
+    assert output["current_action"]["route_profiles"] == ["game_frontend_workflow"]
+    assert output["current_action"]["evidence_item_ids"] == [
+        "proposal-game-frontend-skill-profile-doc-test",
+    ]
+    assert output["current_action"]["queued_local_lanes"] == ["documentation", "config"]
+    assert [
+        target["route_profiles"] for target in output["current_action"]["queued_validation_targets"]
+    ] == [
+        ["generic_skill_workflow"],
+        ["skill_ecosystem_state_handoff"],
+    ]
+    for target in output["current_action"]["queued_validation_targets"]:
+        assert target["runtime_action"] == "none"
+        assert target["external_skill_activation_allowed"] is False
+
+    assert set(matrix_rows) == {
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    }
+    assert matrix_rows["generic_skill_workflow"]["selected_local_lanes"] == ["documentation"]
+    assert matrix_rows["game_frontend_workflow"]["selected_local_lanes"] == ["test"]
+    assert matrix_rows["skill_ecosystem_state_handoff"]["selected_local_lanes"] == ["config"]
+    for row in matrix_rows.values():
+        assert set(row["available_local_lanes"]) <= allowed_lanes
+        assert row["lanes_bounded"] is True
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+
+    assert pass1_queue["controller_surface"] == "skill_route_discovery_pass1_validation_queue"
+    assert pass1_queue["status"] == "blocked"
+    assert pass1_queue["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert pass1_queue["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    replay_rows = pass1_queue["pass1_replay_lane_plan"]["rows"]
+    assert [row["queue_role"] for row in replay_rows] == [
+        "selected_current_pass_lane",
+        "queued_bounded_lane",
+        "queued_bounded_lane",
+    ]
+    assert [row["selected_local_lane"] for row in replay_rows] == ["test", "documentation", "config"]
+    assert [row["route_profiles"] for row in replay_rows] == [
+        ["game_frontend_workflow"],
+        ["generic_skill_workflow"],
+        ["skill_ecosystem_state_handoff"],
+    ]
+    assert queue_rows_by_id["proposal-skill-route-discovery-generic-zhengxi-views"][
+        "selected_local_lane"
+    ] == "documentation"
+    assert queue_rows_by_id["proposal-game-frontend-skill-profile-doc-test"][
+        "selected_local_lane"
+    ] == "test"
+    assert queue_rows_by_id["proposal-skill-ecosystem-state-handoff-config-doc"][
+        "selected_local_lane"
+    ] == "config"
+    assert all(row["runtime_action"] == "none" for row in pass1_queue["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in pass1_queue["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in pass1_queue["rows"])
     assert "https://github.com/" not in serialized
 
 

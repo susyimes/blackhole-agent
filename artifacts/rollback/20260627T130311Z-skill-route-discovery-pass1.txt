@@ -1,0 +1,9 @@
+Rollback point for skill-route-discovery pass 1
+Original branch: codex/blackhole-evolve/20260627T130417.540245-add-or-extend-a-local-skill-route-discovery-vali
+Original HEAD: 45be862dc745836eef3a495c59d7e7379b22616f
+Rollback ref: refs/rollback/20260627T130311Z-skill-route-discovery-pass1
+Recovery commands:
+  git switch codex/blackhole-evolve/20260627T130417.540245-add-or-extend-a-local-skill-route-discovery-vali
+  git reset --hard refs/rollback/20260627T130311Z-skill-route-discovery-pass1
+  git clean -fd
+Created before local edits for source digest github-growth-20260627T130311.159432Z.

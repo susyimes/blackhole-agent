@@ -201,6 +201,22 @@ harness execution, provider launch, remote execution, raw source URL export,
 raw evidence URL export, raw target path export, and upstream body export
 remains denied.
 
+Source digest `github-growth-20260627T130311.159432Z` restarts pass 1 for the
+same slice with the active proposal IDs
+`proposal-skill-route-discovery-generic-zhengxi-views`,
+`proposal-game-frontend-skill-profile-doc-test`, and
+`proposal-skill-ecosystem-state-handoff-config-doc`. The local replay fixture
+`skill_route_discovery_lane_20260627_pass1_window.json` treats zhengxi-views as
+generic skill workflow evidence, Three.js Game Skills as
+`game_frontend_workflow`, and COMPASS Skills as
+`skill_ecosystem_state_handoff`. The controller-facing lesson is unchanged:
+these profiles enter `skill_route_discovery` first, select only documentation,
+config, test, or code_patch lanes, require local validation, and do not grant
+runtime permissions. The state-handoff profile is evaluated through the same
+route discovery queue and cannot bypass recomputed runtime gates, profile or
+memory write denial, external skill activation denial, provider launch denial,
+raw evidence URL hashing, or upstream body exclusion.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`
