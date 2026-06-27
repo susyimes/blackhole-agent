@@ -2214,6 +2214,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         mixed_local_lane_probe=mixed_local_lane_probe,
         profile_lane_acceptance_contract=profile_lane_acceptance_contract,
     )
+    pass1_route_registry_handoff = skill_route_discovery_pass1_route_registry_handoff(
+        raw_input=raw_input,
+        lane_map=lane_map,
+        pass1_validation_queue=pass1_validation_queue,
+    )
     capability_window_completion = skill_route_discovery_capability_window_completion(
         raw_input=raw_input,
         route_status=route_status,
@@ -2325,6 +2330,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass3_handoff_packet": pass3_handoff_packet,
         "pass1_handoff_packet": pass1_handoff_packet,
         "pass1_validation_queue": pass1_validation_queue,
+        "pass1_route_registry_handoff": pass1_route_registry_handoff,
         "activation_manifest": activation_manifest,
         "capability_window_completion": capability_window_completion,
         "supervisor_readiness": supervisor_readiness,
@@ -7537,9 +7543,9 @@ def skill_route_discovery_pass1_handoff_packet(
             for source_hash in string_list(row.get("candidate_source_hashes"))
         }
     )
-    general_agent_evidence_present = any("omnigent-ai/omnigent" in url for url in evidence_urls) or any(
-        "agent-harness" in proposal or "agent_harness" in proposal
-        for proposal in anchoring_proposals
+    general_agent_evidence_present = any(
+        _skill_route_discovery_is_general_agent_ref(ref)
+        for ref in [*evidence_urls, *anchoring_proposals]
     )
     ready = (
         current_pass == 1
@@ -7642,7 +7648,7 @@ def skill_route_discovery_pass1_validation_queue(
     diagnostics: list[str] = []
     for proposal_id in anchoring_proposals:
         proposal_lower = proposal_id.casefold()
-        if "general-agent" in proposal_lower or "omnigent" in proposal_lower:
+        if _skill_route_discovery_is_general_agent_ref(proposal_lower):
             rows.append(
                 {
                     "proposal_id": proposal_id,
@@ -7894,6 +7900,256 @@ def skill_route_discovery_pass1_validation_queue(
         ],
         "local_validation_required": True,
         "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass1_route_registry_handoff(
+    *,
+    raw_input: dict[str, Any],
+    lane_map: dict[str, Any],
+    pass1_validation_queue: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-1 registry evidence as bounded lanes plus adjacent eval rows."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    current_pass = int(window.get("current_pass") or window.get("planned_pass") or 0)
+    allowed_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    allowed_lane_set = set(allowed_lanes)
+    active_lane = lane_map.get("active_pass1_evidence_lane")
+    active_lane = active_lane if isinstance(active_lane, dict) else {}
+    validation_matrix = lane_map.get("pass1_validation_matrix")
+    validation_matrix = validation_matrix if isinstance(validation_matrix, dict) else {}
+    active_rows = active_lane.get("rows")
+    active_rows = active_rows if isinstance(active_rows, list) else []
+    matrix_rows = validation_matrix.get("rows")
+    matrix_rows = matrix_rows if isinstance(matrix_rows, list) else []
+    pass1_rows = pass1_validation_queue.get("rows")
+    pass1_rows = pass1_rows if isinstance(pass1_rows, list) else []
+    queued_general_agent_ids = {
+        optional_string(row.get("proposal_id")) or ""
+        for row in pass1_rows
+        if isinstance(row, dict) and row.get("route") == "agent_harness_eval_required"
+    }
+    window_general_agent_refs = [
+        ref
+        for ref in (
+            string_list(window.get("evidence_urls"))
+            + string_list(window.get("anchoring_proposals"))
+        )
+        if _skill_route_discovery_is_general_agent_ref(ref)
+    ]
+
+    skill_rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for raw_row in active_rows:
+        row = raw_row if isinstance(raw_row, dict) else {}
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        evidence_item_ids = (
+            string_list(row.get("evidence_item_ids"))
+            or string_list(row.get("selected_evidence_item_ids"))
+        )
+        candidate_source_hashes = string_list(row.get("candidate_source_hashes"))
+        candidate_source_hash = optional_string(row.get("candidate_source_hash"))
+        if candidate_source_hash:
+            candidate_source_hashes = sorted(dict.fromkeys([*candidate_source_hashes, candidate_source_hash]))
+        validation_gates = string_list(row.get("validation_gates"))
+        row_diagnostics = string_list(row.get("diagnostics"))
+        if selected_lane not in allowed_lane_set:
+            row_diagnostics.append("selected_local_lane_not_bounded")
+        if row.get("runtime_action") != "none":
+            row_diagnostics.append("runtime_action_not_none")
+        if row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        diagnostics.extend(
+            f"{stable_text_hash(optional_string(row.get('proposal_id')) or '')}:{diagnostic}"
+            for diagnostic in row_diagnostics
+        )
+        skill_rows.append(
+            {
+                "proposal_id": optional_string(row.get("proposal_id")) or "",
+                "route": "skill_route_discovery",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_lanes,
+                "route_profiles": string_list(row.get("route_profiles")),
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": evidence_item_ids,
+                "evidence_item_id_count": len(evidence_item_ids),
+                "candidate_source_hashes": candidate_source_hashes,
+                "candidate_source_count": len(candidate_source_hashes),
+                "profile_gates": validation_gates,
+                "queue_role": optional_string(row.get("queue_role")) or "",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    profile_rows: list[dict[str, Any]] = []
+    for raw_matrix_row in matrix_rows:
+        row = raw_matrix_row if isinstance(raw_matrix_row, dict) else {}
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        queued_lanes = [lane for lane in string_list(row.get("queued_local_lanes")) if lane in allowed_lane_set]
+        available_lanes = sorted(dict.fromkeys([selected_lane, *queued_lanes]))
+        for profile in string_list(row.get("route_profiles")) or ["generic_skill_workflow"]:
+            profile_rows.append(
+                {
+                    "route_profile": profile,
+                    "selected_local_lane": selected_lane,
+                    "available_local_lanes": available_lanes,
+                    "validation_gates": string_list(row.get("validation_gates")),
+                    "validation_target": optional_string(row.get("validation_target")) or "",
+                    "evidence_item_ids": string_list(row.get("selected_evidence_item_ids")),
+                    "candidate_source_hashes": string_list(row.get("candidate_source_hashes"))
+                    or (
+                        [optional_string(row.get("candidate_source_hash"))]
+                        if optional_string(row.get("candidate_source_hash"))
+                        else []
+                    ),
+                    "lanes_bounded": set(available_lanes) <= allowed_lane_set,
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            )
+    adjacent_rows = [
+        {
+            "proposal_id": proposal_id,
+            "route": "agent_harness_eval_required",
+            "primary_route": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "blocked_skill_route_lanes": allowed_lanes,
+            "evidence_ref_mode": "selected_item_ids_only",
+            "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for proposal_id in sorted(id_ for id_ in queued_general_agent_ids if id_)
+    ]
+    if window_general_agent_refs and not adjacent_rows:
+        adjacent_rows.append(
+            {
+                "proposal_id": "window-adjacent-general-agent-project",
+                "route": "agent_harness_eval_required",
+                "primary_route": "agent_harness_eval_required",
+                "skill_route_discovery_inherited": False,
+                "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                "blocked_skill_route_lanes": allowed_lanes,
+                "evidence_ref_mode": "selected_item_ids_only",
+                "source_ref_hashes": sorted({stable_text_hash(ref) for ref in window_general_agent_refs}),
+                "source_ref_count": len(set(window_general_agent_refs)),
+                "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        current_pass == 1
+        and bool(skill_rows)
+        and not diagnostics
+        and all(row["selected_local_lane"] in allowed_lane_set for row in skill_rows)
+        and all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows)
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass1_route_registry_handoff",
+        "status": "ready" if ready else "not_applicable" if current_pass != 1 else "blocked",
+        "decision": "pass1_registry_profiles_ready_for_bounded_local_validation"
+        if ready
+        else "repair_pass1_registry_handoff_before_validation",
+        "current_pass": current_pass,
+        "total_passes": int(window.get("total_passes") or 0),
+        "allowed_local_lanes": allowed_lanes,
+        "selected_local_lanes": sorted(
+            {row["selected_local_lane"] for row in skill_rows if row["selected_local_lane"] in allowed_lane_set}
+        ),
+        "route_profiles": sorted(
+            {profile for row in skill_rows for profile in string_list(row.get("route_profiles"))}
+        ),
+        "skill_route_row_count": len(skill_rows),
+        "profile_row_count": len(profile_rows),
+        "adjacent_general_agent_row_count": len(adjacent_rows),
+        "rows": skill_rows,
+        "profile_rows": profile_rows,
+        "adjacent_general_agent_project_eval": {
+            "status": "gated" if adjacent_rows else "not_present",
+            "agent_harness_eval_required": bool(adjacent_rows),
+            "skill_route_discovery_inherited": False,
+            "rows": adjacent_rows,
+            "allowed_local_lanes": ["documentation", "test", "code_patch"] if adjacent_rows else [],
+            "blocked_skill_route_lanes": allowed_lanes if adjacent_rows else [],
+            "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+            if adjacent_rows
+            else [],
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND],
+        "agent_harness_eval_replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+        if adjacent_rows
+        else [],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,

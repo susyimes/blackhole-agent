@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -6554,6 +6555,82 @@ def test_skill_route_discovery_20260627_pass1_window_maps_profiles_to_bounded_la
     assert all(row["external_skill_activation_allowed"] is False for row in pass1_queue["rows"])
     assert all(row["external_harness_execution_allowed"] is False for row in pass1_queue["rows"])
     assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_pass1_registry_handoff_gates_qwen_agentworld_as_adjacent_eval():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_20260627_pass1_window.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = copy.deepcopy(fixture["input"])
+    input_payload["capability_window"]["evidence_urls"].append(
+        "https://github.com/QwenLM/Qwen-AgentWorld"
+    )
+    input_payload["capability_window"]["anchoring_proposals"].append(
+        "p3-agent-harness-eval-fixtures"
+    )
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    handoff_packet = output["pass1_handoff_packet"]
+    pass1_queue = output["pass1_validation_queue"]
+    registry_handoff = output["pass1_route_registry_handoff"]
+    adjacent_eval = registry_handoff["adjacent_general_agent_project_eval"]
+    profile_rows = {row["route_profile"]: row for row in registry_handoff["profile_rows"]}
+
+    assert output["route_status"] == "passed"
+    assert handoff_packet["adjacent_general_agent_project_eval"]["status"] == "gated"
+    assert handoff_packet["adjacent_general_agent_project_eval"]["agent_harness_eval_required"] is True
+    assert pass1_queue["adjacent_general_agent_row_count"] == 1
+    assert pass1_queue["rows"][-1]["proposal_id"] == "p3-agent-harness-eval-fixtures"
+    assert pass1_queue["rows"][-1]["route"] == "agent_harness_eval_required"
+    assert pass1_queue["rows"][-1]["skill_route_discovery_inherited"] is False
+
+    assert registry_handoff["controller_surface"] == "skill_route_discovery_pass1_route_registry_handoff"
+    assert registry_handoff["status"] == "ready"
+    assert registry_handoff["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert registry_handoff["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert registry_handoff["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert registry_handoff["skill_route_row_count"] == 3
+    assert registry_handoff["profile_row_count"] == 3
+    assert registry_handoff["adjacent_general_agent_row_count"] == 1
+    assert registry_handoff["required_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+    ]
+    assert registry_handoff["agent_harness_eval_replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    ]
+    assert adjacent_eval["status"] == "gated"
+    assert adjacent_eval["agent_harness_eval_required"] is True
+    assert adjacent_eval["skill_route_discovery_inherited"] is False
+    assert adjacent_eval["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert adjacent_eval["blocked_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert adjacent_eval["rows"][0]["proposal_id"] == "p3-agent-harness-eval-fixtures"
+    assert adjacent_eval["rows"][0]["primary_route"] == "agent_harness_eval_required"
+    assert adjacent_eval["rows"][0]["skill_route_discovery_inherited"] is False
+    assert adjacent_eval["rows"][0]["runtime_action"] == "none"
+    assert adjacent_eval["rows"][0]["external_harness_execution_allowed"] is False
+    assert adjacent_eval["rows"][0]["provider_runtime_launch_allowed"] is False
+
+    assert profile_rows["generic_skill_workflow"]["selected_local_lane"] == "documentation"
+    assert profile_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert profile_rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(row["lanes_bounded"] is True for row in registry_handoff["profile_rows"])
+    assert all(row["runtime_action"] == "none" for row in registry_handoff["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in registry_handoff["rows"])
+    assert registry_handoff["runtime_action_allowed"] is False
+    assert registry_handoff["external_skill_activation_allowed"] is False
+    assert registry_handoff["external_harness_execution_allowed"] is False
+    assert registry_handoff["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "Qwen-AgentWorld" not in serialized
 
 
 def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():

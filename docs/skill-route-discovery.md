@@ -2303,6 +2303,20 @@ grant external agent activation, external harness execution, provider launch,
 remote execution, raw source URL export, raw evidence-body export, raw
 claim-body export, or upstream body export.
 
+Source digest `github-growth-20260627T174729.898501Z` starts a new pass-1
+skill-route-discovery window over COMPASS Skills, zhengxi-views, Three.js Game
+Skills, and Qwen-AgentWorld. The local harness now emits
+`pass1_route_registry_handoff`, an operator-visible registry handoff derived
+from the existing active pass-1 evidence lane and validation matrix. It reports
+one bounded skill-route row per selected registry candidate, one profile row per
+generic, game/frontend, or state-handoff route profile, and an adjacent
+`agent_harness_eval_required` row for Qwen-AgentWorld-style general-agent
+evidence. The handoff preserves only selected item IDs, route profiles, local
+lane names, validation gates, and source hashes. It does not export raw GitHub
+URLs or upstream bodies, and it denies runtime action, upstream skill
+activation, external agent activation, external harness execution, provider
+launch, and remote execution.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes
