@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260627T122310.714088Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 3,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "item_id": "p1_skill_route_discovery_index",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Source-cited domain research agent skill",
+      "summary": "Python agent skill workflow with SKILL.md, references, validation scripts, source citations, and advisory boundary notes.",
+      "topics": ["agent-skill", "research", "source-cited"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "source_layout_signals": ["skill_markdown", "validation_script"],
+        "source_metadata_signals": ["skill_registry_metadata"]
+      },
+      "suggested_lanes": ["test", "documentation", "provider_runtime"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "item_id": "p2_skill_workflow_docs",
+      "item_kind": "repository",
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "title": "Three.js browser game skills workflow",
+      "summary": "Agent skill workflow for Three.js browser games with gameplay specialists, frontend validation, QA checks, scaffold helpers, scripts, and optional provider asset generation.",
+      "topics": ["agent-skill", "threejs", "game", "skills", "workflow"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["game_frontend_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset"]
+      },
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "related_source_urls": ["https://github.com/wisdomedeki761/threejs-game-skills"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    },
+    {
+      "item_id": "p3_skill_route_metadata_config",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "COMPASS Skills state handoff ecosystem",
+      "summary": "Agent skill ecosystem workflow with task clarification, repo-local task memory, session handoff prompts, collaboration profile, route metadata, scripts, and privacy boundary notes.",
+      "topics": ["agent-skill", "skills", "memory", "profile", "handoff", "workflow"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["skill_ecosystem_state_handoff"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "source_metadata_signals": ["skill_registry_metadata"]
+      },
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "validation_status": "unvalidated",
+      "enabled": false
+    }
+  ]
+}

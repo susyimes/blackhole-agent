@@ -499,6 +499,12 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "`p3_skill_ecosystem_state_handoff_config`",
         "Generic\nPython agent-skill workflow evidence may satisfy the first case through\n`generic_skill_workflow`",
         "Game frontend\nsignals may choose only a documentation/config/test/code_patch lane after\n`skill_route_discovery`",
+        "`pass3_route_discovery_index`",
+        "`p1_skill_route_discovery_index`",
+        "`p2_skill_workflow_docs`",
+        "`p3_skill_route_metadata_config`",
+        "only documentation, config, test, or\ncode_patch as allowed local lanes",
+        "profile writes, memory writes, external\nharness execution, provider launch, remote execution",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

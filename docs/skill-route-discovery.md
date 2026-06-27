@@ -187,6 +187,20 @@ surface that checks route class, selected bounded lane, evidence item IDs or
 frozen fixture presence, and `local_validation_required: true` before any later
 activation handoff.
 
+Source digest `github-growth-20260627T122310.714088Z` advances pass 3 of the
+same skill-route-discovery slice by adding `pass3_route_discovery_index`. The
+index maps the active proposal IDs `p1_skill_route_discovery_index`,
+`p2_skill_workflow_docs`, and `p3_skill_route_metadata_config` to the observed
+`source_cited_domain_research`, `game_frontend_workflow`, and
+`skill_ecosystem_state_handoff` profiles before activation. Each row carries
+candidate source hashes, selected evidence item IDs, validation gates,
+validation targets, replay commands, and only documentation, config, test, or
+code_patch as allowed local lanes. Unsupported route pressure such as install,
+provider runtime, runtime execution, profile writes, memory writes, external
+harness execution, provider launch, remote execution, raw source URL export,
+raw evidence URL export, raw target path export, and upstream body export
+remains denied.
+
 The bounded evidence reviewed for these runs is:
 
 - `https://github.com/baskduf/FableCodex`

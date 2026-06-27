@@ -1780,6 +1780,140 @@ def test_skill_route_discovery_current_pass_validation_cases_accept_generic_pyth
     assert pass3_handoff["remote_execution_allowed"] is False
 
 
+def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profiles():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass3_skill_route_index.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 3
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+    assert lane_map["proposal_lane_count"] == 12
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+
+    index = lane_map["pass3_route_discovery_index"]
+    assert index["controller_surface"] == "skill_route_discovery_pass3_route_discovery_index"
+    assert index["status"] == "ready"
+    assert index["decision"] == "pass3_skill_route_profiles_indexed_for_bounded_local_validation"
+    assert index["capability_pass"] == 3
+    assert index["total_passes"] == 4
+    assert index["review_gate"] == "focused-evidence-review"
+    assert index["proposal_count"] == 3
+    assert index["ready_proposal_count"] == 3
+    assert index["blocked_proposal_ids"] == []
+    assert index["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert index["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert index["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert index["required_evidence"] == [
+        "three_skill_workflow_item_shapes",
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "focused_local_validation",
+    ]
+    assert index["local_validation_required"] is True
+    assert index["runtime_action"] == "none"
+    assert index["external_skill_activation_allowed"] is False
+    assert index["external_harness_execution_allowed"] is False
+    assert index["provider_runtime_launch_allowed"] is False
+    assert index["remote_execution_allowed"] is False
+    assert index["profile_write_allowed"] is False
+    assert index["memory_write_allowed"] is False
+    assert index["raw_source_url_exported"] is False
+    assert index["raw_evidence_urls_exported"] is False
+    assert index["raw_target_paths_exported"] is False
+    assert index["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in index["rows"]}
+    assert set(rows) == {
+        "p1_skill_route_discovery_index",
+        "p2_skill_workflow_docs",
+        "p3_skill_route_metadata_config",
+    }
+    assert rows["p1_skill_route_discovery_index"]["proposal_kind"] == "test"
+    assert rows["p1_skill_route_discovery_index"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p1_skill_route_discovery_index"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert rows["p1_skill_route_discovery_index"]["selected_local_lane"] == "test"
+    assert rows["p1_skill_route_discovery_index"]["selected_evidence_item_ids"] == [
+        "p1_skill_route_discovery_index"
+    ]
+    assert "source_citation_and_advice_boundary_before_domain_skill_activation" in (
+        rows["p1_skill_route_discovery_index"]["validation_gates"]
+    )
+
+    assert rows["p2_skill_workflow_docs"]["proposal_kind"] == "documentation"
+    assert rows["p2_skill_workflow_docs"]["candidate_names"] == [
+        "threejs-game-skills",
+        "zhengxi-views",
+    ]
+    assert rows["p2_skill_workflow_docs"]["route_profiles"] == [
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert rows["p2_skill_workflow_docs"]["selected_local_lane"] == "documentation"
+    assert rows["p2_skill_workflow_docs"]["validation_target"] == (
+        "document_skill_route_discovery_lane_boundary"
+    )
+
+    assert rows["p3_skill_route_metadata_config"]["proposal_kind"] == "config"
+    assert rows["p3_skill_route_metadata_config"]["candidate_names"] == ["compass-skills"]
+    assert rows["p3_skill_route_metadata_config"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p3_skill_route_metadata_config"]["selected_local_lane"] == "config"
+    assert rows["p3_skill_route_metadata_config"]["source_metadata_signals"] == [
+        "skill_registry_metadata"
+    ]
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["candidate_source_hashes"][0].startswith("sha256:")
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert not {"provider_runtime", "runtime_execution", "install"} & set(row["allowed_local_lanes"])
+
+    serialized = json.dumps(index, sort_keys=True)
+    assert "runtime_execution" not in serialized
+    assert "install" not in serialized
+    assert "https://github.com/" not in serialized
+
+    assert all(
+        lane["proposal_kind"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        for lane in lane_map["proposal_lanes"]
+    )
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
+
+
 def test_skill_route_discovery_current_pass2_focused_evidence_review_is_bounded():
     fixture_path = (
         Path(__file__).parent
