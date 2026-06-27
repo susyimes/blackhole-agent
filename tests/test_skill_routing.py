@@ -2566,6 +2566,118 @@ def test_skill_route_discovery_pass3_active_window_review_packet_matches_current
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_pass3_active_proposal_acceptance_lane_matches_current_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass3_active_proposal_acceptance.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 3
+    assert registry["candidate_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    lane = lane_map["pass3_active_proposal_acceptance_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_pass3_active_proposal_acceptance_lane"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "active_pass3_skill_route_proposals_ready_for_local_acceptance"
+    assert lane["source_digest"] == "github-growth-20260627T234729.527065Z"
+    assert lane["capability_pass"] == 3
+    assert lane["total_passes"] == 4
+    assert lane["review_gate"] == "focused-evidence-review"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-workflow",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert lane["ready_proposal_count"] == 3
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["required_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert lane["unsupported_lane_names_removed"] == []
+    assert lane["required_evidence"] == [
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "review_note",
+    ]
+    assert lane["operator_next_action"] == "run_hashed_replay_commands_then_continue_to_pass4"
+    assert lane["local_validation_required"] is True
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert lane["raw_replay_commands_exported"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_target_paths_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["candidate_name"]: row for row in lane["rows"]}
+    assert set(rows) == {"compass-skills", "threejs-game-skills", "zhengxi-views"}
+    assert rows["zhengxi-views"]["proposal_id"] == "p1-skill-route-discovery-generic"
+    assert rows["zhengxi-views"]["proposal_kind"] == "test"
+    assert rows["zhengxi-views"]["selected_local_lane"] == "test"
+    assert rows["zhengxi-views"]["route_profile"] == "generic_skill_workflow"
+    assert rows["threejs-game-skills"]["proposal_id"] == "p2-game-frontend-skill-workflow"
+    assert rows["threejs-game-skills"]["proposal_kind"] == "documentation"
+    assert rows["threejs-game-skills"]["selected_local_lane"] == "documentation"
+    assert rows["threejs-game-skills"]["route_profile"] == "game_frontend_workflow"
+    assert rows["compass-skills"]["proposal_id"] == "p3-skill-ecosystem-state-handoff"
+    assert rows["compass-skills"]["proposal_kind"] == "config"
+    assert rows["compass-skills"]["selected_local_lane"] == "config"
+    assert rows["compass-skills"]["route_profile"] == "skill_ecosystem_state_handoff"
+
+    for row in rows.values():
+        assert row["row_status"] == "ready"
+        assert row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert not {"provider_runtime", "runtime_execution", "install"} & set(row["allowed_local_lanes"])
+        assert row["selected_evidence_item_ids"]
+        assert row["activation_blockers"] == []
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert row["raw_replay_command_exported"] is False
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+
+
 def test_skill_route_discovery_current_pass2_focused_evidence_review_is_bounded():
     fixture_path = (
         Path(__file__).parent

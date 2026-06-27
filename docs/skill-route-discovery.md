@@ -2517,6 +2517,20 @@ source URLs, raw evidence URLs, raw target paths, upstream bodies, install
 requests, runtime action, external skill or agent activation, external harness
 execution, provider launch, remote execution, profile writes, or memory writes.
 
+Source digest `github-growth-20260627T234729.527065Z` advances pass 3 of the
+same active proposal set by adding `pass3_active_proposal_acceptance_lane`.
+This operator-visible surface binds generic skill workflow evidence to the
+local `test` lane, game/frontend skill workflow evidence to the local
+`documentation` lane, and skill ecosystem state handoff evidence to the local
+`config` lane. The packet is an acceptance checkpoint for supervisor replay,
+not activation authority: it requires selected item IDs or frozen fixtures,
+body-free summaries, rollback evidence, focused local validation, and a review
+note before pass-4 continuation. It hashes candidate sources and replay
+commands, exports no raw GitHub URLs, raw evidence URLs, raw target paths,
+commands, or upstream bodies, and keeps runtime action, external skill
+activation, external harness execution, provider launch, remote execution,
+profile writes, and memory writes denied.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes
