@@ -188,6 +188,23 @@ profile and memory writes remain denied. Adjacent general-agent evidence such
 as Qwen-AgentWorld stays in `agent_harness_eval_required` and does not inherit
 skill-route runtime or code_patch authority.
 
+Source digest `github-growth-20260627T192729.517144Z` advances the next pass-2
+window by adding `current_pass2_validation_lane`. The lane binds the active
+proposal IDs `p1-skill-route-discovery-general`, `p2-agent-harness-eval`, and
+`p3-game-frontend-skill-profile` into one operator-visible replay surface.
+Generic public skill workflow evidence may select only documentation, config,
+test, or code_patch local lanes and must carry selected item IDs, validation
+gates, and a focused local replay command. Three.js/browser-game skill evidence
+continues to require the `game_frontend_workflow` validation gate before any
+frontend code_patch work. Qwen-AgentWorld-style general-agent benchmark evidence
+is recorded only as an adjacent `agent_harness_eval_required` row; it must first
+provide install shape, entrypoints, dependency boundaries, task-loop
+assumptions, observable behaviors, and evaluation dimensions before it can
+influence runner, scheduling, memory, or controller behavior. The pass-2 lane
+exports no raw source URLs, raw evidence URLs, raw target paths, or upstream
+bodies, and it denies runtime action, external skill or agent activation,
+external harness execution, provider launch, and remote execution.
+
 Source digest `github-growth-20260627T120310.659503Z` advances pass 2 by adding
 a route-classification fixture lane for the same proposal family. Frozen
 fixtures may place `route_hints`, `route_profiles`, allowed local lanes, and
