@@ -1,0 +1,8 @@
+rollback point for skill-route-discovery pass3
+original_branch=codex/blackhole-evolve/20260627T182829.768163-add-a-local-skill-route-discovery-probe-for-gene
+head=7980fd3fcbbd650119b452ef39e8ad5b25fb74d4
+rollback_ref=refs/rollback/blackhole-agent/20260627T182729Z
+recover_branch=git switch codex/blackhole-evolve/20260627T182829.768163-add-a-local-skill-route-discovery-probe-for-gene
+recover_head=git reset --hard 7980fd3fcbbd650119b452ef39e8ad5b25fb74d4
+recover_ref=git reset --hard refs/rollback/blackhole-agent/20260627T182729Z
+note=rollback execution is explicit and destructive; do not run without operator approval

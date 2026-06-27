@@ -1,0 +1,197 @@
+{
+  "name": "skill-route-discovery-pass3-current-window-route-probe",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-pass3-current-window-route-probe",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 3,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "generic_skill_workflow",
+        "game_frontend_workflow"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-zhengxi-views",
+        "p2-agent-harness-qwen-agentworld",
+        "p3-game-skill-route-threejs"
+      ],
+      "evidence_urls": [
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/majidmanzarpour/threejs-game-skills"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "item_id": "p1-skill-route-zhengxi-views",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Source-cited domain research skill workflow",
+        "summary": "Agent Skill repository with SKILL.md, skill.yml, references, scripts, source-cited research workflow, validation notes, and bounded advice disclaimer.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skill", "workflow", "source-citation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_launch"],
+        "route_classification": {
+          "route_profiles": ["generic_skill_workflow"],
+          "source_layout_signals": ["skill_markdown", "references_directory", "scripts_directory"],
+          "source_metadata_signals": ["agent_metadata", "skill_manifest"]
+        }
+      },
+      {
+        "item_id": "p3-game-skill-route-threejs",
+        "item_kind": "repository",
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "title": "Three.js game frontend skill workflow profile",
+        "summary": "Three.js browser game Agent Skills repository with gameplay workflow, frontend QA validation, screenshot checks, canvas checks, and asset/provider boundary notes.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["threejs", "game", "frontend", "skills", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "route_classification": {
+          "route_profiles": ["game_frontend_workflow"],
+          "source_layout_signals": ["skill_markdown", "qa_checklist", "browser_validation"],
+          "source_metadata_signals": ["agent_metadata"]
+        }
+      },
+      {
+        "item_id": "p2-agent-harness-qwen-agentworld",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "General agent world model evaluation project",
+        "summary": "General agent project with language world model evaluation claims and no explicit skill workflow route signals in this digest item.",
+        "route_hints": [],
+        "topics": ["general-agent", "evaluation", "world-model"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "config"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260627T182729Z-skill-route-discovery-pass3.txt",
+        "review_note": "Generic source-cited skill evidence remains a local documentation lane before activation."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260627T182729Z-skill-route-discovery-pass3.txt",
+        "review_note": "Config remains a route-policy lane only; no external skill activation is allowed."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260627T182729Z-skill-route-discovery-pass3.txt",
+        "review_note": "Game frontend skill evidence remains bounded to local test validation before scaffold or runtime work."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260627T182729Z-skill-route-discovery-pass3.txt",
+        "review_note": "Code patch remains limited to local controller and harness route behavior."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "lane_map.proposal_kinds",
+      "equals": ["code_patch", "config", "documentation", "test"]
+    },
+    {
+      "path": "lane_map.local_validation_required",
+      "equals": true
+    },
+    {
+      "path": "route_hint_lane_policy.allowed_local_lanes",
+      "equals": ["documentation", "config", "test", "code_patch"]
+    },
+    {
+      "path": "route_hint_lane_policy.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.route_profile_lane_contract.rows.0.route_profile",
+      "equals": "game_frontend_workflow"
+    },
+    {
+      "path": "pass3_handoff_packet.route_profile_lane_contract.rows.0.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "pass3_handoff_packet.route_profile_lane_contract.rows.1.route_profile",
+      "equals": "generic_skill_workflow"
+    },
+    {
+      "path": "pass3_handoff_packet.route_profile_lane_contract.rows.1.selected_local_lane",
+      "equals": "documentation"
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.agent_harness_eval_required",
+      "equals": true
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.skill_route_discovery_inherited",
+      "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.record_count",
+      "equals": 1
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.empty_route_hint_record_count",
+      "equals": 1
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.records.0.item_id",
+      "equals": "p2-agent-harness-qwen-agentworld"
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.records.0.route_hints_empty",
+      "equals": true
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.records.0.allowed_local_lanes",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.records.0.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.raw_source_urls_exported",
+      "equals": false
+    }
+  ]
+}

@@ -6486,6 +6486,7 @@ def skill_route_discovery_pass3_adjacent_general_agent_project_eval(
     window = window if isinstance(window, dict) else {}
     evidence_urls = string_list(window.get("evidence_urls"))
     anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    records = skill_route_discovery_pass3_adjacent_general_agent_records(raw_input)
     general_agent_refs = [
         ref
         for ref in (*evidence_urls, *anchoring_proposals)
@@ -6494,7 +6495,9 @@ def skill_route_discovery_pass3_adjacent_general_agent_project_eval(
     source_url_refs = [ref for ref in evidence_urls if _skill_route_discovery_is_general_agent_ref(ref)]
     source_hashes = sorted({stable_text_hash(ref) for ref in source_url_refs})
     proposal_refs = [ref for ref in anchoring_proposals if _skill_route_discovery_is_general_agent_ref(ref)]
-    present = bool(general_agent_refs)
+    present = bool(general_agent_refs or records)
+    empty_hint_count = sum(1 for record in records if not record["route_hints"])
+    eval_required_count = sum(1 for record in records if record["agent_harness_eval_required"])
 
     return {
         "controller_surface": "skill_route_discovery_pass3_adjacent_general_agent_project_eval",
@@ -6513,6 +6516,10 @@ def skill_route_discovery_pass3_adjacent_general_agent_project_eval(
         "source_ref_count": len(source_hashes),
         "proposal_ref_hashes": sorted({stable_text_hash(ref) for ref in proposal_refs}),
         "proposal_ref_count": len(set(proposal_refs)),
+        "record_count": len(records),
+        "empty_route_hint_record_count": empty_hint_count,
+        "agent_harness_eval_required_record_count": eval_required_count,
+        "records": records,
         "evidence_ref_mode": "hashes_only",
         "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
         "local_validation_required": present,
@@ -6527,6 +6534,69 @@ def skill_route_discovery_pass3_adjacent_general_agent_project_eval(
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_pass3_adjacent_general_agent_records(raw_input: dict[str, Any]) -> list[dict[str, Any]]:
+    """Collect body-free adjacent general-agent rows from local fixture inputs."""
+
+    raw_records: list[Any] = []
+    for key in ("evidence_items", "candidates", "summaries"):
+        value = raw_input.get(key)
+        if isinstance(value, list):
+            raw_records.extend(value)
+
+    rows: list[dict[str, Any]] = []
+    for index, raw_record in enumerate(raw_records, start=1):
+        if not isinstance(raw_record, dict):
+            continue
+        text = " ".join(
+            part
+            for part in (
+                optional_string(raw_record.get("item_id")),
+                optional_string(raw_record.get("name")),
+                optional_string(raw_record.get("title")),
+                optional_string(raw_record.get("summary")),
+                optional_string(raw_record.get("evidence_summary")),
+                optional_string(raw_record.get("source_url")),
+                " ".join(string_list(raw_record.get("topics"))),
+            )
+            if part
+        )
+        if not _skill_route_discovery_is_general_agent_ref(text):
+            continue
+        route_hints = string_list(raw_record.get("route_hints"))
+        suggested_lanes = string_list(raw_record.get("suggested_lanes")) or string_list(
+            raw_record.get("candidate_lanes")
+        )
+        allowed_lanes = [
+            lane for lane in suggested_lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+        ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+        source_url = optional_string(raw_record.get("source_url")) or ""
+        item_id = optional_string(raw_record.get("item_id")) or optional_string(raw_record.get("name")) or f"record-{index}"
+        rows.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": stable_text_hash(source_url) if source_url else None,
+                "route_hints": route_hints,
+                "route_hints_empty": not route_hints,
+                "agent_harness_eval_required": True,
+                "skill_route_discovery_inherited": False,
+                "allowed_local_lanes": allowed_lanes,
+                "blocked_skill_route_lanes": ["documentation", "config", "test", "code_patch"],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_body_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+    return rows
 
 
 def _skill_route_discovery_is_general_agent_ref(value: str) -> bool:
