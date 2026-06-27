@@ -353,6 +353,21 @@ launch, remote execution, profile writes, memory writes, raw source URL export,
 raw evidence URL export, raw target path export, raw replay command export, and
 upstream body export remain denied.
 
+Source digest `github-growth-20260627T210729.503389Z` keeps pass 3 active with
+`pass3_current_wake_acceptance_packet`. The packet binds the current proposal
+IDs `p1-skill-route-discovery-index`, `p2-skill-route-discovery-docs`, and
+`p3-agent-harness-eval-fixtures` into one supervisor-visible acceptance check.
+The skill rows for zhengxi-views, Three.js Game Skills, and COMPASS Skills
+must keep `skill_route_discovery`, body-free evidence IDs, local validation,
+and only documentation, config, test, or code_patch lanes. Adjacent
+Qwen-AgentWorld-style general-agent evidence remains
+`agent_harness_eval_required` with `skill_route_discovery_inherited: false`;
+it may be evaluated through documentation, test, or code_patch fixtures, but it
+does not receive direct runtime, direct code_patch implementation, external
+harness execution, provider launch, remote execution, profile writes, memory
+writes, raw source URL export, raw evidence URL export, raw replay command
+export, raw target path export, or upstream body export.
+
 Source digest `github-growth-20260627T184730.160071Z` completes the current
 pass-4 window over COMPASS Skills, zhengxi-views, Three.js Game Skills, and
 Qwen-AgentWorld. The final handoff keeps the three skill workflow records in

@@ -513,12 +513,17 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "Game frontend\nsignals may choose only a documentation/config/test/code_patch lane after\n`skill_route_discovery`",
         "`pass3_route_discovery_index`",
         "`pass3_preflight_queue`",
+        "`pass3_current_wake_acceptance_packet`",
         "`p1_skill_route_discovery_index`",
         "`p2_skill_workflow_docs`",
         "`p3_skill_route_metadata_config`",
+        "`p1-skill-route-discovery-index`, `p2-skill-route-discovery-docs`, and\n"
+        "`p3-agent-harness-eval-fixtures`",
         "joins the\n`pass3_route_discovery_index` and `pass3_activation_handoff` surfaces",
         "`source_cited_domain_research`, `game_frontend_workflow`, and\n"
         "`skill_ecosystem_state_handoff` profiles are present",
+        "Qwen-AgentWorld-style general-agent evidence remains\n"
+        "`agent_harness_eval_required` with `skill_route_discovery_inherited: false`",
         "only documentation, config, test, or\ncode_patch as allowed local lanes",
         "profile writes, memory writes, external\nharness execution, provider launch, remote execution",
     ]
