@@ -1093,6 +1093,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "candidate_name": name,
                 "source_url": source_url,
                 "proposal_kinds": list(dict.fromkeys(allowed_lanes)),
+                "downgraded_lane_names": unsupported_lanes,
                 "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
                 "route_profiles": route_profiles,
                 "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
@@ -1212,6 +1213,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             candidate_lane_inventory
         ),
         "pass2_fixture_validation_lane": _skill_route_discovery_pass2_fixture_validation_lane(
+            candidate_lane_inventory
+        ),
+        "pass2_profile_lane_handoff": _skill_route_discovery_pass2_profile_lane_handoff(
             candidate_lane_inventory
         ),
         "pass3_route_discovery_index": _skill_route_discovery_pass3_route_discovery_index(
@@ -2535,6 +2539,174 @@ def _skill_route_discovery_pass2_fixture_validation_lane(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass2_profile_lane_handoff(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose pass-2 profile lanes for operator replay before activation.
+
+    The handoff is derived from already-classified candidate inventory. It makes
+    profile-specific replay lanes visible without adding runtime authority or
+    exporting upstream source bodies.
+    """
+
+    specs = (
+        {
+            "proposal_id": "proposal-skill-route-discovery-generic-zhengxi-views",
+            "proposal_kind": "test",
+            "proposal_track": "generic_skill_workflow",
+            "route_profiles": ("generic_skill_workflow",),
+            "selected_local_lane": "documentation",
+            "validation_target": "generic_skill_workflow_fixture_stays_bounded",
+            "replay_command": "python -m pytest tests/test_skill_routing.py -q -k pass2_route_classification_fixture",
+        },
+        {
+            "proposal_id": "proposal-game-frontend-skill-profile-doc-test",
+            "proposal_kind": "documentation",
+            "proposal_track": "game_frontend_workflow",
+            "route_profiles": ("game_frontend_workflow",),
+            "selected_local_lane": "test",
+            "validation_target": "game_frontend_workflow_profile_maps_to_local_validation",
+            "replay_command": "python -m pytest tests/test_skill_routing.py -q -k pass2_route_classification_fixture",
+        },
+        {
+            "proposal_id": "proposal-skill-ecosystem-state-handoff-config-doc",
+            "proposal_kind": "config",
+            "proposal_track": "skill_ecosystem_state_handoff",
+            "route_profiles": ("skill_ecosystem_state_handoff",),
+            "selected_local_lane": "config",
+            "validation_target": "skill_ecosystem_state_handoff_maps_to_metadata_only_config",
+            "replay_command": "python -m pytest tests/test_skill_routing.py -q -k pass2_route_classification_fixture",
+        },
+    )
+
+    rows: list[dict[str, Any]] = []
+    selected_lanes: list[str] = []
+    observed_profiles: list[str] = []
+    downgraded_lane_names: list[str] = []
+    replay_commands: list[str] = []
+
+    for spec in specs:
+        required_profiles = set(_string_list(spec["route_profiles"]))
+        candidate_names: list[str] = []
+        candidate_source_hashes: list[str] = []
+        selected_evidence_item_ids: list[str] = []
+        allowed_lanes: list[str] = []
+        validation_gates: list[str] = []
+        matched_profiles: list[str] = []
+        matched_downgraded_lanes: list[str] = []
+
+        for candidate in candidate_lane_inventory:
+            candidate_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+            if not required_profiles.intersection(candidate_profiles):
+                continue
+            candidate_names.append(str(candidate.get("candidate_name") or ""))
+            candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or "")))
+            selected_evidence_item_ids.extend(_string_list(candidate.get("evidence_item_ids")))
+            allowed_lanes.extend(
+                lane
+                for lane in _string_list(candidate.get("proposal_kinds"))
+                if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            )
+            validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
+            matched_profiles.extend(profile for profile in candidate_profiles if profile in required_profiles)
+            matched_downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
+
+        bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
+        selected_lane = str(spec["selected_local_lane"])
+        blockers: list[str] = []
+        if not candidate_names:
+            blockers.append("missing_profile_evidence")
+        if selected_lane not in bounded_lanes:
+            blockers.append("selected_lane_not_bounded")
+        if not selected_evidence_item_ids:
+            blockers.append("missing_selected_item_ids_or_frozen_fixture")
+
+        status = "ready" if not blockers else "blocked"
+        if selected_lane in bounded_lanes:
+            selected_lanes.append(selected_lane)
+        observed_profiles.extend(matched_profiles)
+        downgraded_lane_names.extend(matched_downgraded_lanes)
+        replay_commands.append(str(spec["replay_command"]))
+        rows.append(
+            {
+                "proposal_id": spec["proposal_id"],
+                "proposal_kind": spec["proposal_kind"],
+                "proposal_track": spec["proposal_track"],
+                "status": status,
+                "candidate_names": list(dict.fromkeys(name for name in candidate_names if name)),
+                "candidate_source_hashes": list(dict.fromkeys(candidate_source_hashes)),
+                "route_profiles": list(dict.fromkeys(matched_profiles)),
+                "allowed_local_lanes": bounded_lanes,
+                "selected_local_lane": selected_lane if selected_lane in bounded_lanes else "",
+                "selected_evidence_item_ids": list(dict.fromkeys(selected_evidence_item_ids)),
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "validation_target": spec["validation_target"],
+                "replay_command": spec["replay_command"],
+                "downgraded_lane_names": list(dict.fromkeys(matched_downgraded_lanes)),
+                "activation_blockers": blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row["proposal_id"] for row in rows if row["status"] != "ready"]
+    ready = bool(rows) and not blocked_rows
+    return {
+        "controller_surface": "skill_route_discovery_pass2_profile_lane_handoff",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "pass2_profiles_ready_for_operator_replay"
+            if ready
+            else "repair_pass2_profile_lane_handoff_before_activation"
+        ),
+        "capability_pass": 2,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "operator_handoff": "external_supervisor_replay_before_activation",
+        "proposal_count": len(rows),
+        "ready_proposal_count": len(rows) - len(blocked_rows),
+        "blocked_proposal_ids": blocked_rows,
+        "observed_route_profiles": sorted(dict.fromkeys(observed_profiles)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "downgraded_lane_names": sorted(dict.fromkeys(downgraded_lane_names)),
+        "replay_commands": list(dict.fromkeys(replay_commands)),
+        "required_evidence": [
+            "route_classification_fixture",
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "changed_file_review",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
         "raw_source_url_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,

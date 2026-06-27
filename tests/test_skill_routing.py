@@ -2127,6 +2127,97 @@ def test_skill_route_discovery_pass2_route_classification_fixture_is_bounded():
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
 
+    profile_handoff = lane_map["pass2_profile_lane_handoff"]
+    assert profile_handoff["controller_surface"] == "skill_route_discovery_pass2_profile_lane_handoff"
+    assert profile_handoff["status"] == "ready"
+    assert profile_handoff["decision"] == "pass2_profiles_ready_for_operator_replay"
+    assert profile_handoff["capability_pass"] == 2
+    assert profile_handoff["review_gate"] == "focused-evidence-review"
+    assert profile_handoff["operator_handoff"] == "external_supervisor_replay_before_activation"
+    assert profile_handoff["proposal_count"] == 3
+    assert profile_handoff["ready_proposal_count"] == 3
+    assert profile_handoff["blocked_proposal_ids"] == []
+    assert profile_handoff["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert profile_handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert profile_handoff["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert profile_handoff["downgraded_lane_names"] == [
+        "install",
+        "provider_runtime",
+        "runtime_execution",
+    ]
+    assert profile_handoff["replay_commands"] == [
+        "python -m pytest tests/test_skill_routing.py -q -k pass2_route_classification_fixture"
+    ]
+    assert profile_handoff["required_evidence"] == [
+        "route_classification_fixture",
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "changed_file_review",
+    ]
+    assert profile_handoff["local_validation_required"] is True
+    assert profile_handoff["runtime_action"] == "none"
+    assert profile_handoff["external_skill_activation_allowed"] is False
+    assert profile_handoff["external_harness_execution_allowed"] is False
+    assert profile_handoff["provider_runtime_launch_allowed"] is False
+    assert profile_handoff["remote_execution_allowed"] is False
+    assert profile_handoff["profile_write_allowed"] is False
+    assert profile_handoff["memory_write_allowed"] is False
+    assert profile_handoff["raw_source_url_exported"] is False
+    assert profile_handoff["raw_evidence_urls_exported"] is False
+    assert profile_handoff["raw_target_paths_exported"] is False
+    assert profile_handoff["raw_upstream_body_exported"] is False
+
+    handoff_rows = {row["proposal_id"]: row for row in profile_handoff["rows"]}
+    assert set(handoff_rows) == {
+        "proposal-skill-route-discovery-generic-zhengxi-views",
+        "proposal-game-frontend-skill-profile-doc-test",
+        "proposal-skill-ecosystem-state-handoff-config-doc",
+    }
+    assert handoff_rows["proposal-skill-route-discovery-generic-zhengxi-views"][
+        "route_profiles"
+    ] == ["generic_skill_workflow"]
+    assert handoff_rows["proposal-skill-route-discovery-generic-zhengxi-views"][
+        "selected_local_lane"
+    ] == "documentation"
+    assert handoff_rows["proposal-game-frontend-skill-profile-doc-test"]["route_profiles"] == [
+        "game_frontend_workflow"
+    ]
+    assert handoff_rows["proposal-game-frontend-skill-profile-doc-test"]["selected_local_lane"] == "test"
+    assert handoff_rows["proposal-skill-ecosystem-state-handoff-config-doc"][
+        "route_profiles"
+    ] == ["skill_ecosystem_state_handoff"]
+    assert handoff_rows["proposal-skill-ecosystem-state-handoff-config-doc"][
+        "selected_local_lane"
+    ] == "config"
+
+    serialized_handoff = json.dumps(profile_handoff, sort_keys=True)
+    assert "https://github.com/" not in serialized_handoff
+    for row in handoff_rows.values():
+        assert row["status"] == "ready"
+        assert row["candidate_source_hashes"]
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+        assert row["selected_evidence_item_ids"]
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
 
 def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_window():
     fixture_path = (
@@ -3090,6 +3181,7 @@ def test_skill_route_discovery_proposal_lane_map_downgrades_unsupported_lanes():
             "candidate_name": "lane-overreach",
             "source_url": "https://github.com/example/lane-overreach",
             "proposal_kinds": ["documentation"],
+            "downgraded_lane_names": ["install", "runtime_execution"],
             "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
             "route_profiles": ["generic_skill_workflow"],
             "matched_route_terms": [],

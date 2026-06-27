@@ -187,6 +187,20 @@ surface that checks route class, selected bounded lane, evidence item IDs or
 frozen fixture presence, and `local_validation_required: true` before any later
 activation handoff.
 
+Source digest `github-growth-20260627T132310.624297Z` keeps pass 2 active and
+adds `pass2_profile_lane_handoff` beside the fixture validation lane. This
+operator surface maps the active proposal IDs
+`proposal-skill-route-discovery-generic-zhengxi-views`,
+`proposal-game-frontend-skill-profile-doc-test`, and
+`proposal-skill-ecosystem-state-handoff-config-doc` to their observed route
+profiles, selected local validation lane, replay command, source hashes, and
+selected evidence item IDs. It also records downgraded unsupported lane pressure
+such as provider_runtime, runtime_execution, and install without exporting raw
+source URLs. The handoff remains body-free and non-executable: runtime action,
+external skill activation, external harness execution, provider launch, remote
+execution, profile writes, memory writes, raw evidence URL export, target path
+export, and upstream body export stay denied.
+
 Source digest `github-growth-20260627T122310.714088Z` advances pass 3 of the
 same skill-route-discovery slice by adding `pass3_route_discovery_index`. The
 index maps the active proposal IDs `p1_skill_route_discovery_index`,
