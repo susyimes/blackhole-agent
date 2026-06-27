@@ -205,6 +205,19 @@ exports no raw source URLs, raw evidence URLs, raw target paths, or upstream
 bodies, and it denies runtime action, external skill or agent activation,
 external harness execution, provider launch, and remote execution.
 
+Source digest `github-growth-20260627T204729.546585Z` keeps that pass-2 window
+focused on bounded local lane activation candidates. The pass-2 handoff packet
+now emits `activation_candidate_lane`, which is derived from the selected
+current-pass lane, queued bounded lanes, profile acceptance contracts, and local
+artifact review proofs. A row can be ready only when its lane is one of
+documentation, config, test, or code_patch, its route profiles have accepted
+validation gates, its artifact targets are represented by hashes, and its local
+validation remains required. This surface is a local diff candidate queue for
+external supervisor replay. It does not export raw source URLs, raw evidence
+URLs, raw target paths, or upstream bodies, and it keeps runtime action,
+external skill activation, external agent activation, external harness
+execution, provider launch, and remote execution denied.
+
 Source digest `github-growth-20260627T120310.659503Z` advances pass 2 by adding
 a route-classification fixture lane for the same proposal family. Frozen
 fixtures may place `route_hints`, `route_profiles`, allowed local lanes, and

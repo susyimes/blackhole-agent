@@ -4679,6 +4679,74 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert profile_contract["raw_evidence_urls_exported"] is False
     assert profile_contract["raw_source_urls_exported"] is False
     assert profile_contract["raw_upstream_body_exported"] is False
+    activation_candidate = output["pass2_handoff_packet"]["activation_candidate_lane"]
+    assert activation_candidate["controller_surface"] == "skill_route_discovery_pass2_activation_candidate_lane"
+    assert activation_candidate["status"] == "ready"
+    assert activation_candidate["decision"] == "selected_pass2_lane_ready_as_local_diff_candidate"
+    assert activation_candidate["candidate_scope"] == "selected_and_queued_pass2_local_lanes"
+    assert activation_candidate["candidate_count"] == 2
+    assert activation_candidate["selected_candidate_count"] == 1
+    assert activation_candidate["queued_candidate_count"] == 1
+    assert activation_candidate["ready_candidate_count"] == 2
+    assert activation_candidate["selected_local_lanes"] == ["test"]
+    assert activation_candidate["queued_local_lanes"] == ["config"]
+    assert activation_candidate["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert activation_candidate["evidence_ref_mode"] == "selected_item_ids_only"
+    assert activation_candidate["profile_acceptance_contract_status"] == "ready"
+    assert activation_candidate["local_lane_acceptance_contract_status"] == "ready"
+    assert activation_candidate["profile_lane_matrix_status"] == "ready"
+    assert activation_candidate["activation_authority"] == "external_supervisor_after_validation"
+    assert activation_candidate["diagnostics"] == []
+    assert activation_candidate["runtime_action"] == "none"
+    assert activation_candidate["runtime_action_allowed"] is False
+    assert activation_candidate["external_skill_activation_allowed"] is False
+    assert activation_candidate["external_agent_activation_allowed"] is False
+    assert activation_candidate["external_harness_execution_allowed"] is False
+    assert activation_candidate["provider_runtime_launch_allowed"] is False
+    assert activation_candidate["remote_execution_allowed"] is False
+    assert activation_candidate["raw_evidence_urls_exported"] is False
+    assert activation_candidate["raw_source_urls_exported"] is False
+    assert activation_candidate["raw_target_paths_exported"] is False
+    assert activation_candidate["raw_upstream_body_exported"] is False
+
+    activation_rows = {
+        (row["queue_role"], row["selected_local_lane"]): row
+        for row in activation_candidate["rows"]
+    }
+    selected_candidate = activation_rows[("selected_current_pass_lane", "test")]
+    assert selected_candidate["candidate_status"] == "ready"
+    assert selected_candidate["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert selected_candidate["profile_validation_gates"] == [
+        "skill_route_discovery_first_before_workflow_gate",
+        "local_frontend_validation_before_game_skill_activation",
+        "source_citation_and_advice_boundary_before_domain_skill_activation",
+    ]
+    assert selected_candidate["local_artifact_review_status"] == "ready"
+    assert selected_candidate["artifact_contract_kind"] == "test"
+    assert selected_candidate["target_path_count"] == len(selected_candidate["target_path_hashes"]) == 2
+    assert all(path_hash.startswith("sha256:") for path_hash in selected_candidate["target_path_hashes"])
+    assert selected_candidate["diagnostics"] == []
+    assert selected_candidate["activation_mode"] == "local_diff_candidate_after_replay"
+
+    queued_candidate = activation_rows[("queued_bounded_lane", "config")]
+    assert queued_candidate["candidate_status"] == "ready"
+    assert queued_candidate["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert queued_candidate["profile_validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+    assert queued_candidate["local_artifact_review_status"] == "ready"
+    assert queued_candidate["artifact_contract_kind"] == "config"
+    assert queued_candidate["target_path_count"] == len(queued_candidate["target_path_hashes"]) == 1
+    assert queued_candidate["diagnostics"] == []
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["current_pass"] == 2
