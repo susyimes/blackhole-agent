@@ -2502,6 +2502,21 @@ proposal IDs, selected item IDs, route profiles, source hashes, validation
 commands, and blockers; it does not export raw repository URLs, upstream bodies,
 target paths, provider payloads, or execution requests.
 
+Source digest `github-growth-20260627T232729.533390Z` advances pass 2 of the
+same skill-route-discovery slice with active proposals
+`p1-skill-route-discovery-generic`,
+`p2-skill-route-discovery-game-frontend-profile`, and
+`p3-skill-ecosystem-state-handoff`. The lane map now emits
+`current_window_pass2_focused_review`, an operator-facing replay surface for
+the focused-evidence-review gate. It maps zhengxi-views-style generic or
+source-cited skill workflow evidence to a local test lane, Three.js game
+frontend skill evidence to a local documentation lane, and COMPASS-style skill
+ecosystem handoff evidence to a local test lane. The surface records selected
+item IDs and hashes candidate sources and evidence URLs; it does not export raw
+source URLs, raw evidence URLs, raw target paths, upstream bodies, install
+requests, runtime action, external skill or agent activation, external harness
+execution, provider launch, remote execution, profile writes, or memory writes.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes
