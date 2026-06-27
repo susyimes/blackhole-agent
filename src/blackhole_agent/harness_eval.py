@@ -6247,6 +6247,9 @@ def skill_route_discovery_pass3_handoff_packet(
         promotion_runbook=promotion_runbook,
         diagnostics=diagnostics,
     )
+    adjacent_general_agent_project_eval = (
+        skill_route_discovery_pass3_adjacent_general_agent_project_eval(raw_input=raw_input)
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -6295,6 +6298,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "promotion_runbook": promotion_runbook,
         "local_validation_probe": local_validation_probe,
         "runner_harness_control_plane": runner_harness_control_plane,
+        "adjacent_general_agent_project_eval": adjacent_general_agent_project_eval,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),
@@ -6315,6 +6319,75 @@ def skill_route_discovery_pass3_handoff_packet(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_pass3_adjacent_general_agent_project_eval(
+    *,
+    raw_input: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose adjacent general-agent evidence without inheriting skill lanes."""
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    evidence_urls = string_list(window.get("evidence_urls"))
+    anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    general_agent_refs = [
+        ref
+        for ref in (*evidence_urls, *anchoring_proposals)
+        if _skill_route_discovery_is_general_agent_ref(ref)
+    ]
+    source_url_refs = [ref for ref in evidence_urls if _skill_route_discovery_is_general_agent_ref(ref)]
+    source_hashes = sorted({stable_text_hash(ref) for ref in source_url_refs})
+    proposal_refs = [ref for ref in anchoring_proposals if _skill_route_discovery_is_general_agent_ref(ref)]
+    present = bool(general_agent_refs)
+
+    return {
+        "controller_surface": "skill_route_discovery_pass3_adjacent_general_agent_project_eval",
+        "status": "gated" if present else "not_present",
+        "decision": (
+            "hold_adjacent_general_agent_projects_to_agent_harness_eval"
+            if present
+            else "no_adjacent_general_agent_project_evidence_detected"
+        ),
+        "agent_harness_eval_required": present,
+        "skill_route_discovery_inherited": False,
+        "primary_route": "agent_harness_eval_required" if present else "none",
+        "allowed_local_lanes": ["documentation", "test", "code_patch"] if present else [],
+        "blocked_skill_route_lanes": ["documentation", "config", "test", "code_patch"] if present else [],
+        "source_hashes": source_hashes,
+        "source_ref_count": len(source_hashes),
+        "proposal_ref_hashes": sorted({stable_text_hash(ref) for ref in proposal_refs}),
+        "proposal_ref_count": len(set(proposal_refs)),
+        "evidence_ref_mode": "hashes_only",
+        "replay_commands": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
+        "local_validation_required": present,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_is_general_agent_ref(value: str) -> bool:
+    normalized = value.casefold()
+    return any(
+        marker in normalized
+        for marker in (
+            "agent-harness",
+            "agent_harness",
+            "general-agent",
+            "general_agent",
+            "omnigent-ai/omnigent",
+            "qwen-agentworld",
+            "qwenlm/qwen-agentworld",
+        )
+    )
 
 
 def skill_route_discovery_pass3_local_validation_probe(

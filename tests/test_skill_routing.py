@@ -2026,6 +2026,80 @@ def test_skill_route_discovery_current_window_skill_workflow_signals_stay_classi
         assert lane["local_validation_required"] is True
 
 
+def test_skill_route_discovery_zhengxi_skill_metadata_maps_to_bounded_local_lanes():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "summary": (
+                    "Source-cited domain research agent skill with traceable public views, "
+                    "fund data references, evals, scripts, advice disclaimer, and validation notes."
+                ),
+                "topics": ["agent-skill", "research", "fund", "source-cited"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                "observed_paths": [
+                    "SKILL.md",
+                    "skill.yml",
+                    "README.md",
+                    "references/corpus/index.md",
+                    "references/fund_data/snapshot.json",
+                    "evals/source_citation_eval.yaml",
+                    "scripts/validate_references.py",
+                ],
+                "metadata_files": ["skill.yml"],
+            }
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    candidate = registry["candidates"][0]
+    assert candidate["name"] == "zhengxi-views"
+    assert candidate["route_hints"] == ["skill_route_discovery"]
+    assert candidate["route_profiles"] == ["source_cited_domain_research"]
+    assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert candidate["source_layout_signals"] == [
+        "skill_markdown",
+        "validation_script",
+    ]
+    assert candidate["requested_actions"] == []
+    assert candidate["enabled"] is False
+    assert candidate["validation_errors"] == []
+
+    assert lane_map["proposal_lane_count"] == 4
+    assert lane_map["rejected_candidate_count"] == 0
+    assert lane_map["downgraded_candidate_count"] == 0
+    inventory = lane_map["candidate_lane_inventory"][0]
+    assert inventory["candidate_name"] == "zhengxi-views"
+    assert inventory["route_profiles"] == ["source_cited_domain_research"]
+    assert inventory["proposal_kinds"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert inventory["handoff_metadata"]["selected_local_lane"] == "test"
+    assert inventory["route_validation_contract"]["rows"][0]["validation_gate"] == (
+        "source_citation_and_advice_boundary_before_domain_skill_activation"
+    )
+    assert inventory["local_validation_required"] is True
+    assert inventory["runtime_action"] == "none"
+    assert inventory["external_skill_activation_allowed"] is False
+    assert inventory["handoff_metadata"]["external_harness_execution_allowed"] is False
+    assert inventory["handoff_metadata"]["provider_runtime_launch_allowed"] is False
+
+    assert {
+        lane["proposal_kind"]
+        for lane in lane_map["proposal_lanes"]
+    } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(lane["route_hint"] == "skill_route_discovery" for lane in lane_map["proposal_lanes"])
+    assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
+    assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
+    assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
+
+
 def test_skill_route_discovery_bounded_route_profile_matrix_covers_skill_workflow_lanes():
     registry = build_skill_route_discovery_registry_from_evidence_items(
         [

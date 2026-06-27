@@ -17,13 +17,15 @@
         "p1-skill-route-discovery-compass",
         "p2-skill-route-discovery-threejs-game",
         "p3-skill-route-discovery-fablecodex",
+        "proposal-agent-harness-eval-qwen-agentworld",
         "trend:omnigent-ai/omnigent"
       ],
       "evidence_urls": [
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/majidmanzarpour/threejs-game-skills",
-        "https://github.com/omnigent-ai/omnigent"
+        "https://github.com/omnigent-ai/omnigent",
+        "https://github.com/QwenLM/Qwen-AgentWorld"
       ]
     },
     "source_kind": "candidates",
@@ -178,6 +180,22 @@
     {
       "path": "pass3_handoff_packet.operator_checkpoint_list.external_harness_execution_allowed",
       "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.status",
+      "equals": "gated"
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.agent_harness_eval_required",
+      "equals": true
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.skill_route_discovery_inherited",
+      "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.adjacent_general_agent_project_eval.allowed_local_lanes",
+      "equals": ["documentation", "test", "code_patch"]
     },
     {
       "path": "pass3_handoff_packet.profile_activation_gates.acceptance_contract_status",

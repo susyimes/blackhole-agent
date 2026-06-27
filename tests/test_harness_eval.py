@@ -6797,6 +6797,44 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert pass3_handoff["mixed_skill_workflow_primary_route"] == "skill_route_discovery"
     assert pass3_handoff["secondary_lane"] == "agent_harness_eval_after_local_corroboration"
     assert pass3_handoff["secondary_lane_status"] == "blocked_until_local_corroboration"
+    adjacent_general_agent_eval = pass3_handoff["adjacent_general_agent_project_eval"]
+    assert adjacent_general_agent_eval["controller_surface"] == (
+        "skill_route_discovery_pass3_adjacent_general_agent_project_eval"
+    )
+    assert adjacent_general_agent_eval["status"] == "gated"
+    assert adjacent_general_agent_eval["decision"] == (
+        "hold_adjacent_general_agent_projects_to_agent_harness_eval"
+    )
+    assert adjacent_general_agent_eval["agent_harness_eval_required"] is True
+    assert adjacent_general_agent_eval["skill_route_discovery_inherited"] is False
+    assert adjacent_general_agent_eval["primary_route"] == "agent_harness_eval_required"
+    assert adjacent_general_agent_eval["allowed_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert adjacent_general_agent_eval["blocked_skill_route_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert adjacent_general_agent_eval["source_hashes"] == sorted([
+        stable_text_hash("https://github.com/QwenLM/Qwen-AgentWorld"),
+        stable_text_hash("https://github.com/omnigent-ai/omnigent"),
+    ])
+    assert adjacent_general_agent_eval["proposal_ref_hashes"] == sorted([
+        stable_text_hash("proposal-agent-harness-eval-qwen-agentworld"),
+        stable_text_hash("trend:omnigent-ai/omnigent"),
+    ])
+    assert adjacent_general_agent_eval["replay_commands"] == [
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    ]
+    assert adjacent_general_agent_eval["runtime_action_allowed"] is False
+    assert adjacent_general_agent_eval["external_skill_activation_allowed"] is False
+    assert adjacent_general_agent_eval["external_agent_activation_allowed"] is False
+    assert adjacent_general_agent_eval["external_harness_execution_allowed"] is False
+    assert adjacent_general_agent_eval["raw_source_urls_exported"] is False
     checklist = pass3_handoff["final_pass_replay_checklist"]
     assert checklist["controller_surface"] == "skill_route_discovery_pass3_final_pass_replay_checklist"
     assert checklist["status"] == "ready"
@@ -7292,6 +7330,7 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+    assert "https://github.com/QwenLM/Qwen-AgentWorld" not in serialized
 
 
 def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready():
