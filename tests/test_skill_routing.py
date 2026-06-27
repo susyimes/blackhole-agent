@@ -3696,6 +3696,113 @@ def test_skill_route_discovery_pass4_completion_handoff_queues_adjacent_general_
     assert "runtime_execution" not in serialized_manifest
     assert "install" not in serialized_manifest
 
+    completion_matrix = lane_map["active_pass4_completion_matrix"]
+    assert completion_matrix["controller_surface"] == "skill_route_discovery_active_pass4_completion_matrix"
+    assert completion_matrix["status"] == "ready"
+    assert completion_matrix["decision"] == "active_pass4_skill_route_proposals_ready_for_supervisor_replay"
+    assert completion_matrix["depends_on_controller_surfaces"] == [
+        "skill_route_discovery_pass4_completion_handoff",
+        "skill_route_discovery_pass4_operator_replay_manifest",
+    ]
+    assert completion_matrix["source_digest"] == "github-growth-20260627T224729.532285Z"
+    assert completion_matrix["capability_pass"] == 4
+    assert completion_matrix["total_passes"] == 4
+    assert completion_matrix["capability_slice_complete"] is True
+    assert completion_matrix["review_gate"] == "focused-evidence-review"
+    assert completion_matrix["proposal_ids"] == [
+        "proposal_skill_route_discovery_inventory_001",
+        "proposal_skill_route_discovery_tests_002",
+        "proposal_game_skill_profile_route_003",
+    ]
+    assert completion_matrix["ready_proposal_count"] == 3
+    assert completion_matrix["blocked_proposal_ids"] == []
+    assert completion_matrix["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert completion_matrix["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert completion_matrix["required_evidence"] == [
+        "selected_item_ids_or_frozen_fixture",
+        "body_free_repository_summary",
+        "rollback_artifact",
+        "focused_local_validation",
+        "controller_recomputed_gates",
+        "review_note",
+    ]
+    assert completion_matrix["operator_handoff"] == "external_supervisor_replay_without_kernel_restart"
+    assert completion_matrix["adjacent_general_agent_project_boundary"] == {
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "adjacent_record_count": 1,
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    assert completion_matrix["local_validation_required"] is True
+    assert completion_matrix["runtime_action"] == "none"
+    assert completion_matrix["external_skill_activation_allowed"] is False
+    assert completion_matrix["external_agent_activation_allowed"] is False
+    assert completion_matrix["external_harness_execution_allowed"] is False
+    assert completion_matrix["provider_runtime_launch_allowed"] is False
+    assert completion_matrix["profile_write_allowed"] is False
+    assert completion_matrix["memory_write_allowed"] is False
+    assert completion_matrix["remote_execution_allowed"] is False
+    assert completion_matrix["raw_replay_commands_exported"] is False
+    assert completion_matrix["raw_source_url_exported"] is False
+    assert completion_matrix["raw_evidence_urls_exported"] is False
+    assert completion_matrix["raw_target_paths_exported"] is False
+    assert completion_matrix["raw_upstream_body_exported"] is False
+
+    matrix_rows = {row["proposal_id"]: row for row in completion_matrix["rows"]}
+    assert set(matrix_rows) == set(completion_matrix["proposal_ids"])
+    assert matrix_rows["proposal_skill_route_discovery_inventory_001"]["proposal_kind"] == "documentation"
+    assert matrix_rows["proposal_skill_route_discovery_inventory_001"]["selected_local_lane"] == "documentation"
+    assert matrix_rows["proposal_skill_route_discovery_inventory_001"]["route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert matrix_rows["proposal_skill_route_discovery_tests_002"]["proposal_kind"] == "test"
+    assert matrix_rows["proposal_skill_route_discovery_tests_002"]["selected_local_lane"] == "test"
+    assert matrix_rows["proposal_game_skill_profile_route_003"]["proposal_kind"] == "config"
+    assert matrix_rows["proposal_game_skill_profile_route_003"]["proposal_track"] == "game_frontend_workflow_profile"
+    assert matrix_rows["proposal_game_skill_profile_route_003"]["candidate_names"] == ["threejs-game-skills"]
+    assert matrix_rows["proposal_game_skill_profile_route_003"]["route_profiles"] == ["game_frontend_workflow"]
+    assert matrix_rows["proposal_game_skill_profile_route_003"]["selected_local_lane"] == "config"
+    assert matrix_rows["proposal_game_skill_profile_route_003"]["validation_target"] == (
+        "game_frontend_workflow_profile_stays_bounded"
+    )
+
+    for row in matrix_rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["selected_evidence_item_ids"]
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+        assert all(command_hash.startswith("sha256:") for command_hash in row["replay_command_hashes"])
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_commands_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    serialized_matrix = json.dumps(completion_matrix, sort_keys=True)
+    assert "https://github.com/" not in serialized_matrix
+    assert "runtime_execution" not in serialized_matrix
+    assert "install" not in serialized_matrix
+
 
 def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded():
     fixture_path = (
