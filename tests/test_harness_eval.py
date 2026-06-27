@@ -3740,6 +3740,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     final_route_handoff_manifest = output["capability_window_completion"]["completion_report"][
         "final_route_handoff_manifest"
     ]
+    current_pass_profile_closure = output["capability_window_completion"]["completion_report"][
+        "current_pass_profile_closure"
+    ]
     route_validation_lane_queue = output["capability_window_completion"]["completion_report"][
         "route_validation_lane_queue"
     ]
@@ -3790,6 +3793,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "completion_audit": completion_audit,
         "completion_replay_checklist": completion_replay_checklist,
         "final_route_handoff_manifest": final_route_handoff_manifest,
+        "current_pass_profile_closure": current_pass_profile_closure,
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
         "final_lane_policy_inventory": final_lane_policy_inventory,
@@ -7988,6 +7992,124 @@ def test_skill_route_discovery_pass4_current_window_includes_source_cited_domain
     assert bridge_rows["source_cited_domain_research"]["local_eval_activation_allowed"] is False
     assert consistency_guard["ready_profile_count"] == consistency_guard["ready_lane_count"] == 4
     assert consistency_guard["status"] == "ready"
+
+
+def test_skill_route_discovery_pass4_current_pass_profile_closure_uses_active_proposals():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = json.loads(json.dumps(fixture["input"]))
+    input_payload["capability_window"]["required_route_profiles"] = [
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    input_payload["capability_window"]["anchoring_proposals"] = [
+        "proposal-skill-route-discovery-general-001",
+        "proposal-game-skill-profile-002",
+        "proposal-skill-state-handoff-003",
+    ]
+    input_payload["capability_window"]["evidence_urls"] = [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+    ]
+    input_payload["candidates"] = [
+        {
+            "name": "zhengxi-views",
+            "source_url": "https://github.com/lyra81604/zhengxi-views",
+            "evidence_summary": (
+                "Source-cited domain research agent skill with public views, citation checks, "
+                "investment research examples, advice disclaimers, and local validation notes."
+            ),
+            "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+            "evidence_item_ids": ["proposal-skill-route-discovery-general-001"],
+            "evidence_urls": ["https://github.com/lyra81604/zhengxi-views"],
+        },
+        {
+            "name": "threejs-game-skills",
+            "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+            "evidence_summary": (
+                "Three.js browser game director skill bundle with QA validation, screenshot checks, "
+                "canvas checks, scaffold boundaries, asset/provider boundary notes, and generation limits."
+            ),
+            "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+            "evidence_item_ids": ["proposal-game-skill-profile-002"],
+            "evidence_urls": ["https://github.com/majidmanzarpour/threejs-game-skills"],
+        },
+        {
+            "name": "compass-skills",
+            "source_url": "https://github.com/dongshuyan/compass-skills",
+            "evidence_summary": (
+                "COMPASS skill ecosystem with task clarification, repo-local task memory, "
+                "handoff prompts, collaboration profile, privacy boundary, and route metadata."
+            ),
+            "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+            "evidence_item_ids": ["proposal-skill-state-handoff-003"],
+            "evidence_urls": ["https://github.com/dongshuyan/compass-skills"],
+        },
+    ]
+    input_payload["local_artifact_proofs"] = [
+        proof
+        for proof in input_payload["local_artifact_proofs"]
+        if proof["proposal_kind"] in {"config", "test", "documentation", "code_patch"}
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    closure = output["capability_window_completion"]["completion_report"][
+        "current_pass_profile_closure"
+    ]
+    serialized = json.dumps(closure, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["capability_window_completion"]["completion_report"]["status"] == "ready"
+    assert closure["controller_surface"] == "skill_route_discovery_current_pass_profile_closure"
+    assert closure["status"] == "ready"
+    assert closure["decision"] == "current_pass_skill_route_profiles_ready_for_supervisor_handoff"
+    assert closure["anchoring_proposal_ids"] == [
+        "proposal-game-skill-profile-002",
+        "proposal-skill-route-discovery-general-001",
+        "proposal-skill-state-handoff-003",
+    ]
+    assert closure["matched_proposal_count"] == 3
+    assert closure["unmatched_proposal_count"] == 0
+    assert closure["profile_count"] == 3
+    assert closure["ready_profile_count"] == 3
+    assert closure["selected_local_lanes"] == ["config", "test"]
+    assert closure["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert closure["adjacent_agent_harness_route"] == "agent_harness_eval_required"
+    assert closure["skill_route_discovery_inherited_by_adjacent_harness"] is False
+
+    rows = {row["route_profile"]: row for row in closure["rows"]}
+    assert rows["source_cited_domain_research"]["matched_proposal_ids"] == [
+        "proposal-skill-route-discovery-general-001"
+    ]
+    assert rows["source_cited_domain_research"]["selected_local_lane"] == "test"
+    assert rows["game_frontend_workflow"]["matched_proposal_ids"] == [
+        "proposal-game-skill-profile-002"
+    ]
+    assert rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert rows["skill_ecosystem_state_handoff"]["matched_proposal_ids"] == [
+        "proposal-skill-state-handoff-003"
+    ]
+    assert rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(row["selected_lane_bounded"] is True for row in closure["rows"])
+    assert all(row["diagnostic_count"] == 0 for row in closure["rows"])
+    assert all(row["runtime_action"] == "none" for row in closure["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in closure["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in closure["rows"])
+    assert closure["runtime_action_allowed"] is False
+    assert closure["external_skill_activation_allowed"] is False
+    assert closure["external_harness_execution_allowed"] is False
+    assert closure["provider_runtime_launch_allowed"] is False
+    assert closure["remote_execution_allowed"] is False
+    assert closure["raw_evidence_urls_exported"] is False
+    assert closure["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "qwen-agentworld" not in serialized.casefold()
 
 
 def test_skill_route_discovery_pass4_exposes_runner_harness_control_plane():

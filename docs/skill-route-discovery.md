@@ -127,6 +127,23 @@ Without those signals, they stay in `agent_harness_eval_required` with no
 direct local change proposals until a local agent-harness evaluation route is
 established.
 
+Source digest `github-growth-20260627T212729.541663Z` closes the planned
+pass-4 skill-route-discovery window with `current_pass_profile_closure`, a
+completion-report surface keyed to the active proposal IDs
+`proposal-skill-route-discovery-general-001`,
+`proposal-game-skill-profile-002`, and
+`proposal-skill-state-handoff-003`. The closure binds zhengxi-views-style
+source-cited skill workflows to the local test lane, Three.js game skill
+workflows to the local test lane, and COMPASS-style state handoff ecosystems to
+the local config lane. It is body-free and bounded: rows may expose selected
+item IDs, source hashes, selected local lanes, validation commands, and replay
+steps only. Unsupported install, runtime execution, provider runtime, upstream
+skill activation, external harness execution, remote execution, raw source URL
+export, target path export, and upstream body export remain denied. Adjacent
+Qwen-AgentWorld-style harness evidence stays in `agent_harness_eval_required`
+and does not inherit `skill_route_discovery` unless later evidence shows a
+skill workflow route shape.
+
 Source digest `github-growth-20260627T102312.650770Z` starts the next
 skill-route-discovery pass by adding `current_pass_validation_cases` to the
 lane map. This operator surface names the active proposal IDs

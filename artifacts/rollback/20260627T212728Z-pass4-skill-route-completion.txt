@@ -1,0 +1,8 @@
+rollback_id: 20260627T212728Z-pass4-skill-route-completion
+original_branch: codex/blackhole-evolve/20260627T212824.998032-add-or-extend-local-skill-route-discovery-tests-
+original_head: 697d106945e8a29f6d434bfbb198a408f03f3877
+rollback_ref: refs/blackhole-rollback/20260627T212728Z-pass4-skill-route-completion
+recovery_commands:
+  git switch codex/blackhole-evolve/20260627T212824.998032-add-or-extend-local-skill-route-discovery-tests-
+  git reset --hard refs/blackhole-rollback/20260627T212728Z-pass4-skill-route-completion
+notes: Created before pass-4 skill-route-discovery completion changes for source digest github-growth-20260627T212729.541663Z.
