@@ -88,8 +88,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 71
-    assert payload["pass_count"] == 70
+    assert payload["fixture_count"] == 72
+    assert payload["pass_count"] == 71
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -192,6 +192,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
     assert results["skill-route-discovery-lane-current-window-pass1"]["passed"] is True
     assert results["skill-route-discovery-current-pass-skill-shapes"]["passed"] is True
+    assert results["skill-route-discovery-threejs-fork-cluster-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
@@ -8103,6 +8104,48 @@ def test_skill_route_discovery_lane_reports_fork_lineage_as_body_free_metadata()
     assert profile_row["raw_target_paths_exported"] is False
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
     assert "https://github.com/pretinhuu1-boop/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_threejs_fork_cluster_selects_bounded_test_lane():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_threejs_fork_cluster_validation_lane.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    lane = output["threejs_fork_cluster_validation_lane"]
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["duplicate_summary_count"] == 3
+    assert output["source_lineage"]["lineage_mode"] == "collapsed_fork_or_mirror"
+    assert output["source_lineage"]["related_source_count"] == 4
+    assert lane["controller_surface"] == "skill_route_discovery_threejs_fork_cluster_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "collapse_threejs_fork_cluster_to_local_test_lane"
+    assert lane["route_profile"] == "game_frontend_workflow"
+    assert lane["fork_cluster_detected"] is True
+    assert lane["selected_local_lane"] == "test"
+    assert lane["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert lane["queued_local_lanes"] == ["documentation", "config", "code_patch"]
+    assert lane["observed_local_lanes"] == ["code_patch", "config", "documentation", "test"]
+    assert lane["lanes_bounded"] is True
+    assert lane["diagnostics"] == []
+    assert lane["runtime_action_allowed"] is False
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_skill_code_allowed"] is False
+    assert lane["upstream_scaffold_execution_allowed"] is False
+    assert lane["asset_generation_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["raw_source_urls_exported"] is False
+    assert lane["raw_related_source_urls_exported"] is False
+    assert "https://github.com/MartinYeung5/threejs-game-skills" not in serialized
+    assert "https://github.com/TheLostRiver/threejs-game-skills" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+    assert "https://github.com/mrkr/threejs-game-skills" not in serialized
 
 
 def test_skill_route_discovery_profile_review_reports_missing_metadata_before_activation():

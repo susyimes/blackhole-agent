@@ -2156,6 +2156,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         candidate_lane_intake=candidate_lane_intake,
     )
     current_action = skill_route_discovery_current_action(validation_lane_plan=validation_lane_plan)
+    threejs_fork_cluster_validation_lane = skill_route_discovery_threejs_fork_cluster_validation_lane(
+        proposal_lanes=proposal_lanes,
+        source_lineage=source_lineage,
+        current_action=current_action,
+    )
     current_action_provider_runtime_preflight = skill_route_discovery_current_action_provider_runtime_preflight(
         raw_input=raw_input,
         current_action=current_action,
@@ -2310,6 +2315,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "bounded_profile_lane_matrix": bounded_profile_lane_matrix,
         "validation_work_queue": validation_work_queue,
         "current_action": current_action,
+        "threejs_fork_cluster_validation_lane": threejs_fork_cluster_validation_lane,
         "current_action_provider_runtime_preflight": current_action_provider_runtime_preflight,
         "validation_readiness_summary": validation_readiness_summary,
         "domain_validation_probe": domain_validation_probe,
@@ -5060,6 +5066,124 @@ def skill_route_discovery_current_action(*, validation_lane_plan: dict[str, Any]
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_threejs_fork_cluster_validation_lane(
+    *,
+    proposal_lanes: list[dict[str, Any]],
+    source_lineage: dict[str, Any],
+    current_action: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose Three.js game-skill fork clusters as one bounded validation lane."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    game_lanes = [
+        lane
+        for lane in proposal_lanes
+        if "game_frontend_workflow" in string_list(lane.get("route_profiles"))
+    ]
+    proposal_kinds = sorted(
+        {
+            str(lane.get("proposal_kind") or "")
+            for lane in game_lanes
+            if str(lane.get("proposal_kind") or "") in allowed_lanes
+        }
+    )
+    source_hashes = sorted(
+        {
+            stable_text_hash(str(lane.get("source_url") or ""))
+            for lane in game_lanes
+            if str(lane.get("source_url") or "")
+        }
+    )
+    evidence_item_ids = sorted(
+        {
+            item_id
+            for lane in game_lanes
+            for item_id in string_list(lane.get("evidence_item_ids"))
+        }
+    )
+    runtime_safe = all(str(lane.get("runtime_action") or "none") == "none" for lane in game_lanes)
+    activation_denied = all(lane.get("external_skill_activation_allowed") is False for lane in game_lanes)
+    lanes_bounded = bool(proposal_kinds) and set(proposal_kinds) <= allowed_lanes
+    selected_lane = (
+        optional_string(current_action.get("selected_local_lane"))
+        if "game_frontend_workflow" in string_list(current_action.get("route_profiles"))
+        else ""
+    )
+    if selected_lane not in allowed_lanes:
+        selected_lane = "test" if "test" in proposal_kinds else (proposal_kinds[0] if proposal_kinds else "none")
+    queued_lanes = [
+        lane
+        for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        if lane in proposal_kinds and lane != selected_lane
+    ]
+    fork_cluster_detected = (
+        bool(game_lanes)
+        and source_lineage.get("fork_or_mirror_lineage_collapsed") is True
+        and int(source_lineage.get("related_source_count") or 0) >= 2
+    )
+
+    diagnostics: list[str] = []
+    if not game_lanes:
+        diagnostics.append("game_frontend_workflow_lanes_missing")
+    if not lanes_bounded:
+        diagnostics.append("threejs_candidate_lanes_not_bounded")
+    if selected_lane != "test":
+        diagnostics.append("threejs_selected_local_lane_should_start_with_test")
+    if not fork_cluster_detected:
+        diagnostics.append("threejs_fork_cluster_not_detected")
+    if not runtime_safe:
+        diagnostics.append("runtime_action_must_be_none")
+    if not activation_denied:
+        diagnostics.append("external_skill_activation_must_be_false")
+
+    ready = not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_threejs_fork_cluster_validation_lane",
+        "status": "ready" if ready else "not_applicable" if not game_lanes else "review",
+        "decision": "collapse_threejs_fork_cluster_to_local_test_lane"
+        if ready
+        else "review_threejs_game_skill_route_before_activation",
+        "route_profile": "game_frontend_workflow",
+        "fork_cluster_detected": fork_cluster_detected,
+        "source_lineage_mode": str(source_lineage.get("lineage_mode") or ""),
+        "candidate_source_count": int(source_lineage.get("candidate_source_count") or 0),
+        "related_source_count": int(source_lineage.get("related_source_count") or 0),
+        "duplicate_summary_count": int(source_lineage.get("duplicate_summary_count") or 0),
+        "candidate_source_hashes": source_hashes,
+        "proposal_lane_count": len(game_lanes),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "observed_local_lanes": proposal_kinds,
+        "selected_local_lane": selected_lane,
+        "queued_local_lanes": queued_lanes,
+        "validation_target": "local_frontend_render_or_workflow_check",
+        "validation_scope": f"local_{selected_lane}_lane_only" if selected_lane != "none" else "none",
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "evidence_ref_mode": "selected_item_ids_or_hashed_sources_only",
+        "evidence_item_ids": evidence_item_ids,
+        "evidence_item_id_count": len(evidence_item_ids),
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "lanes_bounded": lanes_bounded,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "upstream_scaffold_execution_allowed": False,
+        "asset_generation_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_related_source_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 

@@ -32,6 +32,18 @@ signal. Phaser and game-engine language are interpreted as
 documentation, config, test, or code_patch lanes, but do not permit install,
 execute, scaffold, asset generation, provider launch, or upstream skill
 activation.
+Source digest `github-growth-20260627T074311.075116Z` adds a current-window
+Three.js fork-cluster validation lane. The carried repositories
+`MartinYeung5/threejs-game-skills`, `TheLostRiver/threejs-game-skills`,
+`majidmanzarpour/threejs-game-skills`, and `mrkr/threejs-game-skills` share the
+same game-skill package shape: skills directories, installer or scripts,
+scaffold/helper material, QA/browser validation language, and optional provider
+asset-generation notes. The local lesson is not to install or execute any of
+those packages. The harness collapses the cluster into one
+`game_frontend_workflow` route, selects the local `test` validation lane first,
+queues only documentation, config, and code_patch as bounded follow-up lanes,
+and keeps upstream scaffold execution, provider launch, asset generation, and
+external skill activation denied.
 Source digest `github-growth-20260622T053431.406906Z` keeps the same
 COMPASS/FableCodex/Three.js/Omnigent route window active for pass 2 and adds
 core lane-map handoff metadata so every recognized skill repository produces a

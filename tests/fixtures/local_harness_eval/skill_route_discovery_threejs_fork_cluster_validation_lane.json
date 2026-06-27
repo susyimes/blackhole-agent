@@ -1,0 +1,118 @@
+{
+  "name": "skill-route-discovery-threejs-fork-cluster-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-threejs-fork-cluster-validation-lane",
+    "source_kind": "summaries",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "required_route_profiles": ["game_frontend_workflow"],
+      "anchoring_proposals": ["p1-threejs-game-skill-route-discovery"],
+      "evidence_urls": [
+        "https://github.com/MartinYeung5/threejs-game-skills",
+        "https://github.com/TheLostRiver/threejs-game-skills",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/mrkr/threejs-game-skills"
+      ]
+    },
+    "summaries": [
+      {
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Three.js browser game director skill package with gameplay, graphics, UI, QA, browser checks, scaffold helpers, optional provider asset generation, release validation, and credential boundary notes.",
+        "topics": ["agent-skills", "threejs", "browser-game", "qa", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "name": "threejs-game-skills-martinyeung5",
+        "source_url": "https://github.com/MartinYeung5/threejs-game-skills",
+        "upstream_source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Fork of the Three.js agent skill bundle with skills folders, scripts, installer, scaffold and QA workflow evidence.",
+        "topics": ["agent-skills", "threejs", "gameplay", "qa"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "install"]
+      },
+      {
+        "name": "threejs-game-skills-thelostriver",
+        "source_url": "https://github.com/TheLostRiver/threejs-game-skills",
+        "upstream_source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Fork-lineage Three.js agent skill workflow with director skill and specialist skills, helper scripts, browser validation, and scaffold materials.",
+        "topics": ["agent-skills", "threejs", "browser-game", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "execute"]
+      },
+      {
+        "name": "threejs-game-skills-mrkr",
+        "source_url": "https://github.com/mrkr/threejs-game-skills",
+        "upstream_source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Fork of the same Three.js browser game agent skill bundle with install scripts, bundled scaffold materials, QA checks, and optional provider asset generation notes.",
+        "topics": ["agent-skills", "threejs", "game-engine", "qa"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_launch"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "src/blackhole_agent/harness_eval.py",
+          "tests/test_harness_eval.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_threejs_fork_cluster_validation_lane.json"
+        ],
+        "validation_commands": ["pytest tests/test_harness_eval.py -q -k threejs_fork_cluster"],
+        "rollback_artifact": "artifacts/rollback/20260627T074426Z-threejs-skill-route-lane.md",
+        "review_note": "Three.js fork-cluster evidence selects only the local test validation lane and keeps upstream install, scaffold, provider launch, and asset generation disabled."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 1
+    },
+    {
+      "path": "registry.duplicate_summary_count",
+      "equals": 3
+    },
+    {
+      "path": "source_lineage.lineage_mode",
+      "equals": "collapsed_fork_or_mirror"
+    },
+    {
+      "path": "source_lineage.related_source_count",
+      "equals": 4
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.status",
+      "equals": "ready"
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.queued_local_lanes",
+      "equals": ["documentation", "config", "code_patch"]
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "threejs_fork_cluster_validation_lane.raw_source_urls_exported",
+      "equals": false
+    }
+  ]
+}
