@@ -1832,9 +1832,11 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
     assert pass4["status"] == "ready"
     assert pass4["decision"] == "complete_skill_route_slice_with_bounded_local_lanes"
     assert pass4["proposal_ids"] == [
-        "p1-skill-route-discovery-index",
-        "p2-skill-ecosystem-handoff-doc",
+        "proposal-skill-route-discovery-generic-001",
+        "proposal-skill-route-discovery-game-frontend-002",
+        "proposal-skill-state-handoff-003",
     ]
+    assert pass4["operator_handoff"] == "external_supervisor_replay_before_activation"
     assert pass4["capability_slice_complete"] is True
     assert pass4["required_route_profiles"] == [
         "game_frontend_workflow",
@@ -1860,6 +1862,14 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
         "focused_local_validation",
         "review_note",
     ]
+    assert (
+        pass4["completion_recovery_workflow"]
+        == "run_pass4_replay_commands_then_recheck_pass4_local_lane_validation"
+    )
+    assert pass4["activation_boundary"] == (
+        "supervisor_may_review_local_diff_after_replay; "
+        "kernel_does_not_restart_or_activate_external_skills"
+    )
     assert pass4["local_validation_required"] is True
     assert pass4["runtime_action"] == "none"
     assert pass4["external_skill_activation_allowed"] is False
@@ -1904,7 +1914,7 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
         assert row["raw_upstream_body_exported"] is False
 
     assert pass4["general_agent_project_policy"] == {
-        "proposal_id": "p3-agent-harness-eval-queue",
+        "proposal_id": "p4-p5-agent-harness-eval-queue",
         "when": "general_agent_project_without_skill_workflow_signal",
         "evaluation_lane": "agent_harness_eval_required",
         "allowed_local_lanes": [],

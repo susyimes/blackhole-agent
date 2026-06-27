@@ -2540,9 +2540,11 @@ def _skill_route_discovery_pass4_local_lane_validation(
             else "repair_skill_route_pass4_local_lanes_before_completion"
         ),
         "proposal_ids": [
-            "p1-skill-route-discovery-index",
-            "p2-skill-ecosystem-handoff-doc",
+            "proposal-skill-route-discovery-generic-001",
+            "proposal-skill-route-discovery-game-frontend-002",
+            "proposal-skill-state-handoff-003",
         ],
+        "operator_handoff": "external_supervisor_replay_before_activation",
         "capability_slice_complete": ready,
         "required_route_profiles": list(required_profiles),
         "covered_route_profiles": [
@@ -2564,8 +2566,17 @@ def _skill_route_discovery_pass4_local_lane_validation(
             "focused_local_validation",
             "review_note",
         ],
+        "completion_recovery_workflow": (
+            "run_pass4_replay_commands_then_recheck_pass4_local_lane_validation"
+            if ready
+            else "repair_blocked_rows_then_rerun_pass4_local_lane_validation"
+        ),
+        "activation_boundary": (
+            "supervisor_may_review_local_diff_after_replay; "
+            "kernel_does_not_restart_or_activate_external_skills"
+        ),
         "general_agent_project_policy": {
-            "proposal_id": "p3-agent-harness-eval-queue",
+            "proposal_id": "p4-p5-agent-harness-eval-queue",
             "when": "general_agent_project_without_skill_workflow_signal",
             "evaluation_lane": "agent_harness_eval_required",
             "allowed_local_lanes": [],
