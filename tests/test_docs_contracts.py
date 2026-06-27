@@ -329,6 +329,12 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "`pass3_handoff_packet`",
         "active final-pass lane and any queued bounded lane",
         "`agent_harness_eval_after_local_corroboration` remains blocked",
+        "`pass3_active_window_review_packet`",
+        "`p1-skill-route-discovery-matrix`",
+        "`p2-skill-route-documentation`",
+        "`skill_route_discovery_first`",
+        "Qwen-AgentWorld-style general-agent evidence remains adjacent\n"
+        "`agent_harness_eval_required`",
         "`pass1_handoff_packet`",
         "selected current-pass bounded lane",
         "`adjacent_general_agent_project_eval`",
