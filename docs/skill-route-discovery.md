@@ -3654,6 +3654,21 @@ Qwen-AgentWorld-style general-agent evidence stays in
 `agent_harness_eval_required` and does not inherit `skill_route_discovery`,
 direct runtime authority, or direct code_patch selection.
 
+Source digest `github-growth-20260628T210729.710960Z` reuses the same packet
+for the current pass-3 capability window. The active rows are
+`p1-skill-route-discovery-matrix` and `p3-skill-profile-documentation`, with
+adjacent `p2-agent-harness-eval-fixtures` rows held outside
+`skill_route_discovery`.
+
+The matrix row accepts generic skill workflow, Three.js game frontend workflow,
+and COMPASS-style skill ecosystem state handoff profiles only when their
+selected lane is one of documentation, config, test, or code_patch and local
+validation remains required. The documentation row may describe that mapping,
+but it is still a bounded local lane, not a skill install, upstream activation,
+provider launch, scaffold execution, profile write, memory write, or remote
+execution grant. Qwen-AgentWorld and looper-style general-agent projects remain
+`agent_harness_eval_required` until a local harness evaluation route exists.
+
 ## Current Digest Pass 4 Activation Prerequisites
 
 Source digest `github-growth-20260628T184729.576873Z` completes the active

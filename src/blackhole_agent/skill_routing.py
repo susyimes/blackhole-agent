@@ -9897,36 +9897,66 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
 ) -> dict[str, Any]:
     """Route this digest's pass-3 skill proposals into bounded local lanes."""
 
+    current_210729_window = source_digest == "github-growth-20260628T210729.710960Z"
     specs = (
-        {
-            "proposal_id": "p1-skill-route-discovery-index",
-            "proposal_kind": "test",
-            "proposal_track": "skill_workflow_route_index_validation",
-            "route_profiles": (
-                "generic_skill_workflow",
-                "source_cited_domain_research",
-                "game_frontend_workflow",
-                "skill_ecosystem_state_handoff",
-            ),
-            "selected_local_lane": "test",
-            "validation_target": "three_skill_workflow_items_classify_to_bounded_lanes_only",
-        },
-        {
-            "proposal_id": "p2-skill-ecosystem-handoff-doc",
-            "proposal_kind": "documentation",
-            "proposal_track": "skill_ecosystem_state_handoff_profile",
-            "route_profiles": ("skill_ecosystem_state_handoff",),
-            "selected_local_lane": "documentation",
-            "validation_target": "document_state_handoff_profile_as_metadata_only_until_validation",
-        },
-        {
-            "proposal_id": "p3-game-frontend-skill-validation",
-            "proposal_kind": "test",
-            "proposal_track": "game_frontend_workflow_validation",
-            "route_profiles": ("game_frontend_workflow",),
-            "selected_local_lane": "test",
-            "validation_target": "game_frontend_workflow_requires_local_frontend_validation_before_patch",
-        },
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-matrix",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_matrix",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "test",
+                "validation_target": "skill_route_profile_matrix_preserves_bounded_local_lanes",
+            },
+            {
+                "proposal_id": "p3-skill-profile-documentation",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_profile_documentation",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_profile_to_lane_mapping_after_local_validation",
+            },
+        )
+        if current_210729_window
+        else (
+            {
+                "proposal_id": "p1-skill-route-discovery-index",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_route_index_validation",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "test",
+                "validation_target": "three_skill_workflow_items_classify_to_bounded_lanes_only",
+            },
+            {
+                "proposal_id": "p2-skill-ecosystem-handoff-doc",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_ecosystem_state_handoff_profile",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_state_handoff_profile_as_metadata_only_until_validation",
+            },
+            {
+                "proposal_id": "p3-game-frontend-skill-validation",
+                "proposal_kind": "test",
+                "proposal_track": "game_frontend_workflow_validation",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "test",
+                "validation_target": "game_frontend_workflow_requires_local_frontend_validation_before_patch",
+            },
+        )
     )
 
     rows: list[dict[str, Any]] = []
@@ -10058,12 +10088,24 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
 
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p4-agent-harness-eval",
+        proposal_id=(
+            "p2-agent-harness-eval-fixtures"
+            if current_210729_window
+            else "p4-agent-harness-eval"
+        ),
     )
     for row in adjacent_rows:
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
-        row["validation_gate"] = "agent_harness_eval_before_implementation_route"
-        row["validation_target"] = "adjacent_general_agent_project_requires_local_harness_eval"
+        row["validation_gate"] = (
+            "local_agent_harness_eval_required_before_documentation_test_or_code_patch"
+            if current_210729_window
+            else "agent_harness_eval_before_implementation_route"
+        )
+        row["validation_target"] = (
+            "general_agent_project_fixture_requires_agent_harness_eval_before_local_work"
+            if current_210729_window
+            else "adjacent_general_agent_project_requires_local_harness_eval"
+        )
         row["replay_command_hash"] = _stable_hash(
             "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
         )
@@ -10086,7 +10128,11 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
 
     blocked_proposal_ids = [str(row["proposal_id"]) for row in rows if row["status"] != "ready"]
     if adjacent_blockers:
-        blocked_proposal_ids.append("p4-agent-harness-eval")
+        blocked_proposal_ids.append(
+            "p2-agent-harness-eval-fixtures"
+            if current_210729_window
+            else "p4-agent-harness-eval"
+        )
     ready = bool(rows) and not blocked_proposal_ids and bool(adjacent_rows)
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass3_focused_validation_packet",
@@ -10100,21 +10146,43 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
         "capability_pass": 3,
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
-        "proposal_ids": [str(spec["proposal_id"]) for spec in specs] + ["p4-agent-harness-eval"],
-        "anchoring_proposal_ids": [
-            "p1-skill-route-discovery-generic",
-            "p2-threejs-game-skill-routing",
-            "p3-skill-ecosystem-state-handoff",
-            "p4-agent-harness-eval",
-            "trend:lyra81604/zhengxi-views-1",
-            "p1-skill-route-discovery-index",
-            "p2-skill-route-discovery-test-fixtures",
-            "p3-game-frontend-skill-profile-routing",
-            "p4-skill-ecosystem-state-handoff-config",
-            "p5-agent-harness-eval-follow-up",
-            "p2-skill-ecosystem-handoff-doc",
-            "p3-game-frontend-skill-validation",
+        "proposal_ids": [str(spec["proposal_id"]) for spec in specs]
+        + [
+            "p2-agent-harness-eval-fixtures"
+            if current_210729_window
+            else "p4-agent-harness-eval"
         ],
+        "anchoring_proposal_ids": (
+            [
+                "p1-threejs-game-skill-route-discovery",
+                "p2-generic-skill-workflow-documentation",
+                "p3-skill-ecosystem-state-handoff-config",
+                "p4-agent-harness-eval-for-general-agent-projects",
+                "p5-proposal-layer-citation-guard",
+                "p1-skill-route-discovery-index",
+                "p2-skill-profile-docs",
+                "p3-agent-harness-eval-fixtures",
+                "p4-route-metadata-config-check",
+                "p5-route-hint-lane-regression",
+                "p1-skill-route-discovery-matrix",
+                "p2-agent-harness-eval-fixtures",
+            ]
+            if current_210729_window
+            else [
+                "p1-skill-route-discovery-generic",
+                "p2-threejs-game-skill-routing",
+                "p3-skill-ecosystem-state-handoff",
+                "p4-agent-harness-eval",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-index",
+                "p2-skill-route-discovery-test-fixtures",
+                "p3-game-frontend-skill-profile-routing",
+                "p4-skill-ecosystem-state-handoff-config",
+                "p5-agent-harness-eval-follow-up",
+                "p2-skill-ecosystem-handoff-doc",
+                "p3-game-frontend-skill-validation",
+            ]
+        ),
         "ready_skill_route_proposal_count": len(rows) - len([row for row in rows if row["status"] != "ready"]),
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),
