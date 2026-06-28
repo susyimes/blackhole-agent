@@ -3863,6 +3863,72 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     assert current["raw_target_paths_exported"] is False
     assert current["raw_upstream_body_exported"] is False
 
+    checklist = current["preactivation_checklist"]
+    assert checklist["controller_surface"] == "skill_route_discovery_pass2_preactivation_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["decision"] == "pass2_routes_ready_for_operator_replay_without_activation"
+    assert checklist["review_gate"] == "focused-evidence-review"
+    assert checklist["required_actions"] == [
+        "review_hashed_evidence_refs",
+        "run_focused_local_validation",
+        "inspect_changed_files",
+        "keep_external_activation_denied",
+    ]
+    assert checklist["skill_route_candidate_count"] == 3
+    assert checklist["adjacent_agent_eval_count"] == 1
+    assert checklist["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert checklist["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert checklist["agent_harness_eval_required"] is True
+    assert checklist["runtime_action"] == "none"
+    assert checklist["external_skill_activation_allowed"] is False
+    assert checklist["external_agent_activation_allowed"] is False
+    assert checklist["external_harness_execution_allowed"] is False
+    assert checklist["provider_runtime_launch_allowed"] is False
+    assert checklist["remote_execution_allowed"] is False
+    assert checklist["raw_source_url_exported"] is False
+    assert checklist["raw_evidence_urls_exported"] is False
+    assert checklist["raw_replay_command_exported"] is False
+    assert checklist["raw_target_paths_exported"] is False
+    assert checklist["raw_upstream_body_exported"] is False
+
+    checklist_rows = {(row["item_type"], row.get("proposal_id") or row.get("item_id")): row for row in checklist["rows"]}
+    assert set(checklist_rows) == {
+        ("skill_route_candidate", "p1-skill-route-discovery-general"),
+        ("skill_route_candidate", "p3-game-frontend-skill-profile"),
+        ("skill_route_candidate", "p4-skill-ecosystem-state-handoff"),
+        ("adjacent_agent_harness_eval", "p2-agent-harness-eval"),
+    }
+    assert checklist_rows[
+        ("skill_route_candidate", "p1-skill-route-discovery-general")
+    ]["route_profiles"] == ["generic_skill_workflow"]
+    assert checklist_rows[
+        ("skill_route_candidate", "p3-game-frontend-skill-profile")
+    ]["selected_local_lane"] == "test"
+    assert checklist_rows[
+        ("skill_route_candidate", "p4-skill-ecosystem-state-handoff")
+    ]["selected_local_lane"] == "config"
+    assert checklist_rows[
+        ("adjacent_agent_harness_eval", "p2-agent-harness-eval")
+    ]["evaluation_lane"] == "agent_harness_eval_required"
+    assert checklist_rows[
+        ("adjacent_agent_harness_eval", "p2-agent-harness-eval")
+    ]["skill_route_discovery_inherited"] is False
+    for row in checklist["rows"]:
+        assert row["check_status"] == "ready"
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
     rows = {row["proposal_id"]: row for row in current["rows"]}
     assert rows["p1-skill-route-discovery-general"]["candidate_name"] == "zhengxi-views"
     assert rows["p1-skill-route-discovery-general"]["route_profiles"] == ["generic_skill_workflow"]

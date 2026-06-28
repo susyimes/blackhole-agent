@@ -3838,6 +3838,11 @@ def _skill_route_discovery_current_pass2_validation_lane(
         profile for profile in required_profiles if profile not in observed_profile_set
     ]
     ready = bool(rows) and not blocked_rows and not missing_required_profiles and adjacent_ready
+    preactivation_checklist = _skill_route_discovery_pass2_preactivation_checklist(
+        rows,
+        adjacent_rows,
+        ready=ready,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_current_pass2_validation_lane",
@@ -3894,8 +3899,134 @@ def _skill_route_discovery_current_pass2_validation_lane(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "preactivation_checklist": preactivation_checklist,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_pass2_preactivation_checklist(
+    skill_rows: Sequence[Mapping[str, Any]],
+    adjacent_agent_rows: Sequence[Mapping[str, Any]],
+    *,
+    ready: bool,
+) -> dict[str, Any]:
+    """Convert pass-2 route evidence into bounded operator replay steps."""
+
+    replay_rows: list[dict[str, Any]] = []
+    for row in skill_rows:
+        selected_lane = str(row.get("selected_local_lane") or "")
+        route_profiles = _string_list(row.get("route_profiles"))
+        replay_rows.append(
+            {
+                "item_type": "skill_route_candidate",
+                "proposal_id": str(row.get("proposal_id") or ""),
+                "candidate_name": str(row.get("candidate_name") or ""),
+                "candidate_source_hash": str(row.get("candidate_source_hash") or ""),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES else "",
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "validation_target": str(row.get("validation_target") or ""),
+                "replay_command_hash": _stable_hash(str(row.get("replay_command") or "")),
+                "check_status": "ready" if str(row.get("row_status") or "") == "ready" else "blocked",
+                "activation_blockers": _string_list(row.get("activation_blockers")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_replay_command_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    for row in adjacent_agent_rows:
+        replay_rows.append(
+            {
+                "item_type": "adjacent_agent_harness_eval",
+                "proposal_id": str(row.get("proposal_id") or ""),
+                "item_id": str(row.get("item_id") or ""),
+                "source_url_hash": str(row.get("source_url_hash") or ""),
+                "route_hint": "agent_harness_eval",
+                "route_profiles": [],
+                "selected_local_lane": "test",
+                "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                "evaluation_lane": "agent_harness_eval_required",
+                "skill_route_discovery_inherited": False,
+                "validation_target": "agent_harness_eval_lane_before_code_or_config_change",
+                "replay_command_hash": _stable_hash(str(row.get("replay_command") or "")),
+                "check_status": (
+                    "ready"
+                    if row.get("evaluation_lane") == "agent_harness_eval_required"
+                    and row.get("skill_route_discovery_inherited") is False
+                    and row.get("direct_runtime_route_allowed") is False
+                    and row.get("external_harness_execution_allowed") is False
+                    else "blocked"
+                ),
+                "activation_blockers": [],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_replay_command_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    selected_local_lanes = [
+        lane
+        for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        if lane in {str(row.get("selected_local_lane") or "") for row in skill_rows}
+    ]
+    checklist_ready = ready and bool(replay_rows) and all(
+        str(row.get("check_status") or "") == "ready" for row in replay_rows
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_pass2_preactivation_checklist",
+        "status": "ready" if checklist_ready else "blocked",
+        "decision": (
+            "pass2_routes_ready_for_operator_replay_without_activation"
+            if checklist_ready
+            else "repair_pass2_route_checklist_before_operator_replay"
+        ),
+        "review_gate": "focused-evidence-review",
+        "required_actions": [
+            "review_hashed_evidence_refs",
+            "run_focused_local_validation",
+            "inspect_changed_files",
+            "keep_external_activation_denied",
+        ],
+        "skill_route_candidate_count": len(skill_rows),
+        "adjacent_agent_eval_count": len(adjacent_agent_rows),
+        "selected_local_lanes": selected_local_lanes,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "agent_harness_eval_required": bool(adjacent_agent_rows),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_command_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": replay_rows,
     }
 
 

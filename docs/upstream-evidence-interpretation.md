@@ -71,6 +71,12 @@ local lane is ready for review, but it must not push, promote, restart the
 kernel, launch a provider, execute an external harness, or activate upstream
 skill code.
 
+During pass-2 validation, the preactivation checklist is the replay surface for
+this rule. It may expose candidate names, route profiles, selected local lanes,
+validation targets, and hashed source or replay references; it must keep raw
+upstream URLs, raw replay commands, provider launch, remote execution, profile
+writes, memory writes, external harness execution, and skill activation denied.
+
 Repository lifecycle signals do not change that boundary. A newly discovered
 skill repository is recorded as `record_only_no_install`, and a deleted upstream
 skill repository is recorded as `record_only_no_local_deletion`. Malformed
