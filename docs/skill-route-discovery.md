@@ -3278,3 +3278,25 @@ external skill activation, external harness execution, remote execution, profile
 writes, memory writes, raw URL export, target path export, or upstream body
 export. Qwen-AgentWorld-style adjacent general-agent evidence remains in
 `agent_harness_eval_required` and does not inherit `skill_route_discovery`.
+
+## Current Pass 3 Proposal Lane Contract
+
+Source digest `github-growth-20260628T114729.691889Z` continues the active
+pass-3 skill-route-discovery window with
+`proposal_lane_activation_contract` inside `pass3_handoff_packet`. The contract
+binds the carried proposal IDs `p1-skill-route-discovery-generic`,
+`p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff` to the already accepted route-profile lanes
+before activation: generic zhengxi-views-style skill evidence maps to a local
+documentation lane, Three.js game/frontend skill evidence maps to a local test
+lane, and COMPASS-style state handoff evidence maps to a local config lane.
+
+This is a controller replay contract, not an activation grant. Each row must
+stay inside documentation, config, test, or code_patch; require local
+validation; cite selected item IDs; and expose only source hashes, route
+profiles, validation gates, and replay metadata. Adjacent Qwen-AgentWorld-style
+general-agent evidence stays in `blocked_adjacent_proposal_ids` and cannot
+inherit `skill_route_discovery`. Runtime action, external skill or agent
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw evidence URL export, target path export, and upstream
+body export remain denied.

@@ -120,6 +120,70 @@
       "equals": "ready"
     },
     {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.status",
+      "equals": "ready"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.proposal_count",
+      "equals": 3
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.active_skill_proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-state-handoff"
+      ]
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.blocked_adjacent_proposal_ids",
+      "equals": ["p4-agent-harness-eval-general-projects"]
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.0.proposal_id",
+      "equals": "p2-game-frontend-skill-profile"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.0.route_profile",
+      "equals": "game_frontend_workflow"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.0.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.1.proposal_id",
+      "equals": "p1-skill-route-discovery-generic"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.1.route_profile",
+      "equals": "generic_skill_workflow"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.1.selected_local_lane",
+      "equals": "documentation"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.2.proposal_id",
+      "equals": "p3-skill-ecosystem-state-handoff"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.2.route_profile",
+      "equals": "skill_ecosystem_state_handoff"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.rows.2.selected_local_lane",
+      "equals": "config"
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.raw_source_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "pass3_handoff_packet.proposal_lane_activation_contract.external_agent_activation_allowed",
+      "equals": false
+    },
+    {
       "path": "pass3_handoff_packet.route_profile_lane_contract.rows.0.route_profile",
       "equals": "game_frontend_workflow"
     },

@@ -6404,6 +6404,11 @@ def skill_route_discovery_pass3_handoff_packet(
         current_action=current_action,
         profile_activation_gates=profile_activation_gates,
     )
+    proposal_lane_activation_contract = skill_route_discovery_pass3_proposal_lane_activation_contract(
+        ready=ready,
+        raw_input=raw_input,
+        route_profile_lane_contract=route_profile_lane_contract,
+    )
     profile_validation_proof = skill_route_discovery_pass3_profile_validation_proof(
         ready=ready,
         raw_input=raw_input,
@@ -6511,6 +6516,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "final_pass_replay_checklist": final_pass_replay_checklist,
         "profile_activation_gates": profile_activation_gates,
         "route_profile_lane_contract": route_profile_lane_contract,
+        "proposal_lane_activation_contract": proposal_lane_activation_contract,
         "profile_validation_proof": profile_validation_proof,
         "activation_proof_summary": activation_proof_summary,
         "operator_checkpoint_list": operator_checkpoint_list,
@@ -6529,6 +6535,175 @@ def skill_route_discovery_pass3_handoff_packet(
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_proposal_lane_activation_contract(
+    *,
+    ready: bool,
+    raw_input: dict[str, Any],
+    route_profile_lane_contract: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind active pass-3 proposal IDs to bounded route-profile lanes."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    active_skill_proposals = [
+        proposal_id
+        for proposal_id in anchoring_proposals
+        if "agent-harness" not in proposal_id
+        and "agentworld" not in proposal_id.lower()
+        and "qwen" not in proposal_id.lower()
+        and "looper" not in proposal_id.lower()
+    ]
+    adjacent_proposals = [
+        proposal_id
+        for proposal_id in anchoring_proposals
+        if proposal_id not in active_skill_proposals
+    ]
+
+    profile_rows = route_profile_lane_contract.get("rows")
+    profile_rows = profile_rows if isinstance(profile_rows, list) else []
+    allowed_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    allowed_lane_set = set(allowed_lanes)
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for raw_row in profile_rows:
+        profile_row = raw_row if isinstance(raw_row, dict) else {}
+        evidence_item_ids = string_list(profile_row.get("evidence_item_ids"))
+        matched_proposals = [proposal_id for proposal_id in active_skill_proposals if proposal_id in evidence_item_ids]
+        if not matched_proposals and evidence_item_ids and not active_skill_proposals:
+            matched_proposals = evidence_item_ids
+        if not matched_proposals:
+            continue
+
+        selected_lane = optional_string(profile_row.get("selected_local_lane")) or ""
+        route_profile = optional_string(profile_row.get("route_profile")) or "generic_skill_workflow"
+        row_diagnostics = string_list(profile_row.get("diagnostics"))
+        if selected_lane not in allowed_lane_set:
+            row_diagnostics.append("selected_lane_not_bounded")
+        if profile_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if profile_row.get("runtime_action_allowed") is not False:
+            row_diagnostics.append("runtime_action_not_denied")
+        if profile_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if profile_row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        if profile_row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_not_denied")
+        if profile_row.get("remote_execution_allowed") is not False:
+            row_diagnostics.append("remote_execution_not_denied")
+
+        row_ready = ready and profile_row.get("status") == "ready" and not row_diagnostics
+        diagnostics.extend(
+            f"{proposal_id}:{diagnostic}"
+            for proposal_id in matched_proposals
+            for diagnostic in row_diagnostics
+        )
+        for proposal_id in matched_proposals:
+            rows.append(
+                {
+                    "proposal_id": proposal_id,
+                    "route_profile": route_profile,
+                    "status": "ready" if row_ready else "blocked",
+                    "decision": "proposal_mapped_to_bounded_local_lane"
+                    if row_ready
+                    else "repair_proposal_lane_before_activation",
+                    "selected_local_lane": selected_lane,
+                    "allowed_local_lanes": allowed_lanes,
+                    "lane_bounded": selected_lane in allowed_lane_set,
+                    "validation_gate": optional_string(profile_row.get("validation_gate")) or "",
+                    "validation_scope": optional_string(profile_row.get("validation_scope")) or "",
+                    "evidence_ref_mode": "selected_item_ids_only",
+                    "evidence_item_ids": evidence_item_ids,
+                    "candidate_source_hashes": string_list(profile_row.get("candidate_source_hashes")),
+                    "candidate_source_count": len(string_list(profile_row.get("candidate_source_hashes"))),
+                    "required_validation": string_list(profile_row.get("required_validation")),
+                    "provider_runtime_replay_commands": string_list(
+                        profile_row.get("provider_runtime_replay_commands")
+                    ),
+                    "diagnostics": sorted(dict.fromkeys(row_diagnostics)),
+                    "local_validation_required": True,
+                    "body_free": True,
+                    "runtime_action": "none",
+                    "runtime_action_allowed": False,
+                    "external_skill_activation_allowed": False,
+                    "external_skill_code_allowed": False,
+                    "external_agent_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_evidence_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_target_paths_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            )
+
+    represented_proposals = {str(row.get("proposal_id") or "") for row in rows}
+    missing_proposals = [proposal_id for proposal_id in active_skill_proposals if proposal_id not in represented_proposals]
+    diagnostics.extend(f"{proposal_id}:proposal_not_mapped_to_profile_lane" for proposal_id in missing_proposals)
+    blocked_rows = [row for row in rows if row.get("status") != "ready"]
+    contract_ready = (
+        ready
+        and route_profile_lane_contract.get("status") == "ready"
+        and bool(rows)
+        and not blocked_rows
+        and not missing_proposals
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_pass3_proposal_lane_activation_contract",
+        "status": "ready" if contract_ready else "blocked",
+        "decision": "active_proposals_mapped_to_bounded_local_lanes_before_activation"
+        if contract_ready
+        else "repair_active_proposal_lane_contract_before_activation",
+        "validation_gate": "focused-evidence-review",
+        "route_profile_lane_contract_status": optional_string(route_profile_lane_contract.get("status")) or "",
+        "proposal_count": len(rows),
+        "ready_proposal_count": len(rows) - len(blocked_rows),
+        "blocked_proposal_count": len(blocked_rows),
+        "active_skill_proposal_ids": active_skill_proposals,
+        "blocked_adjacent_proposal_ids": adjacent_proposals,
+        "missing_proposal_ids": missing_proposals,
+        "allowed_local_lanes": allowed_lanes,
+        "selected_local_lanes": sorted(
+            {
+                str(row.get("selected_local_lane") or "")
+                for row in rows
+                if row.get("selected_local_lane")
+            }
+        ),
+        "route_profiles": sorted(
+            {
+                str(row.get("route_profile") or "")
+                for row in rows
+                if row.get("route_profile")
+            }
+        ),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
