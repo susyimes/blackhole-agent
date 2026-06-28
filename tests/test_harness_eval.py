@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 84
-    assert payload["pass_count"] == 83
+    assert payload["fixture_count"] == 85
+    assert payload["pass_count"] == 84
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -133,6 +133,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     results = {result["name"]: result for result in payload["results"]}
     assert results["agent-workflow-route-success"]["passed"] is True
     assert results["skill-route-discovery-lane-pass3-current-profiles"]["passed"] is True
+    assert results["skill-route-discovery-current-window-pass4-completion"]["passed"] is True
     assert results["external-harness-adapter-contract-databricks-genie"]["passed"] is True
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
@@ -5800,6 +5801,55 @@ def test_skill_route_discovery_pass4_lane_map_exposes_local_lane_matrix():
     assert all(row["external_harness_execution_allowed"] is False for row in matrix["rows"])
     assert all(row["provider_runtime_launch_allowed"] is False for row in matrix["rows"])
     assert all(row["remote_execution_allowed"] is False for row in matrix["rows"])
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_window_pass4_completion_closes_active_profiles():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_current_window_pass4_completion.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    completion = output["capability_window_completion"]
+    local_kernel = completion["local_kernel_handoff"]
+    summary = local_kernel["proposal_completion_summary"]
+    rows = {row["route_profile"]: row for row in summary["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "ready"
+    assert completion["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert completion["profile_completion_check"]["missing_route_profiles"] == []
+    assert summary["status"] == "ready"
+    assert summary["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert summary["selected_skill_route_lanes"] == ["documentation", "config", "test"]
+    assert rows["generic_skill_workflow"]["selected_local_lane"] == "documentation"
+    assert rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert rows["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert all(
+        set(row["allowed_local_lanes"]) == {"documentation", "config", "test", "code_patch"}
+        for row in rows.values()
+    )
+    assert all(row["runtime_action"] == "none" for row in rows.values())
+    assert local_kernel["external_supervisor_required"] is True
+    assert local_kernel["restart_required_by_kernel"] is False
+    assert local_kernel["runtime_action_allowed"] is False
+    assert local_kernel["external_skill_activation_allowed"] is False
+    assert local_kernel["external_harness_execution_allowed"] is False
+    assert local_kernel["provider_runtime_launch_allowed"] is False
+    assert local_kernel["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
 
 

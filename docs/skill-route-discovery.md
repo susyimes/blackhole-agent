@@ -5,6 +5,20 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260628T224729.591354Z` closes the current
+four-pass skill-route-discovery window with a replayable pass-4 fixture for the
+active proposal IDs `proposal-skill-route-discovery-generic-001`,
+`proposal-threejs-game-skill-routing-002`, and
+`proposal-skill-ecosystem-handoff-003`. The fixture keeps zhengxi-views-style
+generic skill workflow evidence in `generic_skill_workflow` when no stronger
+source-cited domain signals are present, maps Three.js game skill evidence to
+`game_frontend_workflow`, and maps COMPASS-style state handoff evidence to
+`skill_ecosystem_state_handoff`. The final local-kernel handoff may expose only
+documentation, config, test, or code_patch lanes, requires local validation and
+external supervisor replay, and continues to deny runtime action, upstream skill
+activation, external harness execution, provider launch, remote execution, raw
+source URLs, raw evidence URLs, and upstream bodies.
+
 Source digest `github-growth-20260628T220729.598607Z` tightens the pass-2
 operator completion surface so it carries the active proposal IDs from the
 skill-route-discovery window. zhengxi-views-style generic or source-cited skill

@@ -152,7 +152,6 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
         "source-cited",
         "sourced",
         "traceable",
-        "views",
     ),
     "skill_ecosystem_state_handoff": (
         "collaboration profile",
