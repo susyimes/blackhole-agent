@@ -2952,6 +2952,24 @@ and do not inherit `skill_route_discovery`, direct code_patch authority, runtime
 action, provider launch, external harness execution, remote execution, or
 upstream agent activation.
 
+## Current Pass 3 Discovery Validation Packet
+
+Source digest `github-growth-20260628T130729.680353Z` adds
+`skill_route_discovery_current_active_pass3_discovery_validation_packet` for
+the active zhengxi-views, Qwen-AgentWorld, and Three.js Game Skills window. The
+packet keeps zhengxi-views in the `source_cited_domain_research` test lane and
+Three.js Game Skills in the `game_frontend_workflow` test lane. Both rows may
+lead only to docs, config, tests, or code_patch work after local validation.
+
+Qwen-AgentWorld is deliberately represented as adjacent
+`agent_harness_eval_required` evidence, not as skill-route evidence. It can
+queue docs, tests, or code_patch outputs only after the local agent-harness eval
+route is established. The packet exports candidate names, selected item IDs,
+route profiles, validation targets, source hashes, and replay-command hashes;
+it does not export raw source URLs, raw evidence URLs, target paths, replay
+commands, upstream bodies, provider config, runtime authority, external harness
+execution, remote execution, or upstream activation.
+
 ## Current Pass 4 Completion Lane
 
 Source digest `github-growth-20260628T120729.553038Z` completes the current

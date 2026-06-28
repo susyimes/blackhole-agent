@@ -7879,3 +7879,124 @@ def test_skill_route_discovery_proposal_lane_map_rejects_actionful_or_unsafe_can
         "candidate_has_non_lane_validation_errors",
         "candidate_has_non_lane_validation_errors",
     ]
+
+
+def test_skill_route_discovery_current_active_pass3_discovery_validation_packet_queues_qwen_eval():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_active_pass3_discovery_validation_packet.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    packet = lane_map["current_active_pass3_discovery_validation_packet"]
+
+    assert registry["source_digest"] == "github-growth-20260628T130729.680353Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["ignored_evidence_items"][0]["name"] == "Qwen-AgentWorld"
+    assert registry["ignored_evidence_items"][0]["evaluation_lane"] == "agent_harness_eval_required"
+
+    assert packet["controller_surface"] == (
+        "skill_route_discovery_current_active_pass3_discovery_validation_packet"
+    )
+    assert packet["status"] == "ready"
+    assert packet["decision"] == (
+        "current_pass3_skill_routes_and_adjacent_agent_eval_ready_for_local_validation"
+    )
+    assert packet["source_digest"] == "github-growth-20260628T130729.680353Z"
+    assert packet["capability_pass"] == 3
+    assert packet["total_passes"] == 4
+    assert packet["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p3-game-skill-workflow-discovery",
+        "p2-agent-harness-eval-qwen-agentworld",
+    ]
+    assert packet["ready_skill_route_proposal_count"] == 2
+    assert packet["blocked_proposal_ids"] == []
+    assert packet["skill_route_candidate_count"] == 2
+    assert packet["adjacent_general_agent_count"] == 1
+    assert packet["agent_harness_eval_required_count"] == 1
+    assert packet["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert packet["selected_local_lanes"] == ["test"]
+    assert packet["accepted_skill_route_outputs"] == ["docs", "config", "tests", "code_patch"]
+    assert packet["operator_next_action"] == "replay_hashed_pass3_discovery_validation_before_pass4"
+    assert all(command_hash.startswith("sha256:") for command_hash in packet["replay_command_hashes"])
+
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    assert set(rows) == {
+        "p1-skill-route-discovery-zhengxi-views",
+        "p3-game-skill-workflow-discovery",
+    }
+    assert rows["p1-skill-route-discovery-zhengxi-views"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p1-skill-route-discovery-zhengxi-views"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert rows["p1-skill-route-discovery-zhengxi-views"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-zhengxi-views"]["validation_target"] == (
+        "source_citation_and_advice_boundary_check"
+    )
+    assert rows["p3-game-skill-workflow-discovery"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["p3-game-skill-workflow-discovery"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p3-game-skill-workflow-discovery"]["selected_local_lane"] == "test"
+    assert rows["p3-game-skill-workflow-discovery"]["validation_target"] == (
+        "local_frontend_render_or_workflow_check"
+    )
+    for row in rows.values():
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["accepted_outputs"] == ["docs", "config", "tests", "code_patch"]
+        assert row["selected_evidence_item_ids"]
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    assert packet["adjacent_general_agent_policy"] == {
+        "proposal_id": "p2-agent-harness-eval-qwen-agentworld",
+        "evaluation_lane": "agent_harness_eval_required",
+        "accepted_outputs_after_eval": ["docs", "tests", "code_patch"],
+        "skill_route_discovery_inherited": False,
+        "direct_local_change_proposals_allowed": False,
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    adjacent = packet["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p2-agent-harness-eval-qwen-agentworld"
+    assert adjacent["name"] == "Qwen-AgentWorld"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["accepted_outputs"] == ["docs", "tests", "code_patch"]
+    assert adjacent["validation_gate"] == "local_agent_harness_eval_required_before_implementation_route"
+    assert adjacent["replay_command_hash"].startswith("sha256:")
+    assert adjacent["raw_replay_command_exported"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["remote_execution_allowed"] is False
+
+    serialized = json.dumps(packet, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "Qwen-AgentWorld" in serialized
