@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 82
-    assert payload["pass_count"] == 81
+    assert payload["fixture_count"] == 83
+    assert payload["pass_count"] == 82
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -6723,6 +6723,76 @@ def test_skill_route_discovery_current_window_pass1_keeps_skill_probe_before_har
     assert pass1_replay_plan["external_skill_activation_allowed"] is False
     assert pass1_replay_plan["raw_source_urls_exported"] is False
     assert pass1_queue["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_pass1_focused_lane_maps_current_profiles():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_current_digest_pass1_focused_lane.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    focused_lane = output["pass1_focused_evidence_review_lane"]
+    rows_by_id = {row["proposal_id"]: row for row in focused_lane["rows"]}
+    serialized = json.dumps(focused_lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert focused_lane["controller_surface"] == "skill_route_discovery_pass1_focused_evidence_review_lane"
+    assert focused_lane["status"] == "ready"
+    assert focused_lane["decision"] == "pass1_focused_skill_route_lanes_ready_for_replay"
+    assert focused_lane["proposal_ids"] == [
+        "p1-threejs-game-skill-route-discovery",
+        "p2-generic-skill-workflow-documentation",
+        "p3-skill-ecosystem-state-handoff-config",
+    ]
+    assert focused_lane["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert focused_lane["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert focused_lane["diagnostics"] == []
+
+    game_row = rows_by_id["p1-threejs-game-skill-route-discovery"]
+    assert game_row["route_profiles"] == ["game_frontend_workflow"]
+    assert game_row["selected_local_lane"] == "test"
+    assert game_row["expected_local_lane"] == "test"
+    assert game_row["expected_route_profile"] == "game_frontend_workflow"
+    assert game_row["validation_gates"] == ["local_frontend_validation_before_game_skill_activation"]
+    assert game_row["candidate_source_count"] == 2
+
+    generic_row = rows_by_id["p2-generic-skill-workflow-documentation"]
+    assert generic_row["route_profiles"] == ["generic_skill_workflow"]
+    assert generic_row["selected_local_lane"] == "documentation"
+    assert generic_row["expected_local_lane"] == "documentation"
+    assert generic_row["validation_gates"] == ["generic_skill_workflow_local_validation_before_activation"]
+
+    state_row = rows_by_id["p3-skill-ecosystem-state-handoff-config"]
+    assert state_row["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert state_row["selected_local_lane"] == "config"
+    assert state_row["expected_local_lane"] == "config"
+    assert state_row["validation_gates"] == ["state_handoff_boundary_before_profile_or_memory_write"]
+
+    for row in focused_lane["rows"]:
+        assert row["status"] == "ready"
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["runtime_action_allowed"] is False
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_source_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    assert focused_lane["runtime_action_allowed"] is False
+    assert focused_lane["external_skill_activation_allowed"] is False
+    assert focused_lane["provider_runtime_launch_allowed"] is False
     assert "https://github.com/" not in serialized
 
 

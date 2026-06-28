@@ -175,6 +175,28 @@ launch, remote execution, profile writes, memory writes, raw source URL export,
 raw evidence URL export, raw target path export, and upstream body export remain
 denied.
 
+## Current Digest Pass 1 Focused Evidence Review Lane
+
+Source digest `github-growth-20260628T202729.536231Z` starts a new pass-1
+skill-route-discovery window with `pass1_focused_evidence_review_lane`. The lane
+is an operator-facing compatibility surface for fresh anchoring proposal IDs
+that may not yet be indexed by older pass-1 replay queue aliases.
+
+For the current digest shape, the lane maps Three.js game skill repositories to
+`game_frontend_workflow` in the local `test` lane, generic skill workflow
+evidence to `generic_skill_workflow` in the local `documentation` lane, and
+COMPASS-style state handoff evidence to `skill_ecosystem_state_handoff` in the
+local `config` lane. If an anchoring proposal is absent from the pass-1 replay
+queue, the lane may fall back to the ready `profile_lane_acceptance_contract`
+and `validation_lane_plan` rows, exporting only proposal IDs, route profiles,
+selected local lanes, validation gates, selected item IDs, source hashes, and
+diagnostics.
+
+The lane is not activation. Documentation, config, test, and code_patch remain
+the only skill-route lanes. Runtime action, upstream skill activation, external
+harness execution, provider launch, remote execution, raw source URL export, raw
+evidence URL export, and upstream body export remain denied.
+
 Source digest `github-growth-20260627T114310.634245Z` starts a fresh pass over
 the same skill-route-discovery slice with Three.js Game Skills, zhengxi-views,
 and COMPASS Skills evidence. The local regression fixture

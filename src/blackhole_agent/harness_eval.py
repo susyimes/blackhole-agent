@@ -2225,6 +2225,12 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         mixed_local_lane_probe=mixed_local_lane_probe,
         profile_lane_acceptance_contract=profile_lane_acceptance_contract,
     )
+    pass1_focused_evidence_review_lane = skill_route_discovery_pass1_focused_evidence_review_lane(
+        raw_input=raw_input,
+        pass1_validation_queue=pass1_validation_queue,
+        profile_lane_acceptance_contract=profile_lane_acceptance_contract,
+        validation_lane_plan=validation_lane_plan,
+    )
     pass1_route_registry_handoff = skill_route_discovery_pass1_route_registry_handoff(
         raw_input=raw_input,
         lane_map=lane_map,
@@ -2369,6 +2375,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass3_handoff_packet": pass3_handoff_packet,
         "pass1_handoff_packet": pass1_handoff_packet,
         "pass1_validation_queue": pass1_validation_queue,
+        "pass1_focused_evidence_review_lane": pass1_focused_evidence_review_lane,
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
         "current_pass2_validation_lane": lane_map["current_pass2_validation_lane"],
         "active_window_route_lane_matrix": active_window_route_lane_matrix,
@@ -8364,6 +8371,216 @@ def skill_route_discovery_pass1_validation_queue(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def skill_route_discovery_pass1_focused_evidence_review_lane(
+    *,
+    raw_input: dict[str, Any],
+    pass1_validation_queue: dict[str, Any],
+    profile_lane_acceptance_contract: dict[str, Any],
+    validation_lane_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose active pass-1 proposal/profile lane checks before activation."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    current_pass = int(window.get("current_pass") or window.get("planned_pass") or 0)
+    anchoring_proposals = string_list(window.get("anchoring_proposals"))
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    queue_rows = pass1_validation_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    queue_rows_by_id = {
+        optional_string(row.get("proposal_id")) or "": row
+        for row in queue_rows
+        if isinstance(row, dict) and optional_string(row.get("proposal_id"))
+    }
+    profile_rows = profile_lane_acceptance_contract.get("rows")
+    profile_rows = profile_rows if isinstance(profile_rows, list) else []
+    profile_rows_by_name = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in profile_rows
+        if isinstance(row, dict)
+    }
+    plan_rows = validation_lane_plan.get("rows")
+    plan_rows = plan_rows if isinstance(plan_rows, list) else []
+    plan_rows_by_profile = {
+        optional_string(row.get("route_profile")) or "generic_skill_workflow": row
+        for row in plan_rows
+        if isinstance(row, dict)
+    }
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for proposal_id in anchoring_proposals:
+        if _skill_route_discovery_is_general_agent_ref(proposal_id.casefold()):
+            continue
+        expected_profile, expected_lane = skill_route_discovery_pass1_expected_profile_lane(proposal_id)
+        queue_row = queue_rows_by_id.get(proposal_id)
+        queue_row_diagnostics = string_list(queue_row.get("diagnostics")) if isinstance(queue_row, dict) else []
+        if not queue_row or "anchoring_proposal_not_in_replay_queue" in queue_row_diagnostics:
+            contract_row = profile_rows_by_name.get(expected_profile, {})
+            plan_row = plan_rows_by_profile.get(expected_profile, {})
+            selected_lane = optional_string(contract_row.get("selected_first_local_lane")) or "none"
+            validation_gate = optional_string(contract_row.get("validation_gate")) or ""
+            row_diagnostics: list[str] = []
+            if not contract_row:
+                row_diagnostics.append("profile_acceptance_contract_missing")
+            if selected_lane not in allowed_lanes:
+                row_diagnostics.append("selected_local_lane_not_bounded")
+            if expected_lane and selected_lane != expected_lane:
+                row_diagnostics.append("selected_local_lane_does_not_match_profile_expectation")
+            if not validation_gate:
+                row_diagnostics.append("validation_gate_missing")
+            if contract_row.get("local_validation_required") is not True:
+                row_diagnostics.append("local_validation_not_required")
+            if str(contract_row.get("runtime_action") or "none") != "none":
+                row_diagnostics.append("runtime_action_requested")
+            if contract_row.get("external_skill_activation_allowed") is not False:
+                row_diagnostics.append("external_skill_activation_not_denied")
+            if contract_row.get("external_harness_execution_allowed") is not False:
+                row_diagnostics.append("external_harness_execution_not_denied")
+            row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+            diagnostics.extend(f"{stable_text_hash(proposal_id)}:{diagnostic}" for diagnostic in row_diagnostics)
+            rows.append(
+                {
+                    "proposal_id": proposal_id,
+                    "status": "ready" if not row_diagnostics else "blocked",
+                    "selected_local_lane": selected_lane,
+                    "expected_local_lane": expected_lane,
+                    "route_profiles": [expected_profile] if expected_profile else [],
+                    "expected_route_profile": expected_profile,
+                    "validation_gates": [validation_gate] if validation_gate else [],
+                    "evidence_ref_mode": "selected_item_ids_only",
+                    "evidence_item_ids": string_list(plan_row.get("evidence_item_ids")) or [proposal_id],
+                    "candidate_source_hashes": string_list(plan_row.get("candidate_source_hashes")),
+                    "candidate_source_count": len(string_list(plan_row.get("candidate_source_hashes"))),
+                    "diagnostics": row_diagnostics,
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "runtime_action_allowed": False,
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_source_urls_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            )
+            continue
+
+        selected_lane = optional_string(queue_row.get("selected_local_lane")) or "none"
+        route_profiles = string_list(queue_row.get("route_profiles"))
+        validation_gates = [
+            optional_string(contract.get("validation_gate")) or ""
+            for contract in (
+                queue_row.get("profile_contracts")
+                if isinstance(queue_row.get("profile_contracts"), list)
+                else []
+            )
+            if isinstance(contract, dict) and optional_string(contract.get("validation_gate"))
+        ]
+        row_diagnostics = string_list(queue_row.get("diagnostics"))
+        if selected_lane not in allowed_lanes:
+            row_diagnostics.append("selected_local_lane_not_bounded")
+        if expected_lane and selected_lane != expected_lane:
+            row_diagnostics.append("selected_local_lane_does_not_match_profile_expectation")
+        if expected_profile and expected_profile not in route_profiles:
+            row_diagnostics.append("expected_route_profile_missing")
+        if not route_profiles:
+            row_diagnostics.append("route_profile_missing")
+        if not validation_gates:
+            row_diagnostics.append("validation_gate_missing")
+        if queue_row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(queue_row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if queue_row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if queue_row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        if queue_row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_not_denied")
+        if queue_row.get("remote_execution_allowed") is not False:
+            row_diagnostics.append("remote_execution_not_denied")
+
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        diagnostics.extend(f"{stable_text_hash(proposal_id)}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "proposal_id": proposal_id,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "selected_local_lane": selected_lane,
+                "expected_local_lane": expected_lane,
+                "route_profiles": route_profiles,
+                "expected_route_profile": expected_profile,
+                "validation_gates": sorted(dict.fromkeys(validation_gates)),
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_ids": string_list(queue_row.get("evidence_item_ids")),
+                "candidate_source_hashes": string_list(queue_row.get("candidate_source_hashes")),
+                "candidate_source_count": len(string_list(queue_row.get("candidate_source_hashes"))),
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        current_pass == 1
+        and bool(rows)
+        and not diagnostics
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass1_focused_evidence_review_lane",
+        "status": "ready" if ready else "not_applicable" if current_pass != 1 else "blocked",
+        "decision": "pass1_focused_skill_route_lanes_ready_for_replay"
+        if ready
+        else "repair_pass1_focused_skill_route_lanes_before_replay",
+        "current_pass": current_pass,
+        "total_passes": int(window.get("total_passes") or 0),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "proposal_ids": [row["proposal_id"] for row in rows],
+        "proposal_count": len(rows),
+        "ready_proposal_count": sum(1 for row in rows if row["status"] == "ready"),
+        "selected_local_lanes": sorted({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "route_profiles": sorted({profile for row in rows for profile in string_list(row.get("route_profiles"))}),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass1_expected_profile_lane(proposal_id: str) -> tuple[str, str]:
+    """Infer the expected local lane for current pass-1 proposal wording."""
+
+    value = proposal_id.casefold()
+    if any(marker in value for marker in ("threejs", "three-js", "game", "frontend")):
+        return "game_frontend_workflow", "test"
+    if any(marker in value for marker in ("ecosystem", "state", "handoff", "compass")):
+        return "skill_ecosystem_state_handoff", "config"
+    if "generic" in value or ("skill" in value and "workflow" in value):
+        return "generic_skill_workflow", "documentation"
+    return "", ""
 
 
 def skill_route_discovery_pass1_route_registry_handoff(
