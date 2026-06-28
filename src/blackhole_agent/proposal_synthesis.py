@@ -608,6 +608,10 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
         "skill_route_boundary_report": build_skill_route_boundary_report(package_items),
         "route_activation_preflight": build_route_activation_preflight(package_items),
+        "current_pass2_activation_readiness": build_current_pass2_activation_readiness(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+        ),
         "skill_route_pass3_handoff": build_skill_route_pass3_handoff(
             package_items,
             context_budget=evidence_package.get("context_budget"),
@@ -832,6 +836,144 @@ def build_route_activation_preflight(items: list[Any]) -> dict[str, Any]:
         "raw_source_url_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
+
+
+def build_current_pass2_activation_readiness(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+) -> dict[str, Any]:
+    """Expose the active pass-2 skill route window as a local activation queue."""
+
+    implementation_preflight = build_skill_route_implementation_preflight(
+        items,
+        context_budget=context_budget,
+    )
+    general_eval = build_general_agent_project_eval_lane(items)
+    selected_item_ids = sorted(
+        {
+            str(item_id)
+            for item_id in (
+                context_budget.get("selected_item_ids", [])
+                if isinstance(context_budget, dict)
+                else []
+            )
+            if str(item_id).strip()
+        }
+    )
+    skill_rows = [
+        {
+            "item_id": str(row.get("item_id") or ""),
+            "route_class": "skill_workflow",
+            "primary_route": "skill_route_discovery",
+            "route_profiles": [str(profile) for profile in row.get("route_profiles", [])],
+            "selected_local_lane": str(row.get("selected_local_lane") or ""),
+            "queued_local_lanes": [str(lane) for lane in row.get("queued_local_lanes", [])],
+            "allowed_local_lanes": [str(lane) for lane in row.get("allowed_local_lanes", [])],
+            "implementation_route_allowed": bool(row.get("implementation_route_allowed")),
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+        for row in implementation_preflight.get("rows", [])
+        if isinstance(row, dict)
+    ]
+
+    general_rows: list[dict[str, Any]] = []
+    for candidate in general_eval.get("candidates", []):
+        if not isinstance(candidate, dict):
+            continue
+        item_id = str(candidate.get("item_id") or "")
+        source_item = find_item_by_id(items, item_id)
+        has_local_eval = general_agent_project_has_local_eval_result(source_item)
+        general_rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "general_agent_project",
+                "primary_route": "agent_harness_eval_required",
+                "allowed_local_lanes": [str(lane) for lane in candidate.get("allowed_local_lanes", [])],
+                "implementation_lanes_enabled": has_local_eval,
+                "selected_implementation_lanes": (
+                    [str(lane) for lane in candidate.get("allowed_local_lanes", [])]
+                    if has_local_eval
+                    else []
+                ),
+                "blocked_until": (
+                    ""
+                    if has_local_eval
+                    else "local_agent_harness_evaluation_result"
+                ),
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
+
+    skill_ready = all(row["implementation_route_allowed"] for row in skill_rows)
+    general_ready = all(row["implementation_lanes_enabled"] for row in general_rows)
+    status = "ready" if skill_ready and general_ready else "blocked"
+    return {
+        "controller_surface": "skill_route_discovery_pass2_activation_readiness",
+        "status": status,
+        "decision": (
+            "bounded_skill_routes_ready_with_agent_harness_eval_results"
+            if status == "ready"
+            else "block_general_agent_implementation_until_local_harness_eval_result"
+        ),
+        "capability_pass": "2_of_4",
+        "active_proposal_ids": [
+            "p1-skill-route-discovery-compass-zhengxi",
+            "p2-threejs-game-skill-workflow-doc",
+            "p3-agent-harness-eval-general-agent-projects",
+        ],
+        "selected_item_ids": selected_item_ids,
+        "skill_workflow_count": len(skill_rows),
+        "general_agent_project_count": len(general_rows),
+        "skill_route_rows": skill_rows,
+        "general_agent_rows": general_rows,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "allowed_general_agent_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "blocked_general_agent_item_ids": [
+            row["item_id"] for row in general_rows if not row["implementation_lanes_enabled"]
+        ],
+        "required_local_validation": sorted(
+            dict.fromkeys(SKILL_ROUTE_LOCAL_LANE_COMMANDS + GENERAL_AGENT_PROJECT_EVAL_COMMANDS)
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "body_free": True,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def find_item_by_id(items: list[Any], item_id: str) -> dict[str, Any]:
+    """Return a digest item by id, or an empty mapping when it is absent."""
+
+    for item in items:
+        if isinstance(item, dict) and str(item.get("item_id") or "") == item_id:
+            return item
+    return {}
+
+
+def general_agent_project_has_local_eval_result(item: dict[str, Any]) -> bool:
+    """Require an explicit local harness result before general-agent implementation lanes."""
+
+    if not isinstance(item, dict):
+        return False
+    result = item.get("local_agent_harness_evaluation_result")
+    if not isinstance(result, dict):
+        classification = item.get("route_classification")
+        if isinstance(classification, dict):
+            result = classification.get("local_agent_harness_evaluation_result")
+    if not isinstance(result, dict):
+        return False
+    status = str(result.get("status") or result.get("result") or "").lower()
+    return status in {"passed", "ready", "accepted"}
 
 
 def build_skill_route_pass3_handoff(

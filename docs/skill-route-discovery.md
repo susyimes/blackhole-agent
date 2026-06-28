@@ -222,6 +222,23 @@ exports no raw source URLs, raw evidence URLs, raw target paths, or upstream
 bodies, and it denies runtime action, external skill or agent activation,
 external harness execution, provider launch, and remote execution.
 
+Source digest `github-growth-20260628T112729.897169Z` continues pass 2 with
+`current_pass2_activation_readiness`, keyed to the active proposal IDs
+`p1-skill-route-discovery-compass-zhengxi`,
+`p2-threejs-game-skill-workflow-doc`, and
+`p3-agent-harness-eval-general-agent-projects`. COMPASS-style state handoff,
+source-cited zhengxi-views skill evidence, and Three.js game/frontend skill
+evidence may select only documentation, config, test, or code_patch local
+lanes, all with `local_validation_required: true`. Game/frontend skill workflow
+signals should be evaluated first as route metadata and local validation
+coverage; they do not imply scaffold execution, browser asset generation, or a
+frontend code patch before the bounded lane is selected. Qwen-AgentWorld-style
+general-agent evidence remains `agent_harness_eval_required` and exposes no
+implementation lanes until a local agent-harness evaluation result is present.
+The surface is body-free and keeps runtime action, external skill or agent
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, and upstream body export denied.
+
 Source digest `github-growth-20260627T204729.546585Z` keeps that pass-2 window
 focused on bounded local lane activation candidates. The pass-2 handoff packet
 now emits `activation_candidate_lane`, which is derived from the selected

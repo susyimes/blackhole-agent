@@ -731,6 +731,107 @@ def test_route_hint_lane_map_exposes_current_pass3_skill_route_handoff():
     ]
 
 
+def test_route_hint_lane_map_exposes_pass2_activation_readiness_for_current_skill_window():
+    digest = {
+        "digest_id": "github-growth-20260628T112729-pass2-skill-route-discovery",
+        "generated_at": "2026-06-28T11:27:29Z",
+        "items": [
+            {
+                "item_id": "compass-skills",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "COMPASS Skills personal alignment skills system for AI agents with SKILL.md "
+                    "task clarification, local memory, handoff prompts, and collaboration profiles."
+                ),
+                "relevance_reason": "Skill ecosystem handoff evidence maps to bounded config and test lanes.",
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "zhengxi-views source-cited investment research Agent Skill with evidence-backed "
+                    "question answering and no fabrication claims."
+                ),
+                "relevance_reason": "Source-cited skill evidence should stay in bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.83,
+            },
+            {
+                "item_id": "threejs-game-skills",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Codex and Claude Code skills for Three.js browser game workflows, director routing, "
+                    "gameplay, graphics, UI, QA, and scaffold helpers."
+                ),
+                "relevance_reason": "Game skill workflow evidence maps to bounded local skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.82,
+            },
+            {
+                "item_id": "qwen-agentworld",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Qwen-AgentWorld language world models for general agents with benchmark and "
+                    "agent-environment evaluation claims."
+                ),
+                "relevance_reason": (
+                    "General agent project evidence requires agent_harness_eval validation before "
+                    "any implementation lane."
+                ),
+                "risk_flags": [],
+                "confidence": 0.8,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=420)
+
+    lane_map = build_route_hint_lane_map(evidence_package)
+    readiness = lane_map["current_pass2_activation_readiness"]
+
+    assert lane_map["route_class_counts"] == {"general_agent_project": 1, "skill_workflow": 3}
+    assert readiness["controller_surface"] == "skill_route_discovery_pass2_activation_readiness"
+    assert readiness["status"] == "blocked"
+    assert readiness["capability_pass"] == "2_of_4"
+    assert readiness["active_proposal_ids"] == [
+        "p1-skill-route-discovery-compass-zhengxi",
+        "p2-threejs-game-skill-workflow-doc",
+        "p3-agent-harness-eval-general-agent-projects",
+    ]
+    assert readiness["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert readiness["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert readiness["blocked_general_agent_item_ids"] == ["qwen-agentworld"]
+    assert all(row["local_validation_required"] is True for row in readiness["skill_route_rows"])
+    assert all(row["implementation_route_allowed"] is True for row in readiness["skill_route_rows"])
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in readiness["skill_route_rows"]
+    )
+    assert readiness["general_agent_rows"] == [
+        {
+            "item_id": "qwen-agentworld",
+            "route_class": "general_agent_project",
+            "primary_route": "agent_harness_eval_required",
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "implementation_lanes_enabled": False,
+            "selected_implementation_lanes": [],
+            "blocked_until": "local_agent_harness_evaluation_result",
+            "skill_route_discovery_inherited": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
+    ]
+    assert readiness["external_skill_activation_allowed"] is False
+    assert readiness["external_agent_activation_allowed"] is False
+    assert readiness["external_harness_execution_allowed"] is False
+    assert readiness["raw_source_url_export_allowed"] is False
+
+
 def test_route_classifier_does_not_treat_negated_skill_inheritance_as_skill_signal():
     classification = classify_digest_item_route(
         {
