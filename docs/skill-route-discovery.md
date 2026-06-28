@@ -3498,6 +3498,19 @@ provider/runtime/install pressure is stripped from allowed lanes, and adjacent
 Qwen-AgentWorld-style general-agent evidence stays in
 `agent_harness_eval_required` instead of inheriting skill-route authority.
 
+Source digest `github-growth-20260628T170729.576248Z` advances pass 3 by adding
+`route_confidence_report` to `pass3_route_discovery_index` and
+`pass3_preflight_queue`. The report is not an upstream popularity score and not
+an activation grant. It is a local readiness summary for the active proposal
+rows: each row must have candidate evidence, a route profile, selected item IDs
+or frozen fixture evidence, a validation gate, and a selected lane bounded to
+documentation, config, test, or code_patch. Complete rows are marked
+`bounded_local_ready`; incomplete rows are marked `needs_local_corroboration`
+and keep the preflight blocked. Runtime action, install, upstream skill
+activation, external harness execution, provider launch, remote execution, raw
+source URL export, raw evidence URL export, target path export, replay-command
+export, and upstream body export remain denied.
+
 ## Current Digest Pass 4 Completion Checklist
 
 Source digest `github-growth-20260628T160729.676966Z` completes the planned

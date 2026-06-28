@@ -9130,6 +9130,88 @@ def _skill_route_discovery_pass2_profile_lane_handoff(
     }
 
 
+def _skill_route_discovery_pass3_route_confidence_report(
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize pass-3 route confidence without expanding activation authority."""
+
+    confidence_rows: list[dict[str, Any]] = []
+    confidence_bands: list[str] = []
+    blocker_codes: list[str] = []
+    for row in rows:
+        allowed_lanes = set(_string_list(row.get("allowed_local_lanes")))
+        blockers = _string_list(row.get("activation_blockers"))
+        missing_signals: list[str] = []
+        if not _string_list(row.get("candidate_names")):
+            missing_signals.append("candidate_evidence")
+        if not _string_list(row.get("route_profiles")):
+            missing_signals.append("route_profile")
+        if not _string_list(row.get("selected_evidence_item_ids")):
+            missing_signals.append("selected_item_ids_or_frozen_fixture")
+        if not _string_list(row.get("validation_gates")):
+            missing_signals.append("profile_validation_gate")
+        if str(row.get("selected_local_lane") or "") not in allowed_lanes:
+            missing_signals.append("bounded_selected_lane")
+
+        confidence_band = "bounded_local_ready" if not blockers and not missing_signals else "needs_local_corroboration"
+        confidence_bands.append(confidence_band)
+        blocker_codes.extend(blockers)
+        confidence_rows.append(
+            {
+                "proposal_id": str(row.get("proposal_id") or ""),
+                "status": str(row.get("status") or "blocked"),
+                "route_profiles": _string_list(row.get("route_profiles")),
+                "selected_local_lane": str(row.get("selected_local_lane") or ""),
+                "confidence_band": confidence_band,
+                "evidence_item_id_count": len(_string_list(row.get("selected_evidence_item_ids"))),
+                "validation_gate_count": len(_string_list(row.get("validation_gates"))),
+                "missing_confidence_signals": missing_signals,
+                "activation_blocker_count": len(blockers),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready_row_count = sum(
+        1 for row in confidence_rows if row["confidence_band"] == "bounded_local_ready"
+    )
+    all_ready = bool(confidence_rows) and ready_row_count == len(confidence_rows)
+    return {
+        "controller_surface": "skill_route_discovery_pass3_route_confidence_report",
+        "status": "ready" if all_ready else "review",
+        "decision": (
+            "bounded_skill_route_confidence_ready_for_preflight_replay"
+            if all_ready
+            else "collect_missing_route_confidence_signals_before_activation"
+        ),
+        "confidence_scope": "local_route_profile_lane_readiness_only",
+        "confidence_bands": list(dict.fromkeys(confidence_bands)),
+        "row_count": len(confidence_rows),
+        "ready_row_count": ready_row_count,
+        "blocked_or_review_row_count": len(confidence_rows) - ready_row_count,
+        "blocker_codes": list(dict.fromkeys(blocker_codes)),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": confidence_rows,
+    }
+
+
 def _skill_route_discovery_pass3_route_discovery_index(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
@@ -9247,6 +9329,7 @@ def _skill_route_discovery_pass3_route_discovery_index(
 
     blocked_rows = [row["proposal_id"] for row in rows if row["status"] != "ready"]
     ready = bool(rows) and not blocked_rows
+    route_confidence_report = _skill_route_discovery_pass3_route_confidence_report(rows)
     return {
         "controller_surface": "skill_route_discovery_pass3_route_discovery_index",
         "status": "ready" if ready else "blocked",
@@ -9285,6 +9368,7 @@ def _skill_route_discovery_pass3_route_discovery_index(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "route_confidence_report": route_confidence_report,
         "rows": rows,
     }
 
@@ -9427,6 +9511,10 @@ def _skill_route_discovery_pass3_preflight_queue(
     )
     route_index = _skill_route_discovery_pass3_route_discovery_index(candidate_lane_inventory)
     activation_handoff = _skill_route_discovery_pass3_activation_handoff(candidate_lane_inventory)
+    route_confidence_report = route_index.get("route_confidence_report")
+    route_confidence_report = (
+        route_confidence_report if isinstance(route_confidence_report, Mapping) else {}
+    )
     activation_rows = [
         row for row in activation_handoff.get("rows", []) if isinstance(row, Mapping)
     ]
@@ -9524,6 +9612,7 @@ def _skill_route_discovery_pass3_preflight_queue(
         and not queue_blockers
         and route_index.get("status") == "ready"
         and activation_handoff.get("status") == "ready"
+        and route_confidence_report.get("status") == "ready"
     )
     return {
         "controller_surface": "skill_route_discovery_pass3_preflight_queue",
@@ -9539,6 +9628,8 @@ def _skill_route_discovery_pass3_preflight_queue(
         "operator_handoff": "external_supervisor_replay_before_final_pass",
         "route_index_status": str(route_index.get("status") or ""),
         "activation_handoff_status": str(activation_handoff.get("status") or ""),
+        "route_confidence_status": str(route_confidence_report.get("status") or ""),
+        "route_confidence_decision": str(route_confidence_report.get("decision") or ""),
         "required_route_profiles": list(required_route_profiles),
         "observed_route_profiles": observed_required_profiles,
         "missing_route_profiles": missing_route_profiles,
@@ -9568,6 +9659,7 @@ def _skill_route_discovery_pass3_preflight_queue(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "route_confidence_report": route_confidence_report,
         "rows": rows,
     }
 

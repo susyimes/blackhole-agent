@@ -2564,6 +2564,26 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert index["raw_evidence_urls_exported"] is False
     assert index["raw_target_paths_exported"] is False
     assert index["raw_upstream_body_exported"] is False
+    confidence = index["route_confidence_report"]
+    assert confidence["controller_surface"] == "skill_route_discovery_pass3_route_confidence_report"
+    assert confidence["status"] == "ready"
+    assert confidence["decision"] == "bounded_skill_route_confidence_ready_for_preflight_replay"
+    assert confidence["confidence_scope"] == "local_route_profile_lane_readiness_only"
+    assert confidence["confidence_bands"] == ["bounded_local_ready"]
+    assert confidence["row_count"] == 3
+    assert confidence["ready_row_count"] == 3
+    assert confidence["blocked_or_review_row_count"] == 0
+    assert confidence["blocker_codes"] == []
+    assert confidence["local_validation_required"] is True
+    assert confidence["runtime_action"] == "none"
+    assert confidence["external_skill_activation_allowed"] is False
+    assert confidence["external_harness_execution_allowed"] is False
+    assert confidence["provider_runtime_launch_allowed"] is False
+    assert confidence["remote_execution_allowed"] is False
+    assert confidence["raw_source_url_exported"] is False
+    assert confidence["raw_evidence_urls_exported"] is False
+    assert confidence["raw_target_paths_exported"] is False
+    assert confidence["raw_upstream_body_exported"] is False
 
     rows = {row["proposal_id"]: row for row in index["rows"]}
     assert set(rows) == {
@@ -2631,6 +2651,7 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert "runtime_execution" not in serialized
     assert "install" not in serialized
     assert "https://github.com/" not in serialized
+    assert "bounded_local_ready" in serialized
 
     preflight_queue = lane_map["pass3_preflight_queue"]
     assert preflight_queue["controller_surface"] == "skill_route_discovery_pass3_preflight_queue"
@@ -2641,6 +2662,10 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert preflight_queue["operator_handoff"] == "external_supervisor_replay_before_final_pass"
     assert preflight_queue["route_index_status"] == "ready"
     assert preflight_queue["activation_handoff_status"] == "ready"
+    assert preflight_queue["route_confidence_status"] == "ready"
+    assert preflight_queue["route_confidence_decision"] == (
+        "bounded_skill_route_confidence_ready_for_preflight_replay"
+    )
     assert preflight_queue["required_route_profiles"] == [
         "source_cited_domain_research",
         "game_frontend_workflow",
@@ -2676,6 +2701,8 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert preflight_queue["raw_evidence_urls_exported"] is False
     assert preflight_queue["raw_target_paths_exported"] is False
     assert preflight_queue["raw_upstream_body_exported"] is False
+    assert preflight_queue["route_confidence_report"]["status"] == "ready"
+    assert preflight_queue["route_confidence_report"]["ready_row_count"] == 3
 
     queue_rows = {row["proposal_id"]: row for row in preflight_queue["rows"]}
     assert queue_rows["p1_skill_route_discovery_index"]["candidate_names"] == ["zhengxi-views"]
@@ -2720,6 +2747,71 @@ def test_skill_route_discovery_pass3_route_discovery_index_bounds_active_profile
     assert all(lane["local_validation_required"] is True for lane in lane_map["proposal_lanes"])
     assert all(lane["runtime_action"] == "none" for lane in lane_map["proposal_lanes"])
     assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
+
+
+def test_skill_route_discovery_pass3_route_confidence_report_blocks_incomplete_rows():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            {
+                "item_id": "p1_skill_route_discovery_index",
+                "item_kind": "repository",
+                "name": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "summary": "Source-cited agent skill workflow with SKILL.md and validation scripts.",
+                "topics": ["agent-skill", "source-cited"],
+                "route_classification": {
+                    "route_hints": ["skill_route_discovery"],
+                    "route_profiles": ["source_cited_domain_research"],
+                    "allowed_local_lanes": [
+                        "documentation",
+                        "config",
+                        "test",
+                        "code_patch",
+                        "provider_runtime",
+                    ],
+                },
+            }
+        ]
+    )
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    index = lane_map["pass3_route_discovery_index"]
+    confidence = index["route_confidence_report"]
+
+    assert index["status"] == "blocked"
+    assert confidence["status"] == "review"
+    assert confidence["decision"] == "collect_missing_route_confidence_signals_before_activation"
+    assert confidence["confidence_bands"] == [
+        "bounded_local_ready",
+        "needs_local_corroboration",
+    ]
+    assert confidence["row_count"] == 3
+    assert confidence["ready_row_count"] == 2
+    assert confidence["blocked_or_review_row_count"] == 1
+    assert set(confidence["blocker_codes"]) == {
+        "missing_profile_evidence",
+        "selected_lane_not_bounded",
+        "missing_selected_item_ids_or_frozen_fixture",
+    }
+    review_rows = {row["proposal_id"]: row for row in confidence["rows"]}
+    assert review_rows["p1_skill_route_discovery_index"]["confidence_band"] == "bounded_local_ready"
+    assert review_rows["p2_skill_workflow_docs"]["confidence_band"] == "bounded_local_ready"
+    assert review_rows["p3_skill_route_metadata_config"]["missing_confidence_signals"] == [
+        "candidate_evidence",
+        "route_profile",
+        "selected_item_ids_or_frozen_fixture",
+        "profile_validation_gate",
+        "bounded_selected_lane",
+    ]
+    assert confidence["runtime_action"] == "none"
+    assert confidence["external_skill_activation_allowed"] is False
+    assert confidence["provider_runtime_launch_allowed"] is False
+    assert confidence["remote_execution_allowed"] is False
+
+    preflight_queue = lane_map["pass3_preflight_queue"]
+    assert preflight_queue["status"] == "blocked"
+    assert preflight_queue["route_confidence_status"] == "review"
+    assert preflight_queue["route_confidence_report"]["blocked_or_review_row_count"] == 1
 
 
 def test_skill_route_discovery_current_pass1_aliases_match_active_proposals_without_runtime_authority():
