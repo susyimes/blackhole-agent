@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260628T204729.558875Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260628T204729.558875Z",
+      "item_id": "p1-skill-route-discovery-index:compass-skills",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "COMPASS skill ecosystem state handoff route evidence",
+      "summary": "Skill ecosystem repository with collaboration profile handoff, task forest state notes, skills directory metadata, route metadata, docs, tests, config, and privacy boundary pressure.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "workflow", "profile", "handoff", "config"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["skill_ecosystem_state_handoff"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "source_layout_signals": ["skill_directory", "qa_checklist"],
+        "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260628T204729.558875Z",
+      "item_id": "p1-skill-route-discovery-index:zhengxi-views",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Generic public skill workflow route evidence",
+      "summary": "Public agent skill workflow repository with SKILL.md style route evidence, reusable documentation, validation scripts, config metadata, and code patch examples.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skill", "workflow", "documentation", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "source_layout_signals": ["skill_markdown", "validation_script"],
+        "source_metadata_signals": ["skill_registry_metadata"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260628T204729.558875Z",
+      "item_id": "p1-skill-route-discovery-index:threejs-game-skills",
+      "item_kind": "repository",
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "title": "Three.js browser game skill workflow route evidence",
+      "summary": "Three.js game frontend skill workflow with skills directory, director and specialist workflow language, validation scripts, QA checks, scaffold helpers, and asset generation pressure.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "threejs", "browser-game", "frontend", "qa"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["game_frontend_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset"],
+        "source_metadata_signals": ["gameplay_workflow", "asset_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260628T204729.558875Z",
+      "item_id": "p3-agent-harness-eval-fixtures:qwen-agentworld",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "Adjacent general agent evaluation project",
+      "summary": "General agent benchmark and evaluation project without local skill package layout evidence.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "benchmark", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260628T204729.558875Z",
+      "item_id": "p3-agent-harness-eval-fixtures:looper",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "Adjacent general agent loop project",
+      "summary": "General agent loop-control project without local skill workflow route hints or skill package layout evidence.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "loop", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

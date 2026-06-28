@@ -3773,3 +3773,16 @@ activation, external harness execution, provider launch, remote execution,
 profile writes, memory writes, raw source URL export, raw evidence URL export,
 target path export, replay-command export, and upstream body export remain
 denied.
+
+Source digest `github-growth-20260628T204729.558875Z` continues pass 2 with
+`current_digest_pass2_active_slice_review_lane`. This nested lane binds the
+active anchoring proposals `p1-skill-route-discovery-index`,
+`p2-skill-profile-docs`, and `p3-agent-harness-eval-fixtures` to the same
+bounded local route evidence before pass 3. The index row covers generic skill
+workflow, Three.js game/frontend workflow, and COMPASS-style skill ecosystem
+state handoff together in the local test lane. The profile-docs row exposes the
+same route profiles as documentation/config/test/code_patch candidates only
+after local validation. Adjacent Qwen-AgentWorld or Looper-style general-agent
+evidence remains `agent_harness_eval_required`; it does not inherit
+`skill_route_discovery`, direct runtime authority, direct code_patch authority,
+external harness execution, provider launch, or remote execution.
