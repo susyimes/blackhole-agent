@@ -1,0 +1,16 @@
+Rollback point for skill-route-discovery pass 2
+
+Created at: 2026-06-28T19:27:28Z
+Repository: C:\Users\svmes\Documents\Playground\.blackhole-agent-blackhole-worktrees\20260628T192728Z
+Original branch: codex/blackhole-evolve/20260628T192825.547376-create-a-local-validation-lane-for-generic-skill
+Original HEAD: 1d1643cc5f1440bc81f2de8f81fd9014f031cb7c
+Rollback ref: refs/rollback/20260628T192728Z-skill-route-discovery-pass2
+
+Recovery commands (explicit/destructive, operator controlled):
+  git status --short --branch
+  git reset --hard refs/rollback/20260628T192728Z-skill-route-discovery-pass2
+  git clean -fd
+
+Notes:
+- Created before local source, test, doc, or artifact edits in this kernel run.
+- Do not delete this artifact from the run that created it.

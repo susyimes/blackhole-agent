@@ -3676,3 +3676,29 @@ memory writes, raw source URL export, raw evidence URL export, target path
 export, replay-command export, and upstream body export remains denied.
 Adjacent Qwen-AgentWorld-style general-agent evidence stays in
 `agent_harness_eval_required` and does not inherit `skill_route_discovery`.
+
+## Current Digest Pass 2 Focused Review Lane
+
+Source digest `github-growth-20260628T192730.399337Z` advances pass 2 with a
+focused evidence review lane under `current_digest_pass2_local_validation_lane`.
+The lane binds the active proposal IDs `p1-skill-route-discovery-generic`,
+`p2-agent-harness-eval-qwen-agentworld`, and
+`p3-game-frontend-skill-route` without requiring the supervisor to infer the
+current pass from older COMPASS/state-handoff aliases.
+
+The focused lane treats zhengxi-views-style public `SKILL.md` workflow evidence
+as a local test lane, Three.js game/frontend workflow evidence as a local
+documentation lane, and Qwen-AgentWorld-style general-agent project evidence as
+`agent_harness_eval_required`. The general-agent row must collect install
+shape, entrypoints, dependency boundaries, task-loop assumptions, observable
+behaviors, and evaluation dimensions before any runtime, controller, or
+tool-routing implementation route can be considered.
+
+This is still a validation surface, not activation. Documentation, config,
+test, and code_patch remain the only skill-route lanes. Qwen-AgentWorld does
+not inherit `skill_route_discovery`, direct runtime authority, or direct
+code_patch selection. Install, runtime execution, provider runtime, upstream
+skill or agent activation, external harness execution, provider launch, remote
+execution, profile writes, memory writes, raw source URL export, raw evidence
+URL export, target path export, replay-command export, and upstream body export
+remain denied.
