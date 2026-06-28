@@ -4894,6 +4894,97 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
     assert replay_manifest["raw_replay_command_exported"] is False
 
 
+def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposals_without_runtime_action():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_pass2_focused_evidence_review.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    current_pass = lane_map["completion_workflow"]["current_pass_completion_lane"]
+
+    assert current_pass["controller_surface"] == "skill_route_discovery_current_pass_completion_lane"
+    assert current_pass["status"] == "ready"
+    assert current_pass["decision"] == "current_pass_skill_route_proposals_ready_for_supervisor_replay"
+    assert current_pass["source_digest"] == "github-growth-20260628T052730.417321Z"
+    assert current_pass["capability_pass"] == 4
+    assert current_pass["total_passes"] == 4
+    assert current_pass["proposal_ids"] == [
+        "p1-skill-route-discovery-general",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert current_pass["blocked_proposal_ids"] == []
+    assert current_pass["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert current_pass["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert current_pass["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert current_pass["operator_handoff"] == "external_supervisor_replay_without_kernel_restart"
+    assert current_pass["runtime_action"] == "none"
+    assert current_pass["external_skill_activation_allowed"] is False
+    assert current_pass["external_agent_activation_allowed"] is False
+    assert current_pass["external_harness_execution_allowed"] is False
+    assert current_pass["provider_runtime_launch_allowed"] is False
+    assert current_pass["profile_write_allowed"] is False
+    assert current_pass["memory_write_allowed"] is False
+    assert current_pass["remote_execution_allowed"] is False
+    assert current_pass["raw_source_url_exported"] is False
+    assert current_pass["raw_evidence_urls_exported"] is False
+    assert current_pass["raw_target_paths_exported"] is False
+    assert current_pass["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in current_pass["rows"]}
+    assert rows["p1-skill-route-discovery-general"]["route_profiles"] == [
+        "source_cited_domain_research"
+    ]
+    assert rows["p1-skill-route-discovery-general"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-general"]["validation_task"] == (
+        "skill_workflow_trend_items_map_only_to_bounded_local_lanes"
+    )
+    assert rows["p2-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p2-game-frontend-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p2-game-frontend-skill-profile"]["validation_task"] == (
+        "document_game_frontend_workflow_non_network_acceptance_criteria"
+    )
+    assert rows["p3-skill-ecosystem-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    assert rows["p3-skill-ecosystem-state-handoff"]["validation_task"] == (
+        "map_state_handoff_profile_to_metadata_only_validation"
+    )
+    for row in current_pass["rows"]:
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["acceptance_criteria"] == [
+            "selected_lane_is_documentation_config_test_or_code_patch",
+            "local_validation_required_before_activation",
+            "no_runtime_action_from_route_interpretation",
+            "no_raw_source_url_or_upstream_body_export",
+        ]
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+
 def test_skill_route_discovery_pass4_completion_handoff_queues_adjacent_general_agent_evidence():
     fixture_path = (
         Path(__file__).parent

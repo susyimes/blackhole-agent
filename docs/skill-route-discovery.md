@@ -2934,3 +2934,29 @@ skill workflow signals remain adjacent `agent_harness_eval_required` evidence
 and do not inherit `skill_route_discovery`, direct code_patch authority, runtime
 action, provider launch, external harness execution, remote execution, or
 upstream agent activation.
+
+## Current Pass 4 Completion Lane
+
+Source digest `github-growth-20260628T052730.417321Z` completes the current
+skill-route-discovery window by adding
+`skill_route_discovery_current_pass_completion_lane` inside the existing
+rollback-aware `completion_workflow`. The lane is keyed to the active proposal
+IDs `p1-skill-route-discovery-general`,
+`p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff`.
+
+The completion lane converts the current evidence into bounded local replay
+work only: generic or source-cited skill workflow evidence selects a local test
+lane, Three.js/browser-game skill evidence selects a documentation lane for
+non-network game frontend workflow acceptance criteria, and COMPASS-style state
+handoff evidence selects a config lane for metadata-only validation. Each row
+requires selected digest item IDs or a frozen fixture, body-free repository
+summary evidence, rollback ref and artifact evidence, focused local validation,
+changed-file review, and a review note.
+
+This surface is not an activation grant. It exports proposal IDs, route
+profiles, source hashes, selected item IDs, bounded lane names, validation
+gates, and validation task names only. Runtime action, upstream skill
+activation, upstream agent activation, external harness execution, provider
+launch, profile writes, memory writes, remote execution, raw source URLs, raw
+evidence URLs, raw target paths, and upstream bodies remain denied.
