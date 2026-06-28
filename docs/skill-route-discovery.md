@@ -3475,6 +3475,18 @@ external harness execution, provider launch, profile writes, memory writes,
 remote execution, raw source URL export, raw evidence URL export, target path
 export, replay-command export, and upstream body export remain denied.
 
+Source digest `github-growth-20260628T162729.568714Z` keeps the same pass-1
+lane active under the controller proposal IDs
+`proposal_skill_route_discovery_index`, `proposal_game_frontend_skill_profile`,
+and `proposal_skill_state_handoff_profile`. The local operator surface maps
+zhengxi-views-style skill route evidence to a test lane, Three.js
+game/frontend workflow evidence to a documentation lane, and COMPASS-style
+state handoff evidence to a config lane. These rows are local validation
+candidates only: `local_validation_required` remains true, unsupported
+provider/runtime/install pressure is stripped from allowed lanes, and adjacent
+Qwen-AgentWorld-style general-agent evidence stays in
+`agent_harness_eval_required` instead of inheriting skill-route authority.
+
 ## Current Digest Pass 4 Completion Checklist
 
 Source digest `github-growth-20260628T160729.676966Z` completes the planned

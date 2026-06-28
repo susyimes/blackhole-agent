@@ -5006,11 +5006,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     """Expose the active digest proposal IDs as first-pass validation lanes."""
 
     current_150729_window = source_digest == "github-growth-20260628T150729.645832Z"
+    current_162729_window = source_digest == "github-growth-20260628T162729.568714Z"
     specs = (
         {
-            "proposal_id": "p1-skill-route-discovery-index"
-            if current_150729_window
-            else "p1-skill-route-discovery-generic",
+            "proposal_id": (
+                "proposal_skill_route_discovery_index"
+                if current_162729_window
+                else (
+                    "p1-skill-route-discovery-index"
+                    if current_150729_window
+                    else "p1-skill-route-discovery-generic"
+                )
+            ),
             "proposal_kind": "test",
             "proposal_track": "generic_or_source_cited_skill_workflow",
             "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
@@ -5022,7 +5029,11 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             ),
         },
         {
-            "proposal_id": "p2-game-frontend-skill-profile",
+            "proposal_id": (
+                "proposal_game_frontend_skill_profile"
+                if current_162729_window
+                else "p2-game-frontend-skill-profile"
+            ),
             "proposal_kind": "documentation",
             "proposal_track": "game_frontend_workflow",
             "route_profiles": ("game_frontend_workflow",),
@@ -5034,9 +5045,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             ),
         },
         {
-            "proposal_id": "p3-skill-ecosystem-handoff-profile"
-            if current_150729_window
-            else "p3-skill-ecosystem-state-handoff",
+            "proposal_id": (
+                "proposal_skill_state_handoff_profile"
+                if current_162729_window
+                else (
+                    "p3-skill-ecosystem-handoff-profile"
+                    if current_150729_window
+                    else "p3-skill-ecosystem-state-handoff"
+                )
+            ),
             "proposal_kind": "config",
             "proposal_track": "skill_ecosystem_state_handoff",
             "route_profiles": ("skill_ecosystem_state_handoff",),
@@ -5151,9 +5168,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     adjacent_rows: list[dict[str, Any]] = []
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p4-agent-harness-eval-fixture"
-        if current_150729_window
-        else "p4-agent-harness-eval-qwen",
+        proposal_id=(
+            "proposal_agent_harness_eval_fixtures"
+            if current_162729_window
+            else (
+                "p4-agent-harness-eval-fixture"
+                if current_150729_window
+                else "p4-agent-harness-eval-qwen"
+            )
+        ),
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
@@ -5193,6 +5216,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
         "anchoring_proposal_ids": (
             [
+                "proposal_skill_route_discovery_index",
+                "proposal_game_frontend_skill_profile",
+                "proposal_skill_state_handoff_profile",
+                "proposal_agent_harness_eval_fixtures",
+                "proposal_route_confidence_reporting",
+            ]
+            if current_162729_window
+            else [
                 "p1-skill-route-discovery-index",
                 "p2-game-frontend-skill-profile",
                 "p3-skill-ecosystem-handoff-profile",
