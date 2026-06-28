@@ -3243,3 +3243,21 @@ does not inherit skill-route authority, direct code_patch selection, external
 harness execution, provider launch, remote execution, profile writes, memory
 writes, raw source URL export, raw target path export, raw replay command
 export, or upstream body export.
+
+## Current Digest Pass 1 Active Proposal Aliases
+
+Source digest `github-growth-20260628T110729.847216Z` starts a new pass-1
+window over the same skill-route-discovery slice. The
+`current_pass_validation_cases` surface now recognizes the active proposal IDs
+`p1-skill-route-discovery-generic`, `p2-game-skill-workflow-routing`, and
+`p3-skill-state-handoff-validation` as aliases for the stable local validation
+case rows.
+
+The active fixture maps zhengxi-views to the source-cited/generic skill route
+test lane, Three.js Game Skills to the game/frontend documentation lane, and
+COMPASS Skills to the state-handoff config lane. These aliases are replay
+metadata only; they do not add install, runtime execution, provider launch,
+external skill activation, external harness execution, remote execution, profile
+writes, memory writes, raw URL export, target path export, or upstream body
+export. Qwen-AgentWorld-style adjacent general-agent evidence remains in
+`agent_harness_eval_required` and does not inherit `skill_route_discovery`.

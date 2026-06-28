@@ -3457,7 +3457,10 @@ def _skill_route_discovery_current_pass_validation_cases(
     case_specs = (
         {
             "proposal_id": "p1_skill_route_discovery_generic_views",
-            "proposal_aliases": ("p1_skill_route_discovery_generic_views",),
+            "proposal_aliases": (
+                "p1_skill_route_discovery_generic_views",
+                "p1-skill-route-discovery-generic",
+            ),
             "proposal_kind": "test",
             "proposal_track": "generic_python_skill_repository",
             "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
@@ -3471,6 +3474,7 @@ def _skill_route_discovery_current_pass_validation_cases(
             "proposal_aliases": (
                 "p2_skill_route_discovery_game_frontend",
                 "p2_game_frontend_skill_profile",
+                "p2-game-skill-workflow-routing",
             ),
             "proposal_kind": "documentation",
             "proposal_track": "game_frontend_workflow",
@@ -3485,6 +3489,7 @@ def _skill_route_discovery_current_pass_validation_cases(
             "proposal_aliases": (
                 "p3_skill_ecosystem_state_handoff_config",
                 "p3_skill_ecosystem_state_handoff",
+                "p3-skill-state-handoff-validation",
             ),
             "proposal_kind": "config",
             "proposal_track": "skill_ecosystem_state_handoff",
