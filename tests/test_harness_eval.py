@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 77
-    assert payload["pass_count"] == 76
+    assert payload["fixture_count"] == 78
+    assert payload["pass_count"] == 77
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -2211,6 +2211,72 @@ def test_skill_route_discovery_current_pass_skill_shapes_stay_bounded_without_ur
     assert all(lane["runtime_action"] == "none" for lane in output["proposal_lanes"])
     assert all(lane["local_validation_required"] is True for lane in output["proposal_lanes"])
     assert all(lane["evidence_url_count"] == 1 for lane in output["proposal_lanes"])
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_pass2_focused_route_classification_lanes_stay_bounded():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_pass2_focused_route_classification_lanes.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    allowed_lanes = {"documentation", "config", "test", "code_patch"}
+    proposal_profiles = {
+        profile
+        for lane in output["proposal_lanes"]
+        for profile in lane["route_profiles"]
+    }
+    profile_contract_rows = {
+        row["route_profile"]: row
+        for row in output["pass2_handoff_packet"]["profile_lane_acceptance_contract"]["rows"]
+    }
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["registry"]["executable_skill_count"] == 0
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert set(output["lane_map"]["proposal_kinds"]) == allowed_lanes
+    assert output["evidence_lane_matrix"]["status"] == "ready"
+    assert output["evidence_lane_matrix"]["lane_count"] == 12
+    assert all(row["lanes_bounded"] is True for row in output["evidence_lane_matrix"]["rows"])
+    assert all(row["runtime_action"] == "none" for row in output["evidence_lane_matrix"]["rows"])
+    assert proposal_profiles == {
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    }
+
+    pass2_packet = output["pass2_handoff_packet"]
+    assert pass2_packet["status"] == "ready"
+    assert pass2_packet["current_pass"] == 2
+    assert pass2_packet["next_pass"] == 3
+    assert pass2_packet["evidence_ref_mode"] == "selected_item_ids_only"
+    assert pass2_packet["selected_local_lanes"] == ["test"]
+    assert pass2_packet["queued_local_lanes"] == ["config", "documentation"]
+    assert pass2_packet["secondary_harness_eval_allowed"] is False
+    assert pass2_packet["runtime_action_allowed"] is False
+    assert pass2_packet["external_skill_activation_allowed"] is False
+    assert pass2_packet["external_harness_execution_allowed"] is False
+
+    assert profile_contract_rows["game_frontend_workflow"]["selected_first_local_lane"] == "test"
+    assert profile_contract_rows["generic_skill_workflow"]["selected_first_local_lane"] == "documentation"
+    assert profile_contract_rows["skill_ecosystem_state_handoff"]["selected_first_local_lane"] == "config"
+    assert all(row["local_validation_required"] is True for row in profile_contract_rows.values())
+    assert all(row["runtime_action"] == "none" for row in profile_contract_rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_contract_rows.values())
+
+    assert output["capability_window_completion"]["status"] == "in_progress"
+    assert output["capability_window_completion"]["next_pass_handoff"]["next_pass"] == 3
+    assert output["privacy"]["raw_evidence_urls_exported"] is False
     assert "https://github.com/" not in serialized
 
 

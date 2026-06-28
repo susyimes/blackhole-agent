@@ -2888,3 +2888,22 @@ The pass-4 probe exports no raw source URLs, evidence URLs, target paths,
 replay-command bodies, or upstream bodies. It is an operator-visible completion
 handoff for bounded local validation, not an install, execution, restart,
 promotion, or external activation request.
+
+## Focused Pass 2 Route Classification Lanes
+
+Source digest `github-growth-20260628T044729.594506Z` advances a new pass-2
+window over COMPASS Skills, zhengxi-views, and Three.js Game Skills evidence.
+The local harness fixture
+`skill_route_discovery_pass2_focused_route_classification_lanes.json` treats
+nested `route_classification` metadata as compact route evidence only:
+`generic_skill_workflow`, `skill_ecosystem_state_handoff`, and
+`game_frontend_workflow` profiles are preserved, while lanes remain bounded to
+documentation, config, test, and code_patch.
+
+Unsupported pressure such as provider runtime, install, and runtime execution
+does not become an activation lane. The pass-2 handoff may expose selected item
+IDs, profile names, source hashes, bounded local lanes, validation gates, and
+the next-pass handoff. It must not export raw source URLs, raw evidence URLs,
+target paths, replay-command bodies, upstream bodies, or grant runtime action,
+external skill activation, external harness execution, provider launch, profile
+writes, memory writes, remote execution, install, or scaffold execution.
