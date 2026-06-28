@@ -3533,3 +3533,27 @@ runtime execution, provider runtime, upstream skill activation, external
 harness execution, provider launch, profile writes, memory writes, remote
 execution, raw source URL export, raw evidence URL export, target path export,
 replay-command export, and upstream body export remain denied.
+
+## Current Digest Pass 4 Local-Kernel Handoff
+
+Source digest `github-growth-20260628T172729.584826Z` completes the current
+four-pass skill-route-discovery window by adding
+`skill_route_discovery_local_kernel_handoff` to the completion packet. This is a
+compact supervisor-facing summary derived from the existing completion report,
+activation lane contract, runner control plane, consistency guard, recovery
+packet, and profile completion check.
+
+The handoff names only bounded local lanes and route profiles. In the current
+digest, generic skill workflow evidence can select the documentation lane,
+Three.js game/frontend workflow evidence can select the test lane, and
+COMPASS-style state handoff evidence can select the config lane. Adjacent
+Qwen-AgentWorld or Looper-style general-agent evidence remains visible only as
+`agent_harness_eval_required`; it does not inherit skill-route lanes.
+
+This packet is a local-kernel completion report for an external supervisor, not
+a restart or activation command. It records replay-stage readiness, recovery
+hint codes, validation-command hashes, and adjacent-agent counts without raw
+source URLs, replay command bodies, target paths, or upstream bodies. Runtime
+action, install, upstream skill or agent activation, external harness execution,
+provider launch, profile writes, memory writes, and remote execution remain
+denied.

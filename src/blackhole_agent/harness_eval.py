@@ -10258,6 +10258,19 @@ def skill_route_discovery_capability_window_completion(
         final_slice_closure=final_slice_closure,
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
     )
+    local_kernel_handoff = skill_route_discovery_local_kernel_handoff(
+        status=status,
+        decision=decision,
+        completion_next_action=completion_next_action,
+        theme=theme,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        planned_window_complete=planned_window_complete,
+        completion_report=completion_report,
+        completion_recovery=completion_recovery,
+        profile_completion_check=profile_completion_check,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+    )
     completion_handoff = {
         "status": status,
         "decision": decision,
@@ -10287,6 +10300,7 @@ def skill_route_discovery_capability_window_completion(
         "activation_packet": activation_packet,
         "final_slice_closure": final_slice_closure,
         "completion_report": completion_report,
+        "local_kernel_handoff": local_kernel_handoff,
         "local_validation_required": True,
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
@@ -10333,6 +10347,7 @@ def skill_route_discovery_capability_window_completion(
         "final_slice_closure": final_slice_closure,
         "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
         "completion_report": completion_report,
+        "local_kernel_handoff": local_kernel_handoff,
         "completion_handoff": completion_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
@@ -10354,6 +10369,137 @@ def skill_route_discovery_capability_window_completion(
     if theme == "provider-runtime-control":
         result["provider_runtime_final_diagnostics"] = provider_runtime_final_diagnostics
     return result
+
+
+def skill_route_discovery_local_kernel_handoff(
+    *,
+    status: str,
+    decision: str,
+    completion_next_action: str,
+    theme: str,
+    current_pass: int,
+    total_passes: int,
+    planned_window_complete: bool,
+    completion_report: dict[str, Any],
+    completion_recovery: dict[str, Any],
+    profile_completion_check: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose final pass-4 completion as a compact local-kernel handoff."""
+
+    activation_lane_contract = completion_report.get("activation_lane_contract")
+    activation_lane_contract = activation_lane_contract if isinstance(activation_lane_contract, dict) else {}
+    runner_control = completion_report.get("runner_harness_control_plane")
+    runner_control = runner_control if isinstance(runner_control, dict) else {}
+    replay_checklist = completion_report.get("completion_replay_checklist")
+    replay_checklist = replay_checklist if isinstance(replay_checklist, dict) else {}
+    consistency_guard = completion_report.get("completion_consistency_guard")
+    consistency_guard = consistency_guard if isinstance(consistency_guard, dict) else {}
+    adjacent_rows = adjacent_general_agent_project_eval.get("rows")
+    adjacent_rows = adjacent_rows if isinstance(adjacent_rows, list) else []
+    adjacent_agent_rows = [
+        row
+        for row in adjacent_rows
+        if isinstance(row, dict)
+        and (
+            row.get("primary_route") == "agent_harness_eval_required"
+            or row.get("evaluation_lane") == "agent_harness_eval_required"
+        )
+    ]
+    adjacent_agent_count = len(adjacent_agent_rows) or int(
+        activation_lane_contract.get("agent_harness_eval_row_count") or 0
+    )
+    report_status = optional_string(completion_report.get("status")) or ""
+    contract_status = optional_string(activation_lane_contract.get("status")) or ""
+    runner_status = optional_string(runner_control.get("status")) or ""
+    consistency_status = optional_string(consistency_guard.get("status")) or ""
+    recovery_status = optional_string(completion_recovery.get("status")) or ""
+    ready = (
+        status == "ready"
+        and report_status == "ready"
+        and contract_status == "ready"
+        and runner_status == "ready"
+        and consistency_status == "ready"
+        and recovery_status == "ready"
+        and planned_window_complete
+    )
+    blockers = string_list(profile_completion_check.get("missing_route_profiles"))
+    blockers.extend(
+        optional_string(reason) or ""
+        for reason in (
+            "completion_report_not_ready" if report_status != "ready" else "",
+            "activation_lane_contract_not_ready" if contract_status != "ready" else "",
+            "runner_control_plane_not_ready" if runner_status != "ready" else "",
+            "completion_consistency_guard_not_ready" if consistency_status != "ready" else "",
+            "completion_recovery_not_ready" if recovery_status != "ready" else "",
+            "capability_window_not_at_final_pass" if not planned_window_complete else "",
+        )
+    )
+    blockers = sorted(dict.fromkeys(blocker for blocker in blockers if blocker))
+
+    return {
+        "controller_surface": "skill_route_discovery_local_kernel_handoff",
+        "status": "ready" if ready else "blocked",
+        "decision": "local_kernel_completed_for_external_supervisor"
+        if ready
+        else "repair_local_kernel_handoff_before_supervisor_replay",
+        "completion_status": status,
+        "completion_decision": decision,
+        "supervisor_next_action": completion_next_action,
+        "theme": theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "final_pass_observed": planned_window_complete,
+        "selected_local_lanes": string_list(completion_report.get("selected_local_lanes")),
+        "route_profiles": string_list(completion_report.get("route_profiles")),
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "validated_surface_statuses": {
+            "completion_report": report_status,
+            "activation_lane_contract": contract_status,
+            "runner_harness_control_plane": runner_status,
+            "completion_consistency_guard": consistency_status,
+            "completion_recovery": recovery_status,
+        },
+        "replay_stage_order": string_list(runner_control.get("stage_order")),
+        "replay_stage_count": int(runner_control.get("stage_count") or 0),
+        "ready_replay_stage_count": int(runner_control.get("ready_stage_count") or 0),
+        "recovery_hint_codes": string_list(completion_recovery.get("recovery_hint_codes")),
+        "recovery_hint_code_hashes": [
+            stable_text_hash(code) for code in string_list(completion_recovery.get("recovery_hint_codes"))
+        ],
+        "replay_command_hashes": [
+            stable_text_hash(command) for command in string_list(replay_checklist.get("replay_commands"))
+        ],
+        "required_validation_hashes": [
+            stable_text_hash(command)
+            for command in string_list(completion_report.get("required_validation"))
+        ],
+        "adjacent_general_agent_project_count": adjacent_agent_count,
+        "adjacent_general_agent_route": "agent_harness_eval_required" if adjacent_agent_count else "",
+        "adjacent_general_agent_skill_route_inherited": False,
+        "agent_harness_eval_required": bool(adjacent_agent_count),
+        "blocked_route_profiles": string_list(profile_completion_check.get("missing_route_profiles")),
+        "blocker_count": len(blockers),
+        "blocker_hashes": [stable_text_hash(blocker) for blocker in blockers],
+        "external_supervisor_required": True,
+        "restart_required_by_kernel": False,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
 
 def skill_route_discovery_completion_report(

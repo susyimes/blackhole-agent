@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 81
-    assert payload["pass_count"] == 80
+    assert payload["fixture_count"] == 82
+    assert payload["pass_count"] == 81
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -202,6 +202,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-current-pass2-batch-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-pass3-current-window-route-probe"]["passed"] is True
     assert results["skill-route-discovery-current-digest-pass3-local-validation-lane"]["passed"] is True
+    assert results["skill-route-discovery-current-digest-pass4-local-kernel-handoff"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
@@ -3899,6 +3900,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    local_kernel_handoff = output["capability_window_completion"]["local_kernel_handoff"]
     assert output["capability_window_completion"] == {
         "controller_surface": "skill_route_discovery_capability_window_completion",
         "status": "ready",
@@ -4006,6 +4008,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
             "activation_packet": activation_packet,
             "final_slice_closure": final_slice_closure,
             "completion_report": completion_report,
+            "local_kernel_handoff": local_kernel_handoff,
             "local_validation_required": True,
             "runtime_action_allowed": False,
             "external_skill_activation_allowed": False,
@@ -4022,6 +4025,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "final_slice_closure": final_slice_closure,
         "provider_runtime_completion_handoff": provider_runtime_completion_handoff,
         "completion_report": completion_report,
+        "local_kernel_handoff": local_kernel_handoff,
         "required_validation": skill_route_discovery_preactivation_validation_commands(),
         "provider_runtime_replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -15792,6 +15796,60 @@ def test_skill_route_discovery_current_digest_pass3_local_validation_lane_is_bou
     assert all(row["provider_runtime_launch_allowed"] is False for row in proposal_contract["rows"])
     assert profile_contract["raw_evidence_urls_exported"] is False
     assert profile_contract["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_pass4_local_kernel_handoff_is_ready():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_pass4_local_kernel_handoff.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    handoff = output["capability_window_completion"]["local_kernel_handoff"]
+    serialized = json.dumps(output["capability_window_completion"], sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["capability_window_completion"]["status"] == "ready"
+    assert handoff["controller_surface"] == "skill_route_discovery_local_kernel_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "local_kernel_completed_for_external_supervisor"
+    assert handoff["selected_local_lanes"] == ["config", "documentation", "test"]
+    assert handoff["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert handoff["validated_surface_statuses"] == {
+        "completion_report": "ready",
+        "activation_lane_contract": "ready",
+        "runner_harness_control_plane": "ready",
+        "completion_consistency_guard": "ready",
+        "completion_recovery": "ready",
+    }
+    assert handoff["replay_stage_order"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert handoff["ready_replay_stage_count"] == 5
+    assert handoff["agent_harness_eval_required"] is True
+    assert handoff["adjacent_general_agent_project_count"] == 2
+    assert handoff["adjacent_general_agent_route"] == "agent_harness_eval_required"
+    assert handoff["adjacent_general_agent_skill_route_inherited"] is False
+    assert handoff["external_supervisor_required"] is True
+    assert handoff["restart_required_by_kernel"] is False
+    assert handoff["local_validation_required"] is True
+    assert handoff["runtime_action_allowed"] is False
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_replay_commands_exported"] is False
     assert "https://github.com/" not in serialized
 
 
