@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 76
-    assert payload["pass_count"] == 75
+    assert payload["fixture_count"] == 77
+    assert payload["pass_count"] == 76
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -191,6 +191,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-fablecodex"]["passed"] is True
     assert results["skill-route-discovery-lane-fork-lineage"]["passed"] is True
     assert results["skill-route-discovery-lane-pass4-closure"]["passed"] is True
+    assert results["skill-route-discovery-current-pass4-local-probe"]["passed"] is True
     assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
     assert results["skill-route-discovery-lane-current-window-pass1"]["passed"] is True
     assert results["skill-route-discovery-lane-20260627-pass1-window"]["passed"] is True
@@ -8337,7 +8338,62 @@ def test_skill_route_discovery_pass4_current_pass_profile_closure_uses_active_pr
     assert closure["raw_evidence_urls_exported"] is False
     assert closure["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
-    assert "qwen-agentworld" not in serialized.casefold()
+
+
+def test_skill_route_discovery_current_pass4_local_probe_separates_skill_and_agent_routes():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_current_pass4_local_probe.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["capability_window_completion"], sort_keys=True)
+
+    completion = output["capability_window_completion"]
+    report = completion["completion_report"]
+    manifest = report["final_route_handoff_manifest"]
+    manifest_rows = {row["route_profile"]: row for row in manifest["rows"]}
+    adjacent_eval = output["pass3_handoff_packet"]["adjacent_general_agent_project_eval"]
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["evidence_item_count"] == 3
+    assert output["registry"]["ignored_evidence_item_count"] == 1
+    assert completion["status"] == "ready"
+    assert report["status"] == "ready"
+    assert report["route_profiles"] == [
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert manifest["status"] == "ready"
+    assert manifest["ready_profile_count"] == 2
+    assert manifest_rows["source_cited_domain_research"]["selected_local_lane"] == "test"
+    assert manifest_rows["source_cited_domain_research"]["local_gate"] == (
+        "source_cited_domain_research_requires_citation_and_advice_boundary_test"
+    )
+    assert manifest_rows["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert manifest_rows["game_frontend_workflow"]["local_gate"] == (
+        "game_frontend_workflow_requires_local_test_or_frontend_validation"
+    )
+    assert adjacent_eval["agent_harness_eval_required"] is True
+    assert adjacent_eval["skill_route_discovery_inherited"] is False
+    assert adjacent_eval["record_count"] == 1
+    assert adjacent_eval["records"][0]["item_id"] == "p2-agent-harness-qwen-agentworld"
+    assert adjacent_eval["records"][0]["allowed_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert adjacent_eval["records"][0]["external_agent_activation_allowed"] is False
+    assert adjacent_eval["records"][0]["external_harness_execution_allowed"] is False
+    assert report["raw_evidence_urls_exported"] is False
+    assert completion["runtime_action_allowed"] is False
+    assert completion["external_skill_activation_allowed"] is False
+    assert completion["external_harness_execution_allowed"] is False
+    assert "https://github.com/lyra81604/zhengxi-views" not in serialized
+    assert "https://github.com/QwenLM/Qwen-AgentWorld" not in serialized
+    assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
 def test_skill_route_discovery_pass4_exposes_runner_harness_control_plane():

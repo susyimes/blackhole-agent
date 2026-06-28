@@ -2865,3 +2865,26 @@ The packet exports proposal IDs, selected item IDs, route profiles, source
 hashes, bounded lane names, validation gates, and replay-command hashes only.
 It does not export raw source URLs, raw evidence URLs, target paths, replay
 commands, upstream bodies, secrets, imported state, or runtime permissions.
+
+## Current Pass 4 Local Probe
+
+Source digest `github-growth-20260628T040729.561092Z` completes the planned
+skill-route-discovery slice with
+`skill_route_discovery_current_pass4_local_probe`. The probe maps
+`p1-skill-route-discovery-zhengxi-views` to the
+`source_cited_domain_research` test lane and
+`p3-game-skill-route-threejs` to the `game_frontend_workflow` test lane. Both
+rows carry local artifact proofs, selected proposal IDs, source hashes, and
+validation commands only.
+
+`p2-agent-harness-qwen-agentworld` stays adjacent as
+`agent_harness_eval_required`. It can be represented as documentation, test, or
+code_patch evaluation evidence after the local harness-eval route is replayed,
+but it does not inherit `skill_route_discovery`, runtime authority, provider
+launch, external harness execution, remote execution, upstream agent activation,
+or external skill activation.
+
+The pass-4 probe exports no raw source URLs, evidence URLs, target paths,
+replay-command bodies, or upstream bodies. It is an operator-visible completion
+handoff for bounded local validation, not an install, execution, restart,
+promotion, or external activation request.
