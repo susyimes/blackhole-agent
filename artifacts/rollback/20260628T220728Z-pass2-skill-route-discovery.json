@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-06-28T22:08:45.7701734Z",
+  "source_digest": "github-growth-20260628T220729.598607Z",
+  "original_branch": "codex/blackhole-evolve/20260628T220813.392570-add-or-extend-a-local-skill-route-discovery-vali",
+  "original_head": "70940450f069165bd3c932ffa14a201eaa196bf5",
+  "rollback_ref": "refs/blackhole-rollback/20260628T220728Z-pass2-skill-route-discovery",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260628T220813.392570-add-or-extend-a-local-skill-route-discovery-vali",
+    "git reset --hard refs/blackhole-rollback/20260628T220728Z-pass2-skill-route-discovery",
+    "git clean -fd"
+  ],
+  "note": "Rollback execution is explicit and destructive; supervisor or human operator must choose it."
+}

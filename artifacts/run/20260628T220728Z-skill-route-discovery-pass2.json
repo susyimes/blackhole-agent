@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260628T220729.598607Z",
+  "capability_theme": "skill-route-discovery",
+  "capability_pass": 2,
+  "total_passes": 4,
+  "hypothesis": "The pass-2 operator completion lane should identify the active proposal IDs and source digest before activation, so carried skill-route evidence becomes a replayable bounded local lane instead of stale pass metadata.",
+  "focused_evidence_urls_reviewed": [
+    "https://github.com/lyra81604/zhengxi-views",
+    "https://github.com/majidmanzarpour/threejs-game-skills",
+    "https://github.com/dongshuyan/compass-skills"
+  ],
+  "local_actions": [
+    "created rollback ref refs/blackhole-rollback/20260628T220728Z-pass2-skill-route-discovery",
+    "updated pass-2 completion workflow metadata to use registry source digest",
+    "updated current pass completion proposal IDs to active pass-2 proposal IDs"
+  ],
+  "blocked_actions": [
+    "upstream skill install",
+    "external skill activation",
+    "external harness execution",
+    "provider runtime launch",
+    "remote execution",
+    "kernel self restart"
+  ],
+  "validation_command": "python -m pytest tests/test_skill_routing.py -q",
+  "validation_result": "90 passed in 0.32s"
+}

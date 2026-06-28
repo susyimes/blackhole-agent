@@ -5,6 +5,16 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260628T220729.598607Z` tightens the pass-2
+operator completion surface so it carries the active proposal IDs from the
+skill-route-discovery window. zhengxi-views-style generic or source-cited skill
+evidence maps to the local test lane, Three.js game/frontend skill workflow
+evidence maps to the documentation lane before any code patch, and
+COMPASS-style ecosystem handoff evidence maps to the config lane. The completion
+lane uses the registry source digest rather than stale pass metadata, and still
+requires rollback evidence, focused local validation, changed-file review, and
+external supervisor handoff before activation.
+
 This note is grounded in source digest `github-growth-20260618T062043.878926Z`,
 refined by `github-growth-20260618T171207.138935Z`, clarified by
 `github-growth-20260618T193207.157147Z`, reaffirmed by

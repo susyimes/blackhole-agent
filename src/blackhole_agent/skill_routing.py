@@ -1198,6 +1198,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         adoption_manifest,
         privacy_review_panel,
         route_profile_handoff_queue,
+        source_digest=_skill_route_discovery_source_digest(registry),
     )
     ignored_evidence_items = _mapping_list(registry.get("ignored_evidence_items"))
     pass4_local_lane_validation = _skill_route_discovery_pass4_local_lane_validation(
@@ -15058,6 +15059,8 @@ def _skill_route_discovery_completion_workflow(
     adoption_manifest: Mapping[str, Any],
     privacy_review_panel: Mapping[str, Any],
     route_profile_handoff_queue: Mapping[str, Any],
+    *,
+    source_digest: str = "",
 ) -> dict[str, Any]:
     """Render a rollback-aware operator workflow for completing local lanes."""
 
@@ -15098,7 +15101,10 @@ def _skill_route_discovery_completion_workflow(
     profile_queue_ready = route_profile_handoff_queue.get("status") == "ready"
     workflow_ready = targets_ready and manifest_ready and profile_queue_ready
     privacy_review_required = privacy_review_panel.get("status") == "review_required"
-    current_pass_completion_lane = _skill_route_discovery_current_pass_completion_lane(rows)
+    current_pass_completion_lane = _skill_route_discovery_current_pass_completion_lane(
+        rows,
+        source_digest=source_digest,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_completion_workflow",
@@ -15157,12 +15163,14 @@ def _skill_route_discovery_completion_workflow(
 
 def _skill_route_discovery_current_pass_completion_lane(
     activation_rows: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str = "",
 ) -> dict[str, Any]:
     """Bind this pass's proposal IDs to replayable local lanes without activation."""
 
     proposal_specs = (
         {
-            "proposal_id": "p1-skill-route-discovery-general",
+            "proposal_id": "proposal-skill-route-discovery-generic-views",
             "proposal_kind": "test",
             "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
             "selected_local_lane": "test",
@@ -15176,7 +15184,7 @@ def _skill_route_discovery_current_pass_completion_lane(
             "validation_task": "document_game_frontend_workflow_non_network_acceptance_criteria",
         },
         {
-            "proposal_id": "p3-skill-ecosystem-state-handoff",
+            "proposal_id": "proposal-skill-ecosystem-handoff-routing",
             "proposal_kind": "config",
             "route_profiles": ("skill_ecosystem_state_handoff",),
             "selected_local_lane": "config",
@@ -15301,8 +15309,8 @@ def _skill_route_discovery_current_pass_completion_lane(
             if rows and not blocked_proposal_ids
             else "repair_current_pass_skill_route_completion_before_activation"
         ),
-        "source_digest": "github-growth-20260628T120729.553038Z",
-        "capability_pass": 4,
+        "source_digest": source_digest,
+        "capability_pass": 2,
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [str(spec["proposal_id"]) for spec in proposal_specs],

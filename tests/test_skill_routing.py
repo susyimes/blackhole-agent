@@ -6785,13 +6785,13 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
     assert current_pass["controller_surface"] == "skill_route_discovery_current_pass_completion_lane"
     assert current_pass["status"] == "ready"
     assert current_pass["decision"] == "current_pass_skill_route_proposals_ready_for_supervisor_replay"
-    assert current_pass["source_digest"] == "github-growth-20260628T120729.553038Z"
-    assert current_pass["capability_pass"] == 4
+    assert current_pass["source_digest"] == "github-growth-20260628T220729.598607Z"
+    assert current_pass["capability_pass"] == 2
     assert current_pass["total_passes"] == 4
     assert current_pass["proposal_ids"] == [
-        "p1-skill-route-discovery-general",
+        "proposal-skill-route-discovery-generic-views",
         "p2-game-frontend-skill-profile",
-        "p3-skill-ecosystem-state-handoff",
+        "proposal-skill-ecosystem-handoff-routing",
     ]
     assert current_pass["blocked_proposal_ids"] == []
     assert current_pass["observed_route_profiles"] == [
@@ -6816,7 +6816,7 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
         for row in current_pass["operator_replay_bundle"]
     ] == [
         (
-            "p1-skill-route-discovery-general",
+            "proposal-skill-route-discovery-generic-views",
             "test",
             "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research",
             "ready",
@@ -6828,7 +6828,7 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
             "ready",
         ),
         (
-            "p3-skill-ecosystem-state-handoff",
+            "proposal-skill-ecosystem-handoff-routing",
             "config",
             "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
             "ready",
@@ -6849,11 +6849,11 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
     assert current_pass["raw_upstream_body_exported"] is False
 
     rows = {row["proposal_id"]: row for row in current_pass["rows"]}
-    assert rows["p1-skill-route-discovery-general"]["route_profiles"] == [
+    assert rows["proposal-skill-route-discovery-generic-views"]["route_profiles"] == [
         "source_cited_domain_research"
     ]
-    assert rows["p1-skill-route-discovery-general"]["selected_local_lane"] == "test"
-    assert rows["p1-skill-route-discovery-general"]["validation_task"] == (
+    assert rows["proposal-skill-route-discovery-generic-views"]["selected_local_lane"] == "test"
+    assert rows["proposal-skill-route-discovery-generic-views"]["validation_task"] == (
         "skill_workflow_trend_items_map_only_to_bounded_local_lanes"
     )
     assert rows["p2-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
@@ -6861,11 +6861,11 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
     assert rows["p2-game-frontend-skill-profile"]["validation_task"] == (
         "document_game_frontend_workflow_non_network_acceptance_criteria"
     )
-    assert rows["p3-skill-ecosystem-state-handoff"]["route_profiles"] == [
+    assert rows["proposal-skill-ecosystem-handoff-routing"]["route_profiles"] == [
         "skill_ecosystem_state_handoff"
     ]
-    assert rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
-    assert rows["p3-skill-ecosystem-state-handoff"]["validation_task"] == (
+    assert rows["proposal-skill-ecosystem-handoff-routing"]["selected_local_lane"] == "config"
+    assert rows["proposal-skill-ecosystem-handoff-routing"]["validation_task"] == (
         "map_state_handoff_profile_to_metadata_only_validation"
     )
     for row in current_pass["rows"]:
