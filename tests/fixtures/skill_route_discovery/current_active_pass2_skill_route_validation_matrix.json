@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260628T060729.568458Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260628T060729.568458Z",
+      "item_id": "p1-skill-route-discovery-general",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Generic public skill workflow repository",
+      "summary": "Skill-like repository evidence with agent workflow notes, source-cited validation, local test hints, and no local authority to install or execute upstream code.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skill", "workflow", "source-cited", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "source_layout_signals": ["skill_markdown", "validation_script"],
+        "source_metadata_signals": ["skill_registry_metadata"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260628T060729.568458Z",
+      "item_id": "p2-game-frontend-skill-profile",
+      "item_kind": "repository",
+      "name": "threejs-game-skills",
+      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+      "title": "Three.js game frontend skill workflow",
+      "summary": "Game frontend skill workflow evidence with Three.js, browser gameplay, QA language, local frontend validation concerns, and provider asset-generation boundaries.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "threejs", "browser-game", "frontend-validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["game_frontend_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "source_layout_signals": ["skill_markdown", "qa_checklist"],
+        "source_metadata_signals": ["asset_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260628T060729.568458Z",
+      "item_id": "p3-skill-ecosystem-state-handoff",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "Skill ecosystem state handoff profile",
+      "summary": "Skill ecosystem evidence with task forest language, collaboration profile metadata, handoff prompts, local memory notes, privacy boundary, and local config routing.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["skills", "state-handoff", "workflow", "profile"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["skill_ecosystem_state_handoff"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "source_layout_signals": ["skill_directory", "qa_checklist"],
+        "source_metadata_signals": ["profile_state_metadata", "privacy_boundary"]
+      }
+    }
+  ]
+}

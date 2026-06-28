@@ -2960,3 +2960,27 @@ gates, and validation task names only. Runtime action, upstream skill
 activation, upstream agent activation, external harness execution, provider
 launch, profile writes, memory writes, remote execution, raw source URLs, raw
 evidence URLs, raw target paths, and upstream bodies remain denied.
+
+## Current Active Pass 2 Skill Route Matrix
+
+Source digest `github-growth-20260628T060729.568458Z` advances pass 2 of the
+active `skill-route-discovery` slice with
+`current_active_pass2_skill_route_validation_matrix`. The matrix binds the
+active proposals `p1-skill-route-discovery-general`,
+`p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff` to one operator-visible local validation
+surface before activation.
+
+The matrix treats zhengxi-views-style generic or source-cited skill workflow
+evidence as a local test lane, Three.js game/frontend skill evidence as a local
+test lane that must prove no runtime action is emitted before validation, and
+COMPASS-style skill ecosystem handoff evidence as a local config lane for
+metadata-only state handoff interpretation. Each row may expose only
+documentation, config, test, or code_patch as local lanes and must carry
+selected item IDs or frozen fixture evidence plus route-profile validation
+gates.
+
+Unsupported install, provider runtime, runtime execution, external harness
+execution, upstream skill activation, provider launch, profile writes, memory
+writes, remote execution, raw source URLs, raw evidence URLs, target paths,
+replay-command bodies, and upstream bodies remain outside the handoff.
