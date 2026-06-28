@@ -2546,6 +2546,25 @@ raw target paths, replay commands, upstream bodies, install or provider lanes,
 runtime action, external skill or agent activation, external harness execution,
 provider launch, remote execution, profile writes, or memory writes.
 
+Source digest `github-growth-20260628T002729.501775Z` starts the next pass-1
+skill-route-discovery window with active proposals
+`p1-skill-route-discovery-index`,
+`p2-skill-route-discovery-test-fixtures`,
+`p3-game-frontend-skill-profile`,
+`p4-skill-ecosystem-state-handoff-profile`, and
+`p5-agent-project-harness-eval-doc`. The lane map now emits
+`current_pass1_route_discovery_index`, which binds the first four skill-route
+proposals to documentation, test, documentation, and config lanes respectively.
+COMPASS-style state handoff, zhengxi-views-style source-cited skill evidence,
+and Three.js game/frontend skill evidence remain bounded to documentation,
+config, test, or code_patch and require local validation before any later
+activation. Qwen-AgentWorld-style general-agent evidence is recorded only as an
+adjacent `agent_harness_eval_required` row for the fifth proposal; it does not
+inherit `skill_route_discovery`, direct runtime authority, direct code_patch
+authority, provider launch, external harness execution, or upstream activation.
+The packet exposes selected item IDs and source hashes only, not raw source
+URLs, evidence URLs, target paths, replay commands, or upstream bodies.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes

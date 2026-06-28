@@ -1284,6 +1284,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             candidate_lane_inventory,
             ignored_evidence_items,
         ),
+        "current_pass1_route_discovery_index": _skill_route_discovery_current_pass1_route_discovery_index(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+        ),
         "current_pass_validation_cases": _skill_route_discovery_current_pass_validation_cases(
             candidate_lane_inventory
         ),
@@ -2607,6 +2612,234 @@ def _skill_route_discovery_active_window_pass1_route_lanes(
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "selected_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(observed_selected_lanes)
+        ],
+        "required_evidence": [
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+        "adjacent_general_agent_rows": adjacent_general_agent_rows,
+    }
+
+
+def _skill_route_discovery_current_pass1_route_discovery_index(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str = "",
+) -> dict[str, Any]:
+    """Index this wake's pass-1 proposal anchors before any local activation."""
+
+    proposal_specs = (
+        {
+            "proposal_id": "p1-skill-route-discovery-index",
+            "proposal_kind": "documentation",
+            "proposal_track": "skill_route_discovery_index",
+            "route_profiles": (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            ),
+            "selected_local_lane": "documentation",
+            "validation_gate": "focused-evidence-review",
+            "validation_target": "document_skill_route_triage_index",
+        },
+        {
+            "proposal_id": "p2-skill-route-discovery-test-fixtures",
+            "proposal_kind": "test",
+            "proposal_track": "skill_workflow_route_fixtures",
+            "route_profiles": (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            ),
+            "selected_local_lane": "test",
+            "validation_gate": "focused-evidence-review",
+            "validation_target": "skill_workflow_fixtures_stay_classification_only",
+        },
+        {
+            "proposal_id": "p3-game-frontend-skill-profile",
+            "proposal_kind": "documentation",
+            "proposal_track": "game_frontend_workflow",
+            "route_profiles": ("game_frontend_workflow",),
+            "selected_local_lane": "documentation",
+            "validation_gate": "local_frontend_validation_before_game_skill_activation",
+            "validation_target": "document_or_validate_game_frontend_profile_lane",
+        },
+        {
+            "proposal_id": "p4-skill-ecosystem-state-handoff-profile",
+            "proposal_kind": "config",
+            "proposal_track": "skill_ecosystem_state_handoff",
+            "route_profiles": ("skill_ecosystem_state_handoff",),
+            "selected_local_lane": "config",
+            "validation_gate": "state_handoff_boundary_before_profile_or_memory_write",
+            "validation_target": "state_handoff_profile_metadata_stays_bounded",
+        },
+    )
+
+    rows: list[dict[str, Any]] = []
+    selected_lanes: list[str] = []
+    observed_profiles: list[str] = []
+    for spec in proposal_specs:
+        required_profiles = set(_string_list(spec["route_profiles"]))
+        candidate_names: list[str] = []
+        candidate_source_hashes: list[str] = []
+        selected_evidence_item_ids: list[str] = []
+        matched_profiles: list[str] = []
+        allowed_lanes: list[str] = []
+        validation_gates: list[str] = []
+
+        for candidate in sorted(
+            candidate_lane_inventory,
+            key=lambda value: str(value.get("candidate_name") or "").casefold(),
+        ):
+            candidate_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+            if not required_profiles.intersection(candidate_profiles):
+                continue
+            candidate_name = str(candidate.get("candidate_name") or "")
+            candidate_names.append(candidate_name)
+            candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
+            selected_evidence_item_ids.extend(_string_list(candidate.get("evidence_item_ids")))
+            matched_profiles.extend(profile for profile in candidate_profiles if profile in required_profiles)
+            allowed_lanes.extend(
+                lane
+                for lane in _string_list(candidate.get("proposal_kinds"))
+                if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            )
+            validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
+
+        bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
+        selected_lane = str(spec["selected_local_lane"])
+        blockers: list[str] = []
+        if not candidate_names:
+            blockers.append("missing_profile_evidence")
+        if selected_lane not in bounded_lanes:
+            blockers.append("selected_lane_not_bounded")
+        if not selected_evidence_item_ids:
+            blockers.append("missing_selected_item_ids_or_frozen_fixture")
+
+        if selected_lane in bounded_lanes:
+            selected_lanes.append(selected_lane)
+        observed_profiles.extend(matched_profiles)
+
+        rows.append(
+            {
+                "proposal_id": spec["proposal_id"],
+                "proposal_kind": spec["proposal_kind"],
+                "proposal_track": spec["proposal_track"],
+                "status": "ready" if not blockers else "blocked",
+                "candidate_names": list(dict.fromkeys(name for name in candidate_names if name)),
+                "candidate_source_hashes": list(dict.fromkeys(candidate_source_hashes)),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": list(dict.fromkeys(matched_profiles)),
+                "allowed_local_lanes": bounded_lanes,
+                "selected_local_lane": selected_lane if selected_lane in bounded_lanes else "",
+                "queued_local_lanes": [lane for lane in bounded_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": list(dict.fromkeys(selected_evidence_item_ids)),
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "validation_target": spec["validation_target"],
+                "activation_blockers": blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    adjacent_general_agent_rows = [
+        {
+            "proposal_id": "p5-agent-project-harness-eval-doc",
+            "item_id": str(item.get("item_id") or ""),
+            "name": str(item.get("name") or ""),
+            "source_hash": str(item.get("source_hash") or ""),
+            "ignored_reason": str(item.get("ignored_reason") or ""),
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "selected_local_lane": "documentation",
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "required_before_implementation": "local_agent_harness_eval_route_established",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for item in ignored_evidence_items
+    ]
+
+    blocked_proposal_ids = [row["proposal_id"] for row in rows if row["status"] != "ready"]
+    adjacent_ready = all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["skill_route_discovery_inherited"] is False
+        and row["direct_runtime_route_allowed"] is False
+        and row["direct_code_patch_route_allowed"] is False
+        for row in adjacent_general_agent_rows
+    )
+    ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
+
+    return {
+        "controller_surface": "skill_route_discovery_current_pass1_route_discovery_index",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_pass1_skill_route_index_ready_for_bounded_local_validation"
+            if ready
+            else "repair_current_pass1_skill_route_index_before_activation"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 1,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [str(spec["proposal_id"]) for spec in proposal_specs]
+        + ["p5-agent-project-harness-eval-doc"],
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "observed_route_profiles": [
+            profile
+            for profile in (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            )
+            if profile in set(observed_profiles)
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
         ],
         "required_evidence": [
             "selected_item_ids_or_frozen_fixture",
