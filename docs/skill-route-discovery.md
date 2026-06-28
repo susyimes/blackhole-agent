@@ -2984,3 +2984,27 @@ Unsupported install, provider runtime, runtime execution, external harness
 execution, upstream skill activation, provider launch, profile writes, memory
 writes, remote execution, raw source URLs, raw evidence URLs, target paths,
 replay-command bodies, and upstream bodies remain outside the handoff.
+
+## Current Active Pass 3 Local Activation Proof
+
+Source digest `github-growth-20260628T062729.695489Z` advances pass 3 of the
+same active slice with `current_active_pass3_local_activation_proof_lane`. The
+lane reuses the pass-2 matrix proposal IDs:
+`p1-skill-route-discovery-general`, `p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff`.
+
+The pass-3 surface is an operator-visible proof checklist before pass-4
+handoff, not an activation grant. Generic or source-cited skill workflow
+evidence must carry a focused local test or fixture proving classification
+without runtime permission. Three.js game/frontend workflow evidence must carry
+a frontend validation boundary test or profile note before any scaffold,
+provider, asset, or runtime path can be considered. COMPASS-style state handoff
+evidence must carry a metadata-only config check proving profile and memory
+writes remain denied.
+
+Rows export proposal IDs, selected digest item IDs, source hashes, bounded lane
+names, validation gates, proof artifact names, and profile validation
+requirements only. Runtime action, upstream skill or agent activation, external
+harness execution, provider launch, profile writes, memory writes, remote
+execution, raw source URLs, raw evidence URLs, target paths, replay-command
+bodies, and upstream bodies remain denied.
