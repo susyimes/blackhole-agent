@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 83
-    assert payload["pass_count"] == 82
+    assert payload["fixture_count"] == 84
+    assert payload["pass_count"] == 83
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -206,6 +206,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
+    assert results["skill-route-discovery-current-digest-214729-pass1-current-proposals"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
     assert results["pass-harness-summary"]["failure_mode"] == "none"
@@ -16008,6 +16009,63 @@ def test_skill_route_discovery_current_run_pass1_activation_readiness_is_operato
     assert panel["external_harness_execution_allowed"] is False
     assert panel["provider_runtime_launch_allowed"] is False
     assert panel["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_214729_pass1_current_proposals_are_bounded():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_214729_pass1_current_proposals.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    panel = output["current_run_pass1_activation_readiness"]
+    rows = {row["proposal_id"]: row for row in panel["rows"]}
+    serialized = json.dumps(panel, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["registry"]["ignored_evidence_item_count"] == 1
+    assert panel["controller_surface"] == "skill_route_discovery_current_run_pass1_activation_readiness"
+    assert panel["source_digest"] == "github-growth-20260628T214729.561848Z"
+    assert panel["proposal_ids"] == [
+        "proposal-skill-route-discovery-generic-001",
+        "proposal-game-skill-route-profile-002",
+        "proposal-skill-ecosystem-handoff-003",
+    ]
+    assert panel["selected_local_lanes"] == ["documentation", "config", "test"]
+    generic_row = rows["proposal-skill-route-discovery-generic-001"]
+    game_row = rows["proposal-game-skill-route-profile-002"]
+    handoff_row = rows["proposal-skill-ecosystem-handoff-003"]
+
+    assert generic_row["route_profiles"] == ["generic_skill_workflow"]
+    assert generic_row["selected_evidence_item_ids"] == ["p1-skill-route-discovery-generic"]
+    assert generic_row["selected_local_lane"] == "test"
+    assert game_row["route_profiles"] == ["game_frontend_workflow"]
+    assert game_row["selected_evidence_item_ids"] == ["p2-threejs-game-skill-routing-doc"]
+    assert game_row["selected_local_lane"] == "documentation"
+    assert handoff_row["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert handoff_row["selected_evidence_item_ids"] == ["p3-skill-ecosystem-state-handoff-config"]
+    assert handoff_row["selected_local_lane"] == "config"
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in panel["rows"]
+    )
+    assert all(row["local_validation_required"] is True for row in panel["rows"])
+    assert all(row["runtime_action"] == "none" for row in panel["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in panel["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in panel["rows"])
+    assert panel["profile_write_allowed"] is False
+    assert panel["memory_write_allowed"] is False
+    assert panel["provider_runtime_launch_allowed"] is False
+    assert "runtime_execution" not in serialized
     assert "https://github.com/" not in serialized
 
 
