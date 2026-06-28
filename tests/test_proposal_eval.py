@@ -681,6 +681,9 @@ def test_route_hint_lane_map_exposes_current_pass3_skill_route_handoff():
         ],
     }
     evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=360)
+    for item in evidence_package["items"]:
+        item["implementation_scope"] = "reviewable_proposal_only"
+        item["validation_gate"] = "candidate-supplied-gate"
 
     lane_map = build_route_hint_lane_map(evidence_package)
     handoff = lane_map["skill_route_pass3_handoff"]
@@ -707,6 +710,40 @@ def test_route_hint_lane_map_exposes_current_pass3_skill_route_handoff():
     assert handoff["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
     assert handoff["skill_route_lane_limit_reaffirmed"] is True
     assert handoff["general_agent_eval_split_reaffirmed"] is True
+    assert handoff["final_scope"] == "pending_agent_harness_eval"
+    assert handoff["validation_gates"] == [
+        "agent_harness_eval_before_implementation_route",
+        "focused-evidence-review",
+        "local_frontend_validation_before_game_skill_activation",
+        "state_handoff_boundary_before_profile_or_memory_write",
+    ]
+    recomputed = handoff["controller_recomputed"]
+    assert recomputed["controller_surface"] == "skill_route_discovery_pass3_controller_recomputed_scope_gate"
+    assert recomputed["recomputed_from"] == "route_classification_and_route_hints"
+    assert recomputed["proposal_text_scope_trusted"] is False
+    assert recomputed["proposal_text_validation_gate_trusted"] is False
+    assert recomputed["evidence_ref_scope"] == "selected_item_ids_only"
+    assert recomputed["agent_harness_eval_required_item_ids"] == ["omnigent-general-agent"]
+    assert "omnigent-general-agent:agent_harness_eval_required_before_implementation" in recomputed["diagnostics"]
+    recomputed_rows = {row["item_id"]: row for row in recomputed["rows"]}
+    assert recomputed_rows["compass-skills"]["final_scope"] == "local_validation_candidate"
+    assert recomputed_rows["compass-skills"]["selected_local_lane"] == "config"
+    assert recomputed_rows["compass-skills"]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+    assert recomputed_rows["zhengxi-views"]["final_scope"] == "local_validation_candidate"
+    assert recomputed_rows["zhengxi-views"]["validation_gates"] == ["focused-evidence-review"]
+    assert recomputed_rows["threejs-game-skills"]["final_scope"] == "local_validation_candidate"
+    assert recomputed_rows["threejs-game-skills"]["validation_gates"] == [
+        "local_frontend_validation_before_game_skill_activation"
+    ]
+    assert recomputed_rows["omnigent-general-agent"]["final_scope"] == "pending_agent_harness_eval"
+    assert recomputed_rows["omnigent-general-agent"]["validation_gates"] == [
+        "agent_harness_eval_before_implementation_route"
+    ]
+    assert all(row["proposal_text_scope_ignored"] is True for row in recomputed["rows"])
+    assert all(row["proposal_text_validation_gate_ignored"] is True for row in recomputed["rows"])
+    assert all(row["evidence_ref_scope"] == "selected_item_ids_only" for row in recomputed["rows"])
     assert handoff["local_validation_required"] is True
     assert handoff["runtime_action"] == "none"
     assert handoff["external_skill_activation_allowed"] is False

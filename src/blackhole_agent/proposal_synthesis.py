@@ -1055,6 +1055,11 @@ def build_skill_route_pass3_handoff(
         and general_lanes_bounded
         else "review"
     )
+    controller_recomputed = build_skill_route_pass3_scope_gate(
+        skill_rows=skill_rows,
+        general_rows=general_rows,
+        items=items,
+    )
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff",
         "status": status,
@@ -1075,6 +1080,9 @@ def build_skill_route_pass3_handoff(
         "general_agent_rows": general_rows,
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
         "allowed_general_agent_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "controller_recomputed": controller_recomputed,
+        "final_scope": controller_recomputed["final_scope"],
+        "validation_gates": controller_recomputed["validation_gates"],
         "required_local_validation": [
             str(command)
             for command in activation_preflight.get("required_local_validation", [])
@@ -1098,6 +1106,176 @@ def build_skill_route_pass3_handoff(
         "raw_source_url_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
+
+
+def build_skill_route_pass3_scope_gate(
+    *,
+    skill_rows: list[dict[str, Any]],
+    general_rows: list[dict[str, Any]],
+    items: list[Any],
+) -> dict[str, Any]:
+    """Recompute pass-3 scope and validation gates from route rows only."""
+
+    item_by_id = {
+        str(item.get("item_id") or ""): item
+        for item in items
+        if isinstance(item, dict) and str(item.get("item_id") or "")
+    }
+    allowed_skill_lanes = list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+    allowed_agent_lanes = list(GENERAL_AGENT_PROJECT_EVAL_LANES)
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for row in skill_rows:
+        item_id = str(row.get("item_id") or "")
+        local_lanes = [
+            str(lane)
+            for lane in row.get("local_lanes", [])
+            if str(lane) in allowed_skill_lanes
+        ]
+        route_profiles = [str(profile) for profile in row.get("route_profiles", []) if str(profile).strip()]
+        selected_lane = select_skill_route_implementation_lane(local_lanes, route_profiles)
+        validation_gates = skill_route_pass3_validation_gates_for_route(
+            primary_route="skill_route_discovery",
+            selected_local_lane=selected_lane,
+            route_profiles=route_profiles,
+        )
+        source_item = item_by_id.get(item_id, {})
+        requested_scope = str(source_item.get("implementation_scope") or source_item.get("requested_scope") or "")
+        requested_gate = str(source_item.get("validation_gate") or source_item.get("requested_validation_gate") or "")
+        if not selected_lane:
+            diagnostics.append(f"{item_id}:missing_bounded_local_lane")
+        rows.append(
+            {
+                "item_id": item_id,
+                "primary_route": "skill_route_discovery",
+                "route_class": "skill_workflow",
+                "final_scope": "local_validation_candidate" if selected_lane else "blocked_before_local_lane",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_skill_lanes,
+                "validation_gates": validation_gates,
+                "route_profiles": route_profiles,
+                "proposal_text_scope_ignored": bool(requested_scope),
+                "proposal_text_validation_gate_ignored": bool(requested_gate),
+                "evidence_ref_scope": "selected_item_ids_only",
+                "agent_harness_eval_required": False,
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
+
+    for row in general_rows:
+        item_id = str(row.get("item_id") or "")
+        source_item = item_by_id.get(item_id, {})
+        has_local_eval = general_agent_project_has_local_eval_result(source_item)
+        requested_scope = str(source_item.get("implementation_scope") or source_item.get("requested_scope") or "")
+        requested_gate = str(source_item.get("validation_gate") or source_item.get("requested_validation_gate") or "")
+        final_scope = "local_validation_candidate" if has_local_eval else "pending_agent_harness_eval"
+        validation_gates = skill_route_pass3_validation_gates_for_route(
+            primary_route="agent_harness_eval_required",
+            selected_local_lane="",
+            route_profiles=[],
+        )
+        if not has_local_eval:
+            diagnostics.append(f"{item_id}:agent_harness_eval_required_before_implementation")
+        rows.append(
+            {
+                "item_id": item_id,
+                "primary_route": "agent_harness_eval_required",
+                "route_class": "general_agent_project",
+                "final_scope": final_scope,
+                "selected_local_lane": "",
+                "allowed_local_lanes": allowed_agent_lanes,
+                "validation_gates": validation_gates,
+                "route_profiles": [],
+                "proposal_text_scope_ignored": bool(requested_scope),
+                "proposal_text_validation_gate_ignored": bool(requested_gate),
+                "evidence_ref_scope": "selected_item_ids_only",
+                "agent_harness_eval_required": True,
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
+
+    skill_final_rows = [row for row in rows if row["primary_route"] == "skill_route_discovery"]
+    agent_rows = [row for row in rows if row["primary_route"] == "agent_harness_eval_required"]
+    validation_gates = sorted(
+        {
+            gate
+            for row in rows
+            for gate in row["validation_gates"]
+        }
+    )
+    status = (
+        "ready"
+        if skill_final_rows
+        and all(row["final_scope"] == "local_validation_candidate" for row in skill_final_rows)
+        and not agent_rows
+        and not diagnostics
+        else "blocked"
+        if diagnostics
+        else "not_applicable"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_pass3_controller_recomputed_scope_gate",
+        "status": status,
+        "decision": (
+            "use_controller_recomputed_scope_and_validation_gates"
+            if status == "ready"
+            else "hold_routes_until_controller_recomputed_gates_are_ready"
+        ),
+        "recomputed_from": "route_classification_and_route_hints",
+        "proposal_text_scope_trusted": False,
+        "proposal_text_validation_gate_trusted": False,
+        "evidence_ref_scope": "selected_item_ids_only",
+        "final_scope": (
+            "pending_agent_harness_eval"
+            if any(row["final_scope"] == "pending_agent_harness_eval" for row in rows)
+            else "local_validation_candidate"
+            if skill_final_rows
+            else "not_applicable"
+        ),
+        "validation_gates": validation_gates,
+        "allowed_skill_route_lanes": allowed_skill_lanes,
+        "allowed_general_agent_lanes": allowed_agent_lanes,
+        "skill_workflow_count": len(skill_final_rows),
+        "general_agent_project_count": len(agent_rows),
+        "agent_harness_eval_required_item_ids": [
+            row["item_id"] for row in agent_rows if row["agent_harness_eval_required"]
+        ],
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def skill_route_pass3_validation_gates_for_route(
+    *,
+    primary_route: str,
+    selected_local_lane: str,
+    route_profiles: list[str],
+) -> list[str]:
+    """Return controller-owned validation gates for a recomputed route lane."""
+
+    if primary_route == "agent_harness_eval_required":
+        return ["agent_harness_eval_before_implementation_route"]
+    if "game_frontend_workflow" in route_profiles:
+        return ["local_frontend_validation_before_game_skill_activation"]
+    if "skill_ecosystem_state_handoff" in route_profiles:
+        return ["state_handoff_boundary_before_profile_or_memory_write"]
+    if selected_local_lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]:
+        return ["focused-evidence-review"]
+    return []
 
 
 def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
