@@ -1,0 +1,190 @@
+{
+  "name": "skill-route-discovery-current-pass2-batch-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-pass2-batch-validation-lane",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 2,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-batch",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-looper"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/ksimback/looper"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260628T084729.600885Z",
+        "item_id": "p1-skill-route-discovery-batch-generic",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Source-cited public agent skill workflow",
+        "summary": "Public agent skill workflow with skill metadata, source citation requirements, validation notes, and an advisory boundary.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "source-cited"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "route_classification": {
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_markdown", "validation_script"],
+          "source_metadata_signals": ["skill_registry_metadata"]
+        }
+      },
+      {
+        "item_id": "p1-skill-route-discovery-batch-game",
+        "item_kind": "repository",
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "title": "Three.js browser game agent skills",
+        "summary": "Three.js game skill bundle with playable browser game workflow, QA, screenshots, canvas checks, scaffold helpers, and optional asset generation notes.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "threejs", "browser-game", "qa"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "route_classification": {
+          "route_profiles": ["game_frontend_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+          "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset"]
+        }
+      },
+      {
+        "item_id": "p1-skill-route-discovery-batch-handoff",
+        "item_kind": "repository",
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "title": "COMPASS skill ecosystem state handoff",
+        "summary": "Skill ecosystem with task clarification, repo-local memory, handoff prompts, collaboration profile metadata, and privacy boundary notes.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "handoff", "profile", "memory"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "route_classification": {
+          "route_profiles": ["skill_ecosystem_state_handoff"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory"],
+          "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+        }
+      },
+      {
+        "item_id": "p2-agent-harness-eval-qwen-agentworld",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "General-agent benchmark and language world model project",
+        "summary": "General-agent benchmark evidence with evaluation domains, model comparison claims, deployment notes, and no skill workflow route signal.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "benchmark", "evaluation"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "item_id": "p3-agent-harness-eval-looper",
+        "item_kind": "repository",
+        "name": "looper",
+        "source_url": "https://github.com/ksimback/looper",
+        "title": "Review-gated agent loop design project",
+        "summary": "Loop-control evidence with plan gates, delivery gates, state logs, stop guards, budget caps, and portable loop specs before execution.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["agent-loop", "review-gate", "scheduler"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "run"]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 3
+    },
+    {
+      "path": "registry.ignored_evidence_item_count",
+      "equals": 2
+    },
+    {
+      "path": "lane_map.proposal_lane_count",
+      "equals": 12
+    },
+    {
+      "path": "current_pass2_validation_lane.status",
+      "equals": "ready"
+    },
+    {
+      "path": "current_pass2_validation_lane.source_digest",
+      "equals": "github-growth-20260628T084729.600885Z"
+    },
+    {
+      "path": "current_pass2_validation_lane.required_route_profiles",
+      "equals": [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff"
+      ]
+    },
+    {
+      "path": "current_pass2_validation_lane.missing_required_route_profiles",
+      "equals": []
+    },
+    {
+      "path": "current_pass2_validation_lane.proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-batch",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-looper"
+      ]
+    },
+    {
+      "path": "current_pass2_validation_lane.adjacent_general_agent_count",
+      "equals": 2
+    },
+    {
+      "path": "current_pass2_validation_lane.agent_harness_eval_required",
+      "equals": true
+    },
+    {
+      "path": "current_pass2_validation_lane.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "current_pass2_validation_lane.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "current_pass2_validation_lane.external_agent_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "current_pass2_validation_lane.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "current_pass2_validation_lane.raw_evidence_urls_exported",
+      "equals": false
+    }
+  ]
+}

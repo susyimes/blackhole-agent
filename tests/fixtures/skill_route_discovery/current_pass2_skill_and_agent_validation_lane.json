@@ -43,6 +43,24 @@
       }
     },
     {
+      "item_id": "p4-skill-ecosystem-state-handoff",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "COMPASS skill ecosystem state handoff profile",
+      "summary": "Skill ecosystem with task clarification, repo-local memory, AI conversation handoff prompts, collaboration profile metadata, and privacy boundary notes.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "handoff", "profile", "memory"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["skill_ecosystem_state_handoff"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "source_layout_signals": ["skill_directory"],
+        "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+      }
+    },
+    {
       "item_id": "p2-agent-harness-eval-qwen-agentworld",
       "item_kind": "repository",
       "name": "Qwen-AgentWorld",

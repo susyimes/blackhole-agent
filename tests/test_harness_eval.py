@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 79
-    assert payload["pass_count"] == 78
+    assert payload["fixture_count"] == 80
+    assert payload["pass_count"] == 79
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -199,6 +199,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-threejs-fork-cluster-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-lane-pass2-window"]["passed"] is True
     assert results["skill-route-discovery-pass2-current-window-generic-lanes"]["passed"] is True
+    assert results["skill-route-discovery-current-pass2-batch-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-pass3-current-window-route-probe"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
@@ -15671,6 +15672,56 @@ def test_skill_route_discovery_pass2_current_window_fixture_replays_bounded_lane
     assert profile_matrix["raw_source_urls_exported"] is False
     assert profile_matrix["raw_target_paths_exported"] is False
     assert profile_matrix["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_pass2_batch_validation_lane_handles_adjacent_agent_eval():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_current_pass2_batch_validation_lane.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    packet = output["current_pass2_validation_lane"]
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert packet["controller_surface"] == "skill_route_discovery_current_pass2_validation_lane"
+    assert packet["status"] == "ready"
+    assert packet["source_digest"] == "github-growth-20260628T084729.600885Z"
+    assert packet["required_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert packet["missing_required_route_profiles"] == []
+    assert packet["proposal_ids"] == [
+        "p1-skill-route-discovery-batch",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-looper",
+    ]
+    assert packet["adjacent_general_agent_count"] == 2
+    assert packet["agent_harness_eval_required"] is True
+    assert {row["name"] for row in packet["adjacent_general_agent_rows"]} == {
+        "Qwen-AgentWorld",
+        "looper",
+    }
+    assert all(row["skill_route_discovery_inherited"] is False for row in packet["adjacent_general_agent_rows"])
+    assert all(row["direct_runtime_route_allowed"] is False for row in packet["adjacent_general_agent_rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in packet["adjacent_general_agent_rows"])
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "test", "code_patch"}
+        for row in packet["adjacent_general_agent_rows"]
+    )
+    assert packet["runtime_action"] == "none"
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["raw_evidence_urls_exported"] is False
     assert "https://github.com/" not in serialized
 
 

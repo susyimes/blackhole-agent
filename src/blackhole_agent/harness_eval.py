@@ -2370,6 +2370,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass1_handoff_packet": pass1_handoff_packet,
         "pass1_validation_queue": pass1_validation_queue,
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
+        "current_pass2_validation_lane": lane_map["current_pass2_validation_lane"],
         "active_window_route_lane_matrix": active_window_route_lane_matrix,
         "active_window_activation_candidate_lane": active_window_activation_candidate_lane,
         "active_pass1_proposal_replay_lane": lane_map["active_pass1_proposal_replay_lane"],

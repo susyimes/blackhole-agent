@@ -3009,6 +3009,29 @@ execution, upstream skill activation, provider launch, profile writes, memory
 writes, remote execution, raw source URLs, raw evidence URLs, target paths,
 replay-command bodies, and upstream bodies remain outside the handoff.
 
+## Current Run Pass 2 Batch Validation Lane
+
+Source digest `github-growth-20260628T084729.600885Z` advances pass 2 with
+`skill_route_discovery_current_pass2_validation_lane` exposed directly from the
+local harness output. The lane binds `p1-skill-route-discovery-batch` to the
+three required skill-route profiles for this wake:
+`generic_skill_workflow`, `game_frontend_workflow`, and
+`skill_ecosystem_state_handoff`. Pass-2 readiness now requires all three
+profiles to be present before the packet can report `ready`.
+
+Qwen-AgentWorld-style benchmark evidence and Looper-style loop-control
+evidence are carried as adjacent `agent_harness_eval_required` rows only. They
+may use documentation, test, or code_patch evaluation lanes after the local
+harness-eval route is replayed, but they do not inherit `skill_route_discovery`,
+runtime authority, direct controller changes, provider launch, external harness
+execution, remote execution, or upstream agent activation.
+
+The packet exports selected item IDs, route profiles, source hashes, bounded
+lane names, validation gates, and eval-only adjacent rows. It does not export
+raw source URLs, raw evidence URLs, local target paths, replay-command bodies,
+upstream bodies, profile writes, memory writes, install requests, or runtime
+actions.
+
 ## Current Active Pass 3 Local Activation Proof
 
 Source digest `github-growth-20260628T062729.695489Z` advances pass 3 of the

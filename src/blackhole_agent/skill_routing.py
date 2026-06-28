@@ -1242,6 +1242,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
     current_pass2_validation_lane = _skill_route_discovery_current_pass2_validation_lane(
         candidate_lane_inventory,
         ignored_evidence_items,
+        source_digest=_skill_route_discovery_source_digest(registry),
     )
     current_window_pass2_route_lane_matrix = _skill_route_discovery_current_window_pass2_route_lane_matrix(
         candidate_lane_inventory,
@@ -3637,6 +3638,8 @@ def _skill_route_discovery_pass2_fixture_validation_lane(
 def _skill_route_discovery_current_pass2_validation_lane(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str = "",
 ) -> dict[str, Any]:
     """Bind the active pass-2 skill-route and adjacent agent-eval evidence."""
 
@@ -3741,15 +3744,16 @@ def _skill_route_discovery_current_pass2_validation_lane(
         and row["external_harness_execution_allowed"] is False
         for row in adjacent_rows
     )
-    has_generic_skill_route = any(
-        row["proposal_id"] == "p1-skill-route-discovery-general" and row["row_status"] == "ready"
-        for row in rows
+    required_profiles = (
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
     )
-    has_game_skill_route = any(
-        row["proposal_id"] == "p3-game-frontend-skill-profile" and row["row_status"] == "ready"
-        for row in rows
-    )
-    ready = bool(rows) and not blocked_rows and has_generic_skill_route and has_game_skill_route and adjacent_ready
+    observed_profile_set = set(observed_profiles)
+    missing_required_profiles = [
+        profile for profile in required_profiles if profile not in observed_profile_set
+    ]
+    ready = bool(rows) and not blocked_rows and not missing_required_profiles and adjacent_ready
 
     return {
         "controller_surface": "skill_route_discovery_current_pass2_validation_lane",
@@ -3759,20 +3763,22 @@ def _skill_route_discovery_current_pass2_validation_lane(
             if ready
             else "repair_current_pass2_skill_or_agent_eval_boundary_before_activation"
         ),
-        "source_digest": "github-growth-20260627T192729.517144Z",
+        "source_digest": source_digest or "github-growth-20260627T192729.517144Z",
         "capability_pass": 2,
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
-            "p1-skill-route-discovery-general",
-            "p2-agent-harness-eval",
-            "p3-game-frontend-skill-profile",
+            "p1-skill-route-discovery-batch",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-looper",
         ],
         "skill_route_candidate_count": len(rows),
         "adjacent_general_agent_count": len(adjacent_rows),
         "ready_skill_route_candidate_count": len([row for row in rows if row["row_status"] == "ready"]),
         "blocked_skill_route_candidate_names": blocked_rows,
+        "required_route_profiles": list(required_profiles),
         "observed_route_profiles": sorted(dict.fromkeys(profile for profile in observed_profiles if profile)),
+        "missing_required_route_profiles": missing_required_profiles,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "selected_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)

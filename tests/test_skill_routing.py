@@ -3523,8 +3523,8 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
 
     assert registry["registry_status"] == "classification_only"
-    assert registry["evidence_item_count"] == 3
-    assert registry["candidate_count"] == 2
+    assert registry["evidence_item_count"] == 4
+    assert registry["candidate_count"] == 3
     assert registry["ignored_evidence_item_count"] == 1
     assert registry["enabled_candidate_count"] == 0
     assert registry["executable_skill_count"] == 0
@@ -3542,11 +3542,11 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     assert current["decision"] == "current_pass2_skill_and_agent_evidence_ready_for_local_validation"
     assert current["source_digest"] == "github-growth-20260627T192729.517144Z"
     assert current["proposal_ids"] == [
-        "p1-skill-route-discovery-general",
-        "p2-agent-harness-eval",
-        "p3-game-frontend-skill-profile",
+        "p1-skill-route-discovery-batch",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-looper",
     ]
-    assert current["skill_route_candidate_count"] == 2
+    assert current["skill_route_candidate_count"] == 3
     assert current["adjacent_general_agent_count"] == 1
     assert current["agent_harness_eval_required"] is True
     assert current["agent_harness_required_signals"] == [
@@ -3565,6 +3565,12 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
         "quality",
     ]
     assert current["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert current["required_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert current["missing_required_route_profiles"] == []
     assert set(current["selected_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert current["runtime_action"] == "none"
     assert current["external_skill_activation_allowed"] is False
@@ -3601,6 +3607,15 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     assert rows["p3-game-frontend-skill-profile"]["replay_command"] == (
         "python -m pytest tests/test_skill_routing.py -q -k game_frontend"
     )
+
+    assert rows["p4-skill-ecosystem-state-handoff"]["candidate_name"] == "compass-skills"
+    assert rows["p4-skill-ecosystem-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p4-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    assert rows["p4-skill-ecosystem-state-handoff"]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
 
     adjacent = current["adjacent_general_agent_rows"][0]
     assert adjacent["proposal_id"] == "p2-agent-harness-eval"
