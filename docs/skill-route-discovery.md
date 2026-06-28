@@ -3651,3 +3651,28 @@ source-cited skill evidence remains a local validation candidate, Three.js game
 workflow evidence remains behind frontend validation before code changes, and
 COMPASS-style handoff evidence remains metadata-only unless a later local
 validation surface explicitly permits a narrower behavior.
+
+## Current Digest Pass 1 Route Discovery Index
+
+Source digest `github-growth-20260628T190729.559090Z` opens the next pass-1
+skill-route-discovery window with the active proposal IDs
+`p1-skill-route-discovery-index`, `p2-skill-route-fixture-tests`, and
+`p3-game-frontend-skill-profile`, while keeping
+`p4-agent-harness-eval-fixtures` and `p5-skill-ecosystem-state-handoff` visible
+as anchoring context.
+
+The local lane interprets the carried COMPASS Skills, zhengxi-views, and
+Three.js Game Skills evidence as a bounded route-discovery index first. The
+index and fixture-test proposals may cover all recognized skill-route profiles
+to confirm that public skill repositories classify only into documentation,
+config, test, or code_patch lanes. The game/frontend proposal narrows to
+`game_frontend_workflow` and records config metadata only until local frontend
+or render validation justifies patch work.
+
+Unsupported pressure from the evidence, including install, provider_runtime,
+runtime_execution, scaffold execution, provider launch, external skill
+activation, external harness execution, remote execution, profile writes,
+memory writes, raw source URL export, raw evidence URL export, target path
+export, replay-command export, and upstream body export remains denied.
+Adjacent Qwen-AgentWorld-style general-agent evidence stays in
+`agent_harness_eval_required` and does not inherit `skill_route_discovery`.

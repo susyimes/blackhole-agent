@@ -5231,7 +5231,58 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_174729_window = source_digest == "github-growth-20260628T174729.552272Z"
     current_150729_window = source_digest == "github-growth-20260628T150729.645832Z"
     current_162729_window = source_digest == "github-growth-20260628T162729.568714Z"
+    current_190729_window = source_digest == "github-growth-20260628T190729.559090Z"
     specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-index",
+                "proposal_kind": "documentation",
+                "proposal_track": "route_discovery_index",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "documentation",
+                "validation_target": "current_digest_skill_route_discovery_index",
+                "validation_task": (
+                    "record how carried public skill repositories classify into bounded local "
+                    "documentation, config, test, or code_patch lanes before implementation"
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-route-fixture-tests",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_route_classification_fixtures",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "test",
+                "validation_target": "current_digest_skill_route_fixture_regression",
+                "validation_task": (
+                    "assert skill-term trends map to skill_route_discovery and strip unsupported "
+                    "activation, provider, and execution lanes"
+                ),
+            },
+            {
+                "proposal_id": "p3-game-frontend-skill-profile",
+                "proposal_kind": "config",
+                "proposal_track": "game_frontend_workflow",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "config",
+                "validation_target": "game_frontend_workflow_route_profile_metadata_only",
+                "validation_task": (
+                    "validate game frontend skill evidence affects only route metadata before "
+                    "local frontend or render validation justifies patch work"
+                ),
+            },
+        )
+        if current_190729_window
+        else (
         {
             "proposal_id": (
                 "proposal_skill_route_discovery_index"
@@ -5292,6 +5343,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "when no concrete handoff schema is present"
             ),
         },
+        )
     )
 
     rows: list[dict[str, Any]] = []
@@ -5403,9 +5455,13 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "p4-agent-harness-eval"
                 if current_174729_window
                 else (
-                    "p4-agent-harness-eval-fixture"
-                    if current_150729_window
-                    else "p4-agent-harness-eval-qwen"
+                    "p4-agent-harness-eval-fixtures"
+                    if current_190729_window
+                    else (
+                        "p4-agent-harness-eval-fixture"
+                        if current_150729_window
+                        else "p4-agent-harness-eval-qwen"
+                    )
                 )
             )
         ),
@@ -5432,6 +5488,48 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     )
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
+    anchoring_proposal_ids = (
+        [
+            "proposal_skill_route_discovery_index",
+            "proposal_game_frontend_skill_profile",
+            "proposal_skill_state_handoff_profile",
+            "proposal_agent_harness_eval_fixtures",
+            "proposal_route_confidence_reporting",
+        ]
+        if current_162729_window
+        else [
+            "p1-skill-route-discovery-generic",
+            "p2-threejs-game-skill-routing",
+            "p3-skill-ecosystem-state-handoff",
+            "p4-agent-harness-eval",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        if current_174729_window
+        else [
+            "p1-skill-route-discovery-index",
+            "p2-skill-route-fixture-tests",
+            "p3-game-frontend-skill-profile",
+            "p4-agent-harness-eval-fixtures",
+            "p5-skill-ecosystem-state-handoff",
+        ]
+        if current_190729_window
+        else [
+            "p1-skill-route-discovery-index",
+            "p2-game-frontend-skill-profile",
+            "p3-skill-ecosystem-handoff-profile",
+            "p4-agent-harness-eval-fixture",
+            "p5-proposal-output-citation-guard",
+        ]
+        if current_150729_window
+        else [
+            "p1-skill-route-discovery-generic",
+            "p2-game-frontend-skill-profile",
+            "p3-skill-ecosystem-state-handoff",
+            "p4-agent-harness-eval-qwen",
+            "p5-agent-harness-eval-looper",
+        ]
+    )
+
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass1_validation_lane",
         "status": "ready" if ready else "blocked",
@@ -5446,39 +5544,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
-        "anchoring_proposal_ids": (
-            [
-                "proposal_skill_route_discovery_index",
-                "proposal_game_frontend_skill_profile",
-                "proposal_skill_state_handoff_profile",
-                "proposal_agent_harness_eval_fixtures",
-                "proposal_route_confidence_reporting",
-            ]
-            if current_162729_window
-            else [
-                "p1-skill-route-discovery-generic",
-                "p2-threejs-game-skill-routing",
-                "p3-skill-ecosystem-state-handoff",
-                "p4-agent-harness-eval",
-                "trend:lyra81604/zhengxi-views-1",
-            ]
-            if current_174729_window
-            else [
-                "p1-skill-route-discovery-index",
-                "p2-game-frontend-skill-profile",
-                "p3-skill-ecosystem-handoff-profile",
-                "p4-agent-harness-eval-fixture",
-                "p5-proposal-output-citation-guard",
-            ]
-            if current_150729_window
-            else [
-                "p1-skill-route-discovery-generic",
-                "p2-game-frontend-skill-profile",
-                "p3-skill-ecosystem-state-handoff",
-                "p4-agent-harness-eval-qwen",
-                "p5-agent-harness-eval-looper",
-            ]
-        ),
+        "anchoring_proposal_ids": anchoring_proposal_ids,
         "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),
