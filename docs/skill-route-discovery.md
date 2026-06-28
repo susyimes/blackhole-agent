@@ -3390,3 +3390,26 @@ raw source URLs, raw evidence URLs, target paths, replay-command bodies, and
 upstream bodies remain denied. Adjacent Qwen-AgentWorld or Looper-style
 general-agent evidence stays in `agent_harness_eval_required` and does not
 inherit skill-route implementation authority.
+
+## Current Digest Pass 3 Local Validation Lane
+
+Source digest `github-growth-20260628T142729.611973Z` advances pass 3 of the
+same skill-route-discovery slice with a focused local harness fixture:
+`skill_route_discovery_current_digest_pass3_local_validation_lane.json`. The
+fixture binds `p1-skill-route-discovery-views`,
+`p2-threejs-game-skill-profile`, and `p3-skill-ecosystem-state-handoff` to the
+operator-visible `pass3_handoff_packet.route_profile_lane_contract` and
+`proposal_lane_activation_contract`.
+
+The lane treats zhengxi-views-style generic skill workflow evidence as a local
+documentation lane, Three.js game/frontend skill evidence as a local test lane,
+and COMPASS-style state handoff evidence as a local config lane. Each row must
+remain inside documentation, config, test, or code_patch; require local
+validation; and deny runtime action, upstream skill activation, external
+harness execution, provider launch, remote execution, profile writes, memory
+writes, raw source URL export, raw evidence URL export, target path export, and
+upstream body export.
+
+Qwen-AgentWorld remains adjacent as `agent_harness_eval_required`; it does not
+inherit `skill_route_discovery` or direct implementation authority from the
+skill-route lane.

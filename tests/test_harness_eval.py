@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 80
-    assert payload["pass_count"] == 79
+    assert payload["fixture_count"] == 81
+    assert payload["pass_count"] == 80
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -201,6 +201,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-pass2-current-window-generic-lanes"]["passed"] is True
     assert results["skill-route-discovery-current-pass2-batch-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-pass3-current-window-route-probe"]["passed"] is True
+    assert results["skill-route-discovery-current-digest-pass3-local-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
@@ -15722,6 +15723,53 @@ def test_skill_route_discovery_current_pass2_batch_validation_lane_handles_adjac
     assert packet["external_agent_activation_allowed"] is False
     assert packet["external_harness_execution_allowed"] is False
     assert packet["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_pass3_local_validation_lane_is_bounded():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_pass3_local_validation_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    packet = output["pass3_handoff_packet"]
+    proposal_contract = packet["proposal_lane_activation_contract"]
+    profile_contract = packet["route_profile_lane_contract"]
+    rows = {row["proposal_id"]: row for row in proposal_contract["rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert packet["status"] == "ready"
+    assert proposal_contract["status"] == "ready"
+    assert proposal_contract["active_skill_proposal_ids"] == [
+        "p1-skill-route-discovery-views",
+        "p2-threejs-game-skill-profile",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert proposal_contract["blocked_adjacent_proposal_ids"] == ["p4-agent-harness-eval-qwen"]
+    assert rows["p1-skill-route-discovery-views"]["route_profile"] == "generic_skill_workflow"
+    assert rows["p1-skill-route-discovery-views"]["selected_local_lane"] == "documentation"
+    assert rows["p2-threejs-game-skill-profile"]["route_profile"] == "game_frontend_workflow"
+    assert rows["p2-threejs-game-skill-profile"]["selected_local_lane"] == "test"
+    assert rows["p3-skill-ecosystem-state-handoff"]["route_profile"] == "skill_ecosystem_state_handoff"
+    assert rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in proposal_contract["rows"]
+    )
+    assert all(row["local_validation_required"] is True for row in proposal_contract["rows"])
+    assert all(row["runtime_action"] == "none" for row in proposal_contract["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in proposal_contract["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in proposal_contract["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in proposal_contract["rows"])
+    assert profile_contract["raw_evidence_urls_exported"] is False
+    assert profile_contract["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
 
 
