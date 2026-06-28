@@ -2823,12 +2823,12 @@ activation before that eval route is established.
 
 ## Active Window Pass 2 Validation Lane
 
-Source digest `github-growth-20260628T032729.534812Z` advances the active
+Source digest `github-growth-20260628T072729.647518Z` advances the active
 pass-2 skill-route-discovery window with `active_window_pass2_validation_lane`.
-The lane maps `p1-skill-route-discovery-general` to a local test lane for
-generic or source-cited skill workflow evidence, maps
-`p3-game-skill-workflow-docs` to a local documentation lane for
-`game_frontend_workflow`, and keeps `p2-agent-harness-eval` as adjacent
+The lane maps `p1-skill-route-discovery-generic` to a local test lane for
+generic, source-cited, and COMPASS-style state-handoff skill workflow evidence,
+maps `p2-game-skill-profile` to a local documentation lane for
+`game_frontend_workflow`, and keeps `p3-agent-harness-eval` as adjacent
 `agent_harness_eval_required` evidence when the repository is a general-agent
 project without skill workflow route hints.
 

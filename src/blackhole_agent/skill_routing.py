@@ -5795,15 +5795,19 @@ def _skill_route_discovery_active_window_pass2_validation_lane(
 
     specs = (
         {
-            "proposal_id": "p1-skill-route-discovery-general",
+            "proposal_id": "p1-skill-route-discovery-generic",
             "proposal_kind": "test",
             "proposal_track": "generic_skill_workflow",
-            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+            "route_profiles": (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "skill_ecosystem_state_handoff",
+            ),
             "selected_local_lane": "test",
             "validation_target": "skill_term_repository_trend_stays_in_bounded_local_lanes",
         },
         {
-            "proposal_id": "p3-game-skill-workflow-docs",
+            "proposal_id": "p2-game-skill-profile",
             "proposal_kind": "documentation",
             "proposal_track": "game_frontend_workflow",
             "route_profiles": ("game_frontend_workflow",),
@@ -5898,7 +5902,7 @@ def _skill_route_discovery_active_window_pass2_validation_lane(
 
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p2-agent-harness-eval",
+        proposal_id="p3-agent-harness-eval",
     )
     adjacent_blockers: list[str] = []
     for row in adjacent_rows:
@@ -5915,7 +5919,7 @@ def _skill_route_discovery_active_window_pass2_validation_lane(
     if adjacent_rows:
         rows.append(
             {
-                "proposal_id": "p2-agent-harness-eval",
+                "proposal_id": "p3-agent-harness-eval",
                 "proposal_kind": "test",
                 "proposal_track": "general_agent_project_harness_eval",
                 "status": "ready" if not adjacent_blockers else "blocked",
@@ -5962,9 +5966,15 @@ def _skill_route_discovery_active_window_pass2_validation_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
-            "p1-skill-route-discovery-general",
-            "p2-agent-harness-eval",
-            "p3-game-skill-workflow-docs",
+            "p1-skill-route-discovery-generic",
+            "p2-game-skill-profile",
+            "p3-agent-harness-eval",
+        ],
+        "anchoring_proposal_ids": [
+            "proposal-skill-route-discovery-generic-001",
+            "proposal-game-skill-route-profile-002",
+            "proposal-agent-harness-eval-004",
+            "proposal-trend-digest-policy-005",
         ],
         "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
@@ -5979,6 +5989,11 @@ def _skill_route_discovery_active_window_pass2_validation_lane(
         "adjacent_evaluation_lane": "agent_harness_eval_required",
         "agent_harness_eval_required": bool(adjacent_rows),
         "agent_harness_eval_required_before_implementation": bool(adjacent_rows),
+        "operator_next_action": (
+            "replay_active_window_pass2_validation_lane_before_activation"
+            if ready
+            else "repair_blocked_pass2_rows_then_replay_active_window_lane"
+        ),
         "required_evidence": [
             "selected_digest_item_ids_or_frozen_fixture",
             "body_free_repository_summary",
