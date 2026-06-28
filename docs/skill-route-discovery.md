@@ -2777,3 +2777,20 @@ install, provider_runtime, and runtime_execution pressure is removed from local
 proposal lanes. Raw source URLs, raw evidence URLs, target paths, replay
 commands, upstream bodies, profile writes, and memory writes remain outside the
 handoff.
+
+## Current Run Pass 4 Completion Lane
+
+Source digest `github-growth-20260628T024729.609046Z` completes the planned
+pass-4 skill-route-discovery window with `current_run_pass4_completion_lane`.
+The completion lane binds `proposal-skill-route-discovery-001` to the local
+test lane, `proposal-skill-route-docs-002` to the local documentation lane, and
+keeps `proposal-agent-harness-eval-003` in adjacent `agent_harness_eval_required`
+until the local agent-harness evaluation route is replayed.
+
+Skill-route rows may expose only documentation, config, test, or code_patch as
+local lanes and must carry selected digest item IDs or frozen fixture evidence,
+body-free summaries, rollback evidence, focused local validation, and a review
+note. Qwen-AgentWorld-style general-agent evidence does not inherit
+`skill_route_discovery`, direct code_patch authority, runtime authority,
+external harness execution, provider launch, remote execution, or upstream agent
+activation before that eval route is established.
