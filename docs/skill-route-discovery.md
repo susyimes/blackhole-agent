@@ -2675,3 +2675,27 @@ Example rejected citation shape:
   "uncertainty": "This cites a URL instead of a frozen item_id."
 }
 ```
+
+## Current Window Pass 4 Replay Gate
+
+Source digest `github-growth-20260628T012729.510462Z` completes the current
+skill-route-discovery slice with `current_window_pass4_supervisor_replay_gate`.
+The gate binds active proposals `p1-skill-route-discovery-fixtures`,
+`p2-skill-route-discovery-docs`, and `p3-agent-harness-eval-tests` to an
+operator-visible replay contract.
+
+COMPASS-style state handoff, zhengxi-views source-cited skill workflow, and
+Three.js game skill evidence remain `skill_route_discovery` records with only
+documentation, config, test, or code_patch lanes. The selected pass-4 lanes are
+test and documentation; local validation remains required before any supervisor
+promotion. Qwen-AgentWorld-style general-agent evidence is not promoted into a
+direct implementation lane. It stays in `agent_harness_eval_required` with no
+direct allowed lanes before a local agent-harness eval route establishes whether
+documentation, test, or code_patch work is justified.
+
+The replay gate exports selected item IDs, source hashes, route profiles,
+bounded lane names, validation gates, and replay-command hashes only. It keeps
+runtime action, external skill activation, external agent activation, external
+harness execution, provider launch, remote execution, profile writes, memory
+writes, raw evidence URLs, raw source URLs, target paths, replay commands, and
+upstream bodies out of the pass-4 handoff.
