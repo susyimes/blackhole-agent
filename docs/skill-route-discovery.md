@@ -3364,3 +3364,29 @@ inherit `skill_route_discovery`. Runtime action, external skill or agent
 activation, external harness execution, provider launch, remote execution, raw
 source URL export, raw evidence URL export, target path export, and upstream
 body export remain denied.
+
+## Current Digest Pass 2 Local Validation Lane
+
+Source digest `github-growth-20260628T140729.531143Z` advances pass 2 of the
+active skill-route-discovery slice with
+`current_digest_pass2_local_validation_lane`. The lane is keyed to the active
+proposal IDs `p1-skill-route-discovery-compass-handoff`,
+`p2-threejs-game-skill-routing-profile`, and
+`p3-generic-skill-workflow-discovery-fixture`.
+
+The lane interprets COMPASS-style skill ecosystem handoff evidence as a local
+test lane for documentation/config/test/patchable route metadata boundaries,
+Three.js game/frontend skill evidence as a local documentation lane for route
+profile handling before scaffold or runtime use, and generic agent-skill
+workflow evidence as a local test lane that keeps `runtime_action` set to
+`none`. Each row must carry selected digest item IDs or frozen fixture evidence,
+bounded lane inventory, route-profile validation gates, source hashes, and
+hashed replay commands only.
+
+This is a validation handoff, not an activation path. Install, runtime
+execution, provider runtime, external skill activation, external harness
+execution, provider launch, remote execution, profile writes, memory writes,
+raw source URLs, raw evidence URLs, target paths, replay-command bodies, and
+upstream bodies remain denied. Adjacent Qwen-AgentWorld or Looper-style
+general-agent evidence stays in `agent_harness_eval_required` and does not
+inherit skill-route implementation authority.
