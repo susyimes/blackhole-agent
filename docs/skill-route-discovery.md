@@ -2907,3 +2907,30 @@ the next-pass handoff. It must not export raw source URLs, raw evidence URLs,
 target paths, replay-command bodies, upstream bodies, or grant runtime action,
 external skill activation, external harness execution, provider launch, profile
 writes, memory writes, remote execution, install, or scaffold execution.
+
+## Focused Pass 3 Profile Proof Checklist
+
+Source digest `github-growth-20260628T050729.790102Z` advances pass 3 of the
+same skill-route-discovery slice by making each operator-visible validation row
+carry `profile_validation_requirements`. These requirements are derived from
+the local route-profile contracts, not from upstream skill bodies. They state
+what local validation must prove before activation:
+
+- `generic_skill_workflow` must prove frozen digest or fixture evidence
+  classifies a skill workflow without upstream activation.
+- `source_cited_domain_research` must prove citation traceability and advice
+  boundaries before any domain skill activation.
+- `game_frontend_workflow` must prove local frontend or test validation covers a
+  runnable game workflow and asset/provider boundaries.
+- `skill_ecosystem_state_handoff` must prove state handoff metadata remains
+  local config without profile or memory writes.
+
+The active pass keeps the same bounded lane boundary: skill-route evidence may
+select only documentation, config, test, or code_patch lanes, and every selected
+lane keeps `local_validation_required: true`. COMPASS-style state handoff,
+zhengxi-views-style source-cited skill workflow, and Three.js browser-game skill
+evidence remain local validation candidates only. General-agent projects without
+skill workflow signals remain adjacent `agent_harness_eval_required` evidence
+and do not inherit `skill_route_discovery`, direct code_patch authority, runtime
+action, provider launch, external harness execution, remote execution, or
+upstream agent activation.

@@ -1785,6 +1785,70 @@ def _skill_route_discovery_validation_contract(
     }
 
 
+def _skill_route_discovery_profile_validation_requirements(
+    route_profiles: Sequence[str],
+    allowed_lanes: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Return body-free proof requirements for each route profile before activation."""
+
+    contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
+    rows = contract.get("rows")
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return []
+
+    requirements: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        route_profile = str(row.get("route_profile") or "").strip()
+        if not route_profile:
+            continue
+        requirements.append(
+            {
+                "route_profile": route_profile,
+                "validation_gate": str(row.get("validation_gate") or "").strip(),
+                "must_prove_before_activation": _skill_route_discovery_profile_proof_target(route_profile),
+                "required_metadata": _string_list(row.get("required_metadata")),
+                "preferred_local_lanes": _string_list(row.get("preferred_local_lanes")),
+                "blocked_activation_reason": str(row.get("blocked_activation_reason") or "").strip(),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+    return requirements
+
+
+def _skill_route_discovery_profile_proof_target(route_profile: str) -> str:
+    """Describe the local proof expected for a route profile without upstream bodies."""
+
+    return {
+        "codex_workflow_gate": (
+            "prove_skill_route_discovery_runs_before_any_secondary_workflow_or_harness_gate"
+        ),
+        "game_frontend_workflow": (
+            "prove_local_frontend_or_test_validation_covers_runnable_game_workflow_and_asset_boundaries"
+        ),
+        "skill_ecosystem_state_handoff": (
+            "prove_state_handoff_metadata_remains_local_config_without_profile_or_memory_write"
+        ),
+        "source_cited_domain_research": (
+            "prove_citation_traceability_and_advice_boundary_before_domain_skill_activation"
+        ),
+        "generic_skill_workflow": (
+            "prove_frozen_digest_or_fixture_evidence_classifies_a_skill_workflow_without_upstream_activation"
+        ),
+    }.get(
+        route_profile,
+        "prove_frozen_digest_or_fixture_evidence_classifies_a_skill_workflow_without_upstream_activation",
+    )
+
+
 def _skill_route_discovery_handoff_metadata(
     route_profiles: Sequence[str],
     allowed_lanes: Sequence[str],
@@ -6939,6 +7003,12 @@ def _skill_route_discovery_current_window_pass3_validation_cases(
             blockers.append("missing_selected_item_ids_or_frozen_fixture")
         if not validation_gates:
             blockers.append("missing_validation_gate")
+        profile_validation_requirements = _skill_route_discovery_profile_validation_requirements(
+            matched_profiles,
+            bounded_lanes,
+        )
+        if not profile_validation_requirements:
+            blockers.append("missing_profile_validation_requirements")
 
         if selected_lane in bounded_lanes:
             selected_lanes.append(selected_lane)
@@ -6961,6 +7031,7 @@ def _skill_route_discovery_current_window_pass3_validation_cases(
                 "selected_evidence_item_ids": list(dict.fromkeys(selected_evidence_item_ids)),
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": spec["validation_target"],
+                "profile_validation_requirements": profile_validation_requirements,
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q -k "
                     "current_window_pass3_validation_cases"

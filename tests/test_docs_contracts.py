@@ -467,6 +467,15 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
         "next safe action",
         "hashed hint codes",
         "denies runtime action, external skill activation,\nexternal harness execution, provider launch, remote execution",
+        "## Focused Pass 3 Profile Proof Checklist",
+        "Source digest `github-growth-20260628T050729.790102Z`",
+        "`profile_validation_requirements`",
+        "local route-profile contracts, not from upstream skill bodies",
+        "`game_frontend_workflow` must prove local frontend or test validation covers a\n"
+        "  runnable game workflow and asset/provider boundaries",
+        "`skill_ecosystem_state_handoff` must prove state handoff metadata remains\n"
+        "  local config without profile or memory writes",
+        "General-agent projects without\nskill workflow signals remain adjacent `agent_harness_eval_required`",
         "\"evidence_refs\": [\"fablecodex-codex-skill-workflow\"]",
         "\"evidence_refs\": [\"https://github.com/baskduf/FableCodex\"]",
     ]

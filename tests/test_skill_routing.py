@@ -1171,11 +1171,38 @@ def test_skill_route_discovery_current_window_pass3_validation_cases_are_operato
     assert rows["p3-game-frontend-skill-profile"]["candidate_names"] == ["threejs-game-skills"]
     assert rows["p3-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
     assert rows["p3-game-frontend-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p3-game-frontend-skill-profile"]["profile_validation_requirements"] == [
+        {
+            "route_profile": "game_frontend_workflow",
+            "validation_gate": "local_frontend_validation_before_game_skill_activation",
+            "must_prove_before_activation": (
+                "prove_local_frontend_or_test_validation_covers_runnable_game_workflow_and_asset_boundaries"
+            ),
+            "required_metadata": [
+                "body_free_game_skill_summary",
+                "local_frontend_validation_target",
+                "asset_or_provider_boundary_note",
+            ],
+            "preferred_local_lanes": ["test", "documentation", "code_patch", "config"],
+            "blocked_activation_reason": "upstream_scaffold_or_provider_boundary_not_validated",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    ]
     assert rows["p4-skill-ecosystem-state-handoff-profile"]["candidate_names"] == ["compass-skills"]
     assert rows["p4-skill-ecosystem-state-handoff-profile"]["route_profiles"] == [
         "skill_ecosystem_state_handoff"
     ]
     assert rows["p4-skill-ecosystem-state-handoff-profile"]["selected_local_lane"] == "config"
+    assert rows["p4-skill-ecosystem-state-handoff-profile"]["profile_validation_requirements"][0][
+        "must_prove_before_activation"
+    ] == "prove_state_handoff_metadata_remains_local_config_without_profile_or_memory_write"
 
     for row in validation_cases["rows"]:
         assert row["status"] == "ready"
@@ -1185,6 +1212,7 @@ def test_skill_route_discovery_current_window_pass3_validation_cases_are_operato
         assert not {"install", "provider_runtime", "runtime_execution"} & set(row["allowed_local_lanes"])
         assert row["selected_evidence_item_ids"]
         assert row["validation_gates"]
+        assert row["profile_validation_requirements"]
         assert row["activation_blockers"] == []
         assert row["local_validation_required"] is True
         assert row["runtime_action"] == "none"
