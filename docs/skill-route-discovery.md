@@ -15,6 +15,20 @@ lane uses the registry source digest rather than stale pass metadata, and still
 requires rollback evidence, focused local validation, changed-file review, and
 external supervisor handoff before activation.
 
+Source digest `github-growth-20260628T222729.564410Z` advances the same slice
+for pass 3 by making the active proposal IDs operator-visible in
+`current_digest_pass3_focused_validation_packet`.
+`p1-skill-route-discovery-zhengxi-views` selects the local test lane for
+generic skill workflow discovery, `p2-threejs-game-skill-profile` selects the
+documentation lane for game/frontend skill profile routing, and
+`p3-skill-ecosystem-state-handoff` selects the config lane for metadata-only
+handoff routing. Unsupported install, provider runtime, and runtime execution
+pressure is excluded from the exported operator packet and is not part of
+`allowed_local_lanes`; it does not authorize upstream skill activation,
+external harness execution, provider launch, profile writes, memory writes, or
+remote execution. Adjacent Qwen-AgentWorld-style evidence remains
+`agent_harness_eval_required` and does not inherit `skill_route_discovery`.
+
 This note is grounded in source digest `github-growth-20260618T062043.878926Z`,
 refined by `github-growth-20260618T171207.138935Z`, clarified by
 `github-growth-20260618T193207.157147Z`, reaffirmed by

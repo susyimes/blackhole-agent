@@ -9899,8 +9899,36 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
     """Route this digest's pass-3 skill proposals into bounded local lanes."""
 
     current_210729_window = source_digest == "github-growth-20260628T210729.710960Z"
-    specs = (
-        (
+    current_222729_window = source_digest == "github-growth-20260628T222729.564410Z"
+    if current_222729_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow_discovery",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "test",
+                "validation_target": "generic_skill_workflow_signal_maps_to_bounded_local_validation",
+            },
+            {
+                "proposal_id": "p2-threejs-game-skill-profile",
+                "proposal_kind": "documentation",
+                "proposal_track": "game_frontend_workflow",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "game_frontend_skill_signal_requires_frontend_validation_before_patch",
+            },
+            {
+                "proposal_id": "p3-skill-ecosystem-state-handoff",
+                "proposal_kind": "config",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "config",
+                "validation_target": "state_handoff_skill_signal_remains_metadata_only_before_validation",
+            },
+        )
+    elif current_210729_window:
+        specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-matrix",
                 "proposal_kind": "test",
@@ -9926,8 +9954,8 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
                 "validation_target": "document_profile_to_lane_mapping_after_local_validation",
             },
         )
-        if current_210729_window
-        else (
+    else:
+        specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-index",
                 "proposal_kind": "test",
@@ -9958,7 +9986,6 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
                 "validation_target": "game_frontend_workflow_requires_local_frontend_validation_before_patch",
             },
         )
-    )
 
     rows: list[dict[str, Any]] = []
     selected_lanes: list[str] = []
@@ -10154,6 +10181,23 @@ def _skill_route_discovery_current_digest_pass3_focused_validation_packet(
             else "p4-agent-harness-eval"
         ],
         "anchoring_proposal_ids": (
+            [
+                "p1-skill-route-discovery-generic",
+                "p2-threejs-game-skill-routing-doc",
+                "p3-skill-ecosystem-state-handoff-config",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-2",
+                "proposal-skill-route-discovery-generic-views",
+                "proposal-game-frontend-skill-profile",
+                "proposal-skill-ecosystem-handoff-routing",
+                "proposal-combined-skill-route-fixture",
+                "proposal-agent-project-harness-followup",
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-threejs-game-skill-profile",
+                "p3-skill-ecosystem-state-handoff",
+            ]
+            if current_222729_window
+            else
             [
                 "p1-threejs-game-skill-route-discovery",
                 "p2-generic-skill-workflow-documentation",
