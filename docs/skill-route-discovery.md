@@ -2699,3 +2699,30 @@ runtime action, external skill activation, external agent activation, external
 harness execution, provider launch, remote execution, profile writes, memory
 writes, raw evidence URLs, raw source URLs, target paths, replay commands, and
 upstream bodies out of the pass-4 handoff.
+
+## Current Window Pass 1 Discovery Intake
+
+Source digest `github-growth-20260628T014729.582985Z` starts the next
+skill-route-discovery pass with `current_window_pass1_discovery_intake_lane`.
+The lane maps the active proposal IDs `p1-skill-route-discovery-catalog`,
+`p2-skill-profile-routing-tests`, `p4-game-frontend-skill-eval-fixture`, and
+`p5-skill-ecosystem-handoff-note` to bounded local skill-route work.
+
+The focused evidence keeps the same route boundary. COMPASS-style skill
+ecosystem evidence is a `skill_ecosystem_state_handoff` signal and may open
+documentation, config, test, or code_patch lanes, but profile and memory writes
+remain denied. zhengxi-views-style source-cited skill evidence is treated as
+`source_cited_domain_research`; it can drive local citation/advice-boundary
+validation, not provider launch or advice generation. Three.js game skill
+evidence is `game_frontend_workflow`; it can drive local documentation or test
+fixtures before any frontend code patch. Qwen-AgentWorld-style general-agent
+evidence remains adjacent `agent_harness_eval_required`; it does not inherit
+`skill_route_discovery`, direct runtime authority, or direct code_patch
+authority before the agent-harness eval lane is replayed.
+
+The intake lane exports proposal IDs, selected item IDs, route profiles, source
+hashes, selected bounded lanes, validation gates, and replay-command hashes
+only. It does not export raw source URLs, evidence URLs, target paths, replay
+commands, upstream bodies, install requests, runtime action, external skill or
+agent activation, external harness execution, provider launch, profile writes,
+memory writes, or remote execution.
