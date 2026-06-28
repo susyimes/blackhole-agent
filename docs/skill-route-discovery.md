@@ -3301,6 +3301,30 @@ raw target path export, raw upstream body export, or raw replay command export.
 Literal replay commands remain present only on the established local replay
 surfaces for operator execution; the manifest itself is hash-only.
 
+## Current Digest Pass 1 Validation Lane
+
+Source digest `github-growth-20260628T134729.588648Z` starts the next pass-1
+window with `current_digest_pass1_validation_lane`. The lane binds the active
+proposal IDs `p1-skill-route-discovery-generic`,
+`p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-state-handoff` to the current digest's bounded local
+validation work.
+
+The lane keeps zhengxi-views-style generic or source-cited skill evidence in a
+local test lane, Three.js game/frontend workflow evidence in a documentation
+lane until local frontend fixture validation exists, and COMPASS-style state
+handoff evidence in a config lane that records uncertainty instead of creating
+memory or profile behavior. Each row exports selected digest item IDs, route
+profiles, bounded lane names, validation gates, validation task text, source
+hashes, and replay-command hashes only.
+
+Adjacent Qwen-AgentWorld or Looper-style general-agent evidence is carried only
+as `agent_harness_eval_required`. It does not inherit `skill_route_discovery`,
+direct runtime authority, direct code_patch selection, provider launch,
+external harness execution, remote execution, profile writes, memory writes,
+raw source URL export, raw evidence URL export, raw target path export, replay
+command bodies, or upstream body export.
+
 ## Current Digest Pass 1 Active Proposal Aliases
 
 Source digest `github-growth-20260628T110729.847216Z` starts a new pass-1
