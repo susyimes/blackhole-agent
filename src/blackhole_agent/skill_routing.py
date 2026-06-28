@@ -5152,6 +5152,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
 ) -> dict[str, Any]:
     """Expose the active digest proposal IDs as first-pass validation lanes."""
 
+    current_174729_window = source_digest == "github-growth-20260628T174729.552272Z"
     current_150729_window = source_digest == "github-growth-20260628T150729.645832Z"
     current_162729_window = source_digest == "github-growth-20260628T162729.568714Z"
     specs = (
@@ -5179,7 +5180,11 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "proposal_id": (
                 "proposal_game_frontend_skill_profile"
                 if current_162729_window
-                else "p2-game-frontend-skill-profile"
+                else (
+                    "p2-threejs-game-skill-routing"
+                    if current_174729_window
+                    else "p2-game-frontend-skill-profile"
+                )
             ),
             "proposal_kind": "documentation",
             "proposal_track": "game_frontend_workflow",
@@ -5319,9 +5324,13 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "proposal_agent_harness_eval_fixtures"
             if current_162729_window
             else (
-                "p4-agent-harness-eval-fixture"
-                if current_150729_window
-                else "p4-agent-harness-eval-qwen"
+                "p4-agent-harness-eval"
+                if current_174729_window
+                else (
+                    "p4-agent-harness-eval-fixture"
+                    if current_150729_window
+                    else "p4-agent-harness-eval-qwen"
+                )
             )
         ),
     ):
@@ -5370,6 +5379,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "proposal_route_confidence_reporting",
             ]
             if current_162729_window
+            else [
+                "p1-skill-route-discovery-generic",
+                "p2-threejs-game-skill-routing",
+                "p3-skill-ecosystem-state-handoff",
+                "p4-agent-harness-eval",
+                "trend:lyra81604/zhengxi-views-1",
+            ]
+            if current_174729_window
             else [
                 "p1-skill-route-discovery-index",
                 "p2-game-frontend-skill-profile",

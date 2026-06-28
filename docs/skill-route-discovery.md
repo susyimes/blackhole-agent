@@ -3557,3 +3557,24 @@ source URLs, replay command bodies, target paths, or upstream bodies. Runtime
 action, install, upstream skill or agent activation, external harness execution,
 provider launch, profile writes, memory writes, and remote execution remain
 denied.
+
+## Current Digest Pass 1 Local Lane Activation
+
+Source digest `github-growth-20260628T174729.552272Z` starts a new pass-1
+skill-route-discovery window with the active proposal IDs
+`p1-skill-route-discovery-generic`, `p2-threejs-game-skill-routing`, and
+`p3-skill-ecosystem-state-handoff`.
+
+The local lane map treats zhengxi-views-style agent/skill workflow signals as a
+generic local test lane, Three.js Game Skills as a game/frontend documentation
+lane, and COMPASS Skills as a metadata-only state-handoff config lane. Adjacent
+Qwen-AgentWorld evidence remains `agent_harness_eval_required` under
+`p4-agent-harness-eval`; it does not inherit `skill_route_discovery` lanes.
+
+The pass-1 surface exports selected item IDs, source hashes, route profiles,
+bounded lane names, validation gates, and replay-command hashes only.
+Documentation, config, test, and code_patch remain the only local skill-route
+lanes. Install, runtime execution, provider runtime, upstream skill activation,
+external harness execution, provider launch, profile writes, memory writes,
+remote execution, raw source URL export, raw evidence URL export, target path
+export, replay-command export, and upstream body export remain denied.
