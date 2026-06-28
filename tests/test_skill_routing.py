@@ -982,6 +982,112 @@ def test_skill_route_discovery_provider_runtime_pass2_four_item_matrix_requires_
     )
 
 
+def test_skill_route_discovery_current_window_pass2_route_lane_matrix_preserves_boundary():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass2_route_lane_matrix.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260628T004729.566895Z"
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["ignored_evidence_items"][0]["name"] == "Qwen-AgentWorld"
+
+    candidates_by_name = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    assert set(candidates_by_name) == {"compass-skills", "threejs-game-skills", "zhengxi-views"}
+    for candidate in candidates_by_name.values():
+        assert candidate["route_hints"] == ["skill_route_discovery"]
+        assert candidate["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert candidate["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+        assert candidate["validation_errors"] == []
+
+    matrix = lane_map["current_window_pass2_route_lane_matrix"]
+    assert matrix["controller_surface"] == "skill_route_discovery_current_window_pass2_route_lane_matrix"
+    assert matrix["status"] == "ready"
+    assert matrix["source_digest"] == "github-growth-20260628T004729.566895Z"
+    assert matrix["capability_pass"] == 2
+    assert matrix["proposal_ids"] == [
+        "p1-skill-route-discovery-index",
+        "p2-skill-route-discovery-test-fixtures",
+        "p3-game-frontend-skill-profile",
+        "p4-skill-ecosystem-state-handoff-profile",
+        "p5-agent-project-harness-eval-doc",
+    ]
+    assert matrix["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert matrix["selected_local_lanes"] == ["config", "test"]
+    assert matrix["local_validation_required"] is True
+    assert matrix["runtime_action"] == "none"
+    assert matrix["external_skill_activation_allowed"] is False
+    assert matrix["external_agent_activation_allowed"] is False
+    assert matrix["external_harness_execution_allowed"] is False
+    assert matrix["provider_runtime_launch_allowed"] is False
+    assert matrix["raw_source_url_exported"] is False
+    assert matrix["raw_evidence_urls_exported"] is False
+    assert matrix["raw_upstream_body_exported"] is False
+    assert matrix["interpreter_controller_boundary"] == {
+        "input_evidence_shape": "selected_digest_items_or_frozen_route_classification_fixture",
+        "preserved_fields": [
+            "route_hints",
+            "route_class",
+            "route_profiles",
+            "allowed_local_lanes",
+            "local_validation_required",
+        ],
+        "raw_upstream_body_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "runtime_action": "none",
+    }
+
+    rows_by_proposal = {row["proposal_id"]: row for row in matrix["rows"]}
+    assert set(rows_by_proposal) == {
+        "p1-skill-route-discovery-index",
+        "p2-skill-route-discovery-test-fixtures",
+        "p3-game-frontend-skill-profile",
+        "p4-skill-ecosystem-state-handoff-profile",
+    }
+    assert set(rows_by_proposal["p1-skill-route-discovery-index"]["candidate_names"]) == {
+        "compass-skills",
+        "threejs-game-skills",
+        "zhengxi-views",
+    }
+    assert set(rows_by_proposal["p1-skill-route-discovery-index"]["allowed_local_lanes"]) == set(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert rows_by_proposal["p1-skill-route-discovery-index"]["selected_local_lane"] == "test"
+    assert rows_by_proposal["p2-skill-route-discovery-test-fixtures"]["selected_local_lane"] == "test"
+    assert rows_by_proposal["p3-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows_by_proposal["p3-game-frontend-skill-profile"]["selected_local_lane"] == "test"
+    assert rows_by_proposal["p4-skill-ecosystem-state-handoff-profile"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows_by_proposal["p4-skill-ecosystem-state-handoff-profile"]["selected_local_lane"] == "config"
+    for row in matrix["rows"]:
+        assert row["route_hint"] == "skill_route_discovery"
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+
+    assert matrix["adjacent_general_agent_count"] == 1
+    adjacent = matrix["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p5-agent-project-harness-eval-doc"
+    assert adjacent["name"] == "Qwen-AgentWorld"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+
+
 def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candidates():
     fixture_path = (
         Path(__file__).parent

@@ -2565,6 +2565,24 @@ authority, provider launch, external harness execution, or upstream activation.
 The packet exposes selected item IDs and source hashes only, not raw source
 URLs, evidence URLs, target paths, replay commands, or upstream bodies.
 
+Source digest `github-growth-20260628T004729.566895Z` advances the same slice
+to pass 2 with `current_window_pass2_route_lane_matrix`. The matrix keeps the
+active skill-route proposals `p1-skill-route-discovery-index`,
+`p2-skill-route-discovery-test-fixtures`, `p3-game-frontend-skill-profile`, and
+`p4-skill-ecosystem-state-handoff-profile` as bounded local lanes while
+recording `p5-agent-project-harness-eval-doc` as an adjacent
+`agent_harness_eval_required` route. Nested `route_classification` metadata may
+carry route hints, route profiles, and requested local lanes, but the
+interpreter/controller boundary preserves only body-free metadata: selected item
+IDs or frozen fixtures, route class, profile names, allowed documentation,
+config, test, and code_patch lanes, validation gates, source hashes, and the
+local-validation requirement. Unsupported install, provider_runtime, and
+runtime_execution pressure is downgraded out of activation lanes. The matrix
+does not export raw source URLs, raw evidence URLs, raw target paths, replay
+command bodies, or upstream bodies, and it denies runtime action, external
+skill or agent activation, external harness execution, provider launch, profile
+writes, memory writes, and remote execution.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes

@@ -1,0 +1,15 @@
+Rollback point: skill-route-discovery pass 2 current window
+
+Created: 2026-06-28T00:48:17Z
+Original branch: codex/blackhole-evolve/20260628T004817.994709-add-or-extend-local-tests-that-verify-repositori
+Original HEAD: eb65a5d874a43cb9b5f6565a85c9054eec9076fa
+Rollback ref: refs/blackhole-rollback/20260628T004817Z-skill-route-discovery-pass2-current-window
+
+Recovery commands, explicit and destructive when executed by an operator:
+  git switch codex/blackhole-evolve/20260628T004817.994709-add-or-extend-local-tests-that-verify-repositori
+  git reset --hard eb65a5d874a43cb9b5f6565a85c9054eec9076fa
+  git clean -fd
+
+Notes:
+  Created before local self-modification for source digest github-growth-20260628T004729.566895Z.
+  Do not delete this artifact during the run that created it.
