@@ -3426,6 +3426,34 @@ def test_skill_route_discovery_current_digest_pass4_completion_handoff_closes_wi
         "confirm_profile_write_and_memory_write_remain_denied",
         "confirm_privacy_boundary_is_recorded_before_any_handoff_behavior",
     ]
+    prerequisite_lane = handoff["activation_prerequisite_lane"]
+    assert prerequisite_lane["controller_surface"] == "skill_route_discovery_activation_prerequisite_lane"
+    assert prerequisite_lane["status"] == "ready"
+    assert prerequisite_lane["decision"] == "skill_route_rows_have_operator_visible_activation_prerequisites"
+    assert prerequisite_lane["row_count"] == 3
+    assert prerequisite_lane["blocked_proposal_ids"] == []
+    assert prerequisite_lane["required_before_activation"] == [
+        "focused_evidence_review_completed",
+        "selected_item_ids_or_frozen_fixture_present",
+        "profile_validation_checklist_satisfied",
+        "bounded_local_validation_passed",
+        "rollback_ref_and_artifact_recorded",
+        "external_activation_boundary_confirmed",
+    ]
+    assert prerequisite_lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert prerequisite_lane["local_validation_required"] is True
+    assert prerequisite_lane["runtime_action"] == "none"
+    assert prerequisite_lane["external_skill_activation_allowed"] is False
+    assert prerequisite_lane["external_harness_execution_allowed"] is False
+    assert prerequisite_lane["provider_runtime_launch_allowed"] is False
+    assert prerequisite_lane["profile_write_allowed"] is False
+    assert prerequisite_lane["memory_write_allowed"] is False
+    assert prerequisite_lane["remote_execution_allowed"] is False
+    assert prerequisite_lane["raw_replay_command_exported"] is False
+    assert prerequisite_lane["raw_source_url_exported"] is False
+    assert prerequisite_lane["raw_evidence_urls_exported"] is False
+    assert prerequisite_lane["raw_target_paths_exported"] is False
+    assert prerequisite_lane["raw_upstream_body_exported"] is False
     assert handoff["accepted_outputs"] == ["docs", "config", "tests", "code_patch"]
     assert handoff["operator_handoff"] == "external_supervisor_replay_without_kernel_restart"
     assert handoff["operator_next_action"] == (
@@ -3473,6 +3501,37 @@ def test_skill_route_discovery_current_digest_pass4_completion_handoff_closes_wi
         "confirm_profile_write_and_memory_write_remain_denied",
         "confirm_privacy_boundary_is_recorded_before_any_handoff_behavior",
     ]
+
+    prerequisite_rows = {row["proposal_id"]: row for row in prerequisite_lane["rows"]}
+    assert list(prerequisite_rows) == [
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-handoff",
+    ]
+    assert prerequisite_rows["p1-skill-route-discovery-generic"]["candidate_names"] == ["zhengxi-views"]
+    assert prerequisite_rows["p1-skill-route-discovery-generic"]["required_before_activation"] == [
+        "focused_evidence_review_completed",
+        "selected_item_ids_or_frozen_fixture_present",
+        "profile_validation_checklist_satisfied",
+        "bounded_local_validation_passed",
+        "rollback_ref_and_artifact_recorded",
+        "external_activation_boundary_confirmed",
+    ]
+    assert prerequisite_rows["p2-game-frontend-skill-profile"]["route_profiles"] == [
+        "game_frontend_workflow"
+    ]
+    assert prerequisite_rows["p3-skill-ecosystem-handoff"]["selected_local_lane"] == "test"
+    for prerequisite_row in prerequisite_rows.values():
+        assert prerequisite_row["status"] == "ready"
+        assert prerequisite_row["activation_blockers"] == []
+        assert prerequisite_row["profile_validation_checklist"]
+        assert prerequisite_row["runtime_action"] == "none"
+        assert prerequisite_row["external_skill_activation_allowed"] is False
+        assert prerequisite_row["external_harness_execution_allowed"] is False
+        assert prerequisite_row["provider_runtime_launch_allowed"] is False
+        assert prerequisite_row["profile_write_allowed"] is False
+        assert prerequisite_row["memory_write_allowed"] is False
+        assert prerequisite_row["remote_execution_allowed"] is False
 
     for row in rows.values():
         assert row["status"] == "ready"

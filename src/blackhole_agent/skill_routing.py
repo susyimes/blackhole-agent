@@ -6075,6 +6075,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 if profile in observed_profile_set
             ]
         ),
+        "activation_prerequisite_lane": _skill_route_discovery_activation_prerequisite_lane(rows),
         "accepted_outputs": ["docs", "config", "tests", "code_patch"],
         "operator_handoff": "external_supervisor_replay_without_kernel_restart",
         "operator_next_action": (
@@ -11686,6 +11687,119 @@ def _skill_route_discovery_profile_validation_checklist(route_profiles: Sequence
     for profile in route_profiles:
         checklist.extend(checks_by_profile.get(profile, ()))
     return list(dict.fromkeys(checklist))
+
+
+def _skill_route_discovery_activation_prerequisite_lane(
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize final activation prerequisites without adding runtime authority."""
+
+    prerequisite_rows: list[dict[str, Any]] = []
+    blocker_rows: list[str] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        proposal_id = str(row.get("proposal_id") or "")
+        selected_lane = str(row.get("selected_local_lane") or "")
+        route_profiles = _string_list(row.get("route_profiles"))
+        checklist = _string_list(row.get("profile_validation_checklist"))
+        row_blockers: list[str] = []
+        if row.get("status") != "ready":
+            row_blockers.append("completion_row_not_ready")
+        if selected_lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            row_blockers.append("selected_lane_not_bounded")
+        if not _string_list(row.get("selected_evidence_item_ids")):
+            row_blockers.append("selected_evidence_item_ids_missing")
+        if not _string_list(row.get("validation_gates")):
+            row_blockers.append("validation_gates_missing")
+        if not checklist:
+            row_blockers.append("profile_validation_checklist_missing")
+        if str(row.get("runtime_action") or "") != "none":
+            row_blockers.append("runtime_action_not_none")
+        for field_name in (
+            "external_skill_activation_allowed",
+            "external_harness_execution_allowed",
+            "provider_runtime_launch_allowed",
+            "profile_write_allowed",
+            "memory_write_allowed",
+            "remote_execution_allowed",
+            "raw_source_url_exported",
+            "raw_evidence_urls_exported",
+            "raw_target_paths_exported",
+            "raw_upstream_body_exported",
+        ):
+            if row.get(field_name) is not False:
+                row_blockers.append(f"{field_name}_must_be_false")
+        if row_blockers:
+            blocker_rows.append(proposal_id or "unnamed_proposal")
+
+        prerequisite_rows.append(
+            {
+                "proposal_id": proposal_id,
+                "candidate_names": _string_list(row.get("candidate_names")),
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES else "",
+                "required_before_activation": [
+                    "focused_evidence_review_completed",
+                    "selected_item_ids_or_frozen_fixture_present",
+                    "profile_validation_checklist_satisfied",
+                    "bounded_local_validation_passed",
+                    "rollback_ref_and_artifact_recorded",
+                    "external_activation_boundary_confirmed",
+                ],
+                "profile_validation_checklist": checklist,
+                "status": "ready" if not row_blockers else "blocked",
+                "activation_blockers": row_blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_activation_prerequisite_lane",
+        "status": "ready" if prerequisite_rows and not blocker_rows else "blocked",
+        "decision": (
+            "skill_route_rows_have_operator_visible_activation_prerequisites"
+            if prerequisite_rows and not blocker_rows
+            else "repair_skill_route_activation_prerequisites_before_supervisor_replay"
+        ),
+        "row_count": len(prerequisite_rows),
+        "blocked_proposal_ids": blocker_rows,
+        "required_before_activation": [
+            "focused_evidence_review_completed",
+            "selected_item_ids_or_frozen_fixture_present",
+            "profile_validation_checklist_satisfied",
+            "bounded_local_validation_passed",
+            "rollback_ref_and_artifact_recorded",
+            "external_activation_boundary_confirmed",
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_command_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": prerequisite_rows,
+    }
 
 
 def _skill_route_discovery_adjacent_general_agent_rows(

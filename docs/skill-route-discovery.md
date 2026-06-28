@@ -3631,3 +3631,23 @@ browser runtime control, or upstream skill activation. Adjacent
 Qwen-AgentWorld-style general-agent evidence stays in
 `agent_harness_eval_required` and does not inherit `skill_route_discovery`,
 direct runtime authority, or direct code_patch selection.
+
+## Current Digest Pass 4 Activation Prerequisites
+
+Source digest `github-growth-20260628T184729.576873Z` completes the active
+skill-route-discovery window with an operator-visible
+`activation_prerequisite_lane` embedded in the current digest pass-4 completion
+handoff. The lane converts the focused zhengxi-views, Three.js Game Skills, and
+COMPASS Skills rows into explicit prerequisites before supervisor replay:
+focused evidence review, selected item IDs or frozen fixture evidence, profile
+validation checklist completion, bounded local validation, rollback artifact
+coverage, and confirmation that external activation remains denied.
+
+This lane is derived from local completion rows only. It does not read upstream
+bodies, export raw source URLs, export raw replay commands, expose target paths,
+install upstream skills, execute scaffolds, launch providers, write profiles,
+write memory, restart the kernel, or grant remote execution. zhengxi-views-style
+source-cited skill evidence remains a local validation candidate, Three.js game
+workflow evidence remains behind frontend validation before code changes, and
+COMPASS-style handoff evidence remains metadata-only unless a later local
+validation surface explicitly permits a narrower behavior.
