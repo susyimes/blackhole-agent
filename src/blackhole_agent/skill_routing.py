@@ -3882,6 +3882,11 @@ def _skill_route_discovery_current_pass2_validation_lane(
         adjacent_rows,
         ready=ready,
     )
+    proposal_acceptance_contract = _skill_route_discovery_pass2_proposal_acceptance_contract(
+        rows,
+        adjacent_rows,
+        ready=ready,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_current_pass2_validation_lane",
@@ -3939,8 +3944,150 @@ def _skill_route_discovery_current_pass2_validation_lane(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "preactivation_checklist": preactivation_checklist,
+        "proposal_acceptance_contract": proposal_acceptance_contract,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_pass2_proposal_acceptance_contract(
+    skill_rows: Sequence[Mapping[str, Any]],
+    adjacent_agent_rows: Sequence[Mapping[str, Any]],
+    *,
+    ready: bool,
+) -> dict[str, Any]:
+    """Expose pass-2 proposal acceptance gates without adding activation authority."""
+
+    route_profile_aliases = {
+        "generic_skill_workflow": "p1-skill-route-discovery-zviews",
+        "source_cited_domain_research": "p1-skill-route-discovery-zviews",
+        "game_frontend_workflow": "p2-skill-route-discovery-game-frontend",
+        "skill_ecosystem_state_handoff": "p3-skill-ecosystem-state-handoff",
+    }
+    rows: list[dict[str, Any]] = []
+    blocked_proposal_ids: list[str] = []
+
+    for row in skill_rows:
+        route_profiles = _string_list(row.get("route_profiles"))
+        selected_lane = str(row.get("selected_local_lane") or "")
+        allowed_local_lanes = _string_list(row.get("allowed_local_lanes"))
+        active_proposal_id = next(
+            (
+                route_profile_aliases[profile]
+                for profile in route_profiles
+                if profile in route_profile_aliases
+            ),
+            str(row.get("proposal_id") or ""),
+        )
+        acceptance_gates = {
+            "bounded_lane": selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and set(allowed_local_lanes).issubset(set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)),
+            "local_validation_required": row.get("local_validation_required") is True,
+            "runtime_action_none": str(row.get("runtime_action") or "") == "none",
+            "external_skill_activation_denied": row.get("external_skill_activation_allowed") is False,
+            "external_agent_activation_denied": row.get("external_agent_activation_allowed") is False,
+            "external_harness_execution_denied": row.get("external_harness_execution_allowed") is False,
+            "provider_runtime_launch_denied": row.get("provider_runtime_launch_allowed") is False,
+            "remote_execution_denied": row.get("remote_execution_allowed") is False,
+            "raw_evidence_urls_not_exported": row.get("raw_evidence_urls_exported") is False,
+            "raw_source_url_not_exported": row.get("raw_source_url_exported") is False,
+            "raw_target_paths_not_exported": row.get("raw_target_paths_exported") is False,
+            "raw_upstream_body_not_exported": row.get("raw_upstream_body_exported") is False,
+        }
+        accepted = ready and row.get("row_status") == "ready" and all(acceptance_gates.values())
+        if not accepted:
+            blocked_proposal_ids.append(active_proposal_id)
+        rows.append(
+            {
+                "proposal_id": active_proposal_id,
+                "source_lane_proposal_id": str(row.get("proposal_id") or ""),
+                "candidate_name_hash": _stable_hash(str(row.get("candidate_name") or "")),
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_local_lanes,
+                "selected_evidence_item_id_count": len(_string_list(row.get("selected_evidence_item_ids"))),
+                "validation_gates": _string_list(row.get("validation_gates")),
+                "replay_command_hash": _stable_hash(str(row.get("replay_command") or "")),
+                "accepted_for_local_validation": accepted,
+                "acceptance_gates": acceptance_gates,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_replay_command_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    adjacent_rows = [
+        {
+            "proposal_id": str(row.get("proposal_id") or ""),
+            "item_id_hash": _stable_hash(str(row.get("item_id") or "")),
+            "evaluation_lane": str(row.get("evaluation_lane") or "agent_harness_eval_required"),
+            "skill_route_discovery_inherited": row.get("skill_route_discovery_inherited") is True,
+            "accepted_for_local_validation": row.get("skill_route_discovery_inherited") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("direct_runtime_route_allowed") is False,
+            "allowed_local_lanes": _string_list(row.get("allowed_local_lanes")),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_replay_command_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for row in adjacent_agent_rows
+    ]
+    adjacent_ready = all(row["accepted_for_local_validation"] for row in adjacent_rows)
+    rows = sorted(rows, key=lambda row: str(row.get("proposal_id") or ""))
+    contract_ready = ready and bool(rows) and not blocked_proposal_ids and adjacent_ready
+
+    return {
+        "controller_surface": "skill_route_discovery_current_pass2_proposal_acceptance_contract",
+        "status": "ready" if contract_ready else "blocked",
+        "decision": (
+            "active_pass2_skill_route_proposals_accepted_for_bounded_local_validation"
+            if contract_ready
+            else "repair_active_pass2_proposal_acceptance_before_activation"
+        ),
+        "proposal_ids": [str(row["proposal_id"]) for row in rows],
+        "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "adjacent_agent_harness_eval_count": len(adjacent_rows),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane
+            for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            if lane in {str(row.get("selected_local_lane") or "") for row in rows}
+        ],
+        "evidence_ref_mode": "selected_item_ids_only",
+        "review_gate": "focused-evidence-review",
+        "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_command_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

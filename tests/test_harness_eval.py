@@ -15707,6 +15707,28 @@ def test_skill_route_discovery_current_pass2_batch_validation_lane_handles_adjac
     ]
     assert packet["adjacent_general_agent_count"] == 2
     assert packet["agent_harness_eval_required"] is True
+    contract = packet["proposal_acceptance_contract"]
+    assert contract["status"] == "ready"
+    assert contract["proposal_ids"] == [
+        "p1-skill-route-discovery-zviews",
+        "p2-skill-route-discovery-game-frontend",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert contract["blocked_proposal_ids"] == []
+    assert contract["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert all(row["accepted_for_local_validation"] is True for row in contract["rows"])
+    assert all(row["runtime_action"] == "none" for row in contract["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in contract["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in contract["rows"])
+    assert contract["adjacent_agent_harness_eval_count"] == 2
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        for row in contract["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["skill_route_discovery_inherited"] is False
+        for row in contract["adjacent_general_agent_rows"]
+    )
     assert {row["name"] for row in packet["adjacent_general_agent_rows"]} == {
         "Qwen-AgentWorld",
         "looper",

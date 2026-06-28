@@ -4008,6 +4008,48 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     assert current["raw_target_paths_exported"] is False
     assert current["raw_upstream_body_exported"] is False
 
+    contract = current["proposal_acceptance_contract"]
+    assert contract["controller_surface"] == (
+        "skill_route_discovery_current_pass2_proposal_acceptance_contract"
+    )
+    assert contract["status"] == "ready"
+    assert contract["decision"] == (
+        "active_pass2_skill_route_proposals_accepted_for_bounded_local_validation"
+    )
+    assert contract["proposal_ids"] == [
+        "p1-skill-route-discovery-zviews",
+        "p2-skill-route-discovery-game-frontend",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert contract["blocked_proposal_ids"] == []
+    assert contract["adjacent_agent_harness_eval_count"] == 1
+    assert contract["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert contract["runtime_action"] == "none"
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["external_agent_activation_allowed"] is False
+    assert contract["external_harness_execution_allowed"] is False
+    assert contract["provider_runtime_launch_allowed"] is False
+    assert contract["raw_evidence_urls_exported"] is False
+
+    contract_rows = {row["proposal_id"]: row for row in contract["rows"]}
+    assert contract_rows["p1-skill-route-discovery-zviews"]["selected_local_lane"] == "documentation"
+    assert contract_rows["p2-skill-route-discovery-game-frontend"]["selected_local_lane"] == "test"
+    assert contract_rows["p3-skill-ecosystem-state-handoff"]["selected_local_lane"] == "config"
+    for row in contract["rows"]:
+        assert row["accepted_for_local_validation"] is True
+        assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert all(row["acceptance_gates"].values())
+        assert row["runtime_action"] == "none"
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_replay_command_exported"] is False
+
+    adjacent_contract = contract["adjacent_general_agent_rows"][0]
+    assert adjacent_contract["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent_contract["skill_route_discovery_inherited"] is False
+    assert adjacent_contract["accepted_for_local_validation"] is True
+    assert adjacent_contract["external_harness_execution_allowed"] is False
+
     checklist = current["preactivation_checklist"]
     assert checklist["controller_surface"] == "skill_route_discovery_pass2_preactivation_checklist"
     assert checklist["status"] == "ready"

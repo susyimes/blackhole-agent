@@ -3070,6 +3070,17 @@ raw source URLs, raw evidence URLs, local target paths, replay-command bodies,
 upstream bodies, profile writes, memory writes, install requests, or runtime
 actions.
 
+The same lane now includes
+`proposal_acceptance_contract`, an active pass-2 proposal surface for
+`p1-skill-route-discovery-zviews`,
+`p2-skill-route-discovery-game-frontend`, and
+`p3-skill-ecosystem-state-handoff`. The contract records each proposal's
+selected bounded lane, route profile, validation gates, and denial gates for
+runtime action, upstream skill activation, external harness execution, provider
+launch, remote execution, raw URLs, raw replay commands, target paths, and
+upstream bodies. Adjacent Qwen-AgentWorld or Looper-style evidence remains in
+`agent_harness_eval_required` rows and cannot inherit skill-route authority.
+
 ## Current Active Pass 3 Local Activation Proof
 
 Source digest `github-growth-20260628T062729.695489Z` advances pass 3 of the
