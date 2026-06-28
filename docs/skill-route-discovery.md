@@ -3156,3 +3156,22 @@ raw source URLs, raw evidence URLs, target paths, replay-command bodies, and
 upstream bodies remain denied. A ready packet means the external supervisor may
 replay the validated local lanes and record completion; it is not a kernel
 restart or upstream skill activation path.
+
+## Current Pass 1 Focused Proposal Aliases
+
+Source digest `github-growth-20260628T094729.579910Z` starts the next pass-1
+window over zhengxi-views, Three.js Game Skills, and COMPASS Skills. The local
+validation cases now carry alias IDs for the active proposal names
+`p1_skill_route_discovery_generic_views`, `p2_game_frontend_skill_profile`, and
+`p3_skill_ecosystem_state_handoff` while preserving the existing stable case
+IDs used by older fixtures.
+
+The aliases are controller replay metadata only. They do not add lane names or
+runtime authority. zhengxi-views remains a source-cited or generic skill
+workflow validation case, Three.js Game Skills remains a game/frontend workflow
+case, and COMPASS Skills remains a state-handoff config case. Each row may map
+only to documentation, config, test, or code_patch lanes, requires local
+validation before activation, and continues to deny install, provider runtime,
+runtime execution, external skill activation, external harness execution,
+profile writes, memory writes, remote execution, raw source URL export, raw
+target path export, and upstream body export.

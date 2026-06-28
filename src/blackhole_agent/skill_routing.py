@@ -3439,6 +3439,7 @@ def _skill_route_discovery_current_pass_validation_cases(
     case_specs = (
         {
             "proposal_id": "p1_skill_route_discovery_generic_views",
+            "proposal_aliases": ("p1_skill_route_discovery_generic_views",),
             "proposal_kind": "test",
             "proposal_track": "generic_python_skill_repository",
             "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
@@ -3449,6 +3450,10 @@ def _skill_route_discovery_current_pass_validation_cases(
         },
         {
             "proposal_id": "p2_skill_route_discovery_game_frontend",
+            "proposal_aliases": (
+                "p2_skill_route_discovery_game_frontend",
+                "p2_game_frontend_skill_profile",
+            ),
             "proposal_kind": "documentation",
             "proposal_track": "game_frontend_workflow",
             "route_profiles": ("game_frontend_workflow",),
@@ -3459,6 +3464,10 @@ def _skill_route_discovery_current_pass_validation_cases(
         },
         {
             "proposal_id": "p3_skill_ecosystem_state_handoff_config",
+            "proposal_aliases": (
+                "p3_skill_ecosystem_state_handoff_config",
+                "p3_skill_ecosystem_state_handoff",
+            ),
             "proposal_kind": "config",
             "proposal_track": "skill_ecosystem_state_handoff",
             "route_profiles": ("skill_ecosystem_state_handoff",),
@@ -3500,6 +3509,7 @@ def _skill_route_discovery_current_pass_validation_cases(
         rows.append(
             {
                 "proposal_id": spec["proposal_id"],
+                "proposal_aliases": list(dict.fromkeys(_string_list(spec.get("proposal_aliases")))),
                 "proposal_kind": spec["proposal_kind"],
                 "proposal_track": spec["proposal_track"],
                 "status": status,
@@ -3538,6 +3548,9 @@ def _skill_route_discovery_current_pass_validation_cases(
         ),
         "review_gate": "focused-evidence-review",
         "proposal_count": len(rows),
+        "proposal_alias_ids": list(
+            dict.fromkeys(alias for row in rows for alias in _string_list(row.get("proposal_aliases")))
+        ),
         "ready_proposal_count": len(rows) - len(blocked_rows),
         "blocked_proposal_ids": blocked_rows,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
