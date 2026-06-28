@@ -3008,3 +3008,31 @@ requirements only. Runtime action, upstream skill or agent activation, external
 harness execution, provider launch, profile writes, memory writes, remote
 execution, raw source URLs, raw evidence URLs, target paths, replay-command
 bodies, and upstream bodies remain denied.
+
+## Current Pass 4 Route Discovery Validation Fix
+
+Source digest `github-growth-20260628T064730.025611Z` completes the planned
+pass-4 `skill-route-discovery` window with
+`current_pass4_route_discovery_validation_fix`. The packet keeps the three
+current proposals separate for operator replay:
+`p1-skill-route-discovery-index` validates generic or source-cited skill
+workflow evidence through the local test lane,
+`p2-game-frontend-skill-doc-lane` documents the game/frontend workflow lane,
+and `p3-skill-ecosystem-handoff-config` validates COMPASS-style state handoff
+metadata through the local config lane.
+
+Game/frontend skill candidates may enter documentation, config, test, or
+code_patch lanes only after local validation covers assets, UI behavior,
+frontend testability, and provider or scaffold boundaries. Skill ecosystem
+state handoff candidates may enter the same bounded lanes only as local
+metadata or validation work; profile writes and memory writes remain denied
+until a separate privacy and state boundary is validated. Generic or
+source-cited skill workflow evidence stays body-free and must cite selected
+digest item IDs or frozen fixture evidence rather than raw repository URLs.
+
+The pass-4 validation-fix packet exports proposal IDs, route profiles, selected
+item IDs, source hashes, bounded lane names, validation gates, and replay-command
+hashes only. Unsupported install, provider runtime, runtime execution, external
+harness execution, upstream skill activation, provider launch, profile writes,
+memory writes, remote execution, raw source URLs, raw evidence URLs, target
+paths, replay-command bodies, and upstream bodies remain outside the handoff.

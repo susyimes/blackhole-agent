@@ -1269,6 +1269,12 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_pass4_route_discovery_validation_fix = (
+        _skill_route_discovery_current_pass4_route_discovery_validation_fix(
+            candidate_lane_inventory,
+            source_digest=_skill_route_discovery_source_digest(registry),
+        )
+    )
     active_window_pass2_validation_lane = _skill_route_discovery_active_window_pass2_validation_lane(
         candidate_lane_inventory,
         ignored_evidence_items,
@@ -1377,6 +1383,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_active_pass3_local_activation_proof_lane": (
             current_active_pass3_local_activation_proof_lane
         ),
+        "current_pass4_route_discovery_validation_fix": current_pass4_route_discovery_validation_fix,
         "active_window_pass2_validation_lane": active_window_pass2_validation_lane,
         "active_pass3_activation_candidate_lane": active_pass3_activation_candidate_lane,
         "current_run_pass3_validation_lane": current_run_pass3_validation_lane,
@@ -5353,6 +5360,226 @@ def _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
             "replay_hashed_pass3_activation_proofs_then_continue_to_pass4"
             if ready
             else "repair_blocked_rows_then_rebuild_pass3_activation_proofs"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_current_pass4_route_discovery_validation_fix(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Final pass validation surface for current skill-route discovery proposals."""
+
+    specs = (
+        {
+            "proposal_id": "p1-skill-route-discovery-index",
+            "proposal_kind": "test",
+            "proposal_track": "generic_skill_route_discovery_index",
+            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+            "selected_local_lane": "test",
+            "validation_target": "generic_skill_profile_fixture_keeps_route_lanes_bounded",
+        },
+        {
+            "proposal_id": "p2-game-frontend-skill-doc-lane",
+            "proposal_kind": "documentation",
+            "proposal_track": "game_frontend_workflow_documentation_lane",
+            "route_profiles": ("game_frontend_workflow",),
+            "selected_local_lane": "documentation",
+            "validation_target": "game_frontend_skill_lane_requires_local_asset_ui_and_testability_validation",
+        },
+        {
+            "proposal_id": "p3-skill-ecosystem-handoff-config",
+            "proposal_kind": "config",
+            "proposal_track": "skill_ecosystem_state_handoff_config",
+            "route_profiles": ("skill_ecosystem_state_handoff",),
+            "selected_local_lane": "config",
+            "validation_target": "state_handoff_profile_remains_config_only_without_profile_or_memory_write",
+        },
+    )
+
+    rows: list[dict[str, Any]] = []
+    observed_profiles: list[str] = []
+    selected_lanes: list[str] = []
+    selected_item_ids: list[str] = []
+    downgraded_lanes: list[str] = []
+
+    for spec in specs:
+        required_profiles = set(_string_list(spec["route_profiles"]))
+        candidate_names: list[str] = []
+        candidate_source_hashes: list[str] = []
+        evidence_item_ids: list[str] = []
+        matched_profiles: list[str] = []
+        allowed_lanes: list[str] = []
+        validation_gates: list[str] = []
+        candidate_downgrades: list[str] = []
+
+        for candidate in sorted(
+            candidate_lane_inventory,
+            key=lambda item: str(item.get("candidate_name") or "").casefold(),
+        ):
+            candidate_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+            profile_matches = [profile for profile in candidate_profiles if profile in required_profiles]
+            if not profile_matches:
+                continue
+
+            candidate_name = str(candidate.get("candidate_name") or "")
+            if candidate_name:
+                candidate_names.append(candidate_name)
+            candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
+            item_ids = _string_list(candidate.get("evidence_item_ids"))
+            evidence_item_ids.extend(item_ids)
+            selected_item_ids.extend(item_ids)
+            matched_profiles.extend(profile_matches)
+            observed_profiles.extend(profile_matches)
+            allowed_lanes.extend(
+                lane
+                for lane in _string_list(candidate.get("proposal_kinds"))
+                if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            )
+            validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
+            candidate_downgrades.extend(_string_list(candidate.get("downgraded_lane_names")))
+
+        bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
+        selected_lane = str(spec["selected_local_lane"])
+        profile_requirements = _skill_route_discovery_profile_validation_requirements(
+            matched_profiles,
+            bounded_lanes,
+        )
+        blockers: list[str] = []
+        if not candidate_names:
+            blockers.append("matching_skill_route_candidate_missing")
+        if selected_lane not in bounded_lanes:
+            blockers.append("selected_local_lane_not_bounded")
+        if not evidence_item_ids:
+            blockers.append("selected_item_ids_or_frozen_fixture_missing")
+        if not validation_gates:
+            blockers.append("validation_gate_missing")
+        if not profile_requirements:
+            blockers.append("profile_validation_requirements_missing")
+
+        if selected_lane in bounded_lanes:
+            selected_lanes.append(selected_lane)
+        downgraded_lanes.extend(candidate_downgrades)
+
+        rows.append(
+            {
+                "proposal_id": str(spec["proposal_id"]),
+                "proposal_kind": str(spec["proposal_kind"]),
+                "proposal_track": str(spec["proposal_track"]),
+                "status": "ready" if not blockers else "blocked",
+                "activation_blockers": blockers,
+                "candidate_names": list(dict.fromkeys(candidate_names)),
+                "candidate_source_hashes": list(dict.fromkeys(candidate_source_hashes)),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": list(dict.fromkeys(matched_profiles)),
+                "allowed_local_lanes": bounded_lanes,
+                "selected_local_lane": selected_lane if selected_lane in bounded_lanes else "",
+                "queued_local_lanes": [lane for lane in bounded_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": list(dict.fromkeys(evidence_item_ids)),
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "validation_target": str(spec["validation_target"]),
+                "profile_validation_requirements": profile_requirements,
+                "downgraded_unsupported_lanes": sorted(dict.fromkeys(candidate_downgrades)),
+                "validation_fix": "route_profile_to_bounded_local_lane_before_activation",
+                "activation_readiness": "pass4_validation_fix_ready_for_supervisor_replay"
+                if not blockers
+                else "blocked",
+                "replay_command_hash": _stable_hash(
+                    "python -m pytest tests/test_skill_routing.py -q "
+                    "-k current_pass4_route_discovery_validation_fix"
+                ),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_proposal_ids = [str(row["proposal_id"]) for row in rows if row["status"] != "ready"]
+    ready = len(rows) == len(specs) and not blocked_proposal_ids
+    return {
+        "controller_surface": "skill_route_discovery_current_pass4_route_discovery_validation_fix",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_pass4_skill_route_discovery_validation_fix_ready"
+            if ready
+            else "repair_current_pass4_skill_route_discovery_validation_fix_before_activation"
+        ),
+        "source_digest": source_digest or "github-growth-20260628T064730.025611Z",
+        "capability_pass": 4,
+        "total_passes": 4,
+        "capability_slice_complete": ready,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
+        "anchoring_proposal_ids": [
+            "p1-skill-route-discovery-regression",
+            "p2-skill-route-discovery-doc",
+            "p3-agent-harness-eval-fixtures",
+            "p4-route-proposal-schema-guard",
+            "p5-route-hint-to-lane-matrix-test",
+            "p1-skill-route-discovery-general",
+            "p2-game-frontend-skill-profile",
+            "p3-skill-ecosystem-state-handoff",
+        ],
+        "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "skill_route_candidate_count": len(candidate_lane_inventory),
+        "observed_route_profiles": [
+            profile
+            for profile in (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            )
+            if profile in set(observed_profiles)
+        ],
+        "selected_evidence_item_ids": list(dict.fromkeys(selected_item_ids)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "route_profile_validation_requirements",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "operator_handoff": "external_supervisor_replay_without_kernel_restart",
+        "operator_next_action": (
+            "replay_current_pass4_route_discovery_validation_fix_then_complete_slice"
+            if ready
+            else "repair_blocked_rows_then_rebuild_current_pass4_validation_fix"
         ),
         "local_validation_required": True,
         "runtime_action": "none",

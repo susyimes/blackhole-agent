@@ -1,0 +1,16 @@
+Rollback point for skill-route-discovery pass 4 local validation fix
+
+Original branch: codex/blackhole-evolve/20260628T064826.414487-add-a-local-skill-route-discovery-validation-fix
+Original HEAD: 6fe7bcedd4e56f57d75bb18c2f8a4b1ea9f4371c
+Local rollback ref: refs/rollback/20260628T064826Z-skill-route-discovery-pass4-local-validation-fix
+
+Recovery commands, if an external operator chooses destructive rollback:
+
+git switch codex/blackhole-evolve/20260628T064826.414487-add-a-local-skill-route-discovery-validation-fix
+git reset --hard 6fe7bcedd4e56f57d75bb18c2f8a4b1ea9f4371c
+
+Run context:
+- Source digest: github-growth-20260628T064730.025611Z
+- Capability theme: skill-route-discovery
+- Planned pass: 4 of 4
+- Change intent: add an operator-visible local validation surface for generic, game/frontend, and skill ecosystem handoff profiles while preserving bounded documentation/config/test/code_patch lanes.
