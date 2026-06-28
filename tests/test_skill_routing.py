@@ -7437,6 +7437,75 @@ def test_skill_route_discovery_current_run_pass4_completion_lane_finishes_active
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_current_digest_230729_pass1_current_window_readiness_is_bounded():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "local_harness_eval"
+        / "skill_route_discovery_current_digest_230729_pass1_current_window.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["input"]["evidence_items"])
+    registry["source_digest"] = payload["input"]["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    panel = lane_map["current_run_pass1_activation_readiness"]
+    rows = {row["proposal_id"]: row for row in panel["rows"]}
+    adjacent = panel["adjacent_general_agent_rows"][0]
+    serialized = json.dumps(panel, sort_keys=True)
+
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["ignored_evidence_items"][0]["name"] == "Qwen-AgentWorld"
+    assert registry["ignored_evidence_items"][0]["evaluation_lane"] == "agent_harness_eval_required"
+
+    assert panel["controller_surface"] == "skill_route_discovery_current_run_pass1_activation_readiness"
+    assert panel["status"] == "ready"
+    assert panel["source_digest"] == "github-growth-20260628T230729.580958Z"
+    assert panel["proposal_ids"] == [
+        "p1-skill-route-discovery-views",
+        "p3-threejs-game-skill-profile",
+        "p4-compass-skills-state-handoff",
+    ]
+    assert panel["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-views",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-threejs-game-skill-profile",
+        "p4-compass-skills-state-handoff",
+        "p5-agent-harness-eval-looper",
+    ]
+    assert panel["agent_harness_eval_required_count"] == 1
+    assert panel["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert rows["p1-skill-route-discovery-views"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p1-skill-route-discovery-views"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p1-skill-route-discovery-views"]["selected_local_lane"] == "test"
+    assert rows["p3-threejs-game-skill-profile"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["p3-threejs-game-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p3-threejs-game-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p4-compass-skills-state-handoff"]["candidate_names"] == ["compass-skills"]
+    assert rows["p4-compass-skills-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p4-compass-skills-state-handoff"]["selected_local_lane"] == "config"
+    assert all(set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES) for row in rows.values())
+    assert all(row["runtime_action"] == "none" for row in rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in rows.values())
+
+    assert adjacent["proposal_id"] == "p2-agent-harness-eval-qwen-agentworld"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["replay_command_hash"].startswith("sha256:")
+    assert adjacent["raw_replay_command_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_window_pass4_completion_lane_closes_aliases():
     fixture_path = (
         Path(__file__).parent

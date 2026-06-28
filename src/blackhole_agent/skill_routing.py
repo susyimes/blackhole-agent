@@ -1393,6 +1393,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
     current_run_pass1_activation_readiness = (
         _skill_route_discovery_current_run_pass1_activation_readiness(
             candidate_lane_inventory,
+            ignored_evidence_items,
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
@@ -3016,12 +3017,45 @@ def _skill_route_discovery_active_window_pass1_route_lanes(
 
 def _skill_route_discovery_current_run_pass1_activation_readiness(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]] = (),
     *,
     source_digest: str = "",
 ) -> dict[str, Any]:
     """Summarize the current pass-1 skill-route proposals before activation."""
 
+    current_230729_window = source_digest == "github-growth-20260628T230729.580958Z"
     proposal_specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_gate": "focused-evidence-review",
+                "validation_target": "zhengxi_views_generic_skill_workflow_lane_regression",
+            },
+            {
+                "proposal_id": "p3-threejs-game-skill-profile",
+                "proposal_kind": "documentation",
+                "proposal_track": "game_frontend_workflow",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_gate": "local_frontend_validation_before_game_skill_activation",
+                "validation_target": "threejs_game_skill_route_profile_note",
+            },
+            {
+                "proposal_id": "p4-compass-skills-state-handoff",
+                "proposal_kind": "config",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "config",
+                "validation_gate": "state_handoff_boundary_before_profile_or_memory_write",
+                "validation_target": "compass_skill_ecosystem_state_handoff_metadata",
+            },
+        )
+        if current_230729_window
+        else (
         {
             "proposal_id": "proposal-skill-route-discovery-generic-001",
             "proposal_kind": "test",
@@ -3049,6 +3083,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             "validation_gate": "state_handoff_boundary_before_profile_or_memory_write",
             "validation_target": "compass_skill_ecosystem_handoff_metadata",
         },
+        )
     )
 
     rows: list[dict[str, Any]] = []
@@ -3138,7 +3173,57 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             }
         )
 
-    ready = bool(rows) and not blocked_proposal_ids
+    adjacent_rows: list[dict[str, Any]] = []
+    adjacent_proposal_ids = {
+        "Qwen-AgentWorld": "p2-agent-harness-eval-qwen-agentworld",
+        "looper": "p5-agent-harness-eval-looper",
+    }
+    default_adjacent_proposal_id = (
+        "p2-agent-harness-eval-qwen-agentworld"
+        if current_230729_window
+        else "proposal-agent-harness-eval-004"
+    )
+    for ignored_item in ignored_evidence_items:
+        proposal_id = adjacent_proposal_ids.get(str(ignored_item.get("name") or ""), default_adjacent_proposal_id)
+        for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
+            [ignored_item],
+            proposal_id=proposal_id,
+        ):
+            replay_command = str(adjacent_row.get("replay_command") or "")
+            row = dict(adjacent_row)
+            row.pop("replay_command", None)
+            row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
+            row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
+            row["raw_replay_command_exported"] = False
+            adjacent_rows.append(row)
+
+    adjacent_ready = all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("direct_runtime_route_allowed") is False
+        and row.get("direct_code_patch_route_allowed") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        for row in adjacent_rows
+    )
+    ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
+    anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-threejs-game-skill-profile",
+            "p4-compass-skills-state-handoff",
+            "p5-agent-harness-eval-looper",
+        ]
+        if current_230729_window
+        else [
+            "proposal-skill-route-discovery-generic-001",
+            "proposal-game-skill-route-profile-002",
+            "proposal-skill-ecosystem-handoff-003",
+            "proposal-agent-harness-eval-004",
+        ]
+    )
+
     return {
         "controller_surface": "skill_route_discovery_current_run_pass1_activation_readiness",
         "status": "ready" if ready else "blocked",
@@ -3152,7 +3237,10 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [str(spec["proposal_id"]) for spec in proposal_specs],
+        "anchoring_proposal_ids": anchoring_proposal_ids,
         "blocked_proposal_ids": blocked_proposal_ids,
+        "adjacent_general_agent_count": len(adjacent_rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
         "observed_route_profiles": [
             profile
             for profile in (
@@ -3176,6 +3264,24 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         ],
         "supervisor_next_action": "replay_current_pass1_readiness_fixture_before_any_activation",
         "activation_authority": "external_supervisor_after_validation",
+        "adjacent_general_agent_policy": {
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "direct_allowed_lanes_before_eval": [],
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"]
+            if adjacent_rows
+            else [],
+            "required_before_implementation": "local_agent_harness_eval_route_established",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
@@ -3190,6 +3296,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
     }
 
 

@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 85
-    assert payload["pass_count"] == 84
+    assert payload["fixture_count"] == 86
+    assert payload["pass_count"] == 85
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -207,6 +207,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
+    assert results["skill-route-discovery-current-digest-230729-pass1-current-window"]["passed"] is True
     assert results["skill-route-discovery-current-digest-214729-pass1-current-proposals"]["passed"] is True
     assert results["workspace-changes-panel-non-git-native-external"]["passed"] is True
     assert results["pass-harness-summary"]["passed"] is True
@@ -16060,6 +16061,70 @@ def test_skill_route_discovery_current_run_pass1_activation_readiness_is_operato
     assert panel["provider_runtime_launch_allowed"] is False
     assert panel["raw_evidence_urls_exported"] is False
     assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_230729_pass1_current_window_routes_adjacent_agent_eval():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_230729_pass1_current_window.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    panel = output["current_run_pass1_activation_readiness"]
+    rows = {row["proposal_id"]: row for row in panel["rows"]}
+    adjacent = panel["adjacent_general_agent_rows"][0]
+    serialized = json.dumps(panel, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["registry"]["ignored_evidence_item_count"] == 1
+    assert panel["source_digest"] == "github-growth-20260628T230729.580958Z"
+    assert panel["proposal_ids"] == [
+        "p1-skill-route-discovery-views",
+        "p3-threejs-game-skill-profile",
+        "p4-compass-skills-state-handoff",
+    ]
+    assert panel["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-views",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-threejs-game-skill-profile",
+        "p4-compass-skills-state-handoff",
+        "p5-agent-harness-eval-looper",
+    ]
+    assert rows["p1-skill-route-discovery-views"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p1-skill-route-discovery-views"]["selected_local_lane"] == "test"
+    assert rows["p3-threejs-game-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p3-threejs-game-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p4-compass-skills-state-handoff"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p4-compass-skills-state-handoff"]["selected_local_lane"] == "config"
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in rows.values()
+    )
+    assert adjacent["proposal_id"] == "p2-agent-harness-eval-qwen-agentworld"
+    assert adjacent["name"] == "Qwen-AgentWorld"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["replay_command_hash"].startswith("sha256:")
+    assert adjacent["raw_replay_command_exported"] is False
+    assert panel["runtime_action"] == "none"
+    assert panel["external_skill_activation_allowed"] is False
+    assert panel["external_harness_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
 
 
 def test_skill_route_discovery_current_digest_214729_pass1_current_proposals_are_bounded():

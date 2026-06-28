@@ -5,6 +5,21 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260628T230729.580958Z` adds an operator-visible
+pass-1 readiness lane for the active `skill-route-discovery` window. The lane
+maps `p1-skill-route-discovery-views` to a bounded generic skill workflow test
+lane, `p3-threejs-game-skill-profile` to a documentation lane for
+`game_frontend_workflow`, and `p4-compass-skills-state-handoff` to a config
+lane for metadata-only state handoff. The same readiness surface carries
+`p2-agent-harness-eval-qwen-agentworld` as adjacent
+`agent_harness_eval_required` evidence rather than inheriting
+`skill_route_discovery`; `p5-agent-harness-eval-looper` remains an anchoring
+proposal ID until body-free local evidence is present. The panel exports only
+hashes for replay commands and keeps runtime action, upstream skill activation,
+external harness execution, provider launch, profile writes, memory writes,
+remote execution, raw source URLs, raw evidence URLs, and upstream bodies
+denied before local validation.
+
 Source digest `github-growth-20260628T224729.591354Z` closes the current
 four-pass skill-route-discovery window with a replayable pass-4 fixture for the
 active proposal IDs `proposal-skill-route-discovery-generic-001`,
