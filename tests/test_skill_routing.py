@@ -5955,6 +5955,7 @@ def test_skill_route_discovery_current_run_pass4_completion_matrix_matches_propo
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
 
     completion_matrix = lane_map["active_pass4_completion_matrix"]
+    activation_packet = lane_map["active_pass4_operator_activation_packet"]
     assert completion_matrix["status"] == "ready"
     assert completion_matrix["source_digest"] == "github-growth-20260628T000729.525285Z"
     assert completion_matrix["proposal_ids"] == [
@@ -6023,6 +6024,69 @@ def test_skill_route_discovery_current_run_pass4_completion_matrix_matches_propo
     assert "https://github.com/" not in serialized_matrix
     assert "runtime_execution" not in serialized_matrix
     assert "install" not in serialized_matrix
+
+    assert activation_packet["controller_surface"] == (
+        "skill_route_discovery_active_pass4_operator_activation_packet"
+    )
+    assert activation_packet["status"] == "ready"
+    assert activation_packet["decision"] == "operator_can_mark_skill_route_slice_complete_after_replay"
+    assert activation_packet["depends_on_controller_surface"] == (
+        "skill_route_discovery_active_pass4_completion_matrix"
+    )
+    assert activation_packet["source_digest"] == "github-growth-20260628T000729.525285Z"
+    assert activation_packet["capability_pass"] == 4
+    assert activation_packet["total_passes"] == 4
+    assert activation_packet["capability_slice_complete"] is True
+    assert activation_packet["proposal_ids"] == completion_matrix["proposal_ids"]
+    assert activation_packet["ready_proposal_count"] == 3
+    assert activation_packet["blocked_proposal_ids"] == []
+    assert activation_packet["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert activation_packet["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert activation_packet["covered_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert activation_packet["operator_next_action"] == (
+        "run_hashed_replay_commands_then_record_supervisor_completion"
+    )
+    assert activation_packet["rollback_contract"] == {
+        "rollback_ref_required": True,
+        "rollback_artifact_required": True,
+        "rollback_execution": "explicit_destructive_operator_action_only",
+    }
+    assert activation_packet["supervisor_replay_requirements"] == [
+        "verify_rollback_ref_and_artifact",
+        "run_focused_local_validation_for_selected_lanes",
+        "review_changed_files_against_selected_lanes",
+        "record_review_notes_for_uncertainty_or_blockers",
+        "leave_restart_or_promotion_to_configured_supervisor",
+    ]
+    assert activation_packet["local_validation_required"] is True
+    assert activation_packet["runtime_action"] == "none"
+    assert activation_packet["external_skill_activation_allowed"] is False
+    assert activation_packet["external_agent_activation_allowed"] is False
+    assert activation_packet["external_harness_execution_allowed"] is False
+    assert activation_packet["provider_runtime_launch_allowed"] is False
+    assert activation_packet["profile_write_allowed"] is False
+    assert activation_packet["memory_write_allowed"] is False
+    assert activation_packet["remote_execution_allowed"] is False
+    assert activation_packet["raw_replay_commands_exported"] is False
+    assert activation_packet["raw_source_url_exported"] is False
+    assert activation_packet["raw_evidence_urls_exported"] is False
+    assert activation_packet["raw_target_paths_exported"] is False
+    assert activation_packet["raw_upstream_body_exported"] is False
+    assert all(row["status"] == "ready" for row in activation_packet["rows"])
+    assert all(row["local_validation_required"] is True for row in activation_packet["rows"])
+    assert all(row["runtime_action"] == "none" for row in activation_packet["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in activation_packet["rows"])
+    assert all(row["remote_execution_allowed"] is False for row in activation_packet["rows"])
+
+    serialized_packet = json.dumps(activation_packet, sort_keys=True)
+    assert "https://github.com/" not in serialized_packet
+    assert "runtime_execution" not in serialized_packet
+    assert "install" not in serialized_packet
+    assert "python -m pytest" not in serialized_packet
 
 
 def test_skill_route_discovery_current_run_pass4_completion_lane_finishes_active_slice():

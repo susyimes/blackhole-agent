@@ -3133,3 +3133,26 @@ and Three.js Game Skills as local validation candidates only. Qwen-AgentWorld
 or Looper-style general-agent evidence without skill workflow signals remains
 outside this route and must continue through an `agent_harness_eval_required`
 lane before it can influence implementation work.
+
+## Active Pass 4 Operator Activation Packet
+
+Source digest `github-growth-20260628T092729.663882Z` completes the current
+`skill-route-discovery` window by adding
+`active_pass4_operator_activation_packet` to the proposal lane map. The packet
+is derived from `active_pass4_completion_matrix`; it does not accept separate
+upstream evidence or add new lane names.
+
+The packet gives supervisors one operator-visible closure decision for
+`p1-skill-route-discovery-generic`, `p2-game-skill-workflow-profile`, and
+`p3-skill-ecosystem-state-handoff`. It reports proposal IDs, selected bounded
+lanes, covered route profiles, selected evidence item IDs, replay-command
+hashes, rollback requirements, and replay requirements. Documentation, config,
+test, and code_patch remain the only local lanes, with
+`local_validation_required: true`.
+
+Runtime execution, installation, provider launch, external skill activation,
+external harness execution, profile writes, memory writes, remote execution,
+raw source URLs, raw evidence URLs, target paths, replay-command bodies, and
+upstream bodies remain denied. A ready packet means the external supervisor may
+replay the validated local lanes and record completion; it is not a kernel
+restart or upstream skill activation path.

@@ -1215,6 +1215,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         pass4_operator_replay_manifest,
         source_digest=_skill_route_discovery_source_digest(registry),
     )
+    active_pass4_operator_activation_packet = _skill_route_discovery_active_pass4_operator_activation_packet(
+        active_pass4_completion_matrix
+    )
     current_window_pass4_supervisor_replay_gate = (
         _skill_route_discovery_current_window_pass4_supervisor_replay_gate(
             candidate_lane_inventory,
@@ -1424,6 +1427,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "pass4_completion_handoff": pass4_completion_handoff,
         "pass4_operator_replay_manifest": pass4_operator_replay_manifest,
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
+        "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
         "current_run_pass4_completion_lane": current_run_pass4_completion_lane,
         "current_window_pass4_supervisor_replay_gate": current_window_pass4_supervisor_replay_gate,
         "local_activation_targets": local_activation_targets,
@@ -9467,6 +9471,169 @@ def _skill_route_discovery_active_pass4_completion_matrix(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+    }
+
+
+def _skill_route_discovery_active_pass4_operator_activation_packet(
+    active_pass4_completion_matrix: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Collapse active pass-4 proposal readiness into an operator handoff packet.
+
+    The packet is intentionally derived from the already bounded completion
+    matrix. It does not introduce new lanes, raw upstream evidence, or runtime
+    activation authority; it gives the supervisor one replayable pass/fail
+    surface for the current skill-route discovery slice.
+    """
+
+    raw_rows = active_pass4_completion_matrix.get("rows")
+    rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    packet_rows: list[dict[str, Any]] = []
+    blocked_proposal_ids: list[str] = []
+    selected_lanes: list[str] = []
+    route_profiles: list[str] = []
+    replay_command_hashes: list[str] = []
+
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        proposal_id = str(row.get("proposal_id") or "")
+        selected_lane = str(row.get("selected_local_lane") or "")
+        row_profiles = _string_list(row.get("route_profiles"))
+        row_replay_hashes = _string_list(row.get("replay_command_hashes"))
+        activation_blockers = _string_list(row.get("activation_blockers"))
+        row_ready = (
+            row.get("status") == "ready"
+            and selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and row.get("local_validation_required") is True
+            and str(row.get("runtime_action") or "none") == "none"
+            and row.get("external_skill_activation_allowed") is False
+            and row.get("external_agent_activation_allowed") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+            and not activation_blockers
+        )
+        if row_ready:
+            selected_lanes.append(selected_lane)
+        elif proposal_id:
+            blocked_proposal_ids.append(proposal_id)
+        route_profiles.extend(row_profiles)
+        replay_command_hashes.extend(row_replay_hashes)
+        packet_rows.append(
+            {
+                "proposal_id": proposal_id,
+                "proposal_kind": str(row.get("proposal_kind") or ""),
+                "proposal_track": str(row.get("proposal_track") or ""),
+                "status": "ready" if row_ready else "blocked",
+                "route_profiles": row_profiles,
+                "selected_local_lane": selected_lane if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES else "",
+                "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
+                "validation_gate": str(row.get("validation_gate") or ""),
+                "validation_target": str(row.get("validation_target") or ""),
+                "replay_command_hashes": row_replay_hashes,
+                "activation_blockers": activation_blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_commands_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    matrix_ready = active_pass4_completion_matrix.get("status") == "ready"
+    ready = bool(packet_rows) and matrix_ready and not blocked_proposal_ids
+    adjacent_boundary = active_pass4_completion_matrix.get("adjacent_general_agent_project_boundary")
+    adjacent_boundary = adjacent_boundary if isinstance(adjacent_boundary, Mapping) else {}
+
+    return {
+        "controller_surface": "skill_route_discovery_active_pass4_operator_activation_packet",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "operator_can_mark_skill_route_slice_complete_after_replay"
+            if ready
+            else "repair_active_pass4_operator_packet_before_completion"
+        ),
+        "depends_on_controller_surface": "skill_route_discovery_active_pass4_completion_matrix",
+        "source_digest": str(active_pass4_completion_matrix.get("source_digest") or ""),
+        "capability_pass": int(active_pass4_completion_matrix.get("capability_pass") or 4),
+        "total_passes": int(active_pass4_completion_matrix.get("total_passes") or 4),
+        "capability_slice_complete": ready,
+        "proposal_ids": _string_list(active_pass4_completion_matrix.get("proposal_ids")),
+        "ready_proposal_count": len(packet_rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "covered_route_profiles": [
+            profile
+            for profile in (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
+            )
+            if profile in set(route_profiles)
+        ],
+        "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
+        "operator_next_action": (
+            "run_hashed_replay_commands_then_record_supervisor_completion"
+            if ready
+            else "repair_blocked_proposals_then_rebuild_operator_packet"
+        ),
+        "rollback_contract": {
+            "rollback_ref_required": True,
+            "rollback_artifact_required": True,
+            "rollback_execution": "explicit_destructive_operator_action_only",
+        },
+        "supervisor_replay_requirements": [
+            "verify_rollback_ref_and_artifact",
+            "run_focused_local_validation_for_selected_lanes",
+            "review_changed_files_against_selected_lanes",
+            "record_review_notes_for_uncertainty_or_blockers",
+            "leave_restart_or_promotion_to_configured_supervisor",
+        ],
+        "adjacent_general_agent_project_boundary": {
+            "evaluation_lane": str(adjacent_boundary.get("evaluation_lane") or "agent_harness_eval_required"),
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes_after_eval": _string_list(
+                adjacent_boundary.get("allowed_local_lanes_after_eval")
+            ),
+            "adjacent_record_count": int(adjacent_boundary.get("adjacent_record_count") or 0),
+            "required_before_implementation": str(
+                adjacent_boundary.get("required_before_implementation")
+                or "local_agent_harness_eval_route_established"
+            ),
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": packet_rows,
     }
 
 
