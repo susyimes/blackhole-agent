@@ -3219,3 +3219,27 @@ evaluation work after local harness evaluation, but it does not inherit
 `skill_route_discovery`, direct runtime authority, direct code_patch selection,
 external agent activation, external harness execution, provider launch, or
 remote execution.
+
+## Current Window Pass 4 Route Completion Lane
+
+Source digest `github-growth-20260628T104729.721650Z` completes the planned
+skill-route-discovery slice with
+`current_window_pass4_route_completion_lane`. The lane makes the active proposal
+aliases operator-visible as separate rows:
+`p1_skill_route_discovery_generic_views`,
+`p2_game_frontend_skill_profile`, and
+`p3_skill_ecosystem_state_handoff`.
+
+The completion packet treats zhengxi-views-style generic or source-cited skill
+workflow evidence as a local test lane, Three.js game/frontend skill evidence
+as a local test lane, and COMPASS-style state handoff evidence as a local config
+lane. Each row must carry selected digest item IDs or frozen fixture evidence,
+profile validation gates, bounded local lanes, and a hashed replay command.
+
+Discovery remains non-executing and non-activating. Documentation, config, test,
+and code_patch are the only skill-route lanes. Adjacent Qwen-AgentWorld or
+Looper-style general-agent evidence stays in `agent_harness_eval_required` and
+does not inherit skill-route authority, direct code_patch selection, external
+harness execution, provider launch, remote execution, profile writes, memory
+writes, raw source URL export, raw target path export, raw replay command
+export, or upstream body export.
