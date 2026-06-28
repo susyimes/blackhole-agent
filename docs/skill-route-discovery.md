@@ -2753,3 +2753,27 @@ URLs, raw evidence URLs, target paths, replay commands, upstream bodies,
 install requests, runtime action, external skill or agent activation, external
 harness execution, provider launch, profile writes, memory writes, or remote
 execution.
+
+## Current Run Pass 3 Validation Lane
+
+Source digest `github-growth-20260628T022729.498868Z` advances the active
+skill-route-discovery slice to pass 3 with `current_run_pass3_validation_lane`.
+The lane converts the current proposal set into an operator-visible validation
+packet: `proposal_skill_route_discovery_catalog_001` selects a local test lane
+for representative external skill-style metadata, and
+`proposal_skill_profile_documentation_002` selects a documentation lane for
+generic/source-cited skill workflows, Three.js game/frontend workflows, and
+COMPASS-style state handoff profiles.
+
+Qwen-AgentWorld-style general-agent project evidence is recorded only under
+`proposal_agent_harness_eval_003` as `agent_harness_eval_required`. It does not
+inherit `skill_route_discovery`, direct code_patch authority, runtime authority,
+external harness execution, provider launch, remote execution, or upstream
+agent activation before a local agent-harness eval route is replayed.
+
+The pass-3 packet exports selected item IDs, route profiles, source hashes,
+bounded lane names, validation gates, and replay-command hashes only. Unsupported
+install, provider_runtime, and runtime_execution pressure is removed from local
+proposal lanes. Raw source URLs, raw evidence URLs, target paths, replay
+commands, upstream bodies, profile writes, and memory writes remain outside the
+handoff.
