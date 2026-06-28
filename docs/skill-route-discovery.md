@@ -2820,3 +2820,22 @@ note. Qwen-AgentWorld-style general-agent evidence does not inherit
 `skill_route_discovery`, direct code_patch authority, runtime authority,
 external harness execution, provider launch, remote execution, or upstream agent
 activation before that eval route is established.
+
+## Active Window Pass 2 Validation Lane
+
+Source digest `github-growth-20260628T032729.534812Z` advances the active
+pass-2 skill-route-discovery window with `active_window_pass2_validation_lane`.
+The lane maps `p1-skill-route-discovery-general` to a local test lane for
+generic or source-cited skill workflow evidence, maps
+`p3-game-skill-workflow-docs` to a local documentation lane for
+`game_frontend_workflow`, and keeps `p2-agent-harness-eval` as adjacent
+`agent_harness_eval_required` evidence when the repository is a general-agent
+project without skill workflow route hints.
+
+This surface is a local validation route, not activation authority. Skill rows
+may expose only documentation, config, test, or code_patch as bounded lanes.
+The adjacent general-agent row may expose only documentation, test, or
+code_patch as evaluation lanes after the agent-harness eval route is replayed.
+Runtime action, upstream skill or agent activation, external harness execution,
+provider launch, profile writes, memory writes, remote execution, raw source
+URLs, raw evidence URLs, target paths, and upstream bodies remain denied.
