@@ -2531,6 +2531,21 @@ commands, or upstream bodies, and keeps runtime action, external skill
 activation, external harness execution, provider launch, remote execution,
 profile writes, and memory writes denied.
 
+Source digest `github-growth-20260628T000729.525285Z` completes pass 4 for the
+active proposal IDs `p1-skill-route-discovery-generic`,
+`p2-game-skill-workflow-profile`, and
+`p3-skill-ecosystem-state-handoff`. The `active_pass4_completion_matrix` now
+uses those proposal IDs directly, treats zhengxi-views-style generic skill
+evidence and its stricter source-cited variant as the same bounded generic
+route for completion, maps Three.js game skill evidence to the documentation
+lane, and maps COMPASS-style state handoff evidence to the config lane. The
+matrix remains a supervisor replay surface only: it reports selected item IDs,
+route profiles, lane names, source hashes, replay-command hashes, validation
+targets, and blockers. It does not export raw source URLs, raw evidence URLs,
+raw target paths, replay commands, upstream bodies, install or provider lanes,
+runtime action, external skill or agent activation, external harness execution,
+provider launch, remote execution, profile writes, or memory writes.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes

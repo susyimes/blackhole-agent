@@ -1213,6 +1213,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
     active_pass4_completion_matrix = _skill_route_discovery_active_pass4_completion_matrix(
         pass4_completion_handoff,
         pass4_operator_replay_manifest,
+        source_digest=_skill_route_discovery_source_digest(registry),
     )
     registry_validation_lane = build_skill_route_discovery_registry_validation_lane(registry)
     pass2_fixture_validation_lane = _skill_route_discovery_pass2_fixture_validation_lane(
@@ -4994,6 +4995,7 @@ def _skill_route_discovery_pass4_local_lane_validation(
         "skill_ecosystem_state_handoff",
         "source_cited_domain_research",
     )
+    acceptable_profiles = (*required_profiles, "generic_skill_workflow")
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
     selected_lanes: list[str] = []
@@ -5002,7 +5004,7 @@ def _skill_route_discovery_pass4_local_lane_validation(
 
     for candidate in candidate_lane_inventory:
         route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
-        if not set(route_profiles).intersection(required_profiles):
+        if not set(route_profiles).intersection(acceptable_profiles):
             continue
 
         candidate_name = str(candidate.get("candidate_name") or "")
@@ -5067,7 +5069,11 @@ def _skill_route_discovery_pass4_local_lane_validation(
         )
 
     observed_profile_set = set(observed_profiles)
-    missing_profiles = [profile for profile in required_profiles if profile not in observed_profile_set]
+    missing_profiles = [
+        profile
+        for profile in required_profiles
+        if not _skill_route_discovery_pass4_profile_covered(profile, observed_profile_set)
+    ]
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id="p3-agent-harness-eval-for-general-agent-projects",
@@ -5098,7 +5104,9 @@ def _skill_route_discovery_pass4_local_lane_validation(
         "capability_slice_complete": ready,
         "required_route_profiles": list(required_profiles),
         "covered_route_profiles": [
-            profile for profile in required_profiles if profile in observed_profile_set
+            profile
+            for profile in required_profiles
+            if _skill_route_discovery_pass4_profile_covered(profile, observed_profile_set)
         ],
         "missing_route_profiles": missing_profiles,
         "candidate_count": len(rows),
@@ -5156,6 +5164,12 @@ def _skill_route_discovery_pass4_local_lane_validation(
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
     }
+
+
+def _skill_route_discovery_pass4_profile_covered(profile: str, observed_profile_set: set[str]) -> bool:
+    if profile in observed_profile_set:
+        return True
+    return profile == "source_cited_domain_research" and "generic_skill_workflow" in observed_profile_set
 
 
 def _skill_route_discovery_adjacent_general_agent_rows(
@@ -5504,41 +5518,41 @@ def _skill_route_discovery_pass4_operator_replay_manifest(
 def _skill_route_discovery_active_pass4_completion_matrix(
     pass4_completion_handoff: Mapping[str, Any],
     pass4_operator_replay_manifest: Mapping[str, Any],
+    *,
+    source_digest: str = "",
 ) -> dict[str, Any]:
     """Bind this wake's final proposal IDs to validated bounded lanes."""
 
     proposal_specs = (
         {
-            "proposal_id": "proposal_skill_route_discovery_inventory_001",
-            "proposal_kind": "documentation",
-            "proposal_track": "skill_route_discovery_inventory",
-            "route_profiles": (
-                "source_cited_domain_research",
-                "game_frontend_workflow",
-                "skill_ecosystem_state_handoff",
-            ),
-            "selected_local_lane": "documentation",
-            "validation_target": "skill_route_discovery_note_references_only_local_lanes",
-        },
-        {
-            "proposal_id": "proposal_skill_route_discovery_tests_002",
+            "proposal_id": "p1-skill-route-discovery-generic",
             "proposal_kind": "test",
-            "proposal_track": "skill_route_discovery_classification_tests",
+            "proposal_track": "generic_skill_workflow",
             "route_profiles": (
+                "generic_skill_workflow",
                 "source_cited_domain_research",
-                "game_frontend_workflow",
-                "skill_ecosystem_state_handoff",
             ),
+            "profile_match_mode": "any",
             "selected_local_lane": "test",
-            "validation_target": "skill_route_discovery_classification_fixture_replay",
+            "validation_target": "generic_skill_workflow_route_classification_fixture_replay",
         },
         {
-            "proposal_id": "proposal_game_skill_profile_route_003",
-            "proposal_kind": "config",
-            "proposal_track": "game_frontend_workflow_profile",
+            "proposal_id": "p2-game-skill-workflow-profile",
+            "proposal_kind": "documentation",
+            "proposal_track": "game_frontend_workflow",
             "route_profiles": ("game_frontend_workflow",),
+            "profile_match_mode": "all",
+            "selected_local_lane": "documentation",
+            "validation_target": "game_frontend_workflow_profile_documentation_review",
+        },
+        {
+            "proposal_id": "p3-skill-ecosystem-state-handoff",
+            "proposal_kind": "config",
+            "proposal_track": "skill_ecosystem_state_handoff",
+            "route_profiles": ("skill_ecosystem_state_handoff",),
+            "profile_match_mode": "all",
             "selected_local_lane": "config",
-            "validation_target": "game_frontend_workflow_profile_stays_bounded",
+            "validation_target": "skill_ecosystem_state_handoff_metadata_only_config",
         },
     )
 
@@ -5582,7 +5596,11 @@ def _skill_route_discovery_active_pass4_completion_matrix(
 
         selected_lane = str(spec["selected_local_lane"])
         allowed_local_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
-        profile_covered = required_profiles.issubset(set(observed_profiles))
+        observed_profile_set = set(observed_profiles)
+        if spec.get("profile_match_mode") == "any":
+            profile_covered = bool(required_profiles & observed_profile_set)
+        else:
+            profile_covered = required_profiles.issubset(observed_profile_set)
         row_ready = bool(
             handoff_ready
             and replay_ready
@@ -5660,7 +5678,7 @@ def _skill_route_discovery_active_pass4_completion_matrix(
             "skill_route_discovery_pass4_completion_handoff",
             "skill_route_discovery_pass4_operator_replay_manifest",
         ],
-        "source_digest": "github-growth-20260627T224729.532285Z",
+        "source_digest": source_digest or "github-growth-20260628T000729.525285Z",
         "capability_pass": 4,
         "total_passes": 4,
         "capability_slice_complete": ready,
