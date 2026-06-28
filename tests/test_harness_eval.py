@@ -15895,6 +15895,52 @@ def test_skill_route_discovery_current_digest_pass4_local_kernel_handoff_is_read
         "generic_skill_workflow",
         "skill_ecosystem_state_handoff",
     ]
+    proposal_summary = handoff["proposal_completion_summary"]
+    assert proposal_summary["controller_surface"] == (
+        "skill_route_discovery_local_kernel_proposal_completion_summary"
+    )
+    assert proposal_summary["status"] == "ready"
+    assert proposal_summary["decision"] == "active_skill_route_proposals_ready_for_supervisor_replay"
+    assert proposal_summary["skill_route_row_count"] == 3
+    assert proposal_summary["ready_skill_route_row_count"] == 3
+    assert proposal_summary["agent_harness_eval_row_count"] == 2
+    assert proposal_summary["agent_harness_eval_required"] is True
+    assert proposal_summary["skill_route_discovery_inherited_by_agent_projects"] is False
+    assert proposal_summary["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert proposal_summary["selected_skill_route_lanes"] == ["documentation", "config", "test"]
+    assert proposal_summary["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert proposal_summary["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+    summary_rows = {
+        (row["evidence_class"], row["route_profile"], row["selected_local_lane"])
+        for row in proposal_summary["rows"]
+    }
+    assert (
+        "skill_route_discovery",
+        "generic_skill_workflow",
+        "documentation",
+    ) in summary_rows
+    assert ("skill_route_discovery", "game_frontend_workflow", "test") in summary_rows
+    assert ("skill_route_discovery", "skill_ecosystem_state_handoff", "config") in summary_rows
+    agent_rows = [
+        row for row in proposal_summary["rows"] if row["evidence_class"] == "agent_harness_eval"
+    ]
+    assert len(agent_rows) == 2
+    assert all(row["route_hint"] == "agent_harness_eval_required" for row in agent_rows)
+    assert all(row["skill_route_discovery_inherited"] is False for row in agent_rows)
+    assert all(row["allowed_local_lanes"] == ["documentation", "test", "code_patch"] for row in agent_rows)
+    assert all(row["runtime_action"] == "none" for row in proposal_summary["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in proposal_summary["rows"])
+    assert proposal_summary["external_skill_activation_allowed"] is False
+    assert proposal_summary["external_agent_activation_allowed"] is False
+    assert proposal_summary["external_harness_execution_allowed"] is False
+    assert proposal_summary["provider_runtime_launch_allowed"] is False
+    assert proposal_summary["remote_execution_allowed"] is False
+    assert proposal_summary["raw_evidence_urls_exported"] is False
+    assert proposal_summary["raw_upstream_body_exported"] is False
     assert handoff["validated_surface_statuses"] == {
         "completion_report": "ready",
         "activation_lane_contract": "ready",

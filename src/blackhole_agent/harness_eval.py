@@ -10631,6 +10631,102 @@ def skill_route_discovery_local_kernel_handoff(
     runner_status = optional_string(runner_control.get("status")) or ""
     consistency_status = optional_string(consistency_guard.get("status")) or ""
     recovery_status = optional_string(completion_recovery.get("status")) or ""
+    contract_rows = activation_lane_contract.get("rows")
+    contract_rows = contract_rows if isinstance(contract_rows, list) else []
+    proposal_summary_rows: list[dict[str, Any]] = []
+    for row in contract_rows:
+        if not isinstance(row, dict):
+            continue
+        evidence_class = optional_string(row.get("evidence_class")) or ""
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        allowed_lanes = string_list(row.get("allowed_local_lanes"))
+        route_profile = optional_string(row.get("route_profile")) or ""
+        if evidence_class == "skill_route_discovery":
+            route_hint = "skill_route_discovery"
+            completion_gate = "bounded_skill_route_local_validation"
+            skill_route_inherited = None
+        elif evidence_class == "agent_harness_eval":
+            route_hint = "agent_harness_eval_required"
+            completion_gate = "agent_harness_eval_before_implementation"
+            skill_route_inherited = False
+        else:
+            route_hint = evidence_class
+            completion_gate = "unknown_evidence_class"
+            skill_route_inherited = None
+        summary_row = {
+            "evidence_class": evidence_class,
+            "route_profile": route_profile,
+            "status": optional_string(row.get("status")) or "blocked",
+            "route_hint": route_hint,
+            "selected_local_lane": selected_lane,
+            "allowed_local_lanes": allowed_lanes,
+            "completion_gate": completion_gate,
+            "diagnostic_count": int(row.get("diagnostic_count") or 0),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        if skill_route_inherited is not None:
+            summary_row["skill_route_discovery_inherited"] = skill_route_inherited
+        proposal_summary_rows.append(summary_row)
+    skill_route_summary_rows = [
+        row for row in proposal_summary_rows if row["evidence_class"] == "skill_route_discovery"
+    ]
+    agent_harness_summary_rows = [
+        row for row in proposal_summary_rows if row["evidence_class"] == "agent_harness_eval"
+    ]
+    proposal_summary_ready = bool(
+        contract_status == "ready"
+        and skill_route_summary_rows
+        and all(row["status"] == "ready" for row in skill_route_summary_rows)
+        and all(row.get("skill_route_discovery_inherited") is False for row in agent_harness_summary_rows)
+    )
+    proposal_completion_summary = {
+        "controller_surface": "skill_route_discovery_local_kernel_proposal_completion_summary",
+        "status": "ready" if proposal_summary_ready else "blocked",
+        "decision": "active_skill_route_proposals_ready_for_supervisor_replay"
+        if proposal_summary_ready
+        else "repair_activation_lane_contract_before_proposal_completion_summary",
+        "skill_route_row_count": len(skill_route_summary_rows),
+        "agent_harness_eval_row_count": len(agent_harness_summary_rows),
+        "ready_skill_route_row_count": len(
+            [row for row in skill_route_summary_rows if row["status"] == "ready"]
+        ),
+        "agent_harness_eval_required": bool(agent_harness_summary_rows),
+        "skill_route_discovery_inherited_by_agent_projects": False,
+        "route_profiles": sorted(
+            dict.fromkeys(row["route_profile"] for row in skill_route_summary_rows if row["route_profile"])
+        ),
+        "selected_skill_route_lanes": [
+            lane
+            for lane in ("documentation", "config", "test", "code_patch")
+            if lane in {row["selected_local_lane"] for row in skill_route_summary_rows}
+        ],
+        "allowed_skill_route_lanes": ["documentation", "config", "test", "code_patch"],
+        "allowed_agent_harness_eval_lanes": ["documentation", "test", "code_patch"],
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": proposal_summary_rows,
+    }
     ready = (
         status == "ready"
         and report_status == "ready"
@@ -10677,6 +10773,7 @@ def skill_route_discovery_local_kernel_handoff(
             "completion_consistency_guard": consistency_status,
             "completion_recovery": recovery_status,
         },
+        "proposal_completion_summary": proposal_completion_summary,
         "replay_stage_order": string_list(runner_control.get("stage_order")),
         "replay_stage_count": int(runner_control.get("stage_count") or 0),
         "ready_replay_stage_count": int(runner_control.get("ready_stage_count") or 0),
