@@ -4998,9 +4998,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
 ) -> dict[str, Any]:
     """Expose the active digest proposal IDs as first-pass validation lanes."""
 
+    current_150729_window = source_digest == "github-growth-20260628T150729.645832Z"
     specs = (
         {
-            "proposal_id": "p1-skill-route-discovery-generic",
+            "proposal_id": "p1-skill-route-discovery-index"
+            if current_150729_window
+            else "p1-skill-route-discovery-generic",
             "proposal_kind": "test",
             "proposal_track": "generic_or_source_cited_skill_workflow",
             "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
@@ -5024,7 +5027,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             ),
         },
         {
-            "proposal_id": "p3-skill-ecosystem-state-handoff",
+            "proposal_id": "p3-skill-ecosystem-handoff-profile"
+            if current_150729_window
+            else "p3-skill-ecosystem-state-handoff",
             "proposal_kind": "config",
             "proposal_track": "skill_ecosystem_state_handoff",
             "route_profiles": ("skill_ecosystem_state_handoff",),
@@ -5139,7 +5144,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     adjacent_rows: list[dict[str, Any]] = []
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p4-agent-harness-eval-qwen",
+        proposal_id="p4-agent-harness-eval-fixture"
+        if current_150729_window
+        else "p4-agent-harness-eval-qwen",
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
@@ -5177,13 +5184,23 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
-        "anchoring_proposal_ids": [
-            "p1-skill-route-discovery-generic",
-            "p2-game-frontend-skill-profile",
-            "p3-skill-ecosystem-state-handoff",
-            "p4-agent-harness-eval-qwen",
-            "p5-agent-harness-eval-looper",
-        ],
+        "anchoring_proposal_ids": (
+            [
+                "p1-skill-route-discovery-index",
+                "p2-game-frontend-skill-profile",
+                "p3-skill-ecosystem-handoff-profile",
+                "p4-agent-harness-eval-fixture",
+                "p5-proposal-output-citation-guard",
+            ]
+            if current_150729_window
+            else [
+                "p1-skill-route-discovery-generic",
+                "p2-game-frontend-skill-profile",
+                "p3-skill-ecosystem-state-handoff",
+                "p4-agent-harness-eval-qwen",
+                "p5-agent-harness-eval-looper",
+            ]
+        ),
         "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),

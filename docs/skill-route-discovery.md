@@ -3435,3 +3435,26 @@ execution, provider runtime, external skill activation, external harness
 execution, provider launch, profile writes, memory writes, remote execution,
 raw source URL export, raw evidence URL export, raw target path export, replay
 command export, and upstream body export remain denied.
+
+## Current Source Digest Pass 1 Route Discovery Validation
+
+Source digest `github-growth-20260628T150729.645832Z` starts the next
+skill-route-discovery pass with the existing
+`current_digest_pass1_validation_lane`, keyed to the active proposal IDs
+`p1-skill-route-discovery-index`, `p2-game-frontend-skill-profile`, and
+`p3-skill-ecosystem-handoff-profile`.
+
+The lane converts the carried COMPASS Skills, zhengxi-views, and Three.js Game
+Skills repository metadata into bounded local validation candidates only.
+Source-cited or generic skill evidence selects the local test lane, Three.js
+game/frontend workflow evidence selects a documentation lane until local
+frontend validation exists, and COMPASS-style ecosystem handoff evidence selects
+a metadata-only config lane. Candidate evidence refs remain selected item IDs,
+and Qwen-AgentWorld-style general-agent evidence is kept adjacent as
+`agent_harness_eval_required` without inheriting skill-route lanes.
+
+Documentation, config, test, and code_patch remain the only local lanes.
+Install, runtime execution, provider runtime, upstream skill activation,
+external harness execution, provider launch, profile writes, memory writes,
+remote execution, raw source URL export, raw evidence URL export, target path
+export, replay-command export, and upstream body export remain denied.
