@@ -6884,6 +6884,22 @@ def test_skill_route_discovery_current_window_pass4_completion_lane_closes_alias
     assert rows["p3_skill_ecosystem_state_handoff"]["candidate_names"] == ["compass-skills"]
     assert rows["p3_skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
 
+    activation_manifest = {
+        row["route_profile"]: row
+        for row in lane_map["local_activation_targets"]["profile_validation_manifest"]
+    }
+    assert activation_manifest["source_cited_domain_research"]["selected_evidence_item_ids"] == [
+        "p1-skill-route-discovery-general-zhengxi"
+    ]
+    assert activation_manifest["game_frontend_workflow"]["selected_evidence_item_ids"] == [
+        "p2-game-frontend-skill-profile-threejs"
+    ]
+    assert activation_manifest["skill_ecosystem_state_handoff"]["selected_evidence_item_ids"] == [
+        "p3-skill-ecosystem-state-handoff-compass"
+    ]
+    assert all(row["evidence_basis"] == "selected_item_ids" for row in activation_manifest.values())
+    assert all(row["runtime_action"] == "none" for row in activation_manifest.values())
+
     for row in completion["rows"]:
         assert row["status"] == "ready"
         assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
@@ -6945,6 +6961,8 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert activation_targets["status"] == "ready"
     assert activation_targets["row_count"] == 3
     assert activation_targets["blocked_candidate_names"] == []
+    assert activation_targets["profile_validation_manifest_count"] == 3
+    assert activation_targets["profile_validation_manifest_ready"] is True
     assert activation_targets["runtime_action"] == "none"
     assert activation_targets["external_skill_activation_allowed"] is False
     assert activation_targets["external_harness_execution_allowed"] is False
@@ -6953,6 +6971,32 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert activation_targets["raw_source_url_exported"] is False
     assert activation_targets["raw_evidence_urls_exported"] is False
     assert activation_targets["raw_upstream_body_exported"] is False
+    profile_manifest = {
+        row["route_profile"]: row
+        for row in activation_targets["profile_validation_manifest"]
+    }
+    assert profile_manifest["game_frontend_workflow"]["selected_local_lane"] == "test"
+    assert profile_manifest["game_frontend_workflow"]["validation_gate"] == (
+        "local_frontend_validation_before_game_skill_activation"
+    )
+    assert profile_manifest["game_frontend_workflow"]["must_prove_before_activation"] == (
+        "prove_local_frontend_or_test_validation_covers_runnable_game_workflow_and_asset_boundaries"
+    )
+    assert profile_manifest["game_frontend_workflow"]["replay_command_hash"].startswith("sha256:")
+    assert profile_manifest["game_frontend_workflow"]["evidence_basis"] == "frozen_fixture_or_summary"
+    assert profile_manifest["skill_ecosystem_state_handoff"]["selected_local_lane"] == "config"
+    assert profile_manifest["skill_ecosystem_state_handoff"]["validation_gate"] == (
+        "state_handoff_boundary_before_profile_or_memory_write"
+    )
+    assert profile_manifest["skill_ecosystem_state_handoff"]["selected_evidence_item_ids"] == []
+    assert profile_manifest["skill_ecosystem_state_handoff"]["evidence_basis"] == "frozen_fixture_or_summary"
+    assert all(row["runtime_action"] == "none" for row in profile_manifest.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in profile_manifest.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in profile_manifest.values())
+    assert all(row["provider_runtime_launch_allowed"] is False for row in profile_manifest.values())
+    assert all(row["remote_execution_allowed"] is False for row in profile_manifest.values())
+    assert all(row["raw_evidence_urls_exported"] is False for row in profile_manifest.values())
+    assert all(row["raw_replay_command_exported"] is False for row in profile_manifest.values())
 
     profile_queue = lane_map["route_profile_handoff_queue"]
     assert profile_queue["controller_surface"] == "skill_route_discovery_route_profile_handoff_queue"
@@ -7045,6 +7089,13 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     )
     assert pass1_rows["threejs-game-skills"]["selected_local_lane"] == "test"
     assert pass1_rows["threejs-game-skills"]["validation_target"] == "local_frontend_render_or_workflow_check"
+    assert pass1_rows["threejs-game-skills"]["replay_command_hash"].startswith("sha256:")
+    assert pass1_rows["threejs-game-skills"]["profile_validation_requirements"][0][
+        "route_profile"
+    ] == "game_frontend_workflow"
+    assert pass1_rows["compass-skills"]["profile_validation_manifest"][0][
+        "must_prove_before_activation"
+    ] == "prove_state_handoff_metadata_remains_local_config_without_profile_or_memory_write"
     assert all(row["runtime_action"] == "none" for row in pass1_matrix["rows"])
     assert all(row["external_skill_activation_allowed"] is False for row in pass1_matrix["rows"])
     assert all(row["raw_source_url_exported"] is False for row in pass1_matrix["rows"])
@@ -7062,6 +7113,11 @@ def test_skill_route_discovery_current_window_matrix_keeps_profile_lanes_bounded
     assert next_step["replay_command"] == (
         "python -m pytest tests/test_skill_routing.py -q -k mixed_codex_agent_workflow"
     )
+    assert next_step["replay_command_hash"].startswith("sha256:")
+    assert next_step["profile_validation_manifest_ready"] is True
+    assert next_step["profile_validation_requirements"][0]["route_profile"] == "codex_workflow_gate"
+    assert next_step["profile_validation_manifest"][0]["replay_command_hash"] == next_step["replay_command_hash"]
+    assert next_step["profile_validation_manifest"][0]["runtime_action"] == "none"
     assert next_step["promotion_proof"] == {
         "controller_surface": "skill_route_discovery_promotion_proof",
         "selected_local_lane": "test",

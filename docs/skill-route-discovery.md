@@ -3282,6 +3282,25 @@ harness execution, provider launch, remote execution, profile writes, memory
 writes, raw source URL export, raw target path export, raw replay command
 export, or upstream body export.
 
+## Current Window Pass 4 Activation Validation Manifest
+
+Source digest `github-growth-20260628T132729.593996Z` completes the active
+pass-4 window by carrying profile-specific validation proof rows into
+`local_activation_targets`, `pass1_validation_matrix`, and
+`next_validation_step`. The manifest keeps zhengxi-views-style generic or
+source-cited skill evidence, Three.js game/frontend skill evidence, and
+COMPASS-style state handoff evidence inside the same bounded local lanes:
+documentation, config, test, or code_patch.
+
+Each manifest row records the route profile, validation gate, proof expected
+before activation, selected local lane, selected item IDs, and a hashed replay
+command. It does not schedule runtime action and does not grant external skill
+activation, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw source URL export, raw evidence URL export,
+raw target path export, raw upstream body export, or raw replay command export.
+Literal replay commands remain present only on the established local replay
+surfaces for operator execution; the manifest itself is hash-only.
+
 ## Current Digest Pass 1 Active Proposal Aliases
 
 Source digest `github-growth-20260628T110729.847216Z` starts a new pass-1

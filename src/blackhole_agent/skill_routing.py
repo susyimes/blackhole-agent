@@ -11297,6 +11297,7 @@ def _skill_route_discovery_local_activation_targets(
 
     rows: list[dict[str, Any]] = []
     blocked_rows: list[str] = []
+    profile_validation_manifest: list[dict[str, Any]] = []
 
     for candidate in candidate_lane_inventory:
         candidate_name = str(candidate.get("candidate_name") or "")
@@ -11330,6 +11331,40 @@ def _skill_route_discovery_local_activation_targets(
         item_ids = _string_list(candidate.get("evidence_item_ids"))
         source_hash = _stable_hash(str(candidate.get("source_url") or candidate_name))
         profile_names = ",".join(route_profiles)
+        profile_validation_requirements = _skill_route_discovery_profile_validation_requirements(
+            route_profiles,
+            proposal_kinds,
+        )
+        validation_target = _skill_route_discovery_validation_target(selected_lane, route_profiles)
+        replay_command = _skill_route_discovery_replay_command(selected_lane, route_profiles)
+        replay_command_hash = _stable_hash(replay_command) if replay_command else ""
+        profile_manifest_rows = [
+            {
+                "route_profile": requirement["route_profile"],
+                "validation_gate": requirement["validation_gate"],
+                "must_prove_before_activation": requirement["must_prove_before_activation"],
+                "selected_local_lane": selected_lane,
+                "validation_target": validation_target,
+                "replay_command_hash": replay_command_hash,
+                "selected_evidence_item_ids": item_ids,
+                "evidence_basis": "selected_item_ids" if item_ids else "frozen_fixture_or_summary",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+                "raw_replay_command_exported": False,
+            }
+            for requirement in profile_validation_requirements
+        ]
+        profile_validation_manifest.extend(profile_manifest_rows)
         ready = bool(selected_lane and first_route_confirmed)
         if not ready and candidate_name:
             blocked_rows.append(candidate_name)
@@ -11342,8 +11377,11 @@ def _skill_route_discovery_local_activation_targets(
                 "selected_local_lane": selected_lane,
                 "queued_local_lanes": [lane for lane in proposal_kinds if lane != selected_lane],
                 "validation_gates": list(dict.fromkeys(validation_gates)),
-                "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
-                "replay_command": _skill_route_discovery_replay_command(selected_lane, route_profiles),
+                "validation_target": validation_target,
+                "replay_command": replay_command,
+                "replay_command_hash": replay_command_hash,
+                "profile_validation_requirements": profile_validation_requirements,
+                "profile_validation_manifest": profile_manifest_rows,
                 "promotion_proof": _skill_route_discovery_promotion_proof(selected_lane),
                 "selected_evidence_item_ids": item_ids,
                 "first_route_required": first_route_required,
@@ -11372,6 +11410,20 @@ def _skill_route_discovery_local_activation_targets(
         "status": "ready" if rows and not blocked_rows else "blocked",
         "row_count": len(rows),
         "blocked_candidate_names": [name for name in blocked_rows if name],
+        "profile_validation_manifest": profile_validation_manifest,
+        "profile_validation_manifest_count": len(profile_validation_manifest),
+        "profile_validation_manifest_ready": bool(profile_validation_manifest)
+        and all(
+            row["selected_local_lane"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and row["evidence_basis"] in {"selected_item_ids", "frozen_fixture_or_summary"}
+            and bool(row["replay_command_hash"])
+            and row["runtime_action"] == "none"
+            and row["external_skill_activation_allowed"] is False
+            and row["external_harness_execution_allowed"] is False
+            and row["provider_runtime_launch_allowed"] is False
+            and row["remote_execution_allowed"] is False
+            for row in profile_validation_manifest
+        ),
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
@@ -11401,10 +11453,29 @@ def _skill_route_discovery_next_validation_step(
     selected_profiles = _string_list(selected.get("route_profiles")) if selected is not None else []
     selected_target = str(selected.get("validation_target") or "") if selected is not None else ""
     replay_command = str(selected.get("replay_command") or "") if selected is not None else ""
+    replay_command_hash = str(selected.get("replay_command_hash") or "") if selected is not None else ""
     promotion_proof = (
         selected.get("promotion_proof")
         if selected is not None and isinstance(selected.get("promotion_proof"), Mapping)
         else _skill_route_discovery_promotion_proof(selected_lane)
+    )
+    profile_validation_requirements = (
+        [
+            dict(row)
+            for row in selected.get("profile_validation_requirements", [])
+            if isinstance(row, Mapping)
+        ]
+        if selected is not None
+        else []
+    )
+    profile_validation_manifest = (
+        [
+            dict(row)
+            for row in selected.get("profile_validation_manifest", [])
+            if isinstance(row, Mapping)
+        ]
+        if selected is not None
+        else []
     )
 
     return {
@@ -11420,6 +11491,19 @@ def _skill_route_discovery_next_validation_step(
         "selected_route_profiles": selected_profiles,
         "validation_target": selected_target,
         "replay_command": replay_command,
+        "replay_command_hash": replay_command_hash,
+        "profile_validation_requirements": profile_validation_requirements,
+        "profile_validation_manifest": profile_validation_manifest,
+        "profile_validation_manifest_ready": bool(profile_validation_manifest)
+        and all(
+            row.get("runtime_action") == "none"
+            and row.get("external_skill_activation_allowed") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+            and bool(row.get("replay_command_hash"))
+            for row in profile_validation_manifest
+        ),
         "promotion_proof": promotion_proof,
         "ready_candidate_names": [
             str(row.get("candidate_name") or "")
@@ -11470,8 +11554,19 @@ def _skill_route_discovery_pass1_validation_matrix(
         ]
         route_profiles = _string_list(raw_row.get("route_profiles")) or ["generic_skill_workflow"]
         replay_command = str(raw_row.get("replay_command") or "")
+        replay_command_hash = str(raw_row.get("replay_command_hash") or "")
         promotion_proof = raw_row.get("promotion_proof")
         promotion_proof = promotion_proof if isinstance(promotion_proof, Mapping) else {}
+        profile_validation_requirements = [
+            dict(row)
+            for row in raw_row.get("profile_validation_requirements", [])
+            if isinstance(row, Mapping)
+        ]
+        profile_validation_manifest = [
+            dict(row)
+            for row in raw_row.get("profile_validation_manifest", [])
+            if isinstance(row, Mapping)
+        ]
         activation_ready = raw_row.get("activation_ready") is True
         activation_blockers = _string_list(raw_row.get("activation_blockers"))
 
@@ -11493,6 +11588,9 @@ def _skill_route_discovery_pass1_validation_matrix(
                 "validation_gates": _string_list(raw_row.get("validation_gates")),
                 "validation_target": str(raw_row.get("validation_target") or ""),
                 "replay_command": replay_command,
+                "replay_command_hash": replay_command_hash,
+                "profile_validation_requirements": profile_validation_requirements,
+                "profile_validation_manifest": profile_validation_manifest,
                 "promotion_proof": dict(promotion_proof),
                 "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
                 "first_route_required": raw_row.get("first_route_required") is True,
