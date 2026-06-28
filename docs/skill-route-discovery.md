@@ -3474,3 +3474,26 @@ Install, runtime execution, provider runtime, upstream skill activation,
 external harness execution, provider launch, profile writes, memory writes,
 remote execution, raw source URL export, raw evidence URL export, target path
 export, replay-command export, and upstream body export remain denied.
+
+## Current Digest Pass 4 Completion Checklist
+
+Source digest `github-growth-20260628T160729.676966Z` completes the planned
+skill-route-discovery window with an operator-visible profile validation
+checklist on the pass-4 completion handoff and replay manifest. The checklist
+is generated from local route profiles only; it does not read upstream bodies,
+export raw source URLs, add lane names, or grant activation authority.
+
+Generic skill workflow rows must confirm skill terms, route hints, selected
+item IDs or frozen fixture evidence, and a bounded local lane. Source-cited
+domain research rows add citation, advice-boundary, private-context, and
+provider-launch checks. Game/frontend workflow rows add local frontend or
+render validation before any patch work and keep scaffold, asset-generation,
+and browser-run pressure denied. Skill ecosystem state-handoff rows add
+metadata-only, privacy-boundary, profile-write, and memory-write checks.
+
+The completion packet remains a supervisor replay artifact. Documentation,
+config, test, and code_patch are still the only local lanes. Installation,
+runtime execution, provider runtime, upstream skill activation, external
+harness execution, provider launch, profile writes, memory writes, remote
+execution, raw source URL export, raw evidence URL export, target path export,
+replay-command export, and upstream body export remain denied.

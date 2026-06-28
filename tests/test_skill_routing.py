@@ -3322,6 +3322,18 @@ def test_skill_route_discovery_current_digest_pass4_completion_handoff_closes_wi
     assert handoff["missing_required_route_profiles"] == []
     assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["profile_validation_checklist"] == [
+        "confirm_skill_terms_and_route_hints_are_present",
+        "confirm_selected_lane_is_documentation_config_test_or_code_patch",
+        "confirm_evidence_refs_are_selected_item_ids_or_frozen_fixture",
+        "confirm_runtime_action_package_use_and_provider_launch_remain_denied",
+        "confirm_frontend_or_game_workflow_is_validated_locally_before_code_patch",
+        "confirm_scaffold_asset_generation_and_browser_run_remain_denied",
+        "confirm_ui_or_render_validation_target_is_recorded_for_replay",
+        "confirm_state_or_profile_handoff_stays_metadata_only",
+        "confirm_profile_write_and_memory_write_remain_denied",
+        "confirm_privacy_boundary_is_recorded_before_any_handoff_behavior",
+    ]
     assert handoff["accepted_outputs"] == ["docs", "config", "tests", "code_patch"]
     assert handoff["operator_handoff"] == "external_supervisor_replay_without_kernel_restart"
     assert handoff["operator_next_action"] == (
@@ -3347,12 +3359,28 @@ def test_skill_route_discovery_current_digest_pass4_completion_handoff_closes_wi
     assert rows["p1-skill-route-discovery-generic"]["candidate_names"] == ["zhengxi-views"]
     assert rows["p1-skill-route-discovery-generic"]["route_profiles"] == ["generic_skill_workflow"]
     assert rows["p1-skill-route-discovery-generic"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-generic"]["profile_validation_checklist"] == [
+        "confirm_skill_terms_and_route_hints_are_present",
+        "confirm_selected_lane_is_documentation_config_test_or_code_patch",
+        "confirm_evidence_refs_are_selected_item_ids_or_frozen_fixture",
+        "confirm_runtime_action_package_use_and_provider_launch_remain_denied",
+    ]
     assert rows["p2-game-frontend-skill-profile"]["candidate_names"] == ["threejs-game-skills"]
     assert rows["p2-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
     assert rows["p2-game-frontend-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p2-game-frontend-skill-profile"]["profile_validation_checklist"] == [
+        "confirm_frontend_or_game_workflow_is_validated_locally_before_code_patch",
+        "confirm_scaffold_asset_generation_and_browser_run_remain_denied",
+        "confirm_ui_or_render_validation_target_is_recorded_for_replay",
+    ]
     assert rows["p3-skill-ecosystem-handoff"]["candidate_names"] == ["compass-skills"]
     assert rows["p3-skill-ecosystem-handoff"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
     assert rows["p3-skill-ecosystem-handoff"]["selected_local_lane"] == "test"
+    assert rows["p3-skill-ecosystem-handoff"]["profile_validation_checklist"] == [
+        "confirm_state_or_profile_handoff_stays_metadata_only",
+        "confirm_profile_write_and_memory_write_remain_denied",
+        "confirm_privacy_boundary_is_recorded_before_any_handoff_behavior",
+    ]
 
     for row in rows.values():
         assert row["status"] == "ready"
@@ -6203,6 +6231,17 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
     assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert len(handoff["replay_command_hashes"]) == 3
     assert all(command_hash.startswith("sha256:") for command_hash in handoff["replay_command_hashes"])
+    assert handoff["profile_validation_checklist"] == [
+        "confirm_frontend_or_game_workflow_is_validated_locally_before_code_patch",
+        "confirm_scaffold_asset_generation_and_browser_run_remain_denied",
+        "confirm_ui_or_render_validation_target_is_recorded_for_replay",
+        "confirm_state_or_profile_handoff_stays_metadata_only",
+        "confirm_profile_write_and_memory_write_remain_denied",
+        "confirm_privacy_boundary_is_recorded_before_any_handoff_behavior",
+        "confirm_source_citation_boundary_is_validated_locally",
+        "confirm_advice_or_domain_research_output_stays_review_bounded",
+        "confirm_private_context_export_and_provider_launch_remain_denied",
+    ]
     assert handoff["rollback_contract"] == {
         "rollback_ref_required": True,
         "rollback_artifact_required": True,
@@ -6261,6 +6300,7 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
             "rollback_artifact_and_ref",
             "review_note_for_uncertainty_or_blockers",
         ]
+        assert row["profile_validation_checklist"]
         assert row["local_validation_required"] is True
         assert row["runtime_action"] == "none"
         assert row["external_skill_activation_allowed"] is False
@@ -6287,11 +6327,13 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
         assert all(target_hash.startswith("sha256:") for target_hash in row["artifact_target_hashes"])
         assert row["changed_file_review"] == "must_match_selected_lane_or_be_recorded_as_review_note"
     assert replay_manifest["replay_command_hashes"] == handoff["replay_command_hashes"]
+    assert replay_manifest["profile_validation_checklist"] == handoff["profile_validation_checklist"]
     assert [row["candidate_name"] for row in replay_manifest["candidate_rows"]] == [
         "compass-skills",
         "threejs-game-skills",
         "zhengxi-views",
     ]
+    assert all(row["profile_validation_checklist"] for row in replay_manifest["candidate_rows"])
     assert replay_manifest["operator_replay_requirements"] == [
         "confirm_rollback_ref_and_artifact",
         "run_selected_lane_replay_commands_from_pass4_local_lane_validation",

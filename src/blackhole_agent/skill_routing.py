@@ -5682,6 +5682,9 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "queued_local_lanes": [lane for lane in bounded_lanes if lane != selected_lane],
                 "selected_evidence_item_ids": list(dict.fromkeys(evidence_item_ids)),
                 "validation_gates": list(dict.fromkeys(validation_gates)),
+                "profile_validation_checklist": _skill_route_discovery_profile_validation_checklist(
+                    list(dict.fromkeys(route_profiles))
+                ),
                 "completion_requirement": str(spec["completion_requirement"]),
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
                 "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
@@ -5789,6 +5792,18 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "selected_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
         ],
+        "profile_validation_checklist": _skill_route_discovery_profile_validation_checklist(
+            [
+                profile
+                for profile in (
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                )
+                if profile in observed_profile_set
+            ]
+        ),
         "accepted_outputs": ["docs", "config", "tests", "code_patch"],
         "operator_handoff": "external_supervisor_replay_without_kernel_restart",
         "operator_next_action": (
@@ -10833,6 +10848,38 @@ def _skill_route_discovery_pass4_profile_covered(profile: str, observed_profile_
     return profile == "source_cited_domain_research" and "generic_skill_workflow" in observed_profile_set
 
 
+def _skill_route_discovery_profile_validation_checklist(route_profiles: Sequence[str]) -> list[str]:
+    """Return body-free final-pass validation checks for observed route profiles."""
+
+    checks_by_profile: Mapping[str, tuple[str, ...]] = {
+        "generic_skill_workflow": (
+            "confirm_skill_terms_and_route_hints_are_present",
+            "confirm_selected_lane_is_documentation_config_test_or_code_patch",
+            "confirm_evidence_refs_are_selected_item_ids_or_frozen_fixture",
+            "confirm_runtime_action_package_use_and_provider_launch_remain_denied",
+        ),
+        "source_cited_domain_research": (
+            "confirm_source_citation_boundary_is_validated_locally",
+            "confirm_advice_or_domain_research_output_stays_review_bounded",
+            "confirm_private_context_export_and_provider_launch_remain_denied",
+        ),
+        "game_frontend_workflow": (
+            "confirm_frontend_or_game_workflow_is_validated_locally_before_code_patch",
+            "confirm_scaffold_asset_generation_and_browser_run_remain_denied",
+            "confirm_ui_or_render_validation_target_is_recorded_for_replay",
+        ),
+        "skill_ecosystem_state_handoff": (
+            "confirm_state_or_profile_handoff_stays_metadata_only",
+            "confirm_profile_write_and_memory_write_remain_denied",
+            "confirm_privacy_boundary_is_recorded_before_any_handoff_behavior",
+        ),
+    }
+    checklist: list[str] = []
+    for profile in route_profiles:
+        checklist.extend(checks_by_profile.get(profile, ()))
+    return list(dict.fromkeys(checklist))
+
+
 def _skill_route_discovery_adjacent_general_agent_rows(
     ignored_evidence_items: Sequence[Mapping[str, Any]],
     *,
@@ -10917,6 +10964,9 @@ def _skill_route_discovery_pass4_completion_handoff(
                 "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
                 "validation_target": str(raw_row.get("validation_target") or ""),
                 "replay_command_hash": _stable_hash(replay_command) if replay_command else "",
+                "profile_validation_checklist": _skill_route_discovery_profile_validation_checklist(
+                    candidate_profiles
+                ),
                 "inspection_requirements": [
                     "selected_digest_item_ids_or_frozen_fixture",
                     "body_free_repository_summary",
@@ -11031,6 +11081,9 @@ def _skill_route_discovery_pass4_completion_handoff(
         ],
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
+        "profile_validation_checklist": _skill_route_discovery_profile_validation_checklist(
+            sorted(dict.fromkeys(profile for profile in route_profiles if profile))
+        ),
         "rollback_contract": {
             "rollback_ref_required": True,
             "rollback_artifact_required": True,
@@ -11102,6 +11155,7 @@ def _skill_route_discovery_pass4_operator_replay_manifest(
             "selected_local_lane": str(row.get("selected_local_lane") or ""),
             "candidate_source_hash": str(row.get("candidate_source_hash") or ""),
             "replay_command_hash": str(row.get("replay_command_hash") or ""),
+            "profile_validation_checklist": _string_list(row.get("profile_validation_checklist")),
             "row_status": str(row.get("row_status") or "blocked"),
         }
         for row in rows
@@ -11131,6 +11185,9 @@ def _skill_route_discovery_pass4_operator_replay_manifest(
         "selected_local_lanes": selected_lanes,
         "lane_artifact_targets": lane_artifact_rows,
         "replay_command_hashes": _string_list(pass4_completion_handoff.get("replay_command_hashes")),
+        "profile_validation_checklist": _string_list(
+            pass4_completion_handoff.get("profile_validation_checklist")
+        ),
         "candidate_rows": candidate_rows,
         "operator_replay_requirements": [
             "confirm_rollback_ref_and_artifact",
