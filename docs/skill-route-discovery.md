@@ -3175,3 +3175,28 @@ validation before activation, and continues to deny install, provider runtime,
 runtime execution, external skill activation, external harness execution,
 profile writes, memory writes, remote execution, raw source URL export, raw
 target path export, and upstream body export.
+
+## Current Active Pass 2 Proposal Lane
+
+Source digest `github-growth-20260628T100729.595957Z` advances the same
+skill-route-discovery slice with `current_active_pass2_proposal_lane`. The lane
+uses the active proposal aliases
+`p1_skill_route_discovery_generic_views`,
+`p2_game_frontend_skill_profile`, and
+`p3_skill_ecosystem_state_handoff`, while preserving the hyphenated proposal
+IDs carried by the focused evidence window.
+
+The lane maps zhengxi-views-style source-cited skill workflow evidence to a
+local test lane for citation and advice-boundary validation, Three.js
+game/frontend skill evidence to a documentation lane for the game workflow
+validation checklist, and COMPASS-style state handoff evidence to a config lane
+for metadata-only handoff boundaries. Qwen-AgentWorld-style general-agent
+evidence remains adjacent as `agent_harness_eval_required`; it does not inherit
+skill-route lanes or implementation authority.
+
+This pass-2 surface exports proposal IDs, aliases, selected item IDs, source
+hashes, bounded lane names, validation gates, and replay-command hashes only.
+Runtime action, install, upstream skill or agent activation, external harness
+execution, provider launch, profile writes, memory writes, remote execution, raw
+source URLs, raw evidence URLs, target paths, replay-command bodies, and
+upstream bodies remain denied.
