@@ -1868,6 +1868,50 @@ def _skill_route_discovery_profile_validation_requirements(
     return requirements
 
 
+def _skill_route_discovery_local_acceptance_gates(
+    candidate: Mapping[str, Any],
+    *,
+    selected_lane: str,
+    allowed_lanes: Sequence[str],
+    evidence_item_ids: Sequence[str],
+    validation_gates: Sequence[str],
+) -> dict[str, bool]:
+    """Return body-free acceptance gates for a selected local skill-route lane."""
+
+    handoff_metadata = candidate.get("handoff_metadata")
+    handoff = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+    route_validation_contract = candidate.get("route_validation_contract")
+    contract = route_validation_contract if isinstance(route_validation_contract, Mapping) else {}
+
+    bounded_lane = (
+        selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        and selected_lane in set(allowed_lanes)
+        and set(allowed_lanes) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    )
+    validation_required = (
+        candidate.get("local_validation_required") is True
+        and handoff.get("local_validation_required", True) is True
+        and contract.get("local_validation_required", True) is True
+    )
+
+    return {
+        "bounded_lane": bounded_lane,
+        "selected_evidence_present": bool(evidence_item_ids),
+        "validation_gate_present": bool(validation_gates),
+        "local_validation_required": validation_required,
+        "runtime_action_none": str(candidate.get("runtime_action") or "none") == "none",
+        "external_skill_activation_denied": candidate.get("external_skill_activation_allowed") is False,
+        "external_harness_execution_denied": handoff.get("external_harness_execution_allowed", False) is False,
+        "provider_runtime_launch_denied": handoff.get("provider_runtime_launch_allowed", False) is False,
+        "remote_execution_denied": handoff.get("remote_execution_allowed", False) is False,
+        "raw_source_url_not_exported": handoff.get("raw_source_url_exported", False) is False,
+        "raw_evidence_urls_not_exported": handoff.get("raw_evidence_urls_exported", False) is False,
+        "raw_target_paths_not_exported": True,
+        "raw_upstream_body_not_exported": handoff.get("raw_upstream_body_exported", False) is False,
+        "raw_replay_command_not_exported": True,
+    }
+
+
 def _skill_route_discovery_profile_proof_target(route_profile: str) -> str:
     """Describe the local proof expected for a route profile without upstream bodies."""
 
@@ -8501,6 +8545,18 @@ def _skill_route_discovery_pass3_active_proposal_acceptance_lane(
         for route_profile in route_profiles:
             proposal = profile_proposals[route_profile]
             selected_lane = str(proposal["selected_local_lane"])
+            acceptance_gates = _skill_route_discovery_local_acceptance_gates(
+                candidate,
+                selected_lane=selected_lane,
+                allowed_lanes=allowed_lanes,
+                evidence_item_ids=evidence_item_ids,
+                validation_gates=validation_gates,
+            )
+            failed_acceptance_gates = [
+                gate_name
+                for gate_name, gate_ready in acceptance_gates.items()
+                if gate_ready is not True
+            ]
             row_blockers: list[str] = []
             if str(candidate.get("route_class") or "") != SKILL_ROUTE_DISCOVERY_ROUTE_CLASS:
                 row_blockers.append("route_class_mismatch")
@@ -8518,6 +8574,9 @@ def _skill_route_discovery_pass3_active_proposal_acceptance_lane(
                 row_blockers.append("runtime_action_requested")
             if candidate.get("external_skill_activation_allowed") is not False:
                 row_blockers.append("external_skill_activation_not_denied")
+            row_blockers.extend(
+                f"acceptance_gate_failed:{gate_name}" for gate_name in failed_acceptance_gates
+            )
 
             if row_blockers:
                 blocked_rows.append(f"{candidate_name}:{route_profile}")
@@ -8538,6 +8597,8 @@ def _skill_route_discovery_pass3_active_proposal_acceptance_lane(
                     "selected_evidence_item_ids": evidence_item_ids,
                     "validation_gates": validation_gates,
                     "validation_target": proposal["validation_target"],
+                    "acceptance_gates": acceptance_gates,
+                    "acceptance_gate_status": "ready" if not failed_acceptance_gates else "blocked",
                     "replay_command_hash": _stable_hash(
                         "python -m pytest tests/test_skill_routing.py -q -k "
                         "pass3_active_proposal_acceptance_lane"
@@ -8574,6 +8635,13 @@ def _skill_route_discovery_pass3_active_proposal_acceptance_lane(
         }
         | set(missing_proposals)
     )
+    acceptance_gate_names = list(rows[0]["acceptance_gates"]) if rows else []
+    acceptance_gate_failures = [
+        f"{row['candidate_name']}:{gate_name}"
+        for row in rows
+        for gate_name, gate_ready in row["acceptance_gates"].items()
+        if gate_ready is not True
+    ]
     ready = bool(rows) and not blocked_rows and not missing_proposals
     return {
         "controller_surface": "skill_route_discovery_pass3_active_proposal_acceptance_lane",
@@ -8612,6 +8680,10 @@ def _skill_route_discovery_pass3_active_proposal_acceptance_lane(
             if lane in {str(row["selected_local_lane"]) for row in rows}
         ],
         "unsupported_lane_names_removed": sorted(dict.fromkeys(unsupported_lane_names)),
+        "acceptance_gate_names": acceptance_gate_names,
+        "acceptance_gate_failure_count": len(acceptance_gate_failures),
+        "acceptance_gate_failures": acceptance_gate_failures,
+        "acceptance_contract_ready": not acceptance_gate_failures and not missing_proposals,
         "required_evidence": [
             "selected_item_ids_or_frozen_fixture",
             "body_free_repository_summary",

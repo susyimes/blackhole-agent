@@ -3221,6 +3221,25 @@ def test_skill_route_discovery_pass3_active_proposal_acceptance_lane_matches_cur
     assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
     assert lane["unsupported_lane_names_removed"] == []
+    assert lane["acceptance_gate_names"] == [
+        "bounded_lane",
+        "selected_evidence_present",
+        "validation_gate_present",
+        "local_validation_required",
+        "runtime_action_none",
+        "external_skill_activation_denied",
+        "external_harness_execution_denied",
+        "provider_runtime_launch_denied",
+        "remote_execution_denied",
+        "raw_source_url_not_exported",
+        "raw_evidence_urls_not_exported",
+        "raw_target_paths_not_exported",
+        "raw_upstream_body_not_exported",
+        "raw_replay_command_not_exported",
+    ]
+    assert lane["acceptance_gate_failure_count"] == 0
+    assert lane["acceptance_gate_failures"] == []
+    assert lane["acceptance_contract_ready"] is True
     assert lane["required_evidence"] == [
         "selected_item_ids_or_frozen_fixture",
         "body_free_repository_summary",
@@ -3265,6 +3284,22 @@ def test_skill_route_discovery_pass3_active_proposal_acceptance_lane_matches_cur
         assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
         assert not {"provider_runtime", "runtime_execution", "install"} & set(row["allowed_local_lanes"])
         assert row["selected_evidence_item_ids"]
+        assert row["acceptance_gate_status"] == "ready"
+        assert all(row["acceptance_gates"].values())
+        assert row["acceptance_gates"]["bounded_lane"] is True
+        assert row["acceptance_gates"]["selected_evidence_present"] is True
+        assert row["acceptance_gates"]["validation_gate_present"] is True
+        assert row["acceptance_gates"]["local_validation_required"] is True
+        assert row["acceptance_gates"]["runtime_action_none"] is True
+        assert row["acceptance_gates"]["external_skill_activation_denied"] is True
+        assert row["acceptance_gates"]["external_harness_execution_denied"] is True
+        assert row["acceptance_gates"]["provider_runtime_launch_denied"] is True
+        assert row["acceptance_gates"]["remote_execution_denied"] is True
+        assert row["acceptance_gates"]["raw_source_url_not_exported"] is True
+        assert row["acceptance_gates"]["raw_evidence_urls_not_exported"] is True
+        assert row["acceptance_gates"]["raw_target_paths_not_exported"] is True
+        assert row["acceptance_gates"]["raw_upstream_body_not_exported"] is True
+        assert row["acceptance_gates"]["raw_replay_command_not_exported"] is True
         assert row["activation_blockers"] == []
         assert row["replay_command_hash"].startswith("sha256:")
         assert row["raw_replay_command_exported"] is False

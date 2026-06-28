@@ -3111,3 +3111,25 @@ Runtime action, upstream skill activation, external harness execution, provider
 launch, profile writes, memory writes, remote execution, raw source URLs, raw
 evidence URLs, target paths, replay-command bodies, and upstream bodies remain
 outside the handoff.
+
+## Active Pass 3 Acceptance Gates
+
+Source digest `github-growth-20260628T090729.682480Z` continues pass 3 by
+making `pass3_active_proposal_acceptance_lane` expose an explicit local
+acceptance contract for the active proposals
+`p1-skill-route-discovery-generic`,
+`p2-game-frontend-skill-workflow`, and
+`p3-skill-ecosystem-state-handoff`.
+
+Each row now reports body-free acceptance gates for bounded lane membership,
+selected evidence presence, validation gate presence, local validation, denied
+runtime action, denied external skill or harness execution, denied provider
+runtime launch, denied remote execution, and omission of raw source, evidence,
+target path, upstream body, and replay-command content. Failed gates become row
+activation blockers before final-pass handoff.
+
+This preserves the current interpretation of COMPASS Skills, zhengxi-views,
+and Three.js Game Skills as local validation candidates only. Qwen-AgentWorld
+or Looper-style general-agent evidence without skill workflow signals remains
+outside this route and must continue through an `agent_harness_eval_required`
+lane before it can influence implementation work.
