@@ -3470,6 +3470,141 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     assert "https://github.com/" not in serialized
 
 
+def test_skill_route_discovery_current_run_pass2_local_validation_lane_routes_current_proposals():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_run_pass2_local_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 4
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    ignored = registry["ignored_evidence_items"][0]
+    assert ignored["item_id"] == "proposal-agent-harness-qwen-agentworld-001"
+    assert ignored["evaluation_lane"] == "agent_harness_eval_required"
+    assert ignored["skill_route_discovery_inherited"] is False
+    assert ignored["direct_runtime_route_allowed"] is False
+    assert ignored["direct_code_patch_route_allowed"] is False
+
+    lane = lane_map["current_run_pass2_local_validation_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_current_run_pass2_local_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "current_run_pass2_skill_and_agent_routes_ready_for_local_validation"
+    assert lane["source_digest"] == "github-growth-20260628T020729.523438Z"
+    assert lane["capability_pass"] == 2
+    assert lane["review_gate"] == "focused-evidence-review"
+    assert lane["proposal_ids"] == [
+        "proposal-skill-route-discovery-zxv-001",
+        "proposal-agent-harness-qwen-agentworld-001",
+        "proposal-game-frontend-skill-route-001",
+        "proposal-skill-ecosystem-state-handoff-001",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-catalog",
+        "p2-skill-profile-routing-tests",
+        "p3-agent-harness-evaluation-lane",
+        "p4-game-frontend-skill-eval-fixture",
+        "p5-skill-ecosystem-handoff-note",
+    ]
+    assert lane["ready_proposal_count"] == 4
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["skill_route_candidate_count"] == 3
+    assert lane["adjacent_general_agent_count"] == 1
+    assert lane["observed_route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert lane["adjacent_evaluation_lane"] == "agent_harness_eval_required"
+    assert lane["agent_harness_eval_required"] is True
+    assert lane["agent_harness_eval_required_before_implementation"] is True
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["raw_replay_commands_exported"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_target_paths_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    assert rows["proposal-skill-route-discovery-zxv-001"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["proposal-skill-route-discovery-zxv-001"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["proposal-skill-route-discovery-zxv-001"]["selected_local_lane"] == "test"
+    assert rows["proposal-skill-route-discovery-zxv-001"]["allowed_local_lanes"] == list(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert "install" not in rows["proposal-skill-route-discovery-zxv-001"]["allowed_local_lanes"]
+
+    assert rows["proposal-game-frontend-skill-route-001"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["proposal-game-frontend-skill-route-001"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["proposal-game-frontend-skill-route-001"]["selected_local_lane"] == "documentation"
+    assert "runtime_execution" not in rows["proposal-game-frontend-skill-route-001"]["allowed_local_lanes"]
+
+    assert rows["proposal-skill-ecosystem-state-handoff-001"]["candidate_names"] == ["compass-skills"]
+    assert rows["proposal-skill-ecosystem-state-handoff-001"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["proposal-skill-ecosystem-state-handoff-001"]["selected_local_lane"] == "config"
+    assert rows["proposal-skill-ecosystem-state-handoff-001"]["profile_write_allowed"] is False
+    assert rows["proposal-skill-ecosystem-state-handoff-001"]["memory_write_allowed"] is False
+
+    agent_row = rows["proposal-agent-harness-qwen-agentworld-001"]
+    assert agent_row["proposal_track"] == "agent_harness_evaluation_lane"
+    assert agent_row["route_hint"] == "agent_harness_eval_required"
+    assert agent_row["route_class"] == "adjacent_general_agent_project"
+    assert agent_row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert agent_row["selected_local_lane"] == "agent_harness_eval_required"
+    assert agent_row["validation_gates"] == ["agent_harness_eval_before_implementation_route"]
+    assert agent_row["external_agent_activation_allowed"] is False
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+
+    adjacent = lane["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "proposal-agent-harness-qwen-agentworld-001"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["raw_replay_command_exported"] is False
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+
+
 def test_skill_route_discovery_active_pass1_fixtures_queue_general_agent_evidence():
     fixture_path = (
         Path(__file__).parent

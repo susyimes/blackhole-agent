@@ -2726,3 +2726,30 @@ only. It does not export raw source URLs, evidence URLs, target paths, replay
 commands, upstream bodies, install requests, runtime action, external skill or
 agent activation, external harness execution, provider launch, profile writes,
 memory writes, or remote execution.
+
+## Current Run Pass 2 Local Validation Lane
+
+Source digest `github-growth-20260628T020729.523438Z` advances pass 2 with
+`current_run_pass2_local_validation_lane`. The lane binds the current proposal
+set to one operator-visible replay packet:
+`proposal-skill-route-discovery-zxv-001` covers zhengxi-views-style generic
+Python skill workflow evidence, `proposal-game-frontend-skill-route-001` covers
+Three.js game/frontend skill evidence, and
+`proposal-skill-ecosystem-state-handoff-001` covers COMPASS-style state
+handoff evidence. Each skill row remains a local validation candidate only and
+may use documentation, config, test, or code_patch lanes after
+`skill_route_discovery` validation.
+
+`proposal-agent-harness-qwen-agentworld-001` is recorded as an adjacent
+`agent_harness_eval_required` row. General-agent project evidence without skill
+workflow signals does not inherit `skill_route_discovery`, direct code_patch
+authority, runtime authority, provider launch, external harness execution, or
+upstream agent activation. It must first pass a local agent-harness evaluation
+lane before it can influence implementation-oriented work.
+
+The pass-2 packet exports selected item IDs, route profiles, source hashes,
+validation gates, and replay-command hashes only. It does not export raw source
+URLs, raw evidence URLs, target paths, replay commands, upstream bodies,
+install requests, runtime action, external skill or agent activation, external
+harness execution, provider launch, profile writes, memory writes, or remote
+execution.
