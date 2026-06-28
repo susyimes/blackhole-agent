@@ -3726,3 +3726,28 @@ The readiness index is not activation. Runtime action, upstream skill or agent
 activation, external harness execution, provider launch, remote execution,
 profile writes, memory writes, raw source URL export, raw evidence URL export,
 and upstream body export remain denied.
+
+## Current Digest Pass 4 Skill Route Completion Lane
+
+Source digest `github-growth-20260628T200729.682703Z` completes the active
+skill-route-discovery window with the existing
+`current_digest_pass4_completion_handoff` surface specialized to the current
+proposal IDs `p1-skill-route-discovery-index`,
+`p2-skill-profile-documentation`, and adjacent `p3-agent-harness-eval`.
+
+The lane converts COMPASS Skills, zhengxi-views, and Three.js Game Skills into
+bounded local route rows only. The route index row selects the local test lane,
+and the profile documentation row selects the local documentation lane. Both
+rows must keep selected item IDs or frozen fixture evidence, route-profile
+validation gates, downgraded unsupported lane pressure, replay-command hashes,
+and `local_validation_required: true`.
+
+Qwen-AgentWorld-style general-agent evidence remains adjacent as
+`agent_harness_eval_required`: it may collect documentation/test/code_patch
+evidence only after a local harness-eval path exists, and it does not inherit
+`skill_route_discovery` or direct runtime/controller/code_patch authority.
+Install, runtime execution, provider runtime, upstream skill or agent
+activation, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw source URL export, raw evidence URL export,
+target path export, replay-command export, and upstream body export remain
+denied.

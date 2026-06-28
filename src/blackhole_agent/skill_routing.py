@@ -6156,31 +6156,69 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
 ) -> dict[str, Any]:
     """Close the current digest route-discovery slice with bounded replay metadata."""
 
+    current_200729_window = source_digest == "github-growth-20260628T200729.682703Z"
     specs = (
-        {
-            "proposal_id": "p1-skill-route-discovery-generic",
-            "proposal_kind": "test",
-            "proposal_track": "generic_skill_workflow",
-            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
-            "selected_local_lane": "test",
-            "completion_requirement": "generic_skill_repository_signal_has_bounded_local_validation_lane",
-        },
-        {
-            "proposal_id": "p2-game-frontend-skill-profile",
-            "proposal_kind": "documentation",
-            "proposal_track": "game_frontend_workflow",
-            "route_profiles": ("game_frontend_workflow",),
-            "selected_local_lane": "documentation",
-            "completion_requirement": "game_frontend_skill_signal_stays_metadata_first_until_local_validation",
-        },
-        {
-            "proposal_id": "p3-skill-ecosystem-handoff",
-            "proposal_kind": "test",
-            "proposal_track": "skill_ecosystem_state_handoff",
-            "route_profiles": ("skill_ecosystem_state_handoff",),
-            "selected_local_lane": "test",
-            "completion_requirement": "skill_ecosystem_state_handoff_stays_metadata_only_without_profile_or_memory_writes",
-        },
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-index",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_index",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "external_skill_repository_metadata_classifies_only_to_bounded_local_lanes"
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-profile-documentation",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_profile_documentation",
+                "route_profiles": (
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                    "game_frontend_workflow",
+                    "skill_ecosystem_state_handoff",
+                ),
+                "selected_local_lane": "documentation",
+                "completion_requirement": (
+                    "generic_game_frontend_and_state_handoff_profiles_have_operator_visible_handling"
+                ),
+            },
+        )
+        if current_200729_window
+        else (
+            {
+                "proposal_id": "p1-skill-route-discovery-generic",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "completion_requirement": "generic_skill_repository_signal_has_bounded_local_validation_lane",
+            },
+            {
+                "proposal_id": "p2-game-frontend-skill-profile",
+                "proposal_kind": "documentation",
+                "proposal_track": "game_frontend_workflow",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "documentation",
+                "completion_requirement": "game_frontend_skill_signal_stays_metadata_first_until_local_validation",
+            },
+            {
+                "proposal_id": "p3-skill-ecosystem-handoff",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "skill_ecosystem_state_handoff_stays_metadata_only_without_profile_or_memory_writes"
+                ),
+            },
+        )
     )
 
     rows: list[dict[str, Any]] = []
@@ -6290,13 +6328,14 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     adjacent_rows: list[dict[str, Any]] = []
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p4-agent-harness-eval-qwen",
+        proposal_id="p3-agent-harness-eval" if current_200729_window else "p4-agent-harness-eval-qwen",
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
+        row["selected_local_lane"] = "agent_harness_eval_required"
         row["raw_replay_command_exported"] = False
         adjacent_rows.append(row)
         if replay_command:
@@ -6336,20 +6375,37 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "capability_slice_complete": ready,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
-        "anchoring_proposal_ids": [
-            "p1-skill-route-discovery-generic",
-            "p2-game-frontend-skill-profile",
-            "p3-skill-ecosystem-state-handoff",
-            "p4-agent-harness-eval-qwen",
-            "p5-agent-harness-eval-looper",
-            "p1-skill-route-discovery-compass-handoff",
-            "p2-threejs-game-skill-routing-profile",
-            "p3-generic-skill-workflow-discovery-fixture",
-            "p4-skill-trend-intake-config-guard",
-            "trend:lyra81604/zhengxi-views-1",
-            "p1-skill-route-discovery-views",
-            "p2-threejs-game-skill-profile",
-        ],
+        "anchoring_proposal_ids": (
+            [
+                "p1-skill-route-discovery-index",
+                "p2-skill-route-fixture-tests",
+                "p3-game-frontend-skill-profile",
+                "p4-agent-harness-eval-fixtures",
+                "p5-skill-ecosystem-state-handoff",
+                "p1-skill-route-discovery-generic",
+                "p2-agent-harness-eval-qwen-agentworld",
+                "p3-game-frontend-skill-route",
+                "p4-skill-ecosystem-state-handoff",
+                "p5-agent-harness-eval-looper",
+                "p1-skill-route-discovery-harness",
+                "p2-skill-discovery-docs",
+            ]
+            if current_200729_window
+            else [
+                "p1-skill-route-discovery-generic",
+                "p2-game-frontend-skill-profile",
+                "p3-skill-ecosystem-state-handoff",
+                "p4-agent-harness-eval-qwen",
+                "p5-agent-harness-eval-looper",
+                "p1-skill-route-discovery-compass-handoff",
+                "p2-threejs-game-skill-routing-profile",
+                "p3-generic-skill-workflow-discovery-fixture",
+                "p4-skill-trend-intake-config-guard",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-views",
+                "p2-threejs-game-skill-profile",
+            ]
+        ),
         "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),
