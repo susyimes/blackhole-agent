@@ -4095,6 +4095,186 @@ def test_skill_route_discovery_current_active_pass3_local_activation_proof_lane_
     assert "runtime_execution" not in serialized
 
 
+def test_skill_route_discovery_current_pass3_route_validation_lane_matches_active_proposals():
+    items = [
+        {
+            "source_digest": "github-growth-20260628T074730.300165Z",
+            "item_id": "p1-skill-route-discovery-generic",
+            "item_kind": "repository",
+            "name": "zhengxi-views",
+            "source_url": "https://github.com/lyra81604/zhengxi-views",
+            "title": "Generic public skill workflow repository",
+            "summary": (
+                "Skill-like repository evidence with agent workflow notes, source-cited validation, "
+                "local test hints, and no authority to install or execute upstream code."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent-skill", "workflow", "source-cited", "validation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": "external_skill_route_discovery_classification",
+                "route_profiles": ["source_cited_domain_research"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                "source_layout_signals": ["skill_markdown", "validation_script"],
+                "source_metadata_signals": ["skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260628T074730.300165Z",
+            "item_id": "p2-threejs-game-skill-routing",
+            "item_kind": "repository",
+            "name": "threejs-game-skills",
+            "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+            "title": "Three.js game frontend skill workflow",
+            "summary": (
+                "Three.js browser game skill workflow with QA language, local frontend validation "
+                "concerns, scaffold pressure, and provider asset-generation boundaries."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent-skills", "threejs", "browser-game", "frontend-validation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": "external_skill_route_discovery_classification",
+                "route_profiles": ["game_frontend_workflow"],
+                "allowed_local_lanes": [
+                    "documentation",
+                    "config",
+                    "test",
+                    "code_patch",
+                    "runtime_execution",
+                ],
+                "source_layout_signals": ["skill_markdown", "qa_checklist"],
+                "source_metadata_signals": ["asset_boundary"],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260628T074730.300165Z",
+            "item_id": "p3-skill-ecosystem-state-handoff",
+            "item_kind": "repository",
+            "name": "compass-skills",
+            "source_url": "https://github.com/dongshuyan/compass-skills",
+            "title": "Skill ecosystem state handoff profile",
+            "summary": (
+                "Skill ecosystem evidence with collaboration profile metadata, handoff prompts, "
+                "local memory notes, privacy boundary, and local config routing."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["skills", "state-handoff", "workflow", "profile"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": "external_skill_route_discovery_classification",
+                "route_profiles": ["skill_ecosystem_state_handoff"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                "source_layout_signals": ["skill_directory", "qa_checklist"],
+                "source_metadata_signals": ["profile_state_metadata", "privacy_boundary"],
+            },
+        },
+    ]
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    lane = lane_map["current_pass3_route_validation_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_current_pass3_route_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "current_pass3_skill_routes_ready_for_bounded_validation"
+    assert lane["source_digest"] == "github-growth-20260628T074730.300165Z"
+    assert lane["capability_pass"] == 3
+    assert lane["total_passes"] == 4
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-generic",
+        "p2-threejs-game-skill-routing",
+        "p3-skill-ecosystem-state-handoff",
+    ]
+    assert lane["source_proof_surface"] == (
+        "skill_route_discovery_current_active_pass3_local_activation_proof_lane"
+    )
+    assert lane["source_proof_status"] == "ready"
+    assert lane["ready_proposal_count"] == 3
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["observed_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_local_lanes"] == ["config", "test"]
+    assert lane["operator_next_action"] == (
+        "replay_current_pass3_route_validation_then_continue_to_pass4"
+    )
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert lane["raw_replay_commands_exported"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_target_paths_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    assert rows["p1-skill-route-discovery-generic"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-generic"]["validation_task"] == (
+        "generic_skill_metadata_routes_to_bounded_local_lanes"
+    )
+    assert rows["p2-threejs-game-skill-routing"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["p2-threejs-game-skill-routing"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p2-threejs-game-skill-routing"]["selected_local_lane"] == "test"
+    assert rows["p2-threejs-game-skill-routing"]["validation_task"] == (
+        "game_frontend_workflow_maps_only_to_bounded_local_work"
+    )
+    assert set(rows["p2-threejs-game-skill-routing"]["allowed_local_lanes"]) == set(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+
+    handoff = rows["p3-skill-ecosystem-state-handoff"]
+    assert handoff["selected_local_lane"] == "config"
+    assert handoff["validation_task"] == (
+        "document_state_handoff_profile_inputs_outputs_and_boundaries"
+    )
+    assert handoff["state_handoff_boundary"]["expected_inputs"] == [
+        "profile_or_state_handoff_metadata",
+        "privacy_boundary_note",
+        "selected_digest_item_ids_or_frozen_fixture",
+    ]
+    assert handoff["state_handoff_boundary"]["expected_outputs"] == [
+        "metadata_only_config_or_documentation_lane",
+        "profile_write_denial",
+        "memory_write_denial",
+    ]
+    assert handoff["state_handoff_boundary"]["profile_write_allowed"] is False
+    assert handoff["state_handoff_boundary"]["memory_write_allowed"] is False
+
+    for row in lane["rows"]:
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["route_validation_io"]["runtime_action"] == "none"
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_skill_route_discovery_current_pass4_route_discovery_validation_fix_is_bounded():
     fixture_path = (
         Path(__file__).parent

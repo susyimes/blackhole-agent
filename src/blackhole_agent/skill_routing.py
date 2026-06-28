@@ -1269,6 +1269,10 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_pass3_route_validation_lane = _skill_route_discovery_current_pass3_route_validation_lane(
+        candidate_lane_inventory,
+        source_digest=_skill_route_discovery_source_digest(registry),
+    )
     current_pass4_route_discovery_validation_fix = (
         _skill_route_discovery_current_pass4_route_discovery_validation_fix(
             candidate_lane_inventory,
@@ -1390,6 +1394,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_active_pass3_local_activation_proof_lane": (
             current_active_pass3_local_activation_proof_lane
         ),
+        "current_pass3_route_validation_lane": current_pass3_route_validation_lane,
         "current_pass4_route_discovery_validation_fix": current_pass4_route_discovery_validation_fix,
         "active_window_pass2_validation_lane": active_window_pass2_validation_lane,
         "active_pass3_activation_candidate_lane": active_pass3_activation_candidate_lane,
@@ -5546,6 +5551,186 @@ def _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
             "replay_hashed_pass3_activation_proofs_then_continue_to_pass4"
             if ready
             else "repair_blocked_rows_then_rebuild_pass3_activation_proofs"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_current_pass3_route_validation_lane(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Expose this wake's skill-route proposals as bounded validation lanes."""
+
+    proof_lane = _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
+        candidate_lane_inventory,
+        source_digest=source_digest,
+    )
+    proposal_aliases = {
+        "p1-skill-route-discovery-general": "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile": "p2-threejs-game-skill-routing",
+        "p3-skill-ecosystem-state-handoff": "p3-skill-ecosystem-state-handoff",
+    }
+    validation_tasks = {
+        "p1-skill-route-discovery-generic": "generic_skill_metadata_routes_to_bounded_local_lanes",
+        "p2-threejs-game-skill-routing": "game_frontend_workflow_maps_only_to_bounded_local_work",
+        "p3-skill-ecosystem-state-handoff": "document_state_handoff_profile_inputs_outputs_and_boundaries",
+    }
+
+    rows: list[dict[str, Any]] = []
+    for proof_row in proof_lane.get("rows", []):
+        if not isinstance(proof_row, Mapping):
+            continue
+        proof_proposal_id = str(proof_row.get("proposal_id") or "")
+        proposal_id = proposal_aliases.get(proof_proposal_id)
+        if not proposal_id:
+            continue
+        route_profiles = _string_list(proof_row.get("route_profiles"))
+        row = {
+            "proposal_id": proposal_id,
+            "source_proof_proposal_id": proof_proposal_id,
+            "proposal_kind": str(proof_row.get("proposal_kind") or ""),
+            "proposal_track": str(proof_row.get("proposal_track") or ""),
+            "status": str(proof_row.get("status") or "blocked"),
+            "activation_blockers": _string_list(proof_row.get("activation_blockers")),
+            "candidate_names": _string_list(proof_row.get("candidate_names")),
+            "candidate_source_hashes": _string_list(proof_row.get("candidate_source_hashes")),
+            "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+            "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+            "route_profiles": route_profiles,
+            "allowed_local_lanes": _string_list(proof_row.get("allowed_local_lanes")),
+            "selected_local_lane": str(proof_row.get("selected_local_lane") or ""),
+            "queued_local_lanes": _string_list(proof_row.get("queued_local_lanes")),
+            "selected_evidence_item_ids": _string_list(proof_row.get("selected_evidence_item_ids")),
+            "validation_gates": _string_list(proof_row.get("validation_gates")),
+            "validation_target": str(proof_row.get("validation_target") or ""),
+            "validation_task": validation_tasks[proposal_id],
+            "profile_validation_requirements": [
+                requirement
+                for requirement in proof_row.get("profile_validation_requirements", [])
+                if isinstance(requirement, Mapping)
+            ],
+            "route_validation_io": {
+                "expected_inputs": [
+                    "selected_digest_item_ids_or_frozen_fixture",
+                    "body_free_repository_summary",
+                    "route_profile_metadata",
+                    "allowed_local_lanes",
+                ],
+                "expected_outputs": [
+                    "selected_bounded_local_lane",
+                    "queued_bounded_local_lanes",
+                    "validation_gate",
+                    "validation_task",
+                    "candidate_source_hashes",
+                ],
+                "validation_boundaries": [
+                    "no_runtime_action",
+                    "no_external_skill_activation",
+                    "no_external_harness_execution",
+                    "no_provider_runtime_launch",
+                    "no_remote_execution",
+                    "no_raw_source_or_evidence_url_export",
+                    "no_upstream_body_export",
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+            },
+            "state_handoff_boundary": (
+                {
+                    "expected_inputs": [
+                        "profile_or_state_handoff_metadata",
+                        "privacy_boundary_note",
+                        "selected_digest_item_ids_or_frozen_fixture",
+                    ],
+                    "expected_outputs": [
+                        "metadata_only_config_or_documentation_lane",
+                        "profile_write_denial",
+                        "memory_write_denial",
+                    ],
+                    "validation_boundaries": [
+                        "profile_writes_denied",
+                        "memory_writes_denied",
+                        "privacy_boundary_must_be_local_and_body_free",
+                    ],
+                    "profile_write_allowed": False,
+                    "memory_write_allowed": False,
+                }
+                if "skill_ecosystem_state_handoff" in route_profiles
+                else {}
+            ),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "profile_write_allowed": False,
+            "memory_write_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_replay_command_exported": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        rows.append(row)
+
+    blocked_proposal_ids = [row["proposal_id"] for row in rows if row["status"] != "ready"]
+    ready = proof_lane.get("status") == "ready" and len(rows) == 3 and not blocked_proposal_ids
+    return {
+        "controller_surface": "skill_route_discovery_current_pass3_route_validation_lane",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_pass3_skill_routes_ready_for_bounded_validation"
+            if ready
+            else "repair_current_pass3_skill_route_validation_before_activation"
+        ),
+        "source_digest": source_digest or "github-growth-20260628T074730.300165Z",
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [
+            "p1-skill-route-discovery-generic",
+            "p2-threejs-game-skill-routing",
+            "p3-skill-ecosystem-state-handoff",
+        ],
+        "source_proof_surface": str(proof_lane.get("controller_surface") or ""),
+        "source_proof_status": str(proof_lane.get("status") or ""),
+        "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "observed_route_profiles": _string_list(proof_lane.get("observed_route_profiles")),
+        "selected_evidence_item_ids": _string_list(proof_lane.get("selected_evidence_item_ids")),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": _string_list(proof_lane.get("selected_local_lanes")),
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "profile_validation_requirements",
+            "route_validation_io_contract",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "operator_next_action": (
+            "replay_current_pass3_route_validation_then_continue_to_pass4"
+            if ready
+            else "repair_blocked_route_validation_rows_before_activation"
         ),
         "local_validation_required": True,
         "runtime_action": "none",

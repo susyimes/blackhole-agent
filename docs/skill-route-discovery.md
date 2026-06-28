@@ -3060,3 +3060,31 @@ hashes only. Unsupported install, provider runtime, runtime execution, external
 harness execution, upstream skill activation, provider launch, profile writes,
 memory writes, remote execution, raw source URLs, raw evidence URLs, target
 paths, replay-command bodies, and upstream bodies remain outside the handoff.
+
+## Current Pass 3 Route Validation Lane
+
+Source digest `github-growth-20260628T074730.300165Z` advances pass 3 of the
+active `skill-route-discovery` slice with
+`current_pass3_route_validation_lane`. The lane is derived from the existing
+local activation-proof surface and rekeys the current proposal IDs:
+`p1-skill-route-discovery-generic`, `p2-threejs-game-skill-routing`, and
+`p3-skill-ecosystem-state-handoff`.
+
+The generic skill workflow row validates that agent/skill repository metadata
+maps only to documentation, config, test, or code_patch work. The Three.js game
+skill row selects the local test lane for `game_frontend_workflow` and keeps
+runtime execution, scaffold execution, provider launch, asset generation, and
+external skill activation denied until local frontend or test validation exists.
+The skill ecosystem state handoff row records the expected input/output
+boundary: inputs are profile or state-handoff metadata, privacy boundary notes,
+and selected digest item IDs or frozen fixture evidence; outputs are metadata-
+only config or documentation lanes plus explicit profile-write and memory-write
+denial.
+
+This pass-3 lane is an operator replay surface, not activation authority. It
+exports proposal IDs, selected item IDs, route profiles, source hashes, bounded
+lane names, validation gates, validation tasks, and body-free IO contracts only.
+Runtime action, upstream skill activation, external harness execution, provider
+launch, profile writes, memory writes, remote execution, raw source URLs, raw
+evidence URLs, target paths, replay-command bodies, and upstream bodies remain
+outside the handoff.
