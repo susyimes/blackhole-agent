@@ -3239,6 +3239,22 @@ execution, provider launch, profile writes, memory writes, remote execution, raw
 source URLs, raw evidence URLs, target paths, replay-command bodies, and
 upstream bodies remain denied.
 
+The same wake now emits `current_active_pass2_activation_contract` beside the
+proposal lane. The contract is an operator-visible acceptance checklist for the
+three active pass-2 profiles, derived from the sanitized proposal lane and the
+skill-route validation matrix. It does not add evidence, lanes, commands, or
+activation authority.
+
+The contract binds `p1_skill_route_discovery_generic_views` to the local test
+lane for generic or source-cited skill workflow evidence, binds
+`p2_game_frontend_skill_profile` to a game/frontend acceptance gate requiring
+local UI, render, or workflow validation before any behavior change, and binds
+`p3_skill_ecosystem_state_handoff` to config metadata only. State, profile, and
+memory writes stay denied for the handoff profile. Game scaffold, install,
+provider launch, external skill activation, external harness execution, remote
+execution, raw evidence URL export, raw upstream body export, and replay-command
+body export remain denied for every row.
+
 ## Current Run Pass 3 Acceptance Lane
 
 Source digest `github-growth-20260628T102729.741495Z` advances pass 3 by adding

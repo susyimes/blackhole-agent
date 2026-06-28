@@ -1272,6 +1272,12 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ignored_evidence_items,
         source_digest=_skill_route_discovery_source_digest(registry),
     )
+    current_active_pass2_activation_contract = (
+        _skill_route_discovery_current_active_pass2_activation_contract(
+            current_active_pass2_proposal_lane,
+            current_active_pass2_skill_route_validation_matrix,
+        )
+    )
     current_active_pass3_local_activation_proof_lane = (
         _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
             candidate_lane_inventory,
@@ -1440,6 +1446,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             current_active_pass2_skill_route_validation_matrix
         ),
         "current_active_pass2_proposal_lane": current_active_pass2_proposal_lane,
+        "current_active_pass2_activation_contract": current_active_pass2_activation_contract,
         "current_active_pass3_local_activation_proof_lane": (
             current_active_pass3_local_activation_proof_lane
         ),
@@ -6699,6 +6706,187 @@ def _skill_route_discovery_current_active_pass2_proposal_lane(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_current_active_pass2_activation_contract(
+    proposal_lane: Mapping[str, Any],
+    validation_matrix: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Turn current pass-2 skill-route rows into profile acceptance gates."""
+
+    raw_rows = proposal_lane.get("rows")
+    proposal_rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
+    contract_specs = {
+        "p1_skill_route_discovery_generic_views": {
+            "acceptance_gate": "generic_skill_repository_signal_test_lane_only",
+            "required_local_proof": [
+                "selected_item_ids_or_frozen_fixture",
+                "bounded_lane_membership_test",
+                "no_runtime_action_assertion",
+            ],
+            "activation_rule": "may_continue_only_as_local_test_or_code_review_evidence",
+        },
+        "p2_game_frontend_skill_profile": {
+            "acceptance_gate": "game_frontend_workflow_requires_local_ui_or_render_validation",
+            "required_local_proof": [
+                "selected_item_ids_or_frozen_fixture",
+                "local_frontend_or_render_validation",
+                "no_scaffold_or_external_skill_activation_assertion",
+            ],
+            "activation_rule": "may continue only after local UI, render, or workflow validation passes",
+        },
+        "p3_skill_ecosystem_state_handoff": {
+            "acceptance_gate": "skill_ecosystem_state_handoff_config_metadata_only",
+            "required_local_proof": [
+                "selected_item_ids_or_frozen_fixture",
+                "config_lane_metadata_review",
+                "no_profile_or_memory_write_assertion",
+            ],
+            "activation_rule": "may continue only as config metadata; state, profile, and memory writes stay denied",
+        },
+    }
+
+    rows: list[dict[str, Any]] = []
+    selected_lanes: list[str] = []
+    observed_profiles: list[str] = []
+    blocked_proposal_ids: list[str] = []
+
+    for raw_row in proposal_rows:
+        if not isinstance(raw_row, Mapping):
+            continue
+        proposal_id = str(raw_row.get("proposal_id") or "")
+        if proposal_id not in contract_specs:
+            continue
+        spec = contract_specs[proposal_id]
+        selected_lane = str(raw_row.get("selected_local_lane") or "")
+        route_profiles = _string_list(raw_row.get("route_profiles"))
+        allowed_lanes = [
+            lane
+            for lane in _string_list(raw_row.get("allowed_local_lanes"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        blockers = list(_string_list(raw_row.get("activation_blockers")))
+        if str(raw_row.get("status") or "") != "ready":
+            blockers.append("proposal_lane_row_not_ready")
+        if selected_lane not in allowed_lanes:
+            blockers.append("selected_local_lane_not_allowed")
+        if not _string_list(raw_row.get("selected_evidence_item_ids")):
+            blockers.append("selected_item_ids_or_frozen_fixture_missing")
+        if raw_row.get("runtime_action") != "none":
+            blockers.append("runtime_action_not_none")
+        if raw_row.get("external_skill_activation_allowed") is not False:
+            blockers.append("external_skill_activation_not_denied")
+        if raw_row.get("external_harness_execution_allowed") is not False:
+            blockers.append("external_harness_execution_not_denied")
+        if raw_row.get("provider_runtime_launch_allowed") is not False:
+            blockers.append("provider_runtime_launch_not_denied")
+        if raw_row.get("raw_source_url_exported") is not False:
+            blockers.append("raw_source_url_export_not_denied")
+        if raw_row.get("raw_evidence_urls_exported") is not False:
+            blockers.append("raw_evidence_url_export_not_denied")
+        if raw_row.get("raw_upstream_body_exported") is not False:
+            blockers.append("raw_upstream_body_export_not_denied")
+
+        row_status = "ready" if not blockers else "blocked"
+        if row_status != "ready":
+            blocked_proposal_ids.append(proposal_id)
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_lanes.append(selected_lane)
+        observed_profiles.extend(route_profiles)
+
+        rows.append(
+            {
+                "proposal_id": proposal_id,
+                "proposal_aliases": _string_list(raw_row.get("proposal_aliases")),
+                "status": row_status,
+                "activation_blockers": sorted(dict.fromkeys(blockers)),
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_lanes,
+                "candidate_names": _string_list(raw_row.get("candidate_names")),
+                "candidate_source_hashes": _string_list(raw_row.get("candidate_source_hashes")),
+                "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
+                "validation_target": str(raw_row.get("validation_target") or ""),
+                "acceptance_gate": spec["acceptance_gate"],
+                "required_local_proof": list(spec["required_local_proof"]),
+                "activation_rule": spec["activation_rule"],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    expected_proposal_ids = list(contract_specs)
+    present_proposal_ids = {row["proposal_id"] for row in rows}
+    missing_proposal_ids = [
+        proposal_id for proposal_id in expected_proposal_ids if proposal_id not in present_proposal_ids
+    ]
+    blocked_proposal_ids.extend(missing_proposal_ids)
+    matrix_ready = validation_matrix.get("status") == "ready"
+    proposal_lane_ready = proposal_lane.get("status") == "ready"
+    ready = bool(rows) and not blocked_proposal_ids and matrix_ready and proposal_lane_ready
+
+    return {
+        "controller_surface": "skill_route_discovery_current_active_pass2_activation_contract",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_active_pass2_profiles_have_bounded_activation_contract"
+            if ready
+            else "repair_current_active_pass2_activation_contract_before_handoff"
+        ),
+        "source_digest": str(proposal_lane.get("source_digest") or ""),
+        "capability_pass": 2,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_lane_status": str(proposal_lane.get("status") or ""),
+        "validation_matrix_status": str(validation_matrix.get("status") or ""),
+        "proposal_ids": expected_proposal_ids,
+        "blocked_proposal_ids": sorted(dict.fromkeys(blocked_proposal_ids)),
+        "observed_route_profiles": sorted(dict.fromkeys(profile for profile in observed_profiles if profile)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "profile_specific_acceptance_gate",
+            "focused_local_validation",
+            "rollback_artifact",
+            "changed_file_review",
+            "review_note",
+        ],
+        "operator_next_action": (
+            "replay_current_active_pass2_activation_contract_then_continue_to_pass3"
+            if ready
+            else "repair_blocked_pass2_contract_rows_before_activation"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 

@@ -4591,6 +4591,74 @@ def test_skill_route_discovery_current_active_pass2_proposal_lane_maps_wake_alia
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_current_active_pass2_activation_contract_is_profile_specific():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_active_pass2_proposal_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    contract = lane_map["current_active_pass2_activation_contract"]
+    assert contract["controller_surface"] == "skill_route_discovery_current_active_pass2_activation_contract"
+    assert contract["status"] == "ready"
+    assert contract["decision"] == "current_active_pass2_profiles_have_bounded_activation_contract"
+    assert contract["proposal_lane_status"] == "ready"
+    assert contract["validation_matrix_status"] == "ready"
+    assert contract["proposal_ids"] == [
+        "p1_skill_route_discovery_generic_views",
+        "p2_game_frontend_skill_profile",
+        "p3_skill_ecosystem_state_handoff",
+    ]
+    assert contract["blocked_proposal_ids"] == []
+    assert contract["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert contract["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert contract["operator_next_action"] == (
+        "replay_current_active_pass2_activation_contract_then_continue_to_pass3"
+    )
+    assert contract["local_validation_required"] is True
+    assert contract["runtime_action"] == "none"
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["external_harness_execution_allowed"] is False
+    assert contract["provider_runtime_launch_allowed"] is False
+    assert contract["profile_write_allowed"] is False
+    assert contract["memory_write_allowed"] is False
+    assert contract["raw_evidence_urls_exported"] is False
+    assert contract["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in contract["rows"]}
+    generic = rows["p1_skill_route_discovery_generic_views"]
+    game = rows["p2_game_frontend_skill_profile"]
+    handoff = rows["p3_skill_ecosystem_state_handoff"]
+
+    assert generic["acceptance_gate"] == "generic_skill_repository_signal_test_lane_only"
+    assert generic["selected_local_lane"] == "test"
+    assert generic["route_profiles"] == ["source_cited_domain_research"]
+    assert "bounded_lane_membership_test" in generic["required_local_proof"]
+
+    assert game["acceptance_gate"] == "game_frontend_workflow_requires_local_ui_or_render_validation"
+    assert game["selected_local_lane"] == "documentation"
+    assert game["route_profiles"] == ["game_frontend_workflow"]
+    assert "local_frontend_or_render_validation" in game["required_local_proof"]
+    assert game["runtime_action"] == "none"
+    assert game["external_skill_activation_allowed"] is False
+
+    assert handoff["acceptance_gate"] == "skill_ecosystem_state_handoff_config_metadata_only"
+    assert handoff["selected_local_lane"] == "config"
+    assert handoff["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert "no_profile_or_memory_write_assertion" in handoff["required_local_proof"]
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+
+    serialized = json.dumps(contract, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+
+
 def test_skill_route_discovery_current_active_pass3_local_activation_proof_lane_is_bounded():
     fixture_path = (
         Path(__file__).parent
