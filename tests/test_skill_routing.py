@@ -6083,7 +6083,7 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
     assert current_pass["controller_surface"] == "skill_route_discovery_current_pass_completion_lane"
     assert current_pass["status"] == "ready"
     assert current_pass["decision"] == "current_pass_skill_route_proposals_ready_for_supervisor_replay"
-    assert current_pass["source_digest"] == "github-growth-20260628T052730.417321Z"
+    assert current_pass["source_digest"] == "github-growth-20260628T120729.553038Z"
     assert current_pass["capability_pass"] == 4
     assert current_pass["total_passes"] == 4
     assert current_pass["proposal_ids"] == [
@@ -6099,6 +6099,39 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
     ]
     assert current_pass["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert current_pass["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert current_pass["validation_replay_commands"] == [
+        "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research",
+        "python -m pytest tests/test_skill_routing.py -q -k skill_route_discovery",
+        "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
+    ]
+    assert [
+        (
+            row["proposal_id"],
+            row["selected_local_lane"],
+            row["validation_replay_command"],
+            row["status"],
+        )
+        for row in current_pass["operator_replay_bundle"]
+    ] == [
+        (
+            "p1-skill-route-discovery-general",
+            "test",
+            "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research",
+            "ready",
+        ),
+        (
+            "p2-game-frontend-skill-profile",
+            "documentation",
+            "python -m pytest tests/test_skill_routing.py -q -k skill_route_discovery",
+            "ready",
+        ),
+        (
+            "p3-skill-ecosystem-state-handoff",
+            "config",
+            "python -m pytest tests/test_skill_routing.py -q -k state_handoff",
+            "ready",
+        ),
+    ]
     assert current_pass["operator_handoff"] == "external_supervisor_replay_without_kernel_restart"
     assert current_pass["runtime_action"] == "none"
     assert current_pass["external_skill_activation_allowed"] is False
@@ -6137,6 +6170,12 @@ def test_skill_route_discovery_current_pass_completion_lane_maps_active_proposal
         assert row["status"] == "ready"
         assert row["activation_blockers"] == []
         assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["validation_replay_command"].startswith(
+            "python -m pytest tests/test_skill_routing.py -q -k "
+        )
+        assert "install" not in row["allowed_local_lanes"]
+        assert "runtime_execution" not in row["allowed_local_lanes"]
+        assert "provider_runtime" not in row["allowed_local_lanes"]
         assert row["acceptance_criteria"] == [
             "selected_lane_is_documentation_config_test_or_code_patch",
             "local_validation_required_before_activation",

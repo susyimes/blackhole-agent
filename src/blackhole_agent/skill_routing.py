@@ -11952,6 +11952,7 @@ def _skill_route_discovery_current_pass_completion_lane(
     blocked_proposal_ids: list[str] = []
     observed_profiles: list[str] = []
     selected_lanes: list[str] = []
+    validation_replay_commands: list[str] = []
 
     for spec in proposal_specs:
         required_profiles = set(_string_list(spec["route_profiles"]))
@@ -12000,6 +12001,14 @@ def _skill_route_discovery_current_pass_completion_lane(
         else:
             selected_lanes.append(selected_local_lane)
 
+        validation_replay_command = (
+            _skill_route_discovery_replay_command(selected_local_lane, _string_list(spec["route_profiles"]))
+            if selected_local_lane in allowed_local_lanes
+            else ""
+        )
+        if validation_replay_command:
+            validation_replay_commands.append(validation_replay_command)
+
         rows.append(
             {
                 "proposal_id": spec["proposal_id"],
@@ -12020,6 +12029,12 @@ def _skill_route_discovery_current_pass_completion_lane(
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_targets": list(dict.fromkeys(validation_targets)),
                 "validation_task": spec["validation_task"],
+                "validation_replay_command": validation_replay_command,
+                "operator_replay_step": (
+                    "run_local_validation_for_selected_skill_route_lane"
+                    if validation_replay_command
+                    else "repair_bounded_lane_before_replay"
+                ),
                 "acceptance_criteria": [
                     "selected_lane_is_documentation_config_test_or_code_patch",
                     "local_validation_required_before_activation",
@@ -12050,7 +12065,7 @@ def _skill_route_discovery_current_pass_completion_lane(
             if rows and not blocked_proposal_ids
             else "repair_current_pass_skill_route_completion_before_activation"
         ),
-        "source_digest": "github-growth-20260628T052730.417321Z",
+        "source_digest": "github-growth-20260628T120729.553038Z",
         "capability_pass": 4,
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
@@ -12061,6 +12076,17 @@ def _skill_route_discovery_current_pass_completion_lane(
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "selected_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "validation_replay_commands": list(dict.fromkeys(validation_replay_commands)),
+        "operator_replay_bundle": [
+            {
+                "proposal_id": row["proposal_id"],
+                "selected_local_lane": row["selected_local_lane"],
+                "route_profiles": row["route_profiles"],
+                "validation_replay_command": row["validation_replay_command"],
+                "status": row["status"],
+            }
+            for row in rows
         ],
         "operator_handoff": "external_supervisor_replay_without_kernel_restart",
         "required_evidence": [
