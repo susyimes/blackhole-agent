@@ -2583,6 +2583,25 @@ command bodies, or upstream bodies, and it denies runtime action, external
 skill or agent activation, external harness execution, provider launch, profile
 writes, memory writes, and remote execution.
 
+Source digest `github-growth-20260628T010729.693724Z` advances the window to
+pass 3 with `current_window_pass3_validation_cases`. The packet turns the
+active proposal set into operator-visible local validation cases:
+`p1-skill-route-discovery-index` selects a documentation lane over the bounded
+skill-route index, `p2-skill-route-discovery-test-fixtures` selects a test lane
+for fixture replay, `p3-game-frontend-skill-profile` selects a documentation
+lane for Three.js/browser-game workflow validation gates, and
+`p4-skill-ecosystem-state-handoff-profile` selects a config lane for
+COMPASS-style state handoff metadata. The packet keeps Qwen-AgentWorld-style
+general-agent evidence in adjacent `agent_harness_eval_required` review under
+`p5-agent-project-harness-eval-doc`; it does not inherit `skill_route_discovery`
+or direct code patch/runtime authority. The pass-3 surface exposes selected
+item IDs, route profiles, source hashes, validation gates, and replay-command
+hashes only. Unsupported install, provider runtime, runtime execution, external
+skill or agent activation, external harness execution, provider launch, profile
+writes, memory writes, remote execution, raw source URL export, raw evidence URL
+export, raw target path export, replay command export, and upstream body export
+remain denied.
+
 Source digest `github-growth-20260624T073355.748356Z` completes the
 runner-harness-control pass for the carried FableCodex, COMPASS Skills, and
 Three.js Game Skills route window. The pass-4 completion report now includes
