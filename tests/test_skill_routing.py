@@ -3847,6 +3847,136 @@ def test_skill_route_discovery_current_run_pass3_validation_lane_routes_active_p
     assert "runtime_execution" not in serialized
 
 
+def test_skill_route_discovery_active_pass3_activation_candidate_lane_routes_current_wake():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "active_pass3_activation_candidate_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 4
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    lane = lane_map["active_pass3_activation_candidate_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_active_pass3_activation_candidate_lane"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "active_pass3_skill_route_candidates_ready_for_operator_validation"
+    assert lane["source_digest"] == "github-growth-20260628T034729.532203Z"
+    assert lane["capability_pass"] == 3
+    assert lane["total_passes"] == 4
+    assert lane["review_gate"] == "focused-evidence-review"
+    assert lane["proposal_ids"] == [
+        "proposal-skill-route-discovery-aggregate-001",
+        "proposal-game-frontend-skill-profile-002",
+        "proposal-skill-state-handoff-003",
+        "p5-agent-harness-eval-fixtures",
+    ]
+    assert lane["ready_proposal_count"] == 4
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["skill_route_candidate_count"] == 3
+    assert lane["adjacent_general_agent_count"] == 1
+    assert lane["observed_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["selected_skill_route_lanes"] == ["documentation", "config", "test"]
+    assert lane["unsupported_lane_names_removed"] == []
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["raw_replay_commands_exported"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_target_paths_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    aggregate = rows["proposal-skill-route-discovery-aggregate-001"]
+    assert aggregate["proposal_kind"] == "test"
+    assert aggregate["candidate_names"] == ["compass-skills", "threejs-game-skills", "zhengxi-views"]
+    assert aggregate["route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert aggregate["selected_local_lane"] == "test"
+    assert aggregate["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert aggregate["selected_evidence_item_ids"] == [
+        "proposal-skill-route-discovery-aggregate-001-compass",
+        "proposal-game-frontend-skill-profile-002-threejs",
+        "proposal-skill-route-discovery-aggregate-001-zhengxi",
+    ]
+
+    game = rows["proposal-game-frontend-skill-profile-002"]
+    assert game["proposal_kind"] == "documentation"
+    assert game["candidate_names"] == ["threejs-game-skills"]
+    assert game["route_profiles"] == ["game_frontend_workflow"]
+    assert game["selected_local_lane"] == "documentation"
+    assert game["queued_local_lanes"] == ["config", "test", "code_patch"]
+
+    handoff = rows["proposal-skill-state-handoff-003"]
+    assert handoff["proposal_kind"] == "config"
+    assert handoff["candidate_names"] == ["compass-skills"]
+    assert handoff["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert handoff["selected_local_lane"] == "config"
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+
+    agent_row = rows["p5-agent-harness-eval-fixtures"]
+    assert agent_row["route_hint"] == "agent_harness_eval_required"
+    assert agent_row["route_class"] == "adjacent_general_agent_project"
+    assert agent_row["selected_local_lane"] == "agent_harness_eval_required"
+    assert agent_row["external_agent_activation_allowed"] is False
+    assert agent_row["external_harness_execution_allowed"] is False
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert row["replay_command_hash"].startswith("sha256:")
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+
+    adjacent = lane["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p5-agent-harness-eval-fixtures"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["raw_replay_command_exported"] is False
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_skill_route_discovery_active_pass1_fixtures_queue_general_agent_evidence():
     fixture_path = (
         Path(__file__).parent

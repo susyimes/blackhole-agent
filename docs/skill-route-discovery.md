@@ -2839,3 +2839,29 @@ code_patch as evaluation lanes after the agent-harness eval route is replayed.
 Runtime action, upstream skill or agent activation, external harness execution,
 provider launch, profile writes, memory writes, remote execution, raw source
 URLs, raw evidence URLs, target paths, and upstream bodies remain denied.
+
+## Active Pass 3 Activation Candidate Lane
+
+Source digest `github-growth-20260628T034729.532203Z` advances the active
+skill-route-discovery window to pass 3 with
+`active_pass3_activation_candidate_lane`. The lane binds
+`proposal-skill-route-discovery-aggregate-001` to a local test lane for
+representative external skill-style repository metadata,
+`proposal-game-frontend-skill-profile-002` to a documentation lane for
+Three.js/browser-game workflow interpretation, and
+`proposal-skill-state-handoff-003` to a config lane for COMPASS-style handoff
+metadata.
+
+This surface is an activation-candidate review packet, not activation
+authority. Skill rows may expose only documentation, config, test, or
+code_patch lanes after local validation. Public repository names, popularity,
+fork lineage, or game/frontend terminology do not add install, provider
+runtime, runtime execution, external harness execution, profile writes, memory
+writes, or upstream skill activation. Qwen-AgentWorld-style general-agent
+evidence remains adjacent as `agent_harness_eval_required` and cannot inherit
+`skill_route_discovery` until a separate local harness-eval route is replayed.
+
+The packet exports proposal IDs, selected item IDs, route profiles, source
+hashes, bounded lane names, validation gates, and replay-command hashes only.
+It does not export raw source URLs, raw evidence URLs, target paths, replay
+commands, upstream bodies, secrets, imported state, or runtime permissions.
