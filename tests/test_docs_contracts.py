@@ -532,6 +532,11 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "`agent_harness_eval_required` with `skill_route_discovery_inherited: false`",
         "only documentation, config, test, or\ncode_patch as allowed local lanes",
         "profile writes, memory writes, external\nharness execution, provider launch, remote execution",
+        "`active_pass1_proposal_replay_lane`",
+        "`p1-skill-route-discovery-docs-and-probe`",
+        "`p2-skill-route-discovery-test-fixtures`",
+        "`p3-game-frontend-skill-profile-discovery`",
+        "runnable examples,\nvisual assets, frontend testability",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

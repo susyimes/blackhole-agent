@@ -2727,6 +2727,32 @@ commands, upstream bodies, install requests, runtime action, external skill or
 agent activation, external harness execution, provider launch, profile writes,
 memory writes, or remote execution.
 
+## Active Pass 1 Proposal Replay Lane
+
+Source digest `github-growth-20260628T030729.514321Z` opens another pass-1
+skill-route-discovery window with `active_pass1_proposal_replay_lane`. The lane
+binds the active proposal IDs `p1-skill-route-discovery-docs-and-probe`,
+`p2-skill-route-discovery-test-fixtures`, and
+`p3-game-frontend-skill-profile-discovery` to operator-visible local replay
+rows before any activation.
+
+`p1-skill-route-discovery-docs-and-probe` selects the documentation lane and
+must map current skill-route evidence into the documentation, config, test, and
+code_patch lane boundary without adding new external URLs. `p2-skill-route-discovery-test-fixtures`
+selects the test lane and must keep `skill_workflow` items with
+`skill_route_discovery` hints inside those bounded lanes. `p3-game-frontend-skill-profile-discovery`
+selects a documentation lane for the `game_frontend_workflow` profile and
+records the validation concerns expected before activation: runnable examples,
+visual assets, frontend testability, and local test or frontend validation.
+
+The replay lane exports proposal IDs, selected digest item IDs, route profiles,
+source hashes, selected local lanes, validation gates, and expected validation
+concerns only. It keeps Qwen-AgentWorld-style general-agent evidence adjacent as
+`agent_harness_eval_required` with no inherited `skill_route_discovery`,
+runtime action, external skill or agent activation, external harness execution,
+provider launch, profile writes, memory writes, remote execution, raw source
+URLs, evidence URLs, target paths, or upstream bodies.
+
 ## Current Run Pass 2 Local Validation Lane
 
 Source digest `github-growth-20260628T020729.523438Z` advances pass 2 with

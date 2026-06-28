@@ -6630,6 +6630,86 @@ def test_skill_route_discovery_20260627_pass1_window_maps_profiles_to_bounded_la
     assert "https://github.com/" not in serialized
 
 
+def test_skill_route_discovery_active_pass1_proposal_replay_lane_uses_current_proposals():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_window_pass1_discovery_intake_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-discovery-active-pass1-proposal-replay-lane",
+            "source_digest": "github-growth-20260628T030729.514321Z",
+            "source_kind": "evidence_items",
+            "evidence_items": fixture["items"],
+        },
+        source_path=fixture_path,
+    )
+    active_lane = output["active_pass1_proposal_replay_lane"]
+    rows_by_id = {row["proposal_id"]: row for row in active_lane["rows"]}
+    serialized = json.dumps(active_lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert active_lane["controller_surface"] == "skill_route_discovery_active_pass1_proposal_replay_lane"
+    assert active_lane["status"] == "ready"
+    assert active_lane["source_digest"] == "github-growth-20260628T030729.514321Z"
+    assert active_lane["proposal_ids"] == [
+        "p1-skill-route-discovery-docs-and-probe",
+        "p2-skill-route-discovery-test-fixtures",
+        "p3-game-frontend-skill-profile-discovery",
+    ]
+    assert active_lane["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert active_lane["selected_local_lanes"] == ["documentation", "test"]
+    assert active_lane["observed_route_profiles"] == [
+        "source_cited_domain_research",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert active_lane["agent_harness_eval_required_count"] == 1
+    assert active_lane["external_skill_activation_allowed"] is False
+    assert active_lane["external_harness_execution_allowed"] is False
+    assert active_lane["provider_runtime_launch_allowed"] is False
+
+    docs_row = rows_by_id["p1-skill-route-discovery-docs-and-probe"]
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["route_profiles"] == [
+        "skill_ecosystem_state_handoff",
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert docs_row["selected_evidence_item_ids"] == [
+        "p1-compass-skills-state-handoff-profile",
+        "p1-threejs-game-frontend-skill-profile",
+        "p1-zhengxi-views-source-cited-skill",
+    ]
+
+    test_row = rows_by_id["p2-skill-route-discovery-test-fixtures"]
+    assert test_row["selected_local_lane"] == "test"
+    assert set(test_row["allowed_local_lanes"]) == {"documentation", "config", "test", "code_patch"}
+    assert "runtime_execution_blocked" in test_row["expected_validation_concerns"]
+
+    game_row = rows_by_id["p3-game-frontend-skill-profile-discovery"]
+    assert game_row["route_profiles"] == ["game_frontend_workflow"]
+    assert game_row["selected_local_lane"] == "documentation"
+    assert game_row["expected_validation_concerns"] == [
+        "runnable_examples",
+        "visual_assets",
+        "frontend_testability",
+        "local_test_or_frontend_validation_before_activation",
+    ]
+
+    adjacent_row = active_lane["adjacent_general_agent_rows"][0]
+    assert adjacent_row["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent_row["skill_route_discovery_inherited"] is False
+    assert adjacent_row["external_harness_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "Qwen-AgentWorld" not in serialized
+
+
 def test_skill_route_discovery_pass1_registry_handoff_gates_qwen_agentworld_as_adjacent_eval():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_20260627_pass1_window.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
