@@ -1926,6 +1926,128 @@ def test_skill_route_discovery_current_window_pass1_discovery_intake_lane_is_bou
     assert "https://github.com/" not in serialized
 
 
+def test_skill_route_discovery_active_pass1_skill_route_discovery_matrix_maps_current_proposals_to_bounded_lanes():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "active_pass1_skill_route_discovery_matrix.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    matrix = lane_map["active_pass1_skill_route_discovery_matrix"]
+    serialized = json.dumps(matrix, sort_keys=True)
+
+    assert matrix["controller_surface"] == "skill_route_discovery_active_pass1_skill_route_discovery_matrix"
+    assert matrix["status"] == "ready"
+    assert matrix["decision"] == "active_pass1_skill_and_agent_routes_ready_for_bounded_local_validation"
+    assert matrix["source_digest"] == "github-growth-20260628T054729.697946Z"
+    assert matrix["capability_pass"] == 1
+    assert matrix["total_passes"] == 4
+    assert matrix["proposal_ids"] == [
+        "p1-skill-route-discovery-regression",
+        "p2-skill-route-discovery-doc",
+        "p4-route-proposal-schema-guard",
+        "p5-route-hint-to-lane-matrix-test",
+        "p3-agent-harness-eval-fixtures",
+    ]
+    assert matrix["ready_skill_proposal_count"] == 4
+    assert matrix["agent_harness_eval_required_count"] == 1
+    assert matrix["blocked_proposal_ids"] == []
+    assert matrix["skill_route_candidate_count"] == 3
+    assert matrix["adjacent_general_agent_count"] == 1
+    assert matrix["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert matrix["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert matrix["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert matrix["required_validation"] == [
+        "python -m pytest tests/test_skill_routing.py -q -k active_pass1_skill_route_discovery_matrix",
+        "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+    ]
+    assert matrix["general_agent_project_policy"] == {
+        "proposal_id": "p3-agent-harness-eval-fixtures",
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+    rows = {row["proposal_id"]: row for row in matrix["rows"]}
+    assert set(rows) == {
+        "p1-skill-route-discovery-regression",
+        "p2-skill-route-discovery-doc",
+        "p4-route-proposal-schema-guard",
+        "p5-route-hint-to-lane-matrix-test",
+    }
+    assert rows["p1-skill-route-discovery-regression"]["selected_local_lane"] == "test"
+    assert rows["p2-skill-route-discovery-doc"]["selected_local_lane"] == "documentation"
+    assert rows["p4-route-proposal-schema-guard"]["selected_local_lane"] == "config"
+    assert rows["p5-route-hint-to-lane-matrix-test"]["selected_local_lane"] == "test"
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["route_hint"] == "skill_route_discovery"
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert not {"install", "provider_runtime", "runtime_execution"} & set(row["allowed_local_lanes"])
+        assert row["candidate_names"] == [
+            "compass-skills",
+            "threejs-game-skills",
+            "zhengxi-views",
+        ]
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    adjacent = matrix["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p3-agent-harness-eval-fixtures"
+    assert adjacent["item_id"] == "p3-qwen-agentworld-general-agent-project"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["runtime_action"] == "none"
+
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    all_allowed_lanes = [
+        lane
+        for row in matrix["rows"]
+        for lane in row["allowed_local_lanes"]
+    ]
+    assert "provider_runtime" not in all_allowed_lanes
+    assert "install" not in all_allowed_lanes
+
+
 def test_skill_route_discovery_current_window_pass1_proposal_intake_is_bounded():
     fixture_path = (
         Path(__file__).parent
