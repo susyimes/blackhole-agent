@@ -3606,3 +3606,28 @@ or agent activation, external harness execution, provider launch, profile
 writes, memory writes, remote execution, raw source URL export, raw evidence
 URL export, target path export, replay-command export, and upstream body export
 remain denied.
+
+## Current Digest Pass 3 Focused Validation Packet
+
+Source digest `github-growth-20260628T182729.632246Z` advances pass 3 with
+`current_digest_pass3_focused_validation_packet`, keyed to the active proposal
+IDs `p1-skill-route-discovery-index`,
+`p2-skill-ecosystem-handoff-doc`, and
+`p3-game-frontend-skill-validation`.
+
+The packet converts zhengxi-views-style source-cited skill evidence,
+COMPASS-style skill ecosystem state handoff evidence, and Three.js game
+frontend workflow evidence into local validation rows only. Each row must have
+selected digest item IDs, route profile validation gates, acceptance gates, and
+a lane bounded to documentation, config, test, or code_patch. Unsupported
+provider_runtime, runtime_execution, and install pressure is stripped before
+this packet and is not allowed to appear as a route.
+
+State handoff remains metadata-only until local validation succeeds: profile
+writes, memory writes, privacy-sensitive exports, and permission changes stay
+denied. Game frontend workflow evidence can request local frontend validation,
+but it does not permit scaffold execution, asset generation, provider launch,
+browser runtime control, or upstream skill activation. Adjacent
+Qwen-AgentWorld-style general-agent evidence stays in
+`agent_harness_eval_required` and does not inherit `skill_route_discovery`,
+direct runtime authority, or direct code_patch selection.
