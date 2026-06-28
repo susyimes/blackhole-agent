@@ -4510,6 +4510,85 @@ def test_skill_route_discovery_active_window_pass2_validation_lane_routes_curren
         assert row["raw_upstream_body_exported"] is False
         assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
 
+    contract = lane["local_lane_acceptance_contract"]
+    assert (
+        contract["controller_surface"]
+        == "skill_route_discovery_active_window_pass2_local_lane_acceptance_contract"
+    )
+    assert contract["status"] == "ready"
+    assert contract["decision"] == "active_window_pass2_lanes_accepted_for_bounded_local_validation"
+    assert contract["source_surface"] == "skill_route_discovery_active_window_pass2_validation_lane"
+    assert contract["source_status"] == "ready"
+    assert contract["source_digest"] == "github-growth-20260628T072729.647518Z"
+    assert contract["capability_pass"] == 2
+    assert contract["total_passes"] == 4
+    assert contract["proposal_ids"] == [
+        "p1-skill-route-discovery-generic",
+        "p2-game-skill-profile",
+        "p3-agent-harness-eval",
+    ]
+    assert contract["ready_proposal_count"] == 3
+    assert contract["blocked_proposal_ids"] == []
+    assert contract["skill_route_acceptance_count"] == 2
+    assert contract["adjacent_agent_eval_acceptance_count"] == 1
+    assert contract["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert contract["selected_local_lanes"] == ["documentation", "test"]
+    assert contract["queued_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert contract["adjacent_evaluation_lane"] == "agent_harness_eval_required"
+    assert contract["agent_harness_eval_required_before_implementation"] is True
+    assert contract["acceptance_gate_failure_count"] == 0
+    assert contract["acceptance_gate_failures"] == []
+    assert contract["acceptance_contract_ready"] is True
+    assert contract["operator_next_action"] == (
+        "replay_active_window_pass2_acceptance_contract_then_continue_to_pass3"
+    )
+    assert contract["local_validation_required"] is True
+    assert contract["runtime_action"] == "none"
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["external_agent_activation_allowed"] is False
+    assert contract["external_harness_execution_allowed"] is False
+    assert contract["provider_runtime_launch_allowed"] is False
+    assert contract["remote_execution_allowed"] is False
+    assert contract["raw_replay_commands_exported"] is False
+    assert contract["raw_source_url_exported"] is False
+    assert contract["raw_evidence_urls_exported"] is False
+    assert contract["raw_target_paths_exported"] is False
+    assert contract["raw_upstream_body_exported"] is False
+
+    contract_rows = {row["proposal_id"]: row for row in contract["rows"]}
+    assert set(contract_rows) == {
+        "p1-skill-route-discovery-generic",
+        "p2-game-skill-profile",
+        "p3-agent-harness-eval",
+    }
+    game_contract = contract_rows["p2-game-skill-profile"]
+    assert game_contract["route_profiles"] == ["game_frontend_workflow"]
+    assert game_contract["selected_local_lane"] == "documentation"
+    assert game_contract["queued_local_lanes"] == ["config", "test", "code_patch"]
+    assert game_contract["acceptance_gate_status"] == "ready"
+    assert all(game_contract["acceptance_gates"].values())
+    assert game_contract["acceptance_gates"]["bounded_lane"] is True
+    assert game_contract["acceptance_gates"]["queued_lanes_bounded"] is True
+    assert game_contract["acceptance_gates"]["no_unbounded_runtime_lane"] is True
+    assert game_contract["acceptance_gates"]["runtime_action_none"] is True
+    assert game_contract["acceptance_gates"]["external_skill_activation_denied"] is True
+    assert game_contract["acceptance_gates"]["provider_runtime_launch_denied"] is True
+    assert game_contract["acceptance_gates"]["raw_source_url_not_exported"] is True
+    assert game_contract["acceptance_gates"]["raw_upstream_body_not_exported"] is True
+
+    adjacent_contract = contract_rows["p3-agent-harness-eval"]
+    assert adjacent_contract["selected_local_lane"] == "agent_harness_eval_required"
+    assert adjacent_contract["skill_route_discovery_inherited"] is False
+    assert adjacent_contract["direct_runtime_route_allowed"] is False
+    assert adjacent_contract["direct_code_patch_route_allowed"] is False
+    assert all(adjacent_contract["acceptance_gates"].values())
+    assert adjacent_contract["acceptance_gates"]["agent_harness_eval_required"] is True
+    assert adjacent_contract["acceptance_gates"]["skill_route_discovery_not_inherited"] is True
+    assert adjacent_contract["acceptance_gates"]["direct_runtime_route_denied"] is True
+    assert adjacent_contract["acceptance_gates"]["direct_code_patch_not_selected"] is True
+    assert adjacent_contract["acceptance_gates"]["external_agent_activation_denied"] is True
+    assert adjacent_contract["acceptance_gates"]["external_harness_execution_denied"] is True
+
     adjacent = lane["adjacent_general_agent_rows"][0]
     assert adjacent["proposal_id"] == "p3-agent-harness-eval"
     assert adjacent["item_id"] == "p3-agent-harness-eval"

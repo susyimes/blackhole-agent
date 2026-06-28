@@ -3578,3 +3578,31 @@ lanes. Install, runtime execution, provider runtime, upstream skill activation,
 external harness execution, provider launch, profile writes, memory writes,
 remote execution, raw source URL export, raw evidence URL export, target path
 export, replay-command export, and upstream body export remain denied.
+
+## Active Window Pass 2 Local Lane Acceptance Contract
+
+Source digest `github-growth-20260628T180729.573966Z` advances pass 2 of the
+same skill-route-discovery slice by embedding
+`local_lane_acceptance_contract` inside
+`active_window_pass2_validation_lane`. The contract is derived from the
+already-sanitized validation rows for zhengxi-views, Three.js Game Skills,
+COMPASS Skills, and adjacent Qwen-AgentWorld evidence. It does not add new
+evidence, read upstream bodies, or change allowed lanes.
+
+The contract turns selected and queued pass-2 rows into explicit acceptance
+gates before any later handoff. Skill-route rows must have a ready validation
+row, selected evidence item IDs, route validation gates, a selected lane and
+queued lanes bounded to documentation, config, test, or code_patch, local
+validation required, and `runtime_action: none`. Three.js game/frontend rows
+therefore remain documentation-first until local frontend or render validation
+justifies further patch work. Adjacent Qwen-AgentWorld-style general-agent
+evidence remains `agent_harness_eval_required` and must not inherit
+`skill_route_discovery`, direct runtime routing, or direct code_patch
+selection.
+
+The acceptance contract remains an operator-visible validation surface, not an
+activation grant. Install, runtime execution, provider runtime, upstream skill
+or agent activation, external harness execution, provider launch, profile
+writes, memory writes, remote execution, raw source URL export, raw evidence
+URL export, target path export, replay-command export, and upstream body export
+remain denied.
