@@ -1,0 +1,212 @@
+{
+  "name": "skill-route-discovery-current-run-pass1-activation-readiness",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-run-pass1-activation-readiness",
+    "source_digest": "github-growth-20260628T070730.472651Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "proposal-skill-route-discovery-generic-001",
+        "proposal-game-skill-route-profile-002",
+        "proposal-skill-ecosystem-handoff-003",
+        "proposal-agent-harness-eval-004",
+        "proposal-trend-digest-policy-005"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260628T070730.472651Z",
+        "item_id": "proposal-skill-route-discovery-generic-001",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Source-cited Zhengxi views agent skill",
+        "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, scripts, evals, citation traceability, fund research framing, and explicit non-investment-advice boundary.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skill", "source-cited", "research", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+          "source_layout_signals": ["skill_markdown", "validation_script"],
+          "source_metadata_signals": ["skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260628T070730.472651Z",
+        "item_id": "proposal-game-skill-route-profile-002",
+        "item_kind": "repository",
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "title": "Three.js game skills director",
+        "summary": "Director and specialist Agent Skill bundle for Three.js browser games with gameplay, graphics, UI, debug, QA, release checks, scaffold helpers, and provider-backed asset generation boundaries.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "threejs", "browser-game", "qa"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["game_frontend_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+          "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset", "qa_checklist"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260628T070730.472651Z",
+        "item_id": "proposal-skill-ecosystem-handoff-003",
+        "item_kind": "repository",
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "title": "COMPASS Skills state handoff ecosystem",
+        "summary": "Public skill ecosystem with task clarification, repo-local task memory, AI conversation handoff prompts, collaboration profile, local-first workflow metadata, and state boundary pressure.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "local-memory", "profile", "handoff"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["skill_ecosystem_state_handoff"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "qa_checklist"],
+          "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260628T070730.472651Z",
+        "item_id": "proposal-agent-harness-eval-004",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "Qwen AgentWorld general-agent evidence",
+        "summary": "General-agent benchmark and language world model repository without skill workflow route hints or skill package layout signals.",
+        "topics": ["general-agent", "evaluation", "world-model"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260628T070833Z-skill-route-discovery-pass1.md",
+        "review_note": "Game frontend workflow evidence remains a documentation lane until local frontend validation exists."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/skill_routing.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260628T070833Z-skill-route-discovery-pass1.md",
+        "review_note": "COMPASS-style state handoff evidence remains metadata-only with no profile or memory write."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260628T070833Z-skill-route-discovery-pass1.md",
+        "review_note": "zhengxi-views route evidence is replayed locally as a bounded classification fixture."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260628T070833Z-skill-route-discovery-pass1.md",
+        "review_note": "Code-patch lane targets only local controller surfaces, not upstream skill code."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "registry.candidate_count",
+      "equals": 3
+    },
+    {
+      "path": "registry.ignored_evidence_item_count",
+      "equals": 1
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.status",
+      "equals": "ready"
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.decision",
+      "equals": "current_pass1_skill_routes_ready_for_bounded_local_validation"
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.proposal_ids",
+      "equals": [
+        "proposal-skill-route-discovery-generic-001",
+        "proposal-game-skill-route-profile-002",
+        "proposal-skill-ecosystem-handoff-003"
+      ]
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.selected_local_lanes",
+      "equals": ["documentation", "config", "test"]
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.blocked_proposal_ids",
+      "equals": []
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "current_run_pass1_activation_readiness.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "capability_window_completion.next_pass_handoff.next_pass",
+      "equals": 2
+    }
+  ]
+}

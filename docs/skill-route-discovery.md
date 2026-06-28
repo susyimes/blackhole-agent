@@ -2961,6 +2961,30 @@ activation, upstream agent activation, external harness execution, provider
 launch, profile writes, memory writes, remote execution, raw source URLs, raw
 evidence URLs, raw target paths, and upstream bodies remain denied.
 
+## Current Run Pass 1 Activation Readiness
+
+Source digest `github-growth-20260628T070730.472651Z` adds
+`current_run_pass1_activation_readiness` for the active pass-1
+`skill-route-discovery` window. The panel binds the carried proposal IDs
+`proposal-skill-route-discovery-generic-001`,
+`proposal-game-skill-route-profile-002`, and
+`proposal-skill-ecosystem-handoff-003` to route profiles and selected local
+lanes before any activation handoff.
+
+The current readiness split is deliberately local: zhengxi-views-style
+source-cited skill workflow evidence selects the test lane, Three.js game skill
+director evidence selects the documentation lane until frontend validation
+exists, and COMPASS-style skill ecosystem handoff evidence selects the config
+lane for metadata-only state/profile boundaries. Each row must carry selected
+item IDs or frozen fixture evidence, source hashes, bounded lane names, and a
+profile validation gate.
+
+The panel is not a skill, agent, harness, provider, profile, memory, or remote
+activation grant. Runtime action, upstream skill activation, external harness
+execution, provider launch, profile writes, memory writes, raw source URLs, raw
+evidence URLs, target paths, and upstream bodies remain outside the exported
+operator surface.
+
 ## Current Active Pass 2 Skill Route Matrix
 
 Source digest `github-growth-20260628T060729.568458Z` advances pass 2 of the
