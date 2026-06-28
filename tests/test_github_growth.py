@@ -1944,6 +1944,97 @@ def test_skill_route_local_lane_candidates_bound_current_skill_evidence_before_a
     )
 
 
+def test_current_pass3_route_readiness_index_splits_skill_routes_from_qwen_agentworld():
+    digest = {
+        "digest_id": "github-growth-20260628T194729.590017Z",
+        "generated_at": "2026-06-28T19:47:29Z",
+        "items": [
+            {
+                "item_id": "p1-skill-route-discovery-index",
+                "source_url": "https://github.com/dongshuyan/compass-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "COMPASS Skills: skill ecosystem with multiple skills, collaboration profiles, "
+                    "clarification workflow, task memory, and handoff routing."
+                ),
+                "relevance_reason": "Skill ecosystem evidence maps to bounded local config or test lanes.",
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+            {
+                "item_id": "p2-skill-route-fixture-tests",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": "zhengxi-views: public SKILL.md workflow with source citations and domain research views.",
+                "relevance_reason": "Source-cited skill workflow evidence needs local citation-boundary validation.",
+                "risk_flags": [],
+                "confidence": 0.74,
+            },
+            {
+                "item_id": "p3-game-frontend-skill-profile",
+                "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+                "event_kind": "RepositoryTrend",
+                "summary": "Three.js Game Skills: browser game director skill, specialist skills, QA, and workflow checks.",
+                "relevance_reason": "Game frontend skill profile can select only bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.72,
+            },
+            {
+                "item_id": "p4-agent-harness-eval-fixtures",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld: general agent benchmark and project for agent training and evaluation.",
+                "relevance_reason": "General agent project evidence requires agent_harness_eval_required before implementation.",
+                "risk_flags": [],
+                "confidence": 0.67,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    readiness = lane_map["current_pass3_route_readiness_index"]
+    serialized = json.dumps(readiness, sort_keys=True)
+
+    assert readiness["controller_surface"] == "current_pass3_route_readiness_index"
+    assert readiness["status"] == "ready_with_adjacent_agent_eval_blocked"
+    assert readiness["capability_pass"] == "3_of_4"
+    assert readiness["skill_route_ready"] is True
+    assert readiness["skill_workflow_count"] == 3
+    assert readiness["skill_workflow_item_ids"] == [
+        "p1-skill-route-discovery-index",
+        "p2-skill-route-fixture-tests",
+        "p3-game-frontend-skill-profile",
+    ]
+    assert readiness["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert set(readiness["selected_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+    assert readiness["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert readiness["adjacent_general_agent_count"] == 1
+    assert readiness["adjacent_agent_harness_eval_required"] is True
+    assert readiness["adjacent_agent_harness_eval_blocked"] is True
+    assert readiness["adjacent_general_agent_item_ids"] == ["p4-agent-harness-eval-fixtures"]
+    assert readiness["adjacent_general_agent_allowed_lanes"] == ["documentation", "test", "code_patch"]
+    assert readiness["adjacent_general_agent_skill_route_inherited"] is False
+    assert readiness["controller_recomputed_status"] == "blocked"
+    assert readiness["local_validation_required"] is True
+    assert readiness["runtime_action"] == "none"
+    assert readiness["external_skill_activation_allowed"] is False
+    assert readiness["external_agent_activation_allowed"] is False
+    assert readiness["external_harness_execution_allowed"] is False
+    assert readiness["provider_runtime_launch_allowed"] is False
+    assert readiness["remote_execution_allowed"] is False
+    assert readiness["profile_write_allowed"] is False
+    assert readiness["memory_write_allowed"] is False
+    assert readiness["raw_source_url_export_allowed"] is False
+    assert readiness["raw_evidence_url_export_allowed"] is False
+    assert readiness["upstream_body_export_allowed"] is False
+    assert "https://github.com/" not in serialized
+
+
 def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():
     digest = {
         "digest_id": "github-growth-mixed-skill-workflow-probe",

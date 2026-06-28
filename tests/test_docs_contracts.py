@@ -554,6 +554,10 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
         "`p2-skill-route-discovery-test-fixtures`",
         "`p3-game-frontend-skill-profile-discovery`",
         "runnable examples,\nvisual assets, frontend testability",
+        "`current_pass3_route_readiness_index`",
+        "distinguishes skill-route rows that are ready for bounded\nlocal validation",
+        "Qwen-AgentWorld-style general-agent project evidence stays adjacent",
+        "does not inherit `skill_route_discovery`",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

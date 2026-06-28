@@ -616,6 +616,10 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             package_items,
             context_budget=evidence_package.get("context_budget"),
         ),
+        "current_pass3_route_readiness_index": build_current_pass3_route_readiness_index(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+        ),
         "allowed_proposal_lanes": list(ROUTE_HINT_PROPOSAL_LANES),
         "validation_lanes": {hint: list(lanes) for hint, lanes in configured_hints.items()},
         "route_hint_entries": route_hint_entries,
@@ -1104,6 +1108,119 @@ def build_skill_route_pass3_handoff(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass3_route_readiness_index(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+) -> dict[str, Any]:
+    """Summarize pass-3 skill-route readiness without granting activation."""
+
+    handoff = build_skill_route_pass3_handoff(items, context_budget=context_budget)
+    controller_recomputed = handoff["controller_recomputed"]
+    recomputed_rows = [
+        row
+        for row in controller_recomputed.get("rows", [])
+        if isinstance(row, dict)
+    ]
+    skill_rows = [
+        row
+        for row in recomputed_rows
+        if row.get("primary_route") == "skill_route_discovery"
+    ]
+    adjacent_rows = [
+        row
+        for row in recomputed_rows
+        if row.get("primary_route") == "agent_harness_eval_required"
+    ]
+    skill_rows_ready = bool(skill_rows) and all(
+        row.get("final_scope") == "local_validation_candidate"
+        and row.get("selected_local_lane") in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+        and set(row.get("allowed_local_lanes", [])).issubset(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+        and row.get("runtime_action") == "none"
+        for row in skill_rows
+    )
+    adjacent_blocked = all(
+        row.get("agent_harness_eval_required") is True
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("final_scope") == "pending_agent_harness_eval"
+        and row.get("runtime_action") == "none"
+        for row in adjacent_rows
+    )
+    route_profiles = sorted(
+        {
+            str(profile)
+            for row in skill_rows
+            for profile in row.get("route_profiles", [])
+            if str(profile).strip()
+        }
+    )
+    selected_lanes = sorted(
+        {
+            str(row.get("selected_local_lane"))
+            for row in skill_rows
+            if str(row.get("selected_local_lane") or "").strip()
+        }
+    )
+    status = (
+        "ready_with_adjacent_agent_eval_blocked"
+        if skill_rows_ready and adjacent_rows and adjacent_blocked
+        else "ready"
+        if skill_rows_ready and not adjacent_rows
+        else "blocked"
+    )
+    return {
+        "controller_surface": "current_pass3_route_readiness_index",
+        "status": status,
+        "decision": (
+            "skill_route_rows_ready_for_bounded_local_validation_adjacent_agents_blocked"
+            if status == "ready_with_adjacent_agent_eval_blocked"
+            else "skill_route_rows_ready_for_bounded_local_validation"
+            if status == "ready"
+            else "hold_until_skill_route_rows_are_bounded"
+        ),
+        "capability_pass": "3_of_4",
+        "source_surface": "skill_route_discovery_pass3_handoff",
+        "selected_item_ids": list(handoff.get("selected_item_ids", [])),
+        "truncated_item_ids": list(handoff.get("truncated_item_ids", [])),
+        "evidence_ref_scope": "selected_item_ids_only",
+        "skill_route_ready": skill_rows_ready,
+        "skill_workflow_count": len(skill_rows),
+        "skill_workflow_item_ids": [str(row.get("item_id") or "") for row in skill_rows],
+        "route_profiles": route_profiles,
+        "selected_local_lanes": selected_lanes,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "adjacent_general_agent_count": len(adjacent_rows),
+        "adjacent_agent_harness_eval_required": bool(adjacent_rows),
+        "adjacent_agent_harness_eval_blocked": adjacent_blocked,
+        "adjacent_general_agent_item_ids": [str(row.get("item_id") or "") for row in adjacent_rows],
+        "adjacent_general_agent_allowed_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "adjacent_general_agent_skill_route_inherited": False,
+        "controller_recomputed_status": str(controller_recomputed.get("status") or ""),
+        "controller_recomputed_diagnostics": [
+            str(diagnostic)
+            for diagnostic in controller_recomputed.get("diagnostics", [])
+            if str(diagnostic).strip()
+        ],
+        "activation_blockers": [
+            str(blocker)
+            for blocker in handoff.get("activation_blockers", [])
+            if str(blocker).strip()
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
 
