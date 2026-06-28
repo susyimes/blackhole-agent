@@ -1303,6 +1303,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ignored_evidence_items,
         source_digest=_skill_route_discovery_source_digest(registry),
     )
+    current_run_pass3_acceptance_lane = _skill_route_discovery_current_run_pass3_acceptance_lane(
+        current_run_pass3_validation_lane
+    )
     current_run_pass4_completion_lane = _skill_route_discovery_current_run_pass4_completion_lane(
         pass4_completion_handoff,
         pass4_operator_replay_manifest,
@@ -1409,6 +1412,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "active_window_pass2_validation_lane": active_window_pass2_validation_lane,
         "active_pass3_activation_candidate_lane": active_pass3_activation_candidate_lane,
         "current_run_pass3_validation_lane": current_run_pass3_validation_lane,
+        "current_run_pass3_acceptance_lane": current_run_pass3_acceptance_lane,
         "growth_route_summary_artifact": growth_route_summary_artifact,
         "pass3_route_discovery_index": pass3_route_discovery_index,
         "pass3_activation_handoff": pass3_activation_handoff,
@@ -6812,6 +6816,225 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_current_run_pass3_acceptance_lane(
+    current_run_pass3_validation_lane: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-3 acceptance gates derived from the current validation lane."""
+
+    source_rows = _mapping_list(current_run_pass3_validation_lane.get("rows"))
+    rows: list[dict[str, Any]] = []
+    skill_route_rows: list[dict[str, Any]] = []
+    adjacent_rows: list[dict[str, Any]] = []
+    acceptance_failures: list[str] = []
+    selected_local_lanes: list[str] = []
+
+    for source_row in source_rows:
+        proposal_id = str(source_row.get("proposal_id") or "")
+        route_hint = str(source_row.get("route_hint") or "")
+        candidate_names = _string_list(source_row.get("candidate_names"))
+        allowed_lanes = _string_list(source_row.get("allowed_local_lanes"))
+        selected_lane = str(source_row.get("selected_local_lane") or "")
+
+        if route_hint == SKILL_ROUTE_DISCOVERY_HINT:
+            acceptance_gates = {
+                "validation_lane_ready": str(source_row.get("status") or "") == "ready",
+                "bounded_lane": (
+                    selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                    and selected_lane in set(allowed_lanes)
+                    and set(allowed_lanes) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+                ),
+                "selected_evidence_present": bool(_string_list(source_row.get("selected_evidence_item_ids"))),
+                "validation_gate_present": bool(_string_list(source_row.get("validation_gates"))),
+                "local_validation_required": source_row.get("local_validation_required") is True,
+                "runtime_action_none": str(source_row.get("runtime_action") or "none") == "none",
+                "external_skill_activation_denied": source_row.get("external_skill_activation_allowed") is False,
+                "external_agent_activation_denied": source_row.get("external_agent_activation_allowed") is False,
+                "external_harness_execution_denied": source_row.get("external_harness_execution_allowed") is False,
+                "provider_runtime_launch_denied": source_row.get("provider_runtime_launch_allowed") is False,
+                "remote_execution_denied": source_row.get("remote_execution_allowed") is False,
+                "raw_source_url_not_exported": source_row.get("raw_source_url_exported") is False,
+                "raw_evidence_urls_not_exported": source_row.get("raw_evidence_urls_exported") is False,
+                "raw_target_paths_not_exported": source_row.get("raw_target_paths_exported") is False,
+                "raw_upstream_body_not_exported": source_row.get("raw_upstream_body_exported") is False,
+                "raw_replay_command_not_exported": source_row.get("raw_replay_command_exported") is False,
+            }
+            failed_gates = [
+                gate_name
+                for gate_name, gate_ready in acceptance_gates.items()
+                if gate_ready is not True
+            ]
+            acceptance_failures.extend(f"{proposal_id}:{gate_name}" for gate_name in failed_gates)
+            if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+                selected_local_lanes.append(selected_lane)
+            row = {
+                "proposal_id": proposal_id,
+                "proposal_kind": str(source_row.get("proposal_kind") or ""),
+                "proposal_track": str(source_row.get("proposal_track") or ""),
+                "candidate_names": candidate_names,
+                "candidate_source_hashes": _string_list(source_row.get("candidate_source_hashes")),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": _string_list(source_row.get("route_profiles")),
+                "allowed_local_lanes": allowed_lanes,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": _string_list(source_row.get("queued_local_lanes")),
+                "selected_evidence_item_ids": _string_list(source_row.get("selected_evidence_item_ids")),
+                "validation_gates": _string_list(source_row.get("validation_gates")),
+                "validation_target": str(source_row.get("validation_target") or ""),
+                "acceptance_gates": acceptance_gates,
+                "acceptance_gate_status": "ready" if not failed_gates else "blocked",
+                "activation_blockers": _string_list(source_row.get("activation_blockers"))
+                + [f"acceptance_gate_failed:{gate_name}" for gate_name in failed_gates],
+                "row_status": "ready" if not failed_gates else "blocked",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+            rows.append(row)
+            skill_route_rows.append(row)
+            continue
+
+        if route_hint == "agent_harness_eval_required":
+            acceptance_gates = {
+                "validation_lane_ready": str(source_row.get("status") or "") == "ready",
+                "agent_harness_eval_required": selected_lane == "agent_harness_eval_required",
+                "skill_route_discovery_not_inherited": route_hint == "agent_harness_eval_required",
+                "direct_runtime_route_denied": source_row.get("runtime_action") == "none",
+                "direct_code_patch_not_selected": selected_lane != "code_patch",
+                "external_agent_activation_denied": source_row.get("external_agent_activation_allowed") is False,
+                "external_harness_execution_denied": source_row.get("external_harness_execution_allowed") is False,
+                "provider_runtime_launch_denied": source_row.get("provider_runtime_launch_allowed") is False,
+                "remote_execution_denied": source_row.get("remote_execution_allowed") is False,
+                "local_validation_required": source_row.get("local_validation_required") is True,
+                "raw_source_url_not_exported": source_row.get("raw_source_url_exported") is False,
+                "raw_evidence_urls_not_exported": source_row.get("raw_evidence_urls_exported") is False,
+                "raw_target_paths_not_exported": source_row.get("raw_target_paths_exported") is False,
+                "raw_upstream_body_not_exported": source_row.get("raw_upstream_body_exported") is False,
+                "raw_replay_command_not_exported": source_row.get("raw_replay_command_exported") is False,
+            }
+            failed_gates = [
+                gate_name
+                for gate_name, gate_ready in acceptance_gates.items()
+                if gate_ready is not True
+            ]
+            acceptance_failures.extend(f"{proposal_id}:{gate_name}" for gate_name in failed_gates)
+            row = {
+                "proposal_id": proposal_id,
+                "proposal_kind": str(source_row.get("proposal_kind") or ""),
+                "proposal_track": str(source_row.get("proposal_track") or ""),
+                "candidate_names": candidate_names,
+                "candidate_source_hashes": _string_list(source_row.get("candidate_source_hashes")),
+                "route_hint": "agent_harness_eval_required",
+                "route_class": "adjacent_general_agent_project",
+                "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                "selected_local_lane": "agent_harness_eval_required",
+                "queued_local_lanes": ["documentation", "test", "code_patch"],
+                "selected_evidence_item_ids": _string_list(source_row.get("selected_evidence_item_ids")),
+                "validation_gates": _string_list(source_row.get("validation_gates")),
+                "validation_target": str(source_row.get("validation_target") or ""),
+                "acceptance_gates": acceptance_gates,
+                "acceptance_gate_status": "ready" if not failed_gates else "blocked",
+                "activation_blockers": _string_list(source_row.get("activation_blockers"))
+                + [f"acceptance_gate_failed:{gate_name}" for gate_name in failed_gates],
+                "row_status": "ready" if not failed_gates else "blocked",
+                "skill_route_discovery_inherited": False,
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+            rows.append(row)
+            adjacent_rows.append(row)
+
+    blocked_proposal_ids = sorted(
+        {
+            str(row["proposal_id"])
+            for row in rows
+            if row["row_status"] != "ready"
+        }
+    )
+    ready = (
+        bool(skill_route_rows)
+        and bool(adjacent_rows)
+        and str(current_run_pass3_validation_lane.get("status") or "") == "ready"
+        and not acceptance_failures
+        and not blocked_proposal_ids
+    )
+    return {
+        "controller_surface": "skill_route_discovery_current_run_pass3_acceptance_lane",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_run_pass3_routes_accepted_for_supervisor_replay"
+            if ready
+            else "repair_current_run_pass3_acceptance_gates_before_final_pass"
+        ),
+        "source_surface": str(current_run_pass3_validation_lane.get("controller_surface") or ""),
+        "source_status": str(current_run_pass3_validation_lane.get("status") or ""),
+        "source_digest": str(current_run_pass3_validation_lane.get("source_digest") or ""),
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": _string_list(current_run_pass3_validation_lane.get("proposal_ids")),
+        "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "skill_route_acceptance_count": len(skill_route_rows),
+        "adjacent_agent_eval_acceptance_count": len(adjacent_rows),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_local_lanes)
+        ],
+        "adjacent_evaluation_lane": "agent_harness_eval_required" if adjacent_rows else "",
+        "agent_harness_eval_required_before_implementation": bool(adjacent_rows),
+        "acceptance_gate_names": list(rows[0]["acceptance_gates"]) if rows else [],
+        "acceptance_gate_failure_count": len(acceptance_failures),
+        "acceptance_gate_failures": acceptance_failures,
+        "acceptance_contract_ready": ready,
+        "operator_next_action": (
+            "replay_current_run_pass3_acceptance_lane_then_continue_to_pass4"
+            if ready
+            else "repair_blocked_rows_then_rebuild_current_run_pass3_acceptance_lane"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 

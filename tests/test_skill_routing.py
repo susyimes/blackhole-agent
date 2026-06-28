@@ -4793,6 +4793,113 @@ def test_skill_route_discovery_current_run_pass3_validation_lane_routes_active_p
     assert "runtime_execution" not in serialized
 
 
+def test_skill_route_discovery_current_run_pass3_acceptance_lane_gates_validation_output():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_run_pass3_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    lane = lane_map["current_run_pass3_acceptance_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_current_run_pass3_acceptance_lane"
+    assert lane["source_surface"] == "skill_route_discovery_current_run_pass3_validation_lane"
+    assert lane["source_status"] == "ready"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "current_run_pass3_routes_accepted_for_supervisor_replay"
+    assert lane["source_digest"] == "github-growth-20260628T022729.498868Z"
+    assert lane["capability_pass"] == 3
+    assert lane["total_passes"] == 4
+    assert lane["review_gate"] == "focused-evidence-review"
+    assert lane["proposal_ids"] == [
+        "proposal_skill_route_discovery_catalog_001",
+        "proposal_skill_profile_documentation_002",
+        "proposal_agent_harness_eval_003",
+    ]
+    assert lane["ready_proposal_count"] == 3
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["skill_route_acceptance_count"] == 2
+    assert lane["adjacent_agent_eval_acceptance_count"] == 1
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["adjacent_evaluation_lane"] == "agent_harness_eval_required"
+    assert lane["agent_harness_eval_required_before_implementation"] is True
+    assert lane["acceptance_gate_failure_count"] == 0
+    assert lane["acceptance_gate_failures"] == []
+    assert lane["acceptance_contract_ready"] is True
+    assert lane["operator_next_action"] == (
+        "replay_current_run_pass3_acceptance_lane_then_continue_to_pass4"
+    )
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["raw_replay_commands_exported"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_target_paths_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    skill_row = rows["proposal_skill_route_discovery_catalog_001"]
+    assert skill_row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert skill_row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert skill_row["selected_local_lane"] == "test"
+    assert all(skill_row["acceptance_gates"].values())
+    assert skill_row["acceptance_gates"]["bounded_lane"] is True
+    assert skill_row["acceptance_gates"]["selected_evidence_present"] is True
+    assert skill_row["acceptance_gates"]["validation_gate_present"] is True
+    assert skill_row["acceptance_gates"]["runtime_action_none"] is True
+    assert skill_row["acceptance_gates"]["external_skill_activation_denied"] is True
+    assert skill_row["acceptance_gates"]["raw_replay_command_not_exported"] is True
+
+    agent_row = rows["proposal_agent_harness_eval_003"]
+    assert agent_row["route_hint"] == "agent_harness_eval_required"
+    assert agent_row["route_class"] == "adjacent_general_agent_project"
+    assert agent_row["selected_local_lane"] == "agent_harness_eval_required"
+    assert agent_row["skill_route_discovery_inherited"] is False
+    assert agent_row["direct_runtime_route_allowed"] is False
+    assert agent_row["direct_code_patch_route_allowed"] is False
+    assert all(agent_row["acceptance_gates"].values())
+    assert agent_row["acceptance_gates"]["agent_harness_eval_required"] is True
+    assert agent_row["acceptance_gates"]["skill_route_discovery_not_inherited"] is True
+    assert agent_row["acceptance_gates"]["direct_runtime_route_denied"] is True
+    assert agent_row["acceptance_gates"]["direct_code_patch_not_selected"] is True
+    assert agent_row["acceptance_gates"]["external_agent_activation_denied"] is True
+    assert agent_row["acceptance_gates"]["external_harness_execution_denied"] is True
+
+    for row in lane["rows"]:
+        assert row["row_status"] == "ready"
+        assert row["acceptance_gate_status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_skill_route_discovery_active_pass3_activation_candidate_lane_routes_current_wake():
     fixture_path = (
         Path(__file__).parent

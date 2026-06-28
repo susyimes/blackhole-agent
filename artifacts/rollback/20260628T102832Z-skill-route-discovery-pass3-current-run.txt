@@ -1,0 +1,17 @@
+Rollback point for skill-route-discovery pass 3 current-run lane.
+
+Original branch:
+codex/blackhole-evolve/20260628T102832.280129-add-or-run-a-bounded-local-skill-route-discovery
+
+Original HEAD:
+1ac55c010d32bd625bbf0bcbb08ca3a9faf68fb4
+
+Local rollback ref:
+refs/rollback/20260628T102832Z-skill-route-discovery-pass3-current-run
+
+Recovery commands, if a human operator explicitly chooses destructive rollback:
+git switch codex/blackhole-evolve/20260628T102832.280129-add-or-run-a-bounded-local-skill-route-discovery
+git reset --hard refs/rollback/20260628T102832Z-skill-route-discovery-pass3-current-run
+
+Run note:
+Created before local source edits for source digest github-growth-20260628T102729.741495Z.

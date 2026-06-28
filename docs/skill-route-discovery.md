@@ -3200,3 +3200,22 @@ Runtime action, install, upstream skill or agent activation, external harness
 execution, provider launch, profile writes, memory writes, remote execution, raw
 source URLs, raw evidence URLs, target paths, replay-command bodies, and
 upstream bodies remain denied.
+
+## Current Run Pass 3 Acceptance Lane
+
+Source digest `github-growth-20260628T102729.741495Z` advances pass 3 by adding
+`current_run_pass3_acceptance_lane` as an operator-visible gate derived from the
+existing `current_run_pass3_validation_lane`. The new surface does not add
+evidence or new local lanes. It checks that the current pass-3 validation rows
+are ready, use only documentation, config, test, or code_patch lanes, carry
+selected evidence and validation gates, require local validation, and deny
+runtime action, upstream skill activation, external harness execution, provider
+launch, remote execution, raw source URL export, raw evidence URL export, target
+path export, upstream body export, and raw replay-command export.
+
+Adjacent Qwen-AgentWorld-style general-agent evidence remains accepted only as
+`agent_harness_eval_required`. It can queue documentation, test, or code_patch
+evaluation work after local harness evaluation, but it does not inherit
+`skill_route_discovery`, direct runtime authority, direct code_patch selection,
+external agent activation, external harness execution, provider launch, or
+remote execution.
