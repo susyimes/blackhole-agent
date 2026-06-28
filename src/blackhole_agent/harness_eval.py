@@ -2230,6 +2230,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         lane_map=lane_map,
         pass1_validation_queue=pass1_validation_queue,
     )
+    adjacent_general_agent_project_eval = skill_route_discovery_pass3_adjacent_general_agent_project_eval(
+        raw_input=raw_input
+    )
     active_window_route_lane_matrix = skill_route_discovery_active_window_route_lane_matrix(
         raw_input=raw_input,
         pass1_validation_queue=pass1_validation_queue,
@@ -2250,6 +2253,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         validation_lane_plan=validation_lane_plan,
         profile_validation_replay=profile_validation_replay,
         activity_signal_panel=activity_signal_panel,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
         mixed_local_lane_probe=mixed_local_lane_probe,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
         provider_runtime_replay_sample=provider_runtime_replay_sample,
@@ -9877,6 +9881,7 @@ def skill_route_discovery_capability_window_completion(
     validation_lane_plan: dict[str, Any],
     profile_validation_replay: dict[str, Any],
     activity_signal_panel: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
     provider_runtime_replay_sample: dict[str, Any],
@@ -10065,6 +10070,7 @@ def skill_route_discovery_capability_window_completion(
         validation_target_handoff=validation_target_handoff,
         profile_validation_replay=profile_validation_replay,
         activity_signal_panel=activity_signal_panel,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
         profile_completion_check=profile_completion_check,
         evidence_url_hashes=evidence_url_hashes,
         route_profile_review=route_profile_review,
@@ -10191,6 +10197,7 @@ def skill_route_discovery_completion_report(
     validation_target_handoff: dict[str, Any],
     profile_validation_replay: dict[str, Any],
     activity_signal_panel: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
     profile_completion_check: dict[str, Any],
     evidence_url_hashes: list[str],
     route_profile_review: dict[str, Any],
@@ -10325,6 +10332,12 @@ def skill_route_discovery_completion_report(
         secondary_harness_bridge=secondary_harness_bridge,
         blocked_reasons=blocked_reasons,
     )
+    activation_lane_contract = skill_route_discovery_activation_lane_contract(
+        ready=ready,
+        final_lane_policy_inventory=final_lane_policy_inventory,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        blocked_reasons=blocked_reasons,
+    )
     provider_runtime_interpretation_panel = skill_route_discovery_provider_runtime_interpretation_panel(
         ready=ready,
         theme=theme,
@@ -10343,6 +10356,7 @@ def skill_route_discovery_completion_report(
         final_route_handoff_manifest=final_route_handoff_manifest,
         route_validation_lane_queue=route_validation_lane_queue,
         secondary_harness_bridge=secondary_harness_bridge,
+        activation_lane_contract=activation_lane_contract,
         blocked_reasons=blocked_reasons,
     )
     runner_harness_control_plane = skill_route_discovery_completion_runner_harness_control_plane(
@@ -10354,6 +10368,7 @@ def skill_route_discovery_completion_report(
         final_route_handoff_manifest=final_route_handoff_manifest,
         route_validation_lane_queue=route_validation_lane_queue,
         secondary_harness_bridge=secondary_harness_bridge,
+        activation_lane_contract=activation_lane_contract,
         completion_consistency_guard=completion_consistency_guard,
         blocked_reasons=blocked_reasons,
     )
@@ -10390,6 +10405,7 @@ def skill_route_discovery_completion_report(
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
         "final_lane_policy_inventory": final_lane_policy_inventory,
+        "activation_lane_contract": activation_lane_contract,
         "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
         "runner_harness_control_plane": runner_harness_control_plane,
@@ -10433,6 +10449,7 @@ def skill_route_discovery_completion_runner_harness_control_plane(
     final_route_handoff_manifest: dict[str, Any],
     route_validation_lane_queue: dict[str, Any],
     secondary_harness_bridge: dict[str, Any],
+    activation_lane_contract: dict[str, Any],
     completion_consistency_guard: dict[str, Any],
     blocked_reasons: list[str],
 ) -> dict[str, Any]:
@@ -10484,8 +10501,9 @@ def skill_route_discovery_completion_runner_harness_control_plane(
         ),
         (
             "report",
-            completion_consistency_guard.get("status") == "ready",
-            "completion_consistency_guard",
+            completion_consistency_guard.get("status") == "ready"
+            and activation_lane_contract.get("status") == "ready",
+            "completion_consistency_guard_and_activation_lane_contract",
         ),
     ]
     stages = [
@@ -10560,6 +10578,12 @@ def skill_route_discovery_completion_runner_harness_control_plane(
         },
         "report": {
             "consistency_guard_status": optional_string(completion_consistency_guard.get("status")) or "",
+            "activation_lane_contract_status": optional_string(activation_lane_contract.get("status")) or "",
+            "activation_lane_contract_row_count": int(activation_lane_contract.get("row_count") or 0),
+            "skill_route_contract_row_count": int(activation_lane_contract.get("skill_route_row_count") or 0),
+            "agent_harness_contract_row_count": int(
+                activation_lane_contract.get("agent_harness_eval_row_count") or 0
+            ),
             "replay_contract_status": optional_string(
                 completion_consistency_guard.get("replay_contract", {}).get("status")
                 if isinstance(completion_consistency_guard.get("replay_contract"), dict)
@@ -10597,6 +10621,7 @@ def skill_route_discovery_completion_consistency_guard(
     final_route_handoff_manifest: dict[str, Any],
     route_validation_lane_queue: dict[str, Any],
     secondary_harness_bridge: dict[str, Any],
+    activation_lane_contract: dict[str, Any],
     blocked_reasons: list[str],
 ) -> dict[str, Any]:
     """Cross-check final pass handoff panels before reporting slice closure."""
@@ -10617,6 +10642,7 @@ def skill_route_discovery_completion_consistency_guard(
         "final_route_handoff_manifest": optional_string(final_route_handoff_manifest.get("status")) or "",
         "route_validation_lane_queue": optional_string(route_validation_lane_queue.get("status")) or "",
         "secondary_harness_bridge": optional_string(secondary_harness_bridge.get("status")) or "",
+        "activation_lane_contract": optional_string(activation_lane_contract.get("status")) or "",
     }
     required_skill_route_commands = skill_route_discovery_preactivation_validation_commands()
     required_bridge_commands = [
@@ -10629,6 +10655,7 @@ def skill_route_discovery_completion_consistency_guard(
         "final_route_handoff_manifest": panel_commands(final_route_handoff_manifest, "required_validation"),
         "route_validation_lane_queue": panel_commands(route_validation_lane_queue, "required_validation"),
         "secondary_harness_bridge": panel_commands(secondary_harness_bridge, "required_validation"),
+        "activation_lane_contract": panel_commands(activation_lane_contract, "required_validation"),
     }
 
     diagnostics = list(blocked_reasons)
@@ -10659,10 +10686,22 @@ def skill_route_discovery_completion_consistency_guard(
         diagnostics.append("secondary_harness_bridge_allows_external_harness_execution")
     if secondary_harness_bridge.get("provider_runtime_launch_allowed") is not False:
         diagnostics.append("secondary_harness_bridge_allows_provider_runtime_launch")
+    if activation_lane_contract.get("runtime_action_allowed") is not False:
+        diagnostics.append("activation_lane_contract_allows_runtime_action")
+    if activation_lane_contract.get("external_skill_activation_allowed") is not False:
+        diagnostics.append("activation_lane_contract_allows_external_skill_activation")
+    if activation_lane_contract.get("external_agent_activation_allowed") is not False:
+        diagnostics.append("activation_lane_contract_allows_external_agent_activation")
+    if activation_lane_contract.get("external_harness_execution_allowed") is not False:
+        diagnostics.append("activation_lane_contract_allows_external_harness_execution")
+    if activation_lane_contract.get("provider_runtime_launch_allowed") is not False:
+        diagnostics.append("activation_lane_contract_allows_provider_runtime_launch")
     for panel, commands in replay_contract.items():
         expected_commands = (
             required_bridge_commands
             if panel == "secondary_harness_bridge"
+            else [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND, SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND]
+            if panel == "activation_lane_contract"
             else required_skill_route_commands
         )
         missing_commands = [command for command in expected_commands if command not in commands]
@@ -10698,7 +10737,7 @@ def skill_route_discovery_completion_consistency_guard(
                     command in commands
                     for command in (
                         required_bridge_commands
-                        if panel == "secondary_harness_bridge"
+                        if panel in {"secondary_harness_bridge", "activation_lane_contract"}
                         else required_skill_route_commands
                     )
                 )
@@ -11630,6 +11669,172 @@ def skill_route_discovery_final_lane_policy_inventory(
         "remote_execution_allowed": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_activation_lane_contract(
+    *,
+    ready: bool,
+    final_lane_policy_inventory: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
+    blocked_reasons: list[str],
+) -> dict[str, Any]:
+    """Join skill-route and adjacent agent-project evidence into one bounded handoff contract."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    skill_rows = final_lane_policy_inventory.get("rows")
+    skill_rows = skill_rows if isinstance(skill_rows, list) else []
+    adjacent_rows = adjacent_general_agent_project_eval.get("records")
+    adjacent_rows = adjacent_rows if isinstance(adjacent_rows, list) else []
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for row in skill_rows:
+        if not isinstance(row, dict):
+            continue
+        route_profile = optional_string(row.get("route_profile")) or "generic_skill_workflow"
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        row_diagnostics = string_list(row.get("diagnostics"))
+        if selected_lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            row_diagnostics.append("skill_route_lane_not_bounded")
+        if row.get("runtime_action_allowed") is not False:
+            row_diagnostics.append("runtime_action_not_denied")
+        if row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        if row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_not_denied")
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        diagnostics.extend(f"{route_profile}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "evidence_class": "skill_route_discovery",
+                "route_profile": route_profile,
+                "status": "ready" if not row_diagnostics else "blocked",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "activation_gate": "local_validation_before_activation",
+                "evidence_item_id_count": int(row.get("evidence_item_id_count") or 0),
+                "candidate_source_count": int(row.get("candidate_source_count") or 0),
+                "required_validation": [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND],
+                "diagnostic_count": len(row_diagnostics),
+                "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in row_diagnostics],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    for row in adjacent_rows:
+        if not isinstance(row, dict):
+            continue
+        allowed_lanes = [
+            lane
+            for lane in string_list(row.get("allowed_local_lanes"))
+            if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+        ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+        row_diagnostics = []
+        if row.get("agent_harness_eval_required") is not True:
+            row_diagnostics.append("agent_harness_eval_not_required")
+        if row.get("skill_route_discovery_inherited") is not False:
+            row_diagnostics.append("skill_route_inherited_by_general_agent_project")
+        if row.get("runtime_action_allowed") is not False:
+            row_diagnostics.append("runtime_action_not_denied")
+        if row.get("external_agent_activation_allowed") is not False:
+            row_diagnostics.append("external_agent_activation_not_denied")
+        if row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        if row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_not_denied")
+        row_diagnostics = sorted(dict.fromkeys(row_diagnostics))
+        item_id = optional_string(row.get("item_id")) or "adjacent-general-agent-project"
+        diagnostics.extend(f"{item_id}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "evidence_class": "agent_harness_eval",
+                "route_profile": "general_agent_project",
+                "status": "gated" if not row_diagnostics else "blocked",
+                "selected_local_lane": "test",
+                "allowed_local_lanes": allowed_lanes,
+                "activation_gate": "agent_harness_eval_before_runtime_or_controller_change",
+                "evidence_item_id_hash": stable_text_hash(item_id),
+                "source_url_hash": optional_string(row.get("source_url_hash")) or None,
+                "skill_route_discovery_inherited": False,
+                "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+                "diagnostic_count": len(row_diagnostics),
+                "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in row_diagnostics],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    skill_route_row_count = sum(1 for row in rows if row["evidence_class"] == "skill_route_discovery")
+    agent_harness_row_count = sum(1 for row in rows if row["evidence_class"] == "agent_harness_eval")
+    status_ready = (
+        ready
+        and bool(rows)
+        and not diagnostics
+        and optional_string(final_lane_policy_inventory.get("status")) == "ready"
+        and optional_string(adjacent_general_agent_project_eval.get("status")) in {"gated", "not_present", ""}
+        and not blocked_reasons
+    )
+    return {
+        "controller_surface": "skill_route_discovery_activation_lane_contract",
+        "status": "ready" if status_ready else "blocked",
+        "decision": "activation_lanes_bounded_for_supervisor_review"
+        if status_ready
+        else "repair_activation_lane_contract_before_supervisor_review",
+        "row_count": len(rows),
+        "skill_route_row_count": skill_route_row_count,
+        "agent_harness_eval_row_count": agent_harness_row_count,
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "allowed_agent_harness_eval_lanes": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "agent_harness_eval_required": agent_harness_row_count > 0,
+        "skill_route_discovery_inherited_by_agent_projects": False,
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "completion_blocker_count": len(blocked_reasons),
+        "completion_blocker_hashes": [stable_text_hash(reason) for reason in blocked_reasons],
+        "required_validation": [
+            SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND,
+            SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND,
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 

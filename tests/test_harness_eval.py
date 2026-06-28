@@ -3820,6 +3820,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
     final_lane_policy_inventory = output["capability_window_completion"]["completion_report"][
         "final_lane_policy_inventory"
     ]
+    activation_lane_contract = output["capability_window_completion"]["completion_report"][
+        "activation_lane_contract"
+    ]
     provider_runtime_interpretation_panel = output["capability_window_completion"]["completion_report"][
         "provider_runtime_interpretation_panel"
     ]
@@ -3865,6 +3868,7 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "route_validation_lane_queue": route_validation_lane_queue,
         "secondary_harness_bridge": secondary_harness_bridge,
         "final_lane_policy_inventory": final_lane_policy_inventory,
+        "activation_lane_contract": activation_lane_contract,
         "provider_runtime_interpretation_panel": provider_runtime_interpretation_panel,
         "completion_consistency_guard": completion_consistency_guard,
         "runner_harness_control_plane": runner_harness_control_plane,
@@ -6207,6 +6211,43 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert inventory["raw_evidence_urls_exported"] is False
     assert inventory["raw_source_urls_exported"] is False
     assert "https://github.com/" not in serialized
+    activation_contract = output["capability_window_completion"]["completion_report"]["activation_lane_contract"]
+    serialized = json.dumps(activation_contract, sort_keys=True)
+    assert activation_contract["controller_surface"] == "skill_route_discovery_activation_lane_contract"
+    assert activation_contract["status"] == "ready"
+    assert activation_contract["decision"] == "activation_lanes_bounded_for_supervisor_review"
+    assert activation_contract["skill_route_row_count"] == 3
+    assert activation_contract["agent_harness_eval_row_count"] == 0
+    assert activation_contract["row_count"] == 3
+    assert activation_contract["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert activation_contract["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+    assert activation_contract["skill_route_discovery_inherited_by_agent_projects"] is False
+    assert activation_contract["required_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+    ]
+    assert {row["evidence_class"] for row in activation_contract["rows"]} == {"skill_route_discovery"}
+    assert {row["route_profile"] for row in activation_contract["rows"]} == {
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    }
+    assert all(row["status"] == "ready" for row in activation_contract["rows"])
+    assert all(row["selected_local_lane"] in {"config", "test"} for row in activation_contract["rows"])
+    assert all(row["activation_gate"] == "local_validation_before_activation" for row in activation_contract["rows"])
+    assert all(row["runtime_action_allowed"] is False for row in activation_contract["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in activation_contract["rows"])
+    assert all(row["external_agent_activation_allowed"] is False for row in activation_contract["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in activation_contract["rows"])
+    assert activation_contract["runtime_action_allowed"] is False
+    assert activation_contract["external_skill_activation_allowed"] is False
+    assert activation_contract["external_agent_activation_allowed"] is False
+    assert activation_contract["external_harness_execution_allowed"] is False
+    assert activation_contract["provider_runtime_launch_allowed"] is False
+    assert activation_contract["remote_execution_allowed"] is False
+    assert activation_contract["raw_evidence_urls_exported"] is False
+    assert activation_contract["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
     consistency_guard = output["capability_window_completion"]["completion_report"]["completion_consistency_guard"]
     serialized = json.dumps(consistency_guard, sort_keys=True)
     assert consistency_guard["controller_surface"] == (
@@ -6224,6 +6265,7 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
         "final_route_handoff_manifest": "ready",
         "route_validation_lane_queue": "ready",
         "secondary_harness_bridge": "ready",
+        "activation_lane_contract": "ready",
     }
     assert consistency_guard["ready_profile_count"] == consistency_guard["ready_lane_count"] == 3
     assert consistency_guard["blocked_profile_count"] == consistency_guard["blocked_lane_count"] == 0
@@ -6232,6 +6274,7 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert replay_contract["status"] == "ready"
     assert replay_contract["panels"] == [
         "activation_handoff",
+        "activation_lane_contract",
         "completion_replay_checklist",
         "final_route_handoff_manifest",
         "route_validation_lane_queue",
@@ -6279,6 +6322,84 @@ def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
 
 
+def test_skill_route_discovery_pass4_contract_gates_adjacent_general_agent_projects():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
+    fixture = copy.deepcopy(json.loads(fixture_path.read_text(encoding="utf-8")))
+    fixture["input"]["capability_window"]["anchoring_proposals"].append("proposal-agent-harness-eval-004")
+    fixture["input"]["capability_window"]["evidence_urls"].append("https://github.com/QwenLM/Qwen-AgentWorld")
+    fixture["input"]["evidence_items"] = [
+        {
+            "item_id": "qwen-agentworld-general-agent-project",
+            "item_kind": "repository",
+            "name": "Qwen-AgentWorld",
+            "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+            "title": "General agent project evaluation harness",
+            "summary": (
+                "General-agent benchmark and agent framework evidence without local skill workflow signals; "
+                "keep implementation changes gated by agent harness eval."
+            ),
+            "topics": ["agent", "benchmark", "evaluation"],
+            "suggested_lanes": ["documentation", "test", "runtime_execution"],
+        }
+    ]
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+
+    contract = output["capability_window_completion"]["completion_report"]["activation_lane_contract"]
+    agent_rows = [row for row in contract["rows"] if row["evidence_class"] == "agent_harness_eval"]
+    skill_rows = [row for row in contract["rows"] if row["evidence_class"] == "skill_route_discovery"]
+    serialized = json.dumps(contract, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert contract["status"] == "ready"
+    assert contract["skill_route_row_count"] == 3
+    assert contract["agent_harness_eval_row_count"] == 1
+    assert contract["row_count"] == 4
+    assert contract["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert contract["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+    assert contract["skill_route_discovery_inherited_by_agent_projects"] is False
+    assert all(row["status"] == "ready" for row in skill_rows)
+    assert agent_rows == [
+        {
+            "evidence_class": "agent_harness_eval",
+            "route_profile": "general_agent_project",
+            "status": "gated",
+            "selected_local_lane": "test",
+            "allowed_local_lanes": ["documentation", "test"],
+            "activation_gate": "agent_harness_eval_before_runtime_or_controller_change",
+            "evidence_item_id_hash": stable_text_hash("qwen-agentworld-general-agent-project"),
+            "source_url_hash": stable_text_hash("https://github.com/QwenLM/Qwen-AgentWorld"),
+            "skill_route_discovery_inherited": False,
+            "required_validation": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"],
+            "diagnostic_count": 0,
+            "diagnostic_hashes": [],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    ]
+    assert contract["runtime_action_allowed"] is False
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["external_agent_activation_allowed"] is False
+    assert contract["external_harness_execution_allowed"] is False
+    assert contract["provider_runtime_launch_allowed"] is False
+    assert "https://github.com/" not in serialized
+
+
 def test_skill_route_discovery_completion_guard_blocks_missing_replay_contract():
     fixture_path = LOCAL_EVAL_FIXTURE_DIR / "skill_route_discovery_lane_pass4_closure.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -6300,6 +6421,7 @@ def test_skill_route_discovery_completion_guard_blocks_missing_replay_contract()
         final_route_handoff_manifest=report["final_route_handoff_manifest"],
         route_validation_lane_queue=queue_without_replay,
         secondary_harness_bridge=report["secondary_harness_bridge"],
+        activation_lane_contract=report["activation_lane_contract"],
         blocked_reasons=[],
     )
 
