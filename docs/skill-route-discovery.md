@@ -3413,3 +3413,25 @@ upstream body export.
 Qwen-AgentWorld remains adjacent as `agent_harness_eval_required`; it does not
 inherit `skill_route_discovery` or direct implementation authority from the
 skill-route lane.
+
+## Current Digest Pass 4 Completion Handoff
+
+Source digest `github-growth-20260628T144729.539313Z` completes the active
+four-pass `skill-route-discovery` window with
+`current_digest_pass4_completion_handoff`. The handoff binds the current
+proposal IDs `p1-skill-route-discovery-generic`,
+`p2-game-frontend-skill-profile`, and `p3-skill-ecosystem-handoff` to the
+bounded route profiles already validated across the slice.
+
+The packet treats zhengxi-views-style generic skill workflow evidence as a
+local test lane, Three.js game/frontend skill evidence as a documentation lane
+until local frontend validation exists, and COMPASS-style skill ecosystem
+handoff evidence as a local test lane for metadata-only state boundaries. It
+exports selected item IDs, source hashes, route profiles, bounded lane names,
+validation gates, and replay-command hashes only.
+
+This is a supervisor replay handoff, not runtime activation. Install, runtime
+execution, provider runtime, external skill activation, external harness
+execution, provider launch, profile writes, memory writes, remote execution,
+raw source URL export, raw evidence URL export, raw target path export, replay
+command export, and upstream body export remain denied.

@@ -3272,6 +3272,123 @@ def test_skill_route_discovery_pass3_current_wake_acceptance_packet_keeps_agent_
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_current_digest_pass4_completion_handoff_closes_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_pass4_completion_handoff.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+
+    assert registry["source_digest"] == "github-growth-20260628T144729.539313Z"
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "current_digest_pass4_skill_route_slice_ready_for_supervisor_replay"
+    assert handoff["source_digest"] == "github-growth-20260628T144729.539313Z"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["review_gate"] == "focused-evidence-review"
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-generic",
+        "p2-game-frontend-skill-profile",
+        "p3-skill-ecosystem-handoff",
+    ]
+    assert handoff["ready_skill_route_proposal_count"] == 3
+    assert handoff["blocked_proposal_ids"] == []
+    assert handoff["skill_route_candidate_count"] == 3
+    assert handoff["adjacent_general_agent_count"] == 1
+    assert handoff["required_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert handoff["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert handoff["missing_required_route_profiles"] == []
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["accepted_outputs"] == ["docs", "config", "tests", "code_patch"]
+    assert handoff["operator_handoff"] == "external_supervisor_replay_without_kernel_restart"
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert all(command_hash.startswith("sha256:") for command_hash in handoff["replay_command_hashes"])
+    assert handoff["local_validation_required"] is True
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["raw_replay_commands_exported"] is False
+    assert handoff["raw_source_url_exported"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_target_paths_exported"] is False
+    assert handoff["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    assert rows["p1-skill-route-discovery-generic"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p1-skill-route-discovery-generic"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p1-skill-route-discovery-generic"]["selected_local_lane"] == "test"
+    assert rows["p2-game-frontend-skill-profile"]["candidate_names"] == ["threejs-game-skills"]
+    assert rows["p2-game-frontend-skill-profile"]["route_profiles"] == ["game_frontend_workflow"]
+    assert rows["p2-game-frontend-skill-profile"]["selected_local_lane"] == "documentation"
+    assert rows["p3-skill-ecosystem-handoff"]["candidate_names"] == ["compass-skills"]
+    assert rows["p3-skill-ecosystem-handoff"]["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert rows["p3-skill-ecosystem-handoff"]["selected_local_lane"] == "test"
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["selected_evidence_item_ids"]
+        assert row["validation_gates"]
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert row["replay_command_hash"].startswith("sha256:")
+
+    adjacent = handoff["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p4-agent-harness-eval-qwen"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["raw_replay_command_exported"] is False
+
+    serialized = json.dumps(handoff, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert "install" not in serialized
+
+
 def test_skill_route_discovery_pass3_active_window_review_packet_matches_current_proposals():
     fixture_path = (
         Path(__file__).parent
