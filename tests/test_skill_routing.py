@@ -9610,7 +9610,7 @@ def test_skill_route_discovery_current_source_digest_pass3_operator_lane_routes_
         Path(__file__).parent
         / "fixtures"
         / "skill_route_discovery"
-        / "current_digest_20260628T234729_pass3_operator_lane.json"
+        / "current_digest_20260629T175904_pass3_operator_lane.json"
     )
     payload = json.loads(fixture_path.read_text(encoding="utf-8"))
 
@@ -9619,33 +9619,35 @@ def test_skill_route_discovery_current_source_digest_pass3_operator_lane_routes_
     packet = lane_map["current_source_digest_pass3_operator_lane"]
     serialized = json.dumps(packet, sort_keys=True)
 
-    assert registry["source_digest"] == "github-growth-20260628T234729.567549Z"
+    assert registry["source_digest"] == "github-growth-20260629T175904.233445Z"
     assert registry["candidate_count"] == 2
-    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 2
     assert registry["ignored_evidence_items"][0]["name"] == "Qwen-AgentWorld"
     assert registry["ignored_evidence_items"][0]["evaluation_lane"] == "agent_harness_eval_required"
+    assert registry["ignored_evidence_items"][1]["name"] == "looper"
+    assert registry["ignored_evidence_items"][1]["evaluation_lane"] == "agent_harness_eval_required"
 
     assert packet["controller_surface"] == (
         "skill_route_discovery_current_source_digest_pass3_operator_lane"
     )
     assert packet["status"] == "ready"
-    assert packet["source_digest"] == "github-growth-20260628T234729.567549Z"
+    assert packet["source_digest"] == "github-growth-20260629T175904.233445Z"
     assert packet["capability_pass"] == 3
     assert packet["total_passes"] == 4
     assert packet["review_gate"] == "focused-evidence-review"
     assert packet["proposal_ids"] == [
-        "p1-skill-route-discovery-zhengxi-views",
-        "p2-agent-harness-qwen-agentworld",
-        "p3-threejs-game-skills-route",
+        "p1-skill-route-discovery-compass",
+        "p2-generic-skill-workflow-docs",
+        "p3-agent-harness-eval-fixture",
     ]
     assert packet["ready_skill_route_proposal_count"] == 2
     assert packet["blocked_proposal_ids"] == []
     assert packet["skill_route_candidate_count"] == 2
-    assert packet["adjacent_general_agent_count"] == 1
+    assert packet["adjacent_general_agent_count"] == 2
     assert packet["agent_harness_eval_required_before_implementation"] is True
     assert packet["observed_route_profiles"] == [
         "generic_skill_workflow",
-        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
     ]
     assert packet["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert packet["selected_local_lanes"] == ["documentation", "test"]
@@ -9664,14 +9666,14 @@ def test_skill_route_discovery_current_source_digest_pass3_operator_lane_routes_
     assert packet["remote_execution_allowed"] is False
 
     rows = {row["proposal_id"]: row for row in packet["rows"]}
-    assert rows["p1-skill-route-discovery-zhengxi-views"]["candidate_names"] == ["zhengxi-views"]
-    assert rows["p1-skill-route-discovery-zhengxi-views"]["route_profiles"] == [
-        "generic_skill_workflow"
+    assert rows["p1-skill-route-discovery-compass"]["candidate_names"] == ["compass-skills"]
+    assert rows["p1-skill-route-discovery-compass"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
     ]
-    assert rows["p1-skill-route-discovery-zhengxi-views"]["selected_local_lane"] == "test"
-    assert rows["p3-threejs-game-skills-route"]["candidate_names"] == ["threejs-game-skills"]
-    assert rows["p3-threejs-game-skills-route"]["route_profiles"] == ["game_frontend_workflow"]
-    assert rows["p3-threejs-game-skills-route"]["selected_local_lane"] == "documentation"
+    assert rows["p1-skill-route-discovery-compass"]["selected_local_lane"] == "test"
+    assert rows["p2-generic-skill-workflow-docs"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p2-generic-skill-workflow-docs"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p2-generic-skill-workflow-docs"]["selected_local_lane"] == "documentation"
 
     for row in rows.values():
         assert row["status"] == "ready"
@@ -9697,23 +9699,24 @@ def test_skill_route_discovery_current_source_digest_pass3_operator_lane_routes_
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
 
-    adjacent = packet["adjacent_general_agent_rows"][0]
-    assert adjacent["proposal_id"] == "p2-agent-harness-qwen-agentworld"
-    assert adjacent["name"] == "Qwen-AgentWorld"
-    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
-    assert adjacent["skill_route_discovery_inherited"] is False
-    assert adjacent["direct_runtime_route_allowed"] is False
-    assert adjacent["direct_code_patch_route_allowed"] is False
-    assert adjacent["external_harness_execution_allowed"] is False
-    assert adjacent["accepted_outputs_after_eval"] == ["docs", "tests", "code_patch"]
-    assert adjacent["agent_harness_eval_probe_requirements"] == [
-        "install_shape",
-        "entrypoints",
-        "dependency_boundaries",
-        "task_loop_assumptions",
-        "observable_behaviors",
-        "evaluation_dimensions",
-    ]
+    adjacent_rows = packet["adjacent_general_agent_rows"]
+    assert [row["name"] for row in adjacent_rows] == ["Qwen-AgentWorld", "looper"]
+    for adjacent in adjacent_rows:
+        assert adjacent["proposal_id"] == "p3-agent-harness-eval-fixture"
+        assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+        assert adjacent["skill_route_discovery_inherited"] is False
+        assert adjacent["direct_runtime_route_allowed"] is False
+        assert adjacent["direct_code_patch_route_allowed"] is False
+        assert adjacent["external_harness_execution_allowed"] is False
+        assert adjacent["accepted_outputs_after_eval"] == ["docs", "tests", "code_patch"]
+        assert adjacent["agent_harness_eval_probe_requirements"] == [
+            "install_shape",
+            "entrypoints",
+            "dependency_boundaries",
+            "task_loop_assumptions",
+            "observable_behaviors",
+            "evaluation_dimensions",
+        ]
 
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized

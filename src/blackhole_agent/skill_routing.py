@@ -11139,24 +11139,45 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
 ) -> dict[str, Any]:
     """Expose this wake's pass-3 lane without requiring unrelated profiles."""
 
-    specs = (
-        {
-            "proposal_id": "p1-skill-route-discovery-zhengxi-views",
-            "proposal_kind": "test",
-            "proposal_track": "generic_skill_workflow",
-            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
-            "selected_local_lane": "test",
-            "validation_target": "zhengxi_views_skill_workflow_maps_to_bounded_test_lane",
-        },
-        {
-            "proposal_id": "p3-threejs-game-skills-route",
-            "proposal_kind": "documentation",
-            "proposal_track": "game_frontend_workflow",
-            "route_profiles": ("game_frontend_workflow",),
-            "selected_local_lane": "documentation",
-            "validation_target": "game_frontend_workflow_documentation_before_patch_or_runtime",
-        },
-    )
+    current_175904_window = source_digest == "github-growth-20260629T175904.233445Z"
+    if current_175904_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_handoff_maps_to_bounded_test_lane",
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-docs",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_terms_stay_documentation_config_test_or_code_patch",
+            },
+        )
+    else:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_workflow_maps_to_bounded_test_lane",
+            },
+            {
+                "proposal_id": "p3-threejs-game-skills-route",
+                "proposal_kind": "documentation",
+                "proposal_track": "game_frontend_workflow",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "game_frontend_workflow_documentation_before_patch_or_runtime",
+            },
+        )
     rows: list[dict[str, Any]] = []
     selected_lanes: list[str] = []
     observed_profiles: list[str] = []
@@ -11243,6 +11264,7 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
                         "source_cited_domain_research",
                         "generic_skill_workflow",
                         "game_frontend_workflow",
+                        "skill_ecosystem_state_handoff",
                     )
                     if profile in set(matched_profiles)
                 ],
@@ -11280,12 +11302,20 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
 
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p2-agent-harness-qwen-agentworld",
+        proposal_id=(
+            "p3-agent-harness-eval-fixture"
+            if current_175904_window
+            else "p2-agent-harness-qwen-agentworld"
+        ),
     )
     for row in adjacent_rows:
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
         row["validation_gate"] = "local_agent_harness_eval_required_before_controller_runner_or_workflow_change"
-        row["validation_target"] = "qwen_agentworld_requires_local_agent_harness_eval_fixture"
+        row["validation_target"] = (
+            "general_agent_projects_require_local_agent_harness_eval_fixture"
+            if current_175904_window
+            else "qwen_agentworld_requires_local_agent_harness_eval_fixture"
+        )
         row["agent_harness_eval_probe_requirements"] = [
             "install_shape",
             "entrypoints",
@@ -11316,7 +11346,11 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
 
     blocked_proposal_ids = [str(row["proposal_id"]) for row in rows if row["status"] != "ready"]
     if adjacent_blockers:
-        blocked_proposal_ids.append("p2-agent-harness-qwen-agentworld")
+        blocked_proposal_ids.append(
+            "p3-agent-harness-eval-fixture"
+            if current_175904_window
+            else "p2-agent-harness-qwen-agentworld"
+        )
     ready = bool(rows) and not blocked_proposal_ids and bool(adjacent_rows)
     return {
         "controller_surface": "skill_route_discovery_current_source_digest_pass3_operator_lane",
@@ -11331,11 +11365,30 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-workflow-docs",
+            "p3-agent-harness-eval-fixture",
+        ]
+        if current_175904_window
+        else [
             "p1-skill-route-discovery-zhengxi-views",
             "p2-agent-harness-qwen-agentworld",
             "p3-threejs-game-skills-route",
         ],
         "anchoring_proposal_ids": [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-workflow-zhengxi",
+            "p3-agent-harness-qwen-agentworld",
+            "p4-agent-harness-looper",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-compass-skills",
+            "p2-skill-route-discovery-zhengxi-views",
+            "p5-security-agent-harness-autocve",
+            "p2-generic-skill-workflow-docs",
+            "p3-agent-harness-eval-fixture",
+        ]
+        if current_175904_window
+        else [
             "p1-skill-route-discovery-views",
             "p2-agent-harness-eval-qwen-agentworld",
             "p3-threejs-game-skill-profile",
@@ -11357,6 +11410,7 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
                 "source_cited_domain_research",
                 "generic_skill_workflow",
                 "game_frontend_workflow",
+                "skill_ecosystem_state_handoff",
             )
             if profile in set(observed_profiles)
         ],
