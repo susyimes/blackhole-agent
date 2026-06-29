@@ -23,6 +23,24 @@ provider launch, remote execution, profile writes, memory writes, raw source
 URL export, raw evidence URL export, target-path export, replay-command export,
 or upstream body export.
 
+Source digest `github-growth-20260629T195904.271855Z` starts pass 1 of the
+next active `skill-route-discovery` window with proposal IDs
+`p1-skill-route-discovery-compass-skills`, `p2-generic-skill-workflow-probe`,
+`p3-agent-harness-eval-qwen-agentworld`, `p4-agent-harness-eval-looper`, and
+`p5-security-agent-review-boundary-autocve`. The pass-1 lane maps COMPASS-style
+skill ecosystem handoff evidence to the local test lane and zhengxi-views-style
+agent plus skill workflow evidence to the documentation lane. Both rows expose
+only documentation, config, test, or code_patch as allowed local lanes, keep
+`local_validation_required: true`, and strip install or provider-runtime
+wording before it can become allowed lane authority.
+
+Qwen-AgentWorld and looper remain adjacent general-agent projects for this
+pass. They are represented as separate `agent_harness_eval_required` rows and
+do not inherit `skill_route_discovery`, direct runtime routing, direct
+code_patch authority, external harness execution, provider launch, profile
+writes, memory writes, remote execution, raw source URL export, raw evidence
+URL export, target-path export, replay-command export, or upstream body export.
+
 Source digest `github-growth-20260629T191904.276263Z` advances pass 3 of the
 active `skill-route-discovery` window by binding the current proposal IDs to
 `current_source_digest_pass3_operator_lane`. COMPASS-style skill ecosystem

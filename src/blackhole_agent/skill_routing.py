@@ -5609,8 +5609,36 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_190729_window = source_digest == "github-growth-20260628T190729.559090Z"
     current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     current_171904_window = source_digest == "github-growth-20260629T171904.272271Z"
-    specs = (
-        (
+    current_195904_window = source_digest == "github-growth-20260629T195904.271855Z"
+    if current_195904_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass-skills",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_handoff_route_metadata",
+                "validation_task": (
+                    "feed COMPASS-style skill ecosystem evidence through route classification "
+                    "and prove it remains in bounded local lanes with validation required"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_probe_route_note",
+                "validation_task": (
+                    "record that zhengxi-style agent plus skill topic evidence maps to "
+                    "skill_route_discovery without provider runtime or direct activation"
+                ),
+            },
+        )
+    elif current_101324_window:
+        specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass",
                 "proposal_kind": "test",
@@ -5636,9 +5664,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 ),
             },
         )
-        if current_101324_window
-        else
-        (
+    elif current_190729_window:
+        specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-index",
                 "proposal_kind": "documentation",
@@ -5686,70 +5713,69 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 ),
             },
         )
-        if current_190729_window
-        else (
-        {
-            "proposal_id": (
-                "proposal_skill_route_discovery_index"
-                if current_162729_window
-                else (
-                    "p1-skill-route-discovery-index"
-                    if current_150729_window
-                    else "p1-skill-route-discovery-generic"
-                )
-            ),
-            "proposal_kind": "test",
-            "proposal_track": "generic_or_source_cited_skill_workflow",
-            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
-            "selected_local_lane": "test",
-            "validation_target": "repository_trend_shape_keeps_generic_skill_routes_bounded",
-            "validation_task": (
-                "assert RepositoryTrend evidence preserves local_validation_required, "
-                "bounded lanes, and no direct runtime action"
-            ),
-        },
-        {
-            "proposal_id": (
-                "proposal_game_frontend_skill_profile"
-                if current_162729_window
-                else (
-                    "p2-threejs-game-skill-routing"
-                    if current_174729_window
-                    else "p2-game-frontend-skill-profile"
-                )
-            ),
-            "proposal_kind": "documentation",
-            "proposal_track": "game_frontend_workflow",
-            "route_profiles": ("game_frontend_workflow",),
-            "selected_local_lane": "documentation",
-            "validation_target": "game_frontend_workflow_profile_requires_local_fixture_before_runtime_use",
-            "validation_task": (
-                "document metadata identification, no direct execution, local fixture tests, "
-                "and recomputable controller scope"
-            ),
-        },
-        {
-            "proposal_id": (
-                "proposal_skill_state_handoff_profile"
-                if current_162729_window
-                else (
-                    "p3-skill-ecosystem-handoff-profile"
-                    if current_150729_window
-                    else "p3-skill-ecosystem-state-handoff"
-                )
-            ),
-            "proposal_kind": "config",
-            "proposal_track": "skill_ecosystem_state_handoff",
-            "route_profiles": ("skill_ecosystem_state_handoff",),
-            "selected_local_lane": "config",
-            "validation_target": "state_or_workflow_handoff_candidate_records_uncertainty_without_execution",
-            "validation_task": (
-                "validate state handoff maps only to bounded lanes and records uncertainty "
-                "when no concrete handoff schema is present"
-            ),
-        },
+    else:
+        specs = (
+            {
+                "proposal_id": (
+                    "proposal_skill_route_discovery_index"
+                    if current_162729_window
+                    else (
+                        "p1-skill-route-discovery-index"
+                        if current_150729_window
+                        else "p1-skill-route-discovery-generic"
+                    )
+                ),
+                "proposal_kind": "test",
+                "proposal_track": "generic_or_source_cited_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "repository_trend_shape_keeps_generic_skill_routes_bounded",
+                "validation_task": (
+                    "assert RepositoryTrend evidence preserves local_validation_required, "
+                    "bounded lanes, and no direct runtime action"
+                ),
+            },
+            {
+                "proposal_id": (
+                    "proposal_game_frontend_skill_profile"
+                    if current_162729_window
+                    else (
+                        "p2-threejs-game-skill-routing"
+                        if current_174729_window
+                        else "p2-game-frontend-skill-profile"
+                    )
+                ),
+                "proposal_kind": "documentation",
+                "proposal_track": "game_frontend_workflow",
+                "route_profiles": ("game_frontend_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "game_frontend_workflow_profile_requires_local_fixture_before_runtime_use",
+                "validation_task": (
+                    "document metadata identification, no direct execution, local fixture tests, "
+                    "and recomputable controller scope"
+                ),
+            },
+            {
+                "proposal_id": (
+                    "proposal_skill_state_handoff_profile"
+                    if current_162729_window
+                    else (
+                        "p3-skill-ecosystem-handoff-profile"
+                        if current_150729_window
+                        else "p3-skill-ecosystem-state-handoff"
+                    )
+                ),
+                "proposal_kind": "config",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "config",
+                "validation_target": "state_or_workflow_handoff_candidate_records_uncertainty_without_execution",
+                "validation_task": (
+                    "validate state handoff maps only to bounded lanes and records uncertainty "
+                    "when no concrete handoff schema is present"
+                ),
+            },
         )
-    )
     if current_171904_window:
         specs = (
             {
@@ -5881,6 +5907,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3-agent-harness-eval-qwen-agentworld"
+            if current_195904_window
+            else
             "p3-agent-harness-qwen-agentworld"
             if current_171904_window
             else
@@ -5906,6 +5935,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_195904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-harness-eval-looper"
         if current_171904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p4-agent-harness-looper"
         row.pop("replay_command", None)
@@ -5929,6 +5960,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-boundary-autocve",
+            "trend:dongshuyan/compass-skills-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_195904_window
+        else
         [
             "p1-skill-route-discovery-compass",
             "p2-generic-skill-workflow-zhengxi",

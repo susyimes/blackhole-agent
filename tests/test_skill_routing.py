@@ -11695,3 +11695,115 @@ def test_skill_route_discovery_current_digest_20260629T193904_pass4_exposes_rout
         not {"install", "provider_runtime", "runtime_execution"} & set(row.get("allowed_local_lanes", []))
         for row in handoff["rows"]
     )
+
+
+def test_skill_route_discovery_current_digest_20260629T195904_pass1_maps_local_lanes():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260629T195904_pass1_local_lanes.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass1_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260629T195904.271855Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert {item["name"] for item in registry["ignored_evidence_items"]} == {
+        "Qwen-AgentWorld",
+        "looper",
+    }
+
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass1_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 1
+    assert lane["total_passes"] == 4
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-compass-skills",
+        "p2-generic-skill-workflow-probe",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-compass-skills",
+        "p2-generic-skill-workflow-probe",
+        "p3-agent-harness-eval-qwen-agentworld",
+        "p4-agent-harness-eval-looper",
+        "p5-security-agent-review-boundary-autocve",
+        "trend:dongshuyan/compass-skills-1",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:ksimback/looper-1",
+    ]
+    assert lane["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["agent_harness_eval_required_count"] == 2
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+
+    compass = rows["p1-skill-route-discovery-compass-skills"]
+    assert compass["proposal_kind"] == "test"
+    assert compass["candidate_names"] == ["compass-skills"]
+    assert compass["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert compass["selected_local_lane"] == "test"
+    assert set(compass["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert compass["selected_evidence_item_ids"] == ["trend:dongshuyan/compass-skills-1"]
+    assert compass["local_validation_required"] is True
+    assert compass["runtime_action"] == "none"
+    assert "install" not in compass["allowed_local_lanes"]
+
+    zhengxi = rows["p2-generic-skill-workflow-probe"]
+    assert zhengxi["proposal_kind"] == "documentation"
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == ["generic_skill_workflow"]
+    assert zhengxi["selected_local_lane"] == "documentation"
+    assert set(zhengxi["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert zhengxi["local_validation_required"] is True
+    assert zhengxi["runtime_action"] == "none"
+    assert "provider_runtime" not in zhengxi["allowed_local_lanes"]
+
+    assert [row["proposal_id"] for row in lane["adjacent_general_agent_rows"]] == [
+        "p3-agent-harness-eval-qwen-agentworld",
+        "p4-agent-harness-eval-looper",
+    ]
+    assert [row["name"] for row in lane["adjacent_general_agent_rows"]] == [
+        "Qwen-AgentWorld",
+        "looper",
+    ]
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        for row in lane["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["skill_route_discovery_inherited"] is False
+        for row in lane["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["direct_runtime_route_allowed"] is False
+        for row in lane["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["direct_code_patch_route_allowed"] is False
+        for row in lane["adjacent_general_agent_rows"]
+    )
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    allowed_lane_payload = json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+    assert "provider_runtime" not in allowed_lane_payload
+    assert "install" not in allowed_lane_payload
