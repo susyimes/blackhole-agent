@@ -10986,6 +10986,20 @@ def skill_route_discovery_local_kernel_handoff(
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
         provider_runtime_final_diagnostics=provider_runtime_final_diagnostics or {},
     )
+    final_route_closure_manifest = skill_route_discovery_final_route_closure_manifest(
+        source_digest=source_digest,
+        theme=theme,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        planned_window_complete=planned_window_complete,
+        proposal_completion_summary=proposal_completion_summary,
+        current_digest_completion_lane=completion_lane_summary,
+        adjacent_agent_count=adjacent_agent_count,
+        replay_stage_order=string_list(runner_control.get("stage_order")),
+        replay_stage_count=int(runner_control.get("stage_count") or 0),
+        ready_replay_stage_count=int(runner_control.get("ready_stage_count") or 0),
+        required_validation=string_list(completion_report.get("required_validation")),
+    )
     ready = (
         status == "ready"
         and report_status == "ready"
@@ -11035,6 +11049,7 @@ def skill_route_discovery_local_kernel_handoff(
         },
         "proposal_completion_summary": proposal_completion_summary,
         "current_digest_completion_lane": completion_lane_summary,
+        "final_route_closure_manifest": final_route_closure_manifest,
         "provider_runtime_supervisor_card": provider_runtime_supervisor_card,
         "replay_stage_order": string_list(runner_control.get("stage_order")),
         "replay_stage_count": int(runner_control.get("stage_count") or 0),
@@ -11061,6 +11076,141 @@ def skill_route_discovery_local_kernel_handoff(
         "restart_required_by_kernel": False,
         "local_validation_required": True,
         "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_final_route_closure_manifest(
+    *,
+    source_digest: str,
+    theme: str,
+    current_pass: int,
+    total_passes: int,
+    planned_window_complete: bool,
+    proposal_completion_summary: dict[str, Any],
+    current_digest_completion_lane: dict[str, Any],
+    adjacent_agent_count: int,
+    replay_stage_order: list[str],
+    replay_stage_count: int,
+    ready_replay_stage_count: int,
+    required_validation: list[str],
+) -> dict[str, Any]:
+    """Summarize the final pass route decision without exposing upstream bodies."""
+
+    skill_route_ready = optional_string(proposal_completion_summary.get("status")) == "ready"
+    current_digest_ready = optional_string(current_digest_completion_lane.get("status")) == "ready"
+    final_pass_ready = current_pass == total_passes and planned_window_complete
+    replay_ready = replay_stage_count > 0 and replay_stage_count == ready_replay_stage_count
+    agent_harness_required = adjacent_agent_count > 0 or bool(
+        proposal_completion_summary.get("agent_harness_eval_required")
+    )
+    ready = skill_route_ready and current_digest_ready and final_pass_ready and replay_ready
+    blockers = [
+        "proposal_completion_not_ready" if not skill_route_ready else "",
+        "current_digest_completion_not_ready" if not current_digest_ready else "",
+        "capability_window_not_complete" if not final_pass_ready else "",
+        "replay_stages_not_ready" if not replay_ready else "",
+    ]
+    blockers = sorted(dict.fromkeys(blocker for blocker in blockers if blocker))
+    selected_skill_route_lanes = string_list(
+        proposal_completion_summary.get("selected_skill_route_lanes")
+    )
+    route_profiles = string_list(proposal_completion_summary.get("route_profiles"))
+    validation_hashes = [stable_text_hash(command) for command in required_validation]
+
+    rows = [
+        {
+            "route": "skill_route_discovery",
+            "status": "ready" if skill_route_ready else "blocked",
+            "decision": "bounded_local_skill_lanes_ready"
+            if skill_route_ready
+            else "repair_skill_route_lanes_before_activation",
+            "route_profiles": route_profiles,
+            "selected_local_lanes": selected_skill_route_lanes,
+            "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "activation_allowed": ready,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_replay_commands_exported": False,
+        }
+    ]
+    if agent_harness_required:
+        rows.append(
+            {
+                "route": "agent_harness_eval_required",
+                "status": "gated",
+                "decision": "hold_general_agent_projects_for_agent_harness_eval",
+                "route_profiles": ["general_agent_project"],
+                "selected_local_lanes": ["test"],
+                "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                "adjacent_general_agent_project_count": adjacent_agent_count,
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "activation_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_replay_commands_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "skill_route_discovery_final_route_closure_manifest",
+        "source_digest": source_digest,
+        "theme": theme,
+        "status": "ready" if ready else "blocked",
+        "decision": "skill_route_window_closed_for_supervisor_replay"
+        if ready
+        else "repair_final_route_closure_before_supervisor_replay",
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "final_pass_observed": final_pass_ready,
+        "skill_route_status": optional_string(proposal_completion_summary.get("status")) or "",
+        "current_digest_completion_status": optional_string(
+            current_digest_completion_lane.get("status")
+        )
+        or "",
+        "agent_harness_eval_required": agent_harness_required,
+        "adjacent_general_agent_project_count": adjacent_agent_count,
+        "selected_skill_route_lanes": selected_skill_route_lanes,
+        "route_profiles": route_profiles,
+        "replay_stage_order": replay_stage_order,
+        "replay_stage_count": replay_stage_count,
+        "ready_replay_stage_count": ready_replay_stage_count,
+        "required_validation_hashes": validation_hashes,
+        "blocker_count": len(blockers),
+        "blocker_hashes": [stable_text_hash(blocker) for blocker in blockers],
+        "rows": rows,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,

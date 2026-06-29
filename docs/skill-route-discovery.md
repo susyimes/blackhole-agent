@@ -4316,3 +4316,24 @@ after local validation. Adjacent Qwen-AgentWorld or Looper-style general-agent
 evidence remains `agent_harness_eval_required`; it does not inherit
 `skill_route_discovery`, direct runtime authority, direct code_patch authority,
 external harness execution, provider launch, or remote execution.
+
+## Final Route Closure Manifest
+
+The pass-4 local-kernel handoff now includes
+`final_route_closure_manifest`. It is the operator-visible closure surface for a
+completed skill-route-discovery capability window: skill-route evidence can close
+only when the proposal completion summary, current digest completion lane, final
+pass marker, and replay stages are all ready.
+
+The manifest emits two route decisions when the window also contains general
+agent evidence. `skill_route_discovery` rows may activate only bounded local
+documentation, config, test, or code_patch lanes after local validation.
+`agent_harness_eval_required` rows remain gated and explicitly do not inherit
+`skill_route_discovery`; they can proceed only through the separate
+`agent_harness_eval_lane` replay before any runtime, controller, provider, or
+implementation behavior is considered.
+
+The manifest is body-free. It exports source digest, route profiles, selected
+local lanes, stage counts, replay stage names, validation command hashes, and
+denial booleans. It does not export raw source URLs, evidence URLs, target paths,
+replay command bodies, upstream bodies, or any profile or memory write authority.
