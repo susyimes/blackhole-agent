@@ -3032,7 +3032,30 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     """Summarize the current pass-1 skill-route proposals before activation."""
 
     current_230729_window = source_digest == "github-growth-20260628T230729.580958Z"
+    current_002729_window = source_digest == "github-growth-20260629T002729.571892Z"
     proposal_specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_gate": "focused-evidence-review",
+                "validation_target": "zhengxi_views_skill_term_lane_regression",
+            },
+            {
+                "proposal_id": "p2-skill-ecosystem-state-handoff",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "documentation",
+                "validation_gate": "state_handoff_boundary_before_profile_or_memory_write",
+                "validation_target": "compass_skill_ecosystem_state_handoff_boundary_note",
+            },
+        )
+        if current_002729_window
+        else
         (
             {
                 "proposal_id": "p1-skill-route-discovery-views",
@@ -3183,10 +3206,21 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
 
     adjacent_rows: list[dict[str, Any]] = []
     adjacent_proposal_ids = {
-        "Qwen-AgentWorld": "p2-agent-harness-eval-qwen-agentworld",
-        "looper": "p5-agent-harness-eval-looper",
+        "Qwen-AgentWorld": (
+            "p3-agent-harness-eval-general-projects"
+            if current_002729_window
+            else "p2-agent-harness-eval-qwen-agentworld"
+        ),
+        "looper": (
+            "p3-agent-harness-eval-general-projects"
+            if current_002729_window
+            else "p5-agent-harness-eval-looper"
+        ),
     }
     default_adjacent_proposal_id = (
+        "p3-agent-harness-eval-general-projects"
+        if current_002729_window
+        else
         "p2-agent-harness-eval-qwen-agentworld"
         if current_230729_window
         else "proposal-agent-harness-eval-004"
@@ -3216,6 +3250,13 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     )
     ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-skill-ecosystem-state-handoff",
+            "p3-agent-harness-eval-general-projects",
+        ]
+        if current_002729_window
+        else
         [
             "p1-skill-route-discovery-views",
             "p2-agent-harness-eval-qwen-agentworld",
