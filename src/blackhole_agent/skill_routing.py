@@ -11599,7 +11599,27 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
 
     current_175904_window = source_digest == "github-growth-20260629T175904.233445Z"
     current_191904_window = source_digest == "github-growth-20260629T191904.276263Z"
-    if current_191904_window:
+    current_203904_window = source_digest == "github-growth-20260629T203904.306145Z"
+    if current_203904_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass-skills",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_handoff_maps_to_bounded_local_test_lane",
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-generic-skill-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "test",
+                "validation_target": "generic_skill_workflow_profile_maps_to_bounded_local_test_lane",
+            },
+        )
+    elif current_191904_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass",
@@ -11781,7 +11801,9 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
-            "p3-agent-harness-eval-general"
+            "p3-agent-harness-eval-agentworld"
+            if current_203904_window
+            else "p3-agent-harness-eval-general"
             if current_191904_window
             else "p3-agent-harness-eval-fixture"
             if current_175904_window
@@ -11789,11 +11811,15 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
         ),
     )
     for row in adjacent_rows:
+        if current_203904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-harness-eval-looper"
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
         row["selected_local_lane"] = "agent_harness_eval_required"
         row["validation_gate"] = "local_agent_harness_eval_required_before_controller_runner_or_workflow_change"
         row["validation_target"] = (
-            "general_agent_project_trends_require_local_agent_harness_eval_before_implementation"
+            "agentworld_style_general_agent_projects_require_local_harness_checklist_before_implementation"
+            if current_203904_window
+            else "general_agent_project_trends_require_local_agent_harness_eval_before_implementation"
             if current_191904_window
             else "general_agent_projects_require_local_agent_harness_eval_fixture"
             if current_175904_window
@@ -11830,7 +11856,9 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
     blocked_proposal_ids = [str(row["proposal_id"]) for row in rows if row["status"] != "ready"]
     if adjacent_blockers:
         blocked_proposal_ids.append(
-            "p3-agent-harness-eval-general"
+            "p3-agent-harness-eval-agentworld"
+            if current_203904_window
+            else "p3-agent-harness-eval-general"
             if current_191904_window
             else "p3-agent-harness-eval-fixture"
             if current_175904_window
@@ -11850,6 +11878,12 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-skill-route-discovery-generic-skill-workflow",
+            "p3-agent-harness-eval-agentworld",
+        ]
+        if current_203904_window
+        else [
             "p1-skill-route-discovery-compass",
             "p2-skill-route-discovery-generic",
             "p3-agent-harness-eval-general",
@@ -11867,6 +11901,21 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
             "p3-threejs-game-skills-route",
         ],
         "anchoring_proposal_ids": [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-boundary-autocve",
+            "p1-skill-route-discovery-index",
+            "p2-skill-ecosystem-handoff-doc",
+            "p3-agent-harness-eval-baseline",
+            "p4-agent-project-route-doc",
+            "p5-security-agent-harness-review-gate",
+            "p2-skill-route-discovery-generic-skill-workflow",
+            "p3-agent-harness-eval-agentworld",
+        ]
+        if current_203904_window
+        else [
             "p1-skill-route-discovery-compass-skills",
             "p2-skill-route-discovery-zhengxi-views",
             "p3-agent-harness-eval-qwen-agentworld",
@@ -11929,6 +11978,19 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
         "adjacent_evaluation_lane": "agent_harness_eval_required",
         "agent_harness_eval_required_before_implementation": bool(adjacent_rows),
         "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "route_profile_validation_requirements",
+            "agent_harness_eval_probe_requirements",
+            "no_external_side_effects",
+            "rollback_artifact",
+            "expected_harness_outputs",
+            "required_tests_before_code_patch",
+            "focused_local_validation",
+            "review_note",
+        ]
+        if current_203904_window
+        else [
             "selected_digest_item_ids_or_frozen_fixture",
             "body_free_repository_summary",
             "route_profile_validation_requirements",
