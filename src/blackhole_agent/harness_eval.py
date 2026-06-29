@@ -19243,6 +19243,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     auth_header_preflight = evaluate_provider_auth_header_preflight(provider=provider, runtime=runtime)
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     model_inventory_preflight = evaluate_provider_model_inventory_preflight(provider=provider, runtime=runtime)
+    request_parameters_preflight = evaluate_provider_request_parameters_preflight(provider=provider, runtime=runtime)
+    model_connectivity_preflight = evaluate_provider_model_connectivity_preflight(provider=provider, runtime=runtime)
     wire_api_preflight = evaluate_provider_wire_api_preflight(provider=provider, runtime=runtime)
     tool_dispatch_preflight = evaluate_provider_tool_dispatch_preflight(provider=provider, runtime=runtime)
     gateway_base_url_preflight = evaluate_provider_gateway_base_url_preflight(provider=provider, runtime=runtime)
@@ -19356,6 +19358,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not auth_header_preflight["ok"]
         or not model_command_preflight["ok"]
         or not model_inventory_preflight["ok"]
+        or not request_parameters_preflight["ok"]
+        or not model_connectivity_preflight["ok"]
         or not wire_api_preflight["ok"]
         or not tool_dispatch_preflight["ok"]
         or not gateway_base_url_preflight["ok"]
@@ -19391,6 +19395,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(auth_header_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(model_inventory_preflight["diagnostics"])
+    diagnostics.extend(request_parameters_preflight["diagnostics"])
+    diagnostics.extend(model_connectivity_preflight["diagnostics"])
     diagnostics.extend(wire_api_preflight["diagnostics"])
     diagnostics.extend(tool_dispatch_preflight["diagnostics"])
     diagnostics.extend(gateway_base_url_preflight["diagnostics"])
@@ -19437,6 +19443,10 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not model_command_preflight["ok"]
             else model_inventory_preflight["failure_mode"]
             if not model_inventory_preflight["ok"]
+            else request_parameters_preflight["failure_mode"]
+            if not request_parameters_preflight["ok"]
+            else model_connectivity_preflight["failure_mode"]
+            if not model_connectivity_preflight["ok"]
             else wire_api_preflight["failure_mode"]
             if not wire_api_preflight["ok"]
             else tool_dispatch_preflight["failure_mode"]
@@ -19554,6 +19564,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "auth_header": auth_header_preflight,
         "model_command": model_command_preflight,
         "model_inventory": model_inventory_preflight,
+        "request_parameters": request_parameters_preflight,
+        "model_connectivity": model_connectivity_preflight,
         "wire_api": wire_api_preflight,
         "tool_dispatch": tool_dispatch_preflight,
         "gateway_base_url": gateway_base_url_preflight,
@@ -20899,6 +20911,226 @@ def evaluate_provider_model_inventory_preflight(
     }
 
 
+def evaluate_provider_request_parameters_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate required model request parameter metadata without exporting request bodies."""
+
+    raw_policy = provider.get("request_parameters", runtime.get("request_parameters"))
+    policy = raw_policy if isinstance(raw_policy, dict) else {}
+    required_parameter_names = sorted(
+        {
+            normalize_request_parameter_name(value)
+            for value in (
+                string_list(policy.get("required"))
+                + string_list(policy.get("required_parameters"))
+                + string_list(provider.get("required_request_parameters"))
+                + string_list(runtime.get("required_request_parameters"))
+            )
+            if normalize_request_parameter_name(value)
+        }
+    )
+    parameter_source = (
+        policy.get("configured")
+        or policy.get("parameters")
+        or policy.get("defaults")
+        or runtime.get("model_parameters")
+        or provider.get("model_parameters")
+    )
+    if isinstance(parameter_source, dict):
+        configured_parameter_names = sorted(
+            {
+                normalize_request_parameter_name(key)
+                for key, value in parameter_source.items()
+                if normalize_request_parameter_name(key) and value is not None
+            }
+        )
+    else:
+        configured_parameter_names = sorted(
+            {normalize_request_parameter_name(value) for value in string_list(parameter_source)}
+            - {""}
+        )
+    required = (
+        truthy(policy.get("required"))
+        or truthy(provider.get("request_parameters_required"))
+        or truthy(runtime.get("request_parameters_required"))
+        or bool(required_parameter_names)
+    )
+    missing_parameters = sorted(set(required_parameter_names) - set(configured_parameter_names))
+    missing_temperature_like = any(is_temperature_like_request_parameter(value) for value in missing_parameters)
+    ok = not missing_parameters
+
+    diagnostics: list[str] = []
+    if missing_parameters:
+        diagnostics.append("provider request parameters are required but missing from metadata before launch")
+    if missing_temperature_like:
+        diagnostics.append("temperature-like provider request parameter is required before model requests")
+
+    if missing_temperature_like:
+        failure_mode = "provider_request_temperature_missing"
+    elif missing_parameters:
+        failure_mode = "provider_request_parameter_missing"
+    else:
+        failure_mode = "none"
+
+    return {
+        "required": required,
+        "configured": bool(configured_parameter_names),
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "required_parameter_count": len(required_parameter_names),
+        "configured_parameter_count": len(configured_parameter_names),
+        "missing_parameter_count": len(missing_parameters),
+        "required_parameter_hashes": [stable_text_hash(value) for value in required_parameter_names],
+        "configured_parameter_hashes": [stable_text_hash(value) for value in configured_parameter_names],
+        "missing_parameter_hashes": [stable_text_hash(value) for value in missing_parameters],
+        "temperature_like_required": any(
+            is_temperature_like_request_parameter(value) for value in required_parameter_names
+        ),
+        "temperature_like_configured": any(
+            is_temperature_like_request_parameter(value) for value in configured_parameter_names
+        ),
+        "temperature_like_missing": missing_temperature_like,
+        "request_bodies_exported": False,
+        "raw_parameter_names_exported": False,
+        "parameter_values_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_request_parameter_name(value: Any) -> str:
+    return (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def is_temperature_like_request_parameter(value: str) -> bool:
+    normalized = normalize_request_parameter_name(value)
+    return normalized in {"temperature", "temp", "sampling_temperature", "model_temperature"}
+
+
+def evaluate_provider_model_connectivity_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate model connectivity proof before a provider starts larger work."""
+
+    raw_connectivity = (
+        provider.get("model_connectivity")
+        or provider.get("connectivity")
+        or runtime.get("model_connectivity")
+        or runtime.get("connectivity")
+    )
+    connectivity = raw_connectivity if isinstance(raw_connectivity, dict) else {}
+    required = (
+        truthy(connectivity.get("required"))
+        or truthy(provider.get("model_connectivity_required"))
+        or truthy(runtime.get("model_connectivity_required"))
+        or bool(connectivity)
+    )
+    checked = truthy(
+        connectivity.get("checked")
+        or connectivity.get("probe_completed")
+        or connectivity.get("smoke_test_completed")
+        or connectivity.get("local_replay_evidence")
+    )
+    reachable = truthy(
+        connectivity.get("reachable")
+        or connectivity.get("connected")
+        or connectivity.get("success")
+        or connectivity.get("smoke_test_passed")
+    )
+    failed = truthy(connectivity.get("failed") or connectivity.get("connection_failed")) or (
+        checked and not reachable
+    )
+    response_status = optional_int(connectivity.get("response_status") or connectivity.get("status_code"))
+    timeout_observed = truthy(connectivity.get("timeout") or connectivity.get("timeout_observed"))
+    auth_failure_observed = truthy(
+        connectivity.get("auth_failure")
+        or connectivity.get("authentication_failed")
+        or (response_status in {401, 403})
+    )
+    network_failure_observed = truthy(connectivity.get("network_failure") or connectivity.get("dns_failure"))
+    error_category = normalize_model_connectivity_error_category(
+        connectivity.get("error_category")
+        or connectivity.get("failure_category")
+        or (
+            "auth_failure"
+            if auth_failure_observed
+            else "timeout"
+            if timeout_observed
+            else "network_failure"
+            if network_failure_observed
+            else "unknown"
+        )
+    )
+
+    missing_check = required and not checked
+    connection_failed = required and checked and failed
+    ok = not missing_check and not connection_failed
+
+    diagnostics: list[str] = []
+    if missing_check:
+        diagnostics.append("provider model connectivity check is required before starting a larger task")
+    if connection_failed:
+        diagnostics.append("provider model connectivity check failed before launch")
+
+    if missing_check:
+        failure_mode = "provider_model_connectivity_unchecked"
+    elif connection_failed:
+        failure_mode = "provider_model_connectivity_failed"
+    else:
+        failure_mode = "none"
+
+    provider_label = optional_string(connectivity.get("provider") or provider.get("name") or provider.get("harness"))
+    model_label = optional_string(connectivity.get("model") or connectivity.get("model_id") or runtime.get("model"))
+    endpoint_label = optional_string(connectivity.get("endpoint") or connectivity.get("base_url"))
+    return {
+        "required": required,
+        "checked": checked,
+        "reachable": reachable,
+        "ok": ok,
+        "failure_mode": failure_mode,
+        "response_status_class": response_status // 100 if response_status else None,
+        "timeout_observed": timeout_observed,
+        "auth_failure_observed": auth_failure_observed,
+        "network_failure_observed": network_failure_observed,
+        "error_category": error_category,
+        "provider_hash": stable_text_hash(provider_label) if provider_label else None,
+        "model_hash": stable_text_hash(model_label) if model_label else None,
+        "endpoint_hash": stable_text_hash(endpoint_label) if endpoint_label else None,
+        "raw_provider_exported": False,
+        "raw_model_id_exported": False,
+        "raw_endpoint_exported": False,
+        "raw_error_body_exported": False,
+        "request_bodies_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def normalize_model_connectivity_error_category(value: Any) -> str:
+    text = (optional_string(value) or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "auth": "auth_failure",
+        "authentication": "auth_failure",
+        "authentication_failed": "auth_failure",
+        "unauthorized": "auth_failure",
+        "forbidden": "auth_failure",
+        "connection": "network_failure",
+        "network": "network_failure",
+        "dns": "network_failure",
+        "timeout": "timeout",
+        "timed_out": "timeout",
+        "model_missing": "model_unavailable",
+        "not_found": "model_unavailable",
+        "unavailable": "model_unavailable",
+    }
+    normalized = aliases.get(text, text)
+    allowed = {"auth_failure", "network_failure", "timeout", "model_unavailable", "unknown"}
+    return normalized if normalized in allowed else "unknown"
+
+
 def evaluate_provider_runner_compat_preflight(
     *,
     provider: dict[str, Any],
@@ -22057,6 +22289,12 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     model_inventory = preflight.get("model_inventory") if isinstance(preflight.get("model_inventory"), dict) else {}
+    request_parameters = (
+        preflight.get("request_parameters") if isinstance(preflight.get("request_parameters"), dict) else {}
+    )
+    model_connectivity = (
+        preflight.get("model_connectivity") if isinstance(preflight.get("model_connectivity"), dict) else {}
+    )
     wire_api = preflight.get("wire_api") if isinstance(preflight.get("wire_api"), dict) else {}
     tool_dispatch = preflight.get("tool_dispatch") if isinstance(preflight.get("tool_dispatch"), dict) else {}
     gateway_base_url = (
@@ -22201,6 +22439,49 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "missing_source_row_count": int(model_inventory.get("missing_source_row_count") or 0),
                 "raw_inventory_exported": False,
                 "raw_model_ids_exported": False,
+            }
+        )
+    elif failure_mode in {"provider_request_parameter_missing", "provider_request_temperature_missing"}:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_request_parameters",
+                "severity": "blocker",
+                "action": "configure required provider request parameter metadata before starting model requests",
+                "request_parameters_required": bool(request_parameters.get("required")),
+                "required_parameter_count": int(request_parameters.get("required_parameter_count") or 0),
+                "configured_parameter_count": int(request_parameters.get("configured_parameter_count") or 0),
+                "missing_parameter_count": int(request_parameters.get("missing_parameter_count") or 0),
+                "temperature_like_required": bool(request_parameters.get("temperature_like_required")),
+                "temperature_like_configured": bool(request_parameters.get("temperature_like_configured")),
+                "temperature_like_missing": bool(request_parameters.get("temperature_like_missing")),
+                "request_bodies_exported": False,
+                "raw_parameter_names_exported": False,
+                "parameter_values_exported": False,
+            }
+        )
+    elif failure_mode in {"provider_model_connectivity_unchecked", "provider_model_connectivity_failed"}:
+        hints.append(
+            {
+                **base_hint,
+                "code": failure_mode,
+                "scope": "provider_model_connectivity",
+                "severity": "blocker",
+                "action": "repair or replay provider model connectivity proof before starting a larger task",
+                "connectivity_required": bool(model_connectivity.get("required")),
+                "connectivity_checked": bool(model_connectivity.get("checked")),
+                "connectivity_reachable": bool(model_connectivity.get("reachable")),
+                "response_status_class": model_connectivity.get("response_status_class"),
+                "timeout_observed": bool(model_connectivity.get("timeout_observed")),
+                "auth_failure_observed": bool(model_connectivity.get("auth_failure_observed")),
+                "network_failure_observed": bool(model_connectivity.get("network_failure_observed")),
+                "error_category": optional_string(model_connectivity.get("error_category")) or "unknown",
+                "raw_provider_exported": False,
+                "raw_model_id_exported": False,
+                "raw_endpoint_exported": False,
+                "raw_error_body_exported": False,
+                "request_bodies_exported": False,
             }
         )
     elif failure_mode == "provider_approval_repark_pending":

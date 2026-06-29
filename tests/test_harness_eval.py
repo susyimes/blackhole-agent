@@ -12292,6 +12292,234 @@ def test_provider_runtime_preflight_blocks_dispatchable_worker_inventory_with_no
     assert "cursor-native" not in serialized_inventory
 
 
+def test_provider_runtime_preflight_blocks_missing_temperature_like_request_parameter_before_launch():
+    missing = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-request-temperature-missing",
+            "provider": {
+                "name": "autocve-provider",
+                "harness": "autocve",
+                "required_request_parameters": ["temperature"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_parameters": {
+                    "model": "PRIVATE_MODEL_ID_DO_NOT_EXPORT",
+                    "max_tokens": 1024,
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_request_temperature_missing_inline.json",
+    )
+    configured = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-request-temperature-configured",
+            "provider": {
+                "name": "autocve-provider",
+                "harness": "autocve",
+                "required_request_parameters": ["temperature"],
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_parameters": {
+                    "temperature": 0.2,
+                    "model": "PRIVATE_MODEL_ID_DO_NOT_EXPORT",
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_request_temperature_configured_inline.json",
+    )
+    serialized = json.dumps({"missing": missing, "configured": configured}, sort_keys=True)
+
+    assert missing["route_status"] == "blocked"
+    assert missing["failure_mode"] == "provider_request_temperature_missing"
+    assert missing["runtime"]["runner_invoked"] is False
+    assert missing["request_parameters"]["required"] is True
+    assert missing["request_parameters"]["required_parameter_count"] == 1
+    assert missing["request_parameters"]["configured_parameter_count"] == 2
+    assert missing["request_parameters"]["missing_parameter_count"] == 1
+    assert missing["request_parameters"]["temperature_like_required"] is True
+    assert missing["request_parameters"]["temperature_like_configured"] is False
+    assert missing["request_parameters"]["temperature_like_missing"] is True
+    assert missing["request_parameters"]["request_bodies_exported"] is False
+    assert missing["request_parameters"]["raw_parameter_names_exported"] is False
+    assert missing["request_parameters"]["parameter_values_exported"] is False
+    assert missing["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["autocve"],
+            "value_recorded": False,
+            "code": "provider_request_temperature_missing",
+            "scope": "provider_request_parameters",
+            "severity": "blocker",
+            "action": "configure required provider request parameter metadata before starting model requests",
+            "request_parameters_required": True,
+            "required_parameter_count": 1,
+            "configured_parameter_count": 2,
+            "missing_parameter_count": 1,
+            "temperature_like_required": True,
+            "temperature_like_configured": False,
+            "temperature_like_missing": True,
+            "request_bodies_exported": False,
+            "raw_parameter_names_exported": False,
+            "parameter_values_exported": False,
+        }
+    ]
+    assert missing["supervisor_replay"]["ready_for_provider_launch"] is False
+    assert missing["supervisor_replay"]["reason"] == "provider_request_temperature_missing"
+
+    assert configured["route_status"] == "passed"
+    assert configured["failure_mode"] == "none"
+    assert configured["runtime"]["runner_invoked"] is True
+    assert configured["request_parameters"]["ok"] is True
+    assert configured["request_parameters"]["temperature_like_configured"] is True
+
+    assert "PRIVATE_MODEL_ID_DO_NOT_EXPORT" not in serialized
+    assert "0.2" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_failed_model_connectivity_before_larger_task():
+    failed = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-connectivity-failed",
+            "provider": {
+                "name": "autocve-provider",
+                "harness": "autocve",
+                "model_connectivity_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_connectivity": {
+                    "checked": True,
+                    "reachable": False,
+                    "response_status": 503,
+                    "error_category": "model_unavailable",
+                    "model": "PRIVATE_MODEL_ID_DO_NOT_EXPORT",
+                    "endpoint": "https://private-provider.example.invalid/v1",
+                    "error": "PRIVATE_ERROR_BODY_DO_NOT_EXPORT",
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_connectivity_failed_inline.json",
+    )
+    unchecked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-connectivity-unchecked",
+            "provider": {
+                "name": "autocve-provider",
+                "harness": "autocve",
+                "model_connectivity_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_connectivity_unchecked_inline.json",
+    )
+    passed = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-connectivity-passed",
+            "provider": {
+                "name": "autocve-provider",
+                "harness": "autocve",
+                "model_connectivity_required": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "subprocess",
+                "model_connectivity": {
+                    "checked": True,
+                    "reachable": True,
+                    "model": "PRIVATE_MODEL_ID_DO_NOT_EXPORT",
+                },
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_connectivity_passed_inline.json",
+    )
+    serialized = json.dumps({"failed": failed, "unchecked": unchecked, "passed": passed}, sort_keys=True)
+
+    assert failed["route_status"] == "blocked"
+    assert failed["failure_mode"] == "provider_model_connectivity_failed"
+    assert failed["runtime"]["runner_invoked"] is False
+    assert failed["model_connectivity"]["required"] is True
+    assert failed["model_connectivity"]["checked"] is True
+    assert failed["model_connectivity"]["reachable"] is False
+    assert failed["model_connectivity"]["response_status_class"] == 5
+    assert failed["model_connectivity"]["error_category"] == "model_unavailable"
+    assert failed["model_connectivity"]["raw_model_id_exported"] is False
+    assert failed["model_connectivity"]["raw_endpoint_exported"] is False
+    assert failed["model_connectivity"]["raw_error_body_exported"] is False
+    assert failed["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["autocve"],
+            "value_recorded": False,
+            "code": "provider_model_connectivity_failed",
+            "scope": "provider_model_connectivity",
+            "severity": "blocker",
+            "action": "repair or replay provider model connectivity proof before starting a larger task",
+            "connectivity_required": True,
+            "connectivity_checked": True,
+            "connectivity_reachable": False,
+            "response_status_class": 5,
+            "timeout_observed": False,
+            "auth_failure_observed": False,
+            "network_failure_observed": False,
+            "error_category": "model_unavailable",
+            "raw_provider_exported": False,
+            "raw_model_id_exported": False,
+            "raw_endpoint_exported": False,
+            "raw_error_body_exported": False,
+            "request_bodies_exported": False,
+        }
+    ]
+    assert failed["supervisor_replay"]["ready_for_provider_launch"] is False
+    assert failed["supervisor_replay"]["reason"] == "provider_model_connectivity_failed"
+
+    assert unchecked["route_status"] == "blocked"
+    assert unchecked["failure_mode"] == "provider_model_connectivity_unchecked"
+    assert unchecked["model_connectivity"]["checked"] is False
+    assert unchecked["recovery_hints"][0]["code"] == "provider_model_connectivity_unchecked"
+
+    assert passed["route_status"] == "passed"
+    assert passed["failure_mode"] == "none"
+    assert passed["runtime"]["runner_invoked"] is True
+    assert passed["model_connectivity"]["ok"] is True
+
+    assert "PRIVATE_MODEL_ID_DO_NOT_EXPORT" not in serialized
+    assert "private-provider.example.invalid" not in serialized
+    assert "PRIVATE_ERROR_BODY_DO_NOT_EXPORT" not in serialized
+
+
 def test_provider_runtime_preflight_blocks_litellm_bedrock_auth_fallback_before_launch():
     missing_passthrough = evaluate_harness_behavior(
         "provider_runtime_preflight",
