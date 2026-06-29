@@ -1970,6 +1970,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input,
         source_path=source_path,
     )
+    provider_runtime_sample_gate = skill_route_discovery_provider_runtime_sample_gate(
+        window=raw_input.get("capability_window") if isinstance(raw_input.get("capability_window"), dict) else {},
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+    )
 
     failure_mode = skill_route_discovery_lane_failure_mode(
         proposal_lane_count=int(lane_map["proposal_lane_count"]),
@@ -1986,6 +1990,8 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         and provider_runtime_replay_sample.get("blocked_before_local_replay") is True
     ):
         failure_mode = "provider_runtime_replay_not_ready"
+    if failure_mode == "none" and provider_runtime_sample_gate.get("status") == "blocked":
+        failure_mode = str(provider_runtime_sample_gate.get("diagnostic") or "provider_runtime_replay_not_ready")
     route_status = (
         "passed"
         if failure_mode == "none"
@@ -2717,6 +2723,23 @@ def skill_route_discovery_recovery_hints(
                     "Regenerate activation lanes from the disabled registry and rerun the local "
                     "preactivation harness checks."
                 ),
+            }
+        ]
+    if failure_mode == "provider_runtime_preflight_sample_missing":
+        return [
+            {
+                **common,
+                "code": "provider_runtime_preflight_sample_missing",
+                "scope": "provider_runtime_control",
+                "severity": "blocker",
+                "safe_action": (
+                    "Add a body-free provider_runtime_preflight sample and replay provider_runtime_preflight "
+                    "plus provider_runtime_recovery_summary before treating the skill-route lane as ready."
+                ),
+                "replay_commands": [
+                    PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+                    PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+                ],
             }
         ]
     return [
@@ -14058,12 +14081,6 @@ def skill_route_discovery_completion_recovery(
             primary_recovery_lane = "test"
             recovery_hint_codes = ["required_route_profiles_missing"]
             replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
-        elif "activation_manifest_not_ready" in diagnostics or "operator_handoff_not_ready" in diagnostics:
-            recovery_decision = "repair_local_artifact_proof"
-            supervisor_next_action = "repair_local_artifact_proof_before_supervisor_handoff"
-            primary_recovery_lane = lane_order[0] if lane_order else "test"
-            recovery_hint_codes = ["local_artifact_proof_not_ready"]
-            replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
         elif (
             "provider_runtime_replay_not_ready" in diagnostics
             or "provider_runtime_preflight_sample_missing" in diagnostics
@@ -14080,6 +14097,12 @@ def skill_route_discovery_completion_recovery(
                 PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
                 PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
             ]
+        elif "activation_manifest_not_ready" in diagnostics or "operator_handoff_not_ready" in diagnostics:
+            recovery_decision = "repair_local_artifact_proof"
+            supervisor_next_action = "repair_local_artifact_proof_before_supervisor_handoff"
+            primary_recovery_lane = lane_order[0] if lane_order else "test"
+            recovery_hint_codes = ["local_artifact_proof_not_ready"]
+            replay_commands = [SKILL_ROUTE_DISCOVERY_VALIDATION_COMMAND]
         elif "route_profile_review_not_ready" in diagnostics:
             recovery_decision = "repair_route_profile_review"
             supervisor_next_action = "repair_profile_metadata_before_supervisor_handoff"

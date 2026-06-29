@@ -1,0 +1,135 @@
+{
+  "name": "skill-route-discovery-provider-runtime-pass2-missing-sample-gate",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-provider-runtime-pass2-missing-sample-gate",
+    "source_digest": "github-growth-20260629T161904.226636Z",
+    "capability_window": {
+      "theme": "provider-runtime-control",
+      "capability_slice": "Turn provider and runtime configuration problems into body-free diagnostics, recovery hints, and locally replayable validation.",
+      "current_pass": 2,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-generic",
+        "p3-provider-config-preflight"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260629T161904.226636Z",
+        "item_id": "p1-skill-route-discovery-compass:skill-ecosystem-handoff",
+        "item_kind": "repository",
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "title": "COMPASS skill ecosystem handoff probe",
+        "summary": "Public skill ecosystem evidence with state handoff, task clarification, collaboration profile, and local memory language that must not become profile writes or runtime activation.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "handoff", "profile"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["skill_ecosystem_state_handoff"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "qa_checklist"],
+          "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T161904.226636Z",
+        "item_id": "p2-skill-route-discovery-generic:generic-skill-workflow",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Generic skill workflow route probe",
+        "summary": "Public agent skill workflow evidence with SKILL.md shape, source-cited analysis pressure, validation scripts, and no provider-backed advice or runtime activation request.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skill", "workflow", "source-cited", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+          "source_layout_signals": ["skill_markdown", "validation_script"],
+          "source_metadata_signals": ["skill_registry_metadata"]
+        }
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "src/blackhole_agent/harness_eval.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_provider_runtime_pass2_missing_sample_gate.json",
+          "tests/test_harness_eval.py"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_provider_runtime_pass2_missing_sample_gate"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260630T000000Z-provider-runtime-control-pass2.md",
+        "review_note": "Provider-runtime-control pass 2 must expose a missing body-free provider runtime sample as a blocked replay gate before lane readiness."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_runtime_preflight_sample_missing"
+    },
+    {
+      "path": "provider_runtime_replay_sample.provided",
+      "equals": false
+    },
+    {
+      "path": "current_action_provider_runtime_preflight.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "current_action_provider_runtime_preflight.decision",
+      "equals": "provider_runtime_preflight_sample_required"
+    },
+    {
+      "path": "current_action_provider_runtime_preflight.recovery_replay_packet.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "current_action_provider_runtime_preflight.recovery_replay_packet.recovery_steps.0.code",
+      "equals": "provider_runtime_preflight_sample_missing"
+    },
+    {
+      "path": "provider_runtime_diagnostic_panel.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_sample_gate.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_sample_gate.diagnostic",
+      "equals": "provider_runtime_preflight_sample_missing"
+    },
+    {
+      "path": "capability_window_completion.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.supervisor_next_action",
+      "equals": "replay_or_repair_before_supervisor_handoff"
+    },
+    {
+      "path": "privacy.raw_evidence_urls_exported",
+      "equals": false
+    }
+  ]
+}

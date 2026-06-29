@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 89
-    assert payload["pass_count"] == 88
+    assert payload["fixture_count"] == 90
+    assert payload["pass_count"] == 89
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -207,6 +207,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-current-digest-20260629T000729-pass4-bounded-lane"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
+    assert results["skill-route-discovery-provider-runtime-pass2-missing-sample-gate"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
     assert results["skill-route-discovery-current-digest-230729-pass1-current-window"]["passed"] is True
     assert results["skill-route-discovery-current-digest-214729-pass1-current-proposals"]["passed"] is True
@@ -5400,11 +5401,19 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     sample_gate = completion["provider_runtime_sample_gate"]
     serialized = json.dumps(output, sort_keys=True)
 
-    assert output["route_status"] == "passed"
-    assert output["failure_mode"] == "none"
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_runtime_preflight_sample_missing"
     assert completion["status"] == "blocked"
     assert completion["decision"] == "continue_or_replay_before_completion"
-    assert "provider_runtime_preflight_sample_missing" in completion["diagnostics"]
+    assert completion["diagnostics"] == [
+        "route_not_passed:provider_runtime_preflight_sample_missing",
+        "activation_manifest_not_ready",
+        "operator_handoff_not_ready",
+        "supervisor_readiness_not_ready",
+        "provider_runtime_replay_not_ready",
+        "provider_runtime_preflight_sample_missing",
+        "capability_window_not_at_final_pass",
+    ]
     assert sample_gate == {
         "controller_surface": "provider_runtime_sample_gate",
         "status": "blocked",
@@ -5438,7 +5447,7 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert current_preflight["decision"] == "provider_runtime_preflight_sample_required"
     assert current_preflight["next_action"] == "add_body_free_provider_runtime_preflight_sample_then_replay"
     assert current_preflight["theme"] == "provider-runtime-control"
-    assert current_preflight["selected_local_lane"] == "test"
+    assert current_preflight["selected_local_lane"] == "none"
     assert current_preflight["provider_runtime_sample_provided"] is False
     assert current_preflight["provider_runtime_sample_route_status"] == "missing"
     assert current_preflight["provider_runtime_sample_ready_for_local_replay"] is False
@@ -5505,9 +5514,9 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert replay_workflow["decision"] == "repair_provider_runtime_sample_before_supervisor_replay"
     assert replay_workflow["provider_runtime_theme"] is True
     assert replay_workflow["step_count"] == 4
-    assert replay_workflow["ready_step_count"] == 1
-    assert replay_workflow["blocked_step_count"] == 3
-    assert replay_workflow["completion_blocker_count"] == 2
+    assert replay_workflow["ready_step_count"] == 0
+    assert replay_workflow["blocked_step_count"] == 4
+    assert replay_workflow["completion_blocker_count"] == 7
     assert replay_workflow["recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
     assert replay_workflow["provider_runtime_replay_commands"] == [
         "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
@@ -5527,8 +5536,8 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert workflow_rows["provider_runtime_recovery_summary"]["status"] == "missing"
     assert workflow_rows["provider_runtime_recovery_summary"]["sample_provided"] is False
     assert workflow_rows["provider_runtime_recovery_summary"]["success_claim_allowed"] is False
-    assert workflow_rows["provider_runtime_diagnostic_panel"]["status"] == "ready"
-    assert workflow_rows["provider_runtime_diagnostic_panel"]["ready"] is True
+    assert workflow_rows["provider_runtime_diagnostic_panel"]["status"] == "blocked"
+    assert workflow_rows["provider_runtime_diagnostic_panel"]["ready"] is False
     assert workflow_rows["completion_handoff"]["status"] == "blocked"
     assert "OPENAI_API_KEY" not in serialized
     assert "https://github.com/baskduf/FableCodex" not in serialized
