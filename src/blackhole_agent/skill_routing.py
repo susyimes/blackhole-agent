@@ -6616,6 +6616,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     """Close the current digest route-discovery slice with bounded replay metadata."""
 
     current_200729_window = source_digest == "github-growth-20260628T200729.682703Z"
+    current_055941_window = source_digest == "github-growth-20260629T055941.732014Z"
     specs = (
         (
             {
@@ -6650,6 +6651,29 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             },
         )
         if current_200729_window
+        else (
+            {
+                "proposal_id": "p1-compass-skill-ecosystem-handoff",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "documentation",
+                "completion_requirement": (
+                    "compass_style_skill_ecosystem_state_handoff_records_validation_gates_before_adoption"
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-local-fixture",
+                "proposal_kind": "test",
+                "proposal_track": "generic_python_skill_repository",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "skill_like_python_agent_repository_classifies_to_bounded_local_validation_lanes"
+                ),
+            },
+        )
+        if current_055941_window
         else (
             {
                 "proposal_id": "p1-skill-route-discovery-generic",
@@ -6787,7 +6811,13 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     adjacent_rows: list[dict[str, Any]] = []
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p3-agent-harness-eval" if current_200729_window else "p4-agent-harness-eval-qwen",
+        proposal_id=(
+            "p3-agent-harness-eval"
+            if current_200729_window
+            else "p3-general-agent-harness-eval-queue"
+            if current_055941_window
+            else "p4-agent-harness-eval-qwen"
+        ),
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
@@ -6801,9 +6831,13 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             replay_command_hashes.append(_stable_hash(replay_command))
 
     required_profiles = (
-        "generic_skill_workflow",
-        "game_frontend_workflow",
-        "skill_ecosystem_state_handoff",
+        ("generic_skill_workflow", "skill_ecosystem_state_handoff")
+        if current_055941_window
+        else (
+            "generic_skill_workflow",
+            "game_frontend_workflow",
+            "skill_ecosystem_state_handoff",
+        )
     )
     observed_profile_set = set(observed_profiles)
     missing_profiles = [profile for profile in required_profiles if profile not in observed_profile_set]
@@ -6850,6 +6884,21 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "p2-skill-discovery-docs",
             ]
             if current_200729_window
+            else [
+                "p1-compass-skill-ecosystem-handoff",
+                "p2-skill-route-discovery-local-fixture",
+                "p3-general-agent-harness-eval-queue",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-2",
+                "p1-skill-route-discovery-compass",
+                "p2-skill-route-discovery-generic",
+                "p3-agent-harness-eval-qwen",
+                "p4-agent-harness-eval-looper",
+                "p2-skill-route-discovery-zhengxi",
+                "p3-agent-harness-qwen-agentworld",
+                "p4-agent-harness-looper",
+            ]
+            if current_055941_window
             else [
                 "p1-skill-route-discovery-generic",
                 "p2-game-frontend-skill-profile",
