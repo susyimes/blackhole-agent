@@ -2207,6 +2207,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         validation_readiness_summary=validation_readiness_summary,
         profile_lane_acceptance_contract=profile_lane_acceptance_contract,
     )
+    pass2_operator_validation_manifest = skill_route_discovery_pass2_operator_validation_manifest(
+        pass2_handoff_packet=pass2_handoff_packet,
+        validation_work_queue=validation_work_queue,
+    )
     pass3_handoff_packet = skill_route_discovery_pass3_handoff_packet(
         raw_input=raw_input,
         current_action=current_action,
@@ -2372,6 +2376,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "profile_validation_replay": profile_validation_replay,
         "pass_validation_replay_queue": pass_validation_replay_queue,
         "pass2_handoff_packet": pass2_handoff_packet,
+        "pass2_operator_validation_manifest": pass2_operator_validation_manifest,
         "pass3_handoff_packet": pass3_handoff_packet,
         "pass1_handoff_packet": pass1_handoff_packet,
         "pass1_validation_queue": pass1_validation_queue,
@@ -6243,6 +6248,167 @@ def skill_route_discovery_pass2_handoff_packet(
         ),
         "local_validation_required": True,
         "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass2_operator_validation_manifest(
+    *,
+    pass2_handoff_packet: dict[str, Any],
+    validation_work_queue: dict[str, Any],
+) -> dict[str, Any]:
+    """Render pass-2 route evidence as bounded local work an operator can replay."""
+
+    allowed_lanes = string_list(pass2_handoff_packet.get("allowed_local_lanes"))
+    activation_candidate = pass2_handoff_packet.get("activation_candidate_lane")
+    activation_candidate = activation_candidate if isinstance(activation_candidate, dict) else {}
+    candidate_rows_input = activation_candidate.get("rows")
+    candidate_rows_input = candidate_rows_input if isinstance(candidate_rows_input, list) else []
+    work_rows_input = validation_work_queue.get("rows")
+    work_rows_input = work_rows_input if isinstance(work_rows_input, list) else []
+    work_rows_by_lane: dict[str, list[dict[str, Any]]] = {}
+    for work_row in work_rows_input:
+        if not isinstance(work_row, dict):
+            continue
+        lane = optional_string(work_row.get("selected_local_lane")) or ""
+        if lane:
+            work_rows_by_lane.setdefault(lane, []).append(work_row)
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for index, raw_row in enumerate(candidate_rows_input):
+        row = raw_row if isinstance(raw_row, dict) else {}
+        selected_lane = optional_string(row.get("selected_local_lane")) or ""
+        local_artifact_review = row.get("local_artifact_review")
+        local_artifact_review = local_artifact_review if isinstance(local_artifact_review, dict) else {}
+        work_rows = work_rows_by_lane.get(selected_lane, [])
+        route_profiles = string_list(row.get("route_profiles"))
+        row_diagnostics = string_list(row.get("diagnostics"))
+        if selected_lane not in allowed_lanes:
+            row_diagnostics.append("selected_local_lane_not_allowed")
+        if row.get("candidate_status") != "ready":
+            row_diagnostics.append("activation_candidate_not_ready")
+        if not route_profiles:
+            row_diagnostics.append("route_profiles_missing")
+        if not work_rows:
+            row_diagnostics.append("validation_work_queue_mapping_missing")
+        if row.get("local_validation_required") is not True:
+            row_diagnostics.append("local_validation_not_required")
+        if str(row.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_requested")
+        if row.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_not_denied")
+        if row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_not_denied")
+        local_artifact_status = (
+            optional_string(local_artifact_review.get("status"))
+            or optional_string(row.get("local_artifact_review_status"))
+            or ""
+        )
+        if local_artifact_status != "ready":
+            row_diagnostics.append("local_artifact_review_not_ready")
+
+        row_diagnostics = sorted(dict.fromkeys(item for item in row_diagnostics if item))
+        diagnostics.extend(f"rows[{index}].{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "manifest_row_id": stable_text_hash(
+                    "|".join(
+                        [
+                            selected_lane,
+                            ",".join(route_profiles),
+                            str(row.get("queue_fingerprint") or ""),
+                        ]
+                    )
+                ),
+                "queue_role": optional_string(row.get("queue_role")) or "",
+                "selected_local_lane": selected_lane,
+                "route_profiles": route_profiles,
+                "validation_scope": optional_string(row.get("validation_scope"))
+                or (f"local_{selected_lane}_lane_only" if selected_lane else "none"),
+                "profile_validation_gates": string_list(row.get("profile_validation_gates")),
+                "artifact_contract_kind": optional_string(row.get("artifact_contract_kind")) or selected_lane,
+                "target_path_count": int(row.get("target_path_count") or 0),
+                "target_path_hashes": string_list(row.get("target_path_hashes")),
+                "operator_review_requirements": string_list(row.get("operator_review_requirements")),
+                "required_validation": string_list(row.get("required_validation")),
+                "provider_runtime_replay_commands": string_list(row.get("provider_runtime_replay_commands")),
+                "evidence_ref_mode": "selected_item_ids_only",
+                "evidence_item_count": int(row.get("evidence_item_id_count") or 0),
+                "candidate_source_count": int(row.get("candidate_source_count") or 0),
+                "work_queue_item_count": len(work_rows),
+                "work_queue_item_ids": [
+                    str(work_row.get("work_item_id") or "") for work_row in work_rows if work_row.get("work_item_id")
+                ],
+                "status": "ready" if not row_diagnostics else "blocked",
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    pass2_ready = pass2_handoff_packet.get("status") == "ready"
+    work_queue_ready = validation_work_queue.get("status") == "ready"
+    ready = pass2_ready and work_queue_ready and bool(rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_pass2_operator_validation_manifest",
+        "status": "ready" if ready else "blocked",
+        "decision": "operator_can_validate_bounded_skill_routes_before_activation"
+        if ready
+        else "repair_pass2_operator_validation_manifest_before_activation",
+        "manifest_scope": "pass2_selected_and_queued_local_lanes",
+        "pass2_handoff_status": optional_string(pass2_handoff_packet.get("status")) or "",
+        "validation_work_queue_status": optional_string(validation_work_queue.get("status")) or "",
+        "allowed_local_lanes": allowed_lanes,
+        "manifest_lane_count": len({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "manifest_lanes": sorted({row["selected_local_lane"] for row in rows if row["selected_local_lane"]}),
+        "covered_route_profiles": sorted(
+            {
+                profile
+                for row in rows
+                for profile in string_list(row.get("route_profiles"))
+            }
+        ),
+        "row_count": len(rows),
+        "ready_row_count": sum(1 for row in rows if row["status"] == "ready"),
+        "blocked_row_count": sum(1 for row in rows if row["status"] != "ready"),
+        "evidence_ref_mode": "selected_item_ids_only",
+        "operator_review_requirements": [
+            "changed_file_review",
+            "focused_local_validation",
+            "rollback_artifact",
+            "review_note",
+        ],
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
         "runtime_action_allowed": False,
         "external_skill_activation_allowed": False,
         "external_skill_code_allowed": False,

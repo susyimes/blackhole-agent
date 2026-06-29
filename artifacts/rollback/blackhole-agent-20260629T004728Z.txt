@@ -1,0 +1,6 @@
+original_branch=codex/blackhole-evolve/20260629T004813.900440-add-or-extend-local-tests-for-skill-route-discov
+head=eb2e40a76759d29b5671720c2c9af5619f5967a9
+rollback_ref=refs/rollback/blackhole-agent-20260629T004728Z
+recover_branch=git switch codex/blackhole-evolve/20260629T004813.900440-add-or-extend-local-tests-for-skill-route-discov
+recover_head=git reset --hard eb2e40a76759d29b5671720c2c9af5619f5967a9
+recover_ref=git reset --hard refs/rollback/blackhole-agent-20260629T004728Z

@@ -4834,6 +4834,65 @@ def test_skill_route_discovery_pass2_fixture_covers_required_profiles_and_next_h
     assert queued_candidate["artifact_contract_kind"] == "config"
     assert queued_candidate["target_path_count"] == len(queued_candidate["target_path_hashes"]) == 1
     assert queued_candidate["diagnostics"] == []
+    operator_manifest = output["pass2_operator_validation_manifest"]
+    assert operator_manifest["controller_surface"] == "skill_route_discovery_pass2_operator_validation_manifest"
+    assert operator_manifest["status"] == "ready"
+    assert operator_manifest["decision"] == "operator_can_validate_bounded_skill_routes_before_activation"
+    assert operator_manifest["manifest_scope"] == "pass2_selected_and_queued_local_lanes"
+    assert operator_manifest["pass2_handoff_status"] == "ready"
+    assert operator_manifest["validation_work_queue_status"] == "ready"
+    assert operator_manifest["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert operator_manifest["manifest_lanes"] == ["config", "test"]
+    assert operator_manifest["manifest_lane_count"] == 2
+    assert operator_manifest["covered_route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert operator_manifest["row_count"] == 2
+    assert operator_manifest["ready_row_count"] == 2
+    assert operator_manifest["blocked_row_count"] == 0
+    assert operator_manifest["evidence_ref_mode"] == "selected_item_ids_only"
+    assert operator_manifest["operator_review_requirements"] == [
+        "changed_file_review",
+        "focused_local_validation",
+        "rollback_artifact",
+        "review_note",
+    ]
+    manifest_rows = {
+        (row["queue_role"], row["selected_local_lane"]): row
+        for row in operator_manifest["rows"]
+    }
+    assert manifest_rows[("selected_current_pass_lane", "test")]["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "source_cited_domain_research",
+    ]
+    assert manifest_rows[("queued_bounded_lane", "config")]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert {row["status"] for row in operator_manifest["rows"]} == {"ready"}
+    assert {row["runtime_action"] for row in operator_manifest["rows"]} == {"none"}
+    assert all(row["work_queue_item_count"] >= 1 for row in operator_manifest["rows"])
+    assert all(row["manifest_row_id"].startswith("sha256:") for row in operator_manifest["rows"])
+    assert all(row["target_path_count"] == len(row["target_path_hashes"]) for row in operator_manifest["rows"])
+    assert all(row["diagnostics"] == [] for row in operator_manifest["rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in operator_manifest["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in operator_manifest["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in operator_manifest["rows"])
+    assert all(row["raw_evidence_urls_exported"] is False for row in operator_manifest["rows"])
+    assert operator_manifest["runtime_action"] == "none"
+    assert operator_manifest["runtime_action_allowed"] is False
+    assert operator_manifest["external_skill_activation_allowed"] is False
+    assert operator_manifest["external_agent_activation_allowed"] is False
+    assert operator_manifest["external_harness_execution_allowed"] is False
+    assert operator_manifest["provider_runtime_launch_allowed"] is False
+    assert operator_manifest["remote_execution_allowed"] is False
+    assert operator_manifest["raw_evidence_urls_exported"] is False
+    assert operator_manifest["raw_source_urls_exported"] is False
+    assert operator_manifest["raw_target_paths_exported"] is False
+    assert operator_manifest["raw_upstream_body_exported"] is False
     assert completion["status"] == "in_progress"
     assert completion["decision"] == "continue_capability_window_before_completion"
     assert completion["current_pass"] == 2
