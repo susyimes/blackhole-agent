@@ -50,6 +50,22 @@ agent activation, external harness execution, provider launch, profile writes,
 memory writes, remote execution, or direct code_patch work for general-agent
 projects before a local harness-evaluation result exists.
 
+Source digest `github-growth-20260629T095324.174533Z` completes the planned
+pass-4 skill-route-discovery window by specializing
+`current_digest_pass4_completion_handoff` for the current proposal IDs.
+COMPASS-style skill ecosystem evidence maps to
+`proposal-001-skill-route-discovery-compass-skills` in the local test lane,
+and zhengxi-views-style generic skill workflow evidence maps to
+`proposal-002-generic-skill-workflow-validation` in the local code_patch lane.
+Both rows remain bounded to documentation, config, test, or code_patch,
+require focused local validation, and export only selected item IDs, hashes,
+route profiles, lane names, and denial booleans. Qwen-AgentWorld and looper
+stay adjacent under `proposal-003-agent-harness-eval-fixture` as
+`agent_harness_eval_required`; they do not inherit `skill_route_discovery`,
+direct runtime routing, direct code_patch routing, external harness execution,
+provider launch, remote execution, profile writes, memory writes, raw replay
+commands, raw source URLs, raw evidence URLs, target paths, or upstream bodies.
+
 Source digest `github-growth-20260629T075941.978810Z` completes pass 4 of the
 active `skill-route-discovery` window with
 `current_digest_pass4_final_closure`. The closure binds

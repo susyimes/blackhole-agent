@@ -6873,6 +6873,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
 
     current_200729_window = source_digest == "github-growth-20260628T200729.682703Z"
     current_055941_window = source_digest == "github-growth-20260629T055941.732014Z"
+    current_095324_window = source_digest == "github-growth-20260629T095324.174533Z"
     specs = (
         (
             {
@@ -6930,6 +6931,29 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             },
         )
         if current_055941_window
+        else (
+            {
+                "proposal_id": "proposal-001-skill-route-discovery-compass-skills",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "compass_style_skill_repository_maps_only_to_bounded_local_validation_lanes"
+                ),
+            },
+            {
+                "proposal_id": "proposal-002-generic-skill-workflow-validation",
+                "proposal_kind": "code_patch",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "code_patch",
+                "completion_requirement": (
+                    "generic_skill_repository_signal_routes_through_skill_route_discovery_before_activation"
+                ),
+            },
+        )
+        if current_095324_window
         else (
             {
                 "proposal_id": "p1-skill-route-discovery-generic",
@@ -7072,6 +7096,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             if current_200729_window
             else "p3-general-agent-harness-eval-queue"
             if current_055941_window
+            else "proposal-003-agent-harness-eval-fixture"
+            if current_095324_window
             else "p4-agent-harness-eval-qwen"
         ),
     ):
@@ -7088,7 +7114,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
 
     required_profiles = (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
-        if current_055941_window
+        if current_055941_window or current_095324_window
         else (
             "generic_skill_workflow",
             "game_frontend_workflow",
@@ -7155,6 +7181,23 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "p4-agent-harness-looper",
             ]
             if current_055941_window
+            else [
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-2",
+                "trend:ksimback/looper-3",
+                "trend:dongshuyan/compass-skills-4",
+                "p1_skill_route_discovery_compass_and_zhengxi",
+                "p2_agent_harness_eval_general_projects",
+                "p3_security_adjacent_agent_eval_guardrail",
+                "p4_route_hint_policy_fixture",
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-skill-ecosystem-handoff-compass",
+                "p3-agent-harness-eval-general-projects",
+                "proposal-001-skill-route-discovery-compass-skills",
+                "proposal-002-generic-skill-workflow-validation",
+                "proposal-003-agent-harness-eval-fixture",
+            ]
+            if current_095324_window
             else [
                 "p1-skill-route-discovery-generic",
                 "p2-game-frontend-skill-profile",
