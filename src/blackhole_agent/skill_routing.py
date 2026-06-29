@@ -5610,7 +5610,47 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     current_171904_window = source_digest == "github-growth-20260629T171904.272271Z"
     current_195904_window = source_digest == "github-growth-20260629T195904.271855Z"
-    if current_195904_window:
+    current_211904_window = source_digest == "github-growth-20260629T211904.277568Z"
+    if current_211904_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass-zhengxi",
+                "proposal_kind": "test",
+                "proposal_track": "bounded_skill_route_discovery_fixture",
+                "route_profiles": ("generic_skill_workflow", "skill_ecosystem_state_handoff"),
+                "selected_local_lane": "test",
+                "validation_target": "compass_zhengxi_bounded_local_lane_fixture",
+                "validation_task": (
+                    "classify COMPASS and zhengxi skill-route evidence into only documentation, "
+                    "config, test, or code_patch lanes while preserving local validation"
+                ),
+            },
+            {
+                "proposal_id": "p2-agent-harness-eval-for-general-agent-projects",
+                "proposal_kind": "documentation",
+                "proposal_track": "general_agent_project_eval_policy",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "general_agent_project_eval_policy_note",
+                "validation_task": (
+                    "document that general-agent projects without skill workflow signals require "
+                    "agent harness evaluation before runtime or code changes"
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-fixture-for-trend-items",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_fixture_boundary",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "general_agent_project_fixture_boundary",
+                "validation_task": (
+                    "verify Qwen-AgentWorld and looper remain adjacent agent_harness_eval_required "
+                    "rows and do not inherit skill-route authority"
+                ),
+            },
+        )
+    elif current_195904_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass-skills",
@@ -5907,6 +5947,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2-agent-harness-eval-for-general-agent-projects"
+            if current_211904_window
+            else
             "p3-agent-harness-eval-qwen-agentworld"
             if current_195904_window
             else
@@ -5935,6 +5978,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_211904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p3-agent-harness-fixture-for-trend-items"
         if current_195904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p4-agent-harness-eval-looper"
         if current_171904_window and str(row.get("name") or "").casefold() == "looper":
@@ -5960,6 +6005,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass-zhengxi",
+            "p2-agent-harness-eval-for-general-agent-projects",
+            "p3-agent-harness-fixture-for-trend-items",
+            "p5-skill-ecosystem-state-handoff",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:dongshuyan/compass-skills-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_211904_window
+        else
         [
             "p1-skill-route-discovery-compass-skills",
             "p2-generic-skill-workflow-probe",
@@ -6090,6 +6147,23 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "focused_local_validation",
             "review_note",
         ],
+        "review_only_anchor_notes": (
+            [
+                {
+                    "proposal_id": "security-adjacent-autocve",
+                    "evidence_class": "security_agent_context",
+                    "route_influence": "none",
+                    "review_reason": "offensive_behavior_boundary",
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                }
+            ]
+            if current_211904_window
+            else []
+        ),
         "operator_next_action": (
             "replay_current_digest_pass1_validation_before_pass2"
             if ready
