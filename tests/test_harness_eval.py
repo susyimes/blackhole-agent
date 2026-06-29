@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 86
-    assert payload["pass_count"] == 85
+    assert payload["fixture_count"] == 87
+    assert payload["pass_count"] == 86
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -204,6 +204,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-pass3-current-window-route-probe"]["passed"] is True
     assert results["skill-route-discovery-current-digest-pass3-local-validation-lane"]["passed"] is True
     assert results["skill-route-discovery-current-digest-pass4-local-kernel-handoff"]["passed"] is True
+    assert results["skill-route-discovery-current-digest-20260629T000729-pass4-bounded-lane"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
@@ -5845,6 +5846,12 @@ def test_skill_route_discovery_current_window_pass4_completion_closes_active_pro
     )
     assert all(row["runtime_action"] == "none" for row in rows.values())
     assert local_kernel["external_supervisor_required"] is True
+    assert local_kernel["current_digest_completion_lane"]["status"] == "ready"
+    assert local_kernel["current_digest_completion_lane"]["selected_skill_route_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+    ]
     assert local_kernel["restart_required_by_kernel"] is False
     assert local_kernel["runtime_action_allowed"] is False
     assert local_kernel["external_skill_activation_allowed"] is False
@@ -5852,6 +5859,68 @@ def test_skill_route_discovery_current_window_pass4_completion_closes_active_pro
     assert local_kernel["provider_runtime_launch_allowed"] is False
     assert local_kernel["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_pass4_bounded_lane_routes_agent_project_adjacent():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260629T000729_pass4_bounded_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["capability_window_completion"], sort_keys=True)
+    handoff = output["capability_window_completion"]["local_kernel_handoff"]
+    current_lane = handoff["current_digest_completion_lane"]
+    summary = handoff["proposal_completion_summary"]
+    skill_rows = [
+        row for row in summary["rows"] if row["evidence_class"] == "skill_route_discovery"
+    ]
+    agent_rows = [
+        row for row in summary["rows"] if row["evidence_class"] == "agent_harness_eval"
+    ]
+
+    assert output["route_status"] == "passed"
+    assert handoff["source_digest"] == "github-growth-20260629T000729.615262Z"
+    assert current_lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_pass4_completion_lane"
+    )
+    assert current_lane["status"] == "ready"
+    assert current_lane["skill_route_row_count"] == 3
+    assert current_lane["agent_harness_eval_row_count"] == 1
+    assert current_lane["selected_skill_route_lanes"] == ["documentation", "config", "test"]
+    assert current_lane["adjacent_agent_harness_route"] == "agent_harness_eval_required"
+    assert summary["source_digest"] == "github-growth-20260629T000729.615262Z"
+    assert summary["route_profiles"] == [
+        "game_frontend_workflow",
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert {row["selected_local_lane"] for row in skill_rows} == {
+        "documentation",
+        "config",
+        "test",
+    }
+    assert len(agent_rows) == 1
+    assert agent_rows[0]["route_hint"] == "agent_harness_eval_required"
+    assert agent_rows[0]["skill_route_discovery_inherited"] is False
+    assert agent_rows[0]["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert handoff["adjacent_general_agent_project_count"] == 1
+    assert handoff["adjacent_general_agent_route"] == "agent_harness_eval_required"
+    assert handoff["runtime_action_allowed"] is False
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"selected_local_lane": "install"' not in serialized
 
 
 def test_skill_route_discovery_completion_report_surfaces_local_lane_closure():

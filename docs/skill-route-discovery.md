@@ -3859,6 +3859,30 @@ profile writes, memory writes, raw source URL export, raw evidence URL export,
 target path export, replay-command export, and upstream body export remain
 denied.
 
+Source digest `github-growth-20260629T000729.615262Z` completes the fourth
+skill-route-discovery pass with
+`skill_route_discovery_current_digest_pass4_completion_lane` inside the
+local-kernel handoff. The lane binds the active proposal set
+`p1-skill-route-discovery-compass`, `p2-generic-skill-workflow-docs`, and
+`p3-agent-harness-eval-qwen-agentworld` to one replayable operator surface.
+
+The COMPASS-style state handoff signal maps to the local config lane only after
+the state-handoff boundary says retention policy, privacy boundary, metadata-only
+local target, and no upstream-presence write authority are all explicit.
+zhengxi-views-style generic skill workflow evidence maps to documentation, and
+Three.js game skill workflow evidence maps to the local test lane. Unsupported
+pressure such as install, runtime execution, and provider runtime is treated as
+rejected lane pressure rather than activation authority.
+
+Qwen-AgentWorld remains adjacent general-agent evidence. Its local route is
+`agent_harness_eval_required` with the allowed harness-evaluation lanes
+documentation, test, and code_patch; it does not inherit `skill_route_discovery`
+and cannot create runtime behavior, external harness execution, provider launch,
+remote execution, profile writes, memory writes, or direct implementation work
+before harness evidence exists. The handoff exports the source digest, counts,
+selected lanes, hashes, and denial booleans only; raw source URLs, raw evidence
+URLs, target paths, replay command bodies, and upstream bodies remain omitted.
+
 Source digest `github-growth-20260628T204729.558875Z` continues pass 2 with
 `current_digest_pass2_active_slice_review_lane`. This nested lane binds the
 active anchoring proposals `p1-skill-route-discovery-index`,

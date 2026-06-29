@@ -1,0 +1,175 @@
+{
+  "name": "skill-route-discovery-current-digest-20260629T000729-pass4-bounded-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260629T000729-pass4-bounded-lane",
+    "source_digest": "github-growth-20260629T000729.615262Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "generic_skill_workflow",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass",
+        "p2-generic-skill-workflow-docs",
+        "p3-agent-harness-eval-qwen-agentworld"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/majidmanzarpour/threejs-game-skills",
+        "https://github.com/QwenLM/Qwen-AgentWorld"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260629T000729.615262Z",
+        "item_id": "p1-skill-route-discovery-compass",
+        "item_kind": "repository",
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "discovery_event_kind": "PushEvent",
+        "summary": "Skill ecosystem state handoff repository with collaboration profile, route metadata, local memory boundary, config handoff, docs, tests, validation evidence, and privacy boundary pressure.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "local-memory", "profile", "handoff", "config"],
+        "suggested_lanes": ["config", "install"],
+        "route_classification": {
+          "route_profiles": ["skill_ecosystem_state_handoff"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "qa_checklist"],
+          "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T000729.615262Z",
+        "item_id": "p2-generic-skill-workflow-docs",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "summary": "Generic skill workflow repository with skill terminology, source-grounded workflow notes, documentation pressure, config hints, validation scripts, and no required local runtime activation.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "source-cited", "validation"],
+        "suggested_lanes": ["documentation", "provider_runtime"],
+        "route_classification": {
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+          "source_layout_signals": ["skill_markdown", "validation_script"],
+          "source_metadata_signals": ["skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T000729.615262Z",
+        "item_id": "p3-threejs-game-skill-profile",
+        "item_kind": "repository",
+        "name": "threejs-game-skills",
+        "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
+        "summary": "Three.js browser game skill workflow with director routing, gameplay guidance, UI QA, screenshot checks, canvas checks, scaffold helpers, and asset boundary notes.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "threejs", "browser-game", "frontend", "qa"],
+        "suggested_lanes": ["test", "runtime_execution"],
+        "route_classification": {
+          "route_profiles": ["game_frontend_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+          "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset"],
+          "source_metadata_signals": ["gameplay_workflow", "asset_boundary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T000729.615262Z",
+        "item_id": "p3-agent-harness-eval-qwen-agentworld",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "summary": "General agent benchmark and evaluation project without skill workflow route signals or skill package layout evidence.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "benchmark", "evaluation"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260629T000728Z-skill-route-discovery-pass4-bounded-lanes.md",
+        "review_note": "Current digest documentation lane records generic skill workflow interpretation without upstream activation."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260629T000728Z-skill-route-discovery-pass4-bounded-lanes.md",
+        "review_note": "COMPASS-style state handoff remains metadata-only and cannot write profile or memory state."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260629T000729_pass4_bounded_lane.json", "tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260629T000728Z-skill-route-discovery-pass4-bounded-lanes.md",
+        "review_note": "Current digest test lane validates bounded skill lanes plus adjacent Qwen-AgentWorld harness evaluation."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260629T000728Z-skill-route-discovery-pass4-bounded-lanes.md",
+        "review_note": "Code patch exposes body-free current-digest completion handoff only."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "capability_window_completion.status", "equals": "ready"},
+    {"path": "capability_window_completion.local_kernel_handoff.status", "equals": "ready"},
+    {"path": "capability_window_completion.local_kernel_handoff.source_digest", "equals": "github-growth-20260629T000729.615262Z"},
+    {"path": "capability_window_completion.local_kernel_handoff.current_digest_completion_lane.status", "equals": "ready"},
+    {"path": "capability_window_completion.local_kernel_handoff.current_digest_completion_lane.skill_route_row_count", "equals": 3},
+    {"path": "capability_window_completion.local_kernel_handoff.current_digest_completion_lane.agent_harness_eval_row_count", "equals": 1},
+    {"path": "capability_window_completion.local_kernel_handoff.current_digest_completion_lane.selected_skill_route_lanes", "equals": ["documentation", "config", "test"]},
+    {"path": "capability_window_completion.local_kernel_handoff.current_digest_completion_lane.adjacent_agent_harness_route", "equals": "agent_harness_eval_required"},
+    {"path": "capability_window_completion.local_kernel_handoff.proposal_completion_summary.source_digest", "equals": "github-growth-20260629T000729.615262Z"},
+    {"path": "capability_window_completion.local_kernel_handoff.proposal_completion_summary.skill_route_row_count", "equals": 3},
+    {"path": "capability_window_completion.local_kernel_handoff.proposal_completion_summary.agent_harness_eval_row_count", "equals": 1},
+    {"path": "capability_window_completion.local_kernel_handoff.adjacent_general_agent_project_count", "equals": 1},
+    {"path": "capability_window_completion.local_kernel_handoff.adjacent_general_agent_skill_route_inherited", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.runtime_action_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.external_skill_activation_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.external_agent_activation_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.external_harness_execution_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.provider_runtime_launch_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.profile_write_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.memory_write_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.raw_evidence_urls_exported", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.raw_source_urls_exported", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.raw_upstream_body_exported", "equals": false}
+  ]
+}

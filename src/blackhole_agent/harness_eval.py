@@ -10296,6 +10296,7 @@ def skill_route_discovery_capability_window_completion(
     evidence_url_hashes = [
         stable_text_hash(url) for url in string_list(window.get("evidence_urls"))
     ]
+    source_digest = skill_route_discovery_source_digest(raw_input)
 
     manifest_lanes = activation_manifest.get("manifest_lanes")
     manifest_lanes = manifest_lanes if isinstance(manifest_lanes, list) else []
@@ -10476,6 +10477,7 @@ def skill_route_discovery_capability_window_completion(
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
     )
     local_kernel_handoff = skill_route_discovery_local_kernel_handoff(
+        source_digest=source_digest,
         status=status,
         decision=decision,
         completion_next_action=completion_next_action,
@@ -10588,8 +10590,32 @@ def skill_route_discovery_capability_window_completion(
     return result
 
 
+def skill_route_discovery_source_digest(raw_input: dict[str, Any]) -> str:
+    """Return the local digest label for body-free operator handoff metadata."""
+
+    explicit = optional_string(raw_input.get("source_digest"))
+    if explicit:
+        return explicit
+    evidence_items = raw_input.get("evidence_items")
+    if isinstance(evidence_items, list):
+        for item in evidence_items:
+            if isinstance(item, dict):
+                source_digest = optional_string(item.get("source_digest"))
+                if source_digest:
+                    return source_digest
+    candidates = raw_input.get("candidates")
+    if isinstance(candidates, list):
+        for candidate in candidates:
+            if isinstance(candidate, dict):
+                source_digest = optional_string(candidate.get("source_digest"))
+                if source_digest:
+                    return source_digest
+    return "unknown"
+
+
 def skill_route_discovery_local_kernel_handoff(
     *,
+    source_digest: str,
     status: str,
     decision: str,
     completion_next_action: str,
@@ -10692,6 +10718,7 @@ def skill_route_discovery_local_kernel_handoff(
     )
     proposal_completion_summary = {
         "controller_surface": "skill_route_discovery_local_kernel_proposal_completion_summary",
+        "source_digest": source_digest,
         "status": "ready" if proposal_summary_ready else "blocked",
         "decision": "active_skill_route_proposals_ready_for_supervisor_replay"
         if proposal_summary_ready
@@ -10727,6 +10754,36 @@ def skill_route_discovery_local_kernel_handoff(
         "raw_upstream_body_exported": False,
         "rows": proposal_summary_rows,
     }
+    completion_lane_summary = {
+        "controller_surface": "skill_route_discovery_current_digest_pass4_completion_lane",
+        "source_digest": source_digest,
+        "status": "ready" if proposal_summary_ready else "blocked",
+        "decision": "bounded_current_digest_lanes_ready_for_supervisor_replay"
+        if proposal_summary_ready
+        else "repair_current_digest_lanes_before_supervisor_replay",
+        "skill_route_row_count": len(skill_route_summary_rows),
+        "agent_harness_eval_row_count": len(agent_harness_summary_rows),
+        "selected_skill_route_lanes": proposal_completion_summary["selected_skill_route_lanes"],
+        "adjacent_agent_harness_route": "agent_harness_eval_required"
+        if agent_harness_summary_rows
+        else "",
+        "skill_route_discovery_inherited_by_agent_projects": False,
+        "local_validation_required": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     ready = (
         status == "ready"
         and report_status == "ready"
@@ -10760,6 +10817,7 @@ def skill_route_discovery_local_kernel_handoff(
         "completion_decision": decision,
         "supervisor_next_action": completion_next_action,
         "theme": theme,
+        "source_digest": source_digest,
         "current_pass": current_pass,
         "total_passes": total_passes,
         "final_pass_observed": planned_window_complete,
@@ -10774,6 +10832,7 @@ def skill_route_discovery_local_kernel_handoff(
             "completion_recovery": recovery_status,
         },
         "proposal_completion_summary": proposal_completion_summary,
+        "current_digest_completion_lane": completion_lane_summary,
         "replay_stage_order": string_list(runner_control.get("stage_order")),
         "replay_stage_count": int(runner_control.get("stage_count") or 0),
         "ready_replay_stage_count": int(runner_control.get("ready_stage_count") or 0),
