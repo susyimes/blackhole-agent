@@ -8921,6 +8921,112 @@ def test_skill_route_discovery_proposal_lane_map_rejects_actionful_or_unsafe_can
     ]
 
 
+def test_skill_route_discovery_current_digest_pass4_final_closure_completes_skill_slice():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260629T075941_pass4_final_closure.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    closure = lane_map["current_digest_pass4_final_closure"]
+
+    assert registry["source_digest"] == "github-growth-20260629T075941.978810Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["ignored_evidence_items"][0]["name"] == "Qwen-AgentWorld"
+    assert registry["ignored_evidence_items"][0]["evaluation_lane"] == "agent_harness_eval_required"
+
+    assert closure["controller_surface"] == "skill_route_discovery_current_digest_pass4_final_closure"
+    assert closure["status"] == "ready"
+    assert closure["decision"] == "current_digest_pass4_skill_route_slice_ready_for_supervisor_completion"
+    assert closure["source_digest"] == "github-growth-20260629T075941.978810Z"
+    assert closure["capability_pass"] == 4
+    assert closure["total_passes"] == 4
+    assert closure["capability_slice_complete"] is True
+    assert closure["proposal_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-generic",
+        "p3-agent-harness-qwen-agentworld",
+    ]
+    assert closure["ready_skill_route_proposal_count"] == 2
+    assert closure["blocked_proposal_ids"] == []
+    assert closure["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert closure["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert closure["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert closure["selected_evidence_item_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-generic",
+    ]
+    assert closure["operator_next_action"] == (
+        "replay_current_digest_pass4_final_closure_then_mark_skill_route_slice_complete"
+    )
+    assert closure["local_validation_required"] is True
+    assert closure["runtime_action"] == "none"
+    assert closure["external_skill_activation_allowed"] is False
+    assert closure["external_agent_activation_allowed"] is False
+    assert closure["external_harness_execution_allowed"] is False
+    assert closure["provider_runtime_launch_allowed"] is False
+    assert closure["profile_write_allowed"] is False
+    assert closure["memory_write_allowed"] is False
+    assert closure["remote_execution_allowed"] is False
+    assert closure["raw_replay_commands_exported"] is False
+    assert closure["raw_source_url_exported"] is False
+    assert closure["raw_evidence_urls_exported"] is False
+    assert closure["raw_target_paths_exported"] is False
+    assert closure["raw_upstream_body_exported"] is False
+
+    adjacent = closure["adjacent_general_agent_boundary"]
+    assert adjacent["proposal_id"] == "p3-agent-harness-qwen-agentworld"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["remote_execution_allowed"] is False
+    assert adjacent["item_ids"] == ["p3-agent-harness-qwen-agentworld"]
+
+    rows = {row["proposal_id"]: row for row in closure["rows"]}
+    assert rows["p1-skill-route-discovery-compass"]["candidate_names"] == ["compass-skills"]
+    assert rows["p1-skill-route-discovery-compass"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p1-skill-route-discovery-compass"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-compass"]["validation_gates"] == [
+        "state_handoff_boundary_before_profile_or_memory_write"
+    ]
+    assert rows["p2-skill-route-discovery-generic"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p2-skill-route-discovery-generic"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p2-skill-route-discovery-generic"]["selected_local_lane"] == "documentation"
+
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["profile_write_allowed"] is False
+        assert row["memory_write_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_target_paths_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+        assert row["replay_command_hash"].startswith("sha256:")
+
+
 def test_skill_route_discovery_current_active_pass3_discovery_validation_packet_queues_qwen_eval():
     fixture_path = (
         Path(__file__).parent
