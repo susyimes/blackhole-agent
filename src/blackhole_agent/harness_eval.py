@@ -19607,6 +19607,18 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         },
         recovery_hints=recovery_hints,
     )
+    output["diagnostic_manifest"] = provider_runtime_diagnostic_manifest(
+        route_status=route_status,
+        failure_mode=failure_mode,
+        preflight_count=1,
+        status_counts={
+            "passed": int(route_status == "passed"),
+            "degraded": int(route_status == "degraded"),
+            "blocked": int(route_status == "blocked"),
+        },
+        recovery_hints=recovery_hints,
+        blocked_failure_modes=[failure_mode] if route_status == "blocked" else [],
+    )
     output["supervisor_replay"] = provider_runtime_preflight_supervisor_replay(
         output,
         recovery_hints=recovery_hints,
@@ -22042,6 +22054,20 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
             status_counts=status_counts,
             recovery_hints=recovery_hints,
         ),
+        "diagnostic_manifest": provider_runtime_diagnostic_manifest(
+            route_status=route_status,
+            failure_mode=failure_mode,
+            preflight_count=len(preflights),
+            status_counts=status_counts,
+            recovery_hints=recovery_hints,
+            blocked_failure_modes=sorted(
+                {
+                    str(preflight["failure_mode"])
+                    for preflight in preflights
+                    if preflight["route_status"] == "blocked"
+                }
+            ),
+        ),
         "supervisor_readiness": supervisor_readiness,
         "activation_gate": {
             "controller_surface": "provider_runtime_recovery_summary",
@@ -22060,6 +22086,80 @@ def evaluate_provider_runtime_recovery_summary(raw_input: dict[str, Any], *, sou
             "env_key_names_exported": False,
             "secret_values_exported": False,
         },
+    }
+
+
+def provider_runtime_diagnostic_manifest(
+    *,
+    route_status: str,
+    failure_mode: str,
+    preflight_count: int,
+    status_counts: dict[str, int],
+    recovery_hints: list[dict[str, Any]],
+    blocked_failure_modes: list[str],
+) -> dict[str, Any]:
+    """Build a compact provider-runtime diagnostic surface for schedulers.
+
+    The manifest is intentionally derived from already-redacted preflight output:
+    it carries stable status, hint, and replay identifiers without nested bodies,
+    raw provider values, paths, URLs, commands, diagnostics, or environment data.
+    """
+
+    replay_commands = [
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    ]
+    recovery_hint_codes = sorted(
+        {str(hint.get("code")) for hint in recovery_hints if str(hint.get("code") or "").strip()}
+    )
+    status = route_status if route_status in {"passed", "degraded", "blocked"} else "unknown"
+    blocked = status == "blocked"
+    degraded = status == "degraded"
+    success_status = provider_runtime_success_status_guardrail(
+        preflight_count=preflight_count,
+        blocked=blocked,
+        degraded=degraded,
+    )
+    if preflight_count <= 0:
+        decision = "blocked_no_provider_runtime_preflights"
+        reason = "no_provider_runtime_preflights"
+    elif blocked:
+        decision = "blocked_before_provider_launch"
+        reason = failure_mode
+    elif degraded:
+        decision = "degraded_local_replay_only"
+        reason = "degraded_provider_runtime_replay_only"
+    else:
+        decision = "ready_for_local_replay"
+        reason = "none"
+
+    return {
+        "controller_surface": "provider_runtime_diagnostic_manifest",
+        "status": status,
+        "decision": decision,
+        "reason": reason,
+        "preflight_count": preflight_count,
+        "status_counts": dict(status_counts),
+        "blocked_failure_modes": list(blocked_failure_modes),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "replay_command_count": len(replay_commands),
+        "replay_command_hashes": [stable_text_hash(command) for command in replay_commands],
+        "success_status_label": success_status["status_label"],
+        "success_claim_allowed": success_status["success_claim_allowed"],
+        "operator_action_required": success_status["operator_action_required"],
+        "ready_for_local_replay": success_status["local_replay_allowed"],
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "body_free_diagnostics_only": True,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_replay_commands_exported": False,
+        "env_values_exported": False,
+        "env_key_names_exported": False,
+        "secret_values_exported": False,
     }
 
 

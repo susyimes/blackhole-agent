@@ -482,6 +482,37 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
     ]
     assert unexercised["supervisor_replay"]["ready_for_provider_launch"] is False
     assert unexercised["supervisor_replay"]["recovery_hint_codes"] == ["provider_wire_api_unexercised"]
+    assert unexercised["diagnostic_manifest"] == {
+        "controller_surface": "provider_runtime_diagnostic_manifest",
+        "status": "blocked",
+        "decision": "blocked_before_provider_launch",
+        "reason": "provider_wire_api_unexercised",
+        "preflight_count": 1,
+        "status_counts": {"passed": 0, "degraded": 0, "blocked": 1},
+        "blocked_failure_modes": ["provider_wire_api_unexercised"],
+        "recovery_hint_codes": ["provider_wire_api_unexercised"],
+        "recovery_hint_code_hashes": [stable_text_hash("provider_wire_api_unexercised")],
+        "replay_command_count": 2,
+        "replay_command_hashes": [
+            stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"),
+            stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary"),
+        ],
+        "success_status_label": "provider_runtime_blocked",
+        "success_claim_allowed": False,
+        "operator_action_required": True,
+        "ready_for_local_replay": False,
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "body_free_diagnostics_only": True,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_replay_commands_exported": False,
+        "env_values_exported": False,
+        "env_key_names_exported": False,
+        "secret_values_exported": False,
+    }
 
     assert unsupported["route_status"] == "blocked"
     assert unsupported["failure_mode"] == "provider_wire_api_unsupported"
@@ -14262,6 +14293,53 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     assert output["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
     assert output["operator_recovery_plan"]["remote_execution_allowed"] is False
     assert output["operator_recovery_plan"]["raw_provider_values_exported"] is False
+    assert output["diagnostic_manifest"] == {
+        "controller_surface": "provider_runtime_diagnostic_manifest",
+        "status": "blocked",
+        "decision": "blocked_before_provider_launch",
+        "reason": "provider_runtime_recovery_required",
+        "preflight_count": 6,
+        "status_counts": {"passed": 0, "degraded": 1, "blocked": 5},
+        "blocked_failure_modes": [
+            "native_terminal_timeout_risk",
+            "provider_install_linkage_unresolved",
+            "provider_usage_limit_exhausted",
+            "review_model_unavailable",
+            "url_safety_preflight_failed",
+        ],
+        "recovery_hint_codes": [
+            "browser_configure_checks_skipped",
+            "mock_auth_placeholder_used",
+            "native_terminal_timeout_risk",
+            "provider_install_linkage_unresolved",
+            "provider_usage_limit_exhausted",
+            "review_model_unavailable",
+            "url_safety_preflight_failed",
+        ],
+        "recovery_hint_code_hashes": [
+            stable_text_hash(code) for code in output["diagnostic_manifest"]["recovery_hint_codes"]
+        ],
+        "replay_command_count": 2,
+        "replay_command_hashes": [
+            stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"),
+            stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary"),
+        ],
+        "success_status_label": "provider_runtime_blocked",
+        "success_claim_allowed": False,
+        "operator_action_required": True,
+        "ready_for_local_replay": False,
+        "local_validation_required": True,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "body_free_diagnostics_only": True,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_replay_commands_exported": False,
+        "env_values_exported": False,
+        "env_key_names_exported": False,
+        "secret_values_exported": False,
+    }
     assert output["privacy"] == {
         "raw_preflight_inputs_exported": False,
         "raw_diagnostics_exported": False,
@@ -14379,6 +14457,12 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     }
     assert degraded_only["supervisor_readiness"]["provider_runtime_launch_allowed"] is False
     assert degraded_only["supervisor_readiness"]["recovery_hint_codes"] == ["mock_auth_placeholder_used"]
+    assert degraded_only["diagnostic_manifest"]["decision"] == "degraded_local_replay_only"
+    assert degraded_only["diagnostic_manifest"]["success_status_label"] == "provider_runtime_degraded_replay_only"
+    assert degraded_only["diagnostic_manifest"]["success_claim_allowed"] is False
+    assert degraded_only["diagnostic_manifest"]["ready_for_local_replay"] is True
+    assert degraded_only["diagnostic_manifest"]["provider_runtime_launch_allowed"] is False
+    assert degraded_only["diagnostic_manifest"]["raw_replay_commands_exported"] is False
 
 
 def test_mock_llm_workflow_route_covers_session_and_file_tools_without_exporting_bodies():

@@ -249,6 +249,16 @@ paths, environment values, token names with values, credentials, or secrets.
 `provider_runtime_launch_allowed` remains false until a separate runtime
 capability and validation path explicitly permits launch.
 
+The same outputs include `diagnostic_manifest`, a compact scheduler-facing
+surface derived only from already-redacted status counts, failure classes,
+recovery hint codes, and validation command hashes. Use it when the operator
+needs to diff or replay the next safe local recovery step without walking
+nested provider diagnostics. The manifest is not launch authority: it keeps
+provider runtime launch and remote execution denied, preserves local validation
+requirements, and reports blocked, degraded replay-only, or local-replay-ready
+status without exporting raw provider values, diagnostics, URLs, paths,
+commands, environment values, environment key names, or secrets.
+
 ## Approval ASK Surfacing Watch
 
 Source digest: `github-growth-20260619T035206.981359Z`
