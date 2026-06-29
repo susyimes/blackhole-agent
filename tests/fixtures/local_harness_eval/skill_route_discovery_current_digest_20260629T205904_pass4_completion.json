@@ -1,0 +1,175 @@
+{
+  "name": "skill-route-discovery-current-digest-20260629T205904-pass4-completion",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260629T205904-pass4-completion",
+    "source_digest": "github-growth-20260629T205904.286797Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass-skills",
+        "p2-generic-skill-workflow-probe",
+        "p3-agent-harness-eval-qwen-agentworld",
+        "p4-agent-harness-eval-looper",
+        "p5-security-agent-review-boundary-autocve",
+        "p1-skill-route-discovery-index",
+        "p2-skill-ecosystem-handoff-doc",
+        "p3-agent-harness-eval-baseline",
+        "p4-agent-project-route-doc",
+        "p5-security-agent-harness-review-gate",
+        "p2-skill-route-discovery-generic-skill-workflow",
+        "p3-agent-harness-eval-agentworld"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/ksimback/looper"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260629T205904.286797Z",
+        "item_id": "trend:dongshuyan/compass-skills-1",
+        "item_kind": "repository",
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "discovery_event_kind": "PushEvent",
+        "title": "COMPASS skill ecosystem state handoff",
+        "summary": "COMPASS skill ecosystem with multiple skills, collaboration profile, task forest handoff, local memory notes, profile metadata, config handoff, test, docs, and privacy boundary pressure.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "skills", "skill-ecosystem", "profile", "handoff", "local-memory"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "route_classification": {
+          "route_profiles": ["skill_ecosystem_state_handoff"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "qa_checklist"],
+          "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T205904.286797Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Generic agent skill workflow",
+        "summary": "Generic public repository with agent and skill workflow terms, SKILL.md style routing evidence, docs, validation notes, config hints, and no external activation request.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent", "skill", "workflow", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "route_classification": {
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+          "source_layout_signals": ["skill_markdown", "validation_script"],
+          "source_metadata_signals": ["skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T205904.286797Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "General agent harness evaluation project",
+        "summary": "General Python agent benchmark and evaluation project without skill workflow route signals or skill package layout evidence.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["agent", "benchmark", "evaluation", "python"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260629T205904.286797Z",
+        "item_id": "trend:ksimback/looper-1",
+        "item_kind": "repository",
+        "name": "looper",
+        "source_url": "https://github.com/ksimback/looper",
+        "title": "General autonomous loop project",
+        "summary": "General autonomous agent loop project without skill workflow route signals or skill package layout evidence.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["agent-loop", "scheduler", "evaluation"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T205903Z-skill-route-discovery-pass4.md",
+        "review_note": "Generic agent plus skill evidence remains a bounded skill-route-discovery documentation lane."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T205903Z-skill-route-discovery-pass4.md",
+        "review_note": "State-handoff metadata remains local config only and does not authorize profile or memory writes."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_skill_routing.py", "tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T205903Z-skill-route-discovery-pass4.md",
+        "review_note": "COMPASS-style state handoff is locally validated without profile or memory writes."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/skill_routing.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T205903Z-skill-route-discovery-pass4.md",
+        "review_note": "Code patch only adds a body-free current digest route-map branch and fixture coverage."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "lane_map.proposal_lane_count", "equals": 8},
+    {"path": "registry.ignored_evidence_item_count", "equals": 2},
+    {"path": "capability_window_completion.status", "equals": "ready"},
+    {"path": "capability_window_completion.local_kernel_handoff.status", "equals": "ready"},
+    {"path": "capability_window_completion.local_kernel_handoff.selected_local_lanes", "equals": ["config", "documentation"]},
+    {"path": "capability_window_completion.local_kernel_handoff.route_profiles", "equals": ["generic_skill_workflow", "skill_ecosystem_state_handoff"]},
+    {"path": "capability_window_completion.local_kernel_handoff.agent_harness_eval_required", "equals": true},
+    {"path": "capability_window_completion.local_kernel_handoff.adjacent_general_agent_project_count", "equals": 1},
+    {"path": "capability_window_completion.local_kernel_handoff.adjacent_general_agent_skill_route_inherited", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.runtime_action_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.external_skill_activation_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.external_agent_activation_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.external_harness_execution_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.provider_runtime_launch_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.profile_write_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.memory_write_allowed", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.raw_evidence_urls_exported", "equals": false},
+    {"path": "capability_window_completion.local_kernel_handoff.raw_replay_commands_exported", "equals": false}
+  ]
+}
