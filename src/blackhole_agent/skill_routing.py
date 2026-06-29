@@ -3114,6 +3114,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     current_061942_window = source_digest == "github-growth-20260629T061942.961537Z"
     current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     current_171904_window = source_digest == "github-growth-20260629T171904.272271Z"
+    current_183904_window = source_digest == "github-growth-20260629T183904.255941Z"
     proposal_specs = (
         (
             {
@@ -3157,7 +3158,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                 "validation_target": "document_generic_skill_workflow_route_interpretation",
             },
         )
-        if current_061942_window
+        if current_061942_window or current_183904_window
         else
         (
             {
@@ -3359,6 +3360,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             "p3-agent-harness-eval-general-agent-projects"
             if current_101324_window
             else
+            "p3-agent-harness-eval-qwen-agentworld"
+            if current_183904_window
+            else
             "p3-agent-harness-qwen-agentworld"
             if current_061942_window
             else
@@ -3372,6 +3376,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             else
             "p3-agent-harness-eval-general-agent-projects"
             if current_101324_window
+            else
+            "p4-agent-harness-eval-looper"
+            if current_183904_window
             else
             "p4-agent-harness-looper"
             if current_061942_window
@@ -3387,6 +3394,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         else
         "p3-agent-harness-eval-general-agent-projects"
         if current_101324_window
+        else
+        "p3-agent-harness-eval-qwen-agentworld"
+        if current_183904_window
         else
         "p3-agent-harness-qwen-agentworld"
         if current_061942_window
@@ -3440,6 +3450,15 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             "p5-agent-routing-config-preflight",
         ]
         if current_101324_window
+        else
+        [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-skill-route-discovery-zhengxi-views",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-lane-autocve",
+        ]
+        if current_183904_window
         else
         [
             "p1-skill-route-discovery-compass-skills",
