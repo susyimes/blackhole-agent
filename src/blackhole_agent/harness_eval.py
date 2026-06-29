@@ -2389,6 +2389,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass1_focused_evidence_review_lane": pass1_focused_evidence_review_lane,
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
         "current_digest_pass1_validation_lane": lane_map["current_digest_pass1_validation_lane"],
+        "current_digest_pass2_local_validation_lane": lane_map["current_digest_pass2_local_validation_lane"],
         "current_pass2_validation_lane": lane_map["current_pass2_validation_lane"],
         "active_window_route_lane_matrix": active_window_route_lane_matrix,
         "active_window_activation_candidate_lane": active_window_activation_candidate_lane,

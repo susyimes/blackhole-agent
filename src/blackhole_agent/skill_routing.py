@@ -6259,6 +6259,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_173904_window = source_digest == "github-growth-20260629T173904.211836Z"
     current_201904_window = source_digest == "github-growth-20260629T201904.282006Z"
     current_213904_window = source_digest == "github-growth-20260629T213904.316042Z"
+    current_225904_window = source_digest == "github-growth-20260629T225904.339664Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -6309,6 +6310,48 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             },
         )
         if current_213904_window
+        else
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_handoff_boundary_fixture",
+                "validation_task": (
+                    "feed COMPASS-style skill ecosystem evidence through route classification "
+                    "and verify only documentation, config, test, or code_patch lanes remain "
+                    "available with local validation required"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "skill_registry_metadata",
+                    "agent_metadata",
+                    "qa_checklist",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-route-coverage-zhengxi",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "zhengxi_generic_skill_workflow_interpretation_path",
+                "validation_task": (
+                    "document that generic agent plus skill workflow evidence enters "
+                    "skill_route_discovery only as a bounded local validation candidate"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "skill_registry_metadata",
+                ),
+            },
+        )
+        if current_225904_window
         else
         (
             {
@@ -6451,6 +6494,19 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         if current_213904_window
         else
         [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-route-coverage-zhengxi",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-loop-runner-eval",
+            "p5-security-agent-risk-gated-eval",
+            "p2-generic-skill-workflow-zhengxi",
+            "p3-agent-harness-eval-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-harness-autocve",
+        ]
+        if current_225904_window
+        else
+        [
             "p1-skill-route-discovery-registry",
             "p2-agent-harness-eval-fixtures",
             "p3-skill-route-docs",
@@ -6508,6 +6564,23 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         if current_213904_window
+        else
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-route-coverage-zhengxi",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-loop-runner-eval",
+            "p5-security-agent-risk-gated-eval",
+            "p2-generic-skill-workflow-zhengxi",
+            "p3-agent-harness-eval-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-harness-autocve",
+            "trend:dongshuyan/compass-skills-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_225904_window
         else
         [
             "p1-skill-route-discovery-compass",
@@ -6698,12 +6771,16 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             else "p3-agent-harness-eval-for-general-agent-projects"
             if current_213904_window
             else "p3-agent-harness-eval-qwen-agentworld"
+            if current_225904_window
+            else "p3-agent-harness-eval-qwen-agentworld"
             if current_201904_window
             else "p4-agent-harness-eval-qwen"
         ),
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_225904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-loop-runner-eval"
         if current_201904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p4-agent-harness-eval-looper"
         row.pop("replay_command", None)
@@ -6820,6 +6897,23 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "focused_local_validation",
             "review_note",
         ],
+        "review_only_anchor_notes": (
+            [
+                {
+                    "proposal_id": "p5-security-agent-risk-gated-eval",
+                    "evidence_class": "security_agent_context",
+                    "route_influence": "none",
+                    "review_reason": "offensive_behavior_boundary",
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                }
+            ]
+            if current_225904_window
+            else []
+        ),
         "operator_next_action": (
             "replay_current_digest_pass2_local_validation_lane_before_pass3"
             if ready
@@ -6894,11 +6988,22 @@ def _skill_route_discovery_current_digest_pass2_operator_replay_surface(
         "source_digest": source_digest,
         "capability_pass": 2,
         "total_passes": 4,
-        "proposal_ids": [
-            "p1-skill-route-discovery-catalog",
-            "p2-skill-route-regression-tests",
-            "p3-agent-harness-eval-for-general-agent-projects",
-        ],
+        "proposal_ids": list(
+            dict.fromkeys(
+                [
+                    *(
+                        str(row.get("proposal_id") or "")
+                        for row in skill_rows
+                        if str(row.get("proposal_id") or "")
+                    ),
+                    *(
+                        str(row.get("proposal_id") or "")
+                        for row in adjacent_rows
+                        if str(row.get("proposal_id") or "")
+                    ),
+                ]
+            )
+        ),
         "blocked_proposal_ids": list(dict.fromkeys(item for item in blocked_proposal_ids if item)),
         "selected_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
