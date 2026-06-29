@@ -5817,7 +5817,56 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
 ) -> dict[str, Any]:
     """Expose current digest pass-2 proposals as bounded local validation lanes."""
 
+    inventory_profiles = {
+        profile
+        for candidate in candidate_lane_inventory
+        for profile in (_string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"])
+    }
+    compass_generic_only = (
+        "skill_ecosystem_state_handoff" in inventory_profiles
+        and bool(inventory_profiles & {"generic_skill_workflow", "source_cited_domain_research"})
+        and "game_frontend_workflow" not in inventory_profiles
+    )
     specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass-skills",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "skill_ecosystem_handoff_route_probe_fixture",
+                "validation_task": (
+                    "detect skill manifests, state handoff conventions, and route metadata "
+                    "without installing, executing, writing profiles, or writing memory"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_registry_metadata",
+                    "agent_metadata",
+                    "qa_checklist",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_probe_route_documentation",
+                "validation_task": (
+                    "document sufficient evidence for manifest detection, non-execution "
+                    "inspection, bounded lane mapping, uncertainty recording, and rollback"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "validation_script",
+                    "skill_registry_metadata",
+                ),
+            },
+        )
+        if compass_generic_only
+        else (
         {
             "proposal_id": "p1-skill-route-discovery-compass-handoff",
             "proposal_kind": "test",
@@ -5870,6 +5919,47 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 "skill_registry_metadata",
             ),
         },
+        )
+    )
+    active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-qwen-agentworld",
+        ]
+        if compass_generic_only
+        else [
+            "p1-skill-route-discovery-generic",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-game-frontend-skill-route",
+        ]
+    )
+    anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-skill-route-discovery-zhengxi-views",
+            "p3-agent-harness-qwen-agentworld",
+            "p4-agent-harness-looper",
+            "p5-security-agent-review-lane-autocve",
+            "p1-skill-ecosystem-route-discovery",
+            "p2-generic-skill-workflow-probe",
+            "p3-agentworld-harness-eval",
+            "p4-loop-scheduling-eval",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        if compass_generic_only
+        else [
+            "p1-skill-route-discovery-generic",
+            "p2-game-frontend-skill-profile",
+            "p3-skill-ecosystem-state-handoff",
+            "p4-agent-harness-eval-qwen",
+            "p5-agent-harness-eval-looper",
+            "p1-skill-route-discovery-compass-handoff",
+            "p2-threejs-game-skill-routing-profile",
+            "p3-generic-skill-workflow-discovery-fixture",
+            "p4-skill-trend-intake-config-guard",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
     )
 
     rows: list[dict[str, Any]] = []
@@ -6011,6 +6101,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         rows,
         adjacent_rows,
         source_digest=source_digest,
+        compass_generic_only=compass_generic_only,
     )
     active_slice_review_lane = _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
         rows,
@@ -6032,23 +6123,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
-        "active_proposal_ids": [
-            "p1-skill-route-discovery-generic",
-            "p2-agent-harness-eval-qwen-agentworld",
-            "p3-game-frontend-skill-route",
-        ],
-        "anchoring_proposal_ids": [
-            "p1-skill-route-discovery-generic",
-            "p2-game-frontend-skill-profile",
-            "p3-skill-ecosystem-state-handoff",
-            "p4-agent-harness-eval-qwen",
-            "p5-agent-harness-eval-looper",
-            "p1-skill-route-discovery-compass-handoff",
-            "p2-threejs-game-skill-routing-profile",
-            "p3-generic-skill-workflow-discovery-fixture",
-            "p4-skill-trend-intake-config-guard",
-            "trend:lyra81604/zhengxi-views-1",
-        ],
+        "active_proposal_ids": active_proposal_ids,
+        "anchoring_proposal_ids": anchoring_proposal_ids,
         "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),
@@ -6124,6 +6200,7 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
     adjacent_rows: Sequence[Mapping[str, Any]],
     *,
     source_digest: str,
+    compass_generic_only: bool = False,
 ) -> dict[str, Any]:
     """Bind the active pass-2 proposal IDs to bounded local validation rows."""
 
@@ -6137,6 +6214,7 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         or skill_rows_by_track.get("source_cited_domain_research")
         or {}
     )
+    compass_row = skill_rows_by_track.get("skill_ecosystem_state_handoff") or {}
     game_row = skill_rows_by_track.get("game_frontend_workflow") or {}
     qwen_row = next(
         (
@@ -6148,26 +6226,48 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         adjacent_rows[0] if adjacent_rows else {},
     )
 
-    proposal_rows = [
-        _skill_route_discovery_current_digest_pass2_focused_skill_row(
-            generic_row,
-            proposal_id="p1-skill-route-discovery-generic",
-            proposal_kind="test",
-            selected_local_lane="test",
-            validation_target="generic_skill_workflow_repository_metadata_probe",
-        ),
-        _skill_route_discovery_current_digest_pass2_focused_agent_row(
-            qwen_row,
-            proposal_id="p2-agent-harness-eval-qwen-agentworld",
-        ),
-        _skill_route_discovery_current_digest_pass2_focused_skill_row(
-            game_row,
-            proposal_id="p3-game-frontend-skill-route",
-            proposal_kind="documentation",
-            selected_local_lane="documentation",
-            validation_target="game_frontend_workflow_route_profile_note",
-        ),
-    ]
+    if compass_generic_only:
+        proposal_rows = [
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                compass_row,
+                proposal_id="p1-skill-route-discovery-compass-skills",
+                proposal_kind="test",
+                selected_local_lane="test",
+                validation_target="skill_ecosystem_handoff_route_probe_fixture",
+            ),
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                generic_row,
+                proposal_id="p2-generic-skill-workflow-probe",
+                proposal_kind="documentation",
+                selected_local_lane="documentation",
+                validation_target="generic_skill_workflow_probe_route_documentation",
+            ),
+            _skill_route_discovery_current_digest_pass2_focused_agent_row(
+                qwen_row,
+                proposal_id="p3-agent-harness-qwen-agentworld",
+            ),
+        ]
+    else:
+        proposal_rows = [
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                generic_row,
+                proposal_id="p1-skill-route-discovery-generic",
+                proposal_kind="test",
+                selected_local_lane="test",
+                validation_target="generic_skill_workflow_repository_metadata_probe",
+            ),
+            _skill_route_discovery_current_digest_pass2_focused_agent_row(
+                qwen_row,
+                proposal_id="p2-agent-harness-eval-qwen-agentworld",
+            ),
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                game_row,
+                proposal_id="p3-game-frontend-skill-route",
+                proposal_kind="documentation",
+                selected_local_lane="documentation",
+                validation_target="game_frontend_workflow_route_profile_note",
+            ),
+        ]
     blocked_proposal_ids = [
         str(row["proposal_id"])
         for row in proposal_rows
@@ -6324,6 +6424,8 @@ def _skill_route_discovery_current_digest_pass2_focused_agent_row(
         "source_hash": str(row.get("source_hash") or ""),
         "evaluation_lane": "agent_harness_eval_required",
         "skill_route_discovery_inherited": False,
+        "direct_runtime_route_allowed": False,
+        "direct_code_patch_route_allowed": False,
         "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
         "selected_local_lane": "agent_harness_eval_required",
         "validation_gate": "local_agent_harness_eval_required_before_implementation_route",
