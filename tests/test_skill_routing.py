@@ -10592,6 +10592,91 @@ def test_skill_route_discovery_current_digest_20260629T091323_pass2_routes_skill
     assert all("install" not in row.get("allowed_local_lanes", []) for row in review["rows"])
 
 
+def test_skill_route_discovery_current_digest_20260629T101324_pass1_routes_skill_and_agent_evidence():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260629T101324_pass1_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass1_validation_lane"]
+    readiness = lane_map["current_run_pass1_activation_readiness"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    readiness_rows = {row["proposal_id"]: row for row in readiness["rows"]}
+    serialized = json.dumps({"lane": lane, "readiness": readiness}, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260629T101324.100619Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert {item["name"] for item in registry["ignored_evidence_items"]} == {
+        "Qwen-AgentWorld",
+        "looper",
+    }
+
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-generic",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-skill-route-discovery-generic",
+        "p3-agent-harness-eval-general-agent-projects",
+        "p4-security-agent-review-boundary",
+        "p5-agent-routing-config-preflight",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["agent_harness_eval_required_count"] == 2
+    assert rows["p1-skill-route-discovery-compass"]["candidate_names"] == ["compass-skills"]
+    assert rows["p1-skill-route-discovery-compass"]["route_profiles"] == [
+        "skill_ecosystem_state_handoff"
+    ]
+    assert rows["p1-skill-route-discovery-compass"]["selected_local_lane"] == "test"
+    assert rows["p2-skill-route-discovery-generic"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p2-skill-route-discovery-generic"]["route_profiles"] == ["generic_skill_workflow"]
+    assert rows["p2-skill-route-discovery-generic"]["selected_local_lane"] == "documentation"
+
+    assert readiness["status"] == "ready"
+    assert readiness["proposal_ids"] == lane["proposal_ids"]
+    assert readiness["anchoring_proposal_ids"] == lane["anchoring_proposal_ids"]
+    assert readiness["selected_local_lanes"] == ["documentation", "test"]
+    assert readiness_rows["p1-skill-route-discovery-compass"]["selected_local_lane"] == "test"
+    assert readiness_rows["p2-skill-route-discovery-generic"]["selected_local_lane"] == "documentation"
+
+    for adjacent in lane["adjacent_general_agent_rows"]:
+        assert adjacent["proposal_id"] == "p3-agent-harness-eval-general-agent-projects"
+        assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+        assert adjacent["skill_route_discovery_inherited"] is False
+        assert adjacent["direct_runtime_route_allowed"] is False
+        assert adjacent["direct_code_patch_route_allowed"] is False
+        assert adjacent["external_harness_execution_allowed"] is False
+        assert adjacent["provider_runtime_launch_allowed"] is False
+
+    for packet in (lane, readiness):
+        assert packet["runtime_action"] == "none"
+        assert packet["external_skill_activation_allowed"] is False
+        assert packet["external_agent_activation_allowed"] is False
+        assert packet["external_harness_execution_allowed"] is False
+        assert packet["provider_runtime_launch_allowed"] is False
+        assert packet["profile_write_allowed"] is False
+        assert packet["memory_write_allowed"] is False
+        assert packet["raw_source_url_exported"] is False
+        assert packet["raw_evidence_urls_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert all(
+        not {"install", "provider_runtime", "runtime_execution"} & set(row.get("allowed_local_lanes", []))
+        for row in lane["rows"]
+    )
+
+
 def test_skill_route_discovery_current_digest_20260629T093324_pass3_reviews_routes_before_activation():
     fixture_path = (
         Path(__file__).parent

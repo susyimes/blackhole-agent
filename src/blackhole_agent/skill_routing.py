@@ -3112,7 +3112,30 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     current_230729_window = source_digest == "github-growth-20260628T230729.580958Z"
     current_002729_window = source_digest == "github-growth-20260629T002729.571892Z"
     current_061942_window = source_digest == "github-growth-20260629T061942.961537Z"
+    current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     proposal_specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_gate": "focused-evidence-review",
+                "validation_target": "compass_skill_ecosystem_routes_only_to_bounded_local_lanes",
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-generic",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                "validation_target": "document_generic_skill_workflow_route_interpretation",
+            },
+        )
+        if current_101324_window
+        else
         (
             {
                 "proposal_id": "p1-skill-route-discovery-compass-skills",
@@ -3308,6 +3331,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     adjacent_rows: list[dict[str, Any]] = []
     adjacent_proposal_ids = {
         "Qwen-AgentWorld": (
+            "p3-agent-harness-eval-general-agent-projects"
+            if current_101324_window
+            else
             "p3-agent-harness-qwen-agentworld"
             if current_061942_window
             else
@@ -3316,6 +3342,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             else "p2-agent-harness-eval-qwen-agentworld"
         ),
         "looper": (
+            "p3-agent-harness-eval-general-agent-projects"
+            if current_101324_window
+            else
             "p4-agent-harness-looper"
             if current_061942_window
             else
@@ -3325,6 +3354,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         ),
     }
     default_adjacent_proposal_id = (
+        "p3-agent-harness-eval-general-agent-projects"
+        if current_101324_window
+        else
         "p3-agent-harness-qwen-agentworld"
         if current_061942_window
         else
@@ -3360,6 +3392,15 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     )
     ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-skill-route-discovery-generic",
+            "p3-agent-harness-eval-general-agent-projects",
+            "p4-security-agent-review-boundary",
+            "p5-agent-routing-config-preflight",
+        ]
+        if current_101324_window
+        else
         [
             "p1-skill-route-discovery-compass-skills",
             "p2-skill-route-discovery-zhengxi-views",
@@ -5507,7 +5548,36 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_150729_window = source_digest == "github-growth-20260628T150729.645832Z"
     current_162729_window = source_digest == "github-growth-20260628T162729.568714Z"
     current_190729_window = source_digest == "github-growth-20260628T190729.559090Z"
+    current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_routes_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "prove COMPASS-style skill ecosystem repositories route only to documentation, "
+                    "config, test, or code_patch lanes before any profile or memory action"
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-generic",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_route_interpretation_note",
+                "validation_task": (
+                    "document that generic skill workflow trend signals are bounded local "
+                    "validation candidates and do not imply direct runtime action"
+                ),
+            },
+        )
+        if current_101324_window
+        else
         (
             {
                 "proposal_id": "p1-skill-route-discovery-index",
@@ -5724,6 +5794,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3-agent-harness-eval-general-agent-projects"
+            if current_101324_window
+            else
             "proposal_agent_harness_eval_fixtures"
             if current_162729_window
             else (
@@ -5764,6 +5837,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-skill-route-discovery-generic",
+            "p3-agent-harness-eval-general-agent-projects",
+            "p4-security-agent-review-boundary",
+            "p5-agent-routing-config-preflight",
+        ]
+        if current_101324_window
+        else
         [
             "proposal_skill_route_discovery_index",
             "proposal_game_frontend_skill_profile",
