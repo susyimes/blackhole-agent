@@ -35,6 +35,21 @@ The security-adjacent AutoCVE proposal remains review-only under
 `offensive-behavior-human-review`; no offensive, unauthorized-access, or
 exfiltration behavior is implemented by this lane.
 
+Source digest `github-growth-20260629T093324.244697Z` advances pass 3 by
+binding the active proposals to `pass3_current_wake_acceptance_packet` before
+the final handoff. zhengxi-views-style skill metadata selects the local test
+lane for bounded route discovery; COMPASS-style skill ecosystem handoff selects
+a documentation checklist lane before any profile, memory, config, or code
+change; Qwen-AgentWorld and looper remain adjacent
+`agent_harness_eval_required` evidence. The packet keeps unsupported install,
+provider runtime, and runtime execution pressure out of allowed local lanes and
+exports only hashes, counts, proposal IDs, selected item IDs, validation gates,
+and denial booleans. It does not export raw source URLs, replay commands,
+target paths, or upstream bodies, and it does not authorize upstream skill or
+agent activation, external harness execution, provider launch, profile writes,
+memory writes, remote execution, or direct code_patch work for general-agent
+projects before a local harness-evaluation result exists.
+
 Source digest `github-growth-20260629T075941.978810Z` completes pass 4 of the
 active `skill-route-discovery` window with
 `current_digest_pass4_final_closure`. The closure binds

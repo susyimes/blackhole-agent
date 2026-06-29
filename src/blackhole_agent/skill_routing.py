@@ -11976,7 +11976,46 @@ def _skill_route_discovery_pass3_current_wake_acceptance_packet(
     """Bind the active pass-3 proposals to bounded lanes and eval-only adjacency."""
 
     current_073942_window = source_digest == "github-growth-20260629T073942.884739Z"
-    if current_073942_window:
+    current_093324_window = source_digest == "github-growth-20260629T093324.244697Z"
+    if current_093324_window:
+        proposal_specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow_discovery",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_metadata_maps_to_bounded_local_lanes",
+                "replay_command": (
+                    "python -m pytest tests/test_skill_routing.py -q "
+                    "-k pass3_current_wake_acceptance_packet"
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-ecosystem-handoff-compass",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_compass_skill_ecosystem_handoff_checks_before_local_change",
+                "replay_command": "python -m pytest tests/test_docs_contracts.py -q -k skill_route_discovery",
+            },
+        )
+        adjacent_proposal_id = "p3-agent-harness-eval-general-projects"
+        adjacent_validation_target = (
+            "qwen_agentworld_and_looper_without_skill_workflow_stay_agent_harness_eval_required"
+        )
+        required_profiles = ("generic_skill_workflow", "skill_ecosystem_state_handoff")
+        required_evidence = [
+            "zhengxi_views_skill_route_metadata_fixture",
+            "compass_skill_ecosystem_handoff_fixture",
+            "general_agent_project_items_without_skill_workflow_signal",
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+        ]
+    elif current_073942_window:
         proposal_specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass",
