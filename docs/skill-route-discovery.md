@@ -20,6 +20,22 @@ external harness execution, provider launch, remote execution, profile writes,
 memory writes, raw URL export, replay-command export, or upstream body export
 until a local harness evaluation profile is assigned.
 
+Source digest `github-growth-20260629T061942.961537Z` starts the next pass-1
+`skill-route-discovery` window with a replayable current-window fixture for
+`p1-skill-route-discovery-compass-skills`,
+`p2-skill-route-discovery-zhengxi-views`, and adjacent
+`p3-agent-harness-qwen-agentworld`. COMPASS-style skill ecosystem evidence is
+treated as a local route-probe test lane: it can verify that handoff/profile
+signals stay bounded to documentation, config, test, or code_patch before any
+profile or memory write exists. zhengxi-views-style generic skill workflow
+evidence selects a documentation lane that records the expected local
+validation path before any code or config change. Qwen-AgentWorld repository
+and issue activity remain adjacent `agent_harness_eval_required` evidence; they
+do not inherit `skill_route_discovery`, direct runtime routing, direct
+code_patch authority, external harness execution, provider launch, remote
+execution, profile writes, memory writes, raw URL export, replay-command export,
+or upstream body export.
+
 Source digest `github-growth-20260629T002729.571892Z` starts the current
 pass-1 `skill-route-discovery` window with an operator-visible bounded lane for
 `p1-skill-route-discovery-zhengxi-views`,
