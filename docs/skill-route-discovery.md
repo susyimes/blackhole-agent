@@ -20,6 +20,21 @@ URLs, and upstream bodies denied. `Qwen-AgentWorld` and `looper` remain
 adjacent general-agent evidence unless a separate local harness-evaluation
 route validates them.
 
+Source digest `github-growth-20260629T091323.954837Z` advances pass 2 of the
+same active `skill-route-discovery` slice with a replayable local lane for
+COMPASS Skills, zhengxi-views, Qwen-AgentWorld, and looper. COMPASS-style skill
+ecosystem evidence selects a local test lane for state/profile handoff route
+metadata without profile writes or memory writes. zhengxi-views-style generic
+skill workflow evidence selects the documentation lane for bounded
+manifest/workflow interpretation. Qwen-AgentWorld and looper are now visible as
+distinct adjacent `agent_harness_eval_required` rows in focused review; neither
+inherits `skill_route_discovery`, direct runtime authority, direct code_patch
+authority, external harness execution, provider launch, remote execution, raw
+URL export, target-path export, replay-command export, or upstream body export.
+The security-adjacent AutoCVE proposal remains review-only under
+`offensive-behavior-human-review`; no offensive, unauthorized-access, or
+exfiltration behavior is implemented by this lane.
+
 Source digest `github-growth-20260629T075941.978810Z` completes pass 4 of the
 active `skill-route-discovery` window with
 `current_digest_pass4_final_closure`. The closure binds

@@ -6187,6 +6187,13 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         source_digest=source_digest,
     )
 
+    visible_active_proposal_ids = list(active_proposal_ids)
+    if compass_generic_only and any(
+        "looper" in " ".join((str(row.get("name") or ""), str(row.get("item_id") or ""))).casefold()
+        for row in adjacent_rows
+    ):
+        visible_active_proposal_ids.append("p4-agent-harness-looper")
+
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass2_local_validation_lane",
         "status": "ready" if ready else "blocked",
@@ -6201,7 +6208,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
-        "active_proposal_ids": active_proposal_ids,
+        "active_proposal_ids": list(dict.fromkeys(visible_active_proposal_ids)),
         "anchoring_proposal_ids": anchoring_proposal_ids,
         "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
@@ -6303,6 +6310,19 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         ),
         adjacent_rows[0] if adjacent_rows else {},
     )
+    focused_agent_rows: list[dict[str, Any]] = []
+    focused_agent_proposal_ids: set[str] = set()
+    for row in adjacent_rows:
+        proposal_id = _skill_route_discovery_current_digest_pass2_agent_proposal_id(row)
+        if proposal_id in focused_agent_proposal_ids:
+            continue
+        focused_agent_proposal_ids.add(proposal_id)
+        focused_agent_rows.append(
+            _skill_route_discovery_current_digest_pass2_focused_agent_row(
+                row,
+                proposal_id=proposal_id,
+            )
+        )
 
     if compass_generic_only:
         proposal_rows = [
@@ -6320,12 +6340,17 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
                 selected_local_lane="documentation",
                 validation_target="generic_skill_workflow_probe_route_documentation",
             ),
-            _skill_route_discovery_current_digest_pass2_focused_agent_row(
-                qwen_row,
-                proposal_id="p3-agent-harness-qwen-agentworld",
-            ),
+            *focused_agent_rows,
         ]
     else:
+        selected_focused_agent_rows = focused_agent_rows[:1] or [
+            _skill_route_discovery_current_digest_pass2_focused_agent_row(
+                qwen_row,
+                proposal_id="p2-agent-harness-eval-qwen-agentworld",
+            )
+        ]
+        if selected_focused_agent_rows:
+            selected_focused_agent_rows[0]["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
         proposal_rows = [
             _skill_route_discovery_current_digest_pass2_focused_skill_row(
                 generic_row,
@@ -6334,10 +6359,7 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
                 selected_local_lane="test",
                 validation_target="generic_skill_workflow_repository_metadata_probe",
             ),
-            _skill_route_discovery_current_digest_pass2_focused_agent_row(
-                qwen_row,
-                proposal_id="p2-agent-harness-eval-qwen-agentworld",
-            ),
+            *selected_focused_agent_rows,
             _skill_route_discovery_current_digest_pass2_focused_skill_row(
                 game_row,
                 proposal_id="p3-game-frontend-skill-route",
@@ -6376,7 +6398,8 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         "selected_skill_route_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
         ],
-        "agent_harness_eval_required": bool(qwen_row),
+        "agent_harness_eval_required": bool(adjacent_rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
         "agent_harness_eval_required_before_implementation": True,
         "agent_harness_eval_probe_requirements": [
             "install_shape",
@@ -6407,6 +6430,18 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         "raw_upstream_body_exported": False,
         "rows": proposal_rows,
     }
+
+
+def _skill_route_discovery_current_digest_pass2_agent_proposal_id(row: Mapping[str, Any]) -> str:
+    """Return a stable proposal id for adjacent pass-2 general-agent evidence."""
+
+    text = " ".join((str(row.get("name") or ""), str(row.get("item_id") or ""))).casefold()
+    if "looper" in text:
+        return "p4-agent-harness-looper"
+    if "qwen" in text or "agentworld" in text:
+        return "p3-agent-harness-qwen-agentworld"
+    slug = re.sub(r"[^a-z0-9]+", "-", text).strip("-") or "general-agent-project"
+    return f"p3-agent-harness-{slug}"
 
 
 def _skill_route_discovery_current_digest_pass2_focused_skill_row(
