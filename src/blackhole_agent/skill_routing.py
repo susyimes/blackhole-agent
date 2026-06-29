@@ -5619,7 +5619,36 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_171904_window = source_digest == "github-growth-20260629T171904.272271Z"
     current_195904_window = source_digest == "github-growth-20260629T195904.271855Z"
     current_211904_window = source_digest == "github-growth-20260629T211904.277568Z"
-    if current_211904_window:
+    current_223904_window = source_digest == "github-growth-20260629T223904.363629Z"
+    if current_223904_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_handoff_boundary_fixture",
+                "validation_task": (
+                    "verify COMPASS-style skill ecosystem handoff evidence maps only to "
+                    "bounded local lanes and does not imply upstream setup, execution, profile write, "
+                    "or memory write authority"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-route-coverage-zhengxi",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "zhengxi_generic_skill_workflow_interpretation_path",
+                "validation_task": (
+                    "document that zhengxi-style skill workflow evidence becomes a local "
+                    "documentation or validation candidate while runtime_action remains none"
+                ),
+            },
+        )
+    elif current_211904_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass-zhengxi",
@@ -5955,6 +5984,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3-agent-harness-eval-qwen-agentworld"
+            if current_223904_window
+            else
             "p2-agent-harness-eval-for-general-agent-projects"
             if current_211904_window
             else
@@ -5986,6 +6018,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_223904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-loop-runner-eval"
         if current_211904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p3-agent-harness-fixture-for-trend-items"
         if current_195904_window and str(row.get("name") or "").casefold() == "looper":
@@ -6013,6 +6047,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-route-coverage-zhengxi",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-loop-runner-eval",
+            "p5-security-agent-risk-gated-eval",
+            "trend:dongshuyan/compass-skills-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_223904_window
+        else
         [
             "p1-skill-route-discovery-compass-zhengxi",
             "p2-agent-harness-eval-for-general-agent-projects",
@@ -6158,7 +6205,11 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "review_only_anchor_notes": (
             [
                 {
-                    "proposal_id": "security-adjacent-autocve",
+                    "proposal_id": (
+                        "p5-security-agent-risk-gated-eval"
+                        if current_223904_window
+                        else "security-adjacent-autocve"
+                    ),
                     "evidence_class": "security_agent_context",
                     "route_influence": "none",
                     "review_reason": "offensive_behavior_boundary",
@@ -6169,7 +6220,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                     "remote_execution_allowed": False,
                 }
             ]
-            if current_211904_window
+            if current_223904_window or current_211904_window
             else []
         ),
         "operator_next_action": (

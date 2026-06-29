@@ -27,6 +27,27 @@ inherit `skill_route_discovery`, direct runtime routing, direct code_patch
 authority, external harness execution, provider launch, profile writes, memory
 writes, or remote execution.
 
+Source digest `github-growth-20260629T223904.363629Z` starts pass 1 of the
+active `skill-route-discovery` window with an explicit
+`current_digest_pass1_validation_lane` replay surface. COMPASS-style skill
+ecosystem handoff evidence maps to `p1-skill-route-discovery-compass` in the
+local test lane. zhengxi-views-style generic skill workflow evidence maps to
+`p2-generic-skill-route-coverage-zhengxi` in the documentation lane. Both rows
+may select only documentation, config, test, or code_patch and keep
+`runtime_action: none`, `local_validation_required: true`, and external skill,
+agent, harness, provider, profile, memory, and remote execution authority
+denied.
+
+Qwen-AgentWorld and looper remain adjacent general-agent evidence for this
+pass. They are represented as `agent_harness_eval_required` rows under
+`p3-agent-harness-eval-qwen-agentworld` and `p4-agent-loop-runner-eval`; they
+do not inherit `skill_route_discovery`, direct runtime routing, direct
+code_patch authority, external harness execution, provider launch, profile
+writes, memory writes, remote execution, raw URL export, replay-command export,
+or upstream body export. `p5-security-agent-risk-gated-eval` remains a
+review-only anchor at the offensive-behavior boundary and has no route
+influence.
+
 Source digest `github-growth-20260629T215904.320352Z` advances pass 3 of the
 active `skill-route-discovery` window with
 `current_digest_pass3_activation_review_lane`. The lane turns the current
