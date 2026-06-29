@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260629T233904.362379Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 4,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-compass",
+      "p2-generic-skill-route-coverage-zhengxi",
+      "p3-agent-harness-eval-qwen-agentworld",
+      "p4-agent-loop-runner-eval",
+      "p5-security-agent-risk-gated-eval",
+      "p2-generic-skill-workflow-zhengxi",
+      "p3-agent-harness-eval-agentworld",
+      "p4-agent-harness-eval-looper",
+      "p5-security-agent-review-harness-autocve",
+      "p1-skill-route-discovery-compass-zhengxi",
+      "p2-agent-harness-eval-general-projects",
+      "p3-route-metadata-documentation"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260629T233904.362379Z",
+      "item_id": "trend:dongshuyan/compass-skills-1",
+      "item_kind": "repository",
+      "name": "compass-skills",
+      "source_url": "https://github.com/dongshuyan/compass-skills",
+      "title": "COMPASS skill ecosystem route evidence",
+      "summary": "Public skills ecosystem with skills directory, skills registry metadata, SKILL.md style workflow records, profile handoff pressure, local memory boundary pressure, and validation notes. The local route may not install, execute, write profiles, or write memory.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "skills", "profile", "handoff", "local-memory", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"]
+    },
+    {
+      "source_digest": "github-growth-20260629T233904.362379Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Generic Agent Skill workflow route evidence",
+      "summary": "Public Agent Skill workflow evidence with SKILL.md entrypoint signals, references, validation notes, configuration hints, and no external activation request.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent", "skill", "workflow", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"]
+    },
+    {
+      "source_digest": "github-growth-20260629T233904.362379Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "Qwen-AgentWorld adjacent general-agent evaluation project",
+      "summary": "General-agent evaluation project with benchmark, environment, and agent harness material but without skill workflow route hints or local skill package layout signals.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "benchmark", "evaluation", "environment"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260629T233904.362379Z",
+      "item_id": "trend:ksimback/looper-1",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "Looper adjacent general-agent loop project",
+      "summary": "General-agent loop-control project with scheduling and review-gated loop design pressure, but without skill workflow route hints or local skill package layout signals.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "loop", "scheduler", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

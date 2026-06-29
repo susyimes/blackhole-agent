@@ -4355,6 +4355,30 @@ evidence remains `agent_harness_eval_required`; it does not inherit
 `skill_route_discovery`, direct runtime authority, direct code_patch authority,
 external harness execution, provider launch, or remote execution.
 
+Source digest `github-growth-20260629T233904.362379Z` completes pass 4 of the
+current `skill-route-discovery` window with a digest-specific final closure
+fixture and replay surface. The completion handoff names the current proposals
+directly: `p1-skill-route-discovery-compass`,
+`p2-generic-skill-route-coverage-zhengxi`, and
+`p3-agent-harness-eval-qwen-agentworld`.
+
+COMPASS-style skill ecosystem evidence maps to the local test lane for
+metadata-only state-handoff validation. zhengxi-views-style Agent Skill
+workflow evidence maps to the documentation lane. A third local test row keeps
+the skill-workflow versus general-agent boundary explicit. Qwen-AgentWorld and
+looper remain adjacent general-agent projects: Qwen is the final-closure
+`agent_harness_eval_required` boundary and looper is the pass-4 handoff
+adjacent loop-runner eval row. Neither inherits `skill_route_discovery` or
+direct runtime/code_patch authority before local harness evaluation.
+
+The current digest pass-4 surfaces are body-free and supervisor-facing. They
+export proposal IDs, selected item IDs, lane names, route profiles, hashes, and
+denial booleans only. Raw source URLs, raw evidence URLs, replay command
+bodies, target paths, upstream bodies, install, provider runtime, runtime
+execution, profile writes, memory writes, remote execution, external skill
+activation, external agent activation, and external harness execution remain
+denied.
+
 ## Final Route Closure Manifest
 
 The pass-4 local-kernel handoff now includes
