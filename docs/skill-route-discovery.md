@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260629T201904.282006Z` advances pass 2 of the
+active `skill-route-discovery` window by adding an explicit
+`skill_ecosystem_handoff_path` inside
+`current_digest_pass2_local_validation_lane`. The path binds the active
+proposal IDs `p1-skill-route-discovery-index`,
+`p2-skill-ecosystem-handoff-doc`, and `p3-agent-harness-eval-baseline` to the
+same bounded evidence used by the pass-2 route rows. COMPASS-style skill
+ecosystem evidence selects the local test lane for metadata-only state handoff
+validation. zhengxi-views-style generic skill workflow evidence selects the
+documentation lane for handoff documentation. Both may lead only to
+documentation, config, test, or code_patch after focused local validation.
+
+Qwen-AgentWorld and looper remain adjacent general-agent projects in this
+pass. They are represented by the baseline `agent_harness_eval_required` path
+with documentation, test, or code_patch as possible outputs only after local
+harness evaluation exists. They do not inherit `skill_route_discovery`, direct
+runtime routing, direct code_patch authority, external harness execution,
+provider launch, profile writes, memory writes, remote execution, raw source
+URL export, raw evidence URL export, target-path export, replay-command export,
+or upstream body export. Unsupported install, provider-runtime, and
+runtime-execution pressure is downgraded before it can become lane authority.
+
 Source digest `github-growth-20260629T193904.337686Z` completes pass 4 of the
 active `skill-route-discovery` window by adding
 `route_boundary_checklist` to `current_digest_pass4_completion_handoff`.

@@ -6124,6 +6124,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
 
     current_103324_window = source_digest == "github-growth-20260629T103324.012579Z"
     current_173904_window = source_digest == "github-growth-20260629T173904.211836Z"
+    current_201904_window = source_digest == "github-growth-20260629T201904.282006Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -6279,6 +6280,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         [
             "p1-skill-route-discovery-compass-skills",
             "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-boundary-autocve",
+            "p1-skill-route-discovery-index",
+            "p2-skill-ecosystem-handoff-doc",
+            "p3-agent-harness-eval-baseline",
+            "p4-agent-project-route-doc",
+            "p5-security-agent-harness-review-gate",
+        ]
+        if current_201904_window
+        else
+        [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-generic-skill-workflow-probe",
             "p3-agent-harness-qwen-agentworld",
         ]
         if compass_generic_only
@@ -6314,6 +6329,24 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "p5-security-agent-harness-autocve",
         ]
         if current_173904_window
+        else
+        [
+            "p1-skill-route-discovery-compass-skills",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-harness-eval-looper",
+            "p5-security-agent-review-boundary-autocve",
+            "p1-skill-route-discovery-index",
+            "p2-skill-ecosystem-handoff-doc",
+            "p3-agent-harness-eval-baseline",
+            "p4-agent-project-route-doc",
+            "p5-security-agent-harness-review-gate",
+            "trend:dongshuyan/compass-skills-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_201904_window
         else
         [
             "p1-skill-route-discovery-compass-skills",
@@ -6457,11 +6490,15 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         proposal_id=(
             "p2-agent-harness-eval-fixtures"
             if current_103324_window
+            else "p3-agent-harness-eval-qwen-agentworld"
+            if current_201904_window
             else "p4-agent-harness-eval-qwen"
         ),
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_201904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-harness-eval-looper"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -6492,9 +6529,14 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         adjacent_rows,
         source_digest=source_digest,
     )
+    skill_ecosystem_handoff_path = _skill_route_discovery_current_digest_pass2_skill_ecosystem_handoff_path(
+        rows,
+        adjacent_rows,
+        source_digest=source_digest,
+    )
 
     visible_active_proposal_ids = list(active_proposal_ids)
-    if compass_generic_only and not current_103324_window and any(
+    if compass_generic_only and not current_103324_window and not current_201904_window and any(
         "looper" in " ".join((str(row.get("name") or ""), str(row.get("item_id") or ""))).casefold()
         for row in adjacent_rows
     ):
@@ -6583,6 +6625,147 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "adjacent_general_agent_rows": adjacent_rows,
         "focused_evidence_review_lane": focused_review_lane,
         "active_slice_review_lane": active_slice_review_lane,
+        "skill_ecosystem_handoff_path": skill_ecosystem_handoff_path,
+    }
+
+
+def _skill_route_discovery_current_digest_pass2_skill_ecosystem_handoff_path(
+    rows: Sequence[Mapping[str, Any]],
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Describe the pass-2 state handoff path without granting write authority."""
+
+    current_201904_window = source_digest == "github-growth-20260629T201904.282006Z"
+    compass_row = next(
+        (
+            row
+            for row in rows
+            if "skill_ecosystem_state_handoff" in set(_string_list(row.get("route_profiles")))
+        ),
+        {},
+    )
+    generic_row = next(
+        (
+            row
+            for row in rows
+            if "generic_skill_workflow" in set(_string_list(row.get("route_profiles")))
+        ),
+        {},
+    )
+    bounded_skill_rows = [row for row in (compass_row, generic_row) if isinstance(row, Mapping) and row]
+    selected_lanes = [
+        str(row.get("selected_local_lane") or "")
+        for row in bounded_skill_rows
+        if str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    blocked_proposal_ids: list[str] = []
+    if compass_row.get("status") != "ready":
+        blocked_proposal_ids.append("p1-skill-route-discovery-index")
+    if generic_row.get("status") != "ready":
+        blocked_proposal_ids.append("p2-skill-ecosystem-handoff-doc")
+    adjacent_ready = bool(adjacent_rows) and all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("direct_runtime_route_allowed") is False
+        and row.get("direct_code_patch_route_allowed") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        for row in adjacent_rows
+    )
+    if not adjacent_ready:
+        blocked_proposal_ids.append("p3-agent-harness-eval-baseline")
+    ready = not blocked_proposal_ids
+
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_pass2_skill_ecosystem_handoff_path",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "skill_ecosystem_discovery_has_bounded_state_handoff_and_adjacent_agent_eval_path"
+            if ready
+            else "repair_skill_ecosystem_handoff_or_adjacent_agent_eval_path"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 2,
+        "total_passes": 4,
+        "proposal_ids": (
+            [
+                "p1-skill-route-discovery-index",
+                "p2-skill-ecosystem-handoff-doc",
+                "p3-agent-harness-eval-baseline",
+            ]
+            if current_201904_window
+            else [
+                "p1-skill-route-discovery-index",
+                "p2-skill-ecosystem-handoff-doc",
+                "p3-agent-harness-eval-fixtures",
+            ]
+        ),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "skill_route_handoff_outputs": ["documentation", "config", "test", "code_patch"],
+        "selected_skill_route_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "state_handoff_boundary": {
+            "profile_write_allowed": False,
+            "memory_write_allowed": False,
+            "privacy_boundary_required": True,
+            "local_target": "metadata_only_route_validation",
+        },
+        "skill_rows": [
+            {
+                "proposal_id": "p1-skill-route-discovery-index"
+                if "skill_ecosystem_state_handoff" in set(_string_list(row.get("route_profiles")))
+                else "p2-skill-ecosystem-handoff-doc",
+                "candidate_names": _string_list(row.get("candidate_names")),
+                "route_profiles": _string_list(row.get("route_profiles")),
+                "allowed_local_lanes": [
+                    lane
+                    for lane in _string_list(row.get("allowed_local_lanes"))
+                    if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                ],
+                "selected_local_lane": str(row.get("selected_local_lane") or ""),
+                "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
+                "validation_gates": _string_list(row.get("validation_gates")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+            }
+            for row in bounded_skill_rows
+        ],
+        "adjacent_general_agent_eval": {
+            "proposal_id": "p3-agent-harness-eval-baseline",
+            "evaluation_lane": "agent_harness_eval_required",
+            "item_ids": [
+                str(row.get("item_id") or "")
+                for row in adjacent_rows
+                if isinstance(row, Mapping) and str(row.get("item_id") or "")
+            ],
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "skill_route_discovery_inherited": False,
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "local_validation_required": True,
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
@@ -6632,6 +6815,7 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
 
     if compass_generic_only:
         current_173904_window = source_digest == "github-growth-20260629T173904.211836Z"
+        current_201904_window = source_digest == "github-growth-20260629T201904.282006Z"
         proposal_rows = [
             _skill_route_discovery_current_digest_pass2_focused_skill_row(
                 compass_row,
@@ -6645,6 +6829,8 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
                 proposal_id=(
                     "p2-skill-route-discovery-zhengxi-views"
                     if current_173904_window
+                    else "p2-generic-skill-workflow-probe"
+                    if current_201904_window
                     else "p2-generic-skill-workflow-probe"
                 ),
                 proposal_kind="documentation",
@@ -6887,9 +7073,10 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
 
     current_103324_window = source_digest == "github-growth-20260629T103324.012579Z"
     current_173904_window = source_digest == "github-growth-20260629T173904.211836Z"
+    current_201904_window = source_digest == "github-growth-20260629T201904.282006Z"
     required_skill_profiles = (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
-        if current_103324_window or current_173904_window
+        if current_103324_window or current_173904_window or current_201904_window
         else ("generic_skill_workflow", "game_frontend_workflow", "skill_ecosystem_state_handoff")
     )
     index_row = _skill_route_discovery_current_digest_pass2_active_skill_row(
@@ -6899,6 +7086,8 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             if current_103324_window
             else "p1-skill-route-discovery-compass-skills"
             if current_173904_window
+            else "p1-skill-route-discovery-index"
+            if current_201904_window
             else "p1-skill-route-discovery-index"
         ),
         proposal_kind="test",
@@ -6917,6 +7106,8 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             if current_103324_window
             else "p2-skill-route-discovery-zhengxi-views"
             if current_173904_window
+            else "p2-skill-ecosystem-handoff-doc"
+            if current_201904_window
             else "p2-skill-profile-docs"
         ),
         proposal_kind="documentation",
@@ -6935,6 +7126,8 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             if current_103324_window
             else "p3-agent-harness-qwen-agentworld"
             if current_173904_window
+            else "p3-agent-harness-eval-baseline"
+            if current_201904_window
             else "p3-agent-harness-eval-fixtures"
         ),
     )
@@ -6995,6 +7188,19 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
                 "p5-security-agent-harness-autocve",
             ]
             if current_173904_window
+            else [
+                "p1-skill-route-discovery-compass-skills",
+                "p2-generic-skill-workflow-probe",
+                "p3-agent-harness-eval-qwen-agentworld",
+                "p4-agent-harness-eval-looper",
+                "p5-security-agent-review-boundary-autocve",
+                "p1-skill-route-discovery-index",
+                "p2-skill-ecosystem-handoff-doc",
+                "p3-agent-harness-eval-baseline",
+                "p4-agent-project-route-doc",
+                "p5-security-agent-harness-review-gate",
+            ]
+            if current_201904_window
             else [
                 "p1-threejs-game-skill-route-discovery",
                 "p2-generic-skill-workflow-documentation",
