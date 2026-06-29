@@ -111,7 +111,10 @@ SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS: Mapping[str, tuple[str, ...]] = {
 SKILL_ROUTE_DISCOVERY_LAYOUT_SIGNAL_LANES: Mapping[str, tuple[str, ...]] = {
     "skill_markdown": ("documentation", "config"),
     "skill_directory": ("documentation", "config"),
+    "reference_directory": ("documentation", "test"),
+    "progressive_skill_package": ("documentation", "config", "test"),
     "agent_metadata": ("config",),
+    "skill_manifest": ("config",),
     "skill_registry_metadata": ("config",),
     "validation_script": ("test", "code_patch"),
     "test_file": ("test",),
@@ -479,6 +482,12 @@ class ExternalSkillRepositorySummary:
     def to_candidate(self) -> ExternalSkillRouteCandidate | None:
         if not _looks_like_skill_repository_summary(self):
             return None
+        source_layout_signals = _skill_repository_layout_signals(self)
+        source_metadata_signals = _skill_repository_metadata_signals(self)
+        source_layout_signals, source_metadata_signals = _skill_repository_progressive_package_signals(
+            source_layout_signals,
+            source_metadata_signals,
+        )
         return ExternalSkillRouteCandidate(
             name=self.name,
             source_url=self.source_url,
@@ -486,8 +495,8 @@ class ExternalSkillRepositorySummary:
             discovery_event_kind=self.discovery_event_kind,
             candidate_lanes=_bounded_skill_discovery_lanes(self),
             related_source_urls=_summary_related_source_urls(self),
-            source_layout_signals=_skill_repository_layout_signals(self),
-            source_metadata_signals=_skill_repository_metadata_signals(self),
+            source_layout_signals=source_layout_signals,
+            source_metadata_signals=source_metadata_signals,
             validation_status="unvalidated",
             enabled=False,
         )
@@ -1094,6 +1103,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         state_boundary_metadata = _skill_route_discovery_state_boundary_metadata(candidate)
         domain_research_boundary_metadata = _skill_route_discovery_domain_research_boundary_metadata(candidate)
         public_activity_policy = _skill_route_discovery_public_activity_policy_field(candidate)
+        progressive_package_contract = _skill_route_discovery_progressive_package_contract(candidate, allowed_lanes)
         route_profiles = _string_list(candidate.get("route_profiles"))
         validation_contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
         handoff_metadata = _skill_route_discovery_handoff_metadata(
@@ -1131,6 +1141,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 **state_boundary_metadata,
                 **domain_research_boundary_metadata,
                 **public_activity_policy,
+                **progressive_package_contract,
             }
         )
 
@@ -1176,6 +1187,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     **state_boundary_metadata,
                     **domain_research_boundary_metadata,
                     **public_activity_policy,
+                    **progressive_package_contract,
                 }
             )
 
@@ -1680,9 +1692,13 @@ def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> t
         for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
         if any(keyword in text for keyword in SKILL_ROUTE_DISCOVERY_LANE_KEYWORDS[lane])
     )
+    source_layout_signals, source_metadata_signals = _skill_repository_progressive_package_signals(
+        _skill_repository_layout_signals(summary),
+        _skill_repository_metadata_signals(summary),
+    )
     layout_lanes = tuple(
         lane
-        for signal in (*_skill_repository_layout_signals(summary), *_skill_repository_metadata_signals(summary))
+        for signal in (*source_layout_signals, *source_metadata_signals)
         for lane in SKILL_ROUTE_DISCOVERY_LAYOUT_SIGNAL_LANES.get(signal, ())
     )
     lanes = tuple(dict.fromkeys((*suggested, *keyword_lanes)))
@@ -1851,6 +1867,60 @@ def _skill_route_discovery_public_activity_policy(signals: Sequence[str]) -> dic
         "external_skill_activation_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+    }
+
+
+def _skill_route_discovery_progressive_package_contract(
+    candidate: Mapping[str, Any],
+    allowed_lanes: Sequence[str],
+) -> dict[str, Any]:
+    """Expose manifest/reference package validation without enabling upstream code."""
+
+    source_layout_signals = _string_list(candidate.get("source_layout_signals"))
+    source_metadata_signals = _string_list(candidate.get("source_metadata_signals"))
+    if "progressive_skill_package" not in source_layout_signals:
+        return {}
+
+    present_signals = list(dict.fromkeys((*source_layout_signals, *source_metadata_signals)))
+    preferred_lanes = [
+        lane
+        for lane in ("documentation", "config", "test")
+        if lane in set(allowed_lanes) and lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    required_signals = [
+        "skill_markdown_or_directory",
+        "skill_manifest",
+        "reference_directory",
+    ]
+    return {
+        "progressive_skill_package_contract": {
+            "controller_surface": "skill_route_discovery_progressive_skill_package_contract",
+            "status": "ready" if preferred_lanes else "blocked_no_bounded_local_lane",
+            "decision": (
+                "validate_manifest_and_references_before_activation"
+                if preferred_lanes
+                else "repair_progressive_skill_package_lanes_before_activation"
+            ),
+            "package_shape": "root_manifest_with_progressively_loaded_references",
+            "required_source_signals": required_signals,
+            "present_source_signals": present_signals,
+            "preferred_local_lanes": preferred_lanes,
+            "validation_requirements": [
+                "inspect_root_skill_manifest_before_references",
+                "validate_referenced_files_with_local_documentation_config_or_test_lane",
+                "keep_validation_scripts_non_executable_until_local_test_lane_selects_them",
+            ],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
     }
 
 
@@ -16588,6 +16658,8 @@ def _skill_repository_layout_signals(summary: ExternalSkillRepositorySummary) ->
             signals.append("skill_markdown")
         if "skills" in parts:
             signals.append("skill_directory")
+        if "references" in parts:
+            signals.append("reference_directory")
         if basename in {"agents.md", ".agents.md"} or "agents" in parts:
             signals.append("agent_metadata")
         if basename.startswith("test_") or basename.endswith("_test.py") or "/tests/" in f"/{path}/":
@@ -16616,6 +16688,8 @@ def _skill_repository_metadata_signals(summary: ExternalSkillRepositorySummary) 
     signals: list[str] = []
     for path in files:
         basename = path.rsplit("/", 1)[-1]
+        if basename in {"skill.yml", "skill.yaml"}:
+            signals.append("skill_manifest")
         if basename in {"skills.sh.json", "skill.json", "plugin.json", "manifest.json"}:
             signals.append("skill_registry_metadata")
         if basename in {"agents.md", ".agents.md"} or ".codex-plugin/" in path or "/plugins/" in f"/{path}":
@@ -16623,6 +16697,22 @@ def _skill_repository_metadata_signals(summary: ExternalSkillRepositorySummary) 
         if basename in {"publication_audit.md", "security.md"} or "audit" in basename:
             signals.append("qa_checklist")
     return tuple(dict.fromkeys(signals))
+
+
+def _skill_repository_progressive_package_signals(
+    source_layout_signals: Sequence[str],
+    source_metadata_signals: Sequence[str],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Mark packages that require root-manifest-first progressive disclosure."""
+
+    layout_signals = list(dict.fromkeys(source_layout_signals))
+    metadata_signals = list(dict.fromkeys(source_metadata_signals))
+    has_skill_entry = bool({"skill_markdown", "skill_directory"} & set(layout_signals))
+    has_manifest = "skill_manifest" in metadata_signals
+    has_references = "reference_directory" in layout_signals
+    if has_skill_entry and has_manifest and has_references:
+        layout_signals.append("progressive_skill_package")
+    return tuple(dict.fromkeys(layout_signals)), tuple(metadata_signals)
 
 
 def _merge_external_skill_route_candidates(

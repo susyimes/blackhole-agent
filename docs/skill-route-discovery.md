@@ -5,6 +5,21 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260629T081941.626098Z` starts pass 1 of the
+active `skill-route-discovery` window with `zhengxi-views`,
+`Qwen-AgentWorld`, `looper`, and `compass-skills` as anchoring proposal
+evidence. The reusable lesson selected from `zhengxi-views` is the
+root-manifest-plus-references package shape: a `SKILL.md` entry point, root
+`skill.yml` manifest, `references/` material, and scripts should become a
+bounded progressive skill-package contract, not immediate upstream activation.
+The local lane map now marks that shape as `progressive_skill_package`, exposes
+manifest/reference validation requirements on candidate inventory and proposal
+lanes, and keeps runtime action, external skill activation, external harness
+execution, provider launch, remote execution, raw target paths, raw evidence
+URLs, and upstream bodies denied. `Qwen-AgentWorld` and `looper` remain
+adjacent general-agent evidence unless a separate local harness-evaluation
+route validates them.
+
 Source digest `github-growth-20260629T075941.978810Z` completes pass 4 of the
 active `skill-route-discovery` window with
 `current_digest_pass4_final_closure`. The closure binds

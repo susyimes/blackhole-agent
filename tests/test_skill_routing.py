@@ -597,6 +597,68 @@ def test_skill_route_discovery_classifies_body_free_file_layout_into_local_lanes
     } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
 
 
+def test_skill_route_discovery_progressive_skill_package_contract_is_operator_visible():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "summary": (
+                    "Agent skill package with source-cited research workflow, validation scripts, "
+                    "citation boundaries, and advice disclaimer language."
+                ),
+                "observed_paths": [
+                    "SKILL.md",
+                    "skill.yml",
+                    "references/citation-boundary.md",
+                    "references/advice-disclaimer.md",
+                    "scripts/validate_package.py",
+                ],
+                "metadata_files": ["skill.yml"],
+            }
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    candidate = registry["candidates"][0]
+    assert candidate["candidate_lanes"] == ["documentation", "test", "code_patch", "config"]
+    assert candidate["source_layout_signals"] == [
+        "skill_markdown",
+        "reference_directory",
+        "validation_script",
+        "progressive_skill_package",
+    ]
+    assert candidate["source_metadata_signals"] == ["skill_manifest"]
+
+    inventory_row = lane_map["candidate_lane_inventory"][0]
+    contract = inventory_row["progressive_skill_package_contract"]
+    assert contract["controller_surface"] == "skill_route_discovery_progressive_skill_package_contract"
+    assert contract["status"] == "ready"
+    assert contract["package_shape"] == "root_manifest_with_progressively_loaded_references"
+    assert contract["preferred_local_lanes"] == ["documentation", "config", "test"]
+    assert contract["validation_requirements"] == [
+        "inspect_root_skill_manifest_before_references",
+        "validate_referenced_files_with_local_documentation_config_or_test_lane",
+        "keep_validation_scripts_non_executable_until_local_test_lane_selects_them",
+    ]
+    assert contract["local_validation_required"] is True
+    assert contract["runtime_action"] == "none"
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["raw_upstream_body_exported"] is False
+
+    proposal_contracts = [
+        lane["progressive_skill_package_contract"]
+        for lane in lane_map["proposal_lanes"]
+        if lane["candidate_name"] == "zhengxi-views"
+    ]
+    assert proposal_contracts
+    assert all(proposal_contract["runtime_action"] == "none" for proposal_contract in proposal_contracts)
+    assert all(
+        proposal_contract["external_skill_activation_allowed"] is False
+        for proposal_contract in proposal_contracts
+    )
+
+
 def test_skill_route_discovery_summary_classifier_collapses_fork_lineage():
     registry = build_skill_route_discovery_registry_from_summaries(
         [
@@ -8649,8 +8711,11 @@ def test_skill_route_discovery_zhengxi_skill_metadata_maps_to_bounded_local_lane
     assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     assert candidate["source_layout_signals"] == [
         "skill_markdown",
+        "reference_directory",
         "validation_script",
+        "progressive_skill_package",
     ]
+    assert candidate["source_metadata_signals"] == ["skill_manifest"]
     assert candidate["requested_actions"] == []
     assert candidate["enabled"] is False
     assert candidate["validation_errors"] == []
@@ -8671,6 +8736,10 @@ def test_skill_route_discovery_zhengxi_skill_metadata_maps_to_bounded_local_lane
     assert inventory["external_skill_activation_allowed"] is False
     assert inventory["handoff_metadata"]["external_harness_execution_allowed"] is False
     assert inventory["handoff_metadata"]["provider_runtime_launch_allowed"] is False
+    assert inventory["progressive_skill_package_contract"]["status"] == "ready"
+    assert inventory["progressive_skill_package_contract"]["package_shape"] == (
+        "root_manifest_with_progressively_loaded_references"
+    )
 
     assert {
         lane["proposal_kind"]
