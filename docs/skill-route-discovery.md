@@ -18,6 +18,20 @@ external harness execution, provider launch, remote execution, profile writes,
 memory writes, raw source URL export, raw evidence URL export, target-path
 export, replay-command export, or upstream body export.
 
+Source digest `github-growth-20260629T103324.012579Z` advances pass 2 of the
+same slice with an operator-visible local validation lane for
+`p1-skill-route-discovery-registry`, `p2-agent-harness-eval-fixtures`, and
+`p3-skill-route-docs`. COMPASS-style skill ecosystem evidence maps to the
+local test lane, zhengxi-views-style generic skill workflow evidence maps to
+the documentation lane, and both rows remain bounded to documentation, config,
+test, or code_patch with `local_validation_required: true`. Qwen-AgentWorld and
+looper stay adjacent as `agent_harness_eval_required` evidence: they do not
+inherit `skill_route_discovery`, direct runtime authority, direct code_patch
+authority, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw source URL export, raw evidence URL export,
+target-path export, replay-command export, or upstream body export before a
+local harness-evaluation route exists.
+
 Source digest `github-growth-20260629T081941.626098Z` starts pass 1 of the
 active `skill-route-discovery` window with `zhengxi-views`,
 `Qwen-AgentWorld`, `looper`, and `compass-skills` as anchoring proposal

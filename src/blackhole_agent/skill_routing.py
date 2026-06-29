@@ -5977,6 +5977,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
 ) -> dict[str, Any]:
     """Expose current digest pass-2 proposals as bounded local validation lanes."""
 
+    current_103324_window = source_digest == "github-growth-20260629T103324.012579Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -5990,15 +5991,30 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     specs = (
         (
             {
-                "proposal_id": "p1-skill-route-discovery-compass-skills",
+                "proposal_id": (
+                    "p1-skill-route-discovery-registry"
+                    if current_103324_window
+                    else "p1-skill-route-discovery-compass-skills"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "skill_ecosystem_state_handoff",
                 "route_profiles": ("skill_ecosystem_state_handoff",),
                 "selected_local_lane": "test",
-                "validation_target": "skill_ecosystem_handoff_route_probe_fixture",
+                "validation_target": (
+                    "compass_and_zhengxi_skill_terms_stay_bounded_local_lanes"
+                    if current_103324_window
+                    else "skill_ecosystem_handoff_route_probe_fixture"
+                ),
                 "validation_task": (
-                    "detect skill manifests, state handoff conventions, and route metadata "
-                    "without installing, executing, writing profiles, or writing memory"
+                    (
+                        "validate skill-term repository evidence maps only to documentation, "
+                        "config, test, or code_patch lanes with local validation required"
+                    )
+                    if current_103324_window
+                    else (
+                        "detect skill manifests, state handoff conventions, and route metadata "
+                        "without installing, executing, writing profiles, or writing memory"
+                    )
                 ),
                 "expected_input_signals": (
                     "skill_directory",
@@ -6008,15 +6024,30 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 ),
             },
             {
-                "proposal_id": "p2-generic-skill-workflow-probe",
+                "proposal_id": (
+                    "p3-skill-route-docs"
+                    if current_103324_window
+                    else "p2-generic-skill-workflow-probe"
+                ),
                 "proposal_kind": "documentation",
                 "proposal_track": "generic_skill_workflow",
                 "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
                 "selected_local_lane": "documentation",
-                "validation_target": "generic_skill_workflow_probe_route_documentation",
+                "validation_target": (
+                    "skill_route_discovery_evidence_interpretation_docs"
+                    if current_103324_window
+                    else "generic_skill_workflow_probe_route_documentation"
+                ),
                 "validation_task": (
-                    "document sufficient evidence for manifest detection, non-execution "
-                    "inspection, bounded lane mapping, uncertainty recording, and rollback"
+                    (
+                        "document when skill-route evidence is a discovery signal rather "
+                        "than an upstream implementation instruction"
+                    )
+                    if current_103324_window
+                    else (
+                        "document sufficient evidence for manifest detection, non-execution "
+                        "inspection, bounded lane mapping, uncertainty recording, and rollback"
+                    )
                 ),
                 "expected_input_signals": (
                     "skill_markdown",
@@ -6083,6 +6114,13 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     )
     active_proposal_ids = (
         [
+            "p1-skill-route-discovery-registry",
+            "p2-agent-harness-eval-fixtures",
+            "p3-skill-route-docs",
+        ]
+        if current_103324_window
+        else
+        [
             "p1-skill-route-discovery-compass-skills",
             "p2-generic-skill-workflow-probe",
             "p3-agent-harness-qwen-agentworld",
@@ -6095,6 +6133,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         ]
     )
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-skill-route-discovery-generic",
+            "p3-agent-harness-eval-general-agent-projects",
+            "p4-security-agent-review-boundary",
+            "p5-agent-routing-config-preflight",
+            "p1-skill-route-discovery-registry",
+            "p2-agent-harness-eval-fixtures",
+            "p3-skill-route-docs",
+            "p4-provider-agent-preflight",
+            "p5-autocve-review-gate",
+        ]
+        if current_103324_window
+        else
         [
             "p1-skill-route-discovery-compass-skills",
             "p2-skill-route-discovery-zhengxi-views",
@@ -6234,7 +6286,11 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     adjacent_rows: list[dict[str, Any]] = []
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="p4-agent-harness-eval-qwen",
+        proposal_id=(
+            "p2-agent-harness-eval-fixtures"
+            if current_103324_window
+            else "p4-agent-harness-eval-qwen"
+        ),
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
@@ -6270,7 +6326,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     )
 
     visible_active_proposal_ids = list(active_proposal_ids)
-    if compass_generic_only and any(
+    if compass_generic_only and not current_103324_window and any(
         "looper" in " ".join((str(row.get("name") or ""), str(row.get("item_id") or ""))).casefold()
         for row in adjacent_rows
     ):
@@ -6656,23 +6712,51 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
 ) -> dict[str, Any]:
     """Map the active pass-2 anchoring proposals to replayable local lanes."""
 
+    current_103324_window = source_digest == "github-growth-20260629T103324.012579Z"
+    required_skill_profiles = (
+        ("generic_skill_workflow", "skill_ecosystem_state_handoff")
+        if current_103324_window
+        else ("generic_skill_workflow", "game_frontend_workflow", "skill_ecosystem_state_handoff")
+    )
     index_row = _skill_route_discovery_current_digest_pass2_active_skill_row(
         rows,
-        proposal_id="p1-skill-route-discovery-index",
+        proposal_id=(
+            "p1-skill-route-discovery-registry"
+            if current_103324_window
+            else "p1-skill-route-discovery-index"
+        ),
         proposal_kind="test",
         selected_local_lane="test",
-        validation_target="skill_route_discovery_index_fixture_replay",
+        validation_target=(
+            "compass_and_zhengxi_skill_route_fixture_replay"
+            if current_103324_window
+            else "skill_route_discovery_index_fixture_replay"
+        ),
+        required_route_profiles=required_skill_profiles,
     )
     docs_row = _skill_route_discovery_current_digest_pass2_active_skill_row(
         rows,
-        proposal_id="p2-skill-profile-docs",
+        proposal_id=(
+            "p3-skill-route-docs"
+            if current_103324_window
+            else "p2-skill-profile-docs"
+        ),
         proposal_kind="documentation",
         selected_local_lane="documentation",
-        validation_target="skill_route_profile_documentation_lane_update",
+        validation_target=(
+            "skill_route_discovery_evidence_interpretation_docs"
+            if current_103324_window
+            else "skill_route_profile_documentation_lane_update"
+        ),
+        required_route_profiles=required_skill_profiles,
     )
     agent_row = _skill_route_discovery_current_digest_pass2_active_agent_row(
         adjacent_rows,
-        proposal_id="p3-agent-harness-eval-fixtures",
+        proposal_id=(
+            "p2-agent-harness-eval-fixtures"
+            if current_103324_window
+            else "p3-agent-harness-eval-fixtures"
+        ),
     )
     proposal_rows = [index_row, docs_row, agent_row]
     blocked_proposal_ids = [
@@ -6706,18 +6790,33 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [str(row["proposal_id"]) for row in proposal_rows],
-        "anchoring_proposal_ids": [
-            "p1-threejs-game-skill-route-discovery",
-            "p2-generic-skill-workflow-documentation",
-            "p3-skill-ecosystem-state-handoff-config",
-            "p4-agent-harness-eval-for-general-agent-projects",
-            "p5-proposal-layer-citation-guard",
-            "p1-skill-route-discovery-index",
-            "p2-skill-profile-docs",
-            "p3-agent-harness-eval-fixtures",
-            "p4-route-metadata-config-check",
-            "p5-route-hint-lane-regression",
-        ],
+        "anchoring_proposal_ids": (
+            [
+                "p1-skill-route-discovery-compass",
+                "p2-skill-route-discovery-generic",
+                "p3-agent-harness-eval-general-agent-projects",
+                "p4-security-agent-review-boundary",
+                "p5-agent-routing-config-preflight",
+                "p1-skill-route-discovery-registry",
+                "p2-agent-harness-eval-fixtures",
+                "p3-skill-route-docs",
+                "p4-provider-agent-preflight",
+                "p5-autocve-review-gate",
+            ]
+            if current_103324_window
+            else [
+                "p1-threejs-game-skill-route-discovery",
+                "p2-generic-skill-workflow-documentation",
+                "p3-skill-ecosystem-state-handoff-config",
+                "p4-agent-harness-eval-for-general-agent-projects",
+                "p5-proposal-layer-citation-guard",
+                "p1-skill-route-discovery-index",
+                "p2-skill-profile-docs",
+                "p3-agent-harness-eval-fixtures",
+                "p4-route-metadata-config-check",
+                "p5-route-hint-lane-regression",
+            ]
+        ),
         "blocked_proposal_ids": blocked_proposal_ids,
         "ready_proposal_count": len(proposal_rows) - len(blocked_proposal_ids),
         "observed_route_profiles": [
@@ -6730,18 +6829,10 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             )
             if profile in set(observed_profiles)
         ],
-        "required_route_profiles": [
-            "generic_skill_workflow",
-            "game_frontend_workflow",
-            "skill_ecosystem_state_handoff",
-        ],
+        "required_route_profiles": list(required_skill_profiles),
         "missing_route_profiles": [
             profile
-            for profile in (
-                "generic_skill_workflow",
-                "game_frontend_workflow",
-                "skill_ecosystem_state_handoff",
-            )
+            for profile in required_skill_profiles
             if profile not in set(observed_profiles)
         ],
         "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
@@ -6781,6 +6872,7 @@ def _skill_route_discovery_current_digest_pass2_active_skill_row(
     proposal_kind: str,
     selected_local_lane: str,
     validation_target: str,
+    required_route_profiles: Sequence[str],
 ) -> dict[str, Any]:
     candidate_names: list[str] = []
     source_hashes: list[str] = []
@@ -6804,11 +6896,7 @@ def _skill_route_discovery_current_digest_pass2_active_skill_row(
     bounded_lanes = [
         lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)
     ]
-    required_profiles = {
-        "generic_skill_workflow",
-        "game_frontend_workflow",
-        "skill_ecosystem_state_handoff",
-    }
+    required_profiles = set(required_route_profiles)
     observed_required_profiles = required_profiles & set(route_profiles)
     acceptance_gates = {
         "candidate_evidence_present": bool(candidate_names),
