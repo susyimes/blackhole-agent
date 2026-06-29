@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260629T213904.316042Z` advances pass 2 of the
+active `skill-route-discovery` window with an operator-visible pass-2 replay
+surface. COMPASS-style skill ecosystem evidence and zhengxi-views-style generic
+skill workflow evidence now feed the same bounded rows for
+`p1-skill-route-discovery-catalog` and `p2-skill-route-regression-tests`.
+Those rows may select only documentation or test lanes from the fixed local
+lane set: documentation, config, test, and code_patch. Unsupported install,
+provider-runtime, and runtime-execution pressure is downgraded before it can
+become lane authority.
+
+The pass-2 operator surface reports proposal IDs, selected local lanes,
+validation command hashes, rollback and changed-file review requirements, and
+the adjacent general-agent eval count. It does not export raw repository URLs,
+raw evidence URLs, raw replay commands, target paths, upstream bodies, or any
+activation authority. Qwen-AgentWorld and looper remain adjacent
+`agent_harness_eval_required` evidence under
+`p3-agent-harness-eval-for-general-agent-projects`; they may lead only to
+documentation, test, or code_patch after local harness evaluation and do not
+inherit `skill_route_discovery`, direct runtime routing, direct code_patch
+authority, external harness execution, provider launch, profile writes, memory
+writes, or remote execution.
+
 Source digest `github-growth-20260629T203904.306145Z` advances pass 3 of the
 active `skill-route-discovery` window by teaching
 `current_source_digest_pass3_operator_lane` about the current proposal names.
