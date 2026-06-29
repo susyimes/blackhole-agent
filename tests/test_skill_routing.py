@@ -1382,6 +1382,114 @@ def test_skill_route_discovery_current_window_pass4_supervisor_replay_gate_close
     assert "https://github.com/" not in serialized
 
 
+def test_skill_route_discovery_current_digest_pass3_acceptance_packet_matches_active_proposals():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260629T073942_pass3_skill_route_validation.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260629T073942.884739Z"
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["ignored_evidence_items"][0]["name"] == "Qwen-AgentWorld"
+
+    packet = lane_map["pass3_current_wake_acceptance_packet"]
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert packet["controller_surface"] == "skill_route_discovery_pass3_current_wake_acceptance_packet"
+    assert packet["status"] == "ready"
+    assert packet["source_digest"] == "github-growth-20260629T073942.884739Z"
+    assert packet["capability_pass"] == 3
+    assert packet["proposal_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-generic-skill-workflow-probe",
+        "p3-agent-harness-eval-qwen",
+    ]
+    assert packet["blocked_proposal_ids"] == []
+    assert packet["skill_route_candidate_count"] == 2
+    assert packet["adjacent_general_agent_count"] == 1
+    assert packet["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert packet["missing_route_profiles"] == []
+    assert packet["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert packet["selected_local_lanes"] == ["test", "documentation"]
+    assert packet["unsupported_lane_names_removed"] == []
+    assert packet["local_validation_required"] is True
+    assert packet["runtime_action"] == "none"
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["profile_write_allowed"] is False
+    assert packet["memory_write_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert packet["raw_replay_commands_exported"] is False
+    assert packet["raw_source_url_exported"] is False
+    assert packet["raw_evidence_urls_exported"] is False
+    assert packet["raw_target_paths_exported"] is False
+    assert packet["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert not {"install", "provider_runtime", "runtime_execution"} & set(packet["allowed_local_lanes"])
+
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    assert set(rows) == {
+        "p1-skill-route-discovery-compass",
+        "p2-generic-skill-workflow-probe",
+        "p3-agent-harness-eval-qwen",
+    }
+
+    compass = rows["p1-skill-route-discovery-compass"]
+    assert compass["proposal_kind"] == "test"
+    assert compass["proposal_track"] == "skill_ecosystem_state_handoff"
+    assert compass["candidate_names"] == ["compass-skills"]
+    assert compass["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert compass["selected_local_lane"] == "test"
+    assert set(compass["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert compass["selected_evidence_item_ids"] == ["p1-skill-route-discovery-compass"]
+    assert compass["activation_blockers"] == []
+    assert compass["status"] == "ready"
+
+    generic = rows["p2-generic-skill-workflow-probe"]
+    assert generic["proposal_kind"] == "documentation"
+    assert generic["proposal_track"] == "generic_skill_workflow"
+    assert generic["candidate_names"] == ["zhengxi-views"]
+    assert generic["route_profiles"] == ["generic_skill_workflow"]
+    assert generic["selected_local_lane"] == "documentation"
+    assert set(generic["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert generic["selected_evidence_item_ids"] == ["p2-generic-skill-workflow-probe"]
+    assert generic["activation_blockers"] == []
+    assert generic["status"] == "ready"
+
+    adjacent = rows["p3-agent-harness-eval-qwen"]
+    assert adjacent["selected_local_lane"] == "agent_harness_eval_required"
+    assert adjacent["candidate_names"] == ["Qwen-AgentWorld"]
+    assert adjacent["route_profiles"] == []
+    assert adjacent["selected_evidence_item_ids"] == ["p3-agent-harness-eval-qwen"]
+    assert adjacent["validation_target"] == (
+        "qwen_agentworld_without_skill_workflow_stays_agent_harness_eval_required"
+    )
+    assert adjacent["external_agent_activation_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["remote_execution_allowed"] is False
+
+    adjacent_record = packet["adjacent_general_agent_rows"][0]
+    assert adjacent_record["proposal_id"] == "p3-agent-harness-eval-qwen"
+    assert adjacent_record["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent_record["skill_route_discovery_inherited"] is False
+    assert adjacent_record["direct_runtime_route_allowed"] is False
+    assert adjacent_record["direct_code_patch_route_allowed"] is False
+
+
 def test_skill_route_discovery_classifies_issue_evidence_without_duplicate_candidates():
     fixture_path = (
         Path(__file__).parent

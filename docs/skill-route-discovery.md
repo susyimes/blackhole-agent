@@ -5,6 +5,20 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260629T073942.884739Z` advances pass 3 of the
+active `skill-route-discovery` window with a current-wake acceptance packet for
+`p1-skill-route-discovery-compass`, `p2-generic-skill-workflow-probe`, and
+`p3-agent-harness-eval-qwen`. COMPASS-style skill ecosystem handoff evidence is
+accepted only as a local test lane that validates route metadata, handoff
+signals, and profile/memory boundaries before activation. zhengxi-views-style
+generic skill workflow evidence is accepted as a documentation lane for the
+generic probe checklist. Qwen-AgentWorld remains adjacent
+`agent_harness_eval_required` evidence: it does not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch authority,
+external harness execution, provider launch, remote execution, profile writes,
+memory writes, raw source URL export, raw evidence URL export, replay-command
+export, or upstream body export.
+
 Source digest `github-growth-20260629T063941.864598Z` advances pass 2 of the
 active `skill-route-discovery` window with a profile-aware local validation
 lane for `p1-skill-route-discovery-compass-skills`,
