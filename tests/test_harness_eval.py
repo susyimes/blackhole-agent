@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 90
-    assert payload["pass_count"] == 89
+    assert payload["fixture_count"] == 91
+    assert payload["pass_count"] == 90
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -207,6 +207,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-current-digest-20260629T000729-pass4-bounded-lane"]["passed"] is True
     assert results["skill-route-discovery-domain-threejs-probe"]["passed"] is True
     assert results["skill-route-discovery-provider-runtime-degraded-sample"]["passed"] is True
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260629T165904-provider-runtime-pass4-completion"
+        ]["passed"]
+        is True
+    )
     assert results["skill-route-discovery-provider-runtime-pass2-missing-sample-gate"]["passed"] is True
     assert results["skill-route-discovery-current-run-pass1-activation-readiness"]["passed"] is True
     assert results["skill-route-discovery-current-digest-230729-pass1-current-window"]["passed"] is True
@@ -5845,6 +5851,78 @@ def test_skill_route_discovery_provider_runtime_control_pass4_surfaces_completio
     assert "https://github.com/baskduf/FableCodex" not in serialized
     assert "https://github.com/dongshuyan/compass-skills" not in serialized
     assert "https://github.com/majidmanzarpour/threejs-game-skills" not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260629T165904_exposes_provider_runtime_supervisor_card():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260629T165904_provider_runtime_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    completion = output["capability_window_completion"]
+    handoff = completion["local_kernel_handoff"]
+    supervisor_card = handoff["provider_runtime_supervisor_card"]
+    completion_lane = handoff["current_digest_completion_lane"]
+    adjacent_rows = completion["completion_report"]["activation_lane_contract"]["rows"]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert handoff["source_digest"] == "github-growth-20260629T165904.193832Z"
+    assert completion["theme"] == "provider-runtime-control"
+    assert completion["status"] == "ready"
+    assert completion["planned_window_complete"] is True
+    assert completion["route_profiles"] == [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert completion_lane["status"] == "ready"
+    assert completion_lane["skill_route_row_count"] == 2
+    assert completion_lane["agent_harness_eval_row_count"] == 1
+    assert completion_lane["skill_route_discovery_inherited_by_agent_projects"] is False
+    assert supervisor_card["controller_surface"] == "provider_runtime_supervisor_card"
+    assert supervisor_card["status"] == "ready"
+    assert supervisor_card["decision"] == "provider_runtime_supervisor_card_ready_for_replay"
+    assert supervisor_card["provider_runtime_theme"] is True
+    assert supervisor_card["handoff_status"] == "ready"
+    assert supervisor_card["final_diagnostics_status"] == "ready"
+    assert supervisor_card["provider_runtime_sample_gate_status"] == "ready"
+    assert supervisor_card["provider_runtime_sample_route_status"] == "passed"
+    assert supervisor_card["provider_runtime_sample_ready_for_local_replay"] is True
+    assert supervisor_card["provider_runtime_sample_ready_for_supervisor_promotion"] is True
+    assert supervisor_card["success_claim_allowed"] is True
+    assert supervisor_card["supervisor_next_action"] == (
+        "supervisor_replay_provider_runtime_preflight_then_promote"
+    )
+    assert supervisor_card["recovery_hint_count"] == 0
+    assert supervisor_card["body_free_diagnostics_only"] is True
+    assert supervisor_card["runtime_action_allowed"] is False
+    assert supervisor_card["external_skill_activation_allowed"] is False
+    assert supervisor_card["external_harness_execution_allowed"] is False
+    assert supervisor_card["provider_runtime_launch_allowed"] is False
+    assert supervisor_card["remote_execution_allowed"] is False
+    assert supervisor_card["raw_preflight_inputs_exported"] is False
+    assert supervisor_card["raw_diagnostics_exported"] is False
+    assert supervisor_card["raw_provider_values_exported"] is False
+    agent_rows = [
+        row for row in adjacent_rows if row.get("evidence_class") == "agent_harness_eval"
+    ]
+    assert len(agent_rows) == 1
+    assert agent_rows[0]["status"] == "gated"
+    assert agent_rows[0]["activation_gate"] == (
+        "agent_harness_eval_before_runtime_or_controller_change"
+    )
+    assert agent_rows[0]["runtime_action_allowed"] is False
+    assert agent_rows[0]["skill_route_discovery_inherited"] is False
+    assert "https://github.com/dongshuyan/compass-skills" not in serialized
+    assert "https://github.com/lyra81604/zhengxi-views" not in serialized
+    assert "https://github.com/QwenLM/Qwen-AgentWorld" not in serialized
 
 
 def test_skill_route_discovery_pass4_lane_map_exposes_local_lane_matrix():

@@ -10678,6 +10678,8 @@ def skill_route_discovery_capability_window_completion(
         completion_recovery=completion_recovery,
         profile_completion_check=profile_completion_check,
         adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        provider_runtime_completion_handoff=provider_runtime_completion_handoff,
+        provider_runtime_final_diagnostics=provider_runtime_final_diagnostics,
     )
     completion_handoff = {
         "status": status,
@@ -10816,6 +10818,8 @@ def skill_route_discovery_local_kernel_handoff(
     completion_recovery: dict[str, Any],
     profile_completion_check: dict[str, Any],
     adjacent_general_agent_project_eval: dict[str, Any],
+    provider_runtime_completion_handoff: dict[str, Any],
+    provider_runtime_final_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Expose final pass-4 completion as a compact local-kernel handoff."""
 
@@ -10973,6 +10977,14 @@ def skill_route_discovery_local_kernel_handoff(
         "raw_replay_commands_exported": False,
         "raw_upstream_body_exported": False,
     }
+    provider_runtime_supervisor_card = skill_route_discovery_provider_runtime_supervisor_card(
+        theme=theme,
+        current_pass=current_pass,
+        total_passes=total_passes,
+        planned_window_complete=planned_window_complete,
+        provider_runtime_completion_handoff=provider_runtime_completion_handoff,
+        provider_runtime_final_diagnostics=provider_runtime_final_diagnostics or {},
+    )
     ready = (
         status == "ready"
         and report_status == "ready"
@@ -11022,6 +11034,7 @@ def skill_route_discovery_local_kernel_handoff(
         },
         "proposal_completion_summary": proposal_completion_summary,
         "current_digest_completion_lane": completion_lane_summary,
+        "provider_runtime_supervisor_card": provider_runtime_supervisor_card,
         "replay_stage_order": string_list(runner_control.get("stage_order")),
         "replay_stage_count": int(runner_control.get("stage_count") or 0),
         "ready_replay_stage_count": int(runner_control.get("ready_stage_count") or 0),
@@ -11060,6 +11073,122 @@ def skill_route_discovery_local_kernel_handoff(
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_supervisor_card(
+    *,
+    theme: str,
+    current_pass: int,
+    total_passes: int,
+    planned_window_complete: bool,
+    provider_runtime_completion_handoff: dict[str, Any],
+    provider_runtime_final_diagnostics: dict[str, Any],
+) -> dict[str, Any]:
+    """Project provider-runtime completion into the local-kernel handoff."""
+
+    provider_runtime_theme = theme == "provider-runtime-control"
+    handoff_status = optional_string(provider_runtime_completion_handoff.get("status")) or "not_applicable"
+    diagnostic_status = optional_string(provider_runtime_final_diagnostics.get("status")) or (
+        "not_applicable" if not provider_runtime_theme else "blocked"
+    )
+    sample_gate_status = optional_string(
+        provider_runtime_completion_handoff.get("provider_runtime_sample_gate_status")
+    ) or ""
+    sample_route_status = optional_string(
+        provider_runtime_completion_handoff.get("provider_runtime_sample_route_status")
+    ) or ""
+    sample_ready_for_local_replay = (
+        provider_runtime_completion_handoff.get("provider_runtime_sample_ready_for_local_replay") is True
+    )
+    sample_ready_for_supervisor_promotion = (
+        provider_runtime_completion_handoff.get("provider_runtime_sample_ready_for_supervisor_promotion")
+        is True
+    )
+    success_claim_allowed = provider_runtime_completion_handoff.get("success_claim_allowed") is True
+    recovery_hint_codes = sorted(
+        dict.fromkeys(
+            (
+                *string_list(provider_runtime_completion_handoff.get("recovery_hint_codes")),
+                *string_list(provider_runtime_final_diagnostics.get("recovery_hint_codes")),
+            )
+        )
+    )
+    replay_commands = sorted(
+        dict.fromkeys(
+            (
+                *string_list(provider_runtime_completion_handoff.get("provider_runtime_replay_commands")),
+                *string_list(provider_runtime_final_diagnostics.get("provider_runtime_replay_commands")),
+            )
+        )
+    )
+    ready = (
+        provider_runtime_theme
+        and planned_window_complete
+        and handoff_status == "ready"
+        and diagnostic_status == "ready"
+        and sample_gate_status == "ready"
+        and sample_ready_for_local_replay
+        and sample_ready_for_supervisor_promotion
+        and success_claim_allowed
+    )
+    if not provider_runtime_theme:
+        card_status = "not_applicable"
+        card_decision = "provider_runtime_supervisor_card_not_required_for_theme"
+        supervisor_next_action = optional_string(
+            provider_runtime_completion_handoff.get("supervisor_next_action")
+        ) or ""
+    elif ready:
+        card_status = "ready"
+        card_decision = "provider_runtime_supervisor_card_ready_for_replay"
+        supervisor_next_action = "supervisor_replay_provider_runtime_preflight_then_promote"
+    else:
+        card_status = "blocked"
+        card_decision = "repair_provider_runtime_supervisor_card_before_replay"
+        supervisor_next_action = optional_string(
+            provider_runtime_completion_handoff.get("supervisor_next_action")
+        ) or "replay_provider_runtime_preflight_and_recovery_summary"
+
+    return {
+        "controller_surface": "provider_runtime_supervisor_card",
+        "status": card_status,
+        "decision": card_decision,
+        "theme": theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "final_pass_observed": planned_window_complete,
+        "provider_runtime_theme": provider_runtime_theme,
+        "handoff_status": handoff_status,
+        "final_diagnostics_status": diagnostic_status,
+        "provider_runtime_sample_gate_status": sample_gate_status,
+        "provider_runtime_sample_route_status": sample_route_status,
+        "provider_runtime_sample_ready_for_local_replay": sample_ready_for_local_replay,
+        "provider_runtime_sample_ready_for_supervisor_promotion": sample_ready_for_supervisor_promotion,
+        "success_claim_allowed": success_claim_allowed,
+        "supervisor_next_action": supervisor_next_action,
+        "recovery_hint_count": len(recovery_hint_codes),
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "replay_command_hashes": [stable_text_hash(command) for command in replay_commands],
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
 

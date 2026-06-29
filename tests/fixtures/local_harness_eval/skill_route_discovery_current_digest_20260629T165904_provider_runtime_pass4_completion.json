@@ -1,0 +1,186 @@
+{
+  "name": "skill-route-discovery-current-digest-20260629T165904-provider-runtime-pass4-completion",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-current-digest-20260629T165904-provider-runtime-pass4-completion",
+    "source_digest": "github-growth-20260629T165904.193832Z",
+    "capability_window": {
+      "theme": "provider-runtime-control",
+      "capability_slice": "Turn provider and runtime configuration problems into body-free diagnostics, recovery hints, and locally replayable validation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-compass-skills",
+        "p2-skill-route-discovery-zhengxi-views",
+        "p3-agent-harness-qwen-agentworld"
+      ],
+      "evidence_urls": [
+        "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260629T165904.193832Z",
+        "item_id": "p1-skill-route-discovery-compass-skills:repository",
+        "item_kind": "repository",
+        "name": "compass-skills",
+        "source_url": "https://github.com/dongshuyan/compass-skills",
+        "title": "COMPASS skill ecosystem state handoff signal",
+        "summary": "Public skill ecosystem evidence with skill directories, task memory and profile handoff language, collaboration workflow signals, config metadata, and no authority to install, execute, write profiles, or write memory.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "profile", "handoff", "config"],
+        "suggested_lanes": ["test", "documentation", "config", "code_patch", "install"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["skill_ecosystem_state_handoff"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "qa_checklist"],
+          "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T165904.193832Z",
+        "item_id": "p2-skill-route-discovery-zhengxi-views:repository",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Generic skill workflow route signal",
+        "summary": "Public agent skill workflow evidence with skill package shape, validation script signals, config metadata, and no provider-backed advice, runtime activation, or upstream execution request.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skill", "workflow", "validation"],
+        "suggested_lanes": ["documentation", "test", "config", "code_patch", "provider_runtime"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+          "source_layout_signals": ["skill_markdown", "validation_script"],
+          "source_metadata_signals": ["skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260629T165904.193832Z",
+        "item_id": "p3-agent-harness-qwen-agentworld:repository",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "Qwen-AgentWorld adjacent general-agent evaluation project",
+        "summary": "General-agent evaluation project with benchmark and environment material but without skill workflow route hints or local skill package layout signals.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "benchmark", "evaluation", "environment"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      }
+    ],
+    "provider_runtime_preflight_samples": [
+      {
+        "provider": {
+          "name": "local-dry-run-provider",
+          "harness": "local-dry-run-provider"
+        },
+        "runtime": {
+          "platform": "linux",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess"
+        },
+        "runner_env": {
+          "parent_env_keys": ["PATH"],
+          "allowlist": ["PATH"]
+        }
+      }
+    ],
+    "state_handoff_boundary": {
+      "retention_policy_documented": true,
+      "privacy_boundary_documented": true,
+      "local_target_metadata_only": true,
+      "upstream_presence_grants_write": false
+    },
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T165903Z-provider-runtime-control-pass4-completion.md",
+        "review_note": "Documentation lane records the bounded skill and adjacent agent split for the current provider-runtime-control pass."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T165903Z-provider-runtime-control-pass4-completion.md",
+        "review_note": "Config lane remains metadata-only and grants no profile, memory, provider, or runtime activation."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T165903Z-provider-runtime-control-pass4-completion.md",
+        "review_note": "Current provider-runtime-control pass-4 fixture keeps skill repositories bounded and exposes a body-free provider-runtime supervisor card."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260629T165903Z-provider-runtime-control-pass4-completion.md",
+        "review_note": "Provider runtime completion is projected into local-kernel handoff metadata only; provider launch remains denied."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "capability_window_completion.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_completion_handoff.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.provider_runtime_final_diagnostics.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.provider_runtime_supervisor_card.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.provider_runtime_supervisor_card.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.completion_report.provider_runtime_interpretation_panel.status",
+      "equals": "ready"
+    }
+  ]
+}
