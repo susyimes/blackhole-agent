@@ -27,6 +27,20 @@ inherit `skill_route_discovery`, direct runtime routing, direct code_patch
 authority, external harness execution, provider launch, profile writes, memory
 writes, or remote execution.
 
+Source digest `github-growth-20260629T215904.320352Z` advances pass 3 of the
+active `skill-route-discovery` window with
+`current_digest_pass3_activation_review_lane`. The lane turns the current
+regression, COMPASS handoff, and general-agent harness fixture proposals into
+one supervisor-visible activation review packet. COMPASS-style state handoff
+and zhengxi-views-style agent plus skill workflow evidence may still select
+only documentation, config, test, or code_patch lanes, with selected item IDs,
+validation gates, replay-command hashes, rollback evidence, and focused local
+validation required before pass 4. Qwen-AgentWorld and looper stay in
+`agent_harness_eval_required`; they may not inherit `skill_route_discovery` or
+receive direct runtime, direct code_patch, external harness, provider launch,
+profile write, memory write, remote execution, raw URL export, replay-command
+export, target-path export, or upstream body export authority.
+
 Source digest `github-growth-20260629T203904.306145Z` advances pass 3 of the
 active `skill-route-discovery` window by teaching
 `current_source_digest_pass3_operator_lane` about the current proposal names.
