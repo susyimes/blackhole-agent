@@ -7193,6 +7193,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_095324_window = source_digest == "github-growth-20260629T095324.174533Z"
     current_153904_window = source_digest == "github-growth-20260629T153904.276953Z"
     current_181904_window = source_digest == "github-growth-20260629T181904.229847Z"
+    current_193904_window = source_digest == "github-growth-20260629T193904.337686Z"
     specs = (
         (
             {
@@ -7296,6 +7297,29 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             },
         )
         if current_181904_window
+        else (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass-and-zhengxi",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_route_boundary_fixture",
+                "route_profiles": ("generic_skill_workflow", "skill_ecosystem_state_handoff"),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "compass_and_zhengxi_skill_terms_map_only_to_bounded_local_lanes"
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-fixture-for-routing-boundaries",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_vs_general_agent_boundary_fixture",
+                "route_profiles": ("generic_skill_workflow", "skill_ecosystem_state_handoff"),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "skill_workflow_and_general_agent_project_classifications_are_distinct"
+                ),
+            },
+        )
+        if current_193904_window
         else (
             {
                 "proposal_id": "p1-skill-route-discovery-fixtures",
@@ -7465,6 +7489,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             if current_095324_window
             else "proposal-003-agent-harness-eval-qwen-agentworld"
             if current_181904_window
+            else "p2-general-agent-harness-eval"
+            if current_193904_window
             else "p3-agent-harness-eval-gate"
             if current_153904_window
             else "p4-agent-harness-eval-qwen"
@@ -7483,7 +7509,13 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
 
     required_profiles = (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
-        if current_055941_window or current_095324_window or current_153904_window or current_181904_window
+        if (
+            current_055941_window
+            or current_095324_window
+            or current_153904_window
+            or current_181904_window
+            or current_193904_window
+        )
         else (
             "generic_skill_workflow",
             "game_frontend_workflow",
@@ -7503,6 +7535,92 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         for row in adjacent_rows
     )
     ready = len(rows) == len(specs) and not blocked_proposal_ids and not missing_profiles and adjacent_ready
+    route_boundary_rows: list[dict[str, Any]] = []
+    for row in rows:
+        allowed = _string_list(row.get("allowed_local_lanes"))
+        route_boundary_rows.append(
+            {
+                "proposal_id": str(row["proposal_id"]),
+                "evidence_class": "skill_workflow",
+                "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+                "candidate_names": _string_list(row.get("candidate_names")),
+                "route_profiles": _string_list(row.get("route_profiles")),
+                "selected_local_lane": str(row.get("selected_local_lane") or ""),
+                "allowed_local_lanes": allowed,
+                "bounded_to_skill_route_lanes": set(allowed) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "agent_harness_eval_required": False,
+                "skill_route_discovery_inherited": True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        )
+    for row in adjacent_rows:
+        route_boundary_rows.append(
+            {
+                "proposal_id": str(row.get("proposal_id") or ""),
+                "evidence_class": "general_agent_project",
+                "primary_route": "agent_harness_eval_required",
+                "candidate_names": [str(row.get("name") or "")],
+                "route_profiles": [],
+                "selected_local_lane": "agent_harness_eval_required",
+                "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                "bounded_to_skill_route_lanes": False,
+                "agent_harness_eval_required": True,
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        )
+    route_boundary_ready = bool(route_boundary_rows) and all(
+        (
+            row["primary_route"] == SKILL_ROUTE_DISCOVERY_HINT
+            and row["bounded_to_skill_route_lanes"] is True
+            and row["selected_local_lane"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and row["agent_harness_eval_required"] is False
+        )
+        or (
+            row["primary_route"] == "agent_harness_eval_required"
+            and row["skill_route_discovery_inherited"] is False
+            and row["selected_local_lane"] == "agent_harness_eval_required"
+        )
+        for row in route_boundary_rows
+    )
+    route_boundary_checklist = {
+        "controller_surface": "skill_route_discovery_pass4_route_boundary_checklist",
+        "status": "ready" if route_boundary_ready and ready else "blocked",
+        "decision": "skill_workflow_and_general_agent_routes_separated_before_handoff"
+        if route_boundary_ready and ready
+        else "repair_skill_workflow_general_agent_boundary_before_handoff",
+        "source_digest": source_digest or "unknown",
+        "skill_workflow_route": SKILL_ROUTE_DISCOVERY_HINT,
+        "general_agent_route": "agent_harness_eval_required",
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "allowed_agent_harness_eval_lanes": ["documentation", "test", "code_patch"],
+        "skill_route_row_count": len(rows),
+        "general_agent_row_count": len(adjacent_rows),
+        "agent_harness_eval_required_before_implementation": bool(adjacent_rows),
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": route_boundary_rows,
+    }
 
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass4_completion_handoff",
@@ -7590,6 +7708,28 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             ]
             if current_181904_window
             else [
+                "p1-skill-route-discovery-compass-skills",
+                "p2-skill-route-discovery-zhengxi-views",
+                "p3-agent-harness-eval-qwen-agentworld",
+                "p4-agent-harness-eval-looper",
+                "p5-security-agent-review-lane-autocve",
+                "p1-skill-route-discovery-compass",
+                "p2-skill-route-discovery-generic",
+                "p3-agent-harness-eval-general",
+                "p4-agent-harness-routing-doc",
+                "p5-security-agent-review-gate",
+                "p4-security-agent-review-boundary",
+                "p5-route-hint-policy-coverage",
+                "p1-skill-route-discovery-compass-and-zhengxi",
+                "p2-general-agent-harness-eval",
+                "p3-agent-harness-fixture-for-routing-boundaries",
+                "trend:dongshuyan/compass-skills-1",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:ksimback/looper-1",
+            ]
+            if current_193904_window
+            else [
                 "p1-skill-route-discovery-compass",
                 "p2-skill-route-discovery-generic",
                 "p3-agent-harness-eval-general-agent-projects",
@@ -7661,6 +7801,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             ]
         ),
         "activation_prerequisite_lane": _skill_route_discovery_activation_prerequisite_lane(rows),
+        "route_boundary_checklist": route_boundary_checklist,
         "accepted_outputs": ["docs", "config", "tests", "code_patch"],
         "operator_handoff": "external_supervisor_replay_without_kernel_restart",
         "operator_next_action": (

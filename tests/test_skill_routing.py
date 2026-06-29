@@ -11573,3 +11573,125 @@ def test_skill_route_discovery_current_digest_pass4_completion_lane_covers_activ
     assert all("provider_runtime" not in row["allowed_local_lanes"] for row in rows.values())
     assert all("install" not in row["allowed_local_lanes"] for row in rows.values())
     assert "python -m pytest" not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260629T193904_pass4_exposes_route_boundary():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260629T193904_pass4_route_boundary.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    boundary = handoff["route_boundary_checklist"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    boundary_rows = boundary["rows"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260629T193904.337686Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert {item["name"] for item in registry["ignored_evidence_items"]} == {
+        "Qwen-AgentWorld",
+        "looper",
+    }
+
+    assert handoff["status"] == "ready"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-compass-and-zhengxi",
+        "p3-agent-harness-fixture-for-routing-boundaries",
+    ]
+    assert handoff["required_route_profiles"] == [
+        "generic_skill_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert handoff["missing_required_route_profiles"] == []
+    assert handoff["selected_local_lanes"] == ["test"]
+    assert handoff["agent_harness_eval_required_count"] == 2
+    assert "p2-general-agent-harness-eval" in handoff["anchoring_proposal_ids"]
+
+    for proposal_id in (
+        "p1-skill-route-discovery-compass-and-zhengxi",
+        "p3-agent-harness-fixture-for-routing-boundaries",
+    ):
+        row = rows[proposal_id]
+        assert row["status"] == "ready"
+        assert row["candidate_names"] == ["compass-skills", "zhengxi-views"]
+        assert row["route_profiles"] == [
+            "skill_ecosystem_state_handoff",
+            "generic_skill_workflow",
+        ]
+        assert row["selected_local_lane"] == "test"
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["selected_evidence_item_ids"] == [
+            "trend:dongshuyan/compass-skills-1",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+
+    assert [row["name"] for row in handoff["adjacent_general_agent_rows"]] == [
+        "Qwen-AgentWorld",
+        "looper",
+    ]
+    assert all(
+        row["proposal_id"] == "p2-general-agent-harness-eval"
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["skill_route_discovery_inherited"] is False
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["direct_runtime_route_allowed"] is False
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["direct_code_patch_route_allowed"] is False
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+
+    assert boundary["controller_surface"] == "skill_route_discovery_pass4_route_boundary_checklist"
+    assert boundary["status"] == "ready"
+    assert boundary["decision"] == "skill_workflow_and_general_agent_routes_separated_before_handoff"
+    assert boundary["skill_route_row_count"] == 2
+    assert boundary["general_agent_row_count"] == 2
+    assert boundary["agent_harness_eval_required_before_implementation"] is True
+    assert boundary["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert boundary["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+
+    skill_rows = [row for row in boundary_rows if row["evidence_class"] == "skill_workflow"]
+    general_rows = [
+        row for row in boundary_rows if row["evidence_class"] == "general_agent_project"
+    ]
+    assert len(skill_rows) == 2
+    assert len(general_rows) == 2
+    assert all(row["primary_route"] == "skill_route_discovery" for row in skill_rows)
+    assert all(row["selected_local_lane"] == "test" for row in skill_rows)
+    assert all(row["bounded_to_skill_route_lanes"] is True for row in skill_rows)
+    assert all(row["agent_harness_eval_required"] is False for row in skill_rows)
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in general_rows)
+    assert all(row["selected_local_lane"] == "agent_harness_eval_required" for row in general_rows)
+    assert all(row["skill_route_discovery_inherited"] is False for row in general_rows)
+    assert all(row["external_harness_execution_allowed"] is False for row in general_rows)
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert all(
+        not {"install", "provider_runtime", "runtime_execution"} & set(row.get("allowed_local_lanes", []))
+        for row in handoff["rows"]
+    )
