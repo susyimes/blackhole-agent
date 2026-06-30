@@ -16621,6 +16621,30 @@ def test_skill_route_discovery_current_digest_pass4_local_kernel_handoff_is_read
     assert proposal_summary["remote_execution_allowed"] is False
     assert proposal_summary["raw_evidence_urls_exported"] is False
     assert proposal_summary["raw_upstream_body_exported"] is False
+    closure_manifest = handoff["final_route_closure_manifest"]
+    assert closure_manifest["controller_surface"] == "skill_route_discovery_final_route_closure_manifest"
+    assert closure_manifest["status"] == "ready"
+    assert closure_manifest["decision"] == "skill_route_window_closed_for_supervisor_replay"
+    assert closure_manifest["closure_check_count"] == 4
+    assert closure_manifest["ready_closure_check_count"] == 4
+    closure_checks = {row["check"]: row for row in closure_manifest["closure_checklist"]}
+    assert closure_checks["skill_route_lanes_bounded"]["status"] == "ready"
+    assert closure_checks["skill_route_lanes_bounded"]["evidence_route"] == "skill_route_discovery"
+    assert closure_checks["skill_route_lanes_bounded"]["local_validation_required"] is True
+    assert closure_checks["adjacent_agent_projects_gated"]["status"] == "ready"
+    assert closure_checks["adjacent_agent_projects_gated"]["evidence_route"] == (
+        "agent_harness_eval_required"
+    )
+    assert closure_checks["adjacent_agent_projects_gated"]["local_validation_required"] is True
+    assert "do not inherit skill_route_discovery" in closure_checks["adjacent_agent_projects_gated"]["acceptance"]
+    assert closure_checks["replay_stages_ready"]["status"] == "ready"
+    assert closure_checks["activation_boundary_closed"]["status"] == "ready"
+    assert closure_manifest["external_skill_activation_allowed"] is False
+    assert closure_manifest["external_agent_activation_allowed"] is False
+    assert closure_manifest["external_harness_execution_allowed"] is False
+    assert closure_manifest["provider_runtime_launch_allowed"] is False
+    assert closure_manifest["raw_evidence_urls_exported"] is False
+    assert closure_manifest["raw_upstream_body_exported"] is False
     assert handoff["validated_surface_statuses"] == {
         "completion_report": "ready",
         "activation_lane_contract": "ready",

@@ -11183,6 +11183,45 @@ def skill_route_discovery_final_route_closure_manifest(
             }
         )
 
+    closure_checklist = [
+        {
+            "check": "skill_route_lanes_bounded",
+            "status": "ready" if skill_route_ready else "blocked",
+            "required": True,
+            "evidence_route": "skill_route_discovery",
+            "acceptance": "skill evidence selects only documentation, config, test, or code_patch lanes",
+            "local_validation_required": True,
+            "operator_action": "review selected skill-route lanes and validation hashes before replay",
+        },
+        {
+            "check": "adjacent_agent_projects_gated",
+            "status": "ready" if agent_harness_required else "not_applicable",
+            "required": agent_harness_required,
+            "evidence_route": "agent_harness_eval_required",
+            "acceptance": "general agent projects remain in agent_harness_eval_required and do not inherit skill_route_discovery",
+            "local_validation_required": agent_harness_required,
+            "operator_action": "run agent harness evaluation before implementation scope is selected",
+        },
+        {
+            "check": "replay_stages_ready",
+            "status": "ready" if replay_ready else "blocked",
+            "required": True,
+            "evidence_route": "local_replay",
+            "acceptance": "all supervisor replay stages are present and ready",
+            "local_validation_required": True,
+            "operator_action": "replay the hashed validation commands through the local harness",
+        },
+        {
+            "check": "activation_boundary_closed",
+            "status": "ready" if ready else "blocked",
+            "required": True,
+            "evidence_route": "activation_boundary",
+            "acceptance": "no external activation, provider launch, remote execution, profile write, memory write, raw URL export, or upstream body export is granted",
+            "local_validation_required": True,
+            "operator_action": "handoff only to the external supervisor after local validation passes",
+        },
+    ]
+
     return {
         "controller_surface": "skill_route_discovery_final_route_closure_manifest",
         "source_digest": source_digest,
@@ -11210,6 +11249,11 @@ def skill_route_discovery_final_route_closure_manifest(
         "blocker_count": len(blockers),
         "blocker_hashes": [stable_text_hash(blocker) for blocker in blockers],
         "rows": rows,
+        "closure_checklist": closure_checklist,
+        "closure_check_count": len(closure_checklist),
+        "ready_closure_check_count": len(
+            [check for check in closure_checklist if check["status"] in {"ready", "not_applicable"}]
+        ),
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",
