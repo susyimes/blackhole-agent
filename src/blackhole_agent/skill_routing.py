@@ -5724,7 +5724,37 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_060714_window = source_digest == "github-growth-20260630T060714.387302Z"
     current_072714_window = source_digest == "github-growth-20260630T072714.658769Z"
     current_084715_window = source_digest == "github-growth-20260630T084715.195137Z"
-    if current_084715_window:
+    current_112714_window = source_digest == "github-growth-20260630T112714.533021Z"
+    if current_112714_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_zhengxi_views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_bounded_local_skill_route_validation_lane",
+                "validation_task": (
+                    "locally validate the current zhengxi-views skill-route signal as a bounded "
+                    "test lane while keeping Qwen-AgentWorld, Fundamental-Ava, looper, and "
+                    "AgentChat in agent_harness_eval_required before runtime, scheduler, "
+                    "provider, or direct code_patch behavior"
+                ),
+            },
+            {
+                "proposal_id": "p3_document_agent_trend_triage_rules",
+                "proposal_kind": "documentation",
+                "proposal_track": "agent_trend_route_policy",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "agent_trend_triage_rules_for_skill_and_general_agent_signals",
+                "validation_task": (
+                    "document that skill workflow trend signals and general agent project signals "
+                    "enter separate validation routes and do not add evidence URL or runtime authority"
+                ),
+            },
+        )
+    elif current_084715_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -6194,6 +6224,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2_agent_harness_eval_trending_projects"
+            if current_112714_window
+            else
             "p3-agent-harness-eval-agentworld"
             if current_235904_window or current_011904_window
             else
@@ -6278,6 +6311,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p3-agent-harness-eval-looper"
             elif lowered_name == "agentchat":
                 row["proposal_id"] = "p4-agentchat-routing-docs-and-tests"
+        if current_112714_window:
+            row["proposal_id"] = "p2_agent_harness_eval_trending_projects"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -6299,6 +6334,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_projects",
+            "p3_document_agent_trend_triage_rules",
+            "p4_config_fixture_for_route_hint_lanes",
+            "p5_code_patch_only_after_harness_gap_found",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+            "trend:ziwang-Physics/AgentChat-1",
+        ]
+        if current_112714_window
+        else
         [
             "p1-skill-route-discovery-zhengxi-views",
             "p2-agent-harness-eval-qwen-agentworld",

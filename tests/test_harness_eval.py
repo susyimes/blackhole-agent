@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 110
-    assert payload["pass_count"] == 109
+    assert payload["fixture_count"] == 111
+    assert payload["pass_count"] == 110
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -16168,6 +16168,8 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
     assert summary["runtime_action_allowed"] is False
     assert summary["external_skill_activation_allowed"] is False
     assert summary["external_harness_execution_allowed"] is False
+
+
     assert summary["provider_runtime_launch_allowed"] is False
     assert summary["remote_execution_allowed"] is False
     assert summary["raw_source_urls_exported"] is False
@@ -16255,6 +16257,46 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
     assert "https://github.com/" not in pass2_serialized
+
+
+def test_agent_harness_eval_current_digest_trending_projects_stay_local_validation_required():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_20260630T112714_trending_projects.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "weak_harness_evidence"
+    assert output["evidence_strength"]["record_count"] == 4
+    assert output["evidence_strength"]["recognized_harness_record_count"] == 4
+    assert output["evidence_strength"]["activation_evidence_sufficient"] is False
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "documentation", "test"]
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert output["lane_map"]["lane_runtime_safe"] is True
+    assert output["activation_gate"]["local_eval_activation_allowed"] is False
+    assert output["activation_gate"]["external_harness_execution_allowed"] is False
+    assert output["project_intake_probe"]["status"] == "incomplete"
+    assert output["implementation_readiness_contract"]["status"] == "blocked"
+    assert output["implementation_readiness_contract"]["documentation_test_or_code_patch_permitted_after_eval"] is False
+    assert output["implementation_readiness_contract"]["runtime_action"] == "none"
+    assert output["implementation_readiness_contract"]["external_harness_execution_allowed"] is False
+    assert output["implementation_readiness_contract"]["provider_launch_allowed"] is False
+    assert output["implementation_readiness_contract"]["remote_execution_allowed"] is False
+    assert output["implementation_readiness_contract"]["project_completion_matrix"]["project_count"] == 4
+    assert output["implementation_readiness_contract"]["project_completion_matrix"]["blocked_project_count"] == 4
+    assert all(
+        row["followup_allowed"] is False
+        for row in output["implementation_readiness_contract"]["project_completion_matrix"]["rows"]
+    )
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
 
 
 def test_skill_route_discovery_pass2_profile_lane_matrix_covers_generic_skill_profiles():

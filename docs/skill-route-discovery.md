@@ -5,6 +5,25 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260630T112714.533021Z` starts pass 1 of the
+current `skill-route-discovery` window with a digest-specific validation lane
+for the active proposal IDs. The zhengxi-views signal is the only skill-route
+candidate and maps to `p1_skill_route_discovery_zhengxi_views` in the local test
+lane plus `p3_document_agent_trend_triage_rules` in the documentation lane. Both
+lanes may select only documentation, config, test, or code_patch and keep local
+validation required before any activation.
+
+Qwen-AgentWorld, Fundamental-Ava, looper, and AgentChat are adjacent
+general-agent project signals under `p2_agent_harness_eval_trending_projects`.
+They remain `agent_harness_eval_required` until their project behavior is
+inspected locally through the harness-eval contract. They do not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch authority,
+external harness execution, provider launch, remote execution, raw URL export,
+replay-command export, target-path export, or upstream-body export. Evidence
+URLs in the digest are input references only; route outputs keep hashes,
+selected item IDs, counts, lane names, and denial booleans rather than adding
+new raw evidence URLs.
+
 Source digest `github-growth-20260630T110714.560687Z` completes pass 4 of the
 current `skill-route-discovery` window by making the adjacent
 `agent_harness_eval` completion path project-visible. zhengxi-views remains the

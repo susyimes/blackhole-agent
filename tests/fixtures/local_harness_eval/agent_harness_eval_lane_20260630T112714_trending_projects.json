@@ -1,0 +1,63 @@
+{
+  "name": "agent-harness-eval-lane-20260630T112714-trending-projects",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-20260630T112714-trending-projects",
+    "evidence_items": [
+      {
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent benchmark and environment project; trend summary is not a local behavior inspection.",
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      },
+      {
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent assistant project; trend summary is not a local behavior inspection.",
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      },
+      {
+        "item_id": "trend:ksimback/looper-1",
+        "source_url": "https://github.com/ksimback/looper",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent loop-control project; trend summary is not a local behavior inspection.",
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      },
+      {
+        "item_id": "trend:ziwang-Physics/AgentChat-1",
+        "source_url": "https://github.com/ziwang-Physics/AgentChat",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent chat project; trend summary is not a local behavior inspection.",
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "blocked"},
+    {"path": "failure_mode", "equals": "weak_harness_evidence"},
+    {"path": "evidence_strength.record_count", "equals": 4},
+    {"path": "evidence_strength.recognized_harness_record_count", "equals": 4},
+    {"path": "evidence_strength.activation_evidence_sufficient", "equals": false},
+    {"path": "lane_map.proposal_kinds", "equals": ["code_patch", "documentation", "test"]},
+    {"path": "lane_map.lanes_bounded", "equals": true},
+    {"path": "lane_map.lane_runtime_safe", "equals": true},
+    {"path": "activation_gate.local_eval_activation_allowed", "equals": false},
+    {"path": "activation_gate.external_harness_execution_allowed", "equals": false},
+    {"path": "project_intake_probe.status", "equals": "incomplete"},
+    {"path": "implementation_readiness_contract.status", "equals": "blocked"},
+    {
+      "path": "implementation_readiness_contract.documentation_test_or_code_patch_permitted_after_eval",
+      "equals": false
+    },
+    {"path": "implementation_readiness_contract.runtime_action", "equals": "none"},
+    {"path": "implementation_readiness_contract.external_harness_execution_allowed", "equals": false},
+    {"path": "implementation_readiness_contract.provider_launch_allowed", "equals": false},
+    {"path": "implementation_readiness_contract.remote_execution_allowed", "equals": false},
+    {"path": "implementation_readiness_contract.project_completion_matrix.project_count", "equals": 4},
+    {"path": "implementation_readiness_contract.project_completion_matrix.blocked_project_count", "equals": 4},
+    {"path": "privacy.raw_source_urls_exported", "equals": false},
+    {"path": "privacy.runtime_actions_executed", "equals": false}
+  ]
+}
