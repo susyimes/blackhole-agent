@@ -7708,6 +7708,160 @@ def test_skill_route_discovery_current_run_pass4_completion_lane_finishes_active
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260630T005904_pass4_completes_without_frontend_profile():
+    items = [
+        {
+            "source_digest": "github-growth-20260630T005904.395870Z",
+            "item_id": "trend:dongshuyan/compass-skills-1",
+            "item_kind": "repository",
+            "name": "compass-skills",
+            "source_url": "https://github.com/dongshuyan/compass-skills",
+            "title": "COMPASS skill ecosystem state handoff",
+            "summary": (
+                "Public skill ecosystem evidence with skill packages, collaboration profile, "
+                "task forest handoff, local memory boundary pressure, config metadata, tests, docs, "
+                "and no authority to install, execute, write profiles, or write memory."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent-skills", "skills", "skill-ecosystem", "profile", "handoff"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": "external_skill_route_discovery_classification",
+                "route_profiles": ["skill_ecosystem_state_handoff"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "qa_checklist"],
+                "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260630T005904.395870Z",
+            "item_id": "trend:lyra81604/zhengxi-views-1",
+            "item_kind": "repository",
+            "name": "zhengxi-views",
+            "source_url": "https://github.com/lyra81604/zhengxi-views",
+            "title": "Generic source-cited agent skill workflow",
+            "summary": (
+                "Public agent Skill package evidence with SKILL.md, skill.yml, references, scripts, "
+                "evals, source citation boundaries, advice disclaimers, validation notes, config hints, "
+                "and no external activation request."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent", "skill", "workflow", "validation", "source-citation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": "external_skill_route_discovery_classification",
+                "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+                "allowed_local_lanes": [
+                    "documentation",
+                    "config",
+                    "test",
+                    "code_patch",
+                    "provider_runtime",
+                ],
+                "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+                "source_metadata_signals": ["skill_manifest", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260630T005904.395870Z",
+            "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+            "item_kind": "repository",
+            "name": "Qwen-AgentWorld",
+            "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+            "title": "Qwen-AgentWorld adjacent general-agent evaluation project",
+            "summary": (
+                "General-agent evaluation project with benchmark and environment material but without "
+                "skill workflow route hints or local skill package layout signals."
+            ),
+            "route_hints": ["agent_harness_eval"],
+            "topics": ["general-agent", "benchmark", "evaluation", "environment"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+        {
+            "source_digest": "github-growth-20260630T005904.395870Z",
+            "item_id": "trend:ksimback/looper-1",
+            "item_kind": "repository",
+            "name": "looper",
+            "source_url": "https://github.com/ksimback/looper",
+            "title": "Looper adjacent general-agent loop project",
+            "summary": (
+                "General-agent loop-control project with scheduling and review-gated loop design "
+                "pressure, but without skill workflow route hints or local skill package layout signals."
+            ),
+            "route_hints": ["agent_harness_eval"],
+            "topics": ["general-agent", "loop", "scheduler", "evaluation"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    local_validation = lane_map["pass4_local_lane_validation"]
+    handoff = lane_map["pass4_completion_handoff"]
+    completion = lane_map["current_run_pass4_completion_lane"]
+    rows = {row["proposal_id"]: row for row in completion["rows"]}
+    serialized = json.dumps(completion, sort_keys=True)
+
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert local_validation["status"] == "ready"
+    assert local_validation["required_route_profiles"] == [
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+    assert local_validation["missing_route_profiles"] == []
+    assert handoff["status"] == "ready"
+    assert handoff["required_route_profiles"] == [
+        "skill_ecosystem_state_handoff",
+        "source_cited_domain_research",
+    ]
+
+    assert completion["status"] == "ready"
+    assert completion["source_digest"] == "github-growth-20260630T005904.395870Z"
+    assert completion["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-suite",
+        "p3-agent-trend-routing-doc",
+    ]
+    assert completion["ready_proposal_count"] == 3
+    assert completion["blocked_proposal_ids"] == []
+    assert completion["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert completion["agent_harness_eval_required_count"] == 2
+
+    zhengxi = rows["p1-skill-route-discovery-zhengxi-views"]
+    assert zhengxi["proposal_kind"] == "test"
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["validation_target"] == (
+        "zhengxi_views_skill_workflow_maps_to_bounded_local_lanes_only"
+    )
+    assert set(zhengxi["candidate_names"]) == {"compass-skills", "zhengxi-views"}
+    assert set(zhengxi["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    agent_eval = rows["p2-agent-harness-eval-suite"]
+    assert agent_eval["route_hint"] == "agent_harness_eval_required"
+    assert agent_eval["selected_local_lane"] == "agent_harness_eval_required"
+    assert agent_eval["candidate_names"] == ["Qwen-AgentWorld", "looper"]
+    assert agent_eval["direct_local_change_proposals_allowed_before_eval"] is False
+    assert agent_eval["external_harness_execution_allowed"] is False
+
+    docs = rows["p3-agent-trend-routing-doc"]
+    assert docs["proposal_kind"] == "documentation"
+    assert docs["selected_local_lane"] == "documentation"
+    assert docs["validation_target"] == (
+        "document_skill_route_discovery_vs_agent_harness_eval_lane_mapping"
+    )
+
+    assert all(row["runtime_action"] == "none" for row in completion["rows"])
+    assert all(row["local_validation_required"] is True for row in completion["rows"])
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert "install" not in serialized
+
+
 def test_skill_route_discovery_current_digest_230729_pass1_current_window_readiness_is_bounded():
     fixture_path = (
         Path(__file__).parent

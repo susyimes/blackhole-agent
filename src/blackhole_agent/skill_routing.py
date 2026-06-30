@@ -15044,12 +15044,27 @@ def _skill_route_discovery_pass4_local_lane_validation(
     harness evaluation queue.
     """
 
-    required_profiles = (
+    acceptable_profiles = (
         "game_frontend_workflow",
         "skill_ecosystem_state_handoff",
         "source_cited_domain_research",
+        "generic_skill_workflow",
     )
-    acceptable_profiles = (*required_profiles, "generic_skill_workflow")
+    observed_candidate_profiles = {
+        profile
+        for candidate in candidate_lane_inventory
+        for profile in (_string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"])
+        if profile in acceptable_profiles
+    }
+    required_profiles = tuple(
+        profile
+        for profile in (
+            "game_frontend_workflow",
+            "skill_ecosystem_state_handoff",
+            "source_cited_domain_research",
+        )
+        if _skill_route_discovery_pass4_profile_covered(profile, observed_candidate_profiles)
+    )
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
     selected_lanes: list[str] = []
@@ -15566,6 +15581,9 @@ def _skill_route_discovery_pass4_completion_handoff(
         "ready_candidate_count": len([row for row in rows if row["row_status"] == "ready"]),
         "adjacent_general_agent_count": len(adjacent_general_agent_rows),
         "blocked_candidate_names": blocked_candidate_names,
+        "required_route_profiles": _string_list(
+            pass4_local_lane_validation.get("required_route_profiles")
+        ),
         "covered_route_profiles": sorted(dict.fromkeys(profile for profile in route_profiles if profile)),
         "selected_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
@@ -16115,11 +16133,20 @@ def _skill_route_discovery_current_run_pass4_completion_lane(
 ) -> dict[str, Any]:
     """Complete the active skill-route-discovery pass with supervisor-visible lanes."""
 
+    current_source_digest_005904 = source_digest == "github-growth-20260630T005904.395870Z"
     skill_specs = (
         {
-            "proposal_id": "proposal-skill-route-discovery-001",
+            "proposal_id": (
+                "p1-skill-route-discovery-zhengxi-views"
+                if current_source_digest_005904
+                else "proposal-skill-route-discovery-001"
+            ),
             "proposal_kind": "test",
-            "proposal_track": "skill_route_discovery_validation_path",
+            "proposal_track": (
+                "skill_route_discovery_zhengxi_validation_lane"
+                if current_source_digest_005904
+                else "skill_route_discovery_validation_path"
+            ),
             "route_profiles": (
                 "generic_skill_workflow",
                 "source_cited_domain_research",
@@ -16127,12 +16154,24 @@ def _skill_route_discovery_current_run_pass4_completion_lane(
                 "skill_ecosystem_state_handoff",
             ),
             "selected_local_lane": "test",
-            "validation_target": "frozen_skill_repository_fixtures_map_to_allowed_lanes_only",
+            "validation_target": (
+                "zhengxi_views_skill_workflow_maps_to_bounded_local_lanes_only"
+                if current_source_digest_005904
+                else "frozen_skill_repository_fixtures_map_to_allowed_lanes_only"
+            ),
         },
         {
-            "proposal_id": "proposal-skill-route-docs-002",
+            "proposal_id": (
+                "p3-agent-trend-routing-doc"
+                if current_source_digest_005904
+                else "proposal-skill-route-docs-002"
+            ),
             "proposal_kind": "documentation",
-            "proposal_track": "skill_route_discovery_interpretation_rule",
+            "proposal_track": (
+                "agent_trend_routing_documentation"
+                if current_source_digest_005904
+                else "skill_route_discovery_interpretation_rule"
+            ),
             "route_profiles": (
                 "generic_skill_workflow",
                 "source_cited_domain_research",
@@ -16140,7 +16179,11 @@ def _skill_route_discovery_current_run_pass4_completion_lane(
                 "skill_ecosystem_state_handoff",
             ),
             "selected_local_lane": "documentation",
-            "validation_target": "documentation_mentions_only_documentation_config_test_code_patch_lanes",
+            "validation_target": (
+                "document_skill_route_discovery_vs_agent_harness_eval_lane_mapping"
+                if current_source_digest_005904
+                else "documentation_mentions_only_documentation_config_test_code_patch_lanes"
+            ),
         },
     )
 
@@ -16195,10 +16238,15 @@ def _skill_route_discovery_current_run_pass4_completion_lane(
             blockers.append("pass4_operator_replay_manifest_not_ready")
         if not candidate_names:
             blockers.append("missing_skill_route_candidates")
-        if not {
-            "game_frontend_workflow",
-            "skill_ecosystem_state_handoff",
-        }.issubset(set(matched_profiles)):
+        required_completion_profiles = _string_list(
+            pass4_completion_handoff.get("required_route_profiles")
+        ) or ["game_frontend_workflow", "skill_ecosystem_state_handoff"]
+        missing_completion_profiles = [
+            profile
+            for profile in required_completion_profiles
+            if not _skill_route_discovery_pass4_profile_covered(profile, set(matched_profiles))
+        ]
+        if missing_completion_profiles:
             blockers.append("missing_required_skill_route_profiles")
         if selected_lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
             blockers.append("selected_lane_not_bounded")
@@ -16283,9 +16331,17 @@ def _skill_route_discovery_current_run_pass4_completion_lane(
             adjacent_blockers.append(f"{item_id}:external_harness_execution_allowed")
 
     agent_harness_row = {
-        "proposal_id": "proposal-agent-harness-eval-003",
+        "proposal_id": (
+            "p2-agent-harness-eval-suite"
+            if current_source_digest_005904
+            else "proposal-agent-harness-eval-003"
+        ),
         "proposal_kind": "test",
-        "proposal_track": "general_agent_project_harness_eval",
+        "proposal_track": (
+            "agent_harness_eval_suite"
+            if current_source_digest_005904
+            else "general_agent_project_harness_eval"
+        ),
         "status": "ready" if adjacent_rows and not adjacent_blockers else "blocked",
         "activation_blockers": adjacent_blockers
         if adjacent_rows
@@ -16331,9 +16387,12 @@ def _skill_route_discovery_current_run_pass4_completion_lane(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
-    rows.append(agent_harness_row)
+    if current_source_digest_005904:
+        rows.insert(1, agent_harness_row)
+    else:
+        rows.append(agent_harness_row)
     if agent_harness_row["status"] != "ready":
-        blocked_proposal_ids.append("proposal-agent-harness-eval-003")
+        blocked_proposal_ids.append(str(agent_harness_row["proposal_id"]))
 
     ready = bool(rows) and not blocked_proposal_ids
     return {

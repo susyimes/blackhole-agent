@@ -4437,3 +4437,20 @@ The manifest is body-free. It exports source digest, route profiles, selected
 local lanes, stage counts, replay stage names, validation command hashes, and
 denial booleans. It does not export raw source URLs, evidence URLs, target paths,
 replay command bodies, upstream bodies, or any profile or memory write authority.
+
+## 2026-06-30 Pass-4 Profile Closure
+
+Source digest `github-growth-20260630T005904.395870Z` completes the current
+skill-route-discovery slice with an evidence-derived pass-4 profile contract.
+The completion lane no longer requires a game/frontend skill profile when the
+current digest contains only COMPASS-style state handoff plus zhengxi-views-style
+generic/source-cited skill workflow evidence. Required profiles are derived from
+the skill-route candidates present in the digest, while unsupported install,
+provider runtime, runtime execution, profile write, memory write, remote
+execution, and external activation pressure remains denied.
+
+The operator-visible completion packet uses the current proposal IDs:
+`p1-skill-route-discovery-zhengxi-views` for the bounded zhengxi skill-route test
+lane, `p2-agent-harness-eval-suite` for Qwen-AgentWorld and looper as adjacent
+`agent_harness_eval_required` evidence, and `p3-agent-trend-routing-doc` for the
+documentation lane that explains skill-route versus harness-eval routing.
