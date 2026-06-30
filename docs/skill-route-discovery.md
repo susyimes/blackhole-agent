@@ -4565,3 +4565,21 @@ and the bounded next action. It still exports only local lane metadata and denia
 booleans: runtime action, external skill code, external harness execution,
 provider launch, remote execution, raw evidence URLs, raw source URLs, target
 paths, and upstream bodies remain unavailable from this surface.
+
+## 2026-06-30 Pass-3 Current Evaluation Lane
+
+Source digest `github-growth-20260630T052714.485930Z` keeps the active
+`skill-route-discovery` slice in pass 3 with current proposal names instead of
+older aliases. zhengxi-views is treated as public Agent Skill workflow evidence
+and maps to `proposal-skill-route-discovery-zhengxi-views` in the local test
+lane. That row may select only documentation, config, test, or code_patch and
+keeps local validation required before any activation.
+
+Qwen-AgentWorld, open-reverselab, and looper are represented by
+`proposal-agent-harness-eval-trending-agent-projects` as adjacent general-agent
+evidence. They remain in `agent_harness_eval_required`: they do not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch authority,
+external harness execution, provider launch, remote execution, profile writes,
+memory writes, raw source URL export, replay-command export, target-path export,
+or upstream body export. `proposal-route-classification-docs` is carried as the
+operator-visible documentation route for this distinction.
