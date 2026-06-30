@@ -22,6 +22,24 @@ code_patch authority, external harness execution, provider launch, profile
 writes, memory writes, remote execution, raw source URL export, replay-command
 export, or upstream body export.
 
+Source digest `github-growth-20260630T034714.764347Z` advances pass 2 of the
+same window with a digest-specific `current_digest_pass2_local_validation_lane`.
+When the current digest contains zhengxi-views-style skill evidence but no
+COMPASS or game/frontend skill profiles, the pass-2 lane derives the required
+skill-route proposal from the present evidence instead of blocking on absent
+profiles from older windows. The selected local lane is the test lane for
+`p1-skill-route-discovery-zhengxi-views`, bounded to documentation, config,
+test, or code_patch outputs.
+
+Qwen-AgentWorld remains adjacent general-agent evaluation evidence under
+`p2-agent-harness-eval-agentworld`. open-reverselab and looper remain
+`agent_harness_eval_required` rows under `p3-general-agent-routing-coverage`,
+with open-reverselab recorded as offensive-boundary review-only context. This
+pass exposes a supervisor-visible replay surface and preactivation trust
+boundary only; it does not activate external skills, run external harnesses,
+launch providers, export raw upstream URLs, write profiles or memory, or grant
+direct runtime/code_patch authority to general-agent evidence.
+
 Source digest `github-growth-20260629T235904.365838Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific
 `current_digest_pass1_validation_lane`. COMPASS-style skill ecosystem handoff
