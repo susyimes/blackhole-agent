@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 109
-    assert payload["pass_count"] == 108
+    assert payload["fixture_count"] == 110
+    assert payload["pass_count"] == 109
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -137,6 +137,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["external-harness-adapter-contract-databricks-genie"]["passed"] is True
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
+    assert results["agent-harness-eval-lane-qwen-looper-readiness"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert results["agent-harness-policy-eval-allow-local-fixture"]["passed"] is True
     assert results["agent-harness-policy-eval-denies-external-harness"]["passed"] is True

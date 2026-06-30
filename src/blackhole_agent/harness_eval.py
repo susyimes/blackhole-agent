@@ -1892,6 +1892,13 @@ def build_agent_harness_eval_implementation_readiness_contract(
         blockers.append("general_agent_review_queue_not_ready")
     blockers = list(dict.fromkeys(blocker for blocker in blockers if blocker))
     followup_allowed = not blockers
+    project_completion_matrix = build_agent_harness_eval_project_completion_matrix(
+        activation_allowed=activation_allowed,
+        activation_lanes=activation_lanes,
+        claim_evaluation=claim_evaluation,
+        project_intake_probe=project_intake_probe,
+        queue_ready=queue_ready,
+    )
 
     return {
         "controller_surface": "agent_harness_eval_implementation_readiness_contract",
@@ -1927,6 +1934,7 @@ def build_agent_harness_eval_implementation_readiness_contract(
         "unmapped_claim_count": unmapped_claim_count,
         "project_intake_probe_status": str(project_intake_probe.get("status") or "incomplete"),
         "general_agent_route_review_queue_status": str(general_agent_route_review_queue.get("status") or "empty"),
+        "project_completion_matrix": project_completion_matrix,
         "required_validation": [validation_command],
         "documentation_test_or_code_patch_permitted_after_eval": followup_allowed,
         "local_validation_required": True,
@@ -1938,6 +1946,107 @@ def build_agent_harness_eval_implementation_readiness_contract(
         "raw_source_urls_exported": False,
         "raw_evidence_bodies_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def build_agent_harness_eval_project_completion_matrix(
+    *,
+    activation_allowed: bool,
+    activation_lanes: list[dict[str, Any]],
+    claim_evaluation: dict[str, Any],
+    project_intake_probe: dict[str, Any],
+    queue_ready: bool,
+) -> dict[str, Any]:
+    """Show project-level pass/fail state before follow-up implementation lanes open."""
+
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    probe_rows = [
+        row
+        for row in project_intake_probe.get("rows", [])
+        if isinstance(row, dict) and optional_string(row.get("item_id"))
+    ]
+    claim_rows = [row for row in claim_evaluation.get("rows", []) if isinstance(row, dict)]
+    lanes_by_item: dict[str, list[str]] = {}
+    for lane in activation_lanes:
+        proposal_kind = optional_string(lane.get("proposal_kind"))
+        if proposal_kind not in AGENT_HARNESS_EVAL_ALLOWED_LANES:
+            continue
+        for item_id in string_list(lane.get("item_ids")):
+            lanes_by_item.setdefault(item_id, []).append(proposal_kind)
+
+    rows: list[dict[str, Any]] = []
+    for probe_row in probe_rows:
+        item_id = str(probe_row["item_id"])
+        item_claim_rows = [row for row in claim_rows if str(row.get("item_id") or "") == item_id]
+        unmapped_claim_ids = sorted(
+            {
+                str(row.get("claim_id") or "")
+                for row in item_claim_rows
+                if row.get("mapped") is not True and str(row.get("claim_id") or "")
+            }
+        )
+        mapped_claim_ids = sorted(
+            {
+                str(row.get("claim_id") or "")
+                for row in item_claim_rows
+                if row.get("mapped") is True and str(row.get("claim_id") or "")
+            }
+        )
+        allowed_followup_lanes = sorted(dict.fromkeys(lanes_by_item.get(item_id, [])))
+        blockers: list[str] = []
+        if probe_row.get("probe_complete") is not True:
+            blockers.append("project_intake_probe_incomplete")
+        if unmapped_claim_ids:
+            blockers.append("unmapped_agent_claims")
+        if not allowed_followup_lanes:
+            blockers.append("no_bounded_followup_lanes")
+        if not activation_allowed:
+            blockers.append("local_agent_harness_eval_replay_not_passed")
+        if not queue_ready:
+            blockers.append("general_agent_review_queue_not_ready")
+        blockers = list(dict.fromkeys(blockers))
+        rows.append(
+            {
+                "item_id": item_id,
+                "probe_complete": probe_row.get("probe_complete") is True,
+                "mapped_claim_ids": mapped_claim_ids,
+                "unmapped_claim_ids": unmapped_claim_ids,
+                "allowed_followup_lanes": allowed_followup_lanes,
+                "pass_criteria_met": not blockers,
+                "followup_allowed": not blockers,
+                "blockers": blockers,
+                "required_validation": [validation_command],
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready_count = sum(1 for row in rows if row["followup_allowed"])
+    return {
+        "controller_surface": "agent_harness_eval_project_completion_matrix",
+        "status": "ready" if rows and ready_count == len(rows) else "blocked",
+        "decision": (
+            "all_general_agent_projects_passed_eval_contract"
+            if rows and ready_count == len(rows)
+            else "hold_general_agent_projects_until_each_eval_contract_passes"
+        ),
+        "project_count": len(rows),
+        "ready_project_count": ready_count,
+        "blocked_project_count": len(rows) - ready_count,
+        "allowed_followup_lanes": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "rows": rows,
     }
 
 

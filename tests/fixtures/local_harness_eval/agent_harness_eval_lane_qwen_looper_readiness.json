@@ -1,0 +1,143 @@
+{
+  "name": "agent-harness-eval-lane-qwen-looper-readiness",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-qwen-looper-readiness",
+    "evidence_items": [
+      {
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public agent benchmark and evaluation project with structured replay stages, deterministic validation, model provider comparison, and multi-agent orchestration claims.",
+        "relevance_reason": "Evaluate candidate local harness capabilities before any documentation, test, or code patch scope is selected.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["python_package", "benchmark_suite"],
+        "entrypoints": ["cli", "evaluation_runner"],
+        "dependency_boundaries": ["model_provider", "dataset_fixture", "local_workspace"],
+        "task_loop_assumptions": ["multi_agent_orchestration", "replay_stage_eval"],
+        "observable_behaviors": ["benchmark_reporting", "provider_configuration", "structured_validation"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "trend:ksimback/looper-1",
+        "source_url": "https://github.com/ksimback/looper",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public agent loop project with review policy gates, approval controls, local and external execution boundaries, session state, replay validation, and deterministic workflow checks.",
+        "relevance_reason": "Evaluate controller, runner, scheduling, and workflow lessons through local harness criteria before implementation.",
+        "suggested_lanes": ["test", "code_patch"],
+        "install_shape": ["local_module", "cli_wrapper"],
+        "entrypoints": ["cli", "controller_loop"],
+        "dependency_boundaries": ["workspace_files", "review_gate", "external_provider_optional"],
+        "task_loop_assumptions": ["approval_policy_loop", "session_state_replay"],
+        "observable_behaviors": ["policy_control", "conversation_state", "workflow_validation"],
+        "risk_flags": []
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "lane_map.proposal_kinds",
+      "equals": ["code_patch", "documentation", "test"]
+    },
+    {
+      "path": "evidence_strength.recognized_harness_record_count",
+      "equals": 2
+    },
+    {
+      "path": "evidence_strength.specific_detail_count",
+      "equals": 2
+    },
+    {
+      "path": "claim_evaluation.unmapped_claim_count",
+      "equals": 0
+    },
+    {
+      "path": "project_intake_probe.status",
+      "equals": "ready"
+    },
+    {
+      "path": "activation_gate.local_eval_activation_allowed",
+      "equals": true
+    },
+    {
+      "path": "implementation_readiness_contract.status",
+      "equals": "ready"
+    },
+    {
+      "path": "implementation_readiness_contract.decision",
+      "equals": "agent_harness_eval_passed_before_followup_lanes"
+    },
+    {
+      "path": "implementation_readiness_contract.documentation_test_or_code_patch_permitted_after_eval",
+      "equals": true
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.status",
+      "equals": "ready"
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.project_count",
+      "equals": 2
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.ready_project_count",
+      "equals": 2
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.blocked_project_count",
+      "equals": 0
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.0.item_id",
+      "equals": "trend:QwenLM/Qwen-AgentWorld-1"
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.0.allowed_followup_lanes",
+      "equals": ["documentation", "test"]
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.0.pass_criteria_met",
+      "equals": true
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.0.blockers",
+      "equals": []
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.1.item_id",
+      "equals": "trend:ksimback/looper-1"
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.1.allowed_followup_lanes",
+      "equals": ["code_patch", "test"]
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.1.pass_criteria_met",
+      "equals": true
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.1.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.rows.1.provider_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "implementation_readiness_contract.project_completion_matrix.raw_source_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_source_urls_exported",
+      "equals": false
+    }
+  ]
+}
