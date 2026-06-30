@@ -4469,3 +4469,18 @@ not authorize scheduler, runner, loop, runtime, provider, external harness, or
 direct code_patch changes. They must first pass local agent harness evaluation,
 and the pass-3 surface exports only body-free hashes, lane names, proposal IDs,
 and denial booleans.
+
+## 2026-06-30 Pass-4 Operator Activation Queue
+
+The pass-4 `runner_harness_control_plane` now carries an
+`operator_activation_queue` summary derived from the validated activation
+packet. The replay stage is ready only when the final route handoff manifest,
+route validation lane queue, activation packet, and operator activation lane are
+all ready.
+
+The queue gives the supervisor one body-free place to inspect lane count, ready
+and blocked counts, proposal kinds, route profiles, activation packet status,
+and the bounded next action. It still exports only local lane metadata and denial
+booleans: runtime action, external skill code, external harness execution,
+provider launch, remote execution, raw evidence URLs, raw source URLs, target
+paths, and upstream bodies remain unavailable from this surface.

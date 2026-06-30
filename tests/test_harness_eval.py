@@ -9063,7 +9063,34 @@ def test_skill_route_discovery_pass4_exposes_runner_harness_control_plane():
 
     assert len(control_plane["replay"]["replay_command_hashes"]) == 3
     assert len(control_plane["replay"]["provider_runtime_replay_command_hashes"]) == 2
+    assert control_plane["replay"]["activation_packet_status"] == "ready"
+    assert control_plane["replay"]["operator_activation_lane_status"] == "ready"
     assert control_plane["replay"]["raw_replay_commands_exported"] is False
+    operator_queue = control_plane["operator_activation_queue"]
+    assert operator_queue["controller_surface"] == "skill_route_discovery_pass4_operator_activation_queue"
+    assert operator_queue["status"] == "ready"
+    assert operator_queue["decision"] == "operator_lane_ready_for_supervisor_replay"
+    assert operator_queue["supervisor_next_action"] == "replay_validated_local_lanes_then_handoff"
+    assert operator_queue["activation_packet_status"] == "ready"
+    assert operator_queue["lane_count"] == 4
+    assert operator_queue["ready_lane_count"] == 4
+    assert operator_queue["blocked_lane_count"] == 0
+    assert operator_queue["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert operator_queue["route_profiles"] == [
+        "codex_workflow_gate",
+        "game_frontend_workflow",
+        "skill_ecosystem_state_handoff",
+    ]
+    assert operator_queue["diagnostic_count"] == 0
+    assert operator_queue["runtime_action_allowed"] is False
+    assert operator_queue["external_skill_activation_allowed"] is False
+    assert operator_queue["external_harness_execution_allowed"] is False
+    assert operator_queue["provider_runtime_launch_allowed"] is False
+    assert operator_queue["remote_execution_allowed"] is False
+    assert operator_queue["raw_evidence_urls_exported"] is False
+    assert operator_queue["raw_source_urls_exported"] is False
+    assert operator_queue["raw_target_paths_exported"] is False
+    assert operator_queue["raw_upstream_body_exported"] is False
     assert control_plane["report"]["consistency_guard_status"] == "ready"
     assert control_plane["report"]["replay_contract_status"] == "ready"
     assert control_plane["report"]["diagnostic_count"] == 0

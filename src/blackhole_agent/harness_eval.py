@@ -11529,6 +11529,7 @@ def skill_route_discovery_completion_report(
         ready=ready,
         current_window_evidence_gate=current_window_evidence_gate,
         final_slice_closure=final_slice_closure,
+        activation_packet=activation_packet,
         activation_handoff=activation_handoff,
         completion_replay_checklist=completion_replay_checklist,
         final_route_handoff_manifest=final_route_handoff_manifest,
@@ -11610,6 +11611,7 @@ def skill_route_discovery_completion_runner_harness_control_plane(
     ready: bool,
     current_window_evidence_gate: dict[str, Any],
     final_slice_closure: dict[str, Any],
+    activation_packet: dict[str, Any],
     activation_handoff: dict[str, Any],
     completion_replay_checklist: dict[str, Any],
     final_route_handoff_manifest: dict[str, Any],
@@ -11622,6 +11624,11 @@ def skill_route_discovery_completion_runner_harness_control_plane(
     """Expose final skill-route completion as a five-stage runner workflow."""
 
     selected_local_lanes = string_list(final_route_handoff_manifest.get("selected_local_lanes"))
+    operator_activation_lane = (
+        activation_packet.get("operator_activation_lane")
+        if isinstance(activation_packet.get("operator_activation_lane"), dict)
+        else {}
+    )
     replay_commands = sorted(
         dict.fromkeys(
             string_list(completion_replay_checklist.get("replay_commands"))
@@ -11662,8 +11669,10 @@ def skill_route_discovery_completion_runner_harness_control_plane(
             "replay",
             final_route_handoff_manifest.get("status") == "ready"
             and route_validation_lane_queue.get("status") == "ready"
+            and activation_packet.get("status") == "ready"
+            and operator_activation_lane.get("status") == "ready"
             and bool(replay_commands),
-            "final_route_handoff_manifest_and_validation_queue",
+            "final_route_handoff_manifest_validation_queue_and_activation_packet",
         ),
         (
             "report",
@@ -11736,11 +11745,39 @@ def skill_route_discovery_completion_runner_harness_control_plane(
             "manifest_status": optional_string(final_route_handoff_manifest.get("status")) or "",
             "lane_queue_status": optional_string(route_validation_lane_queue.get("status")) or "",
             "secondary_bridge_status": optional_string(secondary_harness_bridge.get("status")) or "",
+            "activation_packet_status": optional_string(activation_packet.get("status")) or "",
+            "operator_activation_lane_status": optional_string(operator_activation_lane.get("status")) or "",
             "replay_command_hashes": [stable_text_hash(command) for command in replay_commands],
             "provider_runtime_replay_command_hashes": [
                 stable_text_hash(command) for command in provider_replay_commands
             ],
             "raw_replay_commands_exported": False,
+        },
+        "operator_activation_queue": {
+            "controller_surface": "skill_route_discovery_pass4_operator_activation_queue",
+            "status": optional_string(operator_activation_lane.get("status")) or "",
+            "decision": optional_string(operator_activation_lane.get("decision")) or "",
+            "supervisor_next_action": optional_string(
+                operator_activation_lane.get("supervisor_next_action")
+            )
+            or "",
+            "activation_packet_status": optional_string(activation_packet.get("status")) or "",
+            "lane_count": int(operator_activation_lane.get("lane_count") or 0),
+            "ready_lane_count": int(operator_activation_lane.get("ready_lane_count") or 0),
+            "blocked_lane_count": int(operator_activation_lane.get("blocked_lane_count") or 0),
+            "proposal_kinds": string_list(operator_activation_lane.get("proposal_kinds")),
+            "route_profiles": string_list(operator_activation_lane.get("route_profiles")),
+            "diagnostic_count": int(operator_activation_lane.get("diagnostic_count") or 0),
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
         },
         "report": {
             "consistency_guard_status": optional_string(completion_consistency_guard.get("status")) or "",
