@@ -6303,6 +6303,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_201904_window = source_digest == "github-growth-20260629T201904.282006Z"
     current_213904_window = source_digest == "github-growth-20260629T213904.316042Z"
     current_225904_window = source_digest == "github-growth-20260629T225904.339664Z"
+    current_001904_window = source_digest == "github-growth-20260630T001904.371161Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -6395,6 +6396,48 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             },
         )
         if current_225904_window
+        else
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_handoff_boundary_fixture",
+                "validation_task": (
+                    "feed COMPASS-style skill ecosystem evidence through route classification "
+                    "and verify it remains a bounded local test lane before profile or memory writes"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "skill_registry_metadata",
+                    "agent_metadata",
+                    "qa_checklist",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "zhengxi_views_generic_skill_workflow_interpretation_path",
+                "validation_task": (
+                    "document that zhengxi-views Skill package evidence is a bounded local "
+                    "validation candidate and not provider-runtime or activation authority"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "skill_manifest",
+                    "skill_registry_metadata",
+                ),
+            },
+        )
+        if current_001904_window
         else
         (
             {
@@ -6550,6 +6593,18 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         if current_225904_window
         else
         [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-agentworld",
+            "p4-agent-harness-eval-looper",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-looper",
+        ]
+        if current_001904_window
+        else
+        [
             "p1-skill-route-discovery-registry",
             "p2-agent-harness-eval-fixtures",
             "p3-skill-route-docs",
@@ -6624,6 +6679,21 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         if current_225904_window
+        else
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-agentworld",
+            "p4-agent-harness-eval-looper",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-looper",
+            "trend:dongshuyan/compass-skills-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_001904_window
         else
         [
             "p1-skill-route-discovery-compass",
@@ -6815,6 +6885,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_213904_window
             else "p3-agent-harness-eval-qwen-agentworld"
             if current_225904_window
+            else "p3-agent-harness-eval-agentworld"
+            if current_001904_window
             else "p3-agent-harness-eval-qwen-agentworld"
             if current_201904_window
             else "p4-agent-harness-eval-qwen"
@@ -6824,6 +6896,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         row = dict(adjacent_row)
         if current_225904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p4-agent-loop-runner-eval"
+        if current_001904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-harness-eval-looper"
         if current_201904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p4-agent-harness-eval-looper"
         row.pop("replay_command", None)

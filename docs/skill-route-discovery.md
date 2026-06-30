@@ -25,6 +25,24 @@ upstream body export. This pass records a bounded local validation lane only;
 it does not activate external skills, external agents, providers, memory, or
 profiles.
 
+Source digest `github-growth-20260630T001904.371161Z` advances pass 2 of the
+active `skill-route-discovery` window with a current replay fixture for
+`current_digest_pass2_local_validation_lane`. zhengxi-views-style public Skill
+evidence is treated as a bounded generic/source-cited skill workflow route: it
+may select only documentation, config, test, or code_patch after focused local
+validation, and the current pass records the documentation lane first.
+COMPASS-style skill ecosystem evidence stays in the local test lane for
+state-handoff boundary checks.
+
+Qwen-AgentWorld and looper remain adjacent general-agent evidence in this
+pass. They are visible only as `agent_harness_eval_required` rows and do not
+inherit `skill_route_discovery`, direct runtime routing, direct code_patch
+authority, external harness execution, provider launch, profile writes, memory
+writes, remote execution, raw source URL export, replay-command export, or
+upstream body export. The current pass is a validation lane and supervisor
+replay surface only; it does not install, import, execute, or activate upstream
+repositories.
+
 Source digest `github-growth-20260629T225904.339664Z` advances pass 2 of the
 active `skill-route-discovery` window with a harness-visible
 `current_digest_pass2_local_validation_lane`. COMPASS-style skill ecosystem
