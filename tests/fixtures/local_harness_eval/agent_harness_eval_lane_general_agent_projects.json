@@ -171,6 +171,57 @@
     {
       "path": "activation_lanes.0.runtime_action",
       "equals": "none"
+    },
+    {
+      "path": "implementation_readiness_contract.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "implementation_readiness_contract.decision",
+      "equals": "hold_general_agent_followup_until_eval_contract_passes"
+    },
+    {
+      "path": "implementation_readiness_contract.candidate_capabilities",
+      "equals": [
+        "agent_workflow_route",
+        "local_memory",
+        "native_tool_call_policy",
+        "provider_runtime_preflight"
+      ]
+    },
+    {
+      "path": "implementation_readiness_contract.required_preflight_checks",
+      "equals": [
+        "project_intake_probe_complete",
+        "agent_claims_mapped_to_local_capabilities",
+        "bounded_followup_lanes_selected",
+        "local_agent_harness_eval_replay_passes",
+        "safety_boundary_review_clear",
+        "runtime_and_external_execution_denied"
+      ]
+    },
+    {
+      "path": "implementation_readiness_contract.fail_criteria",
+      "equals": [
+        "unmapped_agent_claims",
+        "general_agent_review_queue_not_ready"
+      ]
+    },
+    {
+      "path": "implementation_readiness_contract.allowed_followup_lanes",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {
+      "path": "implementation_readiness_contract.documentation_test_or_code_patch_permitted_after_eval",
+      "equals": false
+    },
+    {
+      "path": "implementation_readiness_contract.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "implementation_readiness_contract.provider_launch_allowed",
+      "equals": false
     }
   ]
 }

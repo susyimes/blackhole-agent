@@ -1161,6 +1161,13 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         claim_remediation_plan=claim_remediation_plan,
         project_intake_probe=project_intake_probe,
     )
+    implementation_readiness_contract = build_agent_harness_eval_implementation_readiness_contract(
+        activation_gate=activation_gate,
+        activation_lanes=activation_lanes,
+        claim_evaluation=claim_evaluation,
+        project_intake_probe=project_intake_probe,
+        general_agent_route_review_queue=general_agent_route_review_queue,
+    )
 
     return {
         "schema_version": 1,
@@ -1187,6 +1194,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activation_lanes": activation_lanes,
         "activation_review": activation_review,
         "general_agent_route_review_queue": general_agent_route_review_queue,
+        "implementation_readiness_contract": implementation_readiness_contract,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
@@ -1838,6 +1846,98 @@ def build_general_agent_route_review_queue(
         "raw_claim_bodies_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+    }
+
+
+def build_agent_harness_eval_implementation_readiness_contract(
+    *,
+    activation_gate: dict[str, Any],
+    activation_lanes: list[dict[str, Any]],
+    claim_evaluation: dict[str, Any],
+    project_intake_probe: dict[str, Any],
+    general_agent_route_review_queue: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose preflight and pass/fail criteria before general-agent follow-up work."""
+
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    claim_rows = claim_evaluation.get("rows") if isinstance(claim_evaluation.get("rows"), list) else []
+    candidate_capabilities = sorted(
+        {
+            capability
+            for row in claim_rows
+            if isinstance(row, dict) and row.get("mapped") is True
+            for capability in string_list(row.get("local_capabilities"))
+        }
+    )
+    allowed_followup_lanes = [
+        lane
+        for lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+        if any(str(activation_lane.get("proposal_kind") or "") == lane for activation_lane in activation_lanes)
+    ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+    activation_allowed = activation_gate.get("local_eval_activation_allowed") is True
+    probe_ready = project_intake_probe.get("status") == "ready"
+    queue_ready = general_agent_route_review_queue.get("status") == "ready"
+    unmapped_claim_count = int(claim_evaluation.get("unmapped_claim_count") or 0)
+    bounded_lane_count = len(activation_lanes)
+    blockers: list[str] = []
+    if not activation_allowed:
+        blockers.append(str(activation_gate.get("reason") or "activation_gate_not_ready"))
+    if not probe_ready:
+        blockers.append("project_intake_probe_incomplete")
+    if unmapped_claim_count:
+        blockers.append("unmapped_agent_claims")
+    if not bounded_lane_count:
+        blockers.append("no_bounded_followup_lanes")
+    if not queue_ready:
+        blockers.append("general_agent_review_queue_not_ready")
+    blockers = list(dict.fromkeys(blocker for blocker in blockers if blocker))
+    followup_allowed = not blockers
+
+    return {
+        "controller_surface": "agent_harness_eval_implementation_readiness_contract",
+        "status": "ready" if followup_allowed else "blocked",
+        "decision": (
+            "agent_harness_eval_passed_before_followup_lanes"
+            if followup_allowed
+            else "hold_general_agent_followup_until_eval_contract_passes"
+        ),
+        "candidate_capabilities": candidate_capabilities,
+        "allowed_followup_lanes": allowed_followup_lanes,
+        "required_preflight_checks": [
+            "project_intake_probe_complete",
+            "agent_claims_mapped_to_local_capabilities",
+            "bounded_followup_lanes_selected",
+            "local_agent_harness_eval_replay_passes",
+            "safety_boundary_review_clear",
+            "runtime_and_external_execution_denied",
+        ],
+        "pass_criteria": [
+            "project_intake_probe.status == ready",
+            "claim_evaluation.unmapped_claim_count == 0",
+            "activation_gate.local_eval_activation_allowed == true",
+            "general_agent_route_review_queue.status == ready",
+            "all follow-up lanes are documentation, test, or code_patch",
+            "runtime_action == none",
+            "external_harness_execution_allowed == false",
+            "provider_launch_allowed == false",
+            "remote_execution_allowed == false",
+        ],
+        "fail_criteria": blockers,
+        "bounded_followup_lane_count": bounded_lane_count,
+        "unmapped_claim_count": unmapped_claim_count,
+        "project_intake_probe_status": str(project_intake_probe.get("status") or "incomplete"),
+        "general_agent_route_review_queue_status": str(general_agent_route_review_queue.get("status") or "empty"),
+        "required_validation": [validation_command],
+        "documentation_test_or_code_patch_permitted_after_eval": followup_allowed,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_bodies_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

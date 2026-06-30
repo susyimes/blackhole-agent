@@ -22,6 +22,24 @@ direct runtime routing, direct code_patch authority, external harness
 execution, provider launch, profile writes, memory writes, remote execution,
 raw source URL export, replay-command export, or upstream body export.
 
+Source digest `github-growth-20260630T062715.310093Z` advances pass 2 of the
+same slice by making the adjacent `agent_harness_eval` route more explicit
+before implementation work. General-agent projects such as Qwen-AgentWorld,
+looper, and AgentChat must now satisfy an
+`agent_harness_eval_implementation_readiness_contract` that records candidate
+local capabilities, required preflight checks, and pass/fail criteria before
+documentation, test, or code_patch follow-up lanes are permitted. The contract
+blocks when any general-agent claim is unmapped, the project intake probe is
+incomplete, the bounded lane replay has not passed, or the review queue is not
+ready.
+
+This pass does not change the skill-route boundary. zhengxi-views-style public
+Agent Skill evidence remains eligible only for documentation, config, test, or
+code_patch lanes with local validation required. General-agent evidence still
+does not inherit `skill_route_discovery`, direct runtime routing, external
+harness execution, provider launch, remote execution, profile writes, memory
+writes, raw URL export, replay-command export, or upstream body export.
+
 Source digest `github-growth-20260630T042714.877059Z` completes pass 4 of the
 current `skill-route-discovery` window by adding a closure checklist to the
 local-kernel handoff. The checklist is operator-visible and body-free: it
