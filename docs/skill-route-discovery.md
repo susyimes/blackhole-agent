@@ -5,6 +5,25 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260630T074714.730934Z` advances pass 2 of the
+active `skill-route-discovery` window with a digest-specific
+`current_digest_pass2_local_validation_lane`. The zhengxi-views evidence is
+skill-shaped and now maps to two bounded local lanes:
+`p1-skill-route-discovery-lane` in the test lane and
+`p3-route-hint-documentation` in the documentation lane. Both rows preserve
+only documentation, config, test, or code_patch as selectable local lanes and
+keep `runtime_action: none`.
+
+Qwen-AgentWorld, looper, and open-reverselab remain adjacent general-agent
+evidence under `p2-agent-harness-eval-fixtures`; they require local
+`agent_harness_eval` before documentation, test, or code_patch implementation
+scope is selected and do not inherit `skill_route_discovery`. open-reverselab
+is also recorded as review-only security-adjacent context at the
+offensive-behavior boundary. The pass-2 focused review and active-slice review
+surfaces are ready for supervisor replay, but they do not activate external
+skills, run external harnesses, launch providers, write profiles or memory,
+export raw upstream URLs, export raw replay commands, or restart the kernel.
+
 Source digest `github-growth-20260630T072714.658769Z` starts the next pass-1
 `skill-route-discovery` window with a digest-specific local validation fixture.
 The zhengxi-views evidence is skill-shaped and maps to

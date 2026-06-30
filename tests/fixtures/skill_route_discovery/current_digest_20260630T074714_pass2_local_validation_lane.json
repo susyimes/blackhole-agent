@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260630T074714.730934Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-zhengxi-views",
+      "p2-agent-harness-eval-qwen-agentworld",
+      "p3-agent-harness-eval-looper",
+      "p4-agent-automation-eval-open-reverselab",
+      "p5-agent-chat-eval",
+      "p1-skill-route-discovery-lane",
+      "p2-agent-harness-eval-fixtures",
+      "p3-route-hint-documentation",
+      "p4-agent-project-ranking-config",
+      "trend:lyra81604/zhengxi-views-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260630T074714.730934Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "zhengxi-views bounded agent skill route discovery",
+      "summary": "Public Agent Skill package with SKILL.md, skill manifest metadata, references, validation notes, and no external activation request.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent", "skill", "workflow", "validation", "source-citation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "progressive_skill_package"],
+        "source_metadata_signals": ["skill_manifest", "skill_registry_metadata"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260630T074714.730934Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "Qwen-AgentWorld general agent evaluation project",
+      "summary": "General agent benchmark and environment project without explicit skill workflow route hints or local skill package layout signals.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "benchmark", "evaluation", "environment"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260630T074714.730934Z",
+      "item_id": "trend:ksimback/looper-1",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "Looper agent loop design project",
+      "summary": "Agent loop design project carried as adjacent general-agent harness evidence before runtime, scheduler, runner, or direct code_patch scope.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "loop", "scheduler", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260630T074714.730934Z",
+      "item_id": "trend:LING71671/open-reverselab-1",
+      "item_kind": "repository",
+      "name": "open-reverselab",
+      "source_url": "https://github.com/LING71671/open-reverselab",
+      "title": "open-reverselab automation-tagged agent project",
+      "summary": "Automation-tagged general agent project in a reverse-engineering context without explicit skill workflow route hints; keep security-adjacent evidence review-only.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "automation", "reverse-engineering", "security-adjacent"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}
