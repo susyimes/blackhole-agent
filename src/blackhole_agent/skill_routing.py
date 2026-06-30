@@ -7586,11 +7586,28 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 ) -> dict[str, Any]:
     """Expose current pass-3 activation review without adding activation authority."""
 
+    current_080714_window = source_digest == "github-growth-20260630T080714.700772Z"
     current_040714_window = source_digest == "github-growth-20260630T040714.847135Z"
     current_052714_window = source_digest == "github-growth-20260630T052714.485930Z"
     current_024714_window = source_digest == "github-growth-20260630T024714.466980Z"
     current_215904_window = source_digest == "github-growth-20260629T215904.320352Z"
     active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_probe_zhengxi_views",
+            "p2_agent_harness_eval_gate_for_general_agent_projects",
+            "p3_document_route_policy_for_trend_only_inputs",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-looper",
+            "p4-agent-automation-eval-open-reverselab",
+            "p5-agent-chat-eval",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:LING71671/open-reverselab-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_080714_window
+        else
         [
             "proposal-skill-route-discovery-zhengxi-views",
             "proposal-agent-harness-eval-trending-agent-projects",
@@ -7651,7 +7668,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         (
             {
                 "proposal_id": (
-                    "proposal-skill-route-discovery-zhengxi-views"
+                    "p1_skill_route_discovery_probe_zhengxi_views"
+                    if current_080714_window
+                    else "proposal-skill-route-discovery-zhengxi-views"
                     if current_052714_window
                     else "p1_skill_route_discovery_lane"
                     if current_040714_window
@@ -7665,7 +7684,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "activation_review_step": "verify_skill_route_lane_before_any_local_activation",
             },
         )
-        if current_052714_window or current_040714_window or current_024714_window
+        if current_080714_window or current_052714_window or current_040714_window or current_024714_window
         else
         (
             {
@@ -7809,6 +7828,16 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 row["proposal_id"] = "p2_agent_harness_eval_fixture"
             else:
                 row["proposal_id"] = "p3-general-agent-routing-coverage"
+        elif current_080714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+            elif lowered_name == "looper":
+                row["proposal_id"] = "p3-agent-harness-eval-looper"
+            elif lowered_name == "open-reverselab":
+                row["proposal_id"] = "p4-agent-automation-eval-open-reverselab"
+            else:
+                row["proposal_id"] = "p2_agent_harness_eval_gate_for_general_agent_projects"
         elif current_052714_window:
             row["proposal_id"] = "proposal-agent-harness-eval-trending-agent-projects"
         elif current_024714_window:
@@ -7841,6 +7870,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 
     general_agent_row = {
         "proposal_id": (
+            "p2_agent_harness_eval_gate_for_general_agent_projects"
+            if current_080714_window
+            else
             "proposal-agent-harness-eval-trending-agent-projects"
             if current_052714_window
             else

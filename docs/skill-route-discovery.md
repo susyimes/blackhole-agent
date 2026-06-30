@@ -4654,6 +4654,22 @@ paths, and upstream bodies remain unavailable from this surface.
 
 ## 2026-06-30 Pass-3 Current Evaluation Lane
 
+Source digest `github-growth-20260630T080714.700772Z` continues pass 3 with
+the current active proposal IDs. `p1_skill_route_discovery_probe_zhengxi_views`
+is the only skill-route implementation candidate and maps zhengxi-views to the
+local test lane after stripping unsupported `provider_runtime` evidence. It may
+select only documentation, config, test, or code_patch, and it keeps local
+validation required before activation.
+
+`p2_agent_harness_eval_gate_for_general_agent_projects` is the aggregate local
+gate for Qwen-AgentWorld, open-reverselab, and looper. Each adjacent row remains
+`agent_harness_eval_required`; trend summaries alone do not grant direct
+documentation, test, code_patch, runtime, external harness, provider launch,
+remote execution, profile-write, memory-write, raw URL export, replay-command
+export, target-path export, or upstream-body export authority.
+`p3_document_route_policy_for_trend_only_inputs` is documentation-only guidance
+for that boundary, not an activation route.
+
 Source digest `github-growth-20260630T052714.485930Z` keeps the active
 `skill-route-discovery` slice in pass 3 with current proposal names instead of
 older aliases. zhengxi-views is treated as public Agent Skill workflow evidence
