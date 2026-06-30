@@ -2035,6 +2035,118 @@ def test_current_pass3_route_readiness_index_splits_skill_routes_from_qwen_agent
     assert "https://github.com/" not in serialized
 
 
+def test_current_pass2_lane_handoff_bounds_zhengxi_and_gates_general_agents():
+    digest = {
+        "digest_id": "github-growth-20260630T102715.054031Z",
+        "generated_at": "2026-06-30T10:27:15Z",
+        "items": [
+            {
+                "item_id": "trend:lyra81604/zhengxi-views-1",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": "zhengxi-views: public SKILL.md workflow with source citations and domain research views.",
+                "relevance_reason": "Skill and workflow evidence maps only to bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.76,
+            },
+            {
+                "item_id": "trend:QwenLM/Qwen-AgentWorld",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld: general agent benchmark and project for agent training and evaluation.",
+                "relevance_reason": "General public agent projects require agent_harness_eval before implementation.",
+                "risk_flags": [],
+                "confidence": 0.70,
+            },
+            {
+                "item_id": "trend:ksimback/looper",
+                "source_url": "https://github.com/ksimback/looper",
+                "event_kind": "RepositoryTrend",
+                "summary": "looper: general agent loop runtime project with scheduled autonomous work.",
+                "relevance_reason": "Agent loop evidence remains adjacent harness-eval evidence, not a skill route.",
+                "risk_flags": [],
+                "confidence": 0.68,
+            },
+            {
+                "item_id": "trend:fork-low-detail",
+                "source_url": "https://github.com/example/fork-low-detail",
+                "event_kind": "ForkEvent",
+                "summary": "low-detail fork mirror of a public reverse-engineering repository.",
+                "relevance_reason": "Fork lineage alone has no local validation target.",
+                "risk_flags": [],
+                "confidence": 0.42,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    handoff = lane_map["current_pass2_lane_handoff"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert handoff["controller_surface"] == "current_pass2_lane_handoff"
+    assert handoff["source_digest"] == "github-growth-20260630T102715.054031Z"
+    assert handoff["status"] == "ready_with_adjacent_agent_eval_gated"
+    assert handoff["decision"] == "replay_bounded_skill_route_lane_keep_general_agents_in_eval_gate"
+    assert handoff["capability_pass"] == "2_of_4"
+    assert handoff["active_proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p2_agent_harness_eval_trending_agents",
+        "p3_document_route_interpretation_rules",
+    ]
+    assert handoff["skill_workflow_count"] == 1
+    assert handoff["general_agent_project_count"] == 2
+    assert handoff["blocked_general_agent_item_ids"] == [
+        "trend:QwenLM/Qwen-AgentWorld",
+        "trend:ksimback/looper",
+    ]
+    assert handoff["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert handoff["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert handoff["operator_replay_surface"] is True
+    assert handoff["local_validation_required"] is True
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+    assert handoff["raw_source_url_export_allowed"] is False
+    assert handoff["raw_evidence_url_export_allowed"] is False
+    assert handoff["raw_replay_command_export_allowed"] is False
+    assert handoff["raw_target_path_export_allowed"] is False
+    assert handoff["upstream_body_export_allowed"] is False
+
+    skill_rows = {row["item_id"]: row for row in handoff["skill_route_rows"]}
+    general_rows = {row["item_id"]: row for row in handoff["general_agent_rows"]}
+    assert sorted(skill_rows) == ["trend:lyra81604/zhengxi-views-1"]
+    assert sorted(general_rows) == ["trend:QwenLM/Qwen-AgentWorld", "trend:ksimback/looper"]
+    assert "trend:fork-low-detail" not in skill_rows
+    assert "trend:fork-low-detail" not in general_rows
+
+    zhengxi_row = skill_rows["trend:lyra81604/zhengxi-views-1"]
+    assert zhengxi_row["primary_route"] == "skill_route_discovery"
+    assert zhengxi_row["route_class"] == "skill_workflow"
+    assert zhengxi_row["selected_local_lane"] in {"documentation", "config", "test", "code_patch"}
+    assert zhengxi_row["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert zhengxi_row["lane_bounded"] is True
+    assert zhengxi_row["validation_gate"] == ["focused-evidence-review"]
+    assert zhengxi_row["implementation_route_allowed"] is True
+    assert zhengxi_row["source_url_hash"] == stable_hash(
+        {"source_url": "https://github.com/lyra81604/zhengxi-views"}
+    )
+
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in general_rows.values())
+    assert all(row["implementation_lanes_enabled"] is False for row in general_rows.values())
+    assert all(row["blocked_until"] == "local_agent_harness_evaluation_result" for row in general_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in general_rows.values())
+    assert "https://github.com/" not in serialized
+    assert "github.com/lyra81604" not in serialized
+    assert "github.com/QwenLM" not in serialized
+    assert "github.com/ksimback" not in serialized
+
+
 def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():
     digest = {
         "digest_id": "github-growth-mixed-skill-workflow-probe",

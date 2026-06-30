@@ -77,6 +77,15 @@ validation targets, and hashed source or replay references; it must keep raw
 upstream URLs, raw replay commands, provider launch, remote execution, profile
 writes, memory writes, external harness execution, and skill activation denied.
 
+The current pass-2 lane handoff follows the same rule for mixed skill and
+agent-project evidence. A zhengxi-views-style `SKILL.md` repository may appear
+only as `skill_route_discovery` with documentation, config, test, or code patch
+lanes selected for local validation. Qwen-AgentWorld or looper-style general
+agent projects remain adjacent `agent_harness_eval_required` rows before any
+documentation, test, or code patch implementation lane is enabled. Low-detail
+fork or lineage evidence without a mapped local validation target does not
+increase skill-route or agent-harness lane counts.
+
 Repository lifecycle signals do not change that boundary. A newly discovered
 skill repository is recorded as `record_only_no_install`, and a deleted upstream
 skill repository is recorded as `record_only_no_local_deletion`. Malformed

@@ -612,6 +612,11 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             package_items,
             context_budget=evidence_package.get("context_budget"),
         ),
+        "current_pass2_lane_handoff": build_current_pass2_lane_handoff(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+            digest_id=str(evidence_package.get("digest_id") or ""),
+        ),
         "skill_route_pass3_handoff": build_skill_route_pass3_handoff(
             package_items,
             context_budget=evidence_package.get("context_budget"),
@@ -951,6 +956,156 @@ def build_current_pass2_activation_readiness(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass2_lane_handoff(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+    digest_id: str = "",
+) -> dict[str, Any]:
+    """Expose pass-2 skill-route lanes as a replayable local handoff."""
+
+    implementation_preflight = build_skill_route_implementation_preflight(
+        items,
+        context_budget=context_budget,
+    )
+    general_eval = build_general_agent_project_eval_lane(items)
+    selected_item_ids = sorted(
+        {
+            str(item_id)
+            for item_id in (
+                context_budget.get("selected_item_ids", [])
+                if isinstance(context_budget, dict)
+                else []
+            )
+            if str(item_id).strip()
+        }
+    )
+    skill_rows: list[dict[str, Any]] = []
+    for row in implementation_preflight.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("item_id") or "")
+        source_item = find_item_by_id(items, item_id)
+        source_url = str(source_item.get("source_url") or "")
+        selected_lane = str(row.get("selected_local_lane") or "")
+        allowed_lanes = [str(lane) for lane in row.get("allowed_local_lanes", [])]
+        route_profiles = [str(profile) for profile in row.get("route_profiles", [])]
+        skill_rows.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": stable_hash({"source_url": source_url}) if source_url else "",
+                "primary_route": "skill_route_discovery",
+                "route_class": "skill_workflow",
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [str(lane) for lane in row.get("queued_local_lanes", [])],
+                "allowed_local_lanes": allowed_lanes,
+                "lane_bounded": bool(selected_lane)
+                and selected_lane in allowed_lanes
+                and set(allowed_lanes).issubset(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+                "validation_gate": skill_route_pass3_validation_gates_for_route(
+                    primary_route="skill_route_discovery",
+                    selected_local_lane=selected_lane,
+                    route_profiles=route_profiles,
+                ),
+                "implementation_route_allowed": bool(row.get("implementation_route_allowed")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        )
+
+    general_rows: list[dict[str, Any]] = []
+    for candidate in general_eval.get("candidates", []):
+        if not isinstance(candidate, dict):
+            continue
+        item_id = str(candidate.get("item_id") or "")
+        source_item = find_item_by_id(items, item_id)
+        has_local_eval = general_agent_project_has_local_eval_result(source_item)
+        general_rows.append(
+            {
+                "item_id": item_id,
+                "primary_route": "agent_harness_eval_required",
+                "route_class": "general_agent_project",
+                "evaluation_lane": "agent_harness_eval_required",
+                "allowed_local_lanes": [str(lane) for lane in candidate.get("allowed_local_lanes", [])],
+                "implementation_lanes_enabled": has_local_eval,
+                "blocked_until": "" if has_local_eval else "local_agent_harness_evaluation_result",
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        )
+
+    skill_ready = bool(skill_rows) and all(row["lane_bounded"] for row in skill_rows)
+    general_eval_pending = any(not row["implementation_lanes_enabled"] for row in general_rows)
+    status = (
+        "ready_with_adjacent_agent_eval_gated"
+        if skill_ready and general_eval_pending
+        else "ready"
+        if skill_ready
+        else "blocked"
+    )
+    blocked_item_ids = [
+        row["item_id"] for row in general_rows if not row["implementation_lanes_enabled"]
+    ]
+    return {
+        "controller_surface": "current_pass2_lane_handoff",
+        "status": status,
+        "decision": (
+            "replay_bounded_skill_route_lane_keep_general_agents_in_eval_gate"
+            if status == "ready_with_adjacent_agent_eval_gated"
+            else "replay_bounded_skill_route_lane"
+            if status == "ready"
+            else "repair_skill_route_lane_before_handoff"
+        ),
+        "capability_pass": "2_of_4",
+        "source_digest": digest_id,
+        "active_proposal_ids": [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agents",
+            "p3_document_route_interpretation_rules",
+        ],
+        "selected_item_ids": selected_item_ids,
+        "skill_workflow_count": len(skill_rows),
+        "general_agent_project_count": len(general_rows),
+        "blocked_general_agent_item_ids": blocked_item_ids,
+        "skill_route_rows": skill_rows,
+        "general_agent_rows": general_rows,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "allowed_general_agent_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "required_local_validation": sorted(
+            dict.fromkeys(SKILL_ROUTE_LOCAL_LANE_COMMANDS + GENERAL_AGENT_PROJECT_EVAL_COMMANDS)
+        ),
+        "operator_replay_surface": True,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
+        "raw_replay_command_export_allowed": False,
+        "raw_target_path_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
 

@@ -20,6 +20,20 @@ skills, run upstream code or harnesses, launch providers, export raw source URLs
 write profiles or memory, grant remote execution, or let general-agent evidence
 inherit `skill_route_discovery`.
 
+Source digest `github-growth-20260630T102715.054031Z` advances pass 2 with
+`current_pass2_lane_handoff`, an operator-visible replay checkpoint for the
+active lane. The zhengxi-views row remains the only skill-route row and may
+select only documentation, config, test, or code_patch with focused local
+validation. Qwen-AgentWorld and looper remain adjacent
+`agent_harness_eval_required` rows until a local harness evaluation result
+exists, and low-detail fork or lineage evidence without a validation target does
+not add a route lane. The handoff exports item IDs, lane names, proposal IDs,
+source hashes, validation commands, and denial booleans only; raw source URLs,
+raw evidence URLs, raw replay commands, raw target paths, upstream bodies,
+runtime action, provider launch, external harness execution, profile writes,
+memory writes, remote execution, and external skill or agent activation remain
+denied.
+
 Source digest `github-growth-20260630T092714.616189Z` advances pass 3 of the
 active `skill-route-discovery` window with a current activation-review lane
 instead of older pass-3 proposal aliases. zhengxi-views maps to
