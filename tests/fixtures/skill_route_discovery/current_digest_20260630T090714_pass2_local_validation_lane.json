@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260630T090714.437117Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-zhengxi-views",
+      "p2-agent-harness-eval-qwen-agentworld",
+      "p3-agent-harness-eval-looper",
+      "p4-agentchat-routing-docs-and-tests",
+      "p5-open-reverselab-review-gated-harness",
+      "p1_skill_route_discovery_zhengxi_views",
+      "p2_agent_harness_eval_trending_python_agents",
+      "p3_document_route_policy_for_trend_items",
+      "p4_config_fixture_for_allowed_route_hints",
+      "trend:lyra81604/zhengxi-views-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260630T090714.437117Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "zhengxi-views bounded skill route discovery pass 2",
+      "summary": "Public Agent Skill style repository with SKILL.md, skill manifest metadata, references, scripts, validation language, and source-cited public-view research boundaries. Treat as bounded local validation only.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent", "skill", "workflow", "validation", "source-citation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "progressive_skill_package"],
+        "source_metadata_signals": ["skill_manifest", "skill_registry_metadata", "source_citation_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260630T090714.437117Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "Qwen-AgentWorld general agent evaluation project",
+      "summary": "General agent benchmark and environment project without explicit local skill package layout signals.",
+      "route_hints": [],
+      "topics": ["general-agent", "benchmark", "evaluation", "environment"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260630T090714.437117Z",
+      "item_id": "trend:ksimback/looper-1",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "Looper general agent loop project",
+      "summary": "General agent loop-control and scheduling project without explicit skill workflow route hints.",
+      "route_hints": [],
+      "topics": ["general-agent", "loop", "scheduler", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260630T090714.437117Z",
+      "item_id": "trend:ziwang-Physics/AgentChat-1",
+      "item_kind": "repository",
+      "name": "AgentChat",
+      "source_url": "https://github.com/ziwang-Physics/AgentChat",
+      "title": "AgentChat general agent chat project",
+      "summary": "General agent chat project evidence without explicit local skill workflow route hints. Keep as adjacent agent-harness evaluation only.",
+      "route_hints": [],
+      "topics": ["general-agent", "chat", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

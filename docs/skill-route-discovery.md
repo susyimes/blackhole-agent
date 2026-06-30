@@ -22,6 +22,20 @@ The lane preserves generic skill workflow and source-cited research route
 profiles, strips unsupported provider-runtime pressure, and requires local
 validation before activation.
 
+Source digest `github-growth-20260630T090714.437117Z` advances pass 2 of this
+window with the current proposal IDs. zhengxi-views maps to
+`p1_skill_route_discovery_zhengxi_views` in the local test lane and
+`p3_document_route_policy_for_trend_items` in the documentation lane; both rows
+may select only documentation, config, test, or code_patch and keep runtime
+action denied.
+
+Qwen-AgentWorld, looper, and AgentChat are intentionally covered as
+empty-route-hint general-agent rows. They remain under
+`p2_agent_harness_eval_trending_python_agents` and require local
+`agent_harness_eval_required` before documentation, test, or code_patch scope is
+chosen. The open-reverselab anchor remains review-only at the
+offensive-behavior boundary with no route influence.
+
 Qwen-AgentWorld, looper, and AgentChat remain adjacent general-agent evidence
 under `agent_harness_eval_required`; they do not inherit `skill_route_discovery`
 or direct runtime, scheduler, loop-control, provider, external harness, remote
