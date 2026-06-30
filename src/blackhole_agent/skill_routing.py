@@ -5620,7 +5620,36 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_195904_window = source_digest == "github-growth-20260629T195904.271855Z"
     current_211904_window = source_digest == "github-growth-20260629T211904.277568Z"
     current_223904_window = source_digest == "github-growth-20260629T223904.363629Z"
-    if current_223904_window:
+    current_235904_window = source_digest == "github-growth-20260629T235904.365838Z"
+    if current_235904_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-compass",
+                "proposal_kind": "test",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "test",
+                "validation_target": "compass_skill_ecosystem_handoff_discovery_lane",
+                "validation_task": (
+                    "verify COMPASS-style skill ecosystem handoff evidence maps only to "
+                    "documentation, config, test, or code_patch lanes and does not infer "
+                    "runtime permission from external trend evidence"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow",),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_discovery_checklist",
+                "validation_task": (
+                    "record how generic skill workflow repositories become local validation "
+                    "tasks without adding external runtime actions or URL-derived authority"
+                ),
+            },
+        )
+    elif current_223904_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass",
@@ -5984,6 +6013,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3-agent-harness-eval-agentworld"
+            if current_235904_window
+            else
             "p3-agent-harness-eval-qwen-agentworld"
             if current_223904_window
             else
@@ -6018,6 +6050,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_235904_window and str(row.get("name") or "").casefold() == "looper":
+            row["proposal_id"] = "p4-agent-harness-eval-looper"
         if current_223904_window and str(row.get("name") or "").casefold() == "looper":
             row["proposal_id"] = "p4-agent-loop-runner-eval"
         if current_211904_window and str(row.get("name") or "").casefold() == "looper":
@@ -6047,6 +6081,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-compass",
+            "p2-generic-skill-workflow-probe",
+            "p3-agent-harness-eval-agentworld",
+            "p4-agent-harness-eval-looper",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        if current_235904_window
+        else
         [
             "p1-skill-route-discovery-compass",
             "p2-generic-skill-route-coverage-zhengxi",

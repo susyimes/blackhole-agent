@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 96
-    assert payload["pass_count"] == 95
+    assert payload["fixture_count"] == 97
+    assert payload["pass_count"] == 96
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -246,6 +246,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260629T225904-pass2-local-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260629T235904-pass1-current-window"
         ]["passed"]
         is True
     )
@@ -17253,6 +17259,85 @@ def test_skill_route_discovery_current_digest_20260629T225904_pass2_local_valida
         "p4-agent-loop-runner-eval",
     ]
     assert lane["review_only_anchor_notes"][0]["proposal_id"] == "p5-security-agent-risk-gated-eval"
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["profile_write_allowed"] is False
+    assert lane["memory_write_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert "install" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+
+
+def test_skill_route_discovery_current_digest_20260629T235904_pass1_current_window():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260629T235904_pass1_current_window.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass1_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = lane["adjacent_general_agent_rows"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert lane["source_digest"] == "github-growth-20260629T235904.365838Z"
+    assert lane["capability_pass"] == 1
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-generic-skill-workflow-probe",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-compass",
+        "p2-generic-skill-workflow-probe",
+        "p3-agent-harness-eval-agentworld",
+        "p4-agent-harness-eval-looper",
+        "trend:lyra81604/zhengxi-views-1",
+    ]
+
+    compass = rows["p1-skill-route-discovery-compass"]
+    generic = rows["p2-generic-skill-workflow-probe"]
+    assert compass["candidate_names"] == ["compass-skills"]
+    assert compass["route_profiles"] == ["skill_ecosystem_state_handoff"]
+    assert compass["selected_local_lane"] == "test"
+    assert generic["candidate_names"] == ["zhengxi-views"]
+    assert generic["route_profiles"] == ["generic_skill_workflow"]
+    assert generic["selected_local_lane"] == "documentation"
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in rows.values()
+    )
+    assert "install" not in compass["allowed_local_lanes"]
+    assert "provider_runtime" not in generic["allowed_local_lanes"]
+
+    assert [row["proposal_id"] for row in adjacent] == [
+        "p3-agent-harness-eval-agentworld",
+        "p4-agent-harness-eval-looper",
+    ]
+    assert [row["name"] for row in adjacent] == ["Qwen-AgentWorld", "looper"]
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent)
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent)
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent)
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent)
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent)
+    assert all(row["provider_runtime_launch_allowed"] is False for row in adjacent)
+
     assert lane["runtime_action"] == "none"
     assert lane["external_skill_activation_allowed"] is False
     assert lane["external_agent_activation_allowed"] is False
