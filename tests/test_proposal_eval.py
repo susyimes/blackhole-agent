@@ -622,6 +622,149 @@ def test_route_hint_lane_map_is_bounded_metadata_only_for_skill_discovery():
     assert "permissions" not in lane_map
 
 
+def test_zhengxi_skill_route_push_activity_is_corroborating_only():
+    digest = {
+        "digest_id": "github-growth-20260630T100715.128640Z",
+        "generated_at": "2026-06-30T10:07:15.128640Z",
+        "items": [
+            {
+                "item_id": "zhengxi-views-trend",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "zhengxi-views Agent Skill repository with SKILL.md, skill.yml, references, "
+                    "scripts, and source-cited workflow constraints."
+                ),
+                "relevance_reason": (
+                    "Explicit skill workflow evidence should become a bounded local validation lane."
+                ),
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "zhengxi-views-push-1",
+                "source_url": "https://github.com/lyra81604/zhengxi-views/commit/abc123",
+                "event_kind": "PushEvent",
+                "summary": "Push to main: generic workflow polish for the Agent Skill.",
+                "relevance_reason": "Low-detail skill workflow activity is freshness evidence only.",
+                "risk_flags": [],
+                "confidence": 0.50,
+            },
+            {
+                "item_id": "zhengxi-views-push-2",
+                "source_url": "https://github.com/lyra81604/zhengxi-views/commit/def456",
+                "event_kind": "PushEvent",
+                "summary": "Push to main: generic skill workflow update.",
+                "relevance_reason": "Low-detail push activity must not become independent implementation evidence.",
+                "risk_flags": [],
+                "confidence": 0.49,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=420)
+    lane_map = build_route_hint_lane_map(evidence_package)
+
+    assert evidence_package["policy"]["route_hint_validation_lanes"]["skill_route_discovery"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert lane_map["ok"] is True
+    assert lane_map["route_class_counts"] == {"skill_workflow": 3}
+    assert lane_map["selected_route_hints"] == ["skill_route_discovery"]
+    assert all(
+        row["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+        for row in lane_map["route_classifier"]
+    )
+    assert all(row["repeated_skill_activity_signal"] is True for row in lane_map["route_classifier"])
+
+    pressure = lane_map["route_activity_pressure"]
+    repeated_project = pressure["repeated_projects"][0]
+    assert pressure["repeated_project_count"] == 1
+    assert set(repeated_project["item_ids"]) == {
+        "zhengxi-views-trend",
+        "zhengxi-views-push-1",
+        "zhengxi-views-push-2",
+    }
+    assert repeated_project["independent_implementation_evidence_item_ids"] == ["zhengxi-views-trend"]
+    assert repeated_project["corroborating_activity_item_ids"] == [
+        "zhengxi-views-push-1",
+        "zhengxi-views-push-2",
+    ]
+    assert repeated_project["low_detail_push_item_ids"] == [
+        "zhengxi-views-push-1",
+        "zhengxi-views-push-2",
+    ]
+    assert repeated_project["low_detail_pushes_independent_implementation_evidence_allowed"] is False
+    assert repeated_project["allowed_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert repeated_project["runtime_action"] == "none"
+    assert repeated_project["local_validation_required"] is True
+
+    implementation_preflight = lane_map["skill_route_implementation_preflight"]
+    assert implementation_preflight["status"] == "ready"
+    assert implementation_preflight["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert all(row["local_validation_required"] is True for row in implementation_preflight["rows"])
+    assert all(row["implementation_route_allowed"] is True for row in implementation_preflight["rows"])
+    assert all(row["runtime_action"] == "none" for row in implementation_preflight["rows"])
+
+    raw_response = {
+        "schema_version": 1,
+        "input_digest_id": digest["digest_id"],
+        "run_interpretation": "Bound zhengxi skill workflow evidence to local validation.",
+        "self_model_reading": {"status": "unchanged"},
+        "rejected_items": [],
+        "proposals": [
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "kind": "test",
+                "summary": "Validate bounded skill-route discovery for zhengxi-views.",
+                "evidence_refs": [
+                    "zhengxi-views-trend",
+                    "zhengxi-views-push-1",
+                    "zhengxi-views-push-2",
+                ],
+                "added_risk_flags": [],
+                "validation_task": (
+                    "Add a local test that keeps zhengxi skill-route evidence in bounded validation lanes."
+                ),
+                "rationale": "The RepositoryTrend item supplies the concrete skill workflow evidence.",
+                "uncertainty": (
+                    "Push events are generic freshness signals and do not independently describe implementation."
+                ),
+                "self_effect": "Improves local route validation only.",
+                "action_lane": "skill_route_discovery",
+            }
+        ],
+    }
+    review = review_llm_proposal_response(json.dumps(raw_response), evidence_package, mode="hybrid")
+
+    assert review.status == "accepted"
+    assert review.accepted_candidates[0]["proposal_id"] == "p1-skill-route-discovery-zhengxi-views"
+
+    push_only_response = {
+        **raw_response,
+        "proposals": [
+            {
+                **raw_response["proposals"][0],
+                "proposal_id": "bad-push-only-skill-route",
+                "evidence_refs": ["zhengxi-views-push-1", "zhengxi-views-push-2"],
+            }
+        ],
+    }
+    push_only_review = review_llm_proposal_response(
+        json.dumps(push_only_response),
+        evidence_package,
+        mode="hybrid",
+    )
+
+    assert push_only_review.status == "rejected"
+    assert (
+        "generic push or untitled pull request/review evidence requires a non-generic corroborating item "
+        "before behavior proposals"
+    ) in push_only_review.rejected_candidates[0]["errors"]
+
+
 def test_route_hint_lane_map_exposes_current_pass3_skill_route_handoff():
     digest = {
         "digest_id": "github-growth-20260624T095356.034961Z",

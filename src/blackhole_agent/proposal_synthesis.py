@@ -1708,6 +1708,9 @@ def build_skill_route_activity_pressure(items: list[Any]) -> dict[str, Any]:
     counts = digest_skill_route_activity_counts(items)
     event_kinds_by_key: dict[str, set[str]] = {}
     item_ids_by_key: dict[str, list[str]] = {}
+    low_detail_push_item_ids_by_key: dict[str, list[str]] = {}
+    corroborating_item_ids_by_key: dict[str, list[str]] = {}
+    independent_item_ids_by_key: dict[str, list[str]] = {}
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -1725,6 +1728,11 @@ def build_skill_route_activity_pressure(items: list[Any]) -> dict[str, Any]:
         item_id = str(item.get("item_id") or "")
         if item_id:
             item_ids_by_key.setdefault(key, []).append(item_id)
+            if digest_item_has_generic_push_detail(item):
+                low_detail_push_item_ids_by_key.setdefault(key, []).append(item_id)
+                corroborating_item_ids_by_key.setdefault(key, []).append(item_id)
+            else:
+                independent_item_ids_by_key.setdefault(key, []).append(item_id)
 
     repeated_projects = [
         {
@@ -1732,6 +1740,16 @@ def build_skill_route_activity_pressure(items: list[Any]) -> dict[str, Any]:
             "activity_count": count,
             "event_kinds": sorted(event_kinds_by_key.get(key, set())),
             "item_ids": list(dict.fromkeys(item_ids_by_key.get(key, []))),
+            "independent_implementation_evidence_item_ids": list(
+                dict.fromkeys(independent_item_ids_by_key.get(key, []))
+            ),
+            "corroborating_activity_item_ids": list(dict.fromkeys(corroborating_item_ids_by_key.get(key, []))),
+            "low_detail_push_item_ids": list(dict.fromkeys(low_detail_push_item_ids_by_key.get(key, []))),
+            "low_detail_pushes_independent_implementation_evidence_allowed": False,
+            "implementation_evidence_rule": (
+                "low_detail_push_events_are_corroborating_activity_only_until_a_non_generic_selected_item "
+                "supplies_repository_or_validation_detail"
+            ),
             "allowed_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
             "runtime_action": "none",
             "local_validation_required": True,

@@ -5,6 +5,21 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260630T100715.128640Z` starts pass 1 of the
+current `skill-route-discovery` window by making zhengxi-views-style push
+activity explicitly corroborating-only. The repository trend item supplies the
+concrete Agent Skill workflow evidence and may enter only documentation, config,
+test, or code_patch lanes with local validation required. Related generic
+`PushEvent` items can raise activity pressure for the same project, but they are
+recorded as low-detail freshness signals and are not independent implementation
+evidence unless a non-generic selected item supplies repository or validation
+detail.
+
+The current pass remains body-free and local-only. It does not activate external
+skills, run upstream code or harnesses, launch providers, export raw source URLs,
+write profiles or memory, grant remote execution, or let general-agent evidence
+inherit `skill_route_discovery`.
+
 Source digest `github-growth-20260630T092714.616189Z` advances pass 3 of the
 active `skill-route-discovery` window with a current activation-review lane
 instead of older pass-3 proposal aliases. zhengxi-views maps to
