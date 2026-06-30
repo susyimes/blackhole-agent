@@ -14,6 +14,21 @@ open-reverselab remain adjacent `agent_harness_eval_required` rows; the pass-4
 closure makes their comparison checklist operator-visible before any
 documentation, test, or code_patch follow-up is selected.
 
+Source digest `github-growth-20260630T084715.195137Z` starts the next pass-1
+`skill-route-discovery` window with a current local validation lane. The
+zhengxi-views evidence is treated as a skill-shaped public repository signal and
+maps only to `p1-skill-route-discovery-zhengxi-views` in the local test lane.
+The lane preserves generic skill workflow and source-cited research route
+profiles, strips unsupported provider-runtime pressure, and requires local
+validation before activation.
+
+Qwen-AgentWorld, looper, and AgentChat remain adjacent general-agent evidence
+under `agent_harness_eval_required`; they do not inherit `skill_route_discovery`
+or direct runtime, scheduler, loop-control, provider, external harness, remote
+execution, profile-write, memory-write, raw URL export, replay-command export,
+target-path export, or upstream-body authority. The open-reverselab anchor stays
+review-only at the offensive-behavior boundary with no route influence.
+
 The completion surface is body-free and supervisor-facing. It records route
 profiles, selected local lanes, validation hashes, adjacent general-agent count,
 and denial booleans only. It does not activate external skills or agents, run
