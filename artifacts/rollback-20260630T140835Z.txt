@@ -1,0 +1,6 @@
+original_branch=codex/blackhole-evolve/20260630T060809.436489-add-a-bounded-local-skill-route-discovery-valida
+original_head=4c50e231a2e159291a14546b88f88af5f950a813
+rollback_ref=refs/blackhole-rollback/20260630T140835Z
+recover_branch=git switch codex/blackhole-evolve/20260630T060809.436489-add-a-bounded-local-skill-route-discovery-valida
+recover_head=git reset --hard 4c50e231a2e159291a14546b88f88af5f950a813
+recover_ref=git reset --hard refs/blackhole-rollback/20260630T140835Z

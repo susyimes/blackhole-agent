@@ -5,6 +5,23 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260630T060714.387302Z` starts the current
+pass-1 `skill-route-discovery` window with a digest-specific
+`current_digest_pass1_validation_lane`. zhengxi-views-style public Agent Skill
+evidence maps to `p1_skill_route_discovery_zhengxi_views` in the local test
+lane and may select only documentation, config, test, or code_patch with
+`local_validation_required: true`.
+
+Qwen-AgentWorld, looper, and AgentChat remain adjacent general-agent evidence
+under `p2_agent_harness_eval_general_projects`. Automation-tagged
+open-reverselab remains adjacent under
+`p3_automation_agent_eval_open_reverselab` and is recorded as review-only
+security-adjacent context at the offensive-behavior boundary. These rows stay
+in `agent_harness_eval_required`; they do not inherit `skill_route_discovery`,
+direct runtime routing, direct code_patch authority, external harness
+execution, provider launch, profile writes, memory writes, remote execution,
+raw source URL export, replay-command export, or upstream body export.
+
 Source digest `github-growth-20260630T042714.877059Z` completes pass 4 of the
 current `skill-route-discovery` window by adding a closure checklist to the
 local-kernel handoff. The checklist is operator-visible and body-free: it
