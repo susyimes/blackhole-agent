@@ -1,0 +1,130 @@
+{
+  "name": "skill-route-discovery-current-digest-20260630T032714-pass1-local-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260630T032714-pass1-local-validation-lane",
+    "source_digest": "github-growth-20260630T032714.526268Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-agentworld",
+        "p3-general-agent-routing-coverage",
+        "p4-agent-trend-evaluation-doc",
+        "trend:lyra81604/zhengxi-views-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/LING71671/open-reverselab",
+        "https://github.com/ksimback/looper"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260630T032714.526268Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "zhengxi-views bounded agent skill route discovery",
+        "summary": "Public Python repository with Agent Skill shape, SKILL.md, skill.yml, references, validation scripts, source citation boundaries, and no external activation request.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent", "skill", "workflow", "validation", "source-citation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+          "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+          "source_metadata_signals": ["skill_manifest", "skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260630T032714.526268Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "Qwen-AgentWorld general agent evaluation project",
+        "summary": "General agent benchmark and environment project without explicit skill workflow route hints or local skill package layout signals.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "benchmark", "evaluation", "environment"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260630T032714.526268Z",
+        "item_id": "trend:LING71671/open-reverselab-1",
+        "item_kind": "repository",
+        "name": "open-reverselab",
+        "source_url": "https://github.com/LING71671/open-reverselab",
+        "title": "open-reverselab security-adjacent agent project",
+        "summary": "General agent project in reverse-engineering context without explicit skill workflow route hints; keep security-adjacent evidence review-only and require local agent harness evaluation before implementation routes.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "automation", "reverse-engineering", "security-adjacent"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260630T032714.526268Z",
+        "item_id": "trend:ksimback/looper-1",
+        "item_kind": "repository",
+        "name": "looper",
+        "source_url": "https://github.com/ksimback/looper",
+        "title": "Looper general agent loop project",
+        "summary": "General agent loop-control and scheduler project without explicit skill workflow route hints or local skill package layout signals.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "loop", "scheduler", "evaluation"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "src/blackhole_agent/skill_routing.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260630T032714_pass1_local_validation_lane.json",
+          "tests/test_harness_eval.py",
+          "docs/skill-route-discovery.md"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k 20260630T032714"
+        ],
+        "rollback_artifact": "artifacts/self-evolution/github-growth-20260630T032714Z-rollback.md",
+        "review_note": "Pass 1 exposes the current local validation lane: zhengxi-views remains bounded skill-route evidence, Qwen-AgentWorld remains adjacent harness-eval evidence, looper remains general-agent routing coverage, and open-reverselab is review-only security-adjacent context with no runtime route."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "registry.candidate_count", "equals": 1},
+    {"path": "registry.ignored_evidence_item_count", "equals": 3},
+    {"path": "current_digest_pass1_validation_lane.status", "equals": "ready"},
+    {"path": "current_digest_pass1_validation_lane.source_digest", "equals": "github-growth-20260630T032714.526268Z"},
+    {"path": "current_digest_pass1_validation_lane.capability_pass", "equals": 1},
+    {"path": "current_digest_pass1_validation_lane.proposal_ids", "equals": ["p1-skill-route-discovery-zhengxi-views"]},
+    {"path": "current_digest_pass1_validation_lane.anchoring_proposal_ids", "equals": ["p1-skill-route-discovery-zhengxi-views", "p2-agent-harness-eval-agentworld", "p3-general-agent-routing-coverage", "p4-agent-trend-evaluation-doc", "trend:lyra81604/zhengxi-views-1", "trend:QwenLM/Qwen-AgentWorld-1", "trend:LING71671/open-reverselab-1", "trend:ksimback/looper-1"]},
+    {"path": "current_digest_pass1_validation_lane.selected_local_lanes", "equals": ["test"]},
+    {"path": "current_digest_pass1_validation_lane.agent_harness_eval_required_count", "equals": 3},
+    {"path": "current_digest_pass1_validation_lane.rows.0.candidate_names", "equals": ["zhengxi-views"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass1_validation_lane.rows.0.allowed_local_lanes", "equals": ["documentation", "config", "test", "code_patch"]},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.proposal_id", "equals": "p2-agent-harness-eval-agentworld"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.proposal_id", "equals": "p3-general-agent-routing-coverage"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.2.proposal_id", "equals": "p3-general-agent-routing-coverage"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.skill_route_discovery_inherited", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.2.direct_code_patch_route_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.review_only_anchor_notes.0.proposal_id", "equals": "p3-general-agent-routing-coverage"},
+    {"path": "current_digest_pass1_validation_lane.review_only_anchor_notes.0.review_reason", "equals": "offensive_behavior_boundary"},
+    {"path": "current_digest_pass1_validation_lane.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass1_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_agent_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.provider_runtime_launch_allowed", "equals": false}
+  ]
+}
