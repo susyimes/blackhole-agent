@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 107
-    assert payload["pass_count"] == 106
+    assert payload["fixture_count"] == 108
+    assert payload["pass_count"] == 107
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -294,6 +294,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260630T080714-pass3-local-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260630T082714-pass4-completion"
         ]["passed"]
         is True
     )
@@ -18130,6 +18136,82 @@ def test_skill_route_discovery_current_digest_20260630T080714_pass3_local_valida
     assert lane["provider_runtime_launch_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260630T082714_pass4_completion_handoff_is_ready():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260630T082714_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    completion = output["capability_window_completion"]
+    handoff = completion["local_kernel_handoff"]
+    proposal_summary = handoff["proposal_completion_summary"]
+    closure = handoff["final_route_closure_manifest"]
+    serialized = json.dumps(completion, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+    assert completion["status"] == "ready"
+    assert completion["planned_window_complete"] is True
+    assert handoff["source_digest"] == "github-growth-20260630T082714.446734Z"
+    assert handoff["status"] == "ready"
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["route_profiles"] == ["generic_skill_workflow", "source_cited_domain_research"]
+    assert handoff["agent_harness_eval_required"] is True
+    assert handoff["adjacent_general_agent_project_count"] == 3
+    assert handoff["adjacent_general_agent_route"] == "agent_harness_eval_required"
+    assert handoff["adjacent_general_agent_skill_route_inherited"] is False
+
+    assert proposal_summary["status"] == "ready"
+    assert proposal_summary["skill_route_row_count"] == 2
+    assert proposal_summary["ready_skill_route_row_count"] == 2
+    assert proposal_summary["agent_harness_eval_row_count"] == 3
+    assert proposal_summary["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert proposal_summary["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert proposal_summary["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+    agent_rows = [
+        row for row in proposal_summary["rows"] if row["evidence_class"] == "agent_harness_eval"
+    ]
+    assert len(agent_rows) == 3
+    assert all(row["route_hint"] == "agent_harness_eval_required" for row in agent_rows)
+    assert all(row["skill_route_discovery_inherited"] is False for row in agent_rows)
+    assert all(row["allowed_local_lanes"] == ["documentation", "test", "code_patch"] for row in agent_rows)
+
+    assert closure["status"] == "ready"
+    assert closure["decision"] == "skill_route_window_closed_for_supervisor_replay"
+    assert closure["agent_harness_eval_required"] is True
+    assert closure["adjacent_general_agent_project_count"] == 3
+    gated_route = {
+        row["route"]: row for row in closure["rows"]
+    }["agent_harness_eval_required"]
+    assert gated_route["skill_route_discovery_inherited"] is False
+    assert gated_route["activation_allowed"] is False
+    assert closure["external_skill_activation_allowed"] is False
+    assert closure["external_agent_activation_allowed"] is False
+    assert closure["external_harness_execution_allowed"] is False
+    assert closure["provider_runtime_launch_allowed"] is False
+
+    assert handoff["runtime_action_allowed"] is False
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["profile_write_allowed"] is False
+    assert handoff["memory_write_allowed"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_replay_commands_exported"] is False
+    assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
 
