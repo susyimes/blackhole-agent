@@ -7685,6 +7685,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 ) -> dict[str, Any]:
     """Expose current pass-3 activation review without adding activation authority."""
 
+    current_104714_window = source_digest == "github-growth-20260630T104714.619738Z"
     current_092714_window = source_digest == "github-growth-20260630T092714.616189Z"
     current_080714_window = source_digest == "github-growth-20260630T080714.700772Z"
     current_040714_window = source_digest == "github-growth-20260630T040714.847135Z"
@@ -7692,6 +7693,16 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_024714_window = source_digest == "github-growth-20260630T024714.466980Z"
     current_215904_window = source_digest == "github-growth-20260629T215904.320352Z"
     active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_qwen_agentworld",
+            "p3_agent_harness_eval_looper",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_104714_window
+        else
         [
             "p1-skill-route-discovery-zhengxi-views",
             "p2-agent-harness-eval-qwen-agentworld",
@@ -7788,7 +7799,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         (
             {
                 "proposal_id": (
-                    "p1_skill_route_discovery_for_zhengxi_views"
+                    "p1_skill_route_discovery_zhengxi_views"
+                    if current_104714_window
+                    else "p1_skill_route_discovery_for_zhengxi_views"
                     if current_092714_window
                     else "p1_skill_route_discovery_probe_zhengxi_views"
                     if current_080714_window
@@ -7822,7 +7835,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             ),
         )
         if (
-            current_092714_window
+            current_104714_window
+            or current_092714_window
             or current_080714_window
             or current_052714_window
             or current_040714_window
@@ -7965,7 +7979,15 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
-        if current_092714_window:
+        if current_104714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p2_agent_harness_eval_qwen_agentworld"
+            elif lowered_name == "looper":
+                row["proposal_id"] = "p3_agent_harness_eval_looper"
+            else:
+                row["proposal_id"] = "p2_agent_harness_eval_general_agent_project"
+        elif current_092714_window:
             row["proposal_id"] = "p2_agent_harness_eval_fixture_for_general_agent_projects"
         elif current_040714_window:
             lowered_name = str(row.get("name") or "").casefold()
@@ -8015,6 +8037,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 
     general_agent_row = {
         "proposal_id": (
+            "p2_agent_harness_eval_qwen_agentworld"
+            if current_104714_window
+            else
             "p2_agent_harness_eval_fixture_for_general_agent_projects"
             if current_092714_window
             else
@@ -8065,9 +8090,33 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
-    rows.append(general_agent_row)
-    if general_agent_row["status"] != "ready":
-        blocked_proposal_ids.append(str(general_agent_row["proposal_id"]))
+    if current_104714_window:
+        for adjacent_row in adjacent_rows:
+            proposal_id = str(adjacent_row.get("proposal_id") or "")
+            item_id = str(adjacent_row.get("item_id") or "")
+            blockers = [
+                blocker
+                for blocker in adjacent_blockers
+                if blocker.startswith(f"{item_id}:")
+            ]
+            per_project_row = dict(general_agent_row)
+            per_project_row.update(
+                {
+                    "proposal_id": proposal_id,
+                    "status": "ready" if not blockers else "blocked",
+                    "activation_blockers": blockers,
+                    "candidate_names": [str(adjacent_row.get("name") or "")],
+                    "candidate_source_hashes": [str(adjacent_row.get("source_hash") or "")],
+                    "selected_evidence_item_ids": [item_id],
+                }
+            )
+            rows.append(per_project_row)
+            if per_project_row["status"] != "ready":
+                blocked_proposal_ids.append(proposal_id)
+    else:
+        rows.append(general_agent_row)
+        if general_agent_row["status"] != "ready":
+            blocked_proposal_ids.append(str(general_agent_row["proposal_id"]))
 
     ready = bool(rows) and not blocked_proposal_ids
     return {
