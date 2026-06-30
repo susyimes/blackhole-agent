@@ -13057,3 +13057,123 @@ def test_skill_route_discovery_current_digest_20260630T054715_pass4_closes_activ
         [row["allowed_local_lanes"] for row in handoff["rows"]],
         sort_keys=True,
     )
+
+
+def test_skill_route_discovery_current_digest_20260630T070714_pass4_completes_skill_route_slice():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260630T070714_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    registry["source_digest"] = payload["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    closure = lane_map["current_digest_pass4_final_closure"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    closure_rows = {row["proposal_id"]: row for row in closure["rows"]}
+    serialized_handoff = json.dumps(handoff, sort_keys=True)
+    serialized_closure = json.dumps(closure, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260630T070714.426957Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 3
+    assert {item["name"] for item in registry["ignored_evidence_items"]} == {
+        "Qwen-AgentWorld",
+        "looper",
+        "AgentChat",
+    }
+
+    assert handoff["status"] == "ready"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == ["p1_skill_route_discovery_zhengxi_views"]
+    assert handoff["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"] + [
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:ksimback/looper-1",
+        "trend:ziwang-Physics/AgentChat-1",
+    ]
+    assert handoff["required_route_profiles"] == ["generic_skill_workflow"]
+    assert handoff["missing_required_route_profiles"] == []
+    assert handoff["selected_local_lanes"] == ["test"]
+    assert handoff["agent_harness_eval_required_count"] == 3
+
+    zhengxi = rows["p1_skill_route_discovery_zhengxi_views"]
+    assert zhengxi["status"] == "ready"
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == ["generic_skill_workflow"]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert set(zhengxi["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert "provider_runtime" not in zhengxi["allowed_local_lanes"]
+    assert zhengxi["unsupported_lane_pressure_removed_count"] == 1
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+    assert zhengxi["external_harness_execution_allowed"] is False
+    assert zhengxi["provider_runtime_launch_allowed"] is False
+
+    assert [row["proposal_id"] for row in handoff["adjacent_general_agent_rows"]] == [
+        "p2_agent_harness_eval_general_projects",
+        "p2_agent_harness_eval_general_projects",
+        "p2_agent_harness_eval_general_projects",
+    ]
+    assert [row["name"] for row in handoff["adjacent_general_agent_rows"]] == [
+        "Qwen-AgentWorld",
+        "looper",
+        "AgentChat",
+    ]
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+    assert all(row["skill_route_discovery_inherited"] is False for row in handoff["adjacent_general_agent_rows"])
+    assert all(row["direct_runtime_route_allowed"] is False for row in handoff["adjacent_general_agent_rows"])
+    assert all(row["direct_code_patch_route_allowed"] is False for row in handoff["adjacent_general_agent_rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in handoff["adjacent_general_agent_rows"])
+
+    boundary = handoff["route_boundary_checklist"]
+    assert boundary["status"] == "ready"
+    assert boundary["skill_route_row_count"] == 1
+    assert boundary["general_agent_row_count"] == 3
+    assert boundary["agent_harness_eval_required_before_implementation"] is True
+
+    assert closure["status"] == "ready"
+    assert closure["capability_slice_complete"] is True
+    assert closure["proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p2_agent_harness_eval_general_projects",
+    ]
+    assert closure_rows["p1_skill_route_discovery_zhengxi_views"]["selected_local_lane"] == "test"
+    assert closure["adjacent_general_agent_boundary"] == {
+        "proposal_id": "p2_agent_harness_eval_general_projects",
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "direct_runtime_route_allowed": False,
+        "direct_code_patch_route_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "row_count": 3,
+        "item_ids": [
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+            "trend:ziwang-Physics/AgentChat-1",
+        ],
+    }
+
+    assert "https://github.com/" not in serialized_handoff
+    assert "https://github.com/" not in serialized_closure
+    assert "python -m pytest" not in serialized_handoff
+    assert "python -m pytest" not in serialized_closure
+    assert "runtime_execution" not in serialized_handoff
+    assert "runtime_execution" not in serialized_closure
+    assert '"provider_runtime"' not in serialized_handoff
+    assert '"provider_runtime"' not in serialized_closure
+    assert "install" not in json.dumps(
+        [row["allowed_local_lanes"] for row in handoff["rows"]],
+        sort_keys=True,
+    )
