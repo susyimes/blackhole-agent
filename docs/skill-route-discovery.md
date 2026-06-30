@@ -4536,6 +4536,21 @@ direct code_patch changes. They must first pass local agent harness evaluation,
 and the pass-3 surface exports only body-free hashes, lane names, proposal IDs,
 and denial booleans.
 
+## 2026-06-30 Pass-2 Acceptance Gates
+
+Source digest `github-growth-20260630T050714.525014Z` keeps the pass-2
+skill-route and general-agent split operator-visible before activation. The
+`proposal_acceptance_contract` now summarizes accepted skill-route lanes,
+unsupported upstream lane pressure removed during local bounding, and aggregate
+acceptance gates for local validation, no runtime action, denied external
+activation, and omitted raw upstream material.
+
+Adjacent Qwen-AgentWorld-style general-agent evidence is summarized in a
+separate `adjacent_agent_harness_gate`: it remains
+`agent_harness_eval_required`, does not inherit `skill_route_discovery`, and
+requires the local `agent_harness_eval_lane` replay before implementation,
+runtime, provider, controller, or remote-execution changes are considered.
+
 ## 2026-06-30 Pass-4 Operator Activation Queue
 
 The pass-4 `runner_harness_control_plane` now carries an

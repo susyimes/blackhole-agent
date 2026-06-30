@@ -302,6 +302,7 @@ class ExternalSkillRouteCandidate:
     source_metadata_signals: tuple[str, ...] = ()
     public_activity_signals: tuple[str, ...] = ()
     requested_actions: tuple[str, ...] = ()
+    unsupported_lane_pressure: tuple[str, ...] = ()
     validation_status: str = "unvalidated"
     enabled: bool = False
 
@@ -357,6 +358,7 @@ class ExternalSkillRouteCandidate:
             ),
             public_activity_signals=_public_activity_signals(value),
             requested_actions=_string_tuple(value.get("requested_actions")),
+            unsupported_lane_pressure=_string_tuple(value.get("unsupported_lane_pressure")),
             validation_status=str(value.get("validation_status") or "unvalidated").strip().lower(),
             enabled=bool(value.get("enabled", False)),
         )
@@ -424,6 +426,14 @@ class ExternalSkillRouteCandidate:
             "uncertainty_reasons": list(uncertainty_reasons),
             "validation_errors": list(errors),
             "validation_status": self.validation_status,
+            **_optional_list_field(
+                "unsupported_lane_pressure",
+                [
+                    lane
+                    for lane in dict.fromkeys(self.unsupported_lane_pressure)
+                    if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                ],
+            ),
             **_optional_list_field("source_layout_signals", self.source_layout_signals),
             **_optional_list_field("source_metadata_signals", self.source_metadata_signals),
         }
@@ -495,6 +505,9 @@ class ExternalSkillRepositorySummary:
             discovery_event_kind=self.discovery_event_kind,
             candidate_lanes=_bounded_skill_discovery_lanes(self),
             related_source_urls=_summary_related_source_urls(self),
+            unsupported_lane_pressure=tuple(
+                lane for lane in self.suggested_lanes if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            ),
             source_layout_signals=source_layout_signals,
             source_metadata_signals=source_metadata_signals,
             validation_status="unvalidated",
@@ -807,6 +820,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
                 "route_profiles": [],
                 "source_layout_signals": [],
                 "source_metadata_signals": [],
+                "unsupported_lane_pressure": [],
                 "name": summary.name,
                 "summaries": [],
             },
@@ -822,6 +836,9 @@ def build_skill_route_discovery_registry_from_evidence_items(
 
         bucket["evidence_urls"].append(evidence_url)
         bucket["lanes"].extend(_bounded_skill_discovery_lanes(summary))
+        bucket["unsupported_lane_pressure"].extend(
+            lane for lane in summary.suggested_lanes if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        )
         bucket["route_profiles"].extend(_string_list(route_classification.get("route_profiles")))
         bucket["source_layout_signals"].extend(
             _string_list(
@@ -848,6 +865,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
             evidence_item_ids=tuple(dict.fromkeys(bucket["item_ids"])),
             evidence_item_urls=tuple(bucket["evidence_urls"]),
             evidence_urls=tuple(bucket["evidence_urls"]),
+            unsupported_lane_pressure=tuple(dict.fromkeys(bucket["unsupported_lane_pressure"])),
             source_layout_signals=tuple(dict.fromkeys(bucket["source_layout_signals"])),
             source_metadata_signals=tuple(dict.fromkeys(bucket["source_metadata_signals"])),
             validation_status="unvalidated",
@@ -1137,6 +1155,10 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 "activation_gate": "local_validation_before_activation",
                 "uncertainty": _candidate_uncertainty_message(uncertainty_reasons),
                 "uncertainty_reasons": uncertainty_reasons,
+                **_optional_list_field(
+                    "unsupported_lane_pressure",
+                    _string_list(candidate.get("unsupported_lane_pressure")),
+                ),
                 **_optional_list_field("source_layout_signals", _string_list(candidate.get("source_layout_signals"))),
                 **_optional_list_field(
                     "source_metadata_signals",
@@ -4299,6 +4321,7 @@ def _skill_route_discovery_current_pass2_validation_lane(
                 "route_class": str(candidate.get("route_class") or ""),
                 "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
                 "route_profiles": route_profiles,
+                "unsupported_lane_pressure": _string_list(candidate.get("unsupported_lane_pressure")),
                 "allowed_local_lanes": allowed_local_lanes,
                 "selected_local_lane": selected_lane,
                 "selected_evidence_item_ids": selected_item_ids,
@@ -4431,11 +4454,17 @@ def _skill_route_discovery_pass2_proposal_acceptance_contract(
     }
     rows: list[dict[str, Any]] = []
     blocked_proposal_ids: list[str] = []
+    rejected_upstream_lanes: list[str] = []
 
     for row in skill_rows:
         route_profiles = _string_list(row.get("route_profiles"))
         selected_lane = str(row.get("selected_local_lane") or "")
         allowed_local_lanes = _string_list(row.get("allowed_local_lanes"))
+        rejected_upstream_lanes.extend(
+            lane
+            for lane in _string_list(row.get("unsupported_lane_pressure"))
+            if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        )
         active_proposal_id = next(
             (
                 route_profile_aliases[profile]
@@ -4517,6 +4546,57 @@ def _skill_route_discovery_pass2_proposal_acceptance_contract(
     ]
     adjacent_ready = all(row["accepted_for_local_validation"] for row in adjacent_rows)
     rows = sorted(rows, key=lambda row: str(row.get("proposal_id") or ""))
+    skill_acceptance_gates = {
+        "skill_rows_present": bool(rows),
+        "all_skill_rows_bounded": all(
+            set(_string_list(row.get("allowed_local_lanes"))).issubset(
+                set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+            )
+            and str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            for row in rows
+        ),
+        "local_validation_required": all(row.get("local_validation_required") is True for row in rows),
+        "runtime_action_none": all(str(row.get("runtime_action") or "") == "none" for row in rows),
+        "external_activation_denied": all(
+            row.get("external_skill_activation_allowed") is False
+            and row.get("external_agent_activation_allowed") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+            for row in rows
+        ),
+        "raw_upstream_material_omitted": all(
+            row.get("raw_source_url_exported") is False
+            and row.get("raw_evidence_urls_exported") is False
+            and row.get("raw_replay_command_exported") is False
+            and row.get("raw_target_paths_exported") is False
+            and row.get("raw_upstream_body_exported") is False
+            for row in rows
+        ),
+    }
+    adjacent_agent_harness_gate = {
+        "adjacent_rows_present": bool(adjacent_rows),
+        "evaluation_lane": "agent_harness_eval_required" if adjacent_rows else "",
+        "accepted_for_local_validation": adjacent_ready,
+        "skill_route_discovery_inherited": False,
+        "runtime_action_none": all(str(row.get("runtime_action") or "") == "none" for row in adjacent_rows),
+        "external_harness_execution_denied": all(
+            row.get("external_harness_execution_allowed") is False for row in adjacent_rows
+        ),
+        "direct_runtime_route_denied": all(
+            row.get("runtime_action") == "none"
+            and row.get("external_agent_activation_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+            for row in adjacent_rows
+        ),
+        "required_before_implementation": "local_agent_harness_eval",
+        "replay_command_hash": _stable_hash(
+            "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+        )
+        if adjacent_rows
+        else "",
+    }
     contract_ready = ready and bool(rows) and not blocked_proposal_ids and adjacent_ready
 
     return {
@@ -4532,11 +4612,23 @@ def _skill_route_discovery_pass2_proposal_acceptance_contract(
         "blocked_proposal_ids": blocked_proposal_ids,
         "adjacent_agent_harness_eval_count": len(adjacent_rows),
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "accepted_skill_route_lanes": [
+            lane
+            for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            if lane in {str(row.get("selected_local_lane") or "") for row in rows}
+        ],
+        "rejected_upstream_lanes": [
+            lane
+            for lane in ("install", "provider_runtime", "runtime_execution")
+            if lane in set(rejected_upstream_lanes)
+        ],
         "selected_local_lanes": [
             lane
             for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
             if lane in {str(row.get("selected_local_lane") or "") for row in rows}
         ],
+        "skill_acceptance_gates": skill_acceptance_gates,
+        "adjacent_agent_harness_gate": adjacent_agent_harness_gate,
         "evidence_ref_mode": "selected_item_ids_only",
         "review_gate": "focused-evidence-review",
         "rows": rows,

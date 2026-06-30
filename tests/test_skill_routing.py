@@ -4446,7 +4446,27 @@ def test_skill_route_discovery_current_pass2_validation_lane_keeps_agent_eval_ad
     ]
     assert contract["blocked_proposal_ids"] == []
     assert contract["adjacent_agent_harness_eval_count"] == 1
+    assert contract["accepted_skill_route_lanes"] == ["documentation", "config", "test"]
+    assert contract["rejected_upstream_lanes"] == [
+        "install",
+        "runtime_execution",
+    ]
     assert contract["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert contract["skill_acceptance_gates"] == {
+        "skill_rows_present": True,
+        "all_skill_rows_bounded": True,
+        "local_validation_required": True,
+        "runtime_action_none": True,
+        "external_activation_denied": True,
+        "raw_upstream_material_omitted": True,
+    }
+    assert contract["adjacent_agent_harness_gate"]["adjacent_rows_present"] is True
+    assert contract["adjacent_agent_harness_gate"]["evaluation_lane"] == "agent_harness_eval_required"
+    assert contract["adjacent_agent_harness_gate"]["accepted_for_local_validation"] is True
+    assert contract["adjacent_agent_harness_gate"]["skill_route_discovery_inherited"] is False
+    assert contract["adjacent_agent_harness_gate"]["direct_runtime_route_denied"] is True
+    assert contract["adjacent_agent_harness_gate"]["required_before_implementation"] == "local_agent_harness_eval"
+    assert contract["adjacent_agent_harness_gate"]["replay_command_hash"].startswith("sha256:")
     assert contract["runtime_action"] == "none"
     assert contract["external_skill_activation_allowed"] is False
     assert contract["external_agent_activation_allowed"] is False
