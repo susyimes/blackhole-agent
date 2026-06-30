@@ -4583,3 +4583,23 @@ external harness execution, provider launch, remote execution, profile writes,
 memory writes, raw source URL export, replay-command export, target-path export,
 or upstream body export. `proposal-route-classification-docs` is carried as the
 operator-visible documentation route for this distinction.
+
+## 2026-06-30 Pass-4 Current Slice Closure
+
+Source digest `github-growth-20260630T054715.044236Z` completes the current
+skill-route-discovery slice with digest-specific pass-4 handoff and final
+closure rows. zhengxi-views is the only skill-route candidate in this digest,
+so required route profiles are derived from its present generic and
+source-cited workflow evidence rather than older COMPASS/state-handoff aliases.
+It maps to a bounded local test lane for
+`p1-skill-route-discovery-zhengxi-views` and a bounded documentation lane for
+`p3-route-hint-policy-documentation`.
+
+Qwen-AgentWorld, open-reverselab, and looper remain adjacent
+`p2-agent-harness-eval-suite` rows. The pass-4 operator completion checklist
+marks replay, rollback artifact coverage, focused local validation, route
+boundary separation, and the agent-harness gate as explicit supervisor-visible
+conditions. It does not grant runtime action, external skill or agent
+activation, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw URL export, replay-command export,
+target-path export, or upstream body export.
