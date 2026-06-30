@@ -13488,3 +13488,123 @@ def test_skill_route_discovery_current_digest_20260630T092714_pass3_routes_curre
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260630T094714_pass4_completion_queues_general_agents():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260630T094714_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260630T094714.678156Z"
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 4
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 3
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+
+    candidate = registry["candidates"][0]
+    assert candidate["name"] == "zhengxi-views"
+    assert candidate["route_hints"] == ["skill_route_discovery"]
+    assert candidate["route_profiles"] == ["source_cited_domain_research"]
+    assert candidate["candidate_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert candidate["unsupported_lane_pressure"] == ["provider_runtime"]
+    assert candidate["validation_errors"] == []
+    assert candidate["enabled"] is False
+
+    ignored_by_id = {item["item_id"]: item for item in registry["ignored_evidence_items"]}
+    assert set(ignored_by_id) == {
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-looper",
+        "p4-agentchat-routing-docs-and-tests",
+    }
+    for ignored in ignored_by_id.values():
+        assert ignored["ignored_reason"] == "route_hint_not_skill_route_discovery"
+        assert ignored["evaluation_lane"] == "agent_harness_eval_required"
+        assert ignored["skill_route_discovery_inherited"] is False
+        assert ignored["direct_runtime_route_allowed"] is False
+        assert ignored["direct_code_patch_route_allowed"] is False
+
+    pass4 = lane_map["pass4_local_lane_validation"]
+    assert pass4["status"] == "ready"
+    assert pass4["capability_slice_complete"] is True
+    assert pass4["required_route_profiles"] == ["source_cited_domain_research"]
+    assert pass4["covered_route_profiles"] == ["source_cited_domain_research"]
+    assert pass4["missing_route_profiles"] == []
+    assert pass4["candidate_count"] == 1
+    assert pass4["ready_candidate_count"] == 1
+    assert pass4["adjacent_general_agent_count"] == 3
+    assert pass4["selected_local_lanes"] == ["test"]
+
+    pass4_row = pass4["rows"][0]
+    assert pass4_row["candidate_name"] == "zhengxi-views"
+    assert pass4_row["selected_local_lane"] == "test"
+    assert pass4_row["selected_evidence_item_ids"] == ["p1-skill-route-discovery-zhengxi-views"]
+    assert pass4_row["validation_target"] == "source_citation_and_advice_boundary_check"
+    assert pass4_row["replay_command"] == (
+        "python -m pytest tests/test_skill_routing.py -q -k source_cited_domain_research"
+    )
+
+    adjacent_rows = {row["item_id"]: row for row in pass4["adjacent_general_agent_rows"]}
+    assert set(adjacent_rows) == set(ignored_by_id)
+    for row in adjacent_rows.values():
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["runtime_action"] == "none"
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+
+    handoff = lane_map["pass4_completion_handoff"]
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "handoff_current_skill_route_window_to_supervisor_replay"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["adjacent_general_agent_count"] == 3
+    assert handoff["selected_local_lanes"] == ["test"]
+    assert handoff["adjacent_general_agent_project_boundary"] == {
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "direct_local_change_proposals_allowed": False,
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "adjacent_record_count": 3,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+
+    replay_manifest = lane_map["pass4_operator_replay_manifest"]
+    assert replay_manifest["status"] == "ready"
+    assert replay_manifest["selected_local_lanes"] == ["test"]
+    assert replay_manifest["adjacent_general_agent_project_boundary"]["adjacent_record_count"] == 3
+
+    current_run_completion = lane_map["current_run_pass4_completion_lane"]
+    assert current_run_completion["status"] == "ready"
+    assert current_run_completion["decision"] == "current_run_pass4_skill_route_slice_ready_for_supervisor_replay"
+    assert current_run_completion["source_digest"] == "github-growth-20260630T094714.678156Z"
+    assert current_run_completion["capability_slice_complete"] is True
+    assert current_run_completion["skill_route_candidate_count"] == 1
+    assert current_run_completion["adjacent_general_agent_count"] == 3
+    assert current_run_completion["agent_harness_eval_required_count"] == 3
+    assert current_run_completion["observed_route_profiles"] == ["source_cited_domain_research"]
+    assert current_run_completion["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert current_run_completion["external_agent_activation_allowed"] is False
+    assert current_run_completion["external_harness_execution_allowed"] is False
+    assert current_run_completion["provider_runtime_launch_allowed"] is False
+    assert current_run_completion["remote_execution_allowed"] is False
+
+    serialized_handoff = json.dumps(handoff, sort_keys=True)
+    assert "https://github.com/" not in serialized_handoff
+    assert '"provider_runtime"' not in serialized_handoff
+    assert "install" not in serialized_handoff

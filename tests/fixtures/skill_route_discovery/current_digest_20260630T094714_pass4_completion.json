@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260630T094714.678156Z",
+  "items": [
+    {
+      "item_id": "p1-skill-route-discovery-zhengxi-views",
+      "source_digest": "github-growth-20260630T094714.678156Z",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "zhengxi-views source-cited skill route",
+      "summary": "Agent skill package with SKILL.md entrypoint, progressive references, source-cited research workflow, citation boundaries, validation scripts, and advisory disclaimer notes.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skill", "skill", "source-cited", "research", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["skill_manifest"]
+      }
+    },
+    {
+      "item_id": "p2-agent-harness-eval-qwen-agentworld",
+      "source_digest": "github-growth-20260630T094714.678156Z",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "Qwen-AgentWorld general agent project",
+      "summary": "General agent project and evaluation environment evidence without SKILL.md package layout, skill workflow route hints, or local skill discovery metadata.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["agent", "evaluation", "world-model"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "item_id": "p3-agent-harness-eval-looper",
+      "source_digest": "github-growth-20260630T094714.678156Z",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "looper general agent automation project",
+      "summary": "General agent automation and looped task workflow evidence without a skill package manifest, skill route hints, or bounded skill workflow metadata.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["agent", "automation", "workflow"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "install"]
+    },
+    {
+      "item_id": "p4-agentchat-routing-docs-and-tests",
+      "source_digest": "github-growth-20260630T094714.678156Z",
+      "item_kind": "repository",
+      "name": "AgentChat",
+      "source_url": "https://github.com/ziwang-Physics/AgentChat",
+      "title": "AgentChat general agent chat project",
+      "summary": "General multi-agent chat project evidence without a reusable skill package layout, route manifest, or skill workflow activation signal.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["agent", "multi-agent", "chat"],
+      "suggested_lanes": ["documentation", "test", "code_patch"]
+    }
+  ]
+}
