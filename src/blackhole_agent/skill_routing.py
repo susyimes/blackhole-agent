@@ -526,6 +526,11 @@ class ExternalSkillEvidenceItem:
         source_url = str(value.get("source_url") or value.get("url") or "").strip()
         if not source_url:
             raise ValueError("external skill evidence item requires a non-empty source_url")
+        route_hints = (
+            _string_tuple(value.get("route_hints"))
+            if "route_hints" in value
+            else (SKILL_ROUTE_DISCOVERY_HINT,)
+        )
         return cls(
             source_url=source_url,
             item_id=str(value.get("item_id") or "").strip(),
@@ -534,7 +539,7 @@ class ExternalSkillEvidenceItem:
             item_kind=_normalize_evidence_item_kind(value.get("item_kind") or value.get("kind")),
             name=str(value.get("name") or "").strip(),
             discovery_event_kind=_normalize_discovery_event(value.get("discovery_event_kind")),
-            route_hints=_string_tuple(value.get("route_hints")) or (SKILL_ROUTE_DISCOVERY_HINT,),
+            route_hints=route_hints,
             topics=_string_tuple(value.get("topics")),
             suggested_lanes=_string_tuple(value.get("suggested_lanes")),
         )
@@ -2835,6 +2840,7 @@ def _skill_route_discovery_active_pass1_evidence_lane(
             "item_kind": str(item.get("item_kind") or ""),
             "name": str(item.get("name") or ""),
             "source_hash": str(item.get("source_hash") or ""),
+            "route_hints": _string_list(item.get("route_hints")),
             "ignored_reason": str(item.get("ignored_reason") or ""),
             "evaluation_lane": "agent_harness_eval_required",
             "skill_route_discovery_inherited": False,
@@ -7199,8 +7205,20 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 ) -> dict[str, Any]:
     """Expose current pass-3 activation review without adding activation authority."""
 
+    current_024714_window = source_digest == "github-growth-20260630T024714.466980Z"
     current_215904_window = source_digest == "github-growth-20260629T215904.320352Z"
     active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-looper",
+            "p4-document-route-policy-for-trend-items",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_024714_window
+        else
         [
             "p1-skill-route-discovery-regression",
             "p2-compass-skill-ecosystem-handoff",
@@ -7218,24 +7236,39 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         ]
     )
     specs = (
-        {
-            "proposal_id": "p1-skill-route-discovery-regression",
-            "proposal_kind": "test",
-            "proposal_track": "skill_route_discovery_regression",
-            "route_profiles": ("generic_skill_workflow", "skill_ecosystem_state_handoff"),
-            "selected_local_lane": "test",
-            "validation_target": "agent_plus_skill_repositories_map_only_to_bounded_local_lanes",
-            "activation_review_step": "replay_bounded_lane_regression_before_activation_review",
-        },
-        {
-            "proposal_id": "p2-compass-skill-ecosystem-handoff",
-            "proposal_kind": "documentation",
-            "proposal_track": "skill_ecosystem_state_handoff",
-            "route_profiles": ("skill_ecosystem_state_handoff",),
-            "selected_local_lane": "documentation",
-            "validation_target": "document_metadata_only_skill_ecosystem_handoff_fields",
-            "activation_review_step": "confirm_state_handoff_stays_metadata_only",
-        },
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_agent_plus_skill_routes_only_to_bounded_lanes",
+                "activation_review_step": "verify_skill_route_lane_before_any_local_activation",
+            },
+        )
+        if current_024714_window
+        else
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-regression",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_regression",
+                "route_profiles": ("generic_skill_workflow", "skill_ecosystem_state_handoff"),
+                "selected_local_lane": "test",
+                "validation_target": "agent_plus_skill_repositories_map_only_to_bounded_local_lanes",
+                "activation_review_step": "replay_bounded_lane_regression_before_activation_review",
+            },
+            {
+                "proposal_id": "p2-compass-skill-ecosystem-handoff",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_ecosystem_state_handoff",
+                "route_profiles": ("skill_ecosystem_state_handoff",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_metadata_only_skill_ecosystem_handoff_fields",
+                "activation_review_step": "confirm_state_handoff_stays_metadata_only",
+            },
+        )
     )
 
     rows: list[dict[str, Any]] = []
@@ -7342,6 +7375,12 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_024714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+            elif lowered_name == "looper":
+                row["proposal_id"] = "p3-agent-harness-eval-looper"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["raw_replay_command_exported"] = False
@@ -7365,7 +7404,11 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             adjacent_blockers.append(f"{item_id}:provider_runtime_launch_allowed")
 
     general_agent_row = {
-        "proposal_id": "p3-general-agent-harness-eval-fixture",
+        "proposal_id": (
+            "p2-agent-harness-eval-qwen-agentworld"
+            if current_024714_window
+            else "p3-general-agent-harness-eval-fixture"
+        ),
         "proposal_kind": "test",
         "proposal_track": "general_agent_project_harness_eval",
         "status": "ready" if adjacent_rows and not adjacent_blockers else "blocked",
@@ -7402,7 +7445,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     }
     rows.append(general_agent_row)
     if general_agent_row["status"] != "ready":
-        blocked_proposal_ids.append("p3-general-agent-harness-eval-fixture")
+        blocked_proposal_ids.append(str(general_agent_row["proposal_id"]))
 
     ready = bool(rows) and not blocked_proposal_ids
     return {
@@ -15438,6 +15481,7 @@ def _skill_route_discovery_adjacent_general_agent_rows(
             "item_kind": str(item.get("item_kind") or ""),
             "name": str(item.get("name") or ""),
             "source_hash": str(item.get("source_hash") or ""),
+            "route_hints": _string_list(item.get("route_hints")),
             "ignored_reason": str(item.get("ignored_reason") or ""),
             "evaluation_lane": "agent_harness_eval_required",
             "skill_route_discovery_inherited": False,

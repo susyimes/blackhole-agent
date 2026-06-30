@@ -4454,3 +4454,18 @@ The operator-visible completion packet uses the current proposal IDs:
 lane, `p2-agent-harness-eval-suite` for Qwen-AgentWorld and looper as adjacent
 `agent_harness_eval_required` evidence, and `p3-agent-trend-routing-doc` for the
 documentation lane that explains skill-route versus harness-eval routing.
+
+## 2026-06-30 Pass-3 Empty-Hint General-Agent Boundary
+
+Source digest `github-growth-20260630T024714.466980Z` advances pass 3 by
+preserving explicit empty `route_hints` from general-agent trend evidence instead
+of defaulting them into `skill_route_discovery`. zhengxi-views-style agent plus
+skill evidence remains a bounded local skill-route test lane, limited to
+documentation, config, test, or code_patch.
+
+Qwen-AgentWorld and looper-style general-agent projects without route hints are
+operator-visible only as `agent_harness_eval_required` rows. Empty route hints do
+not authorize scheduler, runner, loop, runtime, provider, external harness, or
+direct code_patch changes. They must first pass local agent harness evaluation,
+and the pass-3 surface exports only body-free hashes, lane names, proposal IDs,
+and denial booleans.

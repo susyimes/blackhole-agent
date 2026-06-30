@@ -3122,6 +3122,7 @@ def test_skill_route_discovery_current_digest_pass1_active_proposals_are_bounded
             "item_kind": "repository",
             "name": "Qwen-AgentWorld",
             "source_hash": adjacent_rows[0]["source_hash"],
+            "route_hints": ["skill_route_discovery"],
             "ignored_reason": "no_skill_workflow_signal",
             "evaluation_lane": "agent_harness_eval_required",
             "skill_route_discovery_inherited": False,
