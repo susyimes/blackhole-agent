@@ -40,6 +40,21 @@ boundary only; it does not activate external skills, run external harnesses,
 launch providers, export raw upstream URLs, write profiles or memory, or grant
 direct runtime/code_patch authority to general-agent evidence.
 
+Source digest `github-growth-20260630T040714.847135Z` advances pass 3 of this
+window with a digest-specific `current_digest_pass3_activation_review_lane`.
+State-handoff rows are now evidence-driven: when the digest carries
+zhengxi-views-style skill workflow evidence plus general-agent projects but no
+`skill_ecosystem_state_handoff` candidate, the pass-3 lane emits only
+`p1_skill_route_discovery_lane` and `p2_agent_harness_eval_fixture` instead of
+blocking on an absent COMPASS-style handoff.
+
+The zhengxi-views row remains bounded to documentation, config, test, or
+code_patch with `runtime_action: none` and local validation required.
+Qwen-AgentWorld, open-reverselab, and looper remain adjacent
+`agent_harness_eval_required` evidence; they do not inherit
+`skill_route_discovery`, cannot launch external harnesses or providers, and
+cannot justify direct runtime integration before local harness evaluation.
+
 Source digest `github-growth-20260629T235904.365838Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific
 `current_digest_pass1_validation_lane`. COMPASS-style skill ecosystem handoff
