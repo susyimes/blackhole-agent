@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 119
-    assert payload["pass_count"] == 118
+    assert payload["fixture_count"] == 120
+    assert payload["pass_count"] == 119
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -355,6 +355,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260701T171923-pass2-local-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260701T190302-pass3-current-lane"
         ]["passed"]
         is True
     )
@@ -18877,6 +18883,65 @@ def test_skill_route_discovery_current_digest_20260701T145922_pass3_route_eviden
     assert lane["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T190302_pass3_current_lane():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260701T190302_pass3_current_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass3_activation_review_lane"]
+    gate = lane["route_evidence_activation_gate"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+    assert lane["proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p3-route-classification-docs",
+        "p2-agent-harness-eval-suite",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+
+    assert rows["p1_skill_route_discovery_zhengxi_views"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert rows["p1_skill_route_discovery_zhengxi_views"]["selected_local_lane"] == "test"
+    assert rows["p3-route-classification-docs"]["selected_local_lane"] == "documentation"
+    assert rows["p2-agent-harness-eval-suite"]["selected_local_lane"] == "agent_harness_eval_required"
+    assert rows["p2-agent-harness-eval-suite"]["direct_local_change_proposals_allowed_before_eval"] is False
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent.values())
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent.values())
+
+    assert gate["status"] == "ready"
+    assert gate["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert gate["agent_harness_eval_required_count"] == 3
+    assert gate["runtime_action_allowed"] is False
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
 

@@ -8192,7 +8192,24 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_215904_window = source_digest == "github-growth-20260629T215904.320352Z"
     current_145922_window = source_digest == "github-growth-20260701T145922.935225Z"
     current_174302_window = source_digest == "github-growth-20260701T174302.497335Z"
+    current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
     active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-suite",
+            "p3-route-classification-docs",
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_qwen_agentworld",
+            "p3_agent_harness_eval_fundamental_ava",
+            "p4_agent_harness_eval_looper",
+            "p5_agent_harness_eval_open_reverselab",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_190302_window
+        else
         [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_general_projects",
@@ -8336,7 +8353,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             {
                 "proposal_id": (
                     "p1_skill_route_discovery_zhengxi_views"
-                    if current_174302_window
+                    if current_190302_window
+                    or current_174302_window
                     or current_145922_window
                     or current_133922_window
                     or current_104714_window
@@ -8361,7 +8379,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 (
                     {
                         "proposal_id": (
-                            "p3_agent_trend_route_documentation"
+                            "p3-route-classification-docs"
+                            if current_190302_window
+                            else "p3_agent_trend_route_documentation"
                             if current_133922_window
                             else "p3_document_route_policy_for_trending_agent_inputs"
                         ),
@@ -8373,11 +8393,13 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                         "activation_review_step": "document_route_boundary_before_any_implementation_route",
                     },
                 )
-                if current_133922_window or current_092714_window
+                if current_190302_window or current_133922_window or current_092714_window
                 else ()
             ),
         )
         if (
+            current_190302_window
+            or
             current_174302_window
             or
             current_133922_window
@@ -8547,6 +8569,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 row["proposal_id"] = "p2_agent_harness_eval_trending_agent_projects"
         elif current_174302_window:
             row["proposal_id"] = "p2_agent_harness_eval_general_projects"
+        elif current_190302_window:
+            row["proposal_id"] = "p2-agent-harness-eval-suite"
         elif current_040714_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name == "qwen-agentworld":
@@ -8597,6 +8621,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "proposal_id": (
             "p2_agent_harness_eval_trending_agent_projects"
             if current_145922_window
+            else
+            "p2-agent-harness-eval-suite"
+            if current_190302_window
             else
             "p2_agent_harness_eval_general_projects"
             if current_174302_window
@@ -8722,6 +8749,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 if current_133922_window or current_092714_window
                 or current_145922_window
                 or current_174302_window
+                or current_190302_window
                 else ("generic_skill_workflow", "skill_ecosystem_state_handoff")
             )
             if profile in set(observed_profiles)
