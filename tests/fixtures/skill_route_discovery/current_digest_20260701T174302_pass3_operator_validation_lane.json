@@ -1,0 +1,74 @@
+{
+  "source_digest": "github-growth-20260701T174302.497335Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "current_pass": 3,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1_skill_route_discovery_zhengxi_views",
+      "p2_agent_harness_eval_general_projects",
+      "p3_agent_harness_eval_automation_bug_project",
+      "p4_route_classification_consistency_check",
+      "p5_self_model_alignment_note",
+      "trend:lyra81604/zhengxi-views-1",
+      "trend:QwenLM/Qwen-AgentWorld-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "trend:ksimback/looper-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260701T174302.497335Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Source-cited agent skill route evidence",
+      "summary": "Public Agent Skill workflow evidence with SKILL.md, skill manifest metadata, references, evals, scripts, source citation boundaries, and repository-level agent signals.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "skill-workflow", "source-cited", "research"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260701T174302.497335Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "General agent evaluation project",
+      "summary": "General agent benchmark and evaluation project evidence without skill workflow route hints.",
+      "topics": ["general-agent", "benchmark", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch"]
+    },
+    {
+      "source_digest": "github-growth-20260701T174302.497335Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "General agent project",
+      "summary": "General autonomous agent project evidence without SKILL.md, local route hints, or a local harness evaluation result.",
+      "topics": ["general-agent", "automation", "assistant"],
+      "suggested_lanes": ["documentation", "test", "code_patch"]
+    },
+    {
+      "source_digest": "github-growth-20260701T174302.497335Z",
+      "item_id": "trend:ksimback/looper-1",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "Looping agent workflow project",
+      "summary": "General looping agent project evidence with no local skill route and no harness-eval result.",
+      "topics": ["general-agent", "loop", "workflow"],
+      "suggested_lanes": ["documentation", "test", "code_patch"]
+    }
+  ]
+}
