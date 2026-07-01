@@ -21,6 +21,24 @@ advice note. The controller maps that evidence only to documentation, config,
 test, or code_patch lanes and selects local test plus documentation review for
 this pass.
 
+Source digest `github-growth-20260701T133922.800774Z` advances the active slice
+to pass 3 with a current activation-review lane, but still without activation
+authority. zhengxi-views remains the only skill-route row and maps to
+`p1_skill_route_discovery_zhengxi_views` in the local test lane plus
+`p3_agent_trend_route_documentation` in the documentation lane. Both rows may
+select only documentation, config, test, or code_patch, strip provider-runtime
+and runtime-execution pressure, require selected digest item IDs and route
+validation gates, and export only hashes plus lane metadata.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`p2_agent_harness_eval_trending_agent_projects` rows under
+`agent_harness_eval_required`. Their public trend evidence can justify only a
+local harness-eval gate before any documentation, test, or code_patch follow-up
+is selected. They do not inherit `skill_route_discovery`, direct runtime
+routing, direct code_patch authority, external harness execution, provider
+launch, remote execution, profile writes, memory writes, raw URL export,
+replay-command export, target-path export, or upstream-body export.
+
 Qwen-AgentWorld, Fundamental-Ava, and looper are adjacent general-agent project
 trends in this pass. They remain `agent_harness_eval_required` and cannot
 inherit `skill_route_discovery`, direct runtime routing, direct code_patch
