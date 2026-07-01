@@ -19075,12 +19075,14 @@ def test_skill_route_discovery_current_digest_20260701T204302_pass4_completion_l
     )
     handoff = output["current_digest_pass4_completion_handoff"]
     closure = output["current_digest_pass4_final_closure"]
+    operator_summary = handoff["operator_replay_summary"]
     adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
     serialized = json.dumps(
         {
             "handoff": handoff,
             "closure": closure,
             "activation_gate": output["activation_gate"],
+            "operator_summary": operator_summary,
         },
         sort_keys=True,
     )
@@ -19110,6 +19112,29 @@ def test_skill_route_discovery_current_digest_20260701T204302_pass4_completion_l
     assert closure["adjacent_general_agent_boundary"]["proposal_id"] == (
         "p2-agent-harness-eval-trending-agent-projects"
     )
+    assert operator_summary["controller_surface"] == (
+        "skill_route_discovery_current_digest_pass4_operator_replay_summary"
+    )
+    assert operator_summary["status"] == "ready"
+    assert operator_summary["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert operator_summary["agent_harness_eval_required"] is True
+    assert operator_summary["automation_bug_review_required"] is False
+    assert [row["route"] for row in operator_summary["rows"]] == [
+        "skill_route_discovery",
+        "agent_harness_eval_required",
+        "automation_bug_agent_review",
+    ]
+    assert operator_summary["rows"][0]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert operator_summary["rows"][1]["skill_route_discovery_inherited"] is False
+    assert operator_summary["rows"][2]["status"] == "not_applicable"
+    assert operator_summary["external_harness_execution_allowed"] is False
+    assert operator_summary["provider_runtime_launch_allowed"] is False
+    assert operator_summary["raw_replay_commands_exported"] is False
     assert output["activation_gate"]["external_skill_activation_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
@@ -19170,6 +19195,82 @@ def test_skill_route_discovery_current_digest_20260701T221748_pass4_completion_l
     )
     assert output["activation_gate"]["external_skill_activation_allowed"] is False
     assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T233748_pass4_operator_replay_summary_review_gate():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260701T231748_pass3_activation_review_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    raw_input = {
+        "task_id": "fixture-skill-route-current-digest-20260701T233748-pass4-operator-replay-summary",
+        "source_digest": "github-growth-20260701T233748.658340Z",
+        "source_kind": "evidence_items",
+        "capability_window": copy.deepcopy(fixture["capability_window"]),
+        "evidence_items": copy.deepcopy(fixture["items"]),
+    }
+    raw_input["capability_window"]["current_pass"] = 4
+    raw_input["capability_window"]["total_passes"] = 4
+    raw_input["capability_window"]["required_route_profiles"] = [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    raw_input["capability_window"]["anchoring_proposals"].append(
+        "p3-open-reverselab-harness-risk-screen"
+    )
+    raw_input["evidence_items"].append(
+        {
+            "source_digest": "github-growth-20260701T233748.658340Z",
+            "item_id": "trend:LING71671/open-reverselab-1",
+            "item_kind": "repository",
+            "name": "open-reverselab",
+            "source_url": "https://github.com/LING71671/open-reverselab",
+            "title": "Automation and bug themed reverse engineering agent lab",
+            "summary": (
+                "Automation, bug, CTF, reverse engineering, MCP tool, and sample execution "
+                "signals are review-only safety-boundary evidence."
+            ),
+            "topics": ["general-agent", "automation", "bug", "reverse-engineering", "mcp-tools"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        }
+    )
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        raw_input,
+        source_path=fixture_path,
+    )
+    handoff = output["current_digest_pass4_completion_handoff"]
+    operator_summary = handoff["operator_replay_summary"]
+    rows = {row["route"]: row for row in operator_summary["rows"]}
+    serialized = json.dumps(operator_summary, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert operator_summary["status"] == "ready"
+    assert operator_summary["agent_harness_eval_required"] is True
+    assert operator_summary["automation_bug_review_required"] is True
+    assert operator_summary["automation_bug_review_gate"] == "offensive-behavior-human-review"
+    assert operator_summary["review_only_route_count"] == 1
+    assert rows["skill_route_discovery"]["selected_local_lanes"] == ["documentation", "test"]
+    assert rows["agent_harness_eval_required"]["skill_route_discovery_inherited"] is False
+    assert rows["automation_bug_agent_review"]["status"] == "review_required"
+    assert rows["automation_bug_agent_review"]["direct_controller_influence_allowed"] is False
+    assert rows["automation_bug_agent_review"]["direct_code_patch_route_allowed"] is False
+    assert operator_summary["runtime_action_allowed"] is False
+    assert operator_summary["external_skill_activation_allowed"] is False
+    assert operator_summary["external_agent_activation_allowed"] is False
+    assert operator_summary["external_harness_execution_allowed"] is False
+    assert operator_summary["provider_runtime_launch_allowed"] is False
+    assert operator_summary["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "LING71671" not in serialized
+    assert "Automation and bug themed reverse engineering agent lab" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
 

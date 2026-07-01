@@ -2574,6 +2574,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         profile_validation_replay=profile_validation_replay,
         activity_signal_panel=activity_signal_panel,
         adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        automation_bug_agent_eval_checklist=automation_bug_agent_eval_checklist,
         mixed_local_lane_probe=mixed_local_lane_probe,
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
         provider_runtime_replay_sample=provider_runtime_replay_sample,
@@ -10936,6 +10937,7 @@ def skill_route_discovery_capability_window_completion(
     profile_validation_replay: dict[str, Any],
     activity_signal_panel: dict[str, Any],
     adjacent_general_agent_project_eval: dict[str, Any],
+    automation_bug_agent_eval_checklist: dict[str, Any],
     mixed_local_lane_probe: dict[str, Any],
     provider_runtime_diagnostic_panel: dict[str, Any],
     provider_runtime_replay_sample: dict[str, Any],
@@ -11150,6 +11152,7 @@ def skill_route_discovery_capability_window_completion(
         completion_recovery=completion_recovery,
         profile_completion_check=profile_completion_check,
         adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        automation_bug_agent_eval_checklist=automation_bug_agent_eval_checklist,
         provider_runtime_completion_handoff=provider_runtime_completion_handoff,
         provider_runtime_final_diagnostics=provider_runtime_final_diagnostics,
     )
@@ -11290,6 +11293,7 @@ def skill_route_discovery_local_kernel_handoff(
     completion_recovery: dict[str, Any],
     profile_completion_check: dict[str, Any],
     adjacent_general_agent_project_eval: dict[str, Any],
+    automation_bug_agent_eval_checklist: dict[str, Any],
     provider_runtime_completion_handoff: dict[str, Any],
     provider_runtime_final_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -11471,6 +11475,16 @@ def skill_route_discovery_local_kernel_handoff(
         ready_replay_stage_count=int(runner_control.get("ready_stage_count") or 0),
         required_validation=string_list(completion_report.get("required_validation")),
     )
+    operator_replay_summary = skill_route_discovery_operator_replay_summary(
+        source_digest=source_digest,
+        status=status,
+        completion_report=completion_report,
+        proposal_completion_summary=proposal_completion_summary,
+        current_digest_completion_lane=completion_lane_summary,
+        final_route_closure_manifest=final_route_closure_manifest,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        automation_bug_agent_eval_checklist=automation_bug_agent_eval_checklist,
+    )
     ready = (
         status == "ready"
         and report_status == "ready"
@@ -11521,6 +11535,7 @@ def skill_route_discovery_local_kernel_handoff(
         "proposal_completion_summary": proposal_completion_summary,
         "current_digest_completion_lane": completion_lane_summary,
         "final_route_closure_manifest": final_route_closure_manifest,
+        "operator_replay_summary": operator_replay_summary,
         "provider_runtime_supervisor_card": provider_runtime_supervisor_card,
         "replay_stage_order": string_list(runner_control.get("stage_order")),
         "replay_stage_count": int(runner_control.get("stage_count") or 0),
@@ -11723,6 +11738,184 @@ def skill_route_discovery_final_route_closure_manifest(
         "ready_closure_check_count": len(
             [check for check in closure_checklist if check["status"] in {"ready", "not_applicable"}]
         ),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_operator_replay_summary(
+    *,
+    source_digest: str,
+    status: str,
+    completion_report: dict[str, Any],
+    proposal_completion_summary: dict[str, Any],
+    current_digest_completion_lane: dict[str, Any],
+    final_route_closure_manifest: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
+    automation_bug_agent_eval_checklist: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize the bounded replay lanes the operator can inspect before handoff."""
+
+    adjacent_rows = adjacent_general_agent_project_eval.get("rows")
+    adjacent_rows = adjacent_rows if isinstance(adjacent_rows, list) else []
+    adjacent_agent_count = len(
+        [
+            row
+            for row in adjacent_rows
+            if isinstance(row, dict)
+            and (
+                row.get("primary_route") == "agent_harness_eval_required"
+                or row.get("evaluation_lane") == "agent_harness_eval_required"
+            )
+        ]
+    )
+    adjacent_agent_count = adjacent_agent_count or int(
+        final_route_closure_manifest.get("adjacent_general_agent_project_count") or 0
+    )
+    automation_row_count = int(automation_bug_agent_eval_checklist.get("row_count") or 0)
+    required_validation_hashes = string_list(final_route_closure_manifest.get("required_validation_hashes"))
+    skill_route_status = optional_string(proposal_completion_summary.get("status")) or "blocked"
+    current_digest_status = optional_string(current_digest_completion_lane.get("status")) or "blocked"
+    final_closure_status = optional_string(final_route_closure_manifest.get("status")) or "blocked"
+    ready_for_supervisor = (
+        status == "ready"
+        and skill_route_status == "ready"
+        and current_digest_status == "ready"
+        and final_closure_status == "ready"
+    )
+
+    rows = [
+        {
+            "route": "skill_route_discovery",
+            "status": skill_route_status,
+            "decision": "replay_bounded_skill_route_lanes"
+            if skill_route_status == "ready"
+            else "repair_skill_route_lanes_before_replay",
+            "selected_local_lanes": string_list(
+                proposal_completion_summary.get("selected_skill_route_lanes")
+            ),
+            "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+            "route_profiles": string_list(proposal_completion_summary.get("route_profiles")),
+            "required_validation_hashes": required_validation_hashes,
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "activation_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    ]
+    if adjacent_agent_count:
+        rows.append(
+            {
+                "route": "agent_harness_eval_required",
+                "status": "gated",
+                "decision": "run_local_agent_harness_eval_before_general_agent_followup",
+                "selected_local_lanes": ["test"],
+                "allowed_local_lanes": ["documentation", "test", "code_patch"],
+                "adjacent_general_agent_project_count": adjacent_agent_count,
+                "skill_route_discovery_inherited": False,
+                "required_validation_hashes": [
+                    stable_text_hash(SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND)
+                ],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "activation_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_evidence_urls_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+    rows.append(
+        {
+            "route": "automation_bug_agent_review",
+            "status": "review_required" if automation_row_count else "not_applicable",
+            "decision": "hold_automation_bug_agent_evidence_for_human_review"
+            if automation_row_count
+            else "no_automation_bug_agent_review_rows_observed",
+            "selected_local_lanes": [],
+            "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "review_gate": automation_bug_agent_eval_checklist.get("review_gate")
+            if automation_row_count
+            else None,
+            "automation_bug_agent_harness_eval_required_count": int(
+                automation_bug_agent_eval_checklist.get(
+                    "automation_bug_agent_harness_eval_required_count"
+                )
+                or 0
+            ),
+            "required_check_count": len(
+                string_list(automation_bug_agent_eval_checklist.get("required_checks"))
+            ),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "activation_allowed": False,
+            "direct_controller_influence_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_evidence_urls_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    )
+    return {
+        "controller_surface": "skill_route_discovery_operator_replay_summary",
+        "source_digest": source_digest,
+        "status": "ready" if ready_for_supervisor else "blocked",
+        "decision": "operator_can_replay_bounded_lanes_for_supervisor_handoff"
+        if ready_for_supervisor
+        else "repair_operator_replay_summary_before_supervisor_handoff",
+        "skill_route_status": skill_route_status,
+        "current_digest_completion_status": current_digest_status,
+        "final_route_closure_status": final_closure_status,
+        "selected_skill_route_lanes": string_list(
+            proposal_completion_summary.get("selected_skill_route_lanes")
+        ),
+        "agent_harness_eval_required": bool(adjacent_agent_count),
+        "adjacent_general_agent_project_count": adjacent_agent_count,
+        "automation_bug_review_required": automation_row_count > 0,
+        "automation_bug_review_gate": automation_bug_agent_eval_checklist.get("review_gate")
+        if automation_row_count
+        else None,
+        "review_only_route_count": automation_row_count,
+        "row_count": len(rows),
+        "rows": rows,
+        "required_validation_hashes": required_validation_hashes,
+        "operator_sequence": [
+            "confirm_rollback_ref_and_artifact_exist",
+            "review_body_free_operator_replay_summary",
+            "run_focused_local_validation",
+            "handoff_to_external_supervisor_without_kernel_restart_or_external_activation",
+        ],
         "local_validation_required": True,
         "body_free": True,
         "runtime_action": "none",
