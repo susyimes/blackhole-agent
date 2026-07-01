@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 126
-    assert payload["pass_count"] == 125
+    assert payload["fixture_count"] == 127
+    assert payload["pass_count"] == 126
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -385,6 +385,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260701T213749-pass2-acceptance-surface"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260701T225748-pass2-supervisor-handoff"
         ]["passed"]
         is True
     )
@@ -19292,6 +19298,79 @@ def test_skill_route_discovery_current_digest_20260701T213749_pass2_acceptance_s
     assert acceptance["provider_runtime_launch_allowed"] is False
     assert acceptance["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T225748_pass2_supervisor_handoff():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260701T225748_pass2_supervisor_handoff.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass2_local_validation_lane"]
+    handoff = lane["supervisor_handoff"]
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps({"lane": lane, "handoff": handoff}, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert lane["source_digest"] == "github-growth-20260701T225748.582279Z"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-general-projects",
+    ]
+    assert lane["review_only_anchor_notes"] == [
+        {
+            "proposal_id": "p3-automation-bug-agent-eval",
+            "evidence_class": "automation_bug_agent_context",
+            "route_influence": "none",
+            "review_reason": "offensive_behavior_boundary",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        }
+    ]
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    assert adjacent["Qwen-AgentWorld"]["proposal_id"] == "p2-agent-harness-eval-qwen-agentworld"
+    assert adjacent["Fundamental-Ava"]["proposal_id"] == "p3-agent-harness-eval-fundamental-ava-looper"
+    assert adjacent["looper"]["proposal_id"] == "p3-agent-harness-eval-fundamental-ava-looper"
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent.values())
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent.values())
+
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass2_supervisor_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["source_digest_recorded"] is True
+    assert handoff["source_digest_hash"].startswith("sha256:")
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["operator_sequence"] == [
+        "confirm_rollback_ref_and_artifact_exist",
+        "review_body_free_pass2_lane_hashes",
+        "run_focused_local_validation",
+        "continue_to_pass3_without_kernel_restart_or_external_activation",
+    ]
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["kernel_restart_allowed"] is False
+    assert handoff["promotion_or_push_performed"] is False
+    assert handoff["raw_source_url_exported"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_replay_commands_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
 

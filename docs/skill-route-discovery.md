@@ -23,6 +23,19 @@ workflow route hints or a local harness result, they do not inherit
 controller, runtime, provider, external harness, or remote-execution follow-up
 lanes before `agent_harness_eval` passes.
 
+Source digest `github-growth-20260701T225748.582279Z` advances pass 2 with a
+supervisor handoff surface for the same bounded lane. The handoff records the
+current proposal hashes, skill-route row counts, adjacent agent-project counts,
+candidate source hashes, selected local lanes, and operator sequence without
+exporting raw evidence URLs, replay commands, target paths, or upstream bodies.
+It keeps zhengxi-views in documentation and test validation lanes, keeps
+Qwen-AgentWorld, Fundamental-Ava, and looper behind
+`agent_harness_eval_required`, and records the automation/bug agent proposal as
+review-only at the offensive-behavior boundary. The handoff is explicitly for
+external supervisor replay; it denies kernel restart, promotion, provider
+launch, external harness execution, remote execution, profile writes, memory
+writes, and upstream skill activation.
+
 Source digest `github-growth-20260701T215748.459700Z` advances pass 3 of the
 active `skill-route-discovery` window with a route-to-validation replay surface.
 Focused review of the carried public evidence keeps zhengxi-views as the only
