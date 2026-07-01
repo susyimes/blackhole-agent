@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 125
-    assert payload["pass_count"] == 124
+    assert payload["fixture_count"] == 126
+    assert payload["pass_count"] == 125
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -391,6 +391,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260701T215748-pass3-route-to-validation"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260701T221748-pass4-completion"
         ]["passed"]
         is True
     )
@@ -19091,6 +19097,64 @@ def test_skill_route_discovery_current_digest_20260701T204302_pass4_completion_l
     assert closure["capability_slice_complete"] is True
     assert closure["adjacent_general_agent_boundary"]["proposal_id"] == (
         "p2-agent-harness-eval-trending-agent-projects"
+    )
+    assert output["activation_gate"]["external_skill_activation_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T221748_pass4_completion_lane():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260701T221748_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    handoff = output["current_digest_pass4_completion_handoff"]
+    closure = output["current_digest_pass4_final_closure"]
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    serialized = json.dumps(
+        {
+            "handoff": handoff,
+            "closure": closure,
+        },
+        sort_keys=True,
+    )
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert handoff["source_digest"] == "github-growth-20260701T221748.504540Z"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p3-agent-harness-docs-boundary",
+    ]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["route_boundary_checklist"]["status"] == "ready"
+    assert handoff["operator_completion_checklist"]["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    assert all(
+        row["proposal_id"] == "p2-agent-harness-eval-general-agent-projects"
+        for row in adjacent.values()
+    )
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent.values())
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent.values())
+
+    assert closure["status"] == "ready"
+    assert closure["capability_slice_complete"] is True
+    assert closure["adjacent_general_agent_boundary"]["proposal_id"] == (
+        "p2-agent-harness-eval-general-agent-projects"
     )
     assert output["activation_gate"]["external_skill_activation_allowed"] is False
     assert "https://github.com/" not in serialized
