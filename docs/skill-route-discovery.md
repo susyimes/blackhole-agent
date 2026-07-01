@@ -468,6 +468,18 @@ or upstream body export. `p5-security-agent-risk-gated-eval` remains a
 review-only anchor at the offensive-behavior boundary and has no route
 influence.
 
+Source digest `github-growth-20260701T145922.935225Z` adds
+`route_evidence_activation_gate` inside
+`current_digest_pass3_activation_review_lane`. The gate is a compact
+controller-visible pass-3 summary: zhengxi-views-style skill evidence may enter
+only documentation, config, test, or code_patch validation lanes; adjacent
+general-agent projects such as Qwen-AgentWorld and Fundamental-Ava remain
+`agent_harness_eval_required`; and automation or reverse-engineering pressure
+such as open-reverselab stays non-executable unless a later controller
+recompute assigns an explicit bounded local lane. The gate always reports
+`runtime_action: none`, denies external skill, agent, harness, provider, and
+remote activation, and exports no raw upstream URLs or bodies.
+
 Source digest `github-growth-20260629T215904.320352Z` advances pass 3 of the
 active `skill-route-discovery` window with
 `current_digest_pass3_activation_review_lane`. The lane turns the current

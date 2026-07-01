@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 115
-    assert payload["pass_count"] == 114
+    assert payload["fixture_count"] == 116
+    assert payload["pass_count"] == 115
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -331,6 +331,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260701T143923-pass2-local-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260701T145922-pass3-route-evidence-gate"
         ]["passed"]
         is True
     )
@@ -18565,6 +18571,76 @@ def test_skill_route_discovery_current_digest_20260701T143923_pass2_local_valida
             "remote_execution_allowed": False,
         }
     ]
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T145922_pass3_route_evidence_gate():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260701T145922_pass3_route_evidence_gate.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass3_activation_review_lane"]
+    gate = lane["route_evidence_activation_gate"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = lane["adjacent_general_agent_rows"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+    assert lane["source_digest"] == "github-growth-20260701T145922.935225Z"
+    assert lane["capability_pass"] == 3
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p2_agent_harness_eval_trending_agent_projects",
+    ]
+    assert lane["selected_local_lanes"] == ["test"]
+
+    zhengxi = rows["p1_skill_route_discovery_zhengxi_views"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+
+    assert [row["name"] for row in adjacent] == [
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "open-reverselab",
+    ]
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent)
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent)
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent)
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent)
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent)
+
+    assert gate["status"] == "ready"
+    assert gate["controller_recompute_required_before_activation"] is True
+    assert gate["selected_skill_route_lanes"] == ["test"]
+    assert gate["agent_harness_eval_required_count"] == 3
+    assert gate["automation_or_bug_agent_harness_eval_required_count"] == 1
+    assert gate["runtime_action"] == "none"
+    assert gate["runtime_action_allowed"] is False
+    assert gate["external_harness_execution_allowed"] is False
+    assert gate["provider_runtime_launch_allowed"] is False
+
     assert lane["runtime_action"] == "none"
     assert lane["external_skill_activation_allowed"] is False
     assert lane["external_agent_activation_allowed"] is False

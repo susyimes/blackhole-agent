@@ -7908,7 +7908,18 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_052714_window = source_digest == "github-growth-20260630T052714.485930Z"
     current_024714_window = source_digest == "github-growth-20260630T024714.466980Z"
     current_215904_window = source_digest == "github-growth-20260629T215904.320352Z"
+    current_145922_window = source_digest == "github-growth-20260701T145922.935225Z"
     active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agent_projects",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:LING71671/open-reverselab-1",
+        ]
+        if current_145922_window
+        else
         [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_agent_projects",
@@ -8029,7 +8040,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             {
                 "proposal_id": (
                     "p1_skill_route_discovery_zhengxi_views"
-                    if current_133922_window or current_104714_window
+                    if current_145922_window or current_133922_window or current_104714_window
                     else "p1_skill_route_discovery_for_zhengxi_views"
                     if current_092714_window
                     else "p1_skill_route_discovery_probe_zhengxi_views"
@@ -8069,6 +8080,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         )
         if (
             current_133922_window
+            or current_145922_window
             or
             current_104714_window
             or current_092714_window
@@ -8226,6 +8238,12 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             row["proposal_id"] = "p2_agent_harness_eval_fixture_for_general_agent_projects"
         elif current_133922_window:
             row["proposal_id"] = "p2_agent_harness_eval_trending_agent_projects"
+        elif current_145922_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "open-reverselab":
+                row["proposal_id"] = "p3_open_reverselab_automation_bug_eval"
+            else:
+                row["proposal_id"] = "p2_agent_harness_eval_trending_agent_projects"
         elif current_040714_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name == "qwen-agentworld":
@@ -8274,6 +8292,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 
     general_agent_row = {
         "proposal_id": (
+            "p2_agent_harness_eval_trending_agent_projects"
+            if current_145922_window
+            else
             "p2_agent_harness_eval_trending_agent_projects"
             if current_133922_window
             else
@@ -8359,6 +8380,11 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             blocked_proposal_ids.append(str(general_agent_row["proposal_id"]))
 
     ready = bool(rows) and not blocked_proposal_ids
+    route_evidence_activation_gate = _skill_route_discovery_pass3_route_evidence_activation_gate(
+        rows,
+        adjacent_rows,
+        blocked_proposal_ids=blocked_proposal_ids,
+    )
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass3_activation_review_lane",
         "status": "ready" if ready else "blocked",
@@ -8388,6 +8414,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                     "skill_ecosystem_state_handoff",
                 )
                 if current_133922_window or current_092714_window
+                or current_145922_window
                 else ("generic_skill_workflow", "skill_ecosystem_state_handoff")
             )
             if profile in set(observed_profiles)
@@ -8412,6 +8439,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             if ready
             else "repair_blocked_pass3_rows_then_rebuild_activation_review_lane"
         ),
+        "route_evidence_activation_gate": route_evidence_activation_gate,
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
@@ -8428,6 +8456,96 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_pass3_route_evidence_activation_gate(
+    rows: Sequence[Mapping[str, Any]],
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    *,
+    blocked_proposal_ids: Sequence[str],
+) -> dict[str, Any]:
+    """Summarize pass-3 route evidence without granting runtime authority."""
+
+    skill_rows = [
+        row
+        for row in rows
+        if str(row.get("route_hint") or "") == SKILL_ROUTE_DISCOVERY_HINT
+    ]
+    adjacent_agent_rows = [
+        row
+        for row in adjacent_rows
+        if str(row.get("evaluation_lane") or "") == "agent_harness_eval_required"
+    ]
+    selected_lanes = sorted(
+        {
+            str(row.get("selected_local_lane") or "")
+            for row in skill_rows
+            if str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        },
+        key=lambda lane: SKILL_ROUTE_DISCOVERY_ALLOWED_LANES.index(lane),
+    )
+    diagnostics: list[str] = []
+    if not skill_rows:
+        diagnostics.append("skill_route_rows_missing")
+    if blocked_proposal_ids:
+        diagnostics.append("blocked_proposals_present")
+    if any(str(row.get("runtime_action") or "none") != "none" for row in rows):
+        diagnostics.append("runtime_action_requested")
+    if any(row.get("local_validation_required") is not True for row in rows):
+        diagnostics.append("local_validation_required_missing")
+    if any(
+        str(row.get("selected_local_lane") or "") not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        for row in skill_rows
+    ):
+        diagnostics.append("skill_route_lane_not_bounded")
+    if any(row.get("evaluation_lane") != "agent_harness_eval_required" for row in adjacent_rows):
+        diagnostics.append("adjacent_agent_route_not_held_for_harness_eval")
+    if any(row.get("skill_route_discovery_inherited") is not False for row in adjacent_rows):
+        diagnostics.append("adjacent_agent_inherited_skill_route_discovery")
+    if any(row.get("direct_runtime_route_allowed") is not False for row in adjacent_rows):
+        diagnostics.append("adjacent_agent_runtime_route_allowed")
+    if any(row.get("direct_code_patch_route_allowed") is not False for row in adjacent_rows):
+        diagnostics.append("adjacent_agent_code_patch_route_allowed")
+
+    automation_or_bug_rows = [
+        row
+        for row in adjacent_agent_rows
+        if any(
+            marker in str(row.get("name") or "").casefold()
+            or marker in str(row.get("item_id") or "").casefold()
+            for marker in ("automation", "bug", "reverselab", "reverse")
+        )
+    ]
+    ready = bool(skill_rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_pass3_route_evidence_activation_gate",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "route_evidence_ready_for_bounded_local_validation_after_controller_recompute"
+            if ready
+            else "repair_route_evidence_gate_before_activation_review"
+        ),
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_skill_route_lanes": selected_lanes,
+        "skill_route_lane_count": len(skill_rows),
+        "agent_harness_eval_required_count": len(adjacent_agent_rows),
+        "automation_or_bug_agent_harness_eval_required_count": len(automation_or_bug_rows),
+        "blocked_proposal_count": len(blocked_proposal_ids),
+        "blocked_proposal_id_hashes": [_stable_hash(str(proposal_id)) for proposal_id in blocked_proposal_ids],
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "controller_recompute_required_before_activation": True,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
