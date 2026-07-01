@@ -9825,6 +9825,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_233904_window = source_digest == "github-growth-20260629T233904.362379Z"
     current_054715_window = source_digest == "github-growth-20260630T054715.044236Z"
     current_070714_window = source_digest == "github-growth-20260630T070714.426957Z"
+    current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -10013,6 +10014,29 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             },
         )
         if current_233904_window
+        else (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow_validation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "zhengxi_views_skill_workflow_signal_maps_to_bounded_local_test_lane"
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-docs-boundary",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_vs_agent_harness_documentation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "completion_requirement": (
+                    "operator_docs_distinguish_skill_route_discovery_from_general_agent_harness_eval"
+                ),
+            },
+        )
+        if current_190302_window
         else (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -10220,6 +10244,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_190302_window:
+            row["proposal_id"] = "p2-agent-harness-eval-general-python-agents"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -10231,7 +10257,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
 
     required_profiles = (
         ("generic_skill_workflow", "source_cited_domain_research")
-        if current_054715_window
+        if current_054715_window or current_190302_window
         else (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
         if (
@@ -10494,6 +10520,23 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "trend:ksimback/looper-1",
             ]
             if current_233904_window
+            else [
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-agent-harness-eval-general-python-agents",
+                "p3-agent-harness-docs-boundary",
+                "p1_skill_route_discovery_zhengxi_views",
+                "p2_agent_harness_eval_qwen_agentworld",
+                "p3_agent_harness_eval_fundamental_ava",
+                "p4_agent_harness_eval_looper",
+                "p5_agent_harness_eval_open_reverselab",
+                "p2-agent-harness-eval-suite",
+                "p3-route-classification-docs",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+                "trend:ksimback/looper-1",
+            ]
+            if current_190302_window
             else [
                 "proposal-1-skill-route-discovery-zhengxi-views",
                 "proposal-2-agent-harness-eval-qwen-agentworld",
@@ -19034,6 +19077,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
     current_070714_window = source_digest == "github-growth-20260630T070714.426957Z"
     current_151922_window = source_digest == "github-growth-20260701T151922.933466Z"
     current_180302_window = source_digest == "github-growth-20260701T180302.906845Z"
+    current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_final_closure(
             candidate_lane_inventory,
@@ -19098,6 +19142,26 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
                 "validation_target": "zhengxi_views_skill_route_discovery_stays_bounded",
             },
             {
+                "proposal_id": "p3-agent-harness-docs-boundary",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_discovery_vs_general_agent_project_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_route_and_agent_harness_eval_boundary",
+            },
+        )
+        if current_190302_window
+        else (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow_validation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_route_discovery_stays_bounded",
+            },
+            {
                 "proposal_id": "p3-route-hint-policy-documentation",
                 "proposal_kind": "documentation",
                 "proposal_track": "skill_route_vs_agent_harness_documentation",
@@ -19147,6 +19211,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         )
         )
         )
+        )
     )
     adjacent_proposal_id = (
         "p2-agent-harness-eval-general-trends"
@@ -19155,11 +19220,15 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         "p2_agent_harness_eval_fixture_for_general_agent_projects"
         if current_180302_window
         else (
+        "p2-agent-harness-eval-general-python-agents"
+        if current_190302_window
+        else (
         "p2-agent-harness-eval-suite"
         if current_054715_window
         else "p3-agent-harness-eval-qwen-agentworld"
         if current_233904_window
         else "p3-agent-harness-qwen-agentworld"
+        )
         )
         )
     )

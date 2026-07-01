@@ -5073,3 +5073,23 @@ remote execution, raw source URL export, raw evidence URL export, or upstream
 body export. The open-reverselab anchor is also recorded as
 `p4-open-reverselab-safety-aware-harness-case` with review influence only at
 the offensive-behavior boundary.
+
+## 2026-07-01 Pass-4 Skill Route Completion Boundary
+
+Source digest `github-growth-20260701T190302.389615Z` completes the current
+skill-route-discovery window with an operator-visible pass-4 handoff. The
+zhengxi-views signal is the only `skill_route_discovery` candidate and remains
+bounded to documentation, config, test, or code_patch lanes; this pass selects
+the local test lane plus a documentation boundary row.
+
+| Evidence shape | Route | Allowed local lanes before eval | Activation boundary |
+| --- | --- | --- | --- |
+| zhengxi-views-style Agent Skill workflow with generic and source-cited profiles | `skill_route_discovery` | documentation, config, test, code_patch | local validation and rollback evidence required before supervisor replay |
+| Qwen-AgentWorld, Fundamental-Ava, or looper-style general Python agent project without skill workflow hints | `agent_harness_eval_required` | none until harness eval; documentation, test, code_patch only after eval | does not inherit `skill_route_discovery`, direct runtime routing, or direct code_patch authority |
+
+The handoff records Qwen-AgentWorld, Fundamental-Ava, and looper as adjacent
+general-agent rows under `p2-agent-harness-eval-general-python-agents`. They
+remain gated until a local agent harness evaluation exists, with runtime action,
+external agent activation, external harness execution, provider launch, remote
+execution, raw URL export, replay-command export, target-path export, and
+upstream-body export denied.
