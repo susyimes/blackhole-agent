@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 111
-    assert payload["pass_count"] == 110
+    assert payload["fixture_count"] == 112
+    assert payload["pass_count"] == 111
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -307,6 +307,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260630T084715-pass1-local-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260701T102533-pass4-completion"
         ]["passed"]
         is True
     )
@@ -18260,6 +18266,56 @@ def test_skill_route_discovery_current_digest_20260630T082714_pass4_completion_h
     assert handoff["memory_write_allowed"] is False
     assert handoff["raw_evidence_urls_exported"] is False
     assert handoff["raw_replay_commands_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T102533_pass4_completion_gates_general_agents():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260701T102533_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    completion = output["capability_window_completion"]
+    handoff = completion["local_kernel_handoff"]
+    proposal_summary = handoff["proposal_completion_summary"]
+    closure = handoff["final_route_closure_manifest"]
+    agent_rows = [
+        row for row in proposal_summary["rows"] if row["evidence_class"] == "agent_harness_eval"
+    ]
+    serialized = json.dumps(completion, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert completion["status"] == "ready"
+    assert completion["planned_window_complete"] is True
+    assert proposal_summary["source_digest"] == "github-growth-20260701T102533.298615Z"
+    assert proposal_summary["status"] == "ready"
+    assert proposal_summary["skill_route_row_count"] == 2
+    assert proposal_summary["ready_skill_route_row_count"] == 2
+    assert proposal_summary["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert proposal_summary["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert proposal_summary["agent_harness_eval_row_count"] == 2
+    assert proposal_summary["allowed_agent_harness_eval_lanes"] == ["documentation", "test", "code_patch"]
+    assert all(row["route_hint"] == "agent_harness_eval_required" for row in agent_rows)
+    assert all(row["skill_route_discovery_inherited"] is False for row in agent_rows)
+    assert all(row["runtime_action"] == "none" for row in agent_rows)
+
+    assert closure["status"] == "ready"
+    assert closure["decision"] == "skill_route_window_closed_for_supervisor_replay"
+    assert closure["adjacent_general_agent_project_count"] == 2
+    gated_route = {row["route"]: row for row in closure["rows"]}["agent_harness_eval_required"]
+    assert gated_route["skill_route_discovery_inherited"] is False
+    assert gated_route["activation_allowed"] is False
+    assert closure["external_agent_activation_allowed"] is False
+    assert closure["external_harness_execution_allowed"] is False
+    assert closure["provider_runtime_launch_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
