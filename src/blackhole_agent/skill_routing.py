@@ -6799,6 +6799,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_090714_window = source_digest == "github-growth-20260630T090714.437117Z"
     current_131922_window = source_digest == "github-growth-20260701T131922.972375Z"
     current_143923_window = source_digest == "github-growth-20260701T143923.018624Z"
+    current_171923_window = source_digest == "github-growth-20260701T171923.099727Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -6817,6 +6818,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                     if current_090714_window
                     else "p1-skill-route-discovery-lane"
                     if current_074714_window
+                    else "p1_skill_route_discovery_zhengxi_views"
+                    if current_171923_window
                     else "p1-skill-route-discovery-validation"
                     if current_143923_window
                     else "p1-skill-route-discovery-zhengxi-views"
@@ -6848,6 +6851,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                             if current_090714_window
                             else "p3-agent-harness-docs"
                             if current_143923_window
+                            else "p3_open_reverselab_bug_automation_eval"
+                            if current_171923_window
                             else "p4-route-metadata-consistency-check"
                             if current_131922_window
                             else "p3-route-hint-documentation"
@@ -6875,11 +6880,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                         ),
                     },
                 )
-                if current_074714_window or current_090714_window or current_131922_window or current_143923_window
+                if current_074714_window
+                or current_090714_window
+                or current_131922_window
+                or current_143923_window
+                or current_171923_window
                 else ()
             ),
         )
-        if current_034714_window or current_074714_window or current_090714_window or current_131922_window or current_143923_window
+        if current_034714_window
+        or current_074714_window
+        or current_090714_window
+        or current_131922_window
+        or current_143923_window
+        or current_171923_window
         else
         (
             {
@@ -7145,6 +7159,16 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         if current_034714_window
         else
         [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agent_projects",
+            "p3_open_reverselab_bug_automation_eval",
+            "p4_route_classification_consistency_check",
+            "p5_self_model_alignment_note",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        if current_171923_window
+        else
+        [
             "p1-skill-route-discovery-validation",
             "p2-agent-harness-eval-fixtures",
             "p3-agent-harness-docs",
@@ -7291,6 +7315,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         if current_034714_window
+        else
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agent_projects",
+            "p3_open_reverselab_bug_automation_eval",
+            "p4_route_classification_consistency_check",
+            "p5_self_model_alignment_note",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+            "trend:LING71671/open-reverselab-1",
+        ]
+        if current_171923_window
         else
         [
             "p1-skill-route-discovery-validation",
@@ -7599,6 +7637,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_090714_window
             else "p2-agent-harness-eval-for-general-agent-trends"
             if current_131922_window
+            else "p2_agent_harness_eval_trending_agent_projects"
+            if current_171923_window
             else "p2-agent-harness-eval-fixtures"
             if current_143923_window
             else "p2-agent-harness-eval-agentworld"
@@ -7631,6 +7671,13 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             row["proposal_id"] = "p2_agent_harness_eval_trending_python_agents"
         if current_131922_window:
             row["proposal_id"] = "p2-agent-harness-eval-for-general-agent-trends"
+        if current_171923_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            row["proposal_id"] = (
+                "p3_open_reverselab_bug_automation_eval"
+                if lowered_name == "open-reverselab"
+                else "p2_agent_harness_eval_trending_agent_projects"
+            )
         if current_143923_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         row.pop("replay_command", None)
@@ -7670,6 +7717,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     )
     operator_replay_surface = _skill_route_discovery_current_digest_pass2_operator_replay_surface(
         rows,
+        adjacent_rows,
+        source_digest=source_digest,
+    )
+    adjacent_agent_recovery_contract = _skill_route_discovery_current_digest_pass2_agent_recovery_contract(
         adjacent_rows,
         source_digest=source_digest,
     )
@@ -7762,6 +7813,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 }
             ]
             if current_034714_window
+            else [
+                {
+                    "proposal_id": "p3_open_reverselab_bug_automation_eval",
+                    "evidence_class": "security_agent_context",
+                    "route_influence": "none",
+                    "review_reason": "offensive_behavior_boundary",
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                }
+            ]
+            if current_171923_window
             else [
                 {
                     "proposal_id": "p3-agent-automation-bug-route",
@@ -7859,6 +7924,107 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "active_slice_review_lane": active_slice_review_lane,
         "skill_ecosystem_handoff_path": skill_ecosystem_handoff_path,
         "operator_replay_surface": operator_replay_surface,
+        "adjacent_agent_recovery_contract": adjacent_agent_recovery_contract,
+    }
+
+
+def _skill_route_discovery_current_digest_pass2_agent_recovery_contract(
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Summarize adjacent general-agent recovery gates before follow-up lanes."""
+
+    rows: list[dict[str, Any]] = []
+    for adjacent_row in adjacent_rows:
+        row = adjacent_row if isinstance(adjacent_row, Mapping) else {}
+        name = str(row.get("name") or "")
+        text = " ".join(
+            (
+                name,
+                str(row.get("item_id") or ""),
+                str(row.get("ignored_reason") or ""),
+                " ".join(_string_list(row.get("route_hints"))),
+            )
+        ).casefold()
+        review_only = any(term in text for term in ("reverse", "security", "reverselab", "bug"))
+        rows.append(
+            {
+                "proposal_id": str(row.get("proposal_id") or ""),
+                "item_id": str(row.get("item_id") or ""),
+                "name": name,
+                "source_hash": str(row.get("source_hash") or ""),
+                "evaluation_lane": "agent_harness_eval_required",
+                "status": "review_only" if review_only else "blocked",
+                "review_reason": "offensive_behavior_boundary" if review_only else "agent_harness_eval_missing",
+                "required_probe_fields": [
+                    "install_shape",
+                    "entrypoints",
+                    "dependency_boundaries",
+                    "task_loop_assumptions",
+                    "observable_behaviors",
+                ],
+                "next_steps": [
+                    "add_body_free_project_detail_before_replay",
+                    "replay_agent_harness_eval_lane_locally",
+                    "resolve_general_agent_route_review_queue",
+                ],
+                "allowed_followup_lanes_after_eval": ["documentation", "test", "code_patch"],
+                "followup_allowed": False,
+                "skill_route_discovery_inherited": False,
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row for row in rows if row["status"] == "blocked"]
+    review_rows = [row for row in rows if row["status"] == "review_only"]
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_pass2_agent_recovery_contract",
+        "status": "blocked" if rows else "not_applicable",
+        "decision": (
+            "collect_agent_harness_eval_before_general_agent_followup"
+            if rows
+            else "no_adjacent_general_agent_rows"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 2,
+        "project_count": len(rows),
+        "blocked_project_count": len(blocked_rows),
+        "review_only_project_count": len(review_rows),
+        "agent_harness_eval_required_count": len(rows),
+        "allowed_followup_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "required_before_followup": [
+            "body_free_project_probe_complete",
+            "local_agent_harness_eval_replay_passes",
+            "safety_boundary_review_clear",
+            "runtime_and_external_execution_denied",
+        ],
+        "replay_command_hashes": [
+            _stable_hash("pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane")
+        ]
+        if rows
+        else [],
+        "rows": rows,
+        "local_validation_required": bool(rows),
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

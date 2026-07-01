@@ -19,6 +19,19 @@ execution, and no provider launch before local harness validation. The
 `p4-automation-bug-agent-eval-case` anchor is review-only at the
 offensive-behavior boundary and has no route influence.
 
+Source digest `github-growth-20260701T171923.099727Z` advances pass 2 by
+making adjacent general-agent recovery visible inside the current digest lane.
+zhengxi-views remains the only skill-route candidate and maps to bounded test
+and documentation lanes for `p1_skill_route_discovery_zhengxi_views` and
+`p3_open_reverselab_bug_automation_eval`. Qwen-AgentWorld, Fundamental-Ava,
+and looper stay under `p2_agent_harness_eval_trending_agent_projects` with
+`agent_harness_eval_required`; open-reverselab is recorded as a review-only
+automation row at the offensive-behavior boundary. The new
+`adjacent_agent_recovery_contract` lists the body-free project probe fields,
+local harness replay requirement, safety review condition, and denied runtime
+or external execution gates before any documentation, test, or code_patch
+follow-up can be selected.
+
 Source digest `github-growth-20260701T151922.933466Z` completes pass 4 of the
 current window with `current_digest_pass4_final_closure` specialized to the
 active proposal IDs. zhengxi-views remains the only skill-route candidate and
