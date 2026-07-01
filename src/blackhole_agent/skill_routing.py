@@ -6734,6 +6734,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_074714_window = source_digest == "github-growth-20260630T074714.730934Z"
     current_090714_window = source_digest == "github-growth-20260630T090714.437117Z"
     current_131922_window = source_digest == "github-growth-20260701T131922.972375Z"
+    current_143923_window = source_digest == "github-growth-20260701T143923.018624Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -6752,6 +6753,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                     if current_090714_window
                     else "p1-skill-route-discovery-lane"
                     if current_074714_window
+                    else "p1-skill-route-discovery-validation"
+                    if current_143923_window
                     else "p1-skill-route-discovery-zhengxi-views"
                     if current_131922_window
                     else "p1-skill-route-discovery-zhengxi-views"
@@ -6779,6 +6782,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                         "proposal_id": (
                             "p3_document_route_policy_for_trend_items"
                             if current_090714_window
+                            else "p3-agent-harness-docs"
+                            if current_143923_window
                             else "p4-route-metadata-consistency-check"
                             if current_131922_window
                             else "p3-route-hint-documentation"
@@ -6806,11 +6811,11 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                         ),
                     },
                 )
-                if current_074714_window or current_090714_window or current_131922_window
+                if current_074714_window or current_090714_window or current_131922_window or current_143923_window
                 else ()
             ),
         )
-        if current_034714_window or current_074714_window or current_090714_window or current_131922_window
+        if current_034714_window or current_074714_window or current_090714_window or current_131922_window or current_143923_window
         else
         (
             {
@@ -7076,6 +7081,16 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         if current_034714_window
         else
         [
+            "p1-skill-route-discovery-validation",
+            "p2-agent-harness-eval-fixtures",
+            "p3-agent-harness-docs",
+            "p4-open-reverselab-safety-aware-harness-case",
+            "p5-growth-route-summary-artifact",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        if current_143923_window
+        else
+        [
             "p1-skill-route-discovery-zhengxi-views",
             "p2-agent-harness-eval-for-general-agent-trends",
             "p3-agent-automation-bug-route",
@@ -7212,6 +7227,19 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         if current_034714_window
+        else
+        [
+            "p1-skill-route-discovery-validation",
+            "p2-agent-harness-eval-fixtures",
+            "p3-agent-harness-docs",
+            "p4-open-reverselab-safety-aware-harness-case",
+            "p5-growth-route-summary-artifact",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:LING71671/open-reverselab-1",
+        ]
+        if current_143923_window
         else
         [
             "p1-skill-route-discovery-zhengxi-views",
@@ -7507,6 +7535,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_090714_window
             else "p2-agent-harness-eval-for-general-agent-trends"
             if current_131922_window
+            else "p2-agent-harness-eval-fixtures"
+            if current_143923_window
             else "p2-agent-harness-eval-agentworld"
             if current_034714_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -7537,6 +7567,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             row["proposal_id"] = "p2_agent_harness_eval_trending_python_agents"
         if current_131922_window:
             row["proposal_id"] = "p2-agent-harness-eval-for-general-agent-trends"
+        if current_143923_window:
+            row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -7680,6 +7712,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 }
             ]
             if current_131922_window
+            else [
+                {
+                    "proposal_id": "p4-open-reverselab-safety-aware-harness-case",
+                    "evidence_class": "security_agent_context",
+                    "route_influence": "none",
+                    "review_reason": "offensive_behavior_boundary",
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                }
+            ]
+            if current_143923_window
             else [
                 {
                     "proposal_id": "p4-agent-automation-eval-open-reverselab",

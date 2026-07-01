@@ -4918,3 +4918,21 @@ conditions. It does not grant runtime action, external skill or agent
 activation, external harness execution, provider launch, remote execution,
 profile writes, memory writes, raw URL export, replay-command export,
 target-path export, or upstream body export.
+
+## 2026-07-01 Pass-2 Local Validation Lane
+
+Source digest `github-growth-20260701T143923.018624Z` continues pass 2 by
+making the active lane replayable for the current proposal IDs.
+`p1-skill-route-discovery-validation` maps the zhengxi-views Agent Skill signal
+to the local test lane, and `p3-agent-harness-docs` records the route policy as
+documentation. Both rows may use only documentation, config, test, or
+code_patch lanes, and both keep `runtime_action: none`.
+
+Qwen-AgentWorld, Fundamental-Ava, and open-reverselab stay adjacent
+`p2-agent-harness-eval-fixtures` rows until a local agent harness evaluation
+passes. They do not inherit `skill_route_discovery`, direct runtime routing,
+direct code_patch authority, external harness execution, provider launch,
+remote execution, raw source URL export, raw evidence URL export, or upstream
+body export. The open-reverselab anchor is also recorded as
+`p4-open-reverselab-safety-aware-harness-case` with review influence only at
+the offensive-behavior boundary.
