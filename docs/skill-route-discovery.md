@@ -5,6 +5,24 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260701T223748.552762Z` opens pass 1 of the
+active `skill-route-discovery` window with a bounded local validation lane for
+the carried proposal IDs. Focused public review keeps zhengxi-views as the only
+skill-route candidate because its repository metadata exposes Agent Skill
+structure such as `SKILL.md`, `skill.yml`, `references/`, `scripts/`, and
+`evals/`, plus source-citation and non-investment-advice boundaries. It maps to
+`p1-skill-route-discovery-zhengxi-views` in the local test lane, while
+`p3-agent-harness-eval-fundamental-ava-looper` records the documentation
+boundary. Both rows remain bounded to documentation, config, test, or
+code_patch with `runtime_action: none`.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent general-agent
+project evidence under `p2-agent-harness-eval-qwen-agentworld`. Without skill
+workflow route hints or a local harness result, they do not inherit
+`skill_route_discovery` and cannot select documentation, test, code_patch,
+controller, runtime, provider, external harness, or remote-execution follow-up
+lanes before `agent_harness_eval` passes.
+
 Source digest `github-growth-20260701T215748.459700Z` advances pass 3 of the
 active `skill-route-discovery` window with a route-to-validation replay surface.
 Focused review of the carried public evidence keeps zhengxi-views as the only
