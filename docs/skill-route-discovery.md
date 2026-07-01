@@ -24,6 +24,23 @@ URLs in the digest are input references only; route outputs keep hashes,
 selected item IDs, counts, lane names, and denial booleans rather than adding
 new raw evidence URLs.
 
+Source digest `github-growth-20260701T100533.329031Z` advances pass 3 of the
+same slice with `current_digest_pass3_route_to_validation_lane`. The lane is an
+operator-visible route-to-validation packet for the active proposal IDs:
+zhengxi-views maps to `p1-skill-route-discovery-zhengxi-views` in the local
+test lane and `p3-document-agent-trend-routing-policy` in the documentation
+lane, while Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`p2-agent-harness-eval-trending-projects` rows. The packet permits only
+documentation, config, test, or code_patch skill-route lanes before activation
+and permits no general-agent outputs until a local `agent_harness_eval` result
+exists.
+
+The pass-3 packet exports selected digest item IDs, lane names, proposal IDs,
+source hashes, replay-command hashes, and denial booleans. It does not export
+raw GitHub URLs, raw replay commands, target paths, upstream bodies, provider
+launch, external harness execution, external skill or agent activation, remote
+execution, profile writes, memory writes, or restart authority.
+
 Source digest `github-growth-20260630T110714.560687Z` completes pass 4 of the
 current `skill-route-discovery` window by making the adjacent
 `agent_harness_eval` completion path project-visible. zhengxi-views remains the
