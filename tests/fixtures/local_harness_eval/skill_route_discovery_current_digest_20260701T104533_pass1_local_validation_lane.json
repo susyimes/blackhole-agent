@@ -1,0 +1,122 @@
+{
+  "name": "skill-route-discovery-current-digest-20260701T104533-pass1-local-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260701T104533-pass1-local-validation-lane",
+    "source_digest": "github-growth-20260701T104533.288698Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-for-general-agent-trends",
+        "p3-agent-automation-bug-eval-lane",
+        "p4-route-metadata-consistency-check",
+        "p5-trend-evidence-uncertainty-template",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "https://github.com/ksimback/looper"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260701T104533.288698Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "repository",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Source-cited Agent Skill route-discovery trigger",
+        "summary": "Public Agent Skill repository with SKILL.md, skill.yml, progressive references, scripts, validation and eval material, source citation requirements, investment-advice disclaimer boundaries, and workflow automation suggestions. Treat repository metadata as bounded local validation evidence only.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent", "skill", "workflow", "source-cited", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution", "provider_runtime"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "test_file"],
+          "source_metadata_signals": ["skill_manifest", "source_citation_boundary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260701T104533.288698Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "General agent benchmark project without route hints",
+        "summary": "General agent project with benchmark and agent-environment evaluation claims, but no local skill package layout signal and no bounded local harness result.",
+        "topics": ["general-agent", "benchmark", "evaluation"],
+        "suggested_lanes": ["runtime_execution", "code_patch"]
+      },
+      {
+        "source_digest": "github-growth-20260701T104533.288698Z",
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "item_kind": "repository",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "title": "General agent automation project without route hints",
+        "summary": "General agent project evidence for autonomous assistants and automation, without SKILL.md evidence, local route hints, or a local harness evaluation result.",
+        "topics": ["general-agent", "automation", "assistant"],
+        "suggested_lanes": ["runtime_execution", "code_patch"]
+      },
+      {
+        "source_digest": "github-growth-20260701T104533.288698Z",
+        "item_id": "trend:ksimback/looper-1",
+        "item_kind": "repository",
+        "name": "looper",
+        "source_url": "https://github.com/ksimback/looper",
+        "title": "Looping general agent project without route hints",
+        "summary": "General looping agent project evidence with workflow and scheduler pressure, but no explicit skill workflow route and no local harness evaluation result.",
+        "topics": ["general-agent", "loop", "workflow"],
+        "suggested_lanes": ["runtime_execution", "code_patch"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260701T104533_pass1_local_validation_lane.json",
+          "tests/test_harness_eval.py"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k 20260701T104533",
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260701T104532Z-skill-route-discovery-pass1.md",
+        "review_note": "Skill metadata, workflow automation suggestions, and general-agent trend metadata are replay evidence only; no upstream install, runtime action, provider launch, or external harness execution is inferred."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 1},
+    {"path": "registry.ignored_evidence_item_count", "equals": 3},
+    {"path": "current_digest_pass1_validation_lane.status", "equals": "ready"},
+    {"path": "current_digest_pass1_validation_lane.source_digest", "equals": "github-growth-20260701T104533.288698Z"},
+    {"path": "current_digest_pass1_validation_lane.proposal_ids", "equals": ["p1-skill-route-discovery-zhengxi-views"]},
+    {"path": "current_digest_pass1_validation_lane.selected_local_lanes", "equals": ["test"]},
+    {"path": "current_digest_pass1_validation_lane.agent_harness_eval_required_count", "equals": 3},
+    {"path": "current_digest_pass1_validation_lane.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass1_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_agent_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_source_url_exported", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_evidence_urls_exported", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_upstream_body_exported", "equals": false}
+  ]
+}

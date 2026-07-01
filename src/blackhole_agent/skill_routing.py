@@ -5733,7 +5733,25 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_072714_window = source_digest == "github-growth-20260630T072714.658769Z"
     current_084715_window = source_digest == "github-growth-20260630T084715.195137Z"
     current_112714_window = source_digest == "github-growth-20260630T112714.533021Z"
-    if current_112714_window:
+    current_104533_window = source_digest == "github-growth-20260701T104533.288698Z"
+    if current_104533_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_current_pass1_skill_route_validation_lane",
+                "validation_task": (
+                    "validate the active zhengxi-views Agent Skill signal as a bounded local "
+                    "test lane while keeping Qwen-AgentWorld, Fundamental-Ava, and looper "
+                    "in agent_harness_eval_required until a local harness result justifies "
+                    "documentation, test, or code_patch work"
+                ),
+            },
+        )
+    elif current_112714_window:
         specs = (
             {
                 "proposal_id": "p1_skill_route_discovery_zhengxi_views",
