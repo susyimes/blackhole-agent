@@ -12,6 +12,24 @@ fixture. The zhengxi-views evidence is the only skill-route candidate: its
 not-investment-advice boundary keep it in bounded documentation and test lanes
 for local validation.
 
+Source digest `github-growth-20260701T131922.972375Z` reopens pass 2 with an
+active skill-route discovery lane rather than an activation path. The
+zhengxi-views repository remains the single skill-route candidate because the
+available public metadata shows agent-skill topics, `SKILL.md`, `skill.yml`,
+references, evals, scripts, source-citation boundaries, and a non-investment
+advice note. The controller maps that evidence only to documentation, config,
+test, or code_patch lanes and selects local test plus documentation review for
+this pass.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper are adjacent general-agent project
+trends in this pass. They remain `agent_harness_eval_required` and cannot
+inherit `skill_route_discovery`, direct runtime routing, direct code_patch
+authority, external harness execution, provider launch, remote execution,
+profile writes, memory writes, raw URL export, replay-command export,
+target-path export, or upstream-body export until a local harness result
+chooses a bounded follow-up lane. The automation-and-bug route anchor remains
+review-only at the offensive-behavior boundary and has no route influence.
+
 Qwen-AgentWorld and Fundamental-Ava are carried as adjacent general-agent
 projects, not skill workflow repositories. They remain
 `agent_harness_eval_required` until a local harness evaluation passes, and they
