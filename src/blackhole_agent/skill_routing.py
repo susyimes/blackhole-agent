@@ -18697,6 +18697,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
     current_233904_window = source_digest == "github-growth-20260629T233904.362379Z"
     current_054715_window = source_digest == "github-growth-20260630T054715.044236Z"
     current_070714_window = source_digest == "github-growth-20260630T070714.426957Z"
+    current_151922_window = source_digest == "github-growth-20260701T151922.933466Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_final_closure(
             candidate_lane_inventory,
@@ -18704,6 +18705,34 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
             source_digest=source_digest,
         )
     specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "zhengxi_views_skill_route_probe",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_agent_skill_route_probe_stays_bounded",
+            },
+            {
+                "proposal_id": "p4-route-policy-doc-clarification",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_vs_agent_harness_policy_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_current_window_skill_route_and_agent_harness_boundary",
+            },
+            {
+                "proposal_id": "p5-growth-route-summary-artifact",
+                "proposal_kind": "documentation",
+                "proposal_track": "operator_visible_growth_route_completion",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "record_current_window_completion_without_activation_authority",
+            },
+        )
+        if current_151922_window
+        else (
         (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -18762,18 +18791,32 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         },
         )
         )
+        )
     )
     adjacent_proposal_id = (
+        "p2-agent-harness-eval-general-trends"
+        if current_151922_window
+        else (
         "p2-agent-harness-eval-suite"
         if current_054715_window
         else "p3-agent-harness-eval-qwen-agentworld"
         if current_233904_window
         else "p3-agent-harness-qwen-agentworld"
+        )
     )
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=adjacent_proposal_id,
     )
+    safety_review_rows = [
+        row
+        for row in adjacent_rows
+        if any(
+            marker in str(row.get("name") or "").casefold()
+            or marker in str(row.get("item_id") or "").casefold()
+            for marker in ("automation", "bug", "reverselab", "reverse")
+        )
+    ]
 
     rows: list[dict[str, Any]] = []
     blocked_proposal_ids: list[str] = []
@@ -18917,6 +18960,21 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         "adjacent_general_agent_count": len(adjacent_rows),
         "adjacent_general_agent_boundary": {
             "proposal_id": adjacent_proposal_id,
+            **(
+                {
+                    "proposal_ids": [
+                        "p2-agent-harness-eval-general-trends",
+                        "p3-agent-automation-bug-eval-open-reverselab",
+                    ],
+                    "safety_review_lane": "review_only_before_agent_harness_eval",
+                    "automation_or_bug_review_count": len(safety_review_rows),
+                    "automation_or_bug_review_item_ids": [
+                        str(row.get("item_id") or "") for row in safety_review_rows
+                    ],
+                }
+                if current_151922_window
+                else {}
+            ),
             "evaluation_lane": "agent_harness_eval_required",
             "skill_route_discovery_inherited": False,
             "direct_runtime_route_allowed": False,

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260701T151922.933466Z",
+  "items": [
+    {
+      "item_id": "p1-skill-route-discovery-zhengxi-views",
+      "source_digest": "github-growth-20260701T151922.933466Z",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "zhengxi-views source-cited Agent Skill route probe",
+      "summary": "Public Agent Skill workflow repository with SKILL.md, skill.yml, references, scripts, eval material, source-citation requirements, investment-advice disclaimer boundaries, and workflow automation suggestions. Treat as bounded local validation evidence only.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent", "skill", "workflow", "source-cited", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution", "provider_runtime"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "test_file"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary"]
+      }
+    },
+    {
+      "item_id": "p2-agent-harness-eval-general-trends-qwen-agentworld",
+      "source_digest": "github-growth-20260701T151922.933466Z",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "General agent evaluation project",
+      "summary": "General agent project trend with benchmark and agent-environment evaluation claims, but no local skill package layout signal and no bounded local harness result.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "benchmark", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "item_id": "p2-agent-harness-eval-general-trends-fundamental-ava",
+      "source_digest": "github-growth-20260701T151922.933466Z",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "General agent automation project",
+      "summary": "General agent project evidence for autonomous collaborative agents, without SKILL.md evidence, local route hints, or a local harness evaluation result.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "automation", "assistant"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "item_id": "p3-agent-automation-bug-eval-open-reverselab",
+      "source_digest": "github-growth-20260701T151922.933466Z",
+      "item_kind": "repository",
+      "name": "open-reverselab",
+      "source_url": "https://github.com/LING71671/open-reverselab",
+      "title": "Reverse-engineering automation project at the review boundary",
+      "summary": "Security-adjacent reverse-engineering automation project with MCP/toolchain language and no local skill workflow route hints; keep offensive or abuse-enabling behavior review-only.",
+      "route_hints": ["agent_harness_eval"],
+      "topics": ["general-agent", "automation", "bug", "reverse-engineering", "security-adjacent"],
+      "suggested_lanes": ["review_only", "documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}
