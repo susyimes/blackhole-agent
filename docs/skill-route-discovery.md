@@ -22,6 +22,23 @@ execution, raw URL export, replay-command export, target-path export, or
 upstream-body export before a separate local `agent_harness_eval` result selects
 a bounded follow-up lane.
 
+Source digest `github-growth-20260701T211748.482618Z` opens pass 1 of the next
+`skill-route-discovery` window with an operator-visible automation/bug
+checklist inside the local harness output. zhengxi-views remains bounded to
+local skill-route lanes because the reviewed public metadata exposes Agent
+Skill package structure, source-citation constraints, and a
+non-investment-advice boundary. Qwen-AgentWorld, Fundamental-Ava, and looper
+remain adjacent general-agent evidence under `agent_harness_eval_required`.
+
+The open-reverselab proposal is handled only by
+`automation_bug_agent_eval_checklist`: its automation, bug, CTF, reverse
+engineering, and MCP-tool signals require body-free repository summary,
+`agent_harness_eval_lane` replay, offensive-behavior boundary review, no
+upstream tool or sample execution, and no runner or controller influence before
+local evaluation. The checklist exports hashes rather than raw URLs or upstream
+bodies and denies runtime action, direct code_patch routing, provider launch,
+external harness execution, remote execution, and controller influence.
+
 Source digest `github-growth-20260701T194302.427071Z` opens pass 1 of the
 current `skill-route-discovery` window with a bounded local validation lane for
 skill/workflow repository metadata. zhengxi-views is the only skill-route

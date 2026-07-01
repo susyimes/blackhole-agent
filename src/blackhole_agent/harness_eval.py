@@ -2549,6 +2549,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     adjacent_general_agent_project_eval = skill_route_discovery_pass3_adjacent_general_agent_project_eval(
         raw_input=raw_input
     )
+    automation_bug_agent_eval_checklist = skill_route_discovery_automation_bug_agent_eval_checklist(
+        raw_input=raw_input,
+        lane_map=lane_map,
+    )
     active_window_route_lane_matrix = skill_route_discovery_active_window_route_lane_matrix(
         raw_input=raw_input,
         pass1_validation_queue=pass1_validation_queue,
@@ -2688,6 +2692,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass1_validation_queue": pass1_validation_queue,
         "pass1_focused_evidence_review_lane": pass1_focused_evidence_review_lane,
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
+        "automation_bug_agent_eval_checklist": automation_bug_agent_eval_checklist,
         "current_digest_pass1_validation_lane": lane_map["current_digest_pass1_validation_lane"],
         "current_digest_pass2_local_validation_lane": lane_map["current_digest_pass2_local_validation_lane"],
         "current_digest_pass3_activation_review_lane": lane_map["current_digest_pass3_activation_review_lane"],
@@ -3209,6 +3214,163 @@ def build_skill_route_discovery_checklist(proposal_lanes: list[dict[str, Any]]) 
         }
         for lane in proposal_lanes
     ]
+
+
+def skill_route_discovery_automation_bug_agent_eval_checklist(
+    *,
+    raw_input: dict[str, Any],
+    lane_map: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose review gates for automation/bug-themed agent evidence before route influence."""
+
+    markers = ("automation", "bug", "ctf", "exploit", "malware", "pentest", "reverse", "reverselab")
+    rows_by_key: dict[str, dict[str, Any]] = {}
+
+    for lane_name in (
+        "current_digest_pass1_validation_lane",
+        "current_digest_pass2_local_validation_lane",
+        "current_digest_pass3_activation_review_lane",
+        "current_digest_pass4_completion_handoff",
+    ):
+        lane = lane_map.get(lane_name)
+        lane = lane if isinstance(lane, dict) else {}
+        for row in lane.get("adjacent_general_agent_rows") or []:
+            if isinstance(row, dict):
+                maybe_add_automation_bug_agent_eval_row(rows_by_key, row, source_surface=lane_name, markers=markers)
+        for note in lane.get("review_only_anchor_notes") or []:
+            if isinstance(note, dict):
+                maybe_add_automation_bug_agent_eval_row(rows_by_key, note, source_surface=lane_name, markers=markers)
+
+    evidence_items = raw_input.get("evidence_items")
+    evidence_items = evidence_items if isinstance(evidence_items, list) else []
+    for item in evidence_items:
+        if isinstance(item, dict):
+            maybe_add_automation_bug_agent_eval_row(
+                rows_by_key,
+                item,
+                source_surface="raw_evidence_items",
+                markers=markers,
+            )
+
+    rows = sorted(
+        rows_by_key.values(),
+        key=lambda row: (
+            str(row.get("proposal_id") or ""),
+            str(row.get("item_id_hash") or ""),
+            str(row.get("name_hash") or ""),
+        ),
+    )
+    required_checks = [
+        "body_free_repository_summary",
+        "agent_harness_eval_lane_replay",
+        "offensive_behavior_boundary_review",
+        "no_upstream_tool_or_sample_execution",
+        "no_runner_or_controller_influence_before_local_eval",
+    ]
+    return {
+        "controller_surface": "skill_route_discovery_automation_bug_agent_eval_checklist",
+        "status": "review_required" if rows else "not_applicable",
+        "decision": (
+            "hold_automation_bug_agent_evidence_for_local_harness_eval_and_safety_review"
+            if rows
+            else "no_automation_bug_agent_evidence_observed"
+        ),
+        "row_count": len(rows),
+        "automation_bug_agent_harness_eval_required_count": len(rows),
+        "required_checks": required_checks,
+        "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+        "rows": rows,
+        "local_validation_required": True,
+        "review_gate": "offensive-behavior-human-review" if rows else None,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "direct_controller_influence_allowed": False,
+        "direct_code_patch_route_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def maybe_add_automation_bug_agent_eval_row(
+    rows_by_key: dict[str, dict[str, Any]],
+    value: dict[str, Any],
+    *,
+    source_surface: str,
+    markers: tuple[str, ...],
+) -> None:
+    text = automation_bug_agent_eval_text(value)
+    matched_markers = sorted({marker for marker in markers if marker in text})
+    if not matched_markers:
+        return
+
+    name = optional_string(value.get("name") or value.get("candidate_name")) or ""
+    item_id = optional_string(value.get("item_id")) or ""
+    proposal_id = optional_string(value.get("proposal_id")) or automation_bug_agent_eval_proposal_id(name, item_id)
+    key = proposal_id or item_id or name or source_surface
+    existing = rows_by_key.get(key, {})
+    source_surfaces = sorted(
+        dict.fromkeys([*string_list(existing.get("source_surfaces")), source_surface])
+    )
+    merged_markers = sorted(
+        dict.fromkeys([*string_list(existing.get("evidence_markers")), *matched_markers])
+    )
+    rows_by_key[key] = {
+        "proposal_id": proposal_id,
+        "name_hash": stable_text_hash(name) if name else existing.get("name_hash"),
+        "item_id_hash": stable_text_hash(item_id) if item_id else existing.get("item_id_hash"),
+        "source_surfaces": source_surfaces,
+        "evidence_markers": merged_markers,
+        "evaluation_lane": "agent_harness_eval_required",
+        "review_status": "review_only",
+        "review_reason": "offensive_behavior_boundary",
+        "blocked_until": "local_agent_harness_eval_and_safety_review",
+        "required_probe_fields": list(AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS),
+        "required_checks": [
+            "body_free_repository_summary",
+            "agent_harness_eval_lane_replay",
+            "offensive_behavior_boundary_review",
+            "no_upstream_tool_or_sample_execution",
+            "no_runner_or_controller_influence_before_local_eval",
+        ],
+        "skill_route_discovery_inherited": False,
+        "direct_runtime_route_allowed": False,
+        "direct_controller_influence_allowed": False,
+        "direct_code_patch_route_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def automation_bug_agent_eval_text(value: dict[str, Any]) -> str:
+    topics = value.get("topics")
+    topic_text = " ".join(str(topic) for topic in topics) if isinstance(topics, list) else ""
+    fields = (
+        value.get("name"),
+        value.get("candidate_name"),
+        value.get("item_id"),
+        value.get("proposal_id"),
+        value.get("title"),
+        value.get("summary"),
+        value.get("relevance_reason"),
+        value.get("evidence_class"),
+        topic_text,
+    )
+    return " ".join(str(field or "") for field in fields).casefold()
+
+
+def automation_bug_agent_eval_proposal_id(name: str, item_id: str) -> str:
+    text = f"{name} {item_id}".casefold()
+    if "reverselab" in text:
+        return "p3-agent-automation-bug-eval-open-reverselab"
+    return "automation-bug-agent-eval-review"
 
 
 def build_skill_route_discovery_activation_lanes(

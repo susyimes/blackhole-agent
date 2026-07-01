@@ -19086,6 +19086,83 @@ def test_skill_route_discovery_current_digest_20260701T204302_pass4_completion_l
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260701T211748_exposes_automation_bug_checklist():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260701T153922_pass1_local_validation_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    raw_input = copy.deepcopy(fixture["input"])
+    raw_input["task_id"] = "fixture-skill-route-current-digest-20260701T211748-automation-bug-checklist"
+    raw_input["source_digest"] = "github-growth-20260701T211748.482618Z"
+    raw_input["capability_window"]["anchoring_proposals"] = [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-trending-projects",
+        "p3-agent-automation-bug-eval-open-reverselab",
+        "p4-route-hint-policy-fixture",
+        "trend:lyra81604/zhengxi-views-1",
+    ]
+    raw_input["evidence_items"].append(
+        {
+            "source_digest": "github-growth-20260701T211748.482618Z",
+            "item_id": "trend:LING71671/open-reverselab-1",
+            "item_kind": "repository",
+            "name": "open-reverselab",
+            "source_url": "https://github.com/LING71671/open-reverselab",
+            "title": "Automation and bug themed agent-native reverse engineering lab",
+            "summary": (
+                "Agent-native reverse-engineering lab with automation, bug, CTF, MCP tool, "
+                "sample, and execution workflow signals. Treat as review-only harness-eval pressure."
+            ),
+            "topics": ["general-agent", "automation", "bug", "reverse-engineering", "mcp-tools"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        }
+    )
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        raw_input,
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_current_digest_20260701T211748_inline.json",
+    )
+    checklist = output["automation_bug_agent_eval_checklist"]
+    rows_by_proposal = {row["proposal_id"]: row for row in checklist["rows"]}
+    open_reverselab = rows_by_proposal["p3-agent-automation-bug-eval-open-reverselab"]
+    serialized = json.dumps(checklist, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert checklist["controller_surface"] == "skill_route_discovery_automation_bug_agent_eval_checklist"
+    assert checklist["status"] == "review_required"
+    assert checklist["review_gate"] == "offensive-behavior-human-review"
+    assert checklist["required_validation"] == ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"]
+    assert checklist["automation_bug_agent_harness_eval_required_count"] >= 1
+    assert open_reverselab["evaluation_lane"] == "agent_harness_eval_required"
+    assert open_reverselab["review_status"] == "review_only"
+    assert open_reverselab["review_reason"] == "offensive_behavior_boundary"
+    assert open_reverselab["blocked_until"] == "local_agent_harness_eval_and_safety_review"
+    assert open_reverselab["required_probe_fields"] == [
+        "install_shape",
+        "entrypoints",
+        "dependency_boundaries",
+        "task_loop_assumptions",
+        "observable_behaviors",
+    ]
+    assert set(open_reverselab["evidence_markers"]) >= {"automation", "bug", "reverse", "reverselab"}
+    assert open_reverselab["skill_route_discovery_inherited"] is False
+    assert open_reverselab["direct_runtime_route_allowed"] is False
+    assert open_reverselab["direct_controller_influence_allowed"] is False
+    assert open_reverselab["direct_code_patch_route_allowed"] is False
+    assert checklist["runtime_action_allowed"] is False
+    assert checklist["direct_controller_influence_allowed"] is False
+    assert checklist["external_harness_execution_allowed"] is False
+    assert checklist["provider_runtime_launch_allowed"] is False
+    assert checklist["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "Agent-native reverse-engineering lab" not in serialized
+    assert "LING71671" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260630T084715_pass1_local_validation_lane():
     fixture_path = (
         LOCAL_EVAL_FIXTURE_DIR
