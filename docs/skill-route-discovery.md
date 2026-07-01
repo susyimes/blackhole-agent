@@ -39,6 +39,23 @@ local evaluation. The checklist exports hashes rather than raw URLs or upstream
 bodies and denies runtime action, direct code_patch routing, provider launch,
 external harness execution, remote execution, and controller influence.
 
+Source digest `github-growth-20260701T213749.224965Z` advances pass 2 with an
+acceptance surface for the active skill-route lane. The zhengxi-views evidence
+is accepted only as a progressive Agent Skill package candidate: root manifest
+review, progressively loaded references, source-citation checks,
+non-investment-advice boundaries, rollback evidence, and focused local
+validation are required before activation. The accepted local lanes remain
+documentation and test within the global documentation, config, test, or
+code_patch envelope.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper stay adjacent
+`agent_harness_eval_required` projects in this pass. The surface names their
+required body-free probe fields and allowed follow-up lanes after evaluation,
+but still denies inherited `skill_route_discovery`, direct runtime routing,
+direct code_patch routing, external harness execution, provider launch, remote
+execution, raw source URL export, raw evidence URL export, and upstream-body
+export.
+
 Source digest `github-growth-20260701T194302.427071Z` opens pass 1 of the
 current `skill-route-discovery` window with a bounded local validation lane for
 skill/workflow repository metadata. zhengxi-views is the only skill-route
