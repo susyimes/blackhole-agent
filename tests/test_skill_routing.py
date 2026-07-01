@@ -659,6 +659,65 @@ def test_skill_route_discovery_progressive_skill_package_contract_is_operator_vi
     )
 
 
+def test_skill_route_discovery_evidence_items_infer_progressive_package_from_paths():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            {
+                "item_id": "trend:lyra81604/zhengxi-views-1",
+                "item_kind": "repository",
+                "name": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "title": "Agent Skill route discovery trigger",
+                "summary": (
+                    "Public Agent Skill workflow evidence with source-cited research, "
+                    "evaluation scripts, and non-investment-advice boundaries."
+                ),
+                "route_hints": ["skill_route_discovery"],
+                "topics": ["agent", "skill", "workflow", "source-cited", "validation"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+                "observed_paths": [
+                    "SKILL.md",
+                    "skill.yml",
+                    "references/method.md",
+                    "references/scorecard.md",
+                    "scripts/validate_package.py",
+                    "evals/source_citation_eval.py",
+                ],
+                "metadata_files": ["skill.yml"],
+            }
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["candidate_count"] == 1
+    candidate = registry["candidates"][0]
+    assert candidate["source_layout_signals"] == [
+        "skill_markdown",
+        "reference_directory",
+        "validation_script",
+        "progressive_skill_package",
+    ]
+    assert candidate["source_metadata_signals"] == ["skill_manifest"]
+    assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert candidate["unsupported_lane_pressure"] == ["provider_runtime"]
+
+    inventory_row = lane_map["candidate_lane_inventory"][0]
+    assert inventory_row["progressive_skill_package_contract"]["status"] == "ready"
+    assert inventory_row["progressive_skill_package_contract"]["preferred_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+    ]
+    assert all(
+        lane["progressive_skill_package_contract"]["runtime_action"] == "none"
+        for lane in lane_map["proposal_lanes"]
+    )
+    assert all(
+        lane["progressive_skill_package_contract"]["external_skill_activation_allowed"] is False
+        for lane in lane_map["proposal_lanes"]
+    )
+
+
 def test_skill_route_discovery_summary_classifier_collapses_fork_lineage():
     registry = build_skill_route_discovery_registry_from_summaries(
         [

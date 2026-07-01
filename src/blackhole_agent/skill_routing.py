@@ -533,6 +533,8 @@ class ExternalSkillEvidenceItem:
     route_hints: tuple[str, ...] = (SKILL_ROUTE_DISCOVERY_HINT,)
     topics: tuple[str, ...] = ()
     suggested_lanes: tuple[str, ...] = ()
+    observed_paths: tuple[str, ...] = ()
+    metadata_files: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillEvidenceItem":
@@ -555,6 +557,16 @@ class ExternalSkillEvidenceItem:
             route_hints=route_hints,
             topics=_string_tuple(value.get("topics")),
             suggested_lanes=_string_tuple(value.get("suggested_lanes")),
+            observed_paths=_string_tuple(
+                value.get("observed_paths")
+                or value.get("file_paths")
+                or value.get("paths")
+            ),
+            metadata_files=_string_tuple(
+                value.get("metadata_files")
+                or value.get("manifest_files")
+                or value.get("repository_metadata_files")
+            ),
         )
 
     def canonical_repository_url(self) -> str:
@@ -577,6 +589,8 @@ class ExternalSkillEvidenceItem:
             discovery_event_kind=self.discovery_event_kind,
             topics=self.topics,
             suggested_lanes=self.suggested_lanes,
+            observed_paths=self.observed_paths,
+            metadata_files=self.metadata_files,
         )
 
 
@@ -834,6 +848,10 @@ def build_skill_route_discovery_registry_from_evidence_items(
             continue
         seen_evidence_urls.add(evidence_url)
 
+        source_layout_signals, source_metadata_signals = _skill_repository_progressive_package_signals(
+            _skill_repository_layout_signals(summary),
+            _skill_repository_metadata_signals(summary),
+        )
         bucket["evidence_urls"].append(evidence_url)
         bucket["lanes"].extend(_bounded_skill_discovery_lanes(summary))
         bucket["unsupported_lane_pressure"].extend(
@@ -846,12 +864,14 @@ def build_skill_route_discovery_registry_from_evidence_items(
                 or route_classification.get("layout_signals")
             )
         )
+        bucket["source_layout_signals"].extend(source_layout_signals)
         bucket["source_metadata_signals"].extend(
             _string_list(
                 route_classification.get("source_metadata_signals")
                 or route_classification.get("metadata_signals")
             )
         )
+        bucket["source_metadata_signals"].extend(source_metadata_signals)
         bucket["summaries"].append(summary.summary)
 
     candidates = [

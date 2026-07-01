@@ -26,6 +26,26 @@ documentation, test, code_patch, controller, runtime, or provider follow-up is
 selected. The open-reverselab automation/bug proposal remains review-only at
 the offensive-behavior boundary and has no route influence in this lane.
 
+Source digest `github-growth-20260701T200302.486485Z` advances pass 2 by
+making body-free repository layout metadata load-bearing for evidence-item
+classification. A zhengxi-views-style item can now carry `observed_paths` and
+`metadata_files` such as `SKILL.md`, `skill.yml`, `references/`, `scripts/`,
+and `evals/`; the router infers `skill_markdown`, `skill_manifest`,
+`reference_directory`, `validation_script`, and
+`progressive_skill_package` without reading upstream file bodies. The local
+harness exposes the resulting progressive package contract so operators can see
+that manifest and reference validation must happen before activation.
+
+The same pass keeps Qwen-AgentWorld, Fundamental-Ava, and looper out of
+`skill_route_discovery` when they arrive without skill route hints. Their
+general-agent evidence remains a separate `agent_harness_eval_required`
+concern before any follow-up lane is selected. Unsupported upstream pressure
+such as install, runtime execution, or provider runtime remains downgraded or
+ignored; the exported harness result keeps local validation required and denies
+runtime action, external skill activation, external harness execution, provider
+launch, remote execution, raw source URL export, raw evidence URL export, and
+upstream body export.
+
 Source digest `github-growth-20260701T190302.389615Z` advances pass 3 of the
 active `skill-route-discovery` window with a current replay lane rather than
 another generic fixture alias. zhengxi-views is the skill-route candidate

@@ -2717,6 +2717,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
                 "evidence_url_count": len(lane.get("evidence_urls") or []),
                 "evidence_url_hashes": [stable_text_hash(str(url)) for url in lane.get("evidence_urls") or []],
                 "evidence_item_ids": [str(item_id) for item_id in lane.get("evidence_item_ids") or []],
+                "source_layout_signals": string_list(lane.get("source_layout_signals")),
+                "source_metadata_signals": string_list(lane.get("source_metadata_signals")),
+                "progressive_skill_package_contract": lane.get("progressive_skill_package_contract")
+                if isinstance(lane.get("progressive_skill_package_contract"), dict)
+                else {},
                 "uncertainty": str(lane.get("uncertainty") or ""),
                 "uncertainty_reasons": [str(reason) for reason in lane.get("uncertainty_reasons") or []],
             }
