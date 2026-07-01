@@ -9954,6 +9954,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_054715_window = source_digest == "github-growth-20260630T054715.044236Z"
     current_070714_window = source_digest == "github-growth-20260630T070714.426957Z"
     current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
+    current_204302_window = source_digest == "github-growth-20260701T204302.417004Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -10164,7 +10165,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 ),
             },
         )
-        if current_190302_window
+        if current_190302_window or current_204302_window
         else (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -10372,7 +10373,9 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
-        if current_190302_window:
+        if current_204302_window:
+            row["proposal_id"] = "p2-agent-harness-eval-trending-agent-projects"
+        elif current_190302_window:
             row["proposal_id"] = "p2-agent-harness-eval-general-python-agents"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
@@ -10385,7 +10388,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
 
     required_profiles = (
         ("generic_skill_workflow", "source_cited_domain_research")
-        if current_054715_window or current_190302_window
+        if current_054715_window or current_190302_window or current_204302_window
         else (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
         if (
@@ -10665,6 +10668,24 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "trend:ksimback/looper-1",
             ]
             if current_190302_window
+            else [
+                "p1_skill_route_discovery_zhengxi_views",
+                "p2_agent_harness_eval_qwen_agentworld",
+                "p3_agent_harness_eval_fundamental_ava",
+                "p4_open_reverselab_bug_automation_eval",
+                "p5_trend_batch_prioritization",
+                "p2_agent_harness_eval_trending_projects",
+                "p3_agent_bug_automation_eval_open_reverselab",
+                "p4_document_route_policy_for_trend_only_evidence",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-agent-harness-eval-trending-agent-projects",
+                "p3-agent-automation-bug-eval-open-reverselab",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+                "trend:ksimback/looper-1",
+            ]
+            if current_204302_window
             else [
                 "proposal-1-skill-route-discovery-zhengxi-views",
                 "proposal-2-agent-harness-eval-qwen-agentworld",
@@ -19206,6 +19227,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
     current_151922_window = source_digest == "github-growth-20260701T151922.933466Z"
     current_180302_window = source_digest == "github-growth-20260701T180302.906845Z"
     current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
+    current_204302_window = source_digest == "github-growth-20260701T204302.417004Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_final_closure(
             candidate_lane_inventory,
@@ -19278,7 +19300,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
                 "validation_target": "document_skill_route_and_agent_harness_eval_boundary",
             },
         )
-        if current_190302_window
+        if current_190302_window or current_204302_window
         else (
         (
             {
@@ -19348,7 +19370,9 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         "p2_agent_harness_eval_fixture_for_general_agent_projects"
         if current_180302_window
         else (
-        "p2-agent-harness-eval-general-python-agents"
+        "p2-agent-harness-eval-trending-agent-projects"
+        if current_204302_window
+        else "p2-agent-harness-eval-general-python-agents"
         if current_190302_window
         else (
         "p2-agent-harness-eval-suite"

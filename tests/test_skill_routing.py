@@ -13334,6 +13334,107 @@ def test_skill_route_discovery_current_digest_20260701T190302_pass4_closes_skill
     assert '"provider_runtime"' not in serialized_handoff
 
 
+def test_skill_route_discovery_current_digest_20260701T204302_pass4_closes_current_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260701T204302_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    registry["source_digest"] = payload["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    closure = lane_map["current_digest_pass4_final_closure"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    serialized_handoff = json.dumps(handoff, sort_keys=True)
+    serialized_closure = json.dumps(closure, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260701T204302.417004Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 3
+    assert {item["name"] for item in registry["ignored_evidence_items"]} == {
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "looper",
+    }
+
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p3-agent-harness-docs-boundary",
+    ]
+    assert handoff["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"] + [
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1",
+    ]
+    assert handoff["required_route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert handoff["missing_required_route_profiles"] == []
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["agent_harness_eval_required_count"] == 3
+
+    zhengxi = rows["p1-skill-route-discovery-zhengxi-views"]
+    docs = rows["p3-agent-harness-docs-boundary"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert docs["selected_local_lane"] == "documentation"
+    assert all(set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES) for row in rows.values())
+    assert all(row["runtime_action"] == "none" for row in rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in rows.values())
+
+    adjacent_rows = handoff["adjacent_general_agent_rows"]
+    assert [row["proposal_id"] for row in adjacent_rows] == [
+        "p2-agent-harness-eval-trending-agent-projects",
+        "p2-agent-harness-eval-trending-agent-projects",
+        "p2-agent-harness-eval-trending-agent-projects",
+    ]
+    assert [row["name"] for row in adjacent_rows] == [
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "looper",
+    ]
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent_rows)
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows)
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent_rows)
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent_rows)
+
+    assert closure["status"] == "ready"
+    assert closure["capability_slice_complete"] is True
+    assert closure["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p3-agent-harness-docs-boundary",
+        "p2-agent-harness-eval-trending-agent-projects",
+    ]
+    assert closure["adjacent_general_agent_boundary"]["proposal_id"] == (
+        "p2-agent-harness-eval-trending-agent-projects"
+    )
+    assert closure["adjacent_general_agent_boundary"]["item_ids"] == [
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1",
+    ]
+    assert closure["adjacent_general_agent_boundary"]["skill_route_discovery_inherited"] is False
+    assert closure["adjacent_general_agent_boundary"]["direct_code_patch_route_allowed"] is False
+    assert "https://github.com/" not in serialized_handoff
+    assert "https://github.com/" not in serialized_closure
+    assert "python -m pytest" not in serialized_handoff
+    assert "python -m pytest" not in serialized_closure
+    assert "runtime_execution" not in serialized_handoff
+    assert '"provider_runtime"' not in serialized_handoff
+
+
 def test_skill_route_discovery_current_digest_20260630T070714_pass4_completes_skill_route_slice():
     fixture_path = (
         Path(__file__).parent
