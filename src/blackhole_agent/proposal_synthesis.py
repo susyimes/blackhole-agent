@@ -93,6 +93,10 @@ GENERAL_AGENT_PROJECT_ROUTE_TERMS = (
     "multi-agent",
     "runtime",
 )
+GENERAL_AGENT_PROJECT_ACTIVITY_EVENT_KINDS = {
+    "PushEvent",
+    "RepositoryTrend",
+}
 GENERAL_AGENT_PROJECT_EVAL_LANES = ["documentation", "test", "code_patch"]
 GENERAL_AGENT_PROJECT_EVAL_COMMANDS = [
     "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
@@ -795,6 +799,10 @@ def build_route_activation_preflight(items: list[Any]) -> dict[str, Any]:
             "route_class": "general_agent_project",
             "primary_route": "agent_harness_eval_required",
             "allowed_local_lanes": [str(lane) for lane in row.get("allowed_local_lanes", [])],
+            "evaluation_priority": int(row.get("evaluation_priority") or 0),
+            "upstream_movement_signal": bool(row.get("upstream_movement_signal")),
+            "upstream_movement_activity_count": int(row.get("upstream_movement_activity_count") or 0),
+            "upstream_movement_priority_rule": str(row.get("upstream_movement_priority_rule") or ""),
             "skill_route_discovery_inherited": False,
             "local_validation_required": True,
             "runtime_action": "none",
@@ -1705,6 +1713,8 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
     """Summarize general agent-project evidence without giving it skill lanes."""
 
     eval_items: list[dict[str, Any]] = []
+    activity_counts = digest_general_agent_project_activity_counts(items)
+    event_kinds_by_key = digest_general_agent_project_activity_event_kinds(items)
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -1715,6 +1725,9 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
             continue
         item_id = str(item.get("item_id") or "")
         source_url = str(item.get("source_url") or "")
+        project_key = digest_general_agent_project_key(item)
+        activity_count = activity_counts.get(project_key, 0)
+        evaluation_priority = min(3, max(0, activity_count - 1))
         eval_items.append(
             {
                 "item_id": item_id,
@@ -1722,6 +1735,13 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
                 "route_class": "general_agent_project",
                 "evaluation_lane": "agent_harness_eval_required",
                 "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "evaluation_priority": evaluation_priority,
+                "upstream_movement_signal": evaluation_priority > 0,
+                "upstream_movement_activity_count": activity_count,
+                "upstream_movement_event_kinds": sorted(event_kinds_by_key.get(project_key, set())),
+                "upstream_movement_priority_rule": (
+                    "repeated_push_or_trend_activity_orders_local_eval_candidates_only"
+                ),
                 "required_local_validation": list(GENERAL_AGENT_PROJECT_EVAL_COMMANDS),
                 "skill_route_discovery_inherited": False,
                 "local_validation_required": True,
@@ -1730,11 +1750,19 @@ def build_general_agent_project_eval_lane(items: list[Any]) -> dict[str, Any]:
             }
         )
 
+    eval_items = sorted(
+        eval_items,
+        key=lambda row: (
+            -int(row.get("evaluation_priority") or 0),
+            str(row.get("item_id") or ""),
+        ),
+    )
     return {
         "controller_surface": "general_agent_project_eval",
         "candidate_count": len(eval_items),
         "candidates": eval_items,
         "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "evaluation_order_policy": "repeated_upstream_movement_can_order_local_eval_candidates_only",
         "required_local_validation": list(GENERAL_AGENT_PROJECT_EVAL_COMMANDS),
         "skill_route_discovery_inherited": False,
         "local_validation_required": True,
@@ -2185,6 +2213,53 @@ def digest_skill_route_activity_confidence_bonus(
     if activity_count < 2:
         return 0.0
     return min(0.18, 0.06 * (activity_count - 1))
+
+
+def digest_general_agent_project_activity_counts(items: list[Any]) -> dict[str, int]:
+    """Count repeated upstream movement for already-classified general agent projects."""
+
+    counts: dict[str, int] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("event_kind") or "") not in GENERAL_AGENT_PROJECT_ACTIVITY_EVENT_KINDS:
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = classify_digest_item_route(item)
+        if classification.get("route_class") != "general_agent_project":
+            continue
+        project_key = digest_general_agent_project_key(item)
+        if project_key:
+            counts[project_key] = counts.get(project_key, 0) + 1
+    return counts
+
+
+def digest_general_agent_project_activity_event_kinds(items: list[Any]) -> dict[str, set[str]]:
+    event_kinds_by_key: dict[str, set[str]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("event_kind") or "") not in GENERAL_AGENT_PROJECT_ACTIVITY_EVENT_KINDS:
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = classify_digest_item_route(item)
+        if classification.get("route_class") != "general_agent_project":
+            continue
+        project_key = digest_general_agent_project_key(item)
+        if project_key:
+            event_kinds_by_key.setdefault(project_key, set()).add(str(item.get("event_kind") or ""))
+    return event_kinds_by_key
+
+
+def digest_general_agent_project_key(item: dict[str, Any]) -> str:
+    repo = digest_item_repo(item).lower()
+    if repo:
+        return repo
+    text = f"{item.get('source_url') or ''} {item.get('summary') or ''}".lower()
+    match = re.search(r"github\.com/([^/\s]+/[^/\s#?]+)", text)
+    return match.group(1) if match else repo
 
 
 def digest_skill_route_project_key(item: dict[str, Any]) -> str:

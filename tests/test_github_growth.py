@@ -1502,6 +1502,13 @@ def test_general_agent_project_eval_lane_requires_harness_evaluation_without_ski
             "route_class": "general_agent_project",
             "evaluation_lane": "agent_harness_eval_required",
             "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "evaluation_priority": 0,
+            "upstream_movement_signal": False,
+            "upstream_movement_activity_count": 1,
+            "upstream_movement_event_kinds": ["RepositoryTrend"],
+            "upstream_movement_priority_rule": (
+                "repeated_push_or_trend_activity_orders_local_eval_candidates_only"
+            ),
             "required_local_validation": [
                 "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
                 "pytest tests/test_proposal_eval.py -q -k omnigent",
@@ -1513,6 +1520,85 @@ def test_general_agent_project_eval_lane_requires_harness_evaluation_without_ski
         }
     ]
     assert eval_lane["local_validation_required"] is True
+
+
+def test_repeated_upstream_push_activity_orders_general_agent_eval_without_activation():
+    digest = {
+        "digest_id": "github-growth-skill-route-pass2-general-agent-ordering",
+        "generated_at": "2026-07-01T09:45:33Z",
+        "items": [
+            {
+                "item_id": "qwen-agentworld-trend",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld: language world models for general agents and benchmark evaluation.",
+                "relevance_reason": "General public agent project requires local harness evaluation first.",
+                "risk_flags": [],
+                "confidence": 0.66,
+            },
+            {
+                "item_id": "looper-trend",
+                "source_url": "https://github.com/ksimback/looper",
+                "event_kind": "RepositoryTrend",
+                "summary": "looper: visual review-gated agent loops for Claude Code before execution.",
+                "relevance_reason": "Review-gated agent loop evidence remains a local harness-eval candidate.",
+                "risk_flags": [],
+                "confidence": 0.70,
+            },
+            {
+                "item_id": "qwen-agentworld-push-validation",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld/commit/abc123",
+                "event_kind": "PushEvent",
+                "summary": "push to main: update agent benchmark validation harness docs.",
+                "relevance_reason": "Repeated PushEvent movement can order local evaluation, not trigger runtime action.",
+                "risk_flags": [],
+                "confidence": 0.52,
+            },
+            {
+                "item_id": "zhengxi-views-skill",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": "zhengxi-views: SKILL.md source-cited domain research skill with traceable public evidence.",
+                "relevance_reason": "Skill evidence maps only to bounded skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.80,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=360)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    general_eval = lane_map["general_agent_project_eval"]
+    preflight = lane_map["route_activation_preflight"]
+    serialized = json.dumps(general_eval, sort_keys=True)
+
+    assert [candidate["item_id"] for candidate in general_eval["candidates"]] == [
+        "qwen-agentworld-push-validation",
+        "qwen-agentworld-trend",
+        "looper-trend",
+    ]
+    assert general_eval["evaluation_order_policy"] == (
+        "repeated_upstream_movement_can_order_local_eval_candidates_only"
+    )
+    assert general_eval["candidates"][0]["evaluation_priority"] == 1
+    assert general_eval["candidates"][0]["upstream_movement_signal"] is True
+    assert general_eval["candidates"][0]["upstream_movement_activity_count"] == 2
+    assert general_eval["candidates"][0]["upstream_movement_event_kinds"] == [
+        "PushEvent",
+        "RepositoryTrend",
+    ]
+    assert all(
+        candidate["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+        for candidate in general_eval["candidates"]
+    )
+    assert all(candidate["local_validation_required"] is True for candidate in general_eval["candidates"])
+    assert all(candidate["runtime_action"] == "none" for candidate in general_eval["candidates"])
+    assert general_eval["external_agent_activation_allowed"] is False
+    assert preflight["general_agent_rows"][0]["item_id"] == "qwen-agentworld-push-validation"
+    assert preflight["general_agent_rows"][0]["evaluation_priority"] == 1
+    assert preflight["runtime_action"] == "none"
+    assert preflight["external_agent_activation_allowed"] is False
+    assert "https://github.com/" not in serialized
 
 
 def test_current_skill_route_window_keeps_skill_and_general_routes_bounded():

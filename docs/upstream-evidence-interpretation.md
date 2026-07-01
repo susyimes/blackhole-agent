@@ -86,6 +86,14 @@ documentation, test, or code patch implementation lane is enabled. Low-detail
 fork or lineage evidence without a mapped local validation target does not
 increase skill-route or agent-harness lane counts.
 
+Repeated upstream `PushEvent` movement may order already-relevant local eval
+candidates when the repository is already classified as a skill route or general
+agent project. It is a priority hint only: the exported lane must still require
+local validation, keep runtime action at `none`, and deny external skill or
+agent activation. Push activity alone is not implementation evidence for a code
+patch unless a selected non-generic item or local failing test supplies the
+specific behavior being changed.
+
 Repository lifecycle signals do not change that boundary. A newly discovered
 skill repository is recorded as `record_only_no_install`, and a deleted upstream
 skill repository is recorded as `record_only_no_local_deletion`. Malformed
