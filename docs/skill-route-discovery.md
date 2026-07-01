@@ -58,6 +58,23 @@ target-path export, or upstream-body export. The pass-4 fixture exports hashes,
 counts, lane names, route profiles, selected local lanes, and denial booleans
 only.
 
+Source digest `github-growth-20260701T141923.059729Z` starts the next pass-1
+window with an explicit local validation lane for the active route proposals.
+The zhengxi-views signal remains the only skill-route candidate and maps to
+`p1-skill-route-discovery-zhengxi-views` in the local test lane. The lane
+records its generic skill workflow and source-cited domain research profiles,
+keeps local validation required, and allows only documentation, config, test,
+or code_patch lanes before activation.
+
+Qwen-AgentWorld remains adjacent under `p2-agent-harness-eval-agentworld`.
+Fundamental-Ava and open-reverselab are visible under
+`p3-agent-harness-comparison-set`; open-reverselab is also recorded as
+security-adjacent review-only context at the offensive-behavior boundary. None
+of these adjacent project rows inherits `skill_route_discovery`, direct runtime
+routing, direct code_patch authority, external harness execution, provider
+launch, remote execution, profile writes, memory writes, raw URL export,
+replay-command export, target-path export, or upstream-body export.
+
 Source digest `github-growth-20260630T112714.533021Z` starts pass 1 of the
 current `skill-route-discovery` window with a digest-specific validation lane
 for the active proposal IDs. The zhengxi-views signal is the only skill-route

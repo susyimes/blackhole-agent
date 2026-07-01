@@ -5734,7 +5734,25 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_084715_window = source_digest == "github-growth-20260630T084715.195137Z"
     current_112714_window = source_digest == "github-growth-20260630T112714.533021Z"
     current_104533_window = source_digest == "github-growth-20260701T104533.288698Z"
-    if current_104533_window:
+    current_141923_window = source_digest == "github-growth-20260701T141923.059729Z"
+    if current_141923_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_current_pass1_route_discovery_validation",
+                "validation_task": (
+                    "validate the active zhengxi-views Agent Skill signal as a bounded local "
+                    "test lane while keeping Qwen-AgentWorld behind agent_harness_eval_required "
+                    "and open-reverselab plus Fundamental-Ava in review-visible comparison "
+                    "metadata without runtime, provider, or external harness authority"
+                ),
+            },
+        )
+    elif current_104533_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -6339,6 +6357,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p4-agentchat-routing-docs-and-tests"
         if current_112714_window:
             row["proposal_id"] = "p2_agent_harness_eval_trending_projects"
+        if current_141923_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p2-agent-harness-eval-agentworld"
+            elif lowered_name in {"fundamental-ava", "open-reverselab"}:
+                row["proposal_id"] = "p3-agent-harness-comparison-set"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -6360,6 +6384,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     ready = len(rows) == len(specs) and not blocked_proposal_ids and adjacent_ready
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-agentworld",
+            "p3-agent-harness-comparison-set",
+            "p4-route-policy-doc-clarification",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:LING71671/open-reverselab-1",
+        ]
+        if current_141923_window
+        else
         [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_projects",
@@ -6618,12 +6654,16 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                                     "p5-open-reverselab-review-gated-harness"
                                     if current_084715_window
                                     else (
+                                        "p3-agent-harness-comparison-set"
+                                        if current_141923_window
+                                        else (
                                         "p3_automation_agent_eval_open_reverselab"
                                         if current_060714_window
                                         else (
                                             "p3-general-agent-routing-coverage"
                                             if current_032714_window
                                             else "security-adjacent-autocve"
+                                        )
                                         )
                                     )
                                 )
@@ -6648,6 +6688,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 or current_060714_window
                 or current_072714_window
                 or current_084715_window
+                or current_141923_window
             )
             else []
         ),
