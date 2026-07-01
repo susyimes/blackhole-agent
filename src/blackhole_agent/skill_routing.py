@@ -5737,7 +5737,37 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_141923_window = source_digest == "github-growth-20260701T141923.059729Z"
     current_153922_window = source_digest == "github-growth-20260701T153922.962740Z"
     current_165922_window = source_digest == "github-growth-20260701T165922.952638Z"
-    if current_165922_window:
+    current_182302_window = source_digest == "github-growth-20260701T182302.451939Z"
+    if current_182302_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_term_evidence_maps_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "create a local route-classification case proving zhengxi-views agent and "
+                    "skill evidence maps only to documentation, config, test, or code_patch "
+                    "lanes under skill_route_discovery without runtime action"
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-eval-fundamental-ava",
+                "proposal_kind": "documentation",
+                "proposal_track": "general_agent_project_eval_policy",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "general_agent_projects_need_harness_eval_before_follow_up_lanes",
+                "validation_task": (
+                    "document that general_agent_project trend items may inform future harness "
+                    "evaluation but do not justify direct runtime, controller, or code_patch "
+                    "changes before local harness evaluation"
+                ),
+            },
+        )
+    elif current_165922_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-for-zhengxi-views",
@@ -6304,6 +6334,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2-agent-harness-eval-agentworld"
+            if current_182302_window
+            else
             "p2_agent_harness_eval_trending_projects"
             if current_112714_window
             else
@@ -6407,6 +6440,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
                 row["proposal_id"] = "p2-agent-harness-eval-fixtures"
+        if current_182302_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
+                row["proposal_id"] = "p2-agent-harness-eval-agentworld"
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -6439,6 +6476,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "p3_agent_automation_bug_eval"
     elif current_165922_window:
         review_only_anchor_proposal_id = "p4-automation-bug-agent-eval-case"
+    elif current_182302_window:
+        review_only_anchor_proposal_id = "p4-open-reverselab-automation-bug-eval"
     elif current_141923_window:
         review_only_anchor_proposal_id = "p3-agent-harness-comparison-set"
     elif current_060714_window:
@@ -6449,6 +6488,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-agentworld",
+            "p3-agent-harness-eval-fundamental-ava",
+            "p4-open-reverselab-automation-bug-eval",
+            "p5-trend-routing-cluster-coverage",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_182302_window
+        else
         [
             "p1-skill-route-discovery-for-zhengxi-views",
             "p2-agent-harness-eval-fixtures",
