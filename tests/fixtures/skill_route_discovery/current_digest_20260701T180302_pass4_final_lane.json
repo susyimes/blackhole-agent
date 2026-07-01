@@ -1,0 +1,81 @@
+{
+  "source_digest": "github-growth-20260701T180302.906845Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "current_pass": 4,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-for-zhengxi-views",
+      "p2-agent-harness-eval-fixtures",
+      "p3-agent-harness-eval-documentation",
+      "p4-automation-bug-agent-eval-case",
+      "p5-route-classification-consistency-check",
+      "p1_skill_route_discovery_zhengxi_views",
+      "p2_agent_harness_eval_trending_agent_projects",
+      "p3_open_reverselab_bug_automation_eval",
+      "p4_route_hint_policy_regression",
+      "p5_self_model_alignment_note",
+      "p2_agent_harness_eval_general_projects",
+      "p3_agent_harness_eval_automation_bug_project",
+      "trend:lyra81604/zhengxi-views-1",
+      "trend:QwenLM/Qwen-AgentWorld-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "trend:ksimback/looper-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260701T180302.906845Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Bounded public Agent Skill route-discovery candidate",
+      "summary": "Public Agent Skill workflow evidence with SKILL.md, skill.yml manifest metadata, references, evals, scripts, source citation boundaries, and non-investment-advice boundaries. Treat repository metadata as bounded local validation evidence only.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent", "skill", "workflow", "source-cited", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution", "provider_runtime"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "test_file"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260701T180302.906845Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "General agent evaluation project",
+      "summary": "General agent project trend with language world model, benchmark, simulation, and agent-environment evaluation claims, but no local skill package layout signal and no bounded local harness result.",
+      "topics": ["general-agent", "benchmark", "evaluation", "simulation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260701T180302.906845Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "General autonomous agent project",
+      "summary": "General agent project evidence for autonomous collaborative socially intelligent agents, without SKILL.md evidence, local route hints, or a local harness evaluation result.",
+      "topics": ["general-agent", "automation", "assistant"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260701T180302.906845Z",
+      "item_id": "trend:ksimback/looper-1",
+      "item_kind": "repository",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "Review-gated agent loop design project",
+      "summary": "General agent workflow project for designing review-gated Claude Code loops before execution, without a local skill package layout signal or a local harness evaluation result.",
+      "topics": ["general-agent", "workflow", "review-gated"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

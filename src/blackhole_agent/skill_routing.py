@@ -18953,6 +18953,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
     current_054715_window = source_digest == "github-growth-20260630T054715.044236Z"
     current_070714_window = source_digest == "github-growth-20260630T070714.426957Z"
     current_151922_window = source_digest == "github-growth-20260701T151922.933466Z"
+    current_180302_window = source_digest == "github-growth-20260701T180302.906845Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_final_closure(
             candidate_lane_inventory,
@@ -18987,6 +18988,25 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
             },
         )
         if current_151922_window
+        else (
+            {
+                "proposal_id": "p1_skill_route_discovery_for_trending_skill_workflow",
+                "proposal_kind": "test",
+                "proposal_track": "bounded_local_skill_route_discovery_validation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_workflow_route_hints_map_only_to_bounded_local_lanes",
+            },
+            {
+                "proposal_id": "p3_agent_harness_eval_documentation",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_discovery_vs_general_agent_project_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_item_id_only_boundary_between_skill_routes_and_agent_harness_eval",
+            },
+        )
+        if current_180302_window
         else (
         (
             {
@@ -19052,11 +19072,15 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         "p2-agent-harness-eval-general-trends"
         if current_151922_window
         else (
+        "p2_agent_harness_eval_fixture_for_general_agent_projects"
+        if current_180302_window
+        else (
         "p2-agent-harness-eval-suite"
         if current_054715_window
         else "p3-agent-harness-eval-qwen-agentworld"
         if current_233904_window
         else "p3-agent-harness-qwen-agentworld"
+        )
         )
     )
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(

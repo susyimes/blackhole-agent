@@ -14497,3 +14497,85 @@ def test_skill_route_discovery_current_digest_20260701T174302_pass3_operator_val
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T180302_pass4_final_lane():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260701T180302_pass4_final_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    closure = lane_map["current_digest_pass4_final_closure"]
+    rows = {row["proposal_id"]: row for row in closure["rows"]}
+    serialized = json.dumps(closure, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260701T180302.906845Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 3
+    assert closure["controller_surface"] == "skill_route_discovery_current_digest_pass4_final_closure"
+    assert closure["status"] == "ready"
+    assert closure["decision"] == "current_digest_pass4_skill_route_slice_ready_for_supervisor_completion"
+    assert closure["capability_pass"] == 4
+    assert closure["total_passes"] == 4
+    assert closure["capability_slice_complete"] is True
+    assert closure["proposal_ids"] == [
+        "p1_skill_route_discovery_for_trending_skill_workflow",
+        "p3_agent_harness_eval_documentation",
+        "p2_agent_harness_eval_fixture_for_general_agent_projects",
+    ]
+    assert closure["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert closure["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert closure["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    skill_row = rows["p1_skill_route_discovery_for_trending_skill_workflow"]
+    assert skill_row["candidate_names"] == ["zhengxi-views"]
+    assert skill_row["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert skill_row["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert skill_row["selected_local_lane"] == "test"
+    assert skill_row["validation_target"] == "skill_workflow_route_hints_map_only_to_bounded_local_lanes"
+    assert skill_row["runtime_action"] == "none"
+    assert skill_row["external_skill_activation_allowed"] is False
+    assert skill_row["external_harness_execution_allowed"] is False
+    assert not {"install", "provider_runtime", "runtime_execution"} & set(skill_row["allowed_local_lanes"])
+
+    doc_row = rows["p3_agent_harness_eval_documentation"]
+    assert doc_row["selected_local_lane"] == "documentation"
+    assert doc_row["validation_target"] == (
+        "document_item_id_only_boundary_between_skill_routes_and_agent_harness_eval"
+    )
+    assert doc_row["local_validation_required"] is True
+
+    adjacent_boundary = closure["adjacent_general_agent_boundary"]
+    assert adjacent_boundary["proposal_id"] == "p2_agent_harness_eval_fixture_for_general_agent_projects"
+    assert adjacent_boundary["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent_boundary["skill_route_discovery_inherited"] is False
+    assert adjacent_boundary["direct_runtime_route_allowed"] is False
+    assert adjacent_boundary["direct_code_patch_route_allowed"] is False
+    assert adjacent_boundary["external_harness_execution_allowed"] is False
+    assert adjacent_boundary["provider_runtime_launch_allowed"] is False
+    assert adjacent_boundary["remote_execution_allowed"] is False
+    assert adjacent_boundary["row_count"] == 3
+    assert adjacent_boundary["item_ids"] == [
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1",
+    ]
+
+    assert closure["runtime_action"] == "none"
+    assert closure["external_skill_activation_allowed"] is False
+    assert closure["external_agent_activation_allowed"] is False
+    assert closure["external_harness_execution_allowed"] is False
+    assert closure["provider_runtime_launch_allowed"] is False
+    assert closure["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
