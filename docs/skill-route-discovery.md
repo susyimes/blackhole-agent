@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260701T194302.427071Z` opens pass 1 of the
+current `skill-route-discovery` window with a bounded local validation lane for
+skill/workflow repository metadata. zhengxi-views is the only skill-route
+candidate because the carried evidence and focused public review show concrete
+Agent Skill package structure (`SKILL.md`, `skill.yml`, references, evals, and
+scripts) plus source-citation and non-investment-advice boundaries. It maps to
+`p1_skill_route_discovery_zhengxi_views` in the local test lane and
+`p3_agent_harness_eval_fundamental_ava` in the documentation lane. Both rows
+may select only documentation, config, test, or code_patch and grant no runtime
+action, provider launch, external harness execution, external skill activation,
+remote execution, profile write, memory write, raw URL export, or upstream body
+export.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`p2_agent_harness_eval_qwen_agentworld` evidence under
+`agent_harness_eval_required`. Their general-agent or loop-workflow repository
+signals can justify only a local harness-evaluation replay before any
+documentation, test, code_patch, controller, runtime, or provider follow-up is
+selected. The open-reverselab automation/bug proposal remains review-only at
+the offensive-behavior boundary and has no route influence in this lane.
+
 Source digest `github-growth-20260701T190302.389615Z` advances pass 3 of the
 active `skill-route-discovery` window with a current replay lane rather than
 another generic fixture alias. zhengxi-views is the skill-route candidate
