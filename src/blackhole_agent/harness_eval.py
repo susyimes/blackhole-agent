@@ -1899,6 +1899,10 @@ def build_agent_harness_eval_implementation_readiness_contract(
         project_intake_probe=project_intake_probe,
         queue_ready=queue_ready,
     )
+    recovery_workflow = build_agent_harness_eval_recovery_workflow(
+        fail_criteria=blockers,
+        project_completion_matrix=project_completion_matrix,
+    )
 
     return {
         "controller_surface": "agent_harness_eval_implementation_readiness_contract",
@@ -1935,6 +1939,7 @@ def build_agent_harness_eval_implementation_readiness_contract(
         "project_intake_probe_status": str(project_intake_probe.get("status") or "incomplete"),
         "general_agent_route_review_queue_status": str(general_agent_route_review_queue.get("status") or "empty"),
         "project_completion_matrix": project_completion_matrix,
+        "recovery_workflow": recovery_workflow,
         "required_validation": [validation_command],
         "documentation_test_or_code_patch_permitted_after_eval": followup_allowed,
         "local_validation_required": True,
@@ -1947,6 +1952,92 @@ def build_agent_harness_eval_implementation_readiness_contract(
         "raw_evidence_bodies_exported": False,
         "raw_upstream_body_exported": False,
     }
+
+
+def build_agent_harness_eval_recovery_workflow(
+    *,
+    fail_criteria: list[str],
+    project_completion_matrix: dict[str, Any],
+) -> dict[str, Any]:
+    """Convert blocked general-agent eval state into a replayable recovery plan."""
+
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    matrix_rows = [
+        row
+        for row in project_completion_matrix.get("rows", [])
+        if isinstance(row, dict) and optional_string(row.get("item_id"))
+    ]
+    global_steps = agent_harness_eval_recovery_steps(fail_criteria)
+    rows: list[dict[str, Any]] = []
+    for row in matrix_rows:
+        blockers = string_list(row.get("blockers"))
+        rows.append(
+            {
+                "item_id": str(row.get("item_id") or ""),
+                "status": "ready" if row.get("followup_allowed") is True else "blocked",
+                "next_steps": agent_harness_eval_recovery_steps(blockers),
+                "blockers": blockers,
+                "required_validation": [validation_command],
+                "followup_allowed_after_recovery": False,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_count = sum(1 for row in rows if row["status"] == "blocked")
+    return {
+        "controller_surface": "agent_harness_eval_recovery_workflow",
+        "status": "ready" if rows and blocked_count == 0 else "blocked" if rows else "empty",
+        "decision": (
+            "general_agent_projects_ready_for_bounded_followup"
+            if rows and blocked_count == 0
+            else "collect_project_probe_and_replay_before_followup"
+            if rows
+            else "collect_agent_harness_project_rows_before_recovery"
+        ),
+        "project_count": len(rows),
+        "blocked_project_count": blocked_count,
+        "global_blockers": list(dict.fromkeys(fail_criteria)),
+        "global_next_steps": global_steps,
+        "replay_commands": [validation_command],
+        "allowed_followup_lanes_after_recovery": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "rows": rows,
+    }
+
+
+def agent_harness_eval_recovery_steps(blockers: list[str]) -> list[str]:
+    """Map known readiness blockers to bounded local recovery steps."""
+
+    step_by_blocker = {
+        "weak_harness_evidence": "add_body_free_project_detail_before_replay",
+        "project_intake_probe_incomplete": "complete_install_entrypoint_dependency_task_loop_and_behavior_probe",
+        "unmapped_agent_claims": "map_agent_claims_to_existing_local_capabilities_or_document_gap",
+        "no_bounded_followup_lanes": "select_documentation_test_or_code_patch_followup_lane",
+        "local_agent_harness_eval_replay_not_passed": "replay_agent_harness_eval_lane_locally",
+        "general_agent_review_queue_not_ready": "resolve_general_agent_route_review_queue",
+        "review_only_safety_boundary": "complete_safety_boundary_review_before_eval",
+    }
+    steps = [
+        step_by_blocker.get(blocker, "review_unrecognized_agent_harness_blocker")
+        for blocker in blockers
+        if blocker
+    ]
+    if not steps:
+        steps.append("no_recovery_step_required")
+    return list(dict.fromkeys(steps))
 
 
 def build_agent_harness_eval_project_completion_matrix(

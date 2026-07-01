@@ -12,6 +12,17 @@ closes through bounded test and documentation lanes for generic skill workflow
 and source-cited domain research validation. The closure is operator-visible
 and supervisor-facing; it does not activate the external skill.
 
+Source digest `github-growth-20260701T163923.124908Z` finishes the next pass-4
+theme window by making the adjacent general-agent recovery path explicit.
+Qwen-AgentWorld, Fundamental-Ava, and looper still do not inherit
+`skill_route_discovery`, but their `agent_harness_eval_lane` readiness contract
+now includes an `agent_harness_eval_recovery_workflow`. That workflow tells the
+supervisor which body-free project probe fields, claim mappings, review-queue
+steps, and local replay command must be satisfied before any documentation,
+test, or code_patch follow-up lane is permitted. It still denies runtime
+action, external harness execution, provider launch, remote execution, raw
+source URL export, and upstream body export.
+
 Qwen-AgentWorld and Fundamental-Ava remain adjacent
 `agent_harness_eval_required` rows before any documentation, test, or code_patch
 follow-up can be selected. open-reverselab is also counted as an

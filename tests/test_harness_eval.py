@@ -16327,6 +16327,37 @@ def test_agent_harness_eval_current_digest_trending_projects_stay_local_validati
     assert output["implementation_readiness_contract"]["remote_execution_allowed"] is False
     assert output["implementation_readiness_contract"]["project_completion_matrix"]["project_count"] == 4
     assert output["implementation_readiness_contract"]["project_completion_matrix"]["blocked_project_count"] == 4
+    recovery = output["implementation_readiness_contract"]["recovery_workflow"]
+    assert recovery["controller_surface"] == "agent_harness_eval_recovery_workflow"
+    assert recovery["status"] == "blocked"
+    assert recovery["decision"] == "collect_project_probe_and_replay_before_followup"
+    assert recovery["project_count"] == 4
+    assert recovery["blocked_project_count"] == 4
+    assert recovery["global_blockers"] == [
+        "weak_harness_evidence",
+        "project_intake_probe_incomplete",
+        "general_agent_review_queue_not_ready",
+    ]
+    assert recovery["global_next_steps"] == [
+        "add_body_free_project_detail_before_replay",
+        "complete_install_entrypoint_dependency_task_loop_and_behavior_probe",
+        "resolve_general_agent_route_review_queue",
+    ]
+    assert recovery["replay_commands"] == ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"]
+    assert recovery["runtime_action"] == "none"
+    assert recovery["external_harness_execution_allowed"] is False
+    assert recovery["provider_launch_allowed"] is False
+    assert recovery["remote_execution_allowed"] is False
+    assert recovery["raw_source_urls_exported"] is False
+    assert recovery["raw_upstream_bodies_exported"] is False
+    assert all(
+        row["next_steps"] == [
+            "complete_install_entrypoint_dependency_task_loop_and_behavior_probe",
+            "replay_agent_harness_eval_lane_locally",
+            "resolve_general_agent_route_review_queue",
+        ]
+        for row in recovery["rows"]
+    )
     assert all(
         row["followup_allowed"] is False
         for row in output["implementation_readiness_contract"]["project_completion_matrix"]["rows"]
