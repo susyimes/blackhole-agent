@@ -14323,3 +14323,87 @@ def test_skill_route_discovery_current_digest_20260701T151922_pass4_closes_skill
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260701T165922_pass1_current_lane_matches_active_proposals():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "local_harness_eval"
+        / "skill_route_discovery_current_digest_20260701T165922_pass1_current_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))["input"]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["evidence_items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass1_validation_lane"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260701T165922.952638Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 3
+    assert lane["proposal_ids"] == ["p1-skill-route-discovery-for-zhengxi-views"]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-for-zhengxi-views",
+        "p2-agent-harness-eval-fixtures",
+        "p3-agent-harness-eval-documentation",
+        "p4-automation-bug-agent-eval-case",
+        "p5-route-classification-consistency-check",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1",
+    ]
+    assert lane["selected_local_lanes"] == ["test"]
+    assert lane["agent_harness_eval_required_count"] == 3
+
+    skill_row = lane["rows"][0]
+    assert skill_row["candidate_names"] == ["zhengxi-views"]
+    assert skill_row["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert skill_row["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert skill_row["selected_local_lane"] == "test"
+    assert skill_row["runtime_action"] == "none"
+    assert skill_row["external_skill_activation_allowed"] is False
+
+    adjacent_rows = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    assert set(adjacent_rows) == {
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1",
+    }
+    for row in adjacent_rows.values():
+        assert row["proposal_id"] == "p2-agent-harness-eval-fixtures"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["runtime_action"] == "none"
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+
+    assert lane["review_only_anchor_notes"] == [
+        {
+            "proposal_id": "p4-automation-bug-agent-eval-case",
+            "evidence_class": "security_agent_context",
+            "route_influence": "none",
+            "review_reason": "offensive_behavior_boundary",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        }
+    ]
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
