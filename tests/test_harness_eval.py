@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 143
-    assert payload["pass_count"] == 142
+    assert payload["fixture_count"] == 144
+    assert payload["pass_count"] == 143
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -163,6 +163,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         results["skill-route-discovery-current-digest-20260702T191118-pass3-activation-review-lane"][
             "passed"
         ]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260702T195118-provider-runtime-control-pass1"
+        ]["passed"]
         is True
     )
     assert (
@@ -20412,6 +20418,57 @@ def test_skill_route_discovery_current_digest_20260702T191118_pass3_activation_r
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T195118_provider_runtime_control_pass1():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260702T195118_provider_runtime_control_pass1.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    sample = output["provider_runtime_replay_sample"]
+    preflight = output["current_action_provider_runtime_preflight"]
+    completion = output["capability_window_completion"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+
+    assert sample["route_status"] == "passed"
+    assert sample["ready_for_local_replay"] is True
+    assert sample["ready_for_supervisor_promotion"] is True
+    assert sample["preflight_count"] == 1
+    assert sample["body_free_diagnostics_only"] is True
+    assert sample["provider_runtime_launch_allowed"] is False
+    assert sample["raw_preflight_inputs_exported"] is False
+
+    assert preflight["status"] == "ready"
+    assert preflight["decision"] == "provider_runtime_preflight_ready_for_current_action"
+    assert preflight["provider_runtime_sample_provided"] is True
+    assert preflight["provider_runtime_sample_ready_for_local_replay"] is True
+    assert preflight["provider_runtime_launch_allowed"] is False
+    assert preflight["remote_execution_allowed"] is False
+    assert preflight["raw_preflight_inputs_exported"] is False
+    assert preflight["raw_provider_values_exported"] is False
+
+    assert completion["status"] == "blocked"
+    assert completion["decision"] == "continue_or_replay_before_completion"
+    assert completion["provider_runtime_sample_gate"]["status"] == "ready"
+    assert completion["provider_runtime_sample_gate"]["ready_for_local_replay"] is True
+    assert completion["provider_runtime_sample_gate"]["provider_runtime_launch_allowed"] is False
+    assert completion["provider_runtime_sample_gate"]["raw_preflight_inputs_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "local-dry-run-provider" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
 
 
 def test_skill_route_discovery_current_digest_20260702T104714_pass3_activation_review_lane():

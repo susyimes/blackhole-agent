@@ -2590,6 +2590,14 @@ blocked or degraded provider/runtime replay sample blocks local skill-route
 promotion with `provider_runtime_replay_not_ready` until the recovery hints are
 resolved and `provider_runtime_preflight` plus
 `provider_runtime_recovery_summary` are replayed.
+For a provider-runtime-control window that is still in pass 1, a passing sample
+only means the current action can continue with body-free local replay evidence.
+The `provider_runtime_sample_gate` may be `ready`, while
+`capability_window_completion` remains `blocked` with
+`continue_or_replay_before_completion` until the later passes record their
+operator handoff and validation coverage. This prevents a harmless local
+provider preflight sample from being mistaken for permission to launch a
+provider, run an external harness, or mark the whole capability slice complete.
 
 The harness also emits a top-level `provider_runtime_diagnostic_panel`. This is
 the operator-visible replay summary for the provider/runtime control slice. It

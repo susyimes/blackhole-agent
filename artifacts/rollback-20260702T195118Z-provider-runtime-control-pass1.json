@@ -1,0 +1,13 @@
+{
+  "source_digest": "github-growth-20260702T195118.384129Z",
+  "created_for": "provider-runtime-control pass 1",
+  "original_branch": "codex/blackhole-evolve/20260702T195208.484949-run-a-bounded-skill-route-discovery-validation-a",
+  "original_head": "8533b59c9c1f22f5a2abe5ee85325a83edf1487b",
+  "local_rollback_ref": "refs/heads/codex/blackhole-evolve/20260702T195208.484949-run-a-bounded-skill-route-discovery-validation-a",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260702T195208.484949-run-a-bounded-skill-route-discovery-validation-a",
+    "git reset --hard 8533b59c9c1f22f5a2abe5ee85325a83edf1487b",
+    "git clean -fd"
+  ],
+  "rollback_execution": "operator_explicit_only_destructive"
+}
