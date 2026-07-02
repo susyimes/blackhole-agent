@@ -5534,3 +5534,20 @@ state, and denial flags, but no raw source URLs, evidence URLs, replay commands,
 target paths, upstream bodies, provider launch, remote execution, profile
 writes, memory writes, external skill activation, or external harness
 execution.
+
+## Current Digest 20260702T084714 Pass 1
+
+The `github-growth-20260702T084714.820443Z` pass-1 lane is exposed through
+`current_digest_pass1_validation_lane`. It binds the active proposal IDs to a
+single zhengxi-views skill-route validation row and three adjacent generic-agent
+rows. zhengxi-views maps to `skill_route_discovery` with only documentation,
+config, test, and code_patch lanes, and keeps local validation required before
+activation.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain
+`agent_harness_eval_required` rows. Empty `allowed_lanes` in their source
+fixture is not a no-action signal; it means no implementation lane is enabled
+until a local harness-evaluation result frames documentation, test, or code_patch
+work. The lane exports hashes and bounded route metadata only, not raw source
+URLs, replay commands, upstream bodies, provider launches, external harness
+execution, or restart authority.
