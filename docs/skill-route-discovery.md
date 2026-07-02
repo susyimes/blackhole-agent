@@ -5632,3 +5632,25 @@ Workflow-usecase repository trends without explicit skill-route signals are
 recorded as documentation triage only; they stay behind the same harness-eval
 boundary and do not authorize runtime workflow adoption, provider launch,
 external harness execution, or remote execution.
+
+## Current Digest 20260702T134626 Pass 4
+
+The `github-growth-20260702T134626.866283Z` pass-4 completion handoff is now a
+digest-specific supervisor surface. The zhengxi-views evidence is treated as a
+public Agent Skill package shape: `SKILL.md`, `skill.yml`, references, scripts,
+evals, source-citation boundaries, and non-investment-advice limits. It maps to
+`p1-skill-route-discovery-zhengxi-views` in the local test lane, while
+`p3-document-agent-growth-routing-policy` records the policy distinction as a
+documentation lane. Both remain inside the documentation, config, test, and
+code_patch envelope, and both keep local validation required.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent general-agent
+project rows under `p2-agent-harness-eval-fixtures`. They do not inherit
+`skill_route_discovery`, and their direct lanes before agent-harness evaluation
+are empty. Only documentation, test, or code_patch can be selected after local
+`agent_harness_eval_required` evidence exists. The handoff and final closure
+export proposal IDs, selected item IDs, lane names, route profiles, hashes, and
+denial booleans only; raw source URLs, evidence URLs, replay commands, target
+paths, upstream bodies, provider launch, external harness execution, remote
+execution, profile writes, memory writes, external skill activation, and
+external agent activation remain denied.

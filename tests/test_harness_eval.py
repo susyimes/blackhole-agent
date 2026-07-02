@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 137
-    assert payload["pass_count"] == 136
+    assert payload["fixture_count"] == 138
+    assert payload["pass_count"] == 137
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -435,6 +435,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260702T104714-pass3-activation-review-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260702T134626-pass4-completion"
         ]["passed"]
         is True
     )
@@ -20099,6 +20105,74 @@ def test_skill_route_discovery_current_digest_20260702T104714_pass3_activation_r
     assert lane["external_harness_execution_allowed"] is False
     assert lane["provider_runtime_launch_allowed"] is False
     assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T134626_pass4_completion():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260702T134626_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    handoff = output["current_digest_pass4_completion_handoff"]
+    closure = output["current_digest_pass4_final_closure"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = handoff["adjacent_general_agent_rows"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+    assert handoff["source_digest"] == "github-growth-20260702T134626.866283Z"
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-fixtures",
+        "p3-document-agent-growth-routing-policy",
+    ]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["agent_harness_eval_required_count"] == 3
+
+    zhengxi = rows["p1-skill-route-discovery-zhengxi-views"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["local_validation_required"] is True
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+
+    docs_row = rows["p3-document-agent-growth-routing-policy"]
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["completion_requirement"] == (
+        "route_policy_distinguishes_skill_workflow_discovery_from_general_agent_eval"
+    )
+
+    assert [row["name"] for row in adjacent] == ["Qwen-AgentWorld", "Fundamental-Ava", "looper"]
+    assert all(row["proposal_id"] == "p2-agent-harness-eval-fixtures" for row in adjacent)
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent)
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent)
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent)
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent)
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent)
+    assert all(row["provider_runtime_launch_allowed"] is False for row in adjacent)
+
+    assert closure["status"] == "ready"
+    assert closure["capability_slice_complete"] is True
+    assert closure["adjacent_general_agent_boundary"]["direct_allowed_lanes_before_eval"] == []
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
