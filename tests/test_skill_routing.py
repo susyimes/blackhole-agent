@@ -16986,6 +16986,102 @@ def test_skill_route_discovery_current_digest_20260702T080714_pass3_exposes_adja
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260702T082714_pass4_closes_with_weak_workflow_cluster():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T082714_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    cluster = handoff["workflow_popularity_cluster_signal"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T082714.780681Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-skill-route-discovery-bionemo-toolkit",
+    ]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["selected_evidence_item_ids"] == [
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+    ]
+
+    zhengxi = rows["p1-skill-route-discovery-zhengxi-views"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    bionemo = rows["p2-skill-route-discovery-bionemo-toolkit"]
+    assert bionemo["candidate_names"] == ["bionemo-agent-toolkit"]
+    assert bionemo["route_profiles"] == ["generic_skill_workflow"]
+    assert bionemo["selected_local_lane"] == "documentation"
+    assert bionemo["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p3-agent-harness-eval-general-projects"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert cluster["controller_surface"] == "skill_route_discovery_workflow_popularity_cluster_signal"
+    assert cluster["status"] == "recorded"
+    assert cluster["cluster_count"] == 1
+    assert cluster["total_cluster_item_count"] == 15
+    assert cluster["counts_as_independent_implementation_evidence"] is False
+    assert cluster["candidate_lane_increment"] == 0
+    assert cluster["allowed_followup_lanes_after_local_validation"] == ["documentation", "test"]
+    assert cluster["rows"][0]["signal_class"] == "weak_workflow_popularity_cluster"
+    assert cluster["rows"][0]["counts_as_independent_implementation_evidence"] is False
+    assert cluster["rows"][0]["candidate_lane_increment"] == 0
+
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in json.dumps(
+        [row["allowed_local_lanes"] for row in handoff["rows"]],
+        sort_keys=True,
+    )
+    assert "runtime_execution" not in json.dumps(
+        [row["allowed_local_lanes"] for row in handoff["rows"]],
+        sort_keys=True,
+    )
+    assert "provider_runtime" not in json.dumps(
+        [row["allowed_local_lanes"] for row in handoff["rows"]],
+        sort_keys=True,
+    )
+
+
 def test_skill_route_discovery_current_digest_20260702T030714_pass4_completion_closes_skill_route_window():
     fixture_path = (
         Path(__file__).parent

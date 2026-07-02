@@ -21,6 +21,28 @@ inherit `skill_route_discovery`, and they have no direct documentation, config,
 test, code_patch, runtime, provider, external harness, or remote-execution route
 until a local agent harness evaluation selects a bounded follow-up lane.
 
+Source digest `github-growth-20260702T082714.780681Z` completes pass 4 of the
+active `skill-route-discovery` window with an operator-visible completion
+handoff for the carried proposal names. zhengxi-views closes through the local
+test lane as source-cited skill-route evidence, while BioNeMo Agent Toolkit
+closes through the documentation lane as toolkit-style skill catalog evidence.
+Both rows remain bounded to documentation, config, test, or code_patch, require
+local validation, and deny install, runtime execution, provider launch,
+external skill activation, external agent activation, external harness
+execution, remote execution, raw URL export, replay-command export, target-path
+export, and upstream-body export.
+
+The same handoff records Qwen-AgentWorld and Fundamental-Ava as adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-general-projects`. They do not inherit
+`skill_route_discovery`, and no direct documentation, test, code_patch, runtime,
+provider, external harness, or remote-execution follow-up is selected before a
+local agent harness evaluation exists. Repeated forks of
+`Awesome-Blender-Seedance-Workflow-Usecases` are exposed only as a weak workflow
+popularity cluster: the cluster is an aggregate demand signal, contributes zero
+independent implementation evidence, increments no candidate lane counts, and
+requires a local validation lane before any action.
+
 Source digest `github-growth-20260702T074714.911556Z` advances pass 2 of the
 active `skill-route-discovery` window with the current proposal names:
 `p1-skill-route-discovery-zhengxi-views`,

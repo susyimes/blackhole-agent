@@ -11562,6 +11562,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_030714_window = source_digest == "github-growth-20260702T030714.684585Z"
     current_054714_window = source_digest == "github-growth-20260702T054714.674075Z"
     current_070714_20260702_window = source_digest == "github-growth-20260702T070714.706511Z"
+    current_082714_20260702_window = source_digest == "github-growth-20260702T082714.780681Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -11576,6 +11577,31 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         )
     specs = (
         (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow_completion",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "zhengxi_views_source_cited_skill_signal_closes_only_through_bounded_local_validation"
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-bionemo-toolkit",
+                "proposal_kind": "documentation",
+                "proposal_track": "toolkit_style_agent_skill_catalog_completion",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "documentation",
+                "completion_requirement": (
+                    "bionemo_toolkit_skill_catalog_signal_closes_only_through_bounded_local_documentation"
+                ),
+            },
+        )
+        if current_082714_20260702_window
+        else (
             {
                 "proposal_id": "p1-skill-route-discovery-index",
                 "proposal_kind": "test",
@@ -12083,12 +12109,24 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             else "p2-agent-harness-eval-general-python-agents"
             if current_233748_window
             else "p3-agent-harness-eval-agentworld"
-            if current_024715_window or current_030714_window or current_054714_window
+            if (
+                current_024715_window
+                or current_030714_window
+                or current_054714_window
+                or current_082714_20260702_window
+            )
             else "p4-agent-harness-eval-qwen"
         ),
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
         row = dict(adjacent_row)
+        if current_082714_20260702_window:
+            row_text = " ".join(
+                str(row.get(key) or "")
+                for key in ("name", "item_id", "title", "summary")
+            ).casefold()
+            if "fork" in row_text and "workflow" in row_text:
+                continue
         if current_204302_window:
             row["proposal_id"] = "p2-agent-harness-eval-trending-agent-projects"
         elif current_221748_window:
@@ -12101,6 +12139,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             row["proposal_id"] = "p2-agent-harness-eval-general-python-agents"
         elif current_054714_window:
             row["proposal_id"] = "p2-agent-harness-eval-for-general-agent-projects"
+        elif current_082714_20260702_window:
+            row["proposal_id"] = "p3-agent-harness-eval-general-projects"
         elif current_024715_window or current_030714_window:
             row["proposal_id"] = "p3-agent-harness-eval-agentworld"
         row.pop("replay_command", None)
@@ -12124,6 +12164,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_024715_window
             or current_030714_window
             or current_054714_window
+            or current_082714_20260702_window
         )
         else (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
@@ -12242,6 +12283,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "raw_upstream_body_exported": False,
         "rows": route_boundary_rows,
     }
+    workflow_popularity_cluster_signal = _skill_route_discovery_workflow_popularity_cluster_signal(
+        ignored_evidence_items,
+        source_digest=source_digest,
+    )
     operator_replay_summary = _skill_route_discovery_current_digest_pass4_operator_replay_summary(
         source_digest=source_digest,
         ready=ready,
@@ -12279,6 +12324,24 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "review_gate": "focused-evidence-review",
         "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
         "anchoring_proposal_ids": (
+            [
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-skill-route-discovery-bionemo-toolkit",
+                "p3-agent-harness-eval-general-projects",
+                "p4-route-policy-doc-clarification",
+                "trend:lyra81604/zhengxi-views-1",
+                "p3-general-agent-harness-eval",
+                "p4-route-metadata-preflight",
+                "p5-route-hint-to-lane-contract",
+                "p2-agent-harness-eval-qwen-agentworld",
+                "p3-agent-harness-eval-fundamental-ava",
+                "p4-agent-harness-eval-looper",
+                "p5-workflow-trend-agent-harness-eval",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_082714_20260702_window
+            else
             [
                 "p1-skill-route-discovery-lane",
                 "p2-agent-harness-eval-route",
@@ -12591,6 +12654,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         ),
         "activation_prerequisite_lane": _skill_route_discovery_activation_prerequisite_lane(rows),
         "route_boundary_checklist": route_boundary_checklist,
+        "workflow_popularity_cluster_signal": workflow_popularity_cluster_signal,
         "operator_replay_summary": operator_replay_summary,
         "operator_completion_checklist": {
             "controller_surface": "skill_route_discovery_pass4_operator_completion_checklist",
@@ -12676,6 +12740,96 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_workflow_popularity_cluster_signal(
+    evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Summarize repeated workflow fork clusters without counting them as implementation evidence."""
+
+    cluster_rows: list[dict[str, Any]] = []
+    for item in evidence_items:
+        text = " ".join(
+            str(part or "")
+            for part in (
+                item.get("item_kind"),
+                item.get("name"),
+                item.get("item_id"),
+                item.get("title"),
+                item.get("summary"),
+                " ".join(str(topic) for topic in item.get("topics") or [])
+                if isinstance(item.get("topics"), list)
+                else "",
+            )
+        ).casefold()
+        if "fork" not in text or "workflow" not in text:
+            continue
+
+        cluster_size_raw = item.get("cluster_size")
+        try:
+            cluster_size = int(cluster_size_raw)
+        except (TypeError, ValueError):
+            item_id = str(item.get("item_id") or "")
+            match = re.search(r"(?:^|:)fork-cluster:(\d+)(?=:)", item_id)
+            cluster_size = int(match.group(1)) if match else 1
+        source_repo = str(
+            item.get("cluster_source_repository")
+            or item.get("name")
+            or item.get("source_url")
+            or ""
+        )
+        cluster_rows.append(
+            {
+                "item_id_hash": _stable_hash(str(item.get("item_id") or "")),
+                "source_repository_hash": _stable_hash(source_repo),
+                "signal_class": "weak_workflow_popularity_cluster",
+                "cluster_size": max(cluster_size, 1),
+                "interpretation": "aggregate_demand_signal_not_independent_implementation_evidence",
+                "counts_as_independent_implementation_evidence": False,
+                "candidate_lane_increment": 0,
+                "selected_local_lane": "documentation",
+                "local_validation_required_before_action": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    total_cluster_items = sum(int(row["cluster_size"]) for row in cluster_rows)
+    return {
+        "controller_surface": "skill_route_discovery_workflow_popularity_cluster_signal",
+        "source_digest": source_digest or "unknown",
+        "status": "recorded" if cluster_rows else "not_applicable",
+        "decision": (
+            "treat_repeated_workflow_forks_as_weak_popularity_signal"
+            if cluster_rows
+            else "no_repeated_workflow_fork_cluster_observed"
+        ),
+        "cluster_count": len(cluster_rows),
+        "total_cluster_item_count": total_cluster_items,
+        "counts_as_independent_implementation_evidence": False,
+        "candidate_lane_increment": 0,
+        "allowed_followup_lanes_after_local_validation": ["documentation", "test"],
+        "local_validation_required_before_action": bool(cluster_rows),
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": cluster_rows,
     }
 
 
