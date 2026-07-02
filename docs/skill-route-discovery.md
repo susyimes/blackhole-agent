@@ -5776,3 +5776,32 @@ denial booleans only; raw source URLs, evidence URLs, replay commands, target
 paths, upstream bodies, provider launch, external harness execution, remote
 execution, profile writes, memory writes, external skill activation, and
 external agent activation remain denied.
+
+## Current Digest 20260702T193118 Pass 4
+
+The `github-growth-20260702T193118.749598Z` pass-4 completion handoff closes
+the active skill-route-discovery slice through
+`current_digest_pass4_completion_handoff`. The zhengxi-views trend remains the
+only direct `skill_route_discovery` candidate because the digest carries both
+agent and skill signals plus repository-shape evidence such as `SKILL.md`,
+`skill.yml`, references, validation scripts, evals, source-citation workflow,
+and explicit local validation framing. It maps to
+`p1-skill-route-discovery-zhengxi-views` in the local test lane and may select
+only documentation, config, test, or code_patch.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper are represented under
+`p2-agent-harness-eval-general-agent-projects` as adjacent general-agent rows.
+They remain `agent_harness_eval_required`: no direct runtime route, direct
+code_patch route, external harness execution, provider launch, remote
+execution, or skill-route inheritance is granted before a local harness
+evaluation creates a bounded documentation, test, or code_patch follow-up.
+
+Workflow-themed repositories without explicit skill-route signals, including
+Awesome-Blender-Seedance-Workflow-Usecases, are recorded by
+`p3-agent-harness-docs-for-workflow-repos` as documentation and harness-eval
+boundary evidence only. A workflow topic match alone does not authorize direct
+workflow adoption, provider launch, external harness execution, or remote
+execution. The handoff remains body-free and exports proposal IDs, selected
+item IDs, lane names, route profiles, hashes, and denial booleans rather than
+raw source URLs, evidence URLs, replay commands, target paths, or upstream
+bodies.

@@ -18892,3 +18892,196 @@ def test_skill_route_discovery_current_digest_20260702T181118_pass4_completes_cu
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T193118_pass4_completes_active_window():
+    payload = {
+        "source_digest": "github-growth-20260702T193118.749598Z",
+        "items": [
+            {
+                "source_digest": "github-growth-20260702T193118.749598Z",
+                "item_id": "trend:lyra81604/zhengxi-views-1",
+                "item_kind": "RepositoryTrend",
+                "name": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "summary": (
+                    "Public Agent Skill repository with SKILL.md, skill.yml, references, "
+                    "eval scripts, source-cited workflow, explicit skill_route_discovery "
+                    "route hint, and no risk flags."
+                ),
+                "route_hints": ["skill_route_discovery"],
+                "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+                "suggested_lanes": [
+                    "documentation",
+                    "config",
+                    "test",
+                    "code_patch",
+                    "provider_runtime",
+                    "runtime_execution",
+                ],
+                "observed_paths": [
+                    "SKILL.md",
+                    "skill.yml",
+                    "references/method.md",
+                    "scripts/validate_package.py",
+                    "evals/source_citation_eval.py",
+                ],
+                "metadata_files": ["skill.yml"],
+                "risk_flags": [],
+                "route_classification": {
+                    "route_hints": ["skill_route_discovery"],
+                    "route_class": "external_skill_route_discovery_classification",
+                    "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+                    "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+                    "source_layout_signals": [
+                        "skill_markdown",
+                        "skill_manifest",
+                        "reference_directory",
+                        "validation_script",
+                        "test_file",
+                    ],
+                    "source_metadata_signals": [
+                        "skill_manifest",
+                        "source_citation_boundary",
+                        "advice_disclaimer_boundary",
+                    ],
+                },
+            },
+            {
+                "source_digest": "github-growth-20260702T193118.749598Z",
+                "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+                "item_kind": "RepositoryTrend",
+                "name": "Qwen-AgentWorld",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "summary": (
+                    "Language world models and AgentWorldBench evaluation project for "
+                    "general agents; no skill workflow route hint or local harness result."
+                ),
+                "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+                "route_hints": [],
+                "suggested_lanes": [],
+            },
+            {
+                "source_digest": "github-growth-20260702T193118.749598Z",
+                "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+                "item_kind": "RepositoryTrend",
+                "name": "Fundamental-Ava",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "summary": (
+                    "Autonomous, collaborative, and socially intelligent agent project "
+                    "without a skill workflow route hint or local harness result."
+                ),
+                "topics": ["general-agent", "simulation", "autonomous-agent", "benchmark"],
+                "route_hints": [],
+                "suggested_lanes": [],
+            },
+            {
+                "source_digest": "github-growth-20260702T193118.749598Z",
+                "item_id": "trend:ksimback/looper-1",
+                "item_kind": "RepositoryTrend",
+                "name": "looper",
+                "source_url": "https://github.com/ksimback/looper",
+                "summary": "Review-gated agent loop project without a skill workflow route hint.",
+                "topics": ["general-agent", "loop", "runner", "workflow"],
+                "route_hints": [],
+                "suggested_lanes": [],
+            },
+            {
+                "source_digest": "github-growth-20260702T193118.749598Z",
+                "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                "item_kind": "RepositoryTrend",
+                "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+                "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+                "summary": (
+                    "Workflow-themed usecase collection with no skill_route_discovery hint, "
+                    "no SKILL.md evidence, and no local agent harness evaluation result."
+                ),
+                "topics": ["workflow", "seedance", "blender", "usecases"],
+                "route_hints": [],
+                "suggested_lanes": ["documentation"],
+            },
+        ],
+    }
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    workflow = handoff["workflow_only_boundary"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T193118.749598Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-general-agent-projects",
+        "p3-agent-harness-docs-for-workflow-repos",
+    ]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["agent_harness_eval_required_count"] == 4
+    assert handoff["adjacent_general_agent_count"] == 3
+    assert handoff["workflow_only_repository_count"] == 1
+
+    zhengxi = rows["p1-skill-route-discovery-zhengxi-views"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert zhengxi["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert zhengxi["route_profiles"] == ["generic_skill_workflow", "source_cited_domain_research"]
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+    assert zhengxi["provider_runtime_launch_allowed"] is False
+
+    docs_row = rows["p3-agent-harness-docs-for-workflow-repos"]
+    assert docs_row["proposal_kind"] == "documentation"
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["completion_requirement"] == (
+        "document_workflow_topic_alone_enters_agent_harness_eval_not_workflow_adoption"
+    )
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p2-agent-harness-eval-general-agent-projects"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+
+    assert workflow["proposal_id"] == "p3-agent-harness-docs-for-workflow-repos"
+    assert workflow["evaluation_lane"] == "agent_harness_eval_required"
+    assert workflow["workflow_keyword_only"] is True
+    assert workflow["skill_route_discovery_inherited"] is False
+    assert workflow["direct_allowed_lanes_before_eval"] == []
+    assert workflow["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert workflow["workflow_item_ids"] == [
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1"
+    ]
+    assert workflow["runtime_action"] == "none"
+    assert workflow["external_harness_execution_allowed"] is False
+    assert workflow["provider_runtime_launch_allowed"] is False
+
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
