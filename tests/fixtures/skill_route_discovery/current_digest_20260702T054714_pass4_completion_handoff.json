@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260702T054714.674075Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 4,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260702T054714.674075Z",
+      "item_id": "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+      "item_kind": "repository",
+      "name": "bionemo-agent-toolkit",
+      "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+      "title": "BioNeMo Agent Toolkit public agent skill catalog",
+      "summary": "Public repository presenting ready-to-call agent skills, skill catalog metadata, agent plugin marketplace files, workflow directories, and a skills.sh.json catalog. The evidence is useful for local skill route discovery only and does not authorize install or execution.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "skill-catalog", "workflow", "plugin-marketplace"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "observed_paths": [
+        "library-skills/",
+        "nim-skills/",
+        "open-models-skills/",
+        "workflows/generative_protein_binder_design/",
+        ".agents/plugins/",
+        ".claude-plugin/"
+      ],
+      "metadata_files": ["skills.sh.json", ".agents/plugins/marketplace.json"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "source_layout_signals": ["skill_directory", "progressive_skill_package"],
+        "source_metadata_signals": ["skill_registry_metadata", "agent_plugin_marketplace"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260702T054714.674075Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "repository",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Source-cited public Agent Skill route evidence",
+      "summary": "Public Agent Skill repository with traceable source citations, SKILL.md style workflow metadata, skill manifest hints, validation scripts, references, evals, and non-investment-advice boundaries. The evidence should map only to bounded local validation lanes.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skill", "source-cited", "research", "workflow", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "observed_paths": ["SKILL.md", "references/", "scripts/", "evals/"],
+      "metadata_files": ["skill.yml"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["skill_registry_metadata"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260702T054714.674075Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "General agent project without skill workflow route signal",
+      "summary": "General-agent language world model and evaluation project. The digest evidence lacks skill package layout, skill workflow route hints, or local harness validation.",
+      "route_hints": [],
+      "topics": ["general-agent", "evaluation", "benchmark"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260702T054714.674075Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "General autonomous social agent project without skill workflow route signal",
+      "summary": "General autonomous, collaborative, and socially intelligent agent project. The digest evidence lacks skill package layout, skill workflow route hints, or local harness validation.",
+      "route_hints": [],
+      "topics": ["general-agent", "autonomous-agent", "social-agent"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime"]
+    }
+  ]
+}

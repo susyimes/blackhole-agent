@@ -24,6 +24,27 @@ documentation, test, code_patch, runtime, provider, external harness, or remote
 execution path can be selected, and they do not inherit `skill_route_discovery`
 from the BioNeMo or zhengxi rows.
 
+Source digest `github-growth-20260702T054714.674075Z` completes pass 4 of the
+active `skill-route-discovery` window with
+`current_digest_20260702T054714_pass4_completion_handoff`. BioNeMo Agent Toolkit
+and zhengxi-views are frozen as the two skill-adjacent repository fixtures for
+`p1-skill-route-discovery-trending-skill-repos`: BioNeMo contributes public
+agent-skill catalog, plugin marketplace, workflow directory, and `skills.sh.json`
+signals, while zhengxi-views contributes Agent Skill, source-citation,
+validation, manifest, and non-advice boundary signals. The completion handoff
+may select only documentation, config, test, or code_patch local lanes; this pass
+selects test plus the documentation policy row
+`p3-route-hint-policy-documentation`.
+
+Qwen-AgentWorld and Fundamental-Ava are kept as adjacent
+`general_agent_project` evidence under
+`p2-agent-harness-eval-for-general-agent-projects`. They remain
+`agent_harness_eval_required` before any documentation, test, code_patch,
+runtime, provider, external harness, remote execution, raw URL export, replay
+command export, or upstream-body export path can be selected. This closes the
+four-pass slice as a supervisor replay surface, not as upstream skill
+activation.
+
 Source digest `github-growth-20260702T040714.731937Z` advances pass 3 of the
 active `skill-route-discovery` window with an operator-visible activation
 review lane for the current proposals. zhengxi-views and BioNeMo Agent Toolkit
