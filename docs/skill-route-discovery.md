@@ -5857,3 +5857,24 @@ disabled until a local `agent_harness_eval_required` result exists. The pass-2
 surface is body-free and denies provider launch, external harness execution,
 remote execution, external skill or agent activation, raw source URL export,
 replay-command export, target-path export, and upstream-body export.
+
+## Current Digest 20260702T222121 Pass 3
+
+The `github-growth-20260702T222121.903294Z` pass-3 activation review lane now
+has an explicit current-window replay surface. The zhengxi-views trend remains
+the only direct `skill_route_discovery` candidate because the digest carries
+explicit skill-route evidence: `SKILL.md`, `skill.yml`, references, scripts,
+evals, source-citation workflow language, and local validation framing. It maps
+to `p1-skill-route-discovery-zhengxi-views` in the local test lane, bounded to
+documentation, config, test, or code_patch.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper are grouped separately under
+`p2_agent_harness_eval_general_agent_projects` as adjacent general-agent
+evidence. They do not inherit `skill_route_discovery`, and direct runtime or
+direct code_patch routes stay disabled until local agent-harness evaluation
+creates a bounded follow-up lane. The workflow-only Seedance usecase repository
+is split into `p3-workflow-agent-eval-seedance` as documentation triage behind
+the same harness boundary. Workflow keywords alone do not authorize runtime
+workflow adoption, provider launch, external harness execution, remote
+execution, raw URL export, replay-command export, target-path export, or
+upstream-body export.

@@ -10046,7 +10046,29 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_20260702_104714_window = source_digest == "github-growth-20260702T104714.732349Z"
     current_20260702_175118_window = source_digest == "github-growth-20260702T175118.267162Z"
     current_20260702_191118_window = source_digest == "github-growth-20260702T191118.378892Z"
+    current_20260702_222121_window = source_digest == "github-growth-20260702T222121.903294Z"
     active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_general_agent_projects",
+            "p3_workflow_trend_eval_fixture",
+            "p4_route_policy_documentation_clarification",
+            "p5_interpreter_uncertainty_regression",
+            "p2_agent_harness_eval_general_projects",
+            "p3_document_agent_trend_routing_contract",
+            "p4_configurable_route_probe_fixture",
+            "p5_workflow_usecase_agent_harness_followup",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-general-projects",
+            "p3-workflow-agent-eval-seedance",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+        if current_20260702_222121_window
+        else
         [
             "p1_skill_route_discovery_lane",
             "p2_agent_harness_eval_fixture",
@@ -10429,7 +10451,11 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     specs = (
         (
             {
-                "proposal_id": "p1_skill_route_discovery_zhengxi_views",
+                "proposal_id": (
+                    "p1-skill-route-discovery-zhengxi-views"
+                    if current_20260702_222121_window
+                    else "p1_skill_route_discovery_zhengxi_views"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "source_cited_skill_workflow_route",
                 "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
@@ -10439,7 +10465,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "activation_review_step": "verify_current_pass3_skill_route_lane_before_any_activation",
             },
         )
-        if current_20260702_175118_window or current_20260702_191118_window
+        if current_20260702_175118_window
+        or current_20260702_191118_window
+        or current_20260702_222121_window
         else
         (
             {
@@ -10663,6 +10691,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         )
         if (
             current_20260702_092714_window
+            or current_20260702_222121_window
             or
             current_20260702_080714_window
             or
@@ -10826,9 +10855,17 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             }
         )
 
+    adjacent_source_items = ignored_evidence_items
+    if current_20260702_222121_window:
+        adjacent_source_items = [
+            item
+            for item in ignored_evidence_items
+            if not _skill_route_discovery_is_workflow_only_evidence_item(item)
+        ]
+
     adjacent_rows: list[dict[str, Any]] = []
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
-        ignored_evidence_items,
+        adjacent_source_items,
         proposal_id="p3-general-agent-harness-eval-fixture",
     ):
         replay_command = str(adjacent_row.get("replay_command") or "")
@@ -10897,6 +10934,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             row["proposal_id"] = "p2-agent-harness-general-agent-projects"
         elif current_20260702_104714_window:
             row["proposal_id"] = "p2-agent-harness-eval-general-agent-projects"
+        elif current_20260702_222121_window:
+            row["proposal_id"] = "p2-agent-harness-eval-general-projects"
         elif current_20260702_175118_window:
             row["proposal_id"] = "p2_agent_harness_eval_fixture_general_agent_projects"
         elif current_024715_window:
@@ -10974,6 +11013,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             else
             "p2-agent-harness-eval-general-agent-projects"
             if current_20260702_104714_window
+            else
+            "p2_agent_harness_eval_general_agent_projects"
+            if current_20260702_222121_window
             else
             "p2_agent_harness_eval_general_agent_projects"
             if current_20260702_191118_window
@@ -11089,12 +11131,20 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         or current_20260702_104714_window
         or current_20260702_175118_window
         or current_20260702_191118_window
+        or current_20260702_222121_window
     ):
-        if current_20260702_175118_window or current_20260702_191118_window:
+        if (
+            current_20260702_175118_window
+            or current_20260702_191118_window
+            or current_20260702_222121_window
+        ):
             selected_lanes.append("documentation")
         rows.append(
             {
                 "proposal_id": (
+                    "p3-workflow-agent-eval-seedance"
+                    if current_20260702_222121_window
+                    else
                     "p3_workflow_adjacent_agent_eval_seedance"
                     if current_20260702_191118_window
                     else
@@ -11124,7 +11174,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "selected_evidence_item_ids": [
                     (
                         "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1"
-                        if current_20260702_191118_window
+                        if current_20260702_191118_window or current_20260702_222121_window
                         else
                         "p4_workflow_usecase_eval_note"
                         if current_20260702_175118_window
@@ -11137,6 +11187,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q "
                     + (
+                        "-k 20260702T222121_pass3_routes_current_window"
+                        if current_20260702_222121_window
+                        else
                         "-k 20260702T191118_pass3_routes_current_window"
                         if current_20260702_191118_window
                         else
@@ -11282,6 +11335,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 or current_20260702_104714_window
                 or current_20260702_175118_window
                 or current_20260702_191118_window
+                or current_20260702_222121_window
                 or current_024715_window
                 else ("generic_skill_workflow", "skill_ecosystem_state_handoff")
             )
@@ -21045,6 +21099,28 @@ def _skill_route_discovery_adjacent_general_agent_rows(
         }
         for item in ignored_evidence_items
     ]
+
+
+def _skill_route_discovery_is_workflow_only_evidence_item(item: Mapping[str, Any]) -> bool:
+    route_hints = set(_string_list(item.get("route_hints")))
+    if SKILL_ROUTE_DISCOVERY_HINT in route_hints:
+        return False
+    text = " ".join(
+        (
+            str(item.get("item_id") or ""),
+            str(item.get("name") or ""),
+            str(item.get("summary") or ""),
+            " ".join(_string_list(item.get("topics"))),
+        )
+    ).casefold()
+    workflow_markers = ("workflow", "usecase", "usecases", "seedance")
+    skill_markers = ("skill.md", "skill_route_discovery", "skill.yml")
+    general_agent_markers = ("agentworld", "fundamental-ava", "general-agent", "autonomous-agent", "looper")
+    return (
+        any(marker in text for marker in workflow_markers)
+        and not any(marker in text for marker in skill_markers)
+        and not any(marker in text for marker in general_agent_markers)
+    )
 
 
 def _skill_route_discovery_pass4_completion_handoff(
