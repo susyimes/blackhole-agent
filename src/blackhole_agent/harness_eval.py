@@ -23207,6 +23207,9 @@ def provider_runtime_diagnostic_manifest(
     recovery_hint_codes = sorted(
         {str(hint.get("code")) for hint in recovery_hints if str(hint.get("code") or "").strip()}
     )
+    privacy_review_required_count = sum(
+        1 for hint in recovery_hints if provider_runtime_hint_requires_privacy_review(hint)
+    )
     status = route_status if route_status in {"passed", "degraded", "blocked"} else "unknown"
     blocked = status == "blocked"
     degraded = status == "degraded"
@@ -23238,6 +23241,9 @@ def provider_runtime_diagnostic_manifest(
         "blocked_failure_modes": list(blocked_failure_modes),
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "privacy_sensitive_recovery_present": privacy_review_required_count > 0,
+        "privacy_review_required_count": privacy_review_required_count,
+        "privacy_sensitive_auto_recovery_allowed": False,
         "replay_command_count": len(replay_commands),
         "replay_command_hashes": [stable_text_hash(command) for command in replay_commands],
         "success_status_label": success_status["status_label"],
@@ -23320,11 +23326,7 @@ def provider_runtime_operator_recovery_plan(
             "provider_harness_count": len(string_list(hint.get("provider_harnesses"))),
             "action": str(hint.get("action") or ""),
             "privacy_review_required": bool(
-                hint.get("failover_review_only")
-                or (
-                    isinstance(hint.get("failover_review_plan"), dict)
-                    and str(hint["failover_review_plan"].get("status") or "") == "privacy_review_required"
-                )
+                provider_runtime_hint_requires_privacy_review(hint)
             ),
             "value_recorded": False,
         }
@@ -23332,6 +23334,7 @@ def provider_runtime_operator_recovery_plan(
         if str(hint.get("code") or "").strip()
     ]
     recovery_hint_codes = [step["code"] for step in recovery_steps]
+    privacy_review_required_count = sum(1 for step in recovery_steps if step["privacy_review_required"])
     blocked = route_status == "blocked"
     degraded = route_status == "degraded"
     no_preflights = preflight_count <= 0
@@ -23364,6 +23367,11 @@ def provider_runtime_operator_recovery_plan(
         "recovery_hint_codes": recovery_hint_codes,
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
         "recovery_steps": recovery_steps,
+        "privacy_sensitive_recovery_present": privacy_review_required_count > 0,
+        "privacy_review_required_count": privacy_review_required_count,
+        "privacy_sensitive_auto_recovery_allowed": False,
+        "credential_failover_allowed_without_review": False,
+        "operator_review_required": no_preflights or blocked or degraded or privacy_review_required_count > 0,
         "replay_commands": replay_commands,
         "local_validation_required": True,
         "provider_runtime_launch_allowed": False,
@@ -23373,6 +23381,19 @@ def provider_runtime_operator_recovery_plan(
         "raw_diagnostics_exported": False,
         "raw_provider_values_exported": False,
     }
+
+
+def provider_runtime_hint_requires_privacy_review(hint: dict[str, Any]) -> bool:
+    """Return whether a redacted recovery hint names a privacy-gated action."""
+
+    failover_plan = hint.get("failover_review_plan")
+    return bool(
+        hint.get("failover_review_only")
+        or (
+            isinstance(failover_plan, dict)
+            and str(failover_plan.get("status") or "") == "privacy_review_required"
+        )
+    )
 
 
 def provider_runtime_supervisor_readiness(

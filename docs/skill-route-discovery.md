@@ -2548,6 +2548,16 @@ external skill activation, external harness execution, provider launch, and
 remote execution. A ready plan means local replay may continue; a blocked plan
 means the recovery hints must be resolved before promotion.
 
+Provider-runtime recovery plans also surface privacy-sensitive remediation as a
+top-level gate. A usage-limit hint with credential-pool failover marks
+`privacy_sensitive_recovery_present`, increments
+`privacy_review_required_count`, keeps
+`privacy_sensitive_auto_recovery_allowed` and
+`credential_failover_allowed_without_review` false, and requires operator
+review before retry. This keeps rate-limit recovery replayable without turning
+credential labels, tokens, headers, reset values, or response bodies into
+diagnostics.
+
 Before that final handoff, the harness now emits `local_lane_intake`. This is
 the operator-visible inventory of bounded local work inferred from external
 skill evidence. It groups proposal rows by documentation, config, test, or

@@ -759,6 +759,9 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
         "blocked_failure_modes": ["provider_wire_api_unexercised"],
         "recovery_hint_codes": ["provider_wire_api_unexercised"],
         "recovery_hint_code_hashes": [stable_text_hash("provider_wire_api_unexercised")],
+        "privacy_sensitive_recovery_present": False,
+        "privacy_review_required_count": 0,
+        "privacy_sensitive_auto_recovery_allowed": False,
         "replay_command_count": 2,
         "replay_command_hashes": [
             stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"),
@@ -12388,6 +12391,11 @@ def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or
     assert output["operator_recovery_plan"]["decision"] == "blocked_recovery_required"
     assert output["operator_recovery_plan"]["next_action"] == "resolve_recovery_steps_then_replay"
     assert output["operator_recovery_plan"]["recovery_hint_codes"] == ["provider_usage_limit_exhausted"]
+    assert output["operator_recovery_plan"]["privacy_sensitive_recovery_present"] is True
+    assert output["operator_recovery_plan"]["privacy_review_required_count"] == 1
+    assert output["operator_recovery_plan"]["privacy_sensitive_auto_recovery_allowed"] is False
+    assert output["operator_recovery_plan"]["credential_failover_allowed_without_review"] is False
+    assert output["operator_recovery_plan"]["operator_review_required"] is True
     assert output["operator_recovery_plan"]["recovery_steps"] == [
         {
             "code": "provider_usage_limit_exhausted",
@@ -14712,6 +14720,11 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         stable_text_hash(code) for code in output["operator_recovery_plan"]["recovery_hint_codes"]
     ]
     assert output["operator_recovery_plan"]["recovery_steps"][4]["privacy_review_required"] is True
+    assert output["operator_recovery_plan"]["privacy_sensitive_recovery_present"] is True
+    assert output["operator_recovery_plan"]["privacy_review_required_count"] == 1
+    assert output["operator_recovery_plan"]["privacy_sensitive_auto_recovery_allowed"] is False
+    assert output["operator_recovery_plan"]["credential_failover_allowed_without_review"] is False
+    assert output["operator_recovery_plan"]["operator_review_required"] is True
     assert all(step["value_recorded"] is False for step in output["operator_recovery_plan"]["recovery_steps"])
     assert output["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
     assert output["operator_recovery_plan"]["remote_execution_allowed"] is False
@@ -14742,6 +14755,9 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
         "recovery_hint_code_hashes": [
             stable_text_hash(code) for code in output["diagnostic_manifest"]["recovery_hint_codes"]
         ],
+        "privacy_sensitive_recovery_present": True,
+        "privacy_review_required_count": 1,
+        "privacy_sensitive_auto_recovery_allowed": False,
         "replay_command_count": 2,
         "replay_command_hashes": [
             stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"),
