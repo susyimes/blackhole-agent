@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 146
-    assert payload["pass_count"] == 145
+    assert payload["fixture_count"] == 147
+    assert payload["pass_count"] == 146
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -180,6 +180,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260702T204709-provider-runtime-control-pass3"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260702T230121-provider-runtime-control-pass1"
         ]["passed"]
         is True
     )

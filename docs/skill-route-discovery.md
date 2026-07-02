@@ -5900,3 +5900,22 @@ focused validation, and replay hashes, while denying runtime action, external
 skill or agent activation, external harness execution, provider launch, remote
 execution, raw URL export, replay-command export, target-path export, and
 upstream-body export.
+
+## Current Digest 20260702T230121 Provider Runtime Pass 1
+
+The `github-growth-20260702T230121.760789Z` pass-1 provider-runtime-control
+fixture keeps the same evidence split but makes the replay path explicit for
+this wake. zhengxi-views is the only direct `skill_route_discovery` row because
+the public repository exposes `SKILL.md`, `skill.yml`, references, evals,
+scripts, source-citation workflow language, and advice-boundary metadata. It
+may still select only documentation, config, test, or code_patch lanes.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`agent_harness_eval_required` evidence. They do not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch authority, or
+provider launch permission before local harness evaluation exists. The new
+fixture adds a dry-run provider/runtime sample with Windows runner metadata so
+the supervisor can replay body-free diagnostics, recovery hints, and preflight
+status locally. It exports no raw source URLs, raw evidence URLs, provider
+inputs, command bodies, diagnostics bodies, upstream bodies, or runtime actions,
+and it keeps provider launch and remote execution denied.

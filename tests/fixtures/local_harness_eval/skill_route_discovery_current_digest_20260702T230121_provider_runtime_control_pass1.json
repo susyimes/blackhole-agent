@@ -1,0 +1,135 @@
+{
+  "name": "skill-route-discovery-current-digest-20260702T230121-provider-runtime-control-pass1",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260702T230121-provider-runtime-control-pass1",
+    "source_digest": "github-growth-20260702T230121.760789Z",
+    "source_kind": "evidence_items",
+    "capability_window": {
+      "theme": "provider-runtime-control",
+      "capability_slice": "Turn provider and runtime configuration problems into body-free diagnostics, recovery hints, and locally replayable validation.",
+      "planned_pass": 1,
+      "total_passes": 4
+    },
+    "provider_runtime_preflight_samples": [
+      {
+        "provider": {
+          "name": "local-dry-run-provider",
+          "harness": "local-dry-run-provider"
+        },
+        "runtime": {
+          "platform": "windows",
+          "cli_resolved_in_runner": true,
+          "launch_transport": "subprocess",
+          "windows_runner": {
+            "required": true,
+            "platform": "windows",
+            "shell": "powershell",
+            "command": ["pytest", "tests/test_harness_eval.py", "-q", "-k", "provider_runtime_preflight"],
+            "command_shape": "argv",
+            "workspace": "repo",
+            "workspace_resolved": true,
+            "workspace_inside_repo": true,
+            "local_replay_evidence": true
+          }
+        },
+        "runner_env": {
+          "parent_env_keys": ["PATH"],
+          "allowlist": ["PATH"]
+        }
+      }
+    ],
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260702T230121.760789Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "RepositoryTrend",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Source-cited Agent Skill route discovery probe",
+        "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, scripts, source-cited workflow, advice boundary, explicit skill_route_discovery route hint, and provider/runtime lane pressure that must stay diagnostic-only.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+        "observed_paths": ["SKILL.md", "skill.yml", "references/method.md", "scripts/validate_package.py", "evals/source_citation_eval.py"],
+        "metadata_files": ["skill.yml"],
+        "risk_flags": [],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script", "test_file"],
+          "source_metadata_signals": ["skill_manifest", "source_citation_boundary", "advice_disclaimer_boundary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260702T230121.760789Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "General agent benchmark project",
+        "summary": "Language world model and AgentWorldBench evaluation project for general agents; no skill workflow route hint or local harness evaluation result is present.",
+        "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+        "route_hints": [],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260702T230121.760789Z",
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "title": "General autonomous agent project",
+        "summary": "Autonomous, collaborative, and socially intelligent agent project without a skill workflow route hint or local harness evaluation result.",
+        "topics": ["general-agent", "simulation", "autonomous-agent", "benchmark"],
+        "route_hints": [],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260702T230121.760789Z",
+        "item_id": "trend:ksimback/looper-1",
+        "item_kind": "RepositoryTrend",
+        "name": "looper",
+        "source_url": "https://github.com/ksimback/looper",
+        "title": "General agent loop project",
+        "summary": "Review-gated agent loop project without a skill workflow route hint or local harness evaluation result.",
+        "topics": ["general-agent", "loop", "runner", "workflow"],
+        "route_hints": [],
+        "suggested_lanes": []
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 1},
+    {"path": "registry.ignored_evidence_item_count", "equals": 3},
+    {"path": "provider_runtime_replay_sample.route_status", "equals": "passed"},
+    {"path": "provider_runtime_replay_sample.ready_for_local_replay", "equals": true},
+    {"path": "provider_runtime_replay_sample.ready_for_supervisor_promotion", "equals": true},
+    {"path": "provider_runtime_replay_sample.preflight_count", "equals": 1},
+    {"path": "provider_runtime_replay_sample.body_free_diagnostics_only", "equals": true},
+    {"path": "provider_runtime_replay_sample.provider_runtime_launch_allowed", "equals": false},
+    {"path": "provider_runtime_replay_sample.raw_preflight_inputs_exported", "equals": false},
+    {"path": "provider_runtime_replay_sample.operator_recovery_plan.decision", "equals": "ready_for_local_replay"},
+    {"path": "provider_runtime_diagnostic_panel.status", "equals": "ready"},
+    {"path": "provider_runtime_diagnostic_panel.provider_runtime_replay_sample_present", "equals": true},
+    {"path": "provider_runtime_diagnostic_panel.body_free_diagnostics_only", "equals": true},
+    {"path": "provider_runtime_diagnostic_panel.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_action_provider_runtime_preflight.status", "equals": "ready"},
+    {"path": "current_action_provider_runtime_preflight.decision", "equals": "provider_runtime_preflight_ready_for_current_action"},
+    {"path": "current_action_provider_runtime_preflight.provider_runtime_sample_provided", "equals": true},
+    {"path": "current_action_provider_runtime_preflight.provider_runtime_sample_ready_for_local_replay", "equals": true},
+    {"path": "current_action_provider_runtime_preflight.provider_runtime_launch_allowed", "equals": false},
+    {"path": "capability_window_completion.status", "equals": "blocked"},
+    {"path": "capability_window_completion.decision", "equals": "continue_or_replay_before_completion"},
+    {"path": "capability_window_completion.provider_runtime_sample_gate.status", "equals": "ready"},
+    {"path": "capability_window_completion.provider_runtime_sample_gate.ready_for_local_replay", "equals": true},
+    {"path": "capability_window_completion.provider_runtime_sample_gate.provider_runtime_launch_allowed", "equals": false},
+    {"path": "privacy.raw_source_urls_exported", "equals": false},
+    {"path": "privacy.raw_evidence_urls_exported", "equals": false},
+    {"path": "privacy.runtime_actions_executed", "equals": false}
+  ]
+}
