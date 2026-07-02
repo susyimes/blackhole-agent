@@ -8855,7 +8855,23 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_202302_window = source_digest == "github-growth-20260701T202302.440528Z"
     current_215748_window = source_digest == "github-growth-20260701T215748.459700Z"
     current_231748_window = source_digest == "github-growth-20260701T231748.673408Z"
+    current_024715_window = source_digest == "github-growth-20260702T024715.215946Z"
     active_proposal_ids = (
+        [
+            "proposal_skill_route_discovery_zhengxi_views",
+            "proposal_skill_route_discovery_bionemo_agent_toolkit",
+            "proposal_agent_harness_eval_qwen_agentworld",
+            "p1-skill-route-discovery-lane",
+            "p2-agent-harness-eval-route",
+            "p3-bionemo-fork-and-trend-dedup",
+            "p4-route-hint-documentation",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_024715_window
+        else
         [
             "p1-skill-route-discovery-zhengxi-views",
             "p2-agent-harness-eval-qwen-agentworld",
@@ -9066,6 +9082,30 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     specs = (
         (
             {
+                "proposal_id": "proposal_skill_route_discovery_zhengxi_views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_source_cited_skill_routes_to_bounded_local_lanes",
+                "activation_review_step": "verify_source_cited_skill_route_lane_before_any_activation",
+            },
+            {
+                "proposal_id": "proposal_skill_route_discovery_bionemo_agent_toolkit",
+                "proposal_kind": "test",
+                "proposal_track": "toolkit_style_agent_skill_catalog_route",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "test",
+                "validation_target": "toolkit_style_agent_skills_route_to_bounded_local_lanes",
+                "activation_review_step": "verify_toolkit_skill_catalog_lane_before_any_activation",
+            },
+        )
+        if current_024715_window
+        else
+        (
+            {
                 "proposal_id": (
                     "p1-skill-route-discovery-zhengxi-views"
                     if current_231748_window
@@ -9128,6 +9168,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             ),
         )
         if (
+            current_024715_window
+            or
             current_215748_window
             or
             current_231748_window
@@ -9201,12 +9243,15 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             candidate_lane_inventory,
             key=lambda item: str(item.get("candidate_name") or "").casefold(),
         ):
+            candidate_name = str(candidate.get("candidate_name") or "")
+            candidate_name_terms = _string_list(spec.get("candidate_name_terms"))
+            if candidate_name_terms and candidate_name not in set(candidate_name_terms):
+                continue
             candidate_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
             matched_profiles = [profile for profile in candidate_profiles if profile in required_profiles]
             if not matched_profiles:
                 continue
 
-            candidate_name = str(candidate.get("candidate_name") or "")
             candidate_names.append(candidate_name)
             candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
             item_ids = _string_list(candidate.get("evidence_item_ids"))
@@ -9331,6 +9376,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 row["proposal_id"] = "p4-agent-harness-eval-looper"
             else:
                 row["proposal_id"] = "p2-agent-harness-eval-general-projects"
+        elif current_024715_window:
+            row["proposal_id"] = "proposal_agent_harness_eval_qwen_agentworld"
         elif current_190302_window:
             row["proposal_id"] = "p2-agent-harness-eval-suite"
         elif current_040714_window:
@@ -9386,6 +9433,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             else
             "p2-agent-harness-eval-general-projects"
             if current_231748_window
+            else
+            "proposal_agent_harness_eval_qwen_agentworld"
+            if current_024715_window
             else
             "p2_agent_harness_eval_trending_agent_projects"
             if current_215748_window
@@ -9564,6 +9614,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 or current_190302_window
                 or current_215748_window
                 or current_231748_window
+                or current_024715_window
                 else ("generic_skill_workflow", "skill_ecosystem_state_handoff")
             )
             if profile in set(observed_profiles)
