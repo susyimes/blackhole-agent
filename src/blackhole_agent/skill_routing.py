@@ -9419,7 +9419,26 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_20260702_040714_window = source_digest == "github-growth-20260702T040714.731937Z"
     current_20260702_052715_window = source_digest == "github-growth-20260702T052715.136537Z"
     current_20260702_064714_window = source_digest == "github-growth-20260702T064714.829371Z"
+    current_20260702_080714_window = source_digest == "github-growth-20260702T080714.759237Z"
     active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-skill-route-discovery-bionemo-toolkit",
+            "p3-agent-harness-eval-general-projects",
+            "p4-route-policy-doc-clarification",
+            "trend:lyra81604/zhengxi-views-1",
+            "p3-general-agent-harness-eval",
+            "p4-route-metadata-preflight",
+            "p5-route-hint-to-lane-contract",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-fundamental-ava",
+            "p4-agent-harness-eval-looper",
+            "p5-workflow-trend-agent-harness-eval",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260702_080714_window
+        else
         [
             "proposal-skill-route-discovery-zhengxi-views",
             "proposal-skill-route-discovery-bionemo-toolkit",
@@ -9705,6 +9724,30 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     specs = (
         (
             {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_source_cited_skill_routes_to_bounded_local_lanes",
+                "activation_review_step": "verify_source_cited_skill_route_lane_before_any_activation",
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-bionemo-toolkit",
+                "proposal_kind": "documentation",
+                "proposal_track": "toolkit_style_agent_skill_catalog_route",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_toolkit_style_agent_skill_catalog_boundary",
+                "activation_review_step": "document_bionemo_skill_catalog_boundary_before_any_import_or_activation",
+            },
+        )
+        if current_20260702_080714_window
+        else
+        (
+            {
                 "proposal_id": "p1-skill-route-discovery-from-zhengxi-views",
                 "proposal_kind": "test",
                 "proposal_track": "source_cited_skill_workflow_route",
@@ -9872,6 +9915,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             ),
         )
         if (
+            current_20260702_080714_window
+            or
             current_20260702_064714_window
             or
             current_20260702_040714_window
@@ -10091,6 +10136,14 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             row["proposal_id"] = "p2-agent-harness-eval-trending-agent-projects"
         elif current_20260702_064714_window:
             row["proposal_id"] = "p3-agent-harness-eval-general-projects"
+        elif current_20260702_080714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+            elif lowered_name == "fundamental-ava":
+                row["proposal_id"] = "p3-agent-harness-eval-fundamental-ava"
+            else:
+                row["proposal_id"] = "p3-agent-harness-eval-general-projects"
         elif current_024715_window:
             row["proposal_id"] = "proposal_agent_harness_eval_qwen_agentworld"
         elif current_190302_window:
@@ -10157,6 +10210,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             else
             "p3-agent-harness-eval-general-projects"
             if current_20260702_064714_window
+            else
+            "p3-agent-harness-eval-general-projects"
+            if current_20260702_080714_window
             else
             "proposal_agent_harness_eval_qwen_agentworld"
             if current_024715_window
@@ -10267,6 +10323,29 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         adjacent_rows,
         blocked_proposal_ids=blocked_proposal_ids,
     )
+    adjacent_agent_harness_eval_matrix = [
+        {
+            "name": str(row.get("name") or ""),
+            "item_id": str(row.get("item_id") or ""),
+            "proposal_id": str(row.get("proposal_id") or ""),
+            "evaluation_lane": str(row.get("evaluation_lane") or ""),
+            "blocked_until": "local_agent_harness_evaluation_result",
+            "implementation_lanes_enabled": False,
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "skill_route_discovery_inherited": False,
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for row in adjacent_rows
+    ]
     review_only_anchor_notes = [
         {
             "proposal_id": "p3-agent-automation-bug-eval-open-reverselab",
@@ -10327,7 +10406,13 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),
         "adjacent_general_agent_count": len(adjacent_rows),
+        "adjacent_general_agent_names": [
+            str(row.get("name") or "") for row in adjacent_rows if str(row.get("name") or "")
+        ],
         "agent_harness_eval_required_count": len(adjacent_rows),
+        "agent_harness_eval_required_item_ids": [
+            str(row.get("item_id") or "") for row in adjacent_rows if str(row.get("item_id") or "")
+        ],
         "observed_route_profiles": [
             profile
             for profile in (
@@ -10371,6 +10456,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             else "repair_blocked_pass3_rows_then_rebuild_activation_review_lane"
         ),
         "route_evidence_activation_gate": route_evidence_activation_gate,
+        "adjacent_agent_harness_eval_matrix": adjacent_agent_harness_eval_matrix,
         "review_only_anchor_notes": review_only_anchor_notes,
         "local_validation_required": True,
         "runtime_action": "none",

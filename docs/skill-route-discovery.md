@@ -5494,3 +5494,21 @@ remain gated until a local agent harness evaluation exists, with runtime action,
 external agent activation, external harness execution, provider launch, remote
 execution, raw URL export, replay-command export, target-path export, and
 upstream-body export denied.
+
+## 2026-07-02 Pass-3 Adjacent Harness Matrix
+
+Source digest `github-growth-20260702T080714.759237Z` advances pass 3 of the
+active `skill-route-discovery` slice by making adjacent general-agent gates
+operator-visible as an `adjacent_agent_harness_eval_matrix` inside
+`current_digest_pass3_activation_review_lane`. The zhengxi-views row remains a
+bounded `skill_route_discovery` test lane, while BioNeMo-style skill catalog
+evidence may inform only bounded documentation/config/test/code_patch work.
+Qwen-AgentWorld and Fundamental-Ava are listed as separate
+`agent_harness_eval_required` matrix rows with implementation lanes disabled
+until a local harness evaluation result exists.
+
+The matrix is body-free: it exports project names, item ids, proposal ids, lane
+state, and denial flags, but no raw source URLs, evidence URLs, replay commands,
+target paths, upstream bodies, provider launch, remote execution, profile
+writes, memory writes, external skill activation, or external harness
+execution.
