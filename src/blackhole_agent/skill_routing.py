@@ -6009,7 +6009,25 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_060714_window = source_digest == "github-growth-20260702T060714.663320Z"
     current_20260702_072714_window = source_digest == "github-growth-20260702T072714.841318Z"
     current_20260702_084714_window = source_digest == "github-growth-20260702T084714.820443Z"
-    if current_20260702_084714_window:
+    current_20260702_100715_window = source_digest == "github-growth-20260702T100715.355760Z"
+    if current_20260702_100715_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_zhengxi_views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_agent_skill_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_route_discovery_lanes_stay_bounded",
+                "validation_task": (
+                    "validate that zhengxi-views route_hints=skill_route_discovery "
+                    "maps only to documentation, config, test, or code_patch lanes "
+                    "and remains locally validated before activation"
+                ),
+            },
+        )
+    elif current_20260702_084714_window:
         specs = (
             {
                 "proposal_id": "p1_skill_route_discovery_zhengxi_views",
@@ -6918,7 +6936,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         ignored_evidence_items,
         proposal_id=(
             "p2_agent_harness_eval_trending_agents"
-            if current_20260702_084714_window
+            if current_20260702_100715_window or current_20260702_084714_window
             else
             "p3-agent-harness-eval-general-projects"
             if current_20260702_072714_window
@@ -7072,7 +7090,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
                 row["proposal_id"] = "p3-agent-harness-eval-general-projects"
-        if current_20260702_084714_window:
+        if current_20260702_100715_window or current_20260702_084714_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
                 row["proposal_id"] = "p2_agent_harness_eval_trending_agents"
@@ -7140,6 +7158,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agents",
+            "p3_workflow_trend_review_fixture",
+            "p4_route_policy_consistency_check",
+            "p5_self_model_alignment_note",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_20260702_100715_window
+        else
         [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_agents",

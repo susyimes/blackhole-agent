@@ -5594,3 +5594,21 @@ pass. A workflow-only trend without an explicit skill-route hint does not adopt
 runtime workflows, launch providers, execute external harnesses, or enable
 remote execution. It stays behind `agent_harness_eval_required` until local
 evaluation creates a bounded follow-up lane.
+
+## Current Digest 20260702T100715 Pass 1
+
+The `github-growth-20260702T100715.355760Z` pass-1 lane is exposed through
+`current_digest_pass1_validation_lane` for the carried proposal IDs. The
+zhengxi-views RepositoryTrend is the only direct `skill_route_discovery` row:
+its public Agent Skill shape (`SKILL.md`, `skill.yml`, references, scripts,
+evals, source-citation boundaries, and non-investment-advice limits) maps to the
+local test lane inside the bounded documentation, config, test, and code_patch
+envelope.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`agent_harness_eval_required` rows. Their general-agent or review-gated loop
+topics do not inherit `skill_route_discovery`; direct runtime and direct
+code_patch routes stay disabled until a local agent harness evaluation produces
+a bounded follow-up lane. The self-model was read for this pass and left
+unchanged because it is descriptive policy context rather than an executable
+route source.
