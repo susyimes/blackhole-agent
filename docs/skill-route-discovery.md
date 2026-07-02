@@ -3176,6 +3176,20 @@ activation, external harness execution, provider launch, remote execution, raw
 preflight inputs, raw diagnostics, raw provider values, raw source URLs, raw
 target paths, and upstream bodies denied.
 
+Pass-2 `provider-runtime-control` windows also emit
+`provider_runtime_promotion_checkpoint`. This checkpoint condenses the
+provider-runtime sample gate, current-action preflight, and replay sample into a
+single body-free supervisor row. A ready checkpoint means the selected bounded
+local lane may continue after local provider-runtime replay; it is not provider
+launch authority and it is not four-pass slice completion. Blocked checkpoints
+route back to provider-runtime preflight and recovery-summary replay; degraded
+checkpoints require operator review before any success claim. The row carries
+only selected item counts, source hashes, readiness booleans, recovery hint
+hashes, diagnostics hashes, and replay commands while denying runtime action,
+external harness execution, provider launch, remote execution, raw preflight
+inputs, raw diagnostics, raw provider values, raw source URLs, and upstream body
+export.
+
 `validation_readiness_summary` consumes that current-action provider-runtime
 preflight before it reports a selected lane as replay-ready. In
 `provider-runtime-control` windows, a missing or blocked preflight changes the

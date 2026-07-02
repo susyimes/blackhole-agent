@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 144
-    assert payload["pass_count"] == 143
+    assert payload["fixture_count"] == 145
+    assert payload["pass_count"] == 144
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -168,6 +168,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260702T195118-provider-runtime-control-pass1"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260702T202709-provider-runtime-control-pass2"
         ]["passed"]
         is True
     )
@@ -20465,6 +20471,57 @@ def test_skill_route_discovery_current_digest_20260702T195118_provider_runtime_c
     assert completion["provider_runtime_sample_gate"]["ready_for_local_replay"] is True
     assert completion["provider_runtime_sample_gate"]["provider_runtime_launch_allowed"] is False
     assert completion["provider_runtime_sample_gate"]["raw_preflight_inputs_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "local-dry-run-provider" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T202709_provider_runtime_control_pass2():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260702T202709_provider_runtime_control_pass2.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    checkpoint = output["provider_runtime_promotion_checkpoint"]
+    serialized = json.dumps(checkpoint, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+    assert output["provider_runtime_replay_sample"]["route_status"] == "passed"
+    assert output["current_action_provider_runtime_preflight"]["status"] == "ready"
+
+    assert checkpoint["controller_surface"] == "provider_runtime_promotion_checkpoint"
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["decision"] == "provider_runtime_replay_ready_for_bounded_lane_promotion_checkpoint"
+    assert checkpoint["supervisor_next_action"] == "continue_bounded_local_lane_after_provider_runtime_replay"
+    assert checkpoint["promotion_blocked_reason"] == "none"
+    assert checkpoint["theme"] == "provider-runtime-control"
+    assert checkpoint["current_pass"] == 2
+    assert checkpoint["total_passes"] == 4
+    assert checkpoint["provider_runtime_sample_gate_status"] == "ready"
+    assert checkpoint["current_action_preflight_status"] == "ready"
+    assert checkpoint["provider_runtime_sample_route_status"] == "passed"
+    assert checkpoint["provider_runtime_sample_ready_for_local_replay"] is True
+    assert checkpoint["provider_runtime_sample_ready_for_supervisor_promotion"] is True
+    assert checkpoint["provider_runtime_degraded_replay_only"] is False
+    assert checkpoint["success_claim_allowed"] is True
+    assert checkpoint["recovery_hint_codes"] == []
+    assert checkpoint["diagnostics"] == []
+    assert checkpoint["body_free_diagnostics_only"] is True
+    assert checkpoint["provider_runtime_launch_allowed"] is False
+    assert checkpoint["remote_execution_allowed"] is False
+    assert checkpoint["raw_preflight_inputs_exported"] is False
+    assert checkpoint["raw_provider_values_exported"] is False
+    assert output["capability_window_completion"]["status"] == "blocked"
 
     assert "https://github.com/" not in serialized
     assert "local-dry-run-provider" not in serialized
