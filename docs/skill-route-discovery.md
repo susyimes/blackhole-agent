@@ -5838,3 +5838,22 @@ execution. The handoff remains body-free and exports proposal IDs, selected
 item IDs, lane names, route profiles, hashes, and denial booleans rather than
 raw source URLs, evidence URLs, replay commands, target paths, or upstream
 bodies.
+
+## Current Digest 20260702T214709 Pass 2
+
+The `github-growth-20260702T214709.510460Z` pass-2 lane now has an explicit
+current-window replay surface. The zhengxi-views RepositoryTrend is the only
+direct `skill_route_discovery` candidate because it carries both agent and
+skill signals plus repository-shape evidence such as `SKILL.md`, `skill.yml`,
+references, scripts, evals, source-citation workflow, and advice-boundary
+metadata. It maps to `p1_skill_route_discovery_zhengxi_views` in the local test
+lane and to `p3_document_agent_trend_routing_contract` in the documentation
+lane. Both rows remain bounded to documentation, config, test, or code_patch.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper are kept as adjacent general-agent
+rows under `p2_agent_harness_eval_general_projects`. They do not inherit
+`skill_route_discovery`; direct runtime and direct code_patch routes stay
+disabled until a local `agent_harness_eval_required` result exists. The pass-2
+surface is body-free and denies provider launch, external harness execution,
+remote execution, external skill or agent activation, raw source URL export,
+replay-command export, target-path export, and upstream-body export.
