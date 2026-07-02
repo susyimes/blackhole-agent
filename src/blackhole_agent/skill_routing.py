@@ -6011,7 +6011,39 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_084714_window = source_digest == "github-growth-20260702T084714.820443Z"
     current_20260702_100715_window = source_digest == "github-growth-20260702T100715.355760Z"
     current_20260702_152626_window = source_digest == "github-growth-20260702T152626.587436Z"
-    if current_20260702_152626_window:
+    current_20260702_164626_window = source_digest == "github-growth-20260702T164626.776302Z"
+    if current_20260702_164626_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_probe",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_agent_skill_route_probe",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_route_discovery_maps_only_to_bounded_lanes",
+                "validation_task": (
+                    "validate that the current zhengxi-views item with route_hints="
+                    "skill_route_discovery opens only documentation, config, test, or "
+                    "code_patch local lanes before activation"
+                ),
+            },
+            {
+                "proposal_id": "p3_workflow_agent_harness_documentation",
+                "proposal_kind": "documentation",
+                "proposal_track": "workflow_keyword_agent_harness_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_workflow_keyword_only_requires_agent_harness_eval",
+                "validation_task": (
+                    "record that workflow-labeled trend evidence without a skill_route_discovery "
+                    "hint stays in agent_harness_eval_required before documentation, test, or "
+                    "code_patch implementation lanes are accepted"
+                ),
+            },
+        )
+    elif current_20260702_152626_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -7127,6 +7159,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
                 row["proposal_id"] = "p2_agent_harness_eval_trending_agents"
+        if current_20260702_164626_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
+                row["proposal_id"] = "p2_agent_harness_eval_fixture"
+            elif "workflow" in lowered_name:
+                row["proposal_id"] = "p3_workflow_agent_harness_documentation"
         if current_223748_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
@@ -7191,6 +7229,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_probe",
+            "p2_agent_harness_eval_fixture",
+            "p3_workflow_agent_harness_documentation",
+            "p4_route_hint_policy_regression",
+            "p5_combined_agent_trend_triage_config",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+        if current_20260702_164626_window
+        else
         [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_agents",

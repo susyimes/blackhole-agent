@@ -86,6 +86,13 @@ documentation, test, or code patch implementation lane is enabled. Low-detail
 fork or lineage evidence without a mapped local validation target does not
 increase skill-route or agent-harness lane counts.
 
+Workflow labels alone do not change the route. A workflow-themed repository
+without a `skill_route_discovery` hint, local skill layout evidence, or local
+agent harness evaluation remains an adjacent `agent_harness_eval_required` row.
+It may support documentation about the boundary, but it does not open direct
+documentation, test, or code patch lanes until the local harness-eval route is
+established.
+
 Repeated upstream `PushEvent` movement may order already-relevant local eval
 candidates when the repository is already classified as a skill route or general
 agent project. It is a priority hint only: the exported lane must still require
