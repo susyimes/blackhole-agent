@@ -295,6 +295,20 @@ requirements, and reports blocked, degraded replay-only, or local-replay-ready
 status without exporting raw provider values, diagnostics, URLs, paths,
 commands, environment values, environment key names, or secrets.
 
+Source digest `github-growth-20260702T232121.733180Z` adds a pass-2
+`provider_runtime_activation_packet`. The packet joins the current-action
+preflight, provider-runtime promotion checkpoint, and selected validation lane
+into one scheduler-facing row. The packet distinguishes provider replay
+readiness from selected-lane readiness: a provider checkpoint can be ready while
+the validation lane remains blocked until route discovery selects a bounded
+lane. A `ready` packet means the supervisor can replay the provider-runtime
+preflight and then run the selected bounded validation commands; it does not
+permit provider launch, remote execution, external harness execution, or
+promotion. The packet may expose validation commands, replay commands, hashes,
+counts, hint codes, and booleans, while raw upstream bodies, source URLs,
+provider inputs, diagnostics bodies, environment values, paths, credentials,
+and provider values remain omitted.
+
 ## Approval ASK Surfacing Watch
 
 Source digest: `github-growth-20260619T035206.981359Z`

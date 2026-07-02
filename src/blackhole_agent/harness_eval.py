@@ -2501,6 +2501,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         generic_validation_prompt=generic_validation_prompt,
         supervisor_readiness=supervisor_readiness,
     )
+    provider_runtime_activation_packet = skill_route_discovery_provider_runtime_activation_packet(
+        raw_input=raw_input,
+        current_action=current_action,
+        current_action_provider_runtime_preflight=current_action_provider_runtime_preflight,
+        provider_runtime_promotion_checkpoint=provider_runtime_promotion_checkpoint,
+        validation_readiness_summary=validation_readiness_summary,
+    )
     domain_validation_probe = skill_route_discovery_domain_validation_probe(
         validation_lane_plan=validation_lane_plan,
     )
@@ -2696,6 +2703,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "current_action_provider_runtime_preflight": current_action_provider_runtime_preflight,
         "provider_runtime_promotion_checkpoint": provider_runtime_promotion_checkpoint,
         "validation_readiness_summary": validation_readiness_summary,
+        "provider_runtime_activation_packet": provider_runtime_activation_packet,
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "pass_validation_replay_queue": pass_validation_replay_queue,
@@ -10614,6 +10622,158 @@ def skill_route_discovery_provider_runtime_promotion_checkpoint(
         "external_skill_code_allowed": False,
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_activation_packet(
+    *,
+    raw_input: dict[str, Any],
+    current_action: dict[str, Any],
+    current_action_provider_runtime_preflight: dict[str, Any],
+    provider_runtime_promotion_checkpoint: dict[str, Any],
+    validation_readiness_summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Tie provider-runtime replay status to the next bounded local validation step."""
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    theme = optional_string(window.get("theme")) or "skill-route-discovery"
+    current_pass = int(
+        window.get("current_pass")
+        or window.get("planned_pass")
+        or current_action.get("current_pass")
+        or 0
+    )
+    total_passes = int(window.get("total_passes") or current_action.get("total_passes") or 0)
+    provider_runtime_theme = theme == "provider-runtime-control"
+    promotion_status = optional_string(provider_runtime_promotion_checkpoint.get("status")) or "blocked"
+    preflight_status = optional_string(current_action_provider_runtime_preflight.get("status")) or "blocked"
+    readiness_status = optional_string(validation_readiness_summary.get("status")) or "blocked"
+    success_claim_allowed = current_action_provider_runtime_preflight.get("success_claim_allowed") is True
+    ready_for_local_replay = (
+        current_action_provider_runtime_preflight.get("provider_runtime_sample_ready_for_local_replay") is True
+    )
+    ready_for_supervisor_promotion = (
+        current_action_provider_runtime_preflight.get("provider_runtime_sample_ready_for_supervisor_promotion")
+        is True
+    )
+    final_pass_observed = bool(total_passes and current_pass >= total_passes)
+    required_validation = string_list(current_action.get("required_validation"))
+    provider_runtime_replay_commands = string_list(
+        provider_runtime_promotion_checkpoint.get("provider_runtime_replay_commands")
+    ) or [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    recovery_hint_codes = sorted(
+        dict.fromkeys(
+            (
+                *string_list(provider_runtime_promotion_checkpoint.get("recovery_hint_codes")),
+                *string_list(current_action_provider_runtime_preflight.get("recovery_hint_codes")),
+            )
+        )
+    )
+    diagnostics = sorted(
+        dict.fromkeys(
+            (
+                *string_list(provider_runtime_promotion_checkpoint.get("diagnostics")),
+                *string_list(validation_readiness_summary.get("diagnostics")),
+            )
+        )
+    )
+
+    if not provider_runtime_theme:
+        status = "not_applicable"
+        decision = "provider_runtime_activation_packet_not_required_for_theme"
+        supervisor_next_action = "continue_selected_bounded_lane"
+        ready_for_bounded_validation = readiness_status == "ready"
+        activation_blocked_reason = "not_applicable"
+    elif promotion_status == "ready" and preflight_status == "ready" and readiness_status == "ready":
+        status = "ready"
+        decision = "provider_runtime_replay_ready_for_bounded_validation"
+        supervisor_next_action = "supervisor_replay_provider_runtime_preflight_then_selected_validation"
+        ready_for_bounded_validation = True
+        activation_blocked_reason = "none"
+    elif promotion_status == "review" or preflight_status == "review":
+        status = "review"
+        decision = "operator_review_provider_runtime_replay_before_bounded_validation"
+        supervisor_next_action = "operator_review_degraded_provider_runtime_replay_before_validation"
+        ready_for_bounded_validation = False
+        activation_blocked_reason = "provider_runtime_replay_requires_review"
+    elif promotion_status == "ready" and preflight_status == "ready":
+        status = "blocked"
+        decision = "select_bounded_validation_lane_after_provider_runtime_replay"
+        supervisor_next_action = (
+            optional_string(validation_readiness_summary.get("supervisor_next_action"))
+            or "replay_skill_route_discovery_lane"
+        )
+        ready_for_bounded_validation = False
+        activation_blocked_reason = "validation_readiness_blocked"
+    else:
+        status = "blocked"
+        decision = "repair_provider_runtime_replay_before_bounded_validation"
+        supervisor_next_action = "replay_provider_runtime_preflight_and_recovery_summary"
+        ready_for_bounded_validation = False
+        activation_blocked_reason = (
+            optional_string(provider_runtime_promotion_checkpoint.get("promotion_blocked_reason"))
+            or "provider_runtime_replay_not_ready"
+        )
+
+    return {
+        "controller_surface": "provider_runtime_activation_packet",
+        "status": status,
+        "decision": decision,
+        "supervisor_next_action": supervisor_next_action,
+        "activation_blocked_reason": activation_blocked_reason,
+        "theme": theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "final_pass_observed": final_pass_observed,
+        "provider_runtime_theme": provider_runtime_theme,
+        "promotion_checkpoint_status": promotion_status,
+        "current_action_preflight_status": preflight_status,
+        "validation_readiness_status": readiness_status,
+        "selected_local_lane": optional_string(current_action.get("selected_local_lane")) or "none",
+        "validation_scope": optional_string(current_action.get("validation_scope")) or "none",
+        "ready_for_local_replay": ready_for_local_replay,
+        "ready_for_supervisor_promotion": ready_for_supervisor_promotion,
+        "ready_for_bounded_validation": ready_for_bounded_validation,
+        "success_claim_allowed": success_claim_allowed,
+        "success_claim_scope": "local_replay_only" if success_claim_allowed else "none",
+        "supervisor_promotion_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "provider_runtime_replay_commands": provider_runtime_replay_commands,
+        "provider_runtime_replay_command_hashes": [
+            stable_text_hash(command) for command in provider_runtime_replay_commands
+        ],
+        "selected_validation_commands": required_validation,
+        "selected_validation_command_hashes": [
+            stable_text_hash(command) for command in required_validation
+        ],
+        "evidence_ref_mode": "selected_item_ids_only",
+        "evidence_item_id_count": int(current_action.get("evidence_item_id_count") or 0),
+        "candidate_source_hashes": string_list(current_action.get("candidate_source_hashes")),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "diagnostics": diagnostics,
+        "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in diagnostics],
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
         "remote_execution_allowed": False,
         "raw_evidence_exported": False,
         "raw_evidence_urls_exported": False,
