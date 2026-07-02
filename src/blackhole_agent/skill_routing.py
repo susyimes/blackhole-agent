@@ -6010,7 +6010,40 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_072714_window = source_digest == "github-growth-20260702T072714.841318Z"
     current_20260702_084714_window = source_digest == "github-growth-20260702T084714.820443Z"
     current_20260702_100715_window = source_digest == "github-growth-20260702T100715.355760Z"
-    if current_20260702_100715_window:
+    current_20260702_152626_window = source_digest == "github-growth-20260702T152626.587436Z"
+    if current_20260702_152626_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_agent_skill_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_route_discovery_maps_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate the current zhengxi-views Agent Skill repository shape with "
+                    "SKILL.md, skill.yml, references, evals, scripts, source-citation, and "
+                    "non-investment-advice boundaries as skill_route_discovery only; keep "
+                    "documentation, config, test, and code_patch as the complete local lane set"
+                ),
+            },
+            {
+                "proposal_id": "p3-general-agent-project-eval-fundamental-ava",
+                "proposal_kind": "documentation",
+                "proposal_track": "general_agent_project_eval_checklist",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_general_agent_project_harness_eval_checklist",
+                "validation_task": (
+                    "record that Qwen-AgentWorld and Fundamental-Ava-style general agent projects "
+                    "need a runnable-surface, config-assumption, tool-routing, rollback, and "
+                    "non-network validation checklist before documentation, test, code_patch, "
+                    "runtime, provider, or external harness follow-up can be selected"
+                ),
+            },
+        )
+    elif current_20260702_100715_window:
         specs = (
             {
                 "proposal_id": "p1_skill_route_discovery_zhengxi_views",
@@ -7170,6 +7203,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "trend:ksimback/looper-1",
         ]
         if current_20260702_100715_window
+        else
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-general-agent-project-eval-fundamental-ava",
+            "p4-runner-loop-eval-looper",
+            "p5-workflow-usecase-doc-eval-seedance",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:Leo0186/qwen-agentworld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260702_152626_window
         else
         [
             "p1_skill_route_discovery_zhengxi_views",
