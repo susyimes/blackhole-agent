@@ -9876,7 +9876,28 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_20260702_092714_window = source_digest == "github-growth-20260702T092714.857659Z"
     current_20260702_104714_window = source_digest == "github-growth-20260702T104714.732349Z"
     current_20260702_175118_window = source_digest == "github-growth-20260702T175118.267162Z"
+    current_20260702_191118_window = source_digest == "github-growth-20260702T191118.378892Z"
     active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_lane",
+            "p2_agent_harness_eval_fixture",
+            "p3_workflow_agent_eval_docs",
+            "p4_route_hint_policy_regression",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-fundamental-ava",
+            "p4-agent-harness-eval-looper",
+            "p5-workflow-usecase-documentation",
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_general_agent_projects",
+            "p3_workflow_adjacent_agent_eval_seedance",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_20260702_191118_window
+        else
         [
             "p1_skill_route_discovery_probe",
             "p2_agent_harness_eval_fixture",
@@ -10249,7 +10270,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "activation_review_step": "verify_current_pass3_skill_route_lane_before_any_activation",
             },
         )
-        if current_20260702_175118_window
+        if current_20260702_175118_window or current_20260702_191118_window
         else
         (
             {
@@ -10785,6 +10806,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             "p2-agent-harness-eval-general-agent-projects"
             if current_20260702_104714_window
             else
+            "p2_agent_harness_eval_general_agent_projects"
+            if current_20260702_191118_window
+            else
             "p2_agent_harness_eval_fixture_general_agent_projects"
             if current_20260702_175118_window
             else
@@ -10891,12 +10915,20 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         if general_agent_row["status"] != "ready":
             blocked_proposal_ids.append(str(general_agent_row["proposal_id"]))
 
-    if current_20260702_092714_window or current_20260702_104714_window or current_20260702_175118_window:
-        if current_20260702_175118_window:
+    if (
+        current_20260702_092714_window
+        or current_20260702_104714_window
+        or current_20260702_175118_window
+        or current_20260702_191118_window
+    ):
+        if current_20260702_175118_window or current_20260702_191118_window:
             selected_lanes.append("documentation")
         rows.append(
             {
                 "proposal_id": (
+                    "p3_workflow_adjacent_agent_eval_seedance"
+                    if current_20260702_191118_window
+                    else
                     "p3_workflow_agent_harness_eval"
                     if current_20260702_175118_window
                     else
@@ -10922,6 +10954,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "direct_code_patch_route_allowed": False,
                 "selected_evidence_item_ids": [
                     (
+                        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1"
+                        if current_20260702_191118_window
+                        else
                         "p4_workflow_usecase_eval_note"
                         if current_20260702_175118_window
                         else "p4_workflow_usecase_route_probe"
@@ -10933,6 +10968,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q "
                     + (
+                        "-k 20260702T191118_pass3_routes_current_window"
+                        if current_20260702_191118_window
+                        else
                         "-k 20260702T175118_pass3_routes_current_window"
                         if current_20260702_175118_window
                         else
@@ -11074,6 +11112,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 or current_20260702_092714_window
                 or current_20260702_104714_window
                 or current_20260702_175118_window
+                or current_20260702_191118_window
                 or current_024715_window
                 else ("generic_skill_workflow", "skill_ecosystem_state_handoff")
             )

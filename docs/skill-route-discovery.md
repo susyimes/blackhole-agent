@@ -62,6 +62,25 @@ agent-harness evaluation. Workflow topic matches alone are recorded by
 adoption, provider launch, external harness execution, remote execution, or raw
 upstream export.
 
+Source digest `github-growth-20260702T191118.378892Z` continues pass 3 of the
+active window with an operator-visible activation review lane for the current
+proposal IDs. The zhengxi-views evidence remains the only direct
+`skill_route_discovery` row because the public repository shape contains an
+Agent Skill manifest, skill markdown, references, scripts, evals,
+source-citation boundaries, and non-investment-advice limits. It maps to
+`p1_skill_route_discovery_zhengxi_views` in the local test lane only, inside
+the bounded documentation, config, test, and code_patch envelope.
+
+Qwen-AgentWorld, Fundamental-Ava, looper, and the workflow-only Seedance usecase
+repository are grouped behind `p2_agent_harness_eval_general_agent_projects` as
+adjacent `agent_harness_eval_required` evidence. They do not inherit
+`skill_route_discovery`; their direct lanes before harness evaluation remain
+empty, and only documentation, test, or code_patch can be considered after a
+local agent-harness result exists. The Seedance workflow-usecase proposal is
+recorded separately as `p3_workflow_adjacent_agent_eval_seedance` documentation
+triage, not as runtime workflow adoption, provider launch, external harness
+execution, remote execution, or raw upstream export.
+
 Source digest `github-growth-20260702T181118.185142Z` completes pass 4 of the
 same window with `current_digest_pass4_completion_handoff`. The pass closes
 zhengxi-views through `p1_skill_route_discovery_lane` in the local test lane and
