@@ -44,6 +44,24 @@ metadata and hashes only; raw source URLs, raw evidence URLs, replay commands,
 target paths, upstream bodies, provider launch, external harness execution,
 remote execution, and external skill or agent activation remain denied.
 
+Source digest `github-growth-20260702T175118.267162Z` advances pass 3 of the
+active window with `current_digest_pass3_activation_review_lane`. The
+zhengxi-views signal is still the only direct `skill_route_discovery` candidate:
+its public repository shape exposes `SKILL.md`, `skill.yml`, references, evals,
+scripts, source-citation workflow boundaries, and non-investment-advice limits.
+It maps to `p1_skill_route_discovery_zhengxi_views` in the local test lane only,
+inside the bounded documentation, config, test, and code_patch envelope.
+
+Qwen-AgentWorld, Fundamental-Ava, looper, and workflow-only usecase evidence
+remain adjacent `agent_harness_eval_required` rows under
+`p2_agent_harness_eval_fixture_general_agent_projects`. They do not inherit
+`skill_route_discovery`; their direct lanes before harness evaluation are empty,
+and only documentation, test, or code_patch can be considered after local
+agent-harness evaluation. Workflow topic matches alone are recorded by
+`p3_workflow_agent_harness_eval` as documentation triage, not runtime workflow
+adoption, provider launch, external harness execution, remote execution, or raw
+upstream export.
+
 Source digest `github-growth-20260702T162626.606010Z` completes pass 4 of the
 same `skill-route-discovery` window with an explicit
 `current_digest_pass4_completion_handoff`. The zhengxi-views trend remains the
