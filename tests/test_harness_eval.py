@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 141
-    assert payload["pass_count"] == 140
+    assert payload["fixture_count"] == 142
+    assert payload["pass_count"] == 141
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -145,6 +145,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         results["skill-route-discovery-current-digest-20260702T154626-pass2-local-validation-lane"][
             "passed"
         ]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260702T185118-pass2-secondary-harness-checklist"
+        ]["passed"]
         is True
     )
     assert (
@@ -16508,6 +16514,51 @@ def test_skill_route_discovery_validation_readiness_summary_surfaces_selected_la
         assert row["raw_target_paths_exported"] is False
         assert row["raw_upstream_body_exported"] is False
     assert "https://github.com/" not in pass2_serialized
+
+
+def test_skill_route_discovery_pass2_secondary_harness_checklist_gates_adjacent_agent_projects():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260702T185118_pass2_secondary_harness_checklist.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+
+    checklist = output["pass2_secondary_harness_checklist"]
+    assert checklist["controller_surface"] == "skill_route_discovery_pass2_secondary_harness_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["decision"] == "hold_adjacent_agent_projects_for_local_harness_fixture"
+    assert checklist["record_count"] == 2
+    assert checklist["ready_fixture_count"] == 0
+    assert checklist["blocked_fixture_count"] == 2
+    assert checklist["fixture_requirements"] == [
+        "runnable_scenario",
+        "expected_output",
+        "pass_fail_signal",
+        "rollback_path",
+        "non_secret_config",
+    ]
+    assert {row["item_id"] for row in checklist["rows"]} == {"Fundamental-Ava", "Qwen-AgentWorld"}
+    assert {row["activation_status"] for row in checklist["rows"]} == {
+        "blocked_until_local_agent_harness_fixture"
+    }
+    assert all(row["minimal_fixture"]["behavior"] == "agent_harness_eval_lane" for row in checklist["rows"])
+    assert all(row["skill_route_discovery_inherited"] is False for row in checklist["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in checklist["rows"])
+    assert all(row["provider_runtime_launch_allowed"] is False for row in checklist["rows"])
+    assert checklist["local_eval_activation_allowed"] is False
+    assert checklist["raw_source_urls_exported"] is False
+    assert checklist["raw_upstream_body_exported"] is False
+
+    handoff = output["pass2_handoff_packet"]
+    assert handoff["secondary_harness_checklist"] == checklist
+    assert handoff["secondary_harness_eval_allowed"] is False
+    assert handoff["local_lane_acceptance_contract"]["secondary_harness_checklist_status"] == "ready"
 
 
 def test_agent_harness_eval_current_digest_trending_projects_stay_local_validation_required():

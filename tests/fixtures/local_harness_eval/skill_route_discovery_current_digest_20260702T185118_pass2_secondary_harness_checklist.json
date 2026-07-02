@@ -1,0 +1,113 @@
+{
+  "name": "skill-route-discovery-current-digest-20260702T185118-pass2-secondary-harness-checklist",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260702T185118-pass2-secondary-harness-checklist",
+    "source_digest": "github-growth-20260702T185118.312777Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 2,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "generic_skill_workflow",
+        "source_cited_domain_research"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-fundamental-ava",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/TianhangZhuzth/Fundamental-Ava"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "evidence_summary": "Source-cited Agent Skill workflow repository with SKILL.md, skill.yml, references, scripts, eval material, source citation requirements, investment-advice disclaimer boundaries, and workflow automation suggestions.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "test_file"],
+          "source_metadata_signals": ["skill_manifest", "source_citation_boundary"]
+        },
+        "evidence_item_ids": ["p1-skill-route-discovery-zhengxi-views"],
+        "evidence_urls": ["https://github.com/lyra81604/zhengxi-views"]
+      },
+      {
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "evidence_summary": "General agent project trend with language world model, benchmark, simulation, and agent-environment evaluation claims across MCP, Search, Terminal, SWE, Android, Web, and OS domains, but no local skill package layout signal and no bounded local harness result.",
+        "topics": ["general-agent", "benchmark", "evaluation", "simulation"],
+        "candidate_lanes": ["documentation", "test", "code_patch"],
+        "evidence_item_ids": ["p2-agent-harness-eval-qwen-agentworld"],
+        "evidence_urls": ["https://github.com/QwenLM/Qwen-AgentWorld"]
+      },
+      {
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "evidence_summary": "General agent project evidence for autonomous collaborative socially intelligent agents with tests, benchmarks, and experiments, without SKILL.md evidence, local route hints, or a local harness evaluation result.",
+        "topics": ["general-agent", "automation", "benchmark"],
+        "candidate_lanes": ["documentation", "test", "code_patch"],
+        "evidence_item_ids": ["p3-agent-harness-eval-fundamental-ava"],
+        "evidence_urls": ["https://github.com/TianhangZhuzth/Fundamental-Ava"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "tests/test_harness_eval.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260702T185118_pass2_secondary_harness_checklist.json"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260703T010625Z-skill-route-discovery-pass2.md",
+        "review_note": "Pass 2 exposes adjacent general-agent harness evidence as a checklist-gated secondary lane; it does not activate upstream harnesses."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "pass2_secondary_harness_checklist.controller_surface", "equals": "skill_route_discovery_pass2_secondary_harness_checklist"},
+    {"path": "pass2_secondary_harness_checklist.status", "equals": "ready"},
+    {"path": "pass2_secondary_harness_checklist.record_count", "equals": 2},
+    {"path": "pass2_secondary_harness_checklist.ready_fixture_count", "equals": 0},
+    {"path": "pass2_secondary_harness_checklist.blocked_fixture_count", "equals": 2},
+    {"path": "pass2_secondary_harness_checklist.agent_harness_eval_required", "equals": true},
+    {"path": "pass2_secondary_harness_checklist.skill_route_discovery_inherited", "equals": false},
+    {"path": "pass2_secondary_harness_checklist.local_eval_activation_allowed", "equals": false},
+    {"path": "pass2_secondary_harness_checklist.fixture_requirements", "equals": ["runnable_scenario", "expected_output", "pass_fail_signal", "rollback_path", "non_secret_config"]},
+    {"path": "pass2_secondary_harness_checklist.rows.0.item_id", "equals": "Qwen-AgentWorld"},
+    {"path": "pass2_secondary_harness_checklist.rows.0.evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "pass2_secondary_harness_checklist.rows.0.activation_status", "equals": "blocked_until_local_agent_harness_fixture"},
+    {"path": "pass2_secondary_harness_checklist.rows.0.minimal_fixture.behavior", "equals": "agent_harness_eval_lane"},
+    {"path": "pass2_secondary_harness_checklist.rows.0.minimal_fixture.required_fixture_fields", "equals": ["fixture_path", "expected_behavior", "expected_output", "pass_fail_signal", "rollback_artifact", "non_secret_config"]},
+    {"path": "pass2_secondary_harness_checklist.rows.0.acceptance_gates.local_fixture_declared", "equals": false},
+    {"path": "pass2_secondary_harness_checklist.rows.0.acceptance_gates.skill_route_discovery_not_inherited", "equals": true},
+    {"path": "pass2_secondary_harness_checklist.rows.1.item_id", "equals": "Fundamental-Ava"},
+    {"path": "pass2_secondary_harness_checklist.rows.1.activation_status", "equals": "blocked_until_local_agent_harness_fixture"},
+    {"path": "pass2_secondary_harness_checklist.external_harness_execution_allowed", "equals": false},
+    {"path": "pass2_secondary_harness_checklist.provider_runtime_launch_allowed", "equals": false},
+    {"path": "pass2_secondary_harness_checklist.raw_source_urls_exported", "equals": false},
+    {"path": "pass2_handoff_packet.secondary_harness_checklist.status", "equals": "ready"},
+    {"path": "pass2_handoff_packet.secondary_harness_checklist.blocked_fixture_count", "equals": 2},
+    {"path": "pass2_handoff_packet.secondary_harness_eval_allowed", "equals": false},
+    {"path": "pass2_handoff_packet.local_lane_acceptance_contract.secondary_harness_checklist_status", "equals": "ready"}
+  ]
+}

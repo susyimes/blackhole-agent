@@ -2505,6 +2505,13 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         validation_lane_plan=validation_lane_plan,
         profile_validation_replay=profile_validation_replay,
     )
+    adjacent_general_agent_project_eval = skill_route_discovery_pass3_adjacent_general_agent_project_eval(
+        raw_input=raw_input
+    )
+    pass2_secondary_harness_checklist = skill_route_discovery_pass2_secondary_harness_checklist(
+        raw_input=raw_input,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+    )
     pass2_handoff_packet = skill_route_discovery_pass2_handoff_packet(
         raw_input=raw_input,
         current_action=current_action,
@@ -2512,6 +2519,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         mixed_local_lane_probe=mixed_local_lane_probe,
         validation_readiness_summary=validation_readiness_summary,
         profile_lane_acceptance_contract=profile_lane_acceptance_contract,
+        secondary_harness_checklist=pass2_secondary_harness_checklist,
     )
     pass2_operator_validation_manifest = skill_route_discovery_pass2_operator_validation_manifest(
         pass2_handoff_packet=pass2_handoff_packet,
@@ -2545,9 +2553,6 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         lane_map=lane_map,
         pass1_validation_queue=pass1_validation_queue,
-    )
-    adjacent_general_agent_project_eval = skill_route_discovery_pass3_adjacent_general_agent_project_eval(
-        raw_input=raw_input
     )
     automation_bug_agent_eval_checklist = skill_route_discovery_automation_bug_agent_eval_checklist(
         raw_input=raw_input,
@@ -2686,6 +2691,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "pass_validation_replay_queue": pass_validation_replay_queue,
+        "pass2_secondary_harness_checklist": pass2_secondary_harness_checklist,
         "pass2_handoff_packet": pass2_handoff_packet,
         "pass2_operator_validation_manifest": pass2_operator_validation_manifest,
         "pass3_handoff_packet": pass3_handoff_packet,
@@ -5966,6 +5972,7 @@ def skill_route_discovery_pass2_handoff_packet(
     mixed_local_lane_probe: dict[str, Any],
     validation_readiness_summary: dict[str, Any],
     profile_lane_acceptance_contract: dict[str, Any],
+    secondary_harness_checklist: dict[str, Any],
 ) -> dict[str, Any]:
     """Expose pass-2 bounded lane continuation before secondary harness routing."""
 
@@ -6047,6 +6054,9 @@ def skill_route_discovery_pass2_handoff_packet(
     profile_contract_status = optional_string(profile_lane_acceptance_contract.get("status")) or ""
     if profile_contract_status != "ready":
         diagnostics.append("profile_lane_acceptance_contract_not_ready")
+    secondary_checklist_status = optional_string(secondary_harness_checklist.get("status")) or ""
+    if secondary_checklist_status not in {"ready", "not_present", "not_applicable"}:
+        diagnostics.append("secondary_harness_checklist_not_ready")
 
     mixed_status = optional_string(mixed_local_lane_probe.get("status")) or ""
     mixed_primary_route = optional_string(mixed_local_lane_probe.get("primary_route")) or "skill_route_discovery"
@@ -6461,6 +6471,7 @@ def skill_route_discovery_pass2_handoff_packet(
         "mixed_skill_workflow_probe_status": mixed_status,
         "secondary_lane": secondary_lane,
         "secondary_lane_status": secondary_lane_status,
+        "secondary_harness_checklist": secondary_harness_checklist,
         "secondary_harness_eval_allowed": False,
         "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
         "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
@@ -6489,6 +6500,7 @@ def skill_route_discovery_pass2_handoff_packet(
             "mixed_skill_workflow_primary_route": mixed_primary_route,
             "secondary_lane": secondary_lane,
             "secondary_lane_status": secondary_lane_status,
+            "secondary_harness_checklist_status": secondary_checklist_status,
             "secondary_harness_eval_allowed": False,
             "rows": profile_summary_rows,
             "diagnostics": sorted(dict.fromkeys(diagnostics)),
@@ -6714,6 +6726,7 @@ def skill_route_discovery_pass2_handoff_packet(
             "secondary_route_gates": secondary_route_gates,
             "secondary_lane": secondary_lane,
             "secondary_lane_status": secondary_lane_status,
+            "secondary_harness_checklist_status": secondary_checklist_status,
             "secondary_harness_eval_allowed": False,
             "rows": acceptance_rows,
             "diagnostics": sorted(dict.fromkeys(diagnostics)),
@@ -6755,6 +6768,167 @@ def skill_route_discovery_pass2_handoff_packet(
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass2_secondary_harness_checklist(
+    *,
+    raw_input: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
+) -> dict[str, Any]:
+    """Require local harness evidence before adjacent agent projects can affect pass 2."""
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    current_pass = int(window.get("current_pass") or 0)
+    records = adjacent_general_agent_project_eval.get("records")
+    records = records if isinstance(records, list) else []
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for index, raw_record in enumerate(records, start=1):
+        record = raw_record if isinstance(raw_record, dict) else {}
+        item_id = optional_string(record.get("item_id")) or f"adjacent-agent-record-{index}"
+        source_hash = optional_string(record.get("source_url_hash")) or ""
+        local_fixture = record.get("local_harness_fixture")
+        local_fixture = local_fixture if isinstance(local_fixture, dict) else {}
+        fixture_declared = bool(optional_string(local_fixture.get("fixture_path")))
+        expected_behavior_declared = bool(
+            optional_string(local_fixture.get("behavior"))
+            or string_list(local_fixture.get("expected_behaviors"))
+        )
+        expected_output_declared = bool(
+            optional_string(local_fixture.get("expected_output"))
+            or string_list(local_fixture.get("expected_outputs"))
+        )
+        pass_fail_signal_declared = bool(
+            optional_string(local_fixture.get("pass_fail_signal"))
+            or string_list(local_fixture.get("assertions"))
+        )
+        rollback_path_declared = bool(optional_string(local_fixture.get("rollback_artifact")))
+        non_secret_config_declared = local_fixture.get("non_secret_config") is True
+        local_fixture_ready = all(
+            (
+                fixture_declared,
+                expected_behavior_declared,
+                expected_output_declared,
+                pass_fail_signal_declared,
+                rollback_path_declared,
+                non_secret_config_declared,
+            )
+        )
+        row_diagnostics = []
+        if not fixture_declared:
+            row_diagnostics.append("local_harness_fixture_missing")
+        if not expected_behavior_declared:
+            row_diagnostics.append("expected_behavior_missing")
+        if not expected_output_declared:
+            row_diagnostics.append("expected_output_missing")
+        if not pass_fail_signal_declared:
+            row_diagnostics.append("pass_fail_signal_missing")
+        if not rollback_path_declared:
+            row_diagnostics.append("rollback_path_missing")
+        if not non_secret_config_declared:
+            row_diagnostics.append("non_secret_config_missing")
+        diagnostics.extend(f"{stable_text_hash(item_id)}:{diagnostic}" for diagnostic in row_diagnostics)
+
+        rows.append(
+            {
+                "item_id": item_id,
+                "source_hash": source_hash,
+                "evaluation_lane": "agent_harness_eval_required",
+                "activation_status": "local_harness_fixture_ready"
+                if local_fixture_ready
+                else "blocked_until_local_agent_harness_fixture",
+                "skill_route_discovery_inherited": False,
+                "minimal_fixture": {
+                    "behavior": "agent_harness_eval_lane",
+                    "required_fixture_fields": [
+                        "fixture_path",
+                        "expected_behavior",
+                        "expected_output",
+                        "pass_fail_signal",
+                        "rollback_artifact",
+                        "non_secret_config",
+                    ],
+                    "runnable_scenario_required": True,
+                    "expected_output_required": True,
+                    "pass_fail_signal_required": True,
+                    "rollback_path_required": True,
+                    "non_secret_config_required": True,
+                },
+                "acceptance_gates": {
+                    "local_fixture_declared": fixture_declared,
+                    "expected_behavior_declared": expected_behavior_declared,
+                    "expected_output_declared": expected_output_declared,
+                    "pass_fail_signal_declared": pass_fail_signal_declared,
+                    "rollback_path_declared": rollback_path_declared,
+                    "non_secret_config_declared": non_secret_config_declared,
+                    "skill_route_discovery_not_inherited": True,
+                    "external_harness_execution_denied": True,
+                    "provider_runtime_launch_denied": True,
+                    "remote_execution_denied": True,
+                    "raw_source_url_not_exported": True,
+                    "raw_upstream_body_not_exported": True,
+                },
+                "row_diagnostics": row_diagnostics,
+                "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
+                "local_validation_required": True,
+                "body_free": True,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    present = bool(rows)
+    return {
+        "controller_surface": "skill_route_discovery_pass2_secondary_harness_checklist",
+        "status": "ready" if current_pass == 2 and present else "not_present" if not present else "not_applicable",
+        "decision": "hold_adjacent_agent_projects_for_local_harness_fixture"
+        if present
+        else "no_adjacent_agent_project_checklist_required",
+        "current_pass": current_pass,
+        "record_count": len(rows),
+        "ready_fixture_count": sum(
+            1 for row in rows if row["activation_status"] == "local_harness_fixture_ready"
+        ),
+        "blocked_fixture_count": sum(
+            1
+            for row in rows
+            if row["activation_status"] == "blocked_until_local_agent_harness_fixture"
+        ),
+        "agent_harness_eval_required": present,
+        "skill_route_discovery_inherited": False,
+        "local_eval_activation_allowed": False,
+        "fixture_requirements": [
+            "runnable_scenario",
+            "expected_output",
+            "pass_fail_signal",
+            "rollback_path",
+            "non_secret_config",
+        ],
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
+        "local_validation_required": present,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
 
