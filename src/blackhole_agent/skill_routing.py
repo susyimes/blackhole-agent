@@ -7636,6 +7636,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_20260702_050714_window = source_digest == "github-growth-20260702T050714.674520Z"
     current_20260702_062714_window = source_digest == "github-growth-20260702T062714.806950Z"
     current_20260702_074714_window = source_digest == "github-growth-20260702T074714.911556Z"
+    current_20260702_090714_window = source_digest == "github-growth-20260702T090714.868353Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -7651,6 +7652,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             {
                 "proposal_id": (
                     "p1_skill_route_discovery_zhengxi_views"
+                    if current_20260702_090714_window
+                    else "p1_skill_route_discovery_zhengxi_views"
                     if current_090714_window
                     else "p1-skill-route-discovery-lane"
                     if current_074714_window
@@ -7682,8 +7685,16 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 "selected_local_lane": "test",
                 "validation_target": "zhengxi_views_skill_term_evidence_routes_to_bounded_local_lanes",
                 "validation_task": (
-                    "validate that zhengxi-views Skill package evidence routes only into "
-                    "documentation, config, test, or code_patch lanes before activation"
+                    (
+                        "run a bounded local route-discovery check for the current zhengxi-views "
+                        "trend, proving it classifies into documentation, config, test, and "
+                        "code_patch lanes only before activation"
+                    )
+                    if current_20260702_090714_window
+                    else (
+                        "validate that zhengxi-views Skill package evidence routes only into "
+                        "documentation, config, test, or code_patch lanes before activation"
+                    )
                 ),
                 "expected_input_signals": (
                     "skill_markdown",
@@ -7697,7 +7708,9 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 (
                     {
                         "proposal_id": (
-                            "p3_document_route_policy_for_trend_items"
+                            "p2_agent_harness_eval_trending_agents"
+                            if current_20260702_090714_window
+                            else "p3_document_route_policy_for_trend_items"
                             if current_090714_window
                             else "p3-agent-harness-docs"
                             if current_143923_window
@@ -7721,19 +7734,36 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                             if current_131922_window
                             else "p3-route-hint-documentation"
                         ),
-                        "proposal_kind": "documentation",
-                        "proposal_track": "skill_route_discovery_route_hint_policy",
+                        "proposal_kind": "test" if current_20260702_090714_window else "documentation",
+                        "proposal_track": (
+                            "general_agent_project_eval_policy"
+                            if current_20260702_090714_window
+                            else "skill_route_discovery_route_hint_policy"
+                        ),
                         "route_profiles": (
                             "generic_skill_workflow",
                             "source_cited_domain_research",
                         ),
-                        "selected_local_lane": "documentation",
-                        "validation_target": "skill_route_discovery_vs_agent_harness_route_hint_docs",
+                        "selected_local_lane": "test" if current_20260702_090714_window else "documentation",
+                        "validation_target": (
+                            "general_agent_projects_require_harness_lane_before_activation"
+                            if current_20260702_090714_window
+                            else "skill_route_discovery_vs_agent_harness_route_hint_docs"
+                        ),
                         "validation_task": (
-                            "document that skill_route_discovery evidence maps only to "
-                            "documentation, config, test, or code_patch lanes, while adjacent "
-                            "general-agent repositories require local agent_harness_eval before "
-                            "implementation scope is chosen"
+                            (
+                                "evaluate Qwen-AgentWorld, Fundamental-Ava, and looper through "
+                                "the local agent-harness lane, keeping reusable controller, runner, "
+                                "memory, scheduling, and tool-routing patterns evidence-only until "
+                                "the harness replay passes"
+                            )
+                            if current_20260702_090714_window
+                            else (
+                                "document that skill_route_discovery evidence maps only to "
+                                "documentation, config, test, or code_patch lanes, while adjacent "
+                                "general-agent repositories require local agent_harness_eval before "
+                                "implementation scope is chosen"
+                            )
                         ),
                         "expected_input_signals": (
                             "skill_markdown",
@@ -7756,6 +7786,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 or current_20260702_050714_window
                 or current_20260702_062714_window
                 or current_20260702_074714_window
+                or current_20260702_090714_window
                 else ()
             ),
         )
@@ -7772,6 +7803,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260702_050714_window
         or current_20260702_062714_window
         or current_20260702_074714_window
+        or current_20260702_090714_window
         else
         (
             {
@@ -8092,6 +8124,15 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         else
         [
             "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agents",
+            "p3_agent_harness_fixture_for_generic_agent_projects",
+            "p4_workflow_usecase_route_probe",
+            "trend:lyra81604/zhengxi-views-1",
+        ]
+        if current_20260702_090714_window
+        else
+        [
+            "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_agent_projects",
             "p3_open_reverselab_bug_automation_eval",
             "p4_route_classification_consistency_check",
@@ -8136,6 +8177,22 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:lyra81604/zhengxi-views-1",
         ]
         if current_090714_window
+        else
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agents",
+            "p3_agent_harness_fixture_for_generic_agent_projects",
+            "p4_workflow_usecase_route_probe",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-python-agent-projects",
+            "p3-workflow-usecase-agent-harness-eval",
+            "trend:TianhangZhuzth/Fundamental-Ava-2",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_20260702_090714_window
         else
         [
             "p1-skill-route-discovery-zhengxi-views",
@@ -8311,6 +8368,34 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:TianhangZhuzth/Fundamental-Ava-1",
         ]
         if current_20260702_062714_window
+        else
+        [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-skill-route-discovery-bionemo-toolkit",
+            "p3-agent-harness-eval-general-projects",
+            "p4-route-policy-doc-clarification",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260702_074714_window
+        else
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agents",
+            "p3_agent_harness_fixture_for_generic_agent_projects",
+            "p4_workflow_usecase_route_probe",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-python-agent-projects",
+            "p3-workflow-usecase-agent-harness-eval",
+            "trend:TianhangZhuzth/Fundamental-Ava-2",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_20260702_090714_window
         else
         [
             "p1_skill_route_discovery_zhengxi_views",

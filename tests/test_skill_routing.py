@@ -9501,6 +9501,73 @@ def test_skill_route_discovery_zhengxi_skill_metadata_maps_to_bounded_local_lane
     assert all(lane["external_skill_activation_allowed"] is False for lane in lane_map["proposal_lanes"])
 
 
+def test_skill_route_discovery_current_digest_20260702T090714_pass2_routes_active_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T090714_pass2_local_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    registry["source_digest"] = payload["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    lane = lane_map["current_digest_pass2_local_validation_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass2_local_validation_lane"
+    assert lane["source_digest"] == "github-growth-20260702T090714.868353Z"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "current_digest_pass2_skill_routes_ready_for_bounded_local_validation"
+    assert lane["active_proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p2_agent_harness_eval_trending_agents",
+        "p3_agent_harness_fixture_for_generic_agent_projects",
+        "p4_workflow_usecase_route_probe",
+        "trend:lyra81604/zhengxi-views-1",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p2_agent_harness_eval_trending_agents",
+        "p3_agent_harness_fixture_for_generic_agent_projects",
+        "p4_workflow_usecase_route_probe",
+        "trend:lyra81604/zhengxi-views-1",
+        "p1-skill-route-discovery-zhengxi-views",
+        "p2-agent-harness-eval-python-agent-projects",
+        "p3-workflow-usecase-agent-harness-eval",
+        "trend:TianhangZhuzth/Fundamental-Ava-2",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:ksimback/looper-1",
+    ]
+    assert lane["selected_local_lanes"] == ["test"]
+    assert lane["operator_next_action"] == "replay_current_digest_pass2_local_validation_lane_before_pass3"
+    assert lane["blocked_proposal_ids"] == []
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    assert set(rows) == {
+        "p1_skill_route_discovery_zhengxi_views",
+        "p2_agent_harness_eval_trending_agents",
+    }
+    assert rows["p1_skill_route_discovery_zhengxi_views"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p1_skill_route_discovery_zhengxi_views"]["selected_evidence_item_ids"] == [
+        "trend:lyra81604/zhengxi-views-1"
+    ]
+    assert rows["p2_agent_harness_eval_trending_agents"]["proposal_track"] == (
+        "general_agent_project_eval_policy"
+    )
+    assert rows["p2_agent_harness_eval_trending_agents"]["validation_task"].startswith(
+        "evaluate Qwen-AgentWorld, Fundamental-Ava, and looper through the local agent-harness lane"
+    )
+    assert all(row["selected_local_lane"] == "test" for row in rows.values())
+    assert all(set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES) for row in rows.values())
+    assert all(row["runtime_action"] == "none" for row in rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in rows.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in rows.values())
+    assert all(row["provider_runtime_launch_allowed"] is False for row in rows.values())
+    assert all(row["remote_execution_allowed"] is False for row in rows.values())
+
+
 def test_skill_route_discovery_bounded_route_profile_matrix_covers_skill_workflow_lanes():
     registry = build_skill_route_discovery_registry_from_evidence_items(
         [
