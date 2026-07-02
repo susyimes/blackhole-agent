@@ -6013,13 +6013,32 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_152626_window = source_digest == "github-growth-20260702T152626.587436Z"
     current_20260702_164626_window = source_digest == "github-growth-20260702T164626.776302Z"
     current_20260702_183119_window = source_digest == "github-growth-20260702T183119.073308Z"
+    current_20260702_212709_window = source_digest == "github-growth-20260702T212709.490066Z"
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260702_164626_window:
+    if current_20260702_212709_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_zhengxi_views",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_validation_lane",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_route_discovery_bounded_local_lane",
+                "validation_task": (
+                    "exercise the zhengxi-views Agent Skill trend through the local "
+                    "skill_route_discovery path and verify classification, bounded "
+                    "documentation/config/test/code_patch lanes, uncertainty reporting, "
+                    "and no runtime, provider, install, or external harness expansion"
+                ),
+            },
+        )
+    elif current_20260702_164626_window:
         specs = (
             {
                 "proposal_id": "p1_skill_route_discovery_probe",
@@ -7007,6 +7026,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2_agent_harness_eval_general_agent_projects"
+            if current_20260702_212709_window
+            else
             "p2_agent_harness_eval_trending_agents"
             if current_20260702_100715_window or current_20260702_084714_window
             else
@@ -7172,6 +7194,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p2_agent_harness_eval_fixture"
             elif "workflow" in lowered_name:
                 row["proposal_id"] = "p3_workflow_agent_harness_documentation"
+        if current_20260702_212709_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
+                row["proposal_id"] = "p2_agent_harness_eval_general_agent_projects"
+            elif "workflow" in lowered_name:
+                row["proposal_id"] = "p3_workflow_trend_eval_fixture"
         if current_223748_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
@@ -7236,6 +7264,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_general_agent_projects",
+            "p3_workflow_trend_eval_fixture",
+            "p4_route_policy_documentation_clarification",
+            "p5_interpreter_uncertainty_regression",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+        if current_20260702_212709_window
+        else
         [
             "p1_skill_route_discovery_probe",
             "p2_agent_harness_eval_fixture",
@@ -7664,6 +7706,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
         ],
         "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
+        "workflow_topic_boundary": _skill_route_discovery_workflow_topic_boundary(
+            adjacent_rows,
+            proposal_id=(
+                "p3_workflow_trend_eval_fixture"
+                if current_20260702_212709_window
+                else "p3_workflow_agent_harness_documentation"
+            ),
+        ),
         "operator_validation_lane": _skill_route_discovery_operator_validation_lane(
             rows,
             adjacent_rows,
@@ -7742,6 +7792,59 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_workflow_topic_boundary(
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    *,
+    proposal_id: str,
+) -> dict[str, Any]:
+    """Expose workflow-keyword-only evidence as an agent-harness gate."""
+
+    workflow_rows = [
+        row
+        for row in adjacent_rows
+        if "workflow" in str(row.get("name") or "").casefold()
+        or any("workflow" in topic.casefold() for topic in _string_list(row.get("topics")))
+        or "workflow" in str(row.get("item_id") or "").casefold()
+    ]
+    ready = bool(workflow_rows) and all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("direct_runtime_route_allowed") is False
+        and row.get("direct_code_patch_route_allowed") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        for row in workflow_rows
+    )
+    return {
+        "controller_surface": "skill_route_discovery_workflow_topic_boundary",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "workflow_topic_only_requires_agent_harness_eval_before_local_lanes"
+            if ready
+            else "repair_workflow_topic_boundary_before_activation"
+        ),
+        "proposal_id": proposal_id,
+        "workflow_keyword_only": True,
+        "workflow_item_ids": [str(row.get("item_id") or "") for row in workflow_rows],
+        "workflow_source_hashes": [str(row.get("source_hash") or "") for row in workflow_rows],
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
