@@ -44,6 +44,22 @@ metadata and hashes only; raw source URLs, raw evidence URLs, replay commands,
 target paths, upstream bodies, provider launch, external harness execution,
 remote execution, and external skill or agent activation remain denied.
 
+Source digest `github-growth-20260702T162626.606010Z` completes pass 4 of the
+same `skill-route-discovery` window with an explicit
+`current_digest_pass4_completion_handoff`. The zhengxi-views trend remains the
+only direct `skill_route_discovery` candidate and closes through local test plus
+documentation lanes inside the documentation, config, test, and code_patch
+envelope.
+
+Qwen-AgentWorld and Fundamental-Ava stay as adjacent
+`agent_harness_eval_required` rows, with direct runtime and direct code_patch
+routes disabled until a local harness evaluation exists. The
+Awesome-Blender-Seedance-Workflow-Usecases signal is recorded as a workflow-only
+repository boundary: a workflow keyword without an explicit skill-route hint
+does not bypass `agent_harness_eval_required`, does not activate runtime
+workflow adoption, and does not authorize provider launch, external harness
+execution, remote execution, or raw upstream export.
+
 Source digest `github-growth-20260702T070714.706511Z` completes the active
 pass-4 lane for `p1-skill-route-discovery-agent-skills`,
 `p2-agent-harness-eval-gate`, and `p3-route-hint-docs`. The selected skill
