@@ -9616,7 +9616,28 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     current_20260702_064714_window = source_digest == "github-growth-20260702T064714.829371Z"
     current_20260702_080714_window = source_digest == "github-growth-20260702T080714.759237Z"
     current_20260702_092714_window = source_digest == "github-growth-20260702T092714.857659Z"
+    current_20260702_104714_window = source_digest == "github-growth-20260702T104714.732349Z"
     active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_general_projects",
+            "p3_workflow_trend_review_fixture",
+            "p4_route_policy_consistency_check",
+            "p5_self_model_alignment_note",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-agent-harness-eval-general-trends",
+            "p3-workflow-repo-classification-coverage",
+            "p4-route-policy-doc-note",
+            "p5-controller-metadata-dedup-check",
+            "p2-agent-harness-eval-general-agent-projects",
+            "p3-workflow-usecase-doc-triage",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ]
+        if current_20260702_104714_window
+        else
         [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_agents",
@@ -9937,6 +9958,20 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         ]
     )
     specs = (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_route_discovery_stays_bounded_before_activation",
+                "activation_review_step": "verify_source_cited_skill_route_lane_before_any_activation",
+            },
+        )
+        if current_20260702_104714_window
+        else
         (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -10377,6 +10412,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 row["proposal_id"] = "p3-agent-harness-eval-general-projects"
         elif current_20260702_092714_window:
             row["proposal_id"] = "p2-agent-harness-general-agent-projects"
+        elif current_20260702_104714_window:
+            row["proposal_id"] = "p2-agent-harness-eval-general-agent-projects"
         elif current_024715_window:
             row["proposal_id"] = "proposal_agent_harness_eval_qwen_agentworld"
         elif current_190302_window:
@@ -10449,6 +10486,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             else
             "p2-agent-harness-general-agent-projects"
             if current_20260702_092714_window
+            else
+            "p2-agent-harness-eval-general-agent-projects"
+            if current_20260702_104714_window
             else
             "proposal_agent_harness_eval_qwen_agentworld"
             if current_024715_window
@@ -10553,10 +10593,14 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         if general_agent_row["status"] != "ready":
             blocked_proposal_ids.append(str(general_agent_row["proposal_id"]))
 
-    if current_20260702_092714_window:
+    if current_20260702_092714_window or current_20260702_104714_window:
         rows.append(
             {
-                "proposal_id": "p3-workflow-usecase-routing-eval",
+                "proposal_id": (
+                    "p3-workflow-usecase-doc-triage"
+                    if current_20260702_104714_window
+                    else "p3-workflow-usecase-routing-eval"
+                ),
                 "proposal_kind": "documentation",
                 "proposal_track": "workflow_usecase_agent_harness_boundary",
                 "status": "ready",
@@ -10579,7 +10623,11 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "activation_review_step": "keep_workflow_only_trends_in_agent_harness_eval_until_skill_route_hint_exists",
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q "
-                    "-k 20260702T092714_pass3_routes_current_window"
+                    + (
+                        "-k 20260702T104714_pass3_routes_current_window"
+                        if current_20260702_104714_window
+                        else "-k 20260702T092714_pass3_routes_current_window"
+                    )
                 ),
                 "local_validation_required": True,
                 "runtime_action": "none",
@@ -10712,6 +10760,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 or current_20260702_052715_window
                 or current_20260702_064714_window
                 or current_20260702_092714_window
+                or current_20260702_104714_window
                 or current_024715_window
                 else ("generic_skill_workflow", "skill_ecosystem_state_handoff")
             )

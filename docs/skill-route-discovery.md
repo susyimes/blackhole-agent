@@ -5612,3 +5612,23 @@ code_patch routes stay disabled until a local agent harness evaluation produces
 a bounded follow-up lane. The self-model was read for this pass and left
 unchanged because it is descriptive policy context rather than an executable
 route source.
+
+## Current Digest 20260702T104714 Pass 3
+
+The `github-growth-20260702T104714.732349Z` pass-3 activation review lane is
+now exposed through `current_digest_pass3_activation_review_lane`. The current
+zhengxi-views evidence remains a `skill_route_discovery` test row because the
+public repository presents a concrete skill package shape: `SKILL.md`,
+`skill.yml`, references, scripts, evals, source-citation boundaries, and
+non-investment-advice limits. The only allowed local lanes are documentation,
+config, test, and code_patch, with the pass selecting test before activation
+review.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`agent_harness_eval_required` rows. They do not inherit `skill_route_discovery`,
+and direct runtime or code_patch routes stay disabled until a local harness
+evaluation produces a bounded documentation, test, or code_patch follow-up.
+Workflow-usecase repository trends without explicit skill-route signals are
+recorded as documentation triage only; they stay behind the same harness-eval
+boundary and do not authorize runtime workflow adoption, provider launch,
+external harness execution, or remote execution.
