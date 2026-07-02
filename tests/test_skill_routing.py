@@ -16343,6 +16343,117 @@ def test_skill_route_discovery_current_digest_20260702T040714_pass3_activation_r
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260702T052715_keeps_skill_workflow_evidence_bounded():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T052715_pass3_skill_workflow_bounded_lanes.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass3_activation_review_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T052715.136537Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass3_activation_review_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 3
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-agent-skills",
+        "p1-skill-route-discovery-python-agent-skills",
+        "p3-route-decision-docs-for-trend-digests",
+        "p2-agent-harness-eval-trending-agent-projects",
+    ]
+    assert lane["active_proposal_ids"] == payload["capability_window"]["anchoring_proposals"] + [
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["observed_route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert lane["route_evidence_activation_gate"]["status"] == "ready"
+
+    bionemo = rows["p1-skill-route-discovery-agent-skills"]
+    assert bionemo["candidate_names"] == ["bionemo-agent-toolkit"]
+    assert bionemo["route_profiles"] == ["generic_skill_workflow"]
+    assert bionemo["selected_evidence_item_ids"] == [
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1"
+    ]
+    assert bionemo["selected_local_lane"] == "test"
+    assert bionemo["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert bionemo["runtime_action"] == "none"
+    assert bionemo["external_skill_activation_allowed"] is False
+
+    zhengxi = rows["p1-skill-route-discovery-python-agent-skills"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert zhengxi["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+
+    docs = rows["p3-route-decision-docs-for-trend-digests"]
+    assert docs["selected_local_lane"] == "documentation"
+    assert docs["validation_target"] == "document_skill_route_evidence_as_bounded_discovery_input"
+    assert docs["selected_evidence_item_ids"] == [
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+        "trend:lyra81604/zhengxi-views-1",
+    ]
+    assert docs["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    agent_row = rows["p2-agent-harness-eval-trending-agent-projects"]
+    assert agent_row["route_hint"] == "agent_harness_eval_required"
+    assert agent_row["candidate_names"] == ["Qwen-AgentWorld", "Fundamental-Ava"]
+    assert agent_row["direct_local_change_proposals_allowed_before_eval"] is False
+    assert agent_row["external_harness_execution_allowed"] is False
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p2-agent-harness-eval-trending-agent-projects"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+    assert "runtime_execution" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+    assert "provider_runtime" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+
+
 def test_skill_route_discovery_current_digest_20260702T030714_pass4_completion_closes_skill_route_window():
     fixture_path = (
         Path(__file__).parent

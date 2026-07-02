@@ -5,6 +5,25 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260702T052715.136537Z` continues pass 3 of the
+active `skill-route-discovery` window with selected item IDs
+`trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1` and
+`trend:lyra81604/zhengxi-views-1` as bounded discovery input only. BioNeMo's
+agent skill catalog, plugin marketplace, workflow directory, and `skills.sh.json`
+signals map to the local test lane; zhengxi-views' `SKILL.md`, `skill.yml`,
+references, scripts, evals, citation boundaries, and non-investment-advice
+limits map to the local test lane plus a documentation boundary. Neither item is
+permission to install, import, execute, launch a provider, export raw upstream
+material, or activate an external skill. The only skill-route lanes available
+from these signals remain documentation, config, test, and code_patch, and each
+lane requires focused local validation before activation review.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent general-agent trend evidence
+for this digest. They are queued for `agent_harness_eval_required` before any
+documentation, test, code_patch, runtime, provider, external harness, or remote
+execution path can be selected, and they do not inherit `skill_route_discovery`
+from the BioNeMo or zhengxi rows.
+
 Source digest `github-growth-20260702T040714.731937Z` advances pass 3 of the
 active `skill-route-discovery` window with an operator-visible activation
 review lane for the current proposals. zhengxi-views and BioNeMo Agent Toolkit
