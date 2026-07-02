@@ -5798,6 +5798,38 @@ def _skill_route_discovery_active_pass1_proposal_replay_lane(
     }
 
 
+def _skill_route_discovery_current_digest_route_probe_metadata(
+    candidate: Mapping[str, Any],
+    *,
+    matched_profiles: Sequence[str],
+    allowed_lanes: Sequence[str],
+) -> dict[str, Any]:
+    """Expose why a frozen repository item is routed without exporting source URLs."""
+
+    return {
+        "candidate_name": str(candidate.get("candidate_name") or ""),
+        "source_hash": _stable_hash(str(candidate.get("source_url") or candidate.get("candidate_name") or "")),
+        "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+        "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+        "matched_route_profiles": list(dict.fromkeys(_string_list(matched_profiles))),
+        "matched_route_terms": _string_list(candidate.get("matched_route_terms")),
+        "source_layout_signals": _string_list(candidate.get("source_layout_signals")),
+        "source_metadata_signals": _string_list(candidate.get("source_metadata_signals")),
+        "evidence_item_ids": _string_list(candidate.get("evidence_item_ids")),
+        "allowed_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(_string_list(allowed_lanes))
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def _skill_route_discovery_current_digest_pass1_validation_lane(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -5831,7 +5863,49 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_223748_window = source_digest == "github-growth-20260701T223748.552762Z"
     current_235748_window = source_digest == "github-growth-20260701T235748.704258Z"
     current_020714_window = source_digest == "github-growth-20260702T020714.675901Z"
-    if current_020714_window:
+    current_20260702_032714_window = source_digest == "github-growth-20260702T032714.646827Z"
+    if current_20260702_032714_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-regression-lane",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_related_repository_signals_route_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate BioNeMo and zhengxi-views skill repository evidence as "
+                    "skill_route_discovery with route_hints, evaluation lane, allowed lanes, "
+                    "and local_validation_required preserved before activation"
+                ),
+            },
+            {
+                "proposal_id": "p2-agent-harness-eval-fixture-lane",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_eval_policy",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "general_agent_project_without_skill_signal_requires_agent_harness_eval",
+                "validation_task": (
+                    "keep Qwen-AgentWorld and Fundamental-Ava as adjacent "
+                    "agent_harness_eval_required rows until a local harness evaluation "
+                    "selects documentation, test, or code_patch work"
+                ),
+            },
+            {
+                "proposal_id": "p3-route-discovery-docs",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_discovery_vs_agent_harness_eval_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_route_discovery_vs_agent_harness_eval_lanes",
+                "validation_task": (
+                    "document the distinction between bounded skill_route_discovery lanes "
+                    "and agent_harness_eval_required rows for general agent project evidence"
+                ),
+            },
+        )
+    elif current_020714_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-lane",
@@ -6483,6 +6557,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         validation_gates: list[str] = []
         uncertainty_reasons: list[str] = []
         downgraded_lanes: list[str] = []
+        route_probe_rows: list[dict[str, Any]] = []
 
         for candidate in sorted(
             candidate_lane_inventory,
@@ -6514,6 +6589,17 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
             uncertainty_reasons.extend(_string_list(candidate.get("uncertainty_reasons")))
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
+            route_probe_rows.append(
+                _skill_route_discovery_current_digest_route_probe_metadata(
+                    candidate,
+                    matched_profiles=matched_profiles,
+                    allowed_lanes=[
+                        lane
+                        for lane in _string_list(candidate.get("proposal_kinds"))
+                        if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                    ],
+                )
+            )
 
         bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
         selected_lane = str(spec["selected_local_lane"])
@@ -6551,6 +6637,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": str(spec["validation_target"]),
                 "validation_task": str(spec["validation_task"]),
+                "route_probe_metadata": route_probe_rows,
                 "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
                 "replay_command_hash": _stable_hash(replay_command) if replay_command else "",
@@ -6708,10 +6795,26 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
                 row["proposal_id"] = "p2-agent-harness-eval-route"
+        if current_20260702_032714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p2-agent-harness-eval-fixture-lane"
         if current_223748_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
                 row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+        row["route_probe_metadata"] = {
+            "route_hint": "agent_harness_eval_required",
+            "evaluation_lane": "agent_harness_eval_required",
+            "classification_basis": "general_agent_project_without_skill_workflow_signal",
+            "source_hash": str(row.get("source_hash") or ""),
+            "route_hints": _string_list(row.get("route_hints")),
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+        }
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -6760,6 +6863,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-regression-lane",
+            "p2-agent-harness-eval-fixture-lane",
+            "p3-route-discovery-docs",
+            "p4-route-hint-config-audit",
+            "p5-minimal-code-path-for-route-probe-metadata",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260702_032714_window
+        else
         [
             "p1-skill-route-discovery-lane",
             "p2-agent-harness-eval-route",
