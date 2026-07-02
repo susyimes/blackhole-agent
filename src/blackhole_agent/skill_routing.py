@@ -7301,6 +7301,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_213749_window = source_digest == "github-growth-20260701T213749.224965Z"
     current_225748_window = source_digest == "github-growth-20260701T225748.582279Z"
     current_022714_window = source_digest == "github-growth-20260702T022714.857893Z"
+    current_20260702_034714_window = source_digest == "github-growth-20260702T034714.900431Z"
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -7327,6 +7328,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                     if current_225748_window
                     else "p1-skill-route-discovery-agent-toolkit"
                     if current_022714_window
+                    else "p1-skill-route-discovery-trending-skill-repos"
+                    if current_20260702_034714_window
                     else "p1-skill-route-discovery-validation"
                     if current_143923_window
                     else "p1-skill-route-discovery-zhengxi-views"
@@ -7364,6 +7367,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                             if current_225748_window
                             else "p2-skill-route-discovery-zhengxi"
                             if current_022714_window
+                            else "p2-document-agent-harness-eval-boundary"
+                            if current_20260702_034714_window
                             else "p3_open_reverselab_bug_automation_eval"
                             if current_171923_window
                             else "p4-route-metadata-consistency-check"
@@ -7401,6 +7406,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 or current_213749_window
                 or current_225748_window
                 or current_022714_window
+                or current_20260702_034714_window
                 else ()
             ),
         )
@@ -7413,6 +7419,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_213749_window
         or current_225748_window
         or current_022714_window
+        or current_20260702_034714_window
         else
         (
             {
@@ -7678,6 +7685,20 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         if current_034714_window
         else
         [
+            "p1-skill-route-discovery-regression-lane",
+            "p2-agent-harness-eval-fixture-lane",
+            "p3-route-discovery-docs",
+            "p4-route-hint-config-audit",
+            "p5-minimal-code-path-for-route-probe-metadata",
+            "p1-skill-route-discovery-trending-skill-repos",
+            "p2-document-agent-harness-eval-boundary",
+            "p3-agent-harness-eval-fixtures",
+            "p4-configurable-route-hint-policy-check",
+            "p5-no-runtime-action-from-trends",
+        ]
+        if current_20260702_034714_window
+        else
+        [
             "p1_skill_route_discovery_zhengxi_views",
             "p2_agent_harness_eval_trending_agent_projects",
             "p3_open_reverselab_bug_automation_eval",
@@ -7845,6 +7866,24 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         if current_034714_window
+        else
+        [
+            "p1-skill-route-discovery-regression-lane",
+            "p2-agent-harness-eval-fixture-lane",
+            "p3-route-discovery-docs",
+            "p4-route-hint-config-audit",
+            "p5-minimal-code-path-for-route-probe-metadata",
+            "p1-skill-route-discovery-trending-skill-repos",
+            "p2-document-agent-harness-eval-boundary",
+            "p3-agent-harness-eval-fixtures",
+            "p4-configurable-route-hint-policy-check",
+            "p5-no-runtime-action-from-trends",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260702_034714_window
         else
         [
             "p1_skill_route_discovery_zhengxi_views",
@@ -8190,6 +8229,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_143923_window
             else "p2-agent-harness-eval-agentworld"
             if current_034714_window
+            else "p3-agent-harness-eval-fixtures"
+            if current_20260702_034714_window
             else "p3-agent-harness-eval-qwen-agentworld"
             if current_225904_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -8214,6 +8255,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "open-reverselab",
         }:
             row["proposal_id"] = "p3-general-agent-routing-coverage"
+        if current_20260702_034714_window:
+            row["proposal_id"] = "p3-agent-harness-eval-fixtures"
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         if current_090714_window:
@@ -10368,9 +10411,18 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
     current_074714_window = source_digest == "github-growth-20260630T074714.730934Z"
     current_090714_window = source_digest == "github-growth-20260630T090714.437117Z"
     current_131922_window = source_digest == "github-growth-20260701T131922.972375Z"
+    current_022714_window = source_digest == "github-growth-20260702T022714.857893Z"
+    current_034714_window = source_digest == "github-growth-20260702T034714.900431Z"
+    current_skill_term_window = (
+        current_074714_window
+        or current_090714_window
+        or current_131922_window
+        or current_022714_window
+        or current_034714_window
+    )
     required_skill_profiles = (
         ("generic_skill_workflow", "source_cited_domain_research")
-        if current_074714_window or current_090714_window or current_131922_window
+        if current_skill_term_window
         else
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
         if current_103324_window or current_173904_window or current_201904_window
@@ -10385,6 +10437,10 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             if current_090714_window
             else "p1-skill-route-discovery-lane"
             if current_074714_window
+            else "p1-skill-route-discovery-trending-skill-repos"
+            if current_034714_window
+            else "p1-skill-route-discovery-agent-toolkit"
+            if current_022714_window
             else "p1-skill-route-discovery-zhengxi-views"
             if current_131922_window
             else "p1-skill-route-discovery-compass-skills"
@@ -10399,8 +10455,7 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             "compass_and_zhengxi_skill_route_fixture_replay"
             if current_103324_window
             else "zhengxi_views_skill_term_evidence_routes_to_bounded_local_lanes"
-            if current_074714_window or current_090714_window
-            or current_131922_window
+            if current_skill_term_window
             else "skill_route_discovery_index_fixture_replay"
         ),
         required_route_profiles=required_skill_profiles,
@@ -10416,6 +10471,10 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             if current_074714_window
             else "p4-route-metadata-consistency-check"
             if current_131922_window
+            else "p2-document-agent-harness-eval-boundary"
+            if current_034714_window
+            else "p2-skill-route-discovery-zhengxi"
+            if current_022714_window
             else "p2-skill-route-discovery-zhengxi-views"
             if current_173904_window
             else "p2-skill-ecosystem-handoff-doc"
@@ -10428,8 +10487,7 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             "skill_route_discovery_evidence_interpretation_docs"
             if current_103324_window
             else "skill_route_discovery_vs_agent_harness_route_hint_docs"
-            if current_074714_window or current_090714_window
-            or current_131922_window
+            if current_skill_term_window
             else "skill_route_profile_documentation_lane_update"
         ),
         required_route_profiles=required_skill_profiles,
@@ -10445,6 +10503,10 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
             if current_074714_window
             else "p2-agent-harness-eval-for-general-agent-trends"
             if current_131922_window
+            else "p3-agent-harness-eval-fixtures"
+            if current_034714_window
+            else "p3-agent-harness-eval-qwen-agentworld"
+            if current_022714_window
             else "p3-agent-harness-qwen-agentworld"
             if current_173904_window
             else "p3-agent-harness-eval-baseline"
@@ -10547,6 +10609,32 @@ def _skill_route_discovery_current_digest_pass2_active_slice_review_lane(
                 "trend:lyra81604/zhengxi-views-1",
             ]
             if current_090714_window
+            else [
+                "p1-skill-route-discovery-regression-lane",
+                "p2-agent-harness-eval-fixture-lane",
+                "p3-route-discovery-docs",
+                "p4-route-hint-config-audit",
+                "p5-minimal-code-path-for-route-probe-metadata",
+                "p1-skill-route-discovery-trending-skill-repos",
+                "p2-document-agent-harness-eval-boundary",
+                "p3-agent-harness-eval-fixtures",
+                "p4-configurable-route-hint-policy-check",
+                "p5-no-runtime-action-from-trends",
+            ]
+            if current_034714_window
+            else [
+                "p1-skill-route-discovery-lane",
+                "p2-agent-harness-eval-route",
+                "p3-bionemo-fork-and-trend-dedup",
+                "p4-route-hint-documentation",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-agent-toolkit",
+                "p2-skill-route-discovery-zhengxi",
+                "p3-agent-harness-eval-qwen-agentworld",
+                "p4-general-agent-intake-eval-set",
+                "p5-route-classification-regression",
+            ]
+            if current_022714_window
             else [
                 "p1-skill-route-discovery-zhengxi-views",
                 "p2-agent-harness-eval-qwen-agentworld",
