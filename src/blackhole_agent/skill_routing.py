@@ -5864,7 +5864,38 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_235748_window = source_digest == "github-growth-20260701T235748.704258Z"
     current_020714_window = source_digest == "github-growth-20260702T020714.675901Z"
     current_20260702_032714_window = source_digest == "github-growth-20260702T032714.646827Z"
-    if current_20260702_032714_window:
+    current_20260702_044714_window = source_digest == "github-growth-20260702T044714.817246Z"
+    if current_20260702_044714_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-agent-skills",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "test",
+                "validation_target": "bionemo_agent_skill_catalog_routes_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate BioNeMo Agent Toolkit skill catalog evidence as "
+                    "skill_route_discovery using frozen digest metadata only, with "
+                    "documentation, config, test, and code_patch as the only local lanes"
+                ),
+            },
+            {
+                "proposal_id": "p3-route-decision-docs-for-trend-digests",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_discovery_vs_agent_harness_eval_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_current_digest_route_decisions_from_item_ids",
+                "validation_task": (
+                    "record how current RepositoryTrend item IDs map explicit "
+                    "skill_route_discovery evidence to bounded local lanes while keeping "
+                    "general agent projects behind agent_harness_eval_required"
+                ),
+            },
+        )
+    elif current_20260702_032714_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-regression-lane",
@@ -6799,6 +6830,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
                 row["proposal_id"] = "p2-agent-harness-eval-fixture-lane"
+        if current_20260702_044714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p2-agent-harness-eval-trending-agent-projects"
         if current_223748_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
@@ -6863,6 +6898,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-agent-skills",
+            "p2-agent-harness-eval-trending-agent-projects",
+            "p3-route-decision-docs-for-trend-digests",
+            "p4-controller-route-fallback-preflight",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260702_044714_window
+        else
         [
             "p1-skill-route-discovery-regression-lane",
             "p2-agent-harness-eval-fixture-lane",

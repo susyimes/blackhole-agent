@@ -19,6 +19,21 @@ Qwen-AgentWorld and Fundamental-Ava remain adjacent general-agent evidence under
 provider launch, external harness execution, remote execution, raw URL export,
 replay-command export, or upstream-body export before local harness evaluation.
 
+Source digest `github-growth-20260702T044714.817246Z` starts pass 1 of the next
+active `skill-route-discovery` window with a replayable validation lane for the
+current proposal IDs. BioNeMo Agent Toolkit maps to
+`p1-skill-route-discovery-agent-skills` in the local test lane from selected
+item ID evidence. The route-decision documentation row
+`p3-route-decision-docs-for-trend-digests` may cite only selected item IDs and
+frozen body-free summaries while explaining why BioNeMo and zhengxi-views are
+bounded skill-route evidence.
+
+Qwen-AgentWorld and Fundamental-Ava stay adjacent under
+`p2-agent-harness-eval-trending-agent-projects`. They require
+`agent_harness_eval_required` before documentation, test, code_patch, runtime,
+provider, external harness, or remote execution work is selected, and they do
+not inherit `skill_route_discovery` from the skill-route rows.
+
 Source digest `github-growth-20260702T034714.900431Z` continues pass 2 of the
 active `skill-route-discovery` window with an operator validation manifest for
 the two current skill-term trend items. BioNeMo Agent Toolkit and zhengxi-views
