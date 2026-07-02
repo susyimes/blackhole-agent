@@ -5878,3 +5878,25 @@ the same harness boundary. Workflow keywords alone do not authorize runtime
 workflow adoption, provider launch, external harness execution, remote
 execution, raw URL export, replay-command export, target-path export, or
 upstream-body export.
+
+## Current Digest 20260702T224121 Pass 4
+
+The `github-growth-20260702T224121.812742Z` final pass closes the current
+skill-route-discovery slice with an operator recovery packet. zhengxi-views is
+the only direct `skill_route_discovery` candidate: its public Agent Skill shape
+includes `SKILL.md`, `skill.yml`, references, evals, scripts, source-citation
+workflow language, and advice-boundary metadata. It maps to the local test lane,
+with a documentation row recording the route policy; the allowed lane envelope
+remains documentation, config, test, and code_patch.
+
+Qwen-AgentWorld and Fundamental-Ava are kept as separate adjacent
+`agent_harness_eval_required` rows for
+`p2_agent_harness_eval_qwen_agentworld` and
+`p3_agent_harness_eval_fundamental_ava`. They do not inherit
+`skill_route_discovery`; direct lanes before harness evaluation are empty, and
+only documentation, test, or code_patch may be selected after a local harness
+result exists. The operator packet requires a rollback ref, rollback artifact,
+focused validation, and replay hashes, while denying runtime action, external
+skill or agent activation, external harness execution, provider launch, remote
+execution, raw URL export, replay-command export, target-path export, and
+upstream-body export.
