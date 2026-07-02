@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 148
-    assert payload["pass_count"] == 147
+    assert payload["fixture_count"] == 149
+    assert payload["pass_count"] == 148
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -20543,6 +20543,54 @@ def test_skill_route_discovery_current_digest_20260702T202709_provider_runtime_c
 
     assert "https://github.com/" not in serialized
     assert "local-dry-run-provider" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T234121_provider_runtime_control_pass3():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260702T234121_provider_runtime_control_pass3.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    workflow = output["provider_runtime_control_pass3_operator_recovery_workflow"]
+    serialized = json.dumps(workflow, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 1
+    assert output["registry"]["ignored_evidence_item_count"] == 3
+    assert output["provider_runtime_promotion_checkpoint"]["status"] == "ready"
+
+    assert workflow["controller_surface"] == "provider_runtime_control_pass3_operator_recovery_workflow"
+    assert workflow["status"] == "ready"
+    assert workflow["decision"] == "operator_can_replay_provider_runtime_recovery_before_final_pass"
+    assert workflow["supervisor_next_action"] == "replay_provider_runtime_hashes_then_selected_validation_lane"
+    assert workflow["current_pass"] == 3
+    assert workflow["total_passes"] == 4
+    assert workflow["pass3_observed"] is True
+    assert workflow["final_pass_observed"] is False
+    assert workflow["provider_replay_ready"] is True
+    assert workflow["bounded_lane_selected"] is True
+    assert workflow["selected_local_lane"] == "test"
+    assert workflow["activation_packet_blocks_supervisor_promotion"] is True
+    assert workflow["adjacent_agent_harness_eval_required"] is True
+    assert workflow["adjacent_agent_harness_record_count"] == 3
+    assert workflow["provider_runtime_replay_command_count"] == 2
+    assert workflow["raw_replay_commands_exported"] is False
+    assert workflow["provider_runtime_launch_allowed"] is False
+    assert workflow["external_harness_execution_allowed"] is False
+    assert workflow["remote_execution_allowed"] is False
+    assert workflow["raw_preflight_inputs_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "local-dry-run-provider" not in serialized
+    assert "pytest tests/test_harness_eval.py" not in serialized
     assert '"provider_runtime_launch_allowed": true' not in serialized
 
 

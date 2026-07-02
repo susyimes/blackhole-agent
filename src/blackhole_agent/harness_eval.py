@@ -2522,6 +2522,18 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
     adjacent_general_agent_project_eval = skill_route_discovery_pass3_adjacent_general_agent_project_eval(
         raw_input=raw_input
     )
+    provider_runtime_control_pass3_operator_recovery_workflow = (
+        skill_route_discovery_provider_runtime_control_pass3_operator_recovery_workflow(
+            raw_input=raw_input,
+            current_action=current_action,
+            current_action_provider_runtime_preflight=current_action_provider_runtime_preflight,
+            provider_runtime_promotion_checkpoint=provider_runtime_promotion_checkpoint,
+            validation_lane_plan=validation_lane_plan,
+            validation_readiness_summary=validation_readiness_summary,
+            provider_runtime_activation_packet=provider_runtime_activation_packet,
+            adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        )
+    )
     pass2_secondary_harness_checklist = skill_route_discovery_pass2_secondary_harness_checklist(
         raw_input=raw_input,
         adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
@@ -2704,6 +2716,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "provider_runtime_promotion_checkpoint": provider_runtime_promotion_checkpoint,
         "validation_readiness_summary": validation_readiness_summary,
         "provider_runtime_activation_packet": provider_runtime_activation_packet,
+        "provider_runtime_control_pass3_operator_recovery_workflow": (
+            provider_runtime_control_pass3_operator_recovery_workflow
+        ),
         "domain_validation_probe": domain_validation_probe,
         "profile_validation_replay": profile_validation_replay,
         "pass_validation_replay_queue": pass_validation_replay_queue,
@@ -10775,6 +10790,217 @@ def skill_route_discovery_provider_runtime_activation_packet(
         "external_skill_code_allowed": False,
         "external_harness_execution_allowed": False,
         "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_control_pass3_operator_recovery_workflow(
+    *,
+    raw_input: dict[str, Any],
+    current_action: dict[str, Any],
+    current_action_provider_runtime_preflight: dict[str, Any],
+    provider_runtime_promotion_checkpoint: dict[str, Any],
+    validation_lane_plan: dict[str, Any],
+    validation_readiness_summary: dict[str, Any],
+    provider_runtime_activation_packet: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-3 provider-runtime recovery sequencing without launch authority."""
+
+    window = raw_input.get("capability_window")
+    window = window if isinstance(window, dict) else {}
+    theme = optional_string(window.get("theme")) or "skill-route-discovery"
+    current_pass = int(
+        window.get("current_pass")
+        or window.get("planned_pass")
+        or current_action.get("current_pass")
+        or 0
+    )
+    total_passes = int(window.get("total_passes") or current_action.get("total_passes") or 0)
+    provider_runtime_theme = theme == "provider-runtime-control"
+    pass3_observed = current_pass == 3
+    final_pass_observed = bool(total_passes and current_pass >= total_passes)
+    preflight_status = optional_string(current_action_provider_runtime_preflight.get("status")) or "blocked"
+    checkpoint_status = optional_string(provider_runtime_promotion_checkpoint.get("status")) or "blocked"
+    readiness_status = optional_string(validation_readiness_summary.get("status")) or "blocked"
+    activation_packet_status = optional_string(provider_runtime_activation_packet.get("status")) or "blocked"
+    adjacent_status = optional_string(adjacent_general_agent_project_eval.get("status")) or "not_present"
+    selected_local_lane = optional_string(current_action.get("selected_local_lane")) or "none"
+    selected_lane_source = "current_action"
+    validation_rows = validation_lane_plan.get("rows")
+    validation_rows = validation_rows if isinstance(validation_rows, list) else []
+    fallback_validation_row: dict[str, Any] = {}
+    if selected_local_lane == "none":
+        for raw_row in validation_rows:
+            row = raw_row if isinstance(raw_row, dict) else {}
+            recommended = [
+                lane
+                for lane in string_list(row.get("recommended_local_lane_order"))
+                if lane in {"documentation", "config", "test", "code_patch"}
+            ]
+            if recommended and int(row.get("evidence_item_id_count") or 0) > 0:
+                fallback_validation_row = row
+                selected_local_lane = "test" if "test" in recommended else recommended[0]
+                selected_lane_source = "validation_lane_plan_candidate"
+                break
+    required_validation = string_list(current_action.get("required_validation"))
+    provider_runtime_commands = string_list(
+        provider_runtime_promotion_checkpoint.get("provider_runtime_replay_commands")
+    ) or [
+        PROVIDER_RUNTIME_PREFLIGHT_COMMAND,
+        PROVIDER_RUNTIME_RECOVERY_SUMMARY_COMMAND,
+    ]
+    adjacent_commands = string_list(adjacent_general_agent_project_eval.get("replay_commands"))
+    recovery_hint_codes = sorted(
+        dict.fromkeys(
+            (
+                *string_list(current_action_provider_runtime_preflight.get("recovery_hint_codes")),
+                *string_list(provider_runtime_promotion_checkpoint.get("recovery_hint_codes")),
+                *string_list(provider_runtime_activation_packet.get("recovery_hint_codes")),
+            )
+        )
+    )
+    diagnostics = sorted(
+        dict.fromkeys(
+            (
+                *string_list(current_action_provider_runtime_preflight.get("diagnostics")),
+                *string_list(provider_runtime_promotion_checkpoint.get("diagnostics")),
+                *string_list(validation_readiness_summary.get("diagnostics")),
+                *string_list(provider_runtime_activation_packet.get("diagnostics")),
+            )
+        )
+    )
+
+    provider_replay_ready = preflight_status == "ready" and checkpoint_status == "ready"
+    bounded_lane_selected = selected_local_lane in {"documentation", "config", "test", "code_patch"}
+    workflow_ready = bool(provider_runtime_theme and pass3_observed and provider_replay_ready and bounded_lane_selected)
+    if not provider_runtime_theme:
+        status = "not_applicable"
+        decision = "provider_runtime_pass3_workflow_not_required_for_theme"
+        supervisor_next_action = "continue_selected_bounded_lane"
+    elif not pass3_observed:
+        status = "not_applicable"
+        decision = "provider_runtime_pass3_workflow_waiting_for_pass3"
+        supervisor_next_action = "continue_provider_runtime_control_window"
+    elif workflow_ready:
+        status = "ready"
+        decision = "operator_can_replay_provider_runtime_recovery_before_final_pass"
+        supervisor_next_action = "replay_provider_runtime_hashes_then_selected_validation_lane"
+    else:
+        status = "blocked"
+        decision = "repair_provider_runtime_pass3_workflow_before_final_pass"
+        supervisor_next_action = "replay_provider_runtime_preflight_and_recovery_summary"
+
+    steps = [
+        {
+            "step": "provider_runtime_preflight_replay",
+            "status": preflight_status,
+            "ready": preflight_status == "ready",
+            "decision": optional_string(current_action_provider_runtime_preflight.get("decision")) or "",
+            "command_hashes": [stable_text_hash(command) for command in provider_runtime_commands],
+            "command_count": len(provider_runtime_commands),
+        },
+        {
+            "step": "provider_runtime_promotion_checkpoint",
+            "status": checkpoint_status,
+            "ready": checkpoint_status == "ready",
+            "decision": optional_string(provider_runtime_promotion_checkpoint.get("decision")) or "",
+            "command_hashes": [stable_text_hash(command) for command in provider_runtime_commands],
+            "command_count": len(provider_runtime_commands),
+        },
+        {
+            "step": "selected_bounded_validation_lane",
+            "status": readiness_status,
+            "ready": bounded_lane_selected,
+            "decision": optional_string(validation_readiness_summary.get("decision")) or "",
+            "selected_local_lane": selected_local_lane,
+            "selected_lane_source": selected_lane_source,
+            "validation_scope": optional_string(current_action.get("validation_scope"))
+            or optional_string(fallback_validation_row.get("validation_scope"))
+            or "none",
+            "command_hashes": [stable_text_hash(command) for command in required_validation],
+            "command_count": len(required_validation),
+        },
+        {
+            "step": "adjacent_agent_harness_eval_boundary",
+            "status": adjacent_status,
+            "ready": adjacent_status in {"gated", "not_present"},
+            "decision": optional_string(adjacent_general_agent_project_eval.get("decision")) or "",
+            "agent_harness_eval_required": (
+                adjacent_general_agent_project_eval.get("agent_harness_eval_required") is True
+            ),
+            "record_count": int(adjacent_general_agent_project_eval.get("record_count") or 0),
+            "command_hashes": [stable_text_hash(command) for command in adjacent_commands],
+            "command_count": len(adjacent_commands),
+        },
+    ]
+
+    return {
+        "controller_surface": "provider_runtime_control_pass3_operator_recovery_workflow",
+        "status": status,
+        "decision": decision,
+        "supervisor_next_action": supervisor_next_action,
+        "theme": theme,
+        "provider_runtime_theme": provider_runtime_theme,
+        "current_pass": current_pass,
+        "total_passes": total_passes,
+        "pass3_observed": pass3_observed,
+        "final_pass_observed": final_pass_observed,
+        "provider_replay_ready": provider_replay_ready,
+        "bounded_lane_selected": bounded_lane_selected,
+        "selected_local_lane": selected_local_lane,
+        "selected_lane_source": selected_lane_source,
+        "validation_readiness_status": readiness_status,
+        "activation_packet_status": activation_packet_status,
+        "activation_packet_blocks_supervisor_promotion": activation_packet_status != "ready",
+        "success_claim_scope": "local_replay_only"
+        if current_action_provider_runtime_preflight.get("success_claim_allowed") is True
+        else "none",
+        "step_count": len(steps),
+        "ready_step_count": sum(1 for step in steps if step["ready"]),
+        "blocked_step_count": sum(1 for step in steps if not step["ready"]),
+        "steps": steps,
+        "provider_runtime_replay_command_hashes": [
+            stable_text_hash(command) for command in provider_runtime_commands
+        ],
+        "provider_runtime_replay_command_count": len(provider_runtime_commands),
+        "selected_validation_command_hashes": [
+            stable_text_hash(command) for command in required_validation
+        ],
+        "selected_validation_command_count": len(required_validation),
+        "adjacent_agent_harness_eval_required": (
+            adjacent_general_agent_project_eval.get("agent_harness_eval_required") is True
+        ),
+        "adjacent_agent_harness_record_count": int(adjacent_general_agent_project_eval.get("record_count") or 0),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
+        "diagnostic_hashes": [stable_text_hash(diagnostic) for diagnostic in diagnostics],
+        "diagnostic_count": len(diagnostics),
+        "evidence_ref_mode": "selected_item_ids_and_hashes_only",
+        "evidence_item_ids": string_list(current_action.get("evidence_item_ids"))
+        or string_list(fallback_validation_row.get("evidence_item_ids")),
+        "candidate_source_hashes": string_list(current_action.get("candidate_source_hashes"))
+        or string_list(fallback_validation_row.get("candidate_source_hashes")),
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "supervisor_promotion_allowed": False,
+        "raw_replay_commands_exported": False,
         "raw_evidence_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_source_urls_exported": False,

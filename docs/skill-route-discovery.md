@@ -5919,3 +5919,26 @@ the supervisor can replay body-free diagnostics, recovery hints, and preflight
 status locally. It exports no raw source URLs, raw evidence URLs, provider
 inputs, command bodies, diagnostics bodies, upstream bodies, or runtime actions,
 and it keeps provider launch and remote execution denied.
+
+## Current Digest 20260702T234121 Provider Runtime Pass 3
+
+The `github-growth-20260702T234121.739101Z` pass-3 provider-runtime-control
+surface adds `provider_runtime_control_pass3_operator_recovery_workflow`. The
+workflow is derived from the existing current-action preflight, promotion
+checkpoint, activation packet, validation readiness summary, and adjacent
+general-agent boundary. It gives the scheduler one top-level pass-3 recovery
+sequence before the final pass: replay provider-runtime preflight hashes,
+confirm the promotion checkpoint, inspect the selected bounded validation lane,
+and keep Qwen-AgentWorld, Fundamental-Ava, and looper behind
+`agent_harness_eval_required`.
+
+The workflow treats zhengxi-views as the only direct `skill_route_discovery`
+candidate because its public repository shape includes `SKILL.md`, `skill.yml`,
+references, evals, scripts, source-cited workflow language, and advice-boundary
+metadata. Provider/runtime wording from that evidence remains diagnostic-only:
+the pass exports command hashes, selected item IDs, source hashes, lane names,
+counts, and denial booleans, not raw source URLs, evidence URLs, replay command
+bodies, provider inputs, provider values, diagnostics bodies, target paths, or
+upstream bodies. Provider runtime launch, external harness execution, remote
+execution, supervisor promotion, and external skill or agent activation remain
+denied.
