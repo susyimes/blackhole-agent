@@ -3190,6 +3190,17 @@ external harness execution, provider launch, remote execution, raw preflight
 inputs, raw diagnostics, raw provider values, raw source URLs, and upstream body
 export.
 
+The pass-4 skill-route lane map can also expose
+`provider_runtime_completion_checkpoint` for a specific provider-runtime-control
+digest. This is the lane-map completion companion to the generic harness
+handoff: it joins the bounded skill-route handoff, route-boundary checklist, and
+operator completion checklist into one supervisor-visible row. It carries only
+status fields, selected lane names, counts, recovery hint codes and hashes, and
+replay command hashes. It keeps runtime action, external skill activation,
+external harness execution, provider launch, remote execution, raw replay
+commands, raw source URLs, raw evidence URLs, raw preflight inputs, raw provider
+values, raw target paths, and upstream bodies denied.
+
 `validation_readiness_summary` consumes that current-action provider-runtime
 preflight before it reports a selected lane as replay-ready. In
 `provider-runtime-control` windows, a missing or blocked preflight changes the

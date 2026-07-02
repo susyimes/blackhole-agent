@@ -12254,6 +12254,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_162626_20260702_window = source_digest == "github-growth-20260702T162626.606010Z"
     current_181118_20260702_window = source_digest == "github-growth-20260702T181118.185142Z"
     current_193118_20260702_window = source_digest == "github-growth-20260702T193118.749598Z"
+    current_210709_20260702_window = source_digest == "github-growth-20260702T210709.499818Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -12286,6 +12287,12 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         )
     if current_193118_20260702_window:
         return _skill_route_discovery_current_digest_20260702T193118_pass4_completion_handoff(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if current_210709_20260702_window:
+        return _skill_route_discovery_current_digest_20260702T210709_provider_runtime_pass4_completion_handoff(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
@@ -23804,6 +23811,151 @@ def _skill_route_discovery_current_digest_20260702T193118_pass4_completion_hando
         "adjacent_general_agent_rows": general_agent_rows,
         "workflow_only_rows": workflow_only_rows,
     }
+
+
+def _skill_route_discovery_current_digest_20260702T210709_provider_runtime_pass4_completion_handoff(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Complete the provider-runtime-control slice with a body-free supervisor checkpoint."""
+
+    handoff = dict(
+        _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    )
+    ready = handoff.get("status") == "ready" and handoff.get("capability_slice_complete") is True
+    recovery_hint_codes = [
+        "confirm_rollback_ref_and_artifact_exist",
+        "run_skill_route_discovery_completion_validation",
+        "run_local_agent_harness_eval_fixture",
+        "keep_provider_runtime_launch_denied",
+    ]
+    replay_command_hashes = list(
+        dict.fromkeys(
+            _string_list(handoff.get("replay_command_hashes"))
+            + [
+                _stable_hash(
+                    "python -m pytest tests/test_skill_routing.py -q -k current_digest_20260702T210709"
+                ),
+                _stable_hash(
+                    "python -m pytest tests/test_harness_eval.py -q -k provider_runtime_control_pass4"
+                ),
+            ]
+        )
+    )
+    checkpoint = {
+        "controller_surface": "provider_runtime_control_pass4_completion_checkpoint",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "provider_runtime_control_pass4_ready_for_supervisor_completion"
+            if ready
+            else "repair_provider_runtime_control_pass4_completion_before_handoff"
+        ),
+        "source_digest": source_digest,
+        "theme": "provider-runtime-control",
+        "current_pass": 4,
+        "total_passes": 4,
+        "capability_slice_complete": ready,
+        "skill_route_completion_status": str(handoff.get("status") or ""),
+        "route_boundary_status": str(
+            (
+                handoff.get("route_boundary_checklist")
+                if isinstance(handoff.get("route_boundary_checklist"), dict)
+                else {}
+            ).get("status")
+            or ""
+        ),
+        "operator_completion_status": str(
+            (
+                handoff.get("operator_completion_checklist")
+                if isinstance(handoff.get("operator_completion_checklist"), dict)
+                else {}
+            ).get("status")
+            or ""
+        ),
+        "skill_route_candidate_count": int(handoff.get("skill_route_candidate_count") or 0),
+        "agent_harness_eval_required_count": int(
+            handoff.get("agent_harness_eval_required_count") or 0
+        ),
+        "selected_local_lanes": _string_list(handoff.get("selected_local_lanes")),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [_stable_hash(code) for code in recovery_hint_codes],
+        "replay_command_hashes": replay_command_hashes,
+        "body_free_diagnostics_only": True,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+    completion_checklist = dict(
+        handoff.get("operator_completion_checklist")
+        if isinstance(handoff.get("operator_completion_checklist"), dict)
+        else {}
+    )
+    completion_checklist["capability_theme"] = "provider-runtime-control"
+    completion_checklist["provider_runtime_completion_checkpoint_status"] = checkpoint["status"]
+    completion_checklist["provider_runtime_completion_checkpoint_ready"] = ready
+    completion_checklist["body_free_diagnostics_only"] = True
+    completion_checklist["raw_preflight_inputs_exported"] = False
+    completion_checklist["raw_provider_values_exported"] = False
+
+    handoff.update(
+        {
+            "capability_theme": "provider-runtime-control",
+            "capability_slice": "provider-runtime-control",
+            "capability_pass": 4,
+            "total_passes": 4,
+            "decision": (
+                "provider_runtime_control_pass4_ready_for_supervisor_completion"
+                if ready
+                else "repair_provider_runtime_control_pass4_completion_before_handoff"
+            ),
+            "anchoring_proposal_ids": [
+                "p1_skill_route_discovery_zhengxi_views",
+                "p2_agent_harness_eval_qwen_agentworld",
+                "p3_agent_harness_eval_fundamental_ava",
+                "p4_agent_harness_eval_looper",
+                "p5_workflow_trend_harness_eval_seedance",
+                "p1-skill-route-discovery-zhengxi",
+                "p2-agent-harness-eval-general-projects",
+                "p3-workflow-agent-harness-eval",
+                "p4-route-hint-coverage-audit",
+                "trend:lyra81604/zhengxi-views-1",
+                "p2_agent_harness_eval_fixture",
+                "p3_workflow_agent_eval_documentation",
+            ],
+            "provider_runtime_completion_checkpoint": checkpoint,
+            "operator_completion_checklist": completion_checklist,
+            "operator_next_action": (
+                "record_provider_runtime_control_pass4_completion_and_keep_external_activation_denied"
+                if ready
+                else "repair_provider_runtime_control_pass4_completion_rows_before_supervisor_handoff"
+            ),
+            "replay_command_hashes": replay_command_hashes,
+            "body_free_diagnostics_only": True,
+            "raw_preflight_inputs_exported": False,
+            "raw_provider_values_exported": False,
+        }
+    )
+    return handoff
 
 
 def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(

@@ -10116,6 +10116,68 @@ def test_skill_route_discovery_current_digest_20260702T204709_pass3_provider_run
     assert "runtime_execution" not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260702T210709_pass4_provider_runtime_completion_checkpoint():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T210709_provider_runtime_control_pass4.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    checkpoint = handoff["provider_runtime_completion_checkpoint"]
+    route_boundary = handoff["route_boundary_checklist"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T210709.499818Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "provider_runtime_control_pass4_ready_for_supervisor_completion"
+    assert handoff["capability_theme"] == "provider-runtime-control"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert handoff["selected_local_lanes"] == ["test"]
+    assert handoff["agent_harness_eval_required_count"] == 4
+    assert handoff["operator_completion_checklist"]["provider_runtime_completion_checkpoint_ready"] is True
+
+    assert route_boundary["status"] == "ready"
+    assert route_boundary["runtime_action_allowed"] is False
+    assert route_boundary["provider_runtime_launch_allowed"] is False
+    assert {row["primary_route"] for row in route_boundary["rows"]} == {
+        "agent_harness_eval_required",
+        SKILL_ROUTE_DISCOVERY_HINT,
+    }
+
+    assert checkpoint["controller_surface"] == "provider_runtime_control_pass4_completion_checkpoint"
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["decision"] == "provider_runtime_control_pass4_ready_for_supervisor_completion"
+    assert checkpoint["current_pass"] == 4
+    assert checkpoint["total_passes"] == 4
+    assert checkpoint["capability_slice_complete"] is True
+    assert checkpoint["skill_route_completion_status"] == "ready"
+    assert checkpoint["route_boundary_status"] == "ready"
+    assert checkpoint["operator_completion_status"] == "ready"
+    assert checkpoint["agent_harness_eval_required_count"] == 4
+    assert checkpoint["body_free_diagnostics_only"] is True
+    assert checkpoint["runtime_action"] == "none"
+    assert checkpoint["provider_runtime_launch_allowed"] is False
+    assert checkpoint["remote_execution_allowed"] is False
+    assert checkpoint["raw_replay_commands_exported"] is False
+    assert checkpoint["raw_preflight_inputs_exported"] is False
+    assert checkpoint["raw_provider_values_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_bounded_route_profile_matrix_covers_skill_workflow_lanes():
     registry = build_skill_route_discovery_registry_from_evidence_items(
         [
