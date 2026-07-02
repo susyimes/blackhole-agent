@@ -18477,3 +18477,95 @@ def test_skill_route_discovery_current_digest_20260701T231748_pass3_activation_r
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T170629_pass2_exposes_preactivation_checklist():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T170629_pass2_local_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass2_local_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    checklist = lane["preactivation_checklist"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    supplied_item_ids = {item["item_id"] for item in payload["items"]}
+    assert registry["source_digest"] == "github-growth-20260702T170629.644914Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 2
+    assert lane["proposal_ids"] == [
+        "p1_skill_route_discovery_zhengxi_views",
+        "p3_agent_harness_fixture_matrix",
+    ]
+    assert lane["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_local_lanes"] == ["test"]
+    assert lane["agent_harness_eval_required_count"] == 4
+
+    zhengxi = rows["p1_skill_route_discovery_zhengxi_views"]
+    assert zhengxi["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert zhengxi["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert zhengxi["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert set(zhengxi["selected_evidence_item_ids"]) <= supplied_item_ids
+    assert set(zhengxi["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert "provider_runtime" not in zhengxi["allowed_local_lanes"]
+    assert "runtime_execution" not in zhengxi["allowed_local_lanes"]
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+
+    assert set(adjacent) == {
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "looper",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+    }
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p2_agent_harness_eval_trending_python_agents"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+
+    assert checklist["status"] == "ready"
+    assert checklist["skill_route_discovery_allowed_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert checklist["general_agent_project_evaluation_lane"] == "agent_harness_eval_required"
+    assert checklist["general_agent_project_direct_allowed_lanes_before_eval"] == []
+    assert checklist["general_agent_project_allowed_lanes_after_eval"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert set(checklist["skill_route_selected_item_ids"]) <= supplied_item_ids
+    assert set(checklist["agent_harness_eval_item_ids"]) <= supplied_item_ids
+    assert "no_truncated_item_ids_cited" in checklist["required_local_checks"]
+    assert checklist["runtime_action"] == "none"
+    assert checklist["external_skill_activation_allowed"] is False
+    assert checklist["external_agent_activation_allowed"] is False
+    assert checklist["external_harness_execution_allowed"] is False
+    assert checklist["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+    assert '"provider_runtime"' not in serialized

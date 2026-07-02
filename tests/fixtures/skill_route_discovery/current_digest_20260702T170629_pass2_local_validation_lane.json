@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260702T170629.644914Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1_skill_route_discovery_probe",
+      "p2_agent_harness_eval_fixture",
+      "p3_workflow_agent_harness_documentation",
+      "p4_route_hint_policy_regression",
+      "p5_combined_agent_trend_triage_config",
+      "p1_skill_route_discovery_zhengxi_views",
+      "p2_agent_harness_eval_trending_python_agents",
+      "p3_agent_harness_fixture_matrix",
+      "p4_workflow_usecase_eval_note",
+      "trend:lyra81604/zhengxi-views-1",
+      "trend:QwenLM/Qwen-AgentWorld-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "trend:ksimback/looper-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260702T170629.644914Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "RepositoryTrend",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Agent Skill route discovery probe",
+      "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, eval scripts, source-cited workflow, explicit route_hints=['skill_route_discovery'], and no risk flags.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+      "observed_paths": [
+        "SKILL.md",
+        "skill.yml",
+        "references/method.md",
+        "scripts/validate_package.py",
+        "evals/source_citation_eval.py"
+      ],
+      "metadata_files": ["skill.yml"],
+      "risk_flags": [],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script", "test_file"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary", "advice_disclaimer_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260702T170629.644914Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "General agent benchmark project",
+      "summary": "Language world models and AgentWorldBench evaluation project for general agents; no skill workflow route hint or local harness evaluation result is present.",
+      "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260702T170629.644914Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "General autonomous agent project",
+      "summary": "Autonomous, collaborative, and socially intelligent agent project without a skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "simulation", "autonomous-agent", "benchmark"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260702T170629.644914Z",
+      "item_id": "trend:ksimback/looper-1",
+      "item_kind": "RepositoryTrend",
+      "name": "looper",
+      "source_url": "https://github.com/ksimback/looper",
+      "title": "General agent loop project",
+      "summary": "Review-gated agent loop project without a skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "loop", "runner", "workflow"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260702T170629.644914Z",
+      "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+      "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+      "title": "Workflow usecase repository without skill route hint",
+      "summary": "Workflow-themed usecase collection with no skill_route_discovery hint, no SKILL.md evidence, and no local agent harness evaluation result.",
+      "topics": ["workflow", "seedance", "blender", "usecases"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation"]
+    }
+  ]
+}
