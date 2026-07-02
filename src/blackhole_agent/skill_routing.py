@@ -536,6 +536,7 @@ class ExternalSkillEvidenceItem:
     suggested_lanes: tuple[str, ...] = ()
     observed_paths: tuple[str, ...] = ()
     metadata_files: tuple[str, ...] = ()
+    upstream_source_url: str = ""
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillEvidenceItem":
@@ -568,6 +569,12 @@ class ExternalSkillEvidenceItem:
                 or value.get("manifest_files")
                 or value.get("repository_metadata_files")
             ),
+            upstream_source_url=str(
+                value.get("upstream_source_url")
+                or value.get("forked_from_url")
+                or value.get("parent_source_url")
+                or ""
+            ).strip(),
         )
 
     def canonical_repository_url(self) -> str:
@@ -592,6 +599,7 @@ class ExternalSkillEvidenceItem:
             suggested_lanes=self.suggested_lanes,
             observed_paths=self.observed_paths,
             metadata_files=self.metadata_files,
+            upstream_source_url=self.upstream_source_url,
         )
 
 
@@ -824,7 +832,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
             )
             continue
 
-        repository_url = summary.source_url
+        repository_url = _summary_lineage_key(summary)
         bucket = grouped.setdefault(
             repository_url,
             {
@@ -832,6 +840,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
                 "evidence_urls": [],
                 "item_ids": [],
                 "lanes": [],
+                "related_source_urls": [],
                 "route_profiles": [],
                 "source_layout_signals": [],
                 "source_metadata_signals": [],
@@ -855,6 +864,11 @@ def build_skill_route_discovery_registry_from_evidence_items(
         )
         bucket["evidence_urls"].append(evidence_url)
         bucket["lanes"].extend(_bounded_skill_discovery_lanes(summary))
+        if summary.upstream_source_url:
+            related_source_urls = list(_summary_related_source_urls(summary))
+            bucket["related_source_urls"].extend(
+                [repository_url, *(url for url in related_source_urls if url != repository_url)]
+            )
         bucket["unsupported_lane_pressure"].extend(
             lane for lane in summary.suggested_lanes if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
         )
@@ -886,6 +900,7 @@ def build_skill_route_discovery_registry_from_evidence_items(
             evidence_item_ids=tuple(dict.fromkeys(bucket["item_ids"])),
             evidence_item_urls=tuple(bucket["evidence_urls"]),
             evidence_urls=tuple(bucket["evidence_urls"]),
+            related_source_urls=tuple(dict.fromkeys(bucket["related_source_urls"])),
             unsupported_lane_pressure=tuple(dict.fromkeys(bucket["unsupported_lane_pressure"])),
             source_layout_signals=tuple(dict.fromkeys(bucket["source_layout_signals"])),
             source_metadata_signals=tuple(dict.fromkeys(bucket["source_metadata_signals"])),
@@ -5815,7 +5830,51 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_194302_window = source_digest == "github-growth-20260701T194302.427071Z"
     current_223748_window = source_digest == "github-growth-20260701T223748.552762Z"
     current_235748_window = source_digest == "github-growth-20260701T235748.704258Z"
-    if current_235748_window:
+    current_020714_window = source_digest == "github-growth-20260702T020714.675901Z"
+    if current_020714_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-lane",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_and_skills_terms_route_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate BioNeMo and zhengxi-views skill repository evidence as "
+                    "skill_route_discovery only, with local lanes limited to documentation, "
+                    "config, test, or code_patch and runtime_action remaining none"
+                ),
+            },
+            {
+                "proposal_id": "p2-agent-harness-eval-route",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_eval_policy",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "general_agent_projects_require_harness_eval_before_local_lanes",
+                "validation_task": (
+                    "keep Qwen-AgentWorld and Fundamental-Ava as adjacent "
+                    "agent_harness_eval_required candidates that may only produce "
+                    "documentation, test, or code_patch proposals after local validation"
+                ),
+            },
+            {
+                "proposal_id": "p3-bionemo-fork-and-trend-dedup",
+                "proposal_kind": "code_patch",
+                "proposal_track": "fork_or_trend_lineage_dedup",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "code_patch",
+                "validation_target": "repository_trend_and_fork_event_collapse_to_single_skill_route_candidate",
+                "validation_task": (
+                    "validate that BioNeMo RepositoryTrend and ForkEvent evidence for the "
+                    "same upstream project preserve both evidence refs while avoiding "
+                    "duplicate or conflicting skill-route proposals"
+                ),
+            },
+        )
+    elif current_235748_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -6435,6 +6494,11 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 continue
 
             candidate_name = str(candidate.get("candidate_name") or "")
+            candidate_name_terms = _string_list(spec.get("candidate_name_terms"))
+            if candidate_name_terms and not any(
+                term.casefold() in candidate_name.casefold() for term in candidate_name_terms
+            ):
+                continue
             candidate_names.append(candidate_name)
             source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
             item_ids = _string_list(candidate.get("evidence_item_ids"))
@@ -6511,6 +6575,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2-agent-harness-eval-route"
+            if current_020714_window
+            else
             "p2-agent-harness-eval-qwen-agentworld"
             if current_223748_window
             else
@@ -6637,6 +6704,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p3-general-agent-harness-eval-fixture"
             elif lowered_name == "open-reverselab":
                 row["proposal_id"] = "p4-open-reverselab-review-only"
+        if current_020714_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p2-agent-harness-eval-route"
         if current_223748_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
@@ -6689,6 +6760,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-lane",
+            "p2-agent-harness-eval-route",
+            "p3-bionemo-fork-and-trend-dedup",
+            "p4-route-hint-documentation",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_020714_window
+        else
         [
             "p1",
             "p2",
