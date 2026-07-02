@@ -18120,11 +18120,14 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
     """Bind the active digest's skill and general-agent routes to local lanes."""
 
     current_100533_window = source_digest == "github-growth-20260701T100533.329031Z"
+    current_20260702_window = source_digest == "github-growth-20260702T003748.734027Z"
     skill_proposals = (
         {
             "proposal_id": (
                 "p1-skill-route-discovery-zhengxi-views"
                 if current_100533_window
+                else "p1-skill-route-discovery-python-agent-skills"
+                if current_20260702_window
                 else "p1-skill-route-discovery-generic"
             ),
             "proposal_kind": "test",
@@ -18137,6 +18140,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             "proposal_id": (
                 "p3-document-agent-trend-routing-policy"
                 if current_100533_window
+                else "p3-document-route-boundary-for-trend-items"
+                if current_20260702_window
                 else "p3-agent-trend-route-policy"
             ),
             "proposal_kind": "documentation",
@@ -18257,6 +18262,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         proposal_id=(
             "p2-agent-harness-eval-trending-projects"
             if current_100533_window
+            else "p2-agent-harness-eval-fixture"
+            if current_20260702_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -18296,7 +18303,13 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
         "proposal_ids": [str(proposal["proposal_id"]) for proposal in skill_proposals]
-        + ["p2-agent-harness-eval-trending-projects"],
+        + [
+            "p2-agent-harness-eval-trending-projects"
+            if current_100533_window
+            else "p2-agent-harness-eval-fixture"
+            if current_20260702_window
+            else "p2-agent-harness-eval-general-agent-projects"
+        ],
         "anchoring_proposal_ids": (
             [
                 "p1-skill-route-discovery-zhengxi-views",
@@ -18308,6 +18321,24 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:ksimback/looper-1",
             ]
             if current_100533_window
+            else [
+                "p1",
+                "p2",
+                "p3",
+                "p4",
+                "p5",
+                "11245146668-1",
+                "11244775253-2",
+                "trend:lyra81604/zhengxi-views-3",
+                "trend:TianhangZhuzth/Fundamental-Ava-4",
+                "trend:QwenLM/Qwen-AgentWorld-5",
+                "p1-skill-route-discovery-python-agent-skills",
+                "p2-agent-harness-eval-fixture",
+                "trend:lyra81604/zhengxi-views",
+                "trend:QwenLM/Qwen-AgentWorld",
+                "trend:TianhangZhuzth/Fundamental-Ava",
+            ]
+            if current_20260702_window
             else []
         ),
         "skill_route_candidate_count": len(

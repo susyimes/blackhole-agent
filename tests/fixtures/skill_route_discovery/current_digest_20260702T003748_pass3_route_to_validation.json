@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260702T003748.734027Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 3,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "item_id": "trend:lyra81604/zhengxi-views-3",
+      "item_kind": "repository",
+      "source_digest": "github-growth-20260702T003748.734027Z",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "title": "Skill route discovery signal for source-cited Agent Skill workflow",
+      "summary": "Public Agent Skill workflow evidence with SKILL.md, skill.yml, references, evals, source citation boundaries, validation scripts, and non-investment-advice language.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "workflow", "source-cited", "research", "validation"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "observed_paths": [
+        "SKILL.md",
+        "skill.yml",
+        "references/method.md",
+        "references/fund_data/",
+        "scripts/validate_package.py",
+        "evals/source_citation_eval.py"
+      ],
+      "metadata_files": ["skill.yml"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script", "progressive_skill_package"],
+        "source_metadata_signals": ["skill_manifest"]
+      }
+    },
+    {
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-5",
+      "item_kind": "repository",
+      "source_digest": "github-growth-20260702T003748.734027Z",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "General agent world model project without skill workflow signal",
+      "summary": "General agent project evidence with model evaluation scope and no selected skill_route_discovery route hint or local harness result.",
+      "topics": ["general-agent", "benchmark", "evaluation"],
+      "route_hints": [],
+      "suggested_lanes": ["runtime_execution", "code_patch"]
+    },
+    {
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-4",
+      "item_kind": "repository",
+      "source_digest": "github-growth-20260702T003748.734027Z",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "General digital-human agent project without skill workflow signal",
+      "summary": "General agent project evidence without SKILL.md, route hints, or a local harness result.",
+      "topics": ["general-agent", "automation", "assistant"],
+      "route_hints": [],
+      "suggested_lanes": ["runtime_execution", "code_patch"]
+    }
+  ]
+}
+

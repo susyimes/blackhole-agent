@@ -4367,6 +4367,123 @@ def test_skill_route_discovery_current_digest_pass3_routes_to_validation_before_
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_current_20260702_pass3_routes_match_active_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T003748_pass3_route_to_validation.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260702T003748.734027Z"
+    assert registry["registry_status"] == "classification_only"
+    assert registry["evidence_item_count"] == 3
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 2
+
+    lane = lane_map["current_digest_pass3_route_to_validation_lane"]
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass3_route_to_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["source_digest"] == "github-growth-20260702T003748.734027Z"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-python-agent-skills",
+        "p3-document-route-boundary-for-trend-items",
+        "p2-agent-harness-eval-fixture",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1",
+        "p2",
+        "p3",
+        "p4",
+        "p5",
+        "11245146668-1",
+        "11244775253-2",
+        "trend:lyra81604/zhengxi-views-3",
+        "trend:TianhangZhuzth/Fundamental-Ava-4",
+        "trend:QwenLM/Qwen-AgentWorld-5",
+        "p1-skill-route-discovery-python-agent-skills",
+        "p2-agent-harness-eval-fixture",
+        "trend:lyra81604/zhengxi-views",
+        "trend:QwenLM/Qwen-AgentWorld",
+        "trend:TianhangZhuzth/Fundamental-Ava",
+    ]
+    assert lane["skill_route_candidate_count"] == 1
+    assert lane["adjacent_general_agent_count"] == 2
+    assert lane["agent_harness_eval_required_count"] == 2
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert lane["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-3"]
+    assert lane["local_validation_required"] is True
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["raw_replay_commands_exported"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert lane["raw_upstream_body_exported"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    assert set(rows) == {
+        "p1-skill-route-discovery-python-agent-skills",
+        "p3-document-route-boundary-for-trend-items",
+    }
+    assert rows["p1-skill-route-discovery-python-agent-skills"]["selected_local_lane"] == "test"
+    assert rows["p3-document-route-boundary-for-trend-items"]["selected_local_lane"] == "documentation"
+    for row in rows.values():
+        assert row["status"] == "ready"
+        assert row["candidate_names"] == ["zhengxi-views"]
+        assert row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+        assert row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+        assert set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-3"]
+        assert row["validation_gates"] == [
+            "generic_skill_workflow_local_validation_before_activation",
+            "source_citation_and_advice_boundary_before_domain_skill_activation",
+        ]
+        assert row["downgraded_unsupported_lanes"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    adjacent_rows = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    assert set(adjacent_rows) == {"Qwen-AgentWorld", "Fundamental-Ava"}
+    for row in adjacent_rows.values():
+        assert row["proposal_id"] == "p2-agent-harness-eval-fixture"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["accepted_outputs_before_eval"] == []
+        assert row["accepted_outputs_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_replay_command_exported"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+
+
 def test_skill_route_discovery_current_pass2_focused_evidence_review_is_bounded():
     fixture_path = (
         Path(__file__).parent
