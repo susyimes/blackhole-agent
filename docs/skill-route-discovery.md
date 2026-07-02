@@ -5551,3 +5551,25 @@ until a local harness-evaluation result frames documentation, test, or code_patc
 work. The lane exports hashes and bounded route metadata only, not raw source
 URLs, replay commands, upstream bodies, provider launches, external harness
 execution, or restart authority.
+
+## Current Digest 20260702T092714 Pass 3
+
+The `github-growth-20260702T092714.857659Z` pass-3 activation review lane is
+now exposed through `current_digest_pass3_activation_review_lane`. It keeps
+zhengxi-views as the only `skill_route_discovery` row because the public
+repository presents a concrete skill package shape: `SKILL.md`, `skill.yml`,
+references, evals, scripts, source-citation boundaries, and non-investment
+advice limits. That row selects only the local test lane inside the bounded
+documentation, config, test, or code_patch envelope.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain a single adjacent
+`agent_harness_eval_required` row plus an operator-visible matrix. They do not
+inherit `skill_route_discovery`; their direct lanes before harness evaluation
+are empty, and only documentation, test, or code_patch can be considered after a
+local harness result exists.
+
+Workflow-usecase evidence remains a documentation-only route boundary in this
+pass. A workflow-only trend without an explicit skill-route hint does not adopt
+runtime workflows, launch providers, execute external harnesses, or enable
+remote execution. It stays behind `agent_harness_eval_required` until local
+evaluation creates a bounded follow-up lane.
