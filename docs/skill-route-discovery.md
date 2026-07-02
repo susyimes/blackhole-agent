@@ -1933,6 +1933,16 @@ classifier does not read upstream file bodies, clone repositories, install
 plugins, run scripts, export source URLs into harness panels, or treat a
 generic `AGENTS.md` file by itself as reusable skill-package evidence.
 
+BioNeMo-style multi-skill repositories add one more body-free shape:
+agent-native plugin marketplace catalogs such as `.agents/plugins/marketplace.json`
+or `.claude-plugin/marketplace.json`. These are now classified as
+`agent_plugin_marketplace` metadata and exposed through a
+`plugin_marketplace_contract`. The contract is config-first and operator-visible:
+catalog rows can justify local config, documentation, or test validation of the
+route, but they still cannot install, activate, execute, launch providers, run
+external harnesses, export upstream bodies, or promote a plugin from repository
+presence alone.
+
 ## Issue Evidence Lane
 
 Repository issues can refine the same disabled discovery candidate when they

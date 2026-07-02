@@ -597,6 +597,64 @@ def test_skill_route_discovery_classifies_body_free_file_layout_into_local_lanes
     } == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
 
 
+def test_skill_route_discovery_agent_plugin_marketplace_catalog_is_config_first():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "bionemo-agent-toolkit",
+                "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+                "summary": (
+                    "Multi-skill agent toolkit with Codex and Claude plugin marketplaces, "
+                    "skills catalog metadata, library skill packages, and workflow validation."
+                ),
+                "observed_paths": [
+                    ".agents/plugins/marketplace.json",
+                    ".claude-plugin/marketplace.json",
+                    "library-skills/boltz2-nim/SKILL.md",
+                    "nim-skills/diffdock-nim/SKILL.md",
+                    "workflows/generative_protein_binder_design/README.md",
+                ],
+                "metadata_files": ["skills.sh.json"],
+            }
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    candidate = registry["candidates"][0]
+    assert candidate["candidate_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert candidate["source_layout_signals"] == ["skill_markdown"]
+    assert candidate["source_metadata_signals"] == [
+        "skill_registry_metadata",
+        "agent_plugin_marketplace",
+        "agent_metadata",
+    ]
+    assert candidate["route_profiles"] == ["codex_workflow_gate"]
+
+    inventory_row = lane_map["candidate_lane_inventory"][0]
+    contract = inventory_row["plugin_marketplace_contract"]
+    assert contract["controller_surface"] == "skill_route_discovery_plugin_marketplace_contract"
+    assert contract["status"] == "ready"
+    assert contract["package_shape"] == "agent_native_plugin_marketplace_catalog"
+    assert contract["preferred_local_lanes"] == ["config", "documentation", "test"]
+    assert contract["validation_requirements"] == [
+        "inspect_catalog_metadata_as_config_before_install",
+        "document_agent_native_plugin_route_without_activation",
+        "test_catalog_rows_map_only_to_bounded_local_lanes",
+    ]
+    assert contract["runtime_action"] == "none"
+    assert contract["external_plugin_activation_allowed"] is False
+    assert contract["raw_upstream_body_exported"] is False
+
+    proposal_contracts = [
+        lane["plugin_marketplace_contract"]
+        for lane in lane_map["proposal_lanes"]
+        if lane["candidate_name"] == "bionemo-agent-toolkit"
+    ]
+    assert proposal_contracts
+    assert all(proposal_contract["external_plugin_activation_allowed"] is False for proposal_contract in proposal_contracts)
+    assert all(proposal_contract["provider_runtime_launch_allowed"] is False for proposal_contract in proposal_contracts)
+
+
 def test_skill_route_discovery_progressive_skill_package_contract_is_operator_visible():
     registry = build_skill_route_discovery_registry_from_summaries(
         [

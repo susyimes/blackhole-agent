@@ -116,6 +116,7 @@ SKILL_ROUTE_DISCOVERY_LAYOUT_SIGNAL_LANES: Mapping[str, tuple[str, ...]] = {
     "agent_metadata": ("config",),
     "skill_manifest": ("config",),
     "skill_registry_metadata": ("config",),
+    "agent_plugin_marketplace": ("config", "documentation", "test"),
     "validation_script": ("test", "code_patch"),
     "test_file": ("test",),
     "scaffold_asset": ("code_patch",),
@@ -1147,6 +1148,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         domain_research_boundary_metadata = _skill_route_discovery_domain_research_boundary_metadata(candidate)
         public_activity_policy = _skill_route_discovery_public_activity_policy_field(candidate)
         progressive_package_contract = _skill_route_discovery_progressive_package_contract(candidate, allowed_lanes)
+        plugin_marketplace_contract = _skill_route_discovery_plugin_marketplace_contract(candidate, allowed_lanes)
         route_profiles = _string_list(candidate.get("route_profiles"))
         validation_contract = _skill_route_discovery_validation_contract(route_profiles, allowed_lanes)
         handoff_metadata = _skill_route_discovery_handoff_metadata(
@@ -1189,6 +1191,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                 **domain_research_boundary_metadata,
                 **public_activity_policy,
                 **progressive_package_contract,
+                **plugin_marketplace_contract,
             }
         )
 
@@ -1235,6 +1238,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     **domain_research_boundary_metadata,
                     **public_activity_policy,
                     **progressive_package_contract,
+                    **plugin_marketplace_contract,
                 }
             )
 
@@ -1976,6 +1980,56 @@ def _skill_route_discovery_progressive_package_contract(
             "local_validation_required": True,
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    }
+
+
+def _skill_route_discovery_plugin_marketplace_contract(
+    candidate: Mapping[str, Any],
+    allowed_lanes: Sequence[str],
+) -> dict[str, Any]:
+    """Expose agent plugin marketplace evidence as catalog validation only."""
+
+    source_metadata_signals = _string_list(candidate.get("source_metadata_signals"))
+    if "agent_plugin_marketplace" not in source_metadata_signals:
+        return {}
+
+    source_layout_signals = _string_list(candidate.get("source_layout_signals"))
+    present_signals = list(dict.fromkeys((*source_layout_signals, *source_metadata_signals)))
+    preferred_lanes = [
+        lane
+        for lane in ("config", "documentation", "test")
+        if lane in set(allowed_lanes) and lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    return {
+        "plugin_marketplace_contract": {
+            "controller_surface": "skill_route_discovery_plugin_marketplace_contract",
+            "status": "ready" if preferred_lanes else "blocked_no_bounded_local_lane",
+            "decision": (
+                "validate_catalog_metadata_before_plugin_activation"
+                if preferred_lanes
+                else "repair_plugin_marketplace_lanes_before_activation"
+            ),
+            "package_shape": "agent_native_plugin_marketplace_catalog",
+            "required_source_signals": ["agent_plugin_marketplace"],
+            "present_source_signals": present_signals,
+            "preferred_local_lanes": preferred_lanes,
+            "validation_requirements": [
+                "inspect_catalog_metadata_as_config_before_install",
+                "document_agent_native_plugin_route_without_activation",
+                "test_catalog_rows_map_only_to_bounded_local_lanes",
+            ],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_plugin_activation_allowed": False,
             "external_harness_execution_allowed": False,
             "provider_runtime_launch_allowed": False,
             "remote_execution_allowed": False,
@@ -22199,6 +22253,10 @@ def _skill_repository_metadata_signals(summary: ExternalSkillRepositorySummary) 
             signals.append("skill_manifest")
         if basename in {"skills.sh.json", "skill.json", "plugin.json", "manifest.json"}:
             signals.append("skill_registry_metadata")
+        if basename == "marketplace.json" and (
+            ".agents/plugins/" in path or ".claude-plugin/" in path or "/plugins/" in f"/{path}"
+        ):
+            signals.append("agent_plugin_marketplace")
         if basename in {"agents.md", ".agents.md"} or ".codex-plugin/" in path or "/plugins/" in f"/{path}":
             signals.append("agent_metadata")
         if basename in {"publication_audit.md", "security.md"} or "audit" in basename:
