@@ -1328,6 +1328,59 @@ def build_current_pass3_route_readiness_index(
             if str(row.get("selected_local_lane") or "").strip()
         }
     )
+    validation_targets: list[dict[str, Any]] = []
+    for row in skill_rows:
+        item_id = str(row.get("item_id") or "")
+        selected_lane = str(row.get("selected_local_lane") or "")
+        allowed_lanes = [
+            str(lane)
+            for lane in row.get("allowed_local_lanes", [])
+            if str(lane) in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+        ]
+        validation_targets.append(
+            {
+                "item_id": item_id,
+                "primary_route": "skill_route_discovery",
+                "route_class": "skill_workflow",
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "allowed_local_lanes": allowed_lanes,
+                "final_scope": "local_validation_candidate",
+                "activation_order": len(validation_targets) + 1,
+                "validation_gates": [str(gate) for gate in row.get("validation_gates", [])],
+                "implementation_lanes_enabled": True,
+                "agent_harness_eval_required": False,
+                "blocked_until": "",
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
+    for row in adjacent_rows:
+        item_id = str(row.get("item_id") or "")
+        final_scope = str(row.get("final_scope") or "")
+        implementation_enabled = final_scope == "local_validation_candidate"
+        validation_targets.append(
+            {
+                "item_id": item_id,
+                "primary_route": "agent_harness_eval_required",
+                "route_class": "general_agent_project",
+                "selected_local_lane": "agent_harness_eval",
+                "queued_local_lanes": [],
+                "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "final_scope": final_scope,
+                "activation_order": len(validation_targets) + 1,
+                "validation_gates": [str(gate) for gate in row.get("validation_gates", [])],
+                "implementation_lanes_enabled": implementation_enabled,
+                "selected_implementation_lanes": (
+                    list(GENERAL_AGENT_PROJECT_EVAL_LANES) if implementation_enabled else []
+                ),
+                "agent_harness_eval_required": True,
+                "blocked_until": "" if implementation_enabled else "local_agent_harness_evaluation_result",
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
     status = (
         "ready_with_adjacent_agent_eval_blocked"
         if skill_rows_ready and adjacent_rows and adjacent_blocked
@@ -1355,6 +1408,13 @@ def build_current_pass3_route_readiness_index(
         "skill_workflow_item_ids": [str(row.get("item_id") or "") for row in skill_rows],
         "route_profiles": route_profiles,
         "selected_local_lanes": selected_lanes,
+        "validation_targets": validation_targets,
+        "first_ready_validation_target": validation_targets[0] if validation_targets else {},
+        "blocked_validation_target_item_ids": [
+            str(row.get("item_id") or "")
+            for row in validation_targets
+            if row.get("implementation_lanes_enabled") is False
+        ],
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
         "adjacent_general_agent_count": len(adjacent_rows),
         "adjacent_agent_harness_eval_required": bool(adjacent_rows),

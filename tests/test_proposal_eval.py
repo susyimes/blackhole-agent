@@ -911,6 +911,107 @@ def test_route_hint_lane_map_exposes_current_pass3_skill_route_handoff():
     ]
 
 
+def test_current_pass3_readiness_index_orders_skill_lane_before_general_agent_eval():
+    digest = {
+        "digest_id": "github-growth-20260702T160626.568832Z",
+        "generated_at": "2026-07-02T16:06:26.568832Z",
+        "items": [
+            {
+                "item_id": "zhengxi-views",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "zhengxi-views public Agent Skill with SKILL.md, skill.yml, references, evals, "
+                    "scripts, source-cited research workflow boundaries, and non-investment-advice limits."
+                ),
+                "relevance_reason": (
+                    "Matched agent and skill topics plus route_hints skill_route_discovery should map to "
+                    "bounded local validation lanes only."
+                ),
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "qwen-agentworld",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Qwen-AgentWorld language world models for general agents with agent-environment "
+                    "benchmarks and evaluation claims."
+                ),
+                "relevance_reason": (
+                    "General agent project evidence with no explicit route hints requires agent_harness_eval "
+                    "before implementation scope is recomputed."
+                ),
+                "risk_flags": [],
+                "confidence": 0.8,
+            },
+            {
+                "item_id": "fundamental-ava",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Fundamental-Ava project for autonomous, collaborative, socially intelligent agents."
+                ),
+                "relevance_reason": (
+                    "General agent project evidence lacks skill route hints and must stay behind local "
+                    "agent harness evaluation."
+                ),
+                "risk_flags": [],
+                "confidence": 0.77,
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=420)
+
+    lane_map = build_route_hint_lane_map(evidence_package)
+    readiness = lane_map["current_pass3_route_readiness_index"]
+
+    assert lane_map["route_class_counts"] == {"general_agent_project": 2, "skill_workflow": 1}
+    assert readiness["controller_surface"] == "current_pass3_route_readiness_index"
+    assert readiness["status"] == "ready_with_adjacent_agent_eval_blocked"
+    assert readiness["skill_route_ready"] is True
+    assert readiness["selected_local_lanes"] == ["documentation"]
+    assert readiness["adjacent_agent_harness_eval_required"] is True
+    assert readiness["adjacent_agent_harness_eval_blocked"] is True
+    assert readiness["blocked_validation_target_item_ids"] == ["fundamental-ava", "qwen-agentworld"]
+    assert readiness["first_ready_validation_target"] == {
+        "item_id": "zhengxi-views",
+        "primary_route": "skill_route_discovery",
+        "route_class": "skill_workflow",
+        "selected_local_lane": "documentation",
+        "queued_local_lanes": ["config", "test", "code_patch"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "final_scope": "local_validation_candidate",
+        "activation_order": 1,
+        "validation_gates": ["focused-evidence-review"],
+        "implementation_lanes_enabled": True,
+        "agent_harness_eval_required": False,
+        "blocked_until": "",
+        "local_validation_required": True,
+        "runtime_action": "none",
+    }
+    assert [target["item_id"] for target in readiness["validation_targets"]] == [
+        "zhengxi-views",
+        "fundamental-ava",
+        "qwen-agentworld",
+    ]
+    assert [target["activation_order"] for target in readiness["validation_targets"]] == [1, 2, 3]
+    agent_targets = readiness["validation_targets"][1:]
+    assert all(target["selected_local_lane"] == "agent_harness_eval" for target in agent_targets)
+    assert all(target["implementation_lanes_enabled"] is False for target in agent_targets)
+    assert all(target["selected_implementation_lanes"] == [] for target in agent_targets)
+    assert all(
+        target["blocked_until"] == "local_agent_harness_evaluation_result"
+        for target in agent_targets
+    )
+    assert all(target["skill_route_discovery_inherited"] is False for target in agent_targets)
+    assert readiness["runtime_action"] == "none"
+    assert readiness["external_agent_activation_allowed"] is False
+    assert readiness["external_harness_execution_allowed"] is False
+    assert readiness["remote_execution_allowed"] is False
+
+
 def test_route_hint_lane_map_exposes_pass2_activation_readiness_for_current_skill_window():
     digest = {
         "digest_id": "github-growth-20260628T112729-pass2-skill-route-discovery",
