@@ -1,0 +1,65 @@
+{
+  "name": "agent-harness-eval-lane-20260702T102714-general-agent-projects",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-20260702T102714-general-agent-projects",
+    "evidence_items": [
+      {
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent benchmark and evaluation project with world-model tasks, structured agent evaluation, and reusable benchmark harness signals.",
+        "relevance_reason": "Map benchmark and controller-eval claims to local harness lanes before implementation.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["python_package", "benchmark_suite"],
+        "entrypoints": ["python_module", "evaluation_script"],
+        "dependency_boundaries": ["model_provider", "benchmark_data"],
+        "task_loop_assumptions": ["benchmark_replay", "agent_world_simulation"],
+        "observable_behaviors": ["evaluation_harness", "structured_benchmark", "world_model_agent_tasks"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Autonomous collaborative agent simulation infrastructure with tests, benchmark replay, multi-agent orchestration, and scheduler-style coordination signals.",
+        "relevance_reason": "Keep orchestration and scheduling claims in local harness evaluation before controller or runner changes.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["python_package", "simulation_framework"],
+        "entrypoints": ["python_module", "test_suite"],
+        "dependency_boundaries": ["simulation_runtime", "model_provider"],
+        "task_loop_assumptions": ["multi_agent_orchestration", "scheduled_simulation_steps"],
+        "observable_behaviors": ["multi_agent_supervision", "scheduler_coordination", "benchmark_replay"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "trend:ksimback/looper-1",
+        "source_url": "https://github.com/ksimback/looper",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Review-gated Claude Code agent loop with consent, redaction, policy gate, runner loop, and observable review workflow signals.",
+        "relevance_reason": "Treat review-gated loop behavior as local harness evidence before runner, tool-routing, or scheduling follow-up.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["cli_loop"],
+        "entrypoints": ["cli"],
+        "dependency_boundaries": ["claude_code", "local_workspace"],
+        "task_loop_assumptions": ["review_gated_loop", "runner_supervision"],
+        "observable_behaviors": ["policy_control", "redaction", "consent_gate", "review_loop"],
+        "risk_flags": []
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "lane_map.proposal_kinds", "equals": ["code_patch", "documentation", "test"]},
+    {"path": "claim_evaluation.mapping_status", "equals": "all_mapped"},
+    {"path": "project_intake_probe.status", "equals": "ready"},
+    {"path": "project_intake_probe.record_count", "equals": 3},
+    {"path": "privacy.raw_source_urls_exported", "equals": false},
+    {"path": "implementation_readiness_contract.status", "equals": "ready"},
+    {"path": "implementation_readiness_contract.decision", "equals": "agent_harness_eval_passed_before_followup_lanes"},
+    {"path": "implementation_readiness_contract.documentation_test_or_code_patch_permitted_after_eval", "equals": true},
+    {"path": "implementation_readiness_contract.external_harness_execution_allowed", "equals": false},
+    {"path": "implementation_readiness_contract.provider_launch_allowed", "equals": false}
+  ]
+}
