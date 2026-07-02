@@ -10233,6 +10233,13 @@ def skill_route_discovery_provider_runtime_recovery_replay_packet(
         for code in recovery_hint_codes
         if code
     ]
+    operator_recovery_plan = skill_route_discovery_provider_runtime_recovery_packet_plan(
+        status=status,
+        next_action=next_action,
+        provider_runtime_replay_sample=provider_runtime_replay_sample,
+        recovery_steps=hint_steps,
+        replay_commands=replay_commands,
+    )
     blocked = status == "blocked"
     review = status == "review"
 
@@ -10273,9 +10280,72 @@ def skill_route_discovery_provider_runtime_recovery_replay_packet(
         },
         "recovery_step_count": len(hint_steps),
         "recovery_steps": hint_steps,
+        "operator_recovery_plan": operator_recovery_plan,
         "recovery_hint_codes": list(recovery_hint_codes),
         "recovery_hint_code_hashes": [stable_text_hash(code) for code in recovery_hint_codes],
         "diagnostics": list(diagnostics),
+        "replay_commands": list(replay_commands),
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_provider_runtime_recovery_packet_plan(
+    *,
+    status: str,
+    next_action: str,
+    provider_runtime_replay_sample: dict[str, Any],
+    recovery_steps: list[dict[str, Any]],
+    replay_commands: list[str],
+) -> dict[str, Any]:
+    """Condense provider-runtime packet recovery into a replayable operator plan."""
+
+    sample_plan = provider_runtime_replay_sample.get("operator_recovery_plan")
+    sample_plan = sample_plan if isinstance(sample_plan, dict) else {}
+    sample_status = optional_string(provider_runtime_replay_sample.get("route_status")) or "missing"
+    if status == "blocked":
+        decision = "blocked_recovery_required"
+    elif status == "review":
+        decision = "degraded_replay_review_required"
+    elif status == "ready":
+        decision = "local_replay_ready"
+    else:
+        decision = "provider_runtime_replay_not_required"
+
+    return {
+        "controller_surface": "provider_runtime_recovery_replay_plan",
+        "status": status,
+        "decision": decision,
+        "next_action": next_action,
+        "sample_route_status": sample_status,
+        "sample_plan_decision": optional_string(sample_plan.get("decision")) or "",
+        "sample_plan_next_action": optional_string(sample_plan.get("next_action")) or "",
+        "preflight_count": int(sample_plan.get("preflight_count") or 0),
+        "status_counts": dict(sample_plan.get("status_counts") or {}),
+        "recovery_step_count": len(recovery_steps),
+        "recovery_step_codes": [str(step.get("code") or "") for step in recovery_steps],
+        "recovery_step_hashes": [
+            str(step.get("code_hash") or stable_text_hash(str(step.get("code") or "")))
+            for step in recovery_steps
+            if str(step.get("code") or "")
+        ],
+        "replay_steps": [str(step.get("replay_step") or "") for step in recovery_steps],
         "replay_commands": list(replay_commands),
         "local_validation_required": True,
         "body_free": True,

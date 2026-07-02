@@ -5759,6 +5759,43 @@ def test_skill_route_discovery_provider_runtime_control_pass_requires_replay_sam
     assert recovery_packet["decision"] == "repair_then_replay_provider_runtime_preflight"
     assert recovery_packet["provider_runtime_sample"]["provided"] is False
     assert recovery_packet["provider_runtime_sample"]["route_status"] == "missing"
+    assert recovery_packet["operator_recovery_plan"] == {
+        "controller_surface": "provider_runtime_recovery_replay_plan",
+        "status": "blocked",
+        "decision": "blocked_recovery_required",
+        "next_action": "add_body_free_provider_runtime_preflight_sample_then_replay",
+        "sample_route_status": "missing",
+        "sample_plan_decision": "",
+        "sample_plan_next_action": "",
+        "preflight_count": 0,
+        "status_counts": {},
+        "recovery_step_count": 1,
+        "recovery_step_codes": ["provider_runtime_preflight_sample_missing"],
+        "recovery_step_hashes": [stable_text_hash("provider_runtime_preflight_sample_missing")],
+        "replay_steps": ["add_body_free_sample"],
+        "replay_commands": [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_diagnostics_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert recovery_packet["recovery_steps"] == [
         {
             "code": "provider_runtime_preflight_sample_missing",
@@ -7030,6 +7067,26 @@ def test_skill_route_discovery_provider_runtime_control_pass_surfaces_degraded_r
     assert recovery_packet["provider_runtime_sample"]["ready_for_supervisor_promotion"] is False
     assert recovery_packet["provider_runtime_sample"]["degraded_replay_only"] is True
     assert recovery_packet["provider_runtime_sample"]["success_claim_allowed"] is False
+    assert recovery_packet["operator_recovery_plan"]["status"] == "review"
+    assert recovery_packet["operator_recovery_plan"]["decision"] == "degraded_replay_review_required"
+    assert recovery_packet["operator_recovery_plan"]["next_action"] == (
+        "operator_review_degraded_provider_runtime_replay_before_promotion"
+    )
+    assert recovery_packet["operator_recovery_plan"]["sample_route_status"] == "degraded"
+    assert recovery_packet["operator_recovery_plan"]["sample_plan_decision"] == "degraded_local_replay_only"
+    assert recovery_packet["operator_recovery_plan"]["sample_plan_next_action"] == (
+        "review_degraded_steps_then_replay"
+    )
+    assert recovery_packet["operator_recovery_plan"]["preflight_count"] == 1
+    assert recovery_packet["operator_recovery_plan"]["status_counts"] == {
+        "passed": 0,
+        "degraded": 1,
+        "blocked": 0,
+    }
+    assert recovery_packet["operator_recovery_plan"]["recovery_step_codes"] == ["mock_auth_placeholder_used"]
+    assert recovery_packet["operator_recovery_plan"]["replay_steps"] == ["review_mock_auth_placeholder"]
+    assert recovery_packet["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False
+    assert recovery_packet["operator_recovery_plan"]["raw_provider_values_exported"] is False
     assert recovery_packet["recovery_steps"] == [
         {
             "code": "mock_auth_placeholder_used",

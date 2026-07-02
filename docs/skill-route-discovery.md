@@ -3103,14 +3103,16 @@ The same row now carries `recovery_replay_packet`, an operator replay packet for
 the selected skill-route action. It translates provider-runtime recovery hint
 codes into scoped replay steps such as adding a body-free sample, repairing
 model-command config, reviewing a mock-auth placeholder, or resolving sampled
-recovery hints before re-running the local preflight commands. The packet is not
-a provider launch plan: it repeats selected item ID mode, candidate source
-hashes, sample readiness booleans, replay commands, recovery code hashes, and
-denials for runtime action, provider launch, remote execution, raw preflight
-inputs, raw diagnostics, raw provider values, raw source URLs, raw target paths,
-and upstream bodies. Blocked packets require repair before local replay;
-degraded packets are replayable for local validation but remain review-only
-before any success claim.
+recovery hints before re-running the local preflight commands. The packet also
+includes `operator_recovery_plan`, a compact replay plan with the packet status,
+next action, sample route status, sanitized sample-plan decision, recovery step
+codes and hashes, replay step names, and replay commands. The packet is not a
+provider launch plan: it repeats selected item ID mode, candidate source hashes,
+sample readiness booleans, replay commands, recovery code hashes, and denials
+for runtime action, provider launch, remote execution, raw preflight inputs, raw
+diagnostics, raw provider values, raw source URLs, raw target paths, and upstream
+bodies. Blocked packets require repair before local replay; degraded packets are
+replayable for local validation but remain review-only before any success claim.
 
 On the final pass of a `provider-runtime-control` window,
 `capability_window_completion` also emits `provider_runtime_completion_handoff`.
