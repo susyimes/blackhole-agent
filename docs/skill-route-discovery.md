@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260702T022714.857893Z` advances pass 2 of the
+active `skill-route-discovery` window with a body-free local validation handoff.
+BioNeMo-style agent skill evidence enters through generic skill workflow
+signals: skill directories, agent/plugin marketplace metadata, workflow
+directories, and a `skills.sh.json` catalog. zhengxi-views contributes the
+source-cited Agent Skill variant with `SKILL.md`, manifest, references, scripts,
+evals, citation boundaries, and non-investment-advice limits.
+
+The pass-2 lane maps those skill rows only to documentation, config, test, or
+code_patch; install, runtime execution, provider launch, raw URL export, replay
+command export, target-path export, and upstream-body export remain denied.
+Qwen-AgentWorld and Fundamental-Ava remain adjacent general-agent project
+evidence under `agent_harness_eval_required`. They do not inherit
+`skill_route_discovery`, direct runtime routing, or direct code_patch authority
+before a separate local harness evaluation selects a bounded follow-up lane.
+
 Source digest `github-growth-20260702T005748.786759Z` completes the current
 four-pass `skill-route-discovery` window with a pass-4 handoff and final
 closure packet. The two skill-term repository items,
