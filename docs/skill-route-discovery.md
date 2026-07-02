@@ -34,6 +34,26 @@ Qwen-AgentWorld and Fundamental-Ava stay adjacent under
 provider, external harness, or remote execution work is selected, and they do
 not inherit `skill_route_discovery` from the skill-route rows.
 
+Source digest `github-growth-20260702T050714.674520Z` advances pass 2 of the
+active window by making the Python skill-route and general-agent split
+replayable for the current proposal names. BioNeMo Agent Toolkit and
+zhengxi-views are the two skill-workflow records: their explicit skill terms,
+catalog or `SKILL.md` layout, validation scripts, and metadata signals select
+only local documentation and test lanes inside the documentation, config, test,
+or code_patch envelope. Local validation remains required before activation.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper are separate
+`general_agent_project` evidence in this pass. Without skill workflow route
+hints or a local harness result, they stay in
+`agent_harness_eval_required` under
+`p2-agent-harness-eval-fixture-general-projects`; they do not inherit
+`skill_route_discovery` and cannot receive direct runtime, direct code_patch,
+provider launch, external harness execution, remote execution, raw URL export,
+replay-command export, or upstream-body export before harness criteria pass.
+This split is not safety review because the evidence is public repository
+routing metadata and no offensive behavior, unauthorized access, or privacy
+leakage route is selected.
+
 Source digest `github-growth-20260702T034714.900431Z` continues pass 2 of the
 active `skill-route-discovery` window with an operator validation manifest for
 the two current skill-term trend items. BioNeMo Agent Toolkit and zhengxi-views

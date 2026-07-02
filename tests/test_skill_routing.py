@@ -16060,6 +16060,92 @@ def test_skill_route_discovery_current_digest_20260702T022714_pass2_handoffs_bio
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260702T050714_pass2_routes_python_skill_and_agent_lanes():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T050714_pass2_local_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass2_local_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T050714.674520Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass2_local_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 2
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-python-agent-skills",
+        "p3-document-growth-routing-policy",
+    ]
+    assert lane["active_proposal_ids"] == [
+        "p1-skill-route-discovery-agent-skills",
+        "p2-agent-harness-eval-trending-agent-projects",
+        "p3-route-decision-docs-for-trend-digests",
+        "p4-controller-route-fallback-preflight",
+        "trend:lyra81604/zhengxi-views-1",
+        "p1-skill-route-discovery-python-agent-skills",
+        "p2-agent-harness-eval-fixture-general-projects",
+        "p3-document-growth-routing-policy",
+        "p4-configurable-route-hint-lane-map-check",
+        "p5-code-path-for-skill-route-discovery-if-missing",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["agent_harness_eval_required_count"] == 3
+
+    skill_row = rows["p1-skill-route-discovery-python-agent-skills"]
+    docs_row = rows["p3-document-growth-routing-policy"]
+    assert skill_row["candidate_names"] == ["bionemo-agent-toolkit", "zhengxi-views"]
+    assert skill_row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert skill_row["selected_local_lane"] == "test"
+    assert set(skill_row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert skill_row["local_validation_required"] is True
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["local_validation_required"] is True
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p2-agent-harness-eval-fixture-general-projects"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    acceptance = lane["acceptance_surface"]
+    assert acceptance["status"] == "ready"
+    assert acceptance["skill_route_row_count"] == 2
+    assert acceptance["agent_harness_eval_required_count"] == 3
+    assert acceptance["accepted_skill_route_lanes"] == ["documentation", "test"]
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+    assert "provider_runtime" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+
+
 def test_skill_route_discovery_current_digest_20260702T024715_pass3_activation_review_splits_skill_candidates():
     fixture_path = (
         Path(__file__).parent
