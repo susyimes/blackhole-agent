@@ -23414,6 +23414,9 @@ def provider_runtime_supervisor_readiness(
     recovery_hint_codes = sorted(
         {str(hint.get("code")) for hint in recovery_hints if str(hint.get("code") or "").strip()}
     )
+    privacy_review_required_count = sum(
+        1 for hint in recovery_hints if provider_runtime_hint_requires_privacy_review(hint)
+    )
     no_preflights = not preflights
     blocked = bool(status_counts.get("blocked"))
     degraded = bool(status_counts.get("degraded"))
@@ -23447,6 +23450,15 @@ def provider_runtime_supervisor_readiness(
         "blocked_failure_modes": blocked_failure_modes,
         "degraded_provider_count": int(status_counts.get("degraded") or 0),
         "recovery_hint_codes": recovery_hint_codes,
+        "privacy_sensitive_recovery_present": privacy_review_required_count > 0,
+        "privacy_review_required_count": privacy_review_required_count,
+        "privacy_sensitive_auto_recovery_allowed": False,
+        "operator_review_required": (
+            no_preflights
+            or blocked
+            or degraded
+            or privacy_review_required_count > 0
+        ),
         "replay_commands": replay_commands,
         "local_validation_required": True,
         "provider_runtime_launch_allowed": False,

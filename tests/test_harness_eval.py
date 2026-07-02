@@ -14691,6 +14691,10 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
             "review_model_unavailable",
             "url_safety_preflight_failed",
         ],
+        "privacy_sensitive_recovery_present": True,
+        "privacy_review_required_count": 1,
+        "privacy_sensitive_auto_recovery_allowed": False,
+        "operator_review_required": True,
         "replay_commands": [
             "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
             "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
@@ -14880,6 +14884,10 @@ def test_provider_runtime_recovery_summary_aggregates_body_free_hints():
     assert degraded_only["supervisor_readiness"]["ready_for_supervisor_local_replay"] is True
     assert degraded_only["supervisor_readiness"]["decision"] == "ready_for_supervisor_degraded_local_replay"
     assert degraded_only["supervisor_readiness"]["reason"] == "degraded_provider_runtime_replay_only"
+    assert degraded_only["supervisor_readiness"]["privacy_sensitive_recovery_present"] is False
+    assert degraded_only["supervisor_readiness"]["privacy_review_required_count"] == 0
+    assert degraded_only["supervisor_readiness"]["privacy_sensitive_auto_recovery_allowed"] is False
+    assert degraded_only["supervisor_readiness"]["operator_review_required"] is True
     assert degraded_only["operator_recovery_plan"]["decision"] == "degraded_local_replay_only"
     assert degraded_only["operator_recovery_plan"]["next_action"] == "review_degraded_steps_then_replay"
     assert degraded_only["operator_recovery_plan"]["provider_runtime_launch_allowed"] is False

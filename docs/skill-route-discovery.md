@@ -2556,7 +2556,11 @@ top-level gate. A usage-limit hint with credential-pool failover marks
 `credential_failover_allowed_without_review` false, and requires operator
 review before retry. This keeps rate-limit recovery replayable without turning
 credential labels, tokens, headers, reset values, or response bodies into
-diagnostics.
+diagnostics. The scheduler-facing `supervisor_readiness` view repeats
+`privacy_sensitive_recovery_present`, `privacy_review_required_count`,
+`privacy_sensitive_auto_recovery_allowed`, and `operator_review_required` so a
+supervisor can block promotion or require review without expanding nested
+recovery steps.
 
 Before that final handoff, the harness now emits `local_lane_intake`. This is
 the operator-visible inventory of bounded local work inferred from external
