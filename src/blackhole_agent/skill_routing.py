@@ -6012,6 +6012,13 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_100715_window = source_digest == "github-growth-20260702T100715.355760Z"
     current_20260702_152626_window = source_digest == "github-growth-20260702T152626.587436Z"
     current_20260702_164626_window = source_digest == "github-growth-20260702T164626.776302Z"
+    current_20260702_183119_window = source_digest == "github-growth-20260702T183119.073308Z"
+    if current_20260702_183119_window:
+        return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
     if current_20260702_164626_window:
         specs = (
             {
@@ -23119,6 +23126,219 @@ def _skill_route_discovery_current_digest_20260702T162626_pass4_completion_hando
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+        "adjacent_general_agent_rows": general_agent_rows,
+        "workflow_only_rows": workflow_only_rows,
+    }
+
+
+def _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Start the active skill-route window with explicit validation lanes."""
+
+    specs = (
+        {
+            "proposal_id": "p1_skill_route_discovery_lane",
+            "proposal_kind": "test",
+            "proposal_track": "zhengxi_views_skill_route_discovery_validation",
+            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+            "selected_local_lane": "test",
+            "candidate_name_terms": ("zhengxi-views",),
+            "validation_target": "zhengxi_views_agent_skill_topics_map_only_to_bounded_lanes",
+            "completion_requirement": (
+                "agent_plus_skill_repository_evidence_selects_only_documentation_config_test_or_code_patch"
+            ),
+        },
+    )
+    rows, blocked_proposal_ids, selected_lanes, selected_item_ids, observed_profiles = (
+        _skill_route_discovery_current_digest_20260702T070714_skill_rows(
+            candidate_lane_inventory,
+            specs,
+            replay_marker="current_digest_20260702T183119_pass1_validation_lane",
+        )
+    )
+    rows = [_without_downgraded_unsupported_lanes(row) for row in rows]
+
+    adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
+        ignored_evidence_items,
+        proposal_id="p2_agent_harness_eval_fixture",
+    )
+    adjacent_rows = [_without_raw_replay_command(row) for row in adjacent_rows]
+    workflow_only_rows = [
+        row
+        for row in adjacent_rows
+        if "workflow" in {term.casefold() for term in _string_list(row.get("route_hints"))}
+        or "workflow" in str(row.get("name") or "").casefold()
+        or "workflow" in str(row.get("ignored_reason") or "").casefold()
+    ]
+    general_agent_rows = [row for row in adjacent_rows if row not in workflow_only_rows]
+    adjacent_ready = bool(general_agent_rows) and all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["skill_route_discovery_inherited"] is False
+        and row["direct_runtime_route_allowed"] is False
+        and row["direct_code_patch_route_allowed"] is False
+        and row["external_harness_execution_allowed"] is False
+        and row["provider_runtime_launch_allowed"] is False
+        and row["remote_execution_allowed"] is False
+        for row in adjacent_rows
+    )
+    if not adjacent_ready:
+        blocked_proposal_ids.append("p2_agent_harness_eval_fixture")
+
+    agent_eval_row = {
+        "proposal_id": "p2_agent_harness_eval_fixture",
+        "proposal_kind": "test",
+        "proposal_track": "general_agent_project_local_validation_candidate",
+        "route_hint": "agent_harness_eval_required",
+        "status": "ready" if adjacent_ready else "blocked",
+        "activation_blockers": [] if adjacent_ready else ["general_agent_project_eval_rows_not_ready"],
+        "candidate_names": [str(row.get("name") or "") for row in general_agent_rows],
+        "item_ids": [str(row.get("item_id") or "") for row in general_agent_rows],
+        "source_hashes": [str(row.get("source_hash") or "") for row in general_agent_rows],
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "selected_local_lane": "agent_harness_eval_required",
+        "validation_gate": "local_agent_harness_eval_required_before_implementation_route",
+        "validation_target": "general_agent_projects_become_local_validation_candidates_before_direct_changes",
+        "implementation_lanes_enabled": False,
+        "direct_code_patch_route_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+    workflow_boundary = {
+        "proposal_id": "p3_workflow_agent_eval_docs",
+        "proposal_kind": "documentation",
+        "proposal_track": "workflow_keyword_agent_harness_boundary",
+        "route_class": "workflow_usecase_repository",
+        "status": "ready" if workflow_only_rows else "blocked",
+        "activation_blockers": [] if workflow_only_rows else ["workflow_only_repository_missing"],
+        "evaluation_lane": "agent_harness_eval_required",
+        "workflow_keyword_only": True,
+        "route_hints_empty_or_non_skill": True,
+        "skill_route_discovery_inherited": False,
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "selected_local_lane": "documentation",
+        "validation_gate": "focused-evidence-review",
+        "validation_target": "workflow_topic_alone_stays_agent_harness_eval_required",
+        "workflow_item_ids": [str(row.get("item_id") or "") for row in workflow_only_rows],
+        "workflow_source_hashes": [str(row.get("source_hash") or "") for row in workflow_only_rows],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    if workflow_boundary["status"] != "ready":
+        blocked_proposal_ids.append("p3_workflow_agent_eval_docs")
+
+    ready = bool(rows) and not blocked_proposal_ids
+    selected_local_lanes = [
+        lane
+        for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        if lane in {*selected_lanes, "documentation"}
+    ]
+
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_pass1_validation_lane",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_digest_pass1_skill_route_window_ready_for_bounded_local_validation"
+            if ready
+            else "repair_current_digest_pass1_skill_route_window_before_activation"
+        ),
+        "source_digest": source_digest,
+        "capability_theme": "skill-route-discovery",
+        "capability_pass": 1,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [
+            "p1_skill_route_discovery_lane",
+            "p2_agent_harness_eval_fixture",
+            "p3_workflow_agent_eval_docs",
+        ],
+        "anchoring_proposal_ids": [
+            "p1_skill_route_discovery_lane",
+            "p2_agent_harness_eval_fixture",
+            "p3_workflow_agent_eval_docs",
+            "p4_route_hint_policy_regression",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:ksimback/looper-1",
+        ],
+        "ready_skill_route_proposal_count": len(rows),
+        "blocked_proposal_ids": list(dict.fromkeys(blocked_proposal_ids)),
+        "skill_route_candidate_count": len(candidate_lane_inventory),
+        "adjacent_general_agent_count": len(general_agent_rows),
+        "workflow_only_repository_count": len(workflow_only_rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "observed_route_profiles": _ordered_route_profiles(observed_profiles),
+        "selected_evidence_item_ids": list(dict.fromkeys(selected_item_ids)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": selected_local_lanes,
+        "route_interpretation_rule": {
+            "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "general_agent_project_evaluation_lane": "agent_harness_eval_required",
+            "workflow_keyword_only_evaluation_lane": "agent_harness_eval_required",
+            "direct_allowed_lanes_before_agent_harness_eval": [],
+            "allowed_local_lanes_after_agent_harness_eval": ["documentation", "test", "code_patch"],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "operator_next_action": (
+            "replay_current_digest_pass1_validation_before_pass2"
+            if ready
+            else "repair_blocked_pass1_rows_before_activation"
+        ),
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": [*rows, agent_eval_row, workflow_boundary],
         "adjacent_general_agent_rows": general_agent_rows,
         "workflow_only_rows": workflow_only_rows,
     }

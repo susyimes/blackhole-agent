@@ -1,0 +1,112 @@
+{
+  "name": "skill-route-discovery-current-digest-20260702T183119-pass1-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260702T183119-pass1-validation-lane",
+    "source_digest": "github-growth-20260702T183119.073308Z",
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260702T183119.073308Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "RepositoryTrend",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "title": "Agent Skill repository with source-cited view workflow",
+        "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, scripts, source-cited workflow language, and non-investment-advice boundary.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+        "observed_paths": ["SKILL.md", "skill.yml", "references/method.md", "evals/source_citation_eval.py", "scripts/validate_package.py"],
+        "metadata_files": ["skill.yml"],
+        "risk_flags": [],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script", "test_file"],
+          "source_metadata_signals": ["skill_manifest", "source_citation_boundary", "advice_disclaimer_boundary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260702T183119.073308Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "General agent benchmark project",
+        "summary": "Language world model and AgentWorldBench evaluation project for general agents without a skill workflow route hint or local harness evaluation result.",
+        "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+        "route_hints": [],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260702T183119.073308Z",
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "title": "General autonomous agent project",
+        "summary": "Autonomous, collaborative, and socially intelligent agent project without a skill workflow route hint or local harness evaluation result.",
+        "topics": ["general-agent", "simulation", "autonomous-agent", "benchmark"],
+        "route_hints": [],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260702T183119.073308Z",
+        "item_id": "trend:ksimback/looper-1",
+        "item_kind": "RepositoryTrend",
+        "name": "looper",
+        "source_url": "https://github.com/ksimback/looper",
+        "title": "General agent loop project",
+        "summary": "Review-gated agent loop project without a skill workflow route hint or local harness evaluation result.",
+        "topics": ["general-agent", "loop", "runner", "workflow"],
+        "route_hints": [],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260702T183119.073308Z",
+        "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+        "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+        "title": "Workflow usecase repository without skill route hint",
+        "summary": "Workflow-themed usecase collection with no skill_route_discovery hint, no SKILL.md evidence, and no local agent harness evaluation result.",
+        "topics": ["workflow", "seedance", "blender", "usecases"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation"]
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 1},
+    {"path": "registry.ignored_evidence_item_count", "equals": 4},
+    {"path": "current_digest_pass1_validation_lane.status", "equals": "ready"},
+    {"path": "current_digest_pass1_validation_lane.source_digest", "equals": "github-growth-20260702T183119.073308Z"},
+    {"path": "current_digest_pass1_validation_lane.proposal_ids", "equals": ["p1_skill_route_discovery_lane", "p2_agent_harness_eval_fixture", "p3_workflow_agent_eval_docs"]},
+    {"path": "current_digest_pass1_validation_lane.selected_local_lanes", "equals": ["documentation", "test"]},
+    {"path": "current_digest_pass1_validation_lane.agent_harness_eval_required_count", "equals": 4},
+    {"path": "current_digest_pass1_validation_lane.rows.0.proposal_id", "equals": "p1_skill_route_discovery_lane"},
+    {"path": "current_digest_pass1_validation_lane.rows.0.allowed_local_lanes", "equals": ["documentation", "config", "test", "code_patch"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass1_validation_lane.rows.1.route_hint", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.rows.1.candidate_names", "equals": ["Qwen-AgentWorld", "Fundamental-Ava", "looper"]},
+    {"path": "current_digest_pass1_validation_lane.rows.1.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "current_digest_pass1_validation_lane.rows.1.implementation_lanes_enabled", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.rows.2.proposal_id", "equals": "p3_workflow_agent_eval_docs"},
+    {"path": "current_digest_pass1_validation_lane.rows.2.evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.rows.2.skill_route_discovery_inherited", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.route_interpretation_rule.workflow_keyword_only_evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass1_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_agent_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_source_url_exported", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_evidence_urls_exported", "equals": false}
+  ]
+}
