@@ -21,6 +21,26 @@ inherit `skill_route_discovery`, and they have no direct documentation, config,
 test, code_patch, runtime, provider, external harness, or remote-execution route
 until a local agent harness evaluation selects a bounded follow-up lane.
 
+Source digest `github-growth-20260702T074714.911556Z` advances pass 2 of the
+active `skill-route-discovery` window with the current proposal names:
+`p1-skill-route-discovery-zhengxi-views`,
+`p2-skill-route-discovery-bionemo-toolkit`,
+`p3-agent-harness-eval-general-projects`, and
+`p4-route-policy-doc-clarification`. The pass keeps zhengxi-views and BioNeMo
+Agent Toolkit as skill/workflow route evidence only. zhengxi-views contributes
+`SKILL.md`, `skill.yml`, references, scripts, evals, citation boundaries, and a
+non-investment-advice limit; BioNeMo contributes skill directories, workflow
+directories, plugin marketplace metadata, and `skills.sh.json` catalog signals.
+Those signals may map only to documentation, config, test, or code_patch local
+lanes, with local validation required before any activation review.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent general-agent evidence under
+`p3-agent-harness-eval-general-projects`. They do not inherit
+`skill_route_discovery` and cannot jump directly to documentation, config, test,
+code_patch, runtime, provider launch, external harness execution, remote
+execution, raw URL export, replay-command export, target-path export, or
+upstream-body export before a local `agent_harness_eval_required` path succeeds.
+
 Source digest `github-growth-20260702T052715.136537Z` continues pass 3 of the
 active `skill-route-discovery` window with selected item IDs
 `trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1` and
