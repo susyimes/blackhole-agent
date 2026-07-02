@@ -5363,6 +5363,27 @@ local lanes, stage counts, replay stage names, validation command hashes, and
 denial booleans. It does not export raw source URLs, evidence URLs, target paths,
 replay command bodies, upstream bodies, or any profile or memory write authority.
 
+## 2026-07-02 Pass-4 Current Completion Handoff
+
+Source digest `github-growth-20260702T094715.832381Z` now has an explicit
+`current_digest_pass4_completion_handoff` branch instead of falling through to a
+generic older handoff. The current window closes only the zhengxi-views
+RepositoryTrend as a bounded `skill_route_discovery` local test lane, with
+allowed lanes limited to documentation, config, test, and code_patch.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper-style general-agent project trends
+remain adjacent `agent_harness_eval_required` rows. They do not inherit
+`skill_route_discovery`, direct code_patch and runtime routes stay disabled, and
+local agent-harness evaluation is required before any implementation route.
+Workflow-usecase fork clusters without route hints are recorded as weak
+workflow popularity pressure for documentation or test follow-up only; they do
+not count as independent implementation evidence.
+
+The handoff remains body-free and operator replayable: it records selected item
+IDs, proposal IDs, lane names, route profiles, checklist status, and denial
+booleans while omitting raw source URLs, evidence URLs, replay command bodies,
+target paths, and upstream repository bodies.
+
 ## 2026-06-30 Pass-4 Profile Closure
 
 Source digest `github-growth-20260630T005904.395870Z` completes the current

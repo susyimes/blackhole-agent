@@ -17239,6 +17239,89 @@ def test_skill_route_discovery_current_digest_20260702T082714_pass4_closes_with_
     )
 
 
+def test_skill_route_discovery_current_digest_20260702T094715_pass4_completes_route_slice():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T094715_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    cluster = handoff["workflow_popularity_cluster_signal"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T094715.832381Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "current_digest_pass4_skill_route_slice_ready_for_supervisor_replay"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert handoff["proposal_ids"] == ["p1-skill-route-discovery-zhengxi-views"]
+    assert handoff["selected_local_lanes"] == ["test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert handoff["agent_harness_eval_required_count"] == 3
+
+    zhengxi = rows["p1-skill-route-discovery-zhengxi-views"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+    assert zhengxi["provider_runtime_launch_allowed"] is False
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p2-agent-harness-eval-trending-projects"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["runtime_action"] == "none"
+
+    assert cluster["controller_surface"] == "skill_route_discovery_workflow_popularity_cluster_signal"
+    assert cluster["status"] == "recorded"
+    assert cluster["cluster_count"] == 1
+    assert cluster["counts_as_independent_implementation_evidence"] is False
+    assert cluster["candidate_lane_increment"] == 0
+    assert cluster["allowed_followup_lanes_after_local_validation"] == ["documentation", "test"]
+    assert cluster["rows"][0]["signal_class"] == "weak_workflow_popularity_cluster"
+
+    assert handoff["operator_completion_checklist"]["capability_slice_complete"] is True
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert handoff["adjacent_general_agent_policy"]["evaluation_lane"] == "agent_harness_eval_required"
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260702T030714_pass4_completion_closes_skill_route_window():
     fixture_path = (
         Path(__file__).parent

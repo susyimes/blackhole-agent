@@ -11773,6 +11773,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_054714_window = source_digest == "github-growth-20260702T054714.674075Z"
     current_070714_20260702_window = source_digest == "github-growth-20260702T070714.706511Z"
     current_082714_20260702_window = source_digest == "github-growth-20260702T082714.780681Z"
+    current_094715_20260702_window = source_digest == "github-growth-20260702T094715.832381Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -11787,6 +11788,20 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         )
     specs = (
         (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow_completion",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "zhengxi_views_source_cited_skill_signal_closes_only_through_bounded_local_validation"
+                ),
+            },
+        )
+        if current_094715_20260702_window
+        else (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
                 "proposal_kind": "test",
@@ -12337,6 +12352,13 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             ).casefold()
             if "fork" in row_text and "workflow" in row_text:
                 continue
+        if current_094715_20260702_window:
+            row_text = " ".join(
+                str(row.get(key) or "")
+                for key in ("name", "item_id", "title", "summary")
+            ).casefold()
+            if "fork" in row_text and "workflow" in row_text:
+                continue
         if current_204302_window:
             row["proposal_id"] = "p2-agent-harness-eval-trending-agent-projects"
         elif current_221748_window:
@@ -12351,6 +12373,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             row["proposal_id"] = "p2-agent-harness-eval-for-general-agent-projects"
         elif current_082714_20260702_window:
             row["proposal_id"] = "p3-agent-harness-eval-general-projects"
+        elif current_094715_20260702_window:
+            row["proposal_id"] = "p2-agent-harness-eval-trending-projects"
         elif current_024715_window or current_030714_window:
             row["proposal_id"] = "p3-agent-harness-eval-agentworld"
         row.pop("replay_command", None)
@@ -12375,6 +12399,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_030714_window
             or current_054714_window
             or current_082714_20260702_window
+            or current_094715_20260702_window
         )
         else (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
@@ -12551,6 +12576,22 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "trend:TianhangZhuzth/Fundamental-Ava-1",
             ]
             if current_082714_20260702_window
+            else
+            [
+                "p1_skill_route_discovery_zhengxi_views",
+                "p2_agent_harness_eval_trending_agents",
+                "p3_agent_harness_fixture_for_generic_agent_projects",
+                "p4_workflow_usecase_route_probe",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-agent-harness-eval-python-agent-projects",
+                "p3-workflow-usecase-agent-harness-eval",
+                "trend:TianhangZhuzth/Fundamental-Ava-2",
+                "p2-agent-harness-general-agent-projects",
+                "p3-workflow-usecase-routing-eval",
+                "p4-routing-policy-fixture-coverage",
+            ]
+            if current_094715_20260702_window
             else
             [
                 "p1-skill-route-discovery-lane",
