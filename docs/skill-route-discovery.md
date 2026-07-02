@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260702T070714.706511Z` completes the active
+pass-4 lane for `p1-skill-route-discovery-agent-skills`,
+`p2-agent-harness-eval-gate`, and `p3-route-hint-docs`. The selected skill
+workflow item IDs `trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1` and
+`trend:lyra81604/zhengxi-views-1` may map only to documentation, config, test,
+or code_patch candidates, with this completion surface selecting test plus
+documentation. Unsupported pressure such as install, runtime execution, or
+provider runtime is recorded only as downgraded lane pressure.
+
+The general-agent item IDs `trend:QwenLM/Qwen-AgentWorld-1` and
+`trend:TianhangZhuzth/Fundamental-Ava-1` remain in
+`agent_harness_eval_required` under `p2-agent-harness-eval-gate`. They do not
+inherit `skill_route_discovery`, and they have no direct documentation, config,
+test, code_patch, runtime, provider, external harness, or remote-execution route
+until a local agent harness evaluation selects a bounded follow-up lane.
+
 Source digest `github-growth-20260702T052715.136537Z` continues pass 3 of the
 active `skill-route-discovery` window with selected item IDs
 `trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1` and
