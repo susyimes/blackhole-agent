@@ -18683,3 +18683,105 @@ def test_skill_route_discovery_current_digest_20260702T175118_pass3_routes_curre
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260702T181118_pass4_completes_current_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T181118_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    workflow = handoff["workflow_only_boundary"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T181118.185142Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1_skill_route_discovery_lane",
+        "p2_agent_harness_eval_fixture",
+        "p3_workflow_agent_eval_documentation",
+    ]
+    assert handoff["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["agent_harness_eval_required_count"] == 4
+    assert handoff["adjacent_general_agent_count"] == 3
+    assert handoff["workflow_only_repository_count"] == 1
+
+    zhengxi = rows["p1_skill_route_discovery_lane"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert zhengxi["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert zhengxi["route_profiles"] == ["generic_skill_workflow", "source_cited_domain_research"]
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert zhengxi["completion_requirement"] == (
+        "skill_term_evidence_maps_to_skill_route_discovery_with_bounded_lanes_only"
+    )
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+    assert zhengxi["provider_runtime_launch_allowed"] is False
+
+    docs_row = rows["p3_workflow_agent_eval_documentation"]
+    assert docs_row["proposal_kind"] == "documentation"
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert docs_row["completion_requirement"] == (
+        "document_workflow_topic_alone_is_insufficient_for_skill_route_discovery"
+    )
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava", "looper"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p2_agent_harness_eval_fixture"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+
+    assert workflow["proposal_id"] == "p3_workflow_agent_eval_documentation"
+    assert workflow["route_class"] == "workflow_usecase_repository"
+    assert workflow["evaluation_lane"] == "agent_harness_eval_required"
+    assert workflow["workflow_keyword_only"] is True
+    assert workflow["skill_route_discovery_inherited"] is False
+    assert workflow["direct_allowed_lanes_before_eval"] == []
+    assert workflow["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert workflow["validation_target"] == (
+        "workflow_topic_alone_requires_agent_harness_eval_before_any_lane"
+    )
+    assert workflow["workflow_item_ids"] == [
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1"
+    ]
+    assert workflow["runtime_action"] == "none"
+    assert workflow["external_harness_execution_allowed"] is False
+    assert workflow["provider_runtime_launch_allowed"] is False
+
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized

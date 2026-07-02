@@ -62,6 +62,20 @@ agent-harness evaluation. Workflow topic matches alone are recorded by
 adoption, provider launch, external harness execution, remote execution, or raw
 upstream export.
 
+Source digest `github-growth-20260702T181118.185142Z` completes pass 4 of the
+same window with `current_digest_pass4_completion_handoff`. The pass closes
+zhengxi-views through `p1_skill_route_discovery_lane` in the local test lane and
+keeps the allowed lane envelope limited to documentation, config, test, and
+code_patch.
+
+Qwen-AgentWorld, Fundamental-Ava, and looper remain adjacent
+`agent_harness_eval_required` evidence under `p2_agent_harness_eval_fixture`.
+The Awesome-Blender-Seedance-Workflow-Usecases item is recorded only as a
+workflow-keyword boundary for `p3_workflow_agent_eval_documentation`: a workflow
+topic without a skill-route hint or skill layout signal is insufficient for
+`skill_route_discovery` and must pass local agent-harness evaluation before any
+documentation, test, or code_patch follow-up is selected.
+
 Source digest `github-growth-20260702T162626.606010Z` completes pass 4 of the
 same `skill-route-discovery` window with an explicit
 `current_digest_pass4_completion_handoff`. The zhengxi-views trend remains the
