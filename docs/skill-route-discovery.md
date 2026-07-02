@@ -5,6 +5,21 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Source digest `github-growth-20260702T005748.786759Z` completes the current
+four-pass `skill-route-discovery` window with a pass-4 handoff and final
+closure packet. The two skill-term repository items,
+`trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1` and
+`trend:lyra81604/zhengxi-views-3`, may close only through bounded local
+documentation and test lanes; install, provider runtime, runtime execution, raw
+URL export, upstream body export, and external activation remain denied.
+
+`trend:QwenLM/Qwen-AgentWorld-5` and
+`trend:TianhangZhuzth/Fundamental-Ava-4` stay adjacent as
+`agent_harness_eval_required` rows. They do not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch authority,
+provider launch, external harness execution, or remote execution before a local
+agent harness evaluation selects a bounded follow-up lane.
+
 Source digest `github-growth-20260701T235748.704258Z` opens pass 1 of the
 active window by binding the carried proposal IDs `p1` through `p5` to a
 current validation lane. zhengxi-views is the only skill-route candidate in

@@ -10523,6 +10523,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
     current_204302_window = source_digest == "github-growth-20260701T204302.417004Z"
     current_221748_window = source_digest == "github-growth-20260701T221748.504540Z"
+    current_005748_window = source_digest == "github-growth-20260702T005748.786759Z"
     current_233748_window = source_digest == "github-growth-20260701T233748.658340Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
@@ -10783,6 +10784,29 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         if current_153904_window
         else (
             {
+                "proposal_id": "p1-skill-route-discovery-trending-skill-projects",
+                "proposal_kind": "test",
+                "proposal_track": "two_skill_term_repository_validation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "completion_requirement": (
+                    "skill_term_repositories_map_only_to_documentation_config_test_or_code_patch"
+                ),
+            },
+            {
+                "proposal_id": "p3-document-route-boundaries-for-trend-evidence",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_vs_agent_harness_eval_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "completion_requirement": (
+                    "trend_only_evidence_records_item_ids_and_no_runtime_or_external_actions"
+                ),
+            },
+        )
+        if current_005748_window
+        else (
+            {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
                 "proposal_kind": "test",
                 "proposal_track": "generic_skill_workflow_validation",
@@ -10960,6 +10984,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             if current_054715_window
             else "p3-agent-harness-eval-gate"
             if current_153904_window
+            else "p2-agent-harness-eval-for-general-agent-trends"
+            if current_005748_window
             else "p2-agent-harness-eval-general-python-agents"
             if current_233748_window
             else "p4-agent-harness-eval-qwen"
@@ -10973,6 +10999,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             row["proposal_id"] = "p2-agent-harness-eval-general-agent-projects"
         elif current_233748_window:
             row["proposal_id"] = "p2-agent-harness-eval-general-python-agents"
+        elif current_005748_window:
+            row["proposal_id"] = "p2-agent-harness-eval-for-general-agent-trends"
         elif current_190302_window:
             row["proposal_id"] = "p2-agent-harness-eval-general-python-agents"
         row.pop("replay_command", None)
@@ -10992,6 +11020,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_204302_window
             or current_221748_window
             or current_233748_window
+            or current_005748_window
         )
         else (
         ("generic_skill_workflow", "skill_ecosystem_state_handoff")
@@ -11328,6 +11357,25 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
                 "trend:ksimback/looper-1",
             ]
             if current_221748_window
+            else [
+                "p1",
+                "p2",
+                "p3",
+                "p4",
+                "p5",
+                "11245146668-1",
+                "11244775253-2",
+                "p1-skill-route-discovery-trending-skill-projects",
+                "p2-agent-harness-eval-for-general-agent-trends",
+                "p3-document-route-boundaries-for-trend-evidence",
+                "p1-skill-route-discovery-python-agent-skills",
+                "p2-agent-harness-eval-fixture",
+                "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+                "trend:lyra81604/zhengxi-views-3",
+                "trend:QwenLM/Qwen-AgentWorld-5",
+                "trend:TianhangZhuzth/Fundamental-Ava-4",
+            ]
+            if current_005748_window
             else [
                 "proposal-1-skill-route-discovery-zhengxi-views",
                 "proposal-2-agent-harness-eval-qwen-agentworld",
@@ -20073,6 +20121,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
     current_190302_window = source_digest == "github-growth-20260701T190302.389615Z"
     current_204302_window = source_digest == "github-growth-20260701T204302.417004Z"
     current_221748_window = source_digest == "github-growth-20260701T221748.504540Z"
+    current_005748_window = source_digest == "github-growth-20260702T005748.786759Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_final_closure(
             candidate_lane_inventory,
@@ -20126,6 +20175,26 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
             },
         )
         if current_180302_window
+        else (
+        (
+            {
+                "proposal_id": "p1-skill-route-discovery-trending-skill-projects",
+                "proposal_kind": "test",
+                "proposal_track": "two_skill_term_repository_validation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_term_trend_items_stay_bounded_to_local_lanes",
+            },
+            {
+                "proposal_id": "p3-document-route-boundaries-for-trend-evidence",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_discovery_vs_agent_harness_eval_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_item_id_only_trend_evidence_route_boundary",
+            },
+        )
+        if current_005748_window
         else (
         (
             {
@@ -20207,6 +20276,7 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         )
         )
         )
+        )
     )
     adjacent_proposal_id = (
         "p2-agent-harness-eval-general-trends"
@@ -20217,6 +20287,8 @@ def _skill_route_discovery_current_digest_pass4_final_closure(
         else (
         "p2-agent-harness-eval-trending-agent-projects"
         if current_204302_window
+        else "p2-agent-harness-eval-for-general-agent-trends"
+        if current_005748_window
         else "p2-agent-harness-eval-general-agent-projects"
         if current_221748_window
         else "p2-agent-harness-eval-general-python-agents"
