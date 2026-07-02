@@ -24,6 +24,31 @@ documentation, test, code_patch, runtime, provider, external harness, or remote
 execution path can be selected, and they do not inherit `skill_route_discovery`
 from the BioNeMo or zhengxi rows.
 
+Source digest `github-growth-20260702T064714.829371Z` continues pass 3 with an
+operator-visible validation-before-activation surface for the current proposal
+names. zhengxi-views is treated as source-cited Agent Skill evidence because the
+public repository exposes `SKILL.md`, `skill.yml`, references, scripts, evals,
+citation boundaries, and a non-investment-advice limit. It may map only to the
+bounded documentation, config, test, or code_patch envelope, with this pass
+selecting the local test lane and requiring focused local validation before any
+activation review.
+
+BioNeMo Agent Toolkit is treated as skill/workflow route evidence because the
+public repository presents agent skill catalogs, workflow directories, plugin
+marketplace metadata, and `skills.sh.json`. This pass selects documentation for
+the BioNeMo handling contract; the allowed local lanes remain only
+documentation, config, test, and code_patch, and no install, import, provider
+launch, external skill activation, external harness execution, or runtime action
+is implied.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent `general_agent_project`
+evidence under `p3-agent-harness-eval-general-projects`. Before local harness
+evaluation, their direct allowed lanes are empty: they do not inherit
+`skill_route_discovery` and cannot jump directly to documentation, test,
+code_patch, config, runtime, provider, external harness, or remote-execution
+work. After harness evidence exists, the only follow-up lane inventory exposed by
+this surface is documentation, test, or code_patch.
+
 Source digest `github-growth-20260702T062714.806950Z` continues pass 2 of the
 active `skill-route-discovery` window with a replayable local validation lane
 for the current proposal names. BioNeMo Agent Toolkit and zhengxi-views are
