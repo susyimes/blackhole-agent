@@ -24,6 +24,26 @@ Fundamental-Ava documentation row records the required pre-implementation
 checklist: runnable surface, configuration assumptions, tool-routing
 implications, rollback path, and non-network validation.
 
+Source digest `github-growth-20260702T154626.821848Z` advances pass 2 of the
+active window with `current_digest_pass2_local_validation_lane`. The
+zhengxi-views RepositoryTrend remains the only direct
+`skill_route_discovery` candidate because its public shape includes `SKILL.md`,
+`skill.yml`, references, evals, scripts, source-citation workflow boundaries,
+and non-investment-advice limits. It maps to `p1-skill-route-discovery-lane`
+in the local test lane only, while the complete lane envelope stays limited to
+documentation, config, test, and code_patch.
+
+Qwen-AgentWorld and Fundamental-Ava are carried as adjacent
+`agent_harness_eval_required` rows under
+`p2-agent-harness-eval-for-general-agent-trends` and
+`p3-agent-harness-fixture-coverage`. They do not inherit
+`skill_route_discovery`, do not select direct runtime or direct code_patch
+routes, and require local harness evaluation before documentation, test, or
+code_patch follow-up can be chosen. The pass-2 surface exports bounded route
+metadata and hashes only; raw source URLs, raw evidence URLs, replay commands,
+target paths, upstream bodies, provider launch, external harness execution,
+remote execution, and external skill or agent activation remain denied.
+
 Source digest `github-growth-20260702T070714.706511Z` completes the active
 pass-4 lane for `p1-skill-route-discovery-agent-skills`,
 `p2-agent-harness-eval-gate`, and `p3-route-hint-docs`. The selected skill
