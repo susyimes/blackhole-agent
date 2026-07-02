@@ -9847,7 +9847,10 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
 ) -> dict[str, Any]:
     """Expose current pass-3 activation review without adding activation authority."""
 
-    if source_digest == "github-growth-20260702T144626.894915Z":
+    if source_digest in {
+        "github-growth-20260702T144626.894915Z",
+        "github-growth-20260702T204709.437283Z",
+    }:
         return _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
@@ -23811,6 +23814,7 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
 ) -> dict[str, Any]:
     """Preflight the active provider/runtime-control slice without runtime authority."""
 
+    current_204709_window = source_digest == "github-growth-20260702T204709.437283Z"
     specs = (
         {
             "proposal_id": "p1_skill_route_discovery_zhengxi_views",
@@ -23835,7 +23839,11 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
         _skill_route_discovery_current_digest_20260702T070714_skill_rows(
             candidate_lane_inventory,
             specs,
-            replay_marker="20260702T144626_pass3_provider_runtime_control",
+            replay_marker=(
+                "20260702T204709_provider_runtime_control_pass3"
+                if current_204709_window
+                else "20260702T144626_pass3_provider_runtime_control"
+            ),
         )
     )
     rows = [_without_downgraded_unsupported_lanes(row) for row in rows]
@@ -23847,13 +23855,20 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
     adjacent_rows = [_without_raw_replay_command(row) for row in adjacent_rows]
     for row in adjacent_rows:
         name = str(row.get("name") or "").casefold()
-        row["proposal_id"] = (
-            "p3_agentworld_harness_fixture"
-            if name == "qwen-agentworld"
-            else "p2_agent_harness_eval_fundamental_ava"
-            if name == "fundamental-ava"
-            else "p2_agent_harness_eval_trending_agents"
-        )
+        if current_204709_window:
+            row["proposal_id"] = (
+                "p3_workflow_agent_eval_documentation"
+                if "workflow" in name or "seedance" in name
+                else "p2_agent_harness_eval_fixture"
+            )
+        else:
+            row["proposal_id"] = (
+                "p3_agentworld_harness_fixture"
+                if name == "qwen-agentworld"
+                else "p2_agent_harness_eval_fundamental_ava"
+                if name == "fundamental-ava"
+                else "p2_agent_harness_eval_trending_agents"
+            )
         row["preflight_recovery_hint_codes"] = [
             "run_local_agent_harness_eval_fixture",
             "keep_provider_runtime_launch_denied",
@@ -23934,6 +23949,80 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
 
     rows.extend(agent_rows)
     ready = bool(rows) and not blocked_proposal_ids and len(adjacent_rows) >= 2
+    recovery_hint_codes = [
+        "run_skill_route_discovery_validation",
+        "run_local_agent_harness_eval_fixture",
+        "keep_provider_runtime_launch_denied",
+    ]
+    operator_recovery_workflow = {
+        "controller_surface": "provider_runtime_control_pass3_operator_recovery_workflow",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "provider_runtime_control_pass3_ready_for_local_replay"
+            if ready
+            else "repair_provider_runtime_control_pass3_rows_before_replay"
+        ),
+        "source_digest": source_digest,
+        "current_pass": 3,
+        "next_pass": 4,
+        "total_passes": 4,
+        "skill_route_candidate_count": len(candidate_lane_inventory),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": list(dict.fromkeys(blocked_proposal_ids)),
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_code_hashes": [_stable_hash(code) for code in recovery_hint_codes],
+        "replay_command_hashes": [
+            _stable_hash("python -m pytest tests/test_skill_routing.py -q -k current_digest_20260702T204709"),
+            _stable_hash("python -m pytest tests/test_harness_eval.py -q -k provider_runtime_control_pass3"),
+            _stable_hash("python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"),
+        ],
+        "local_validation_required": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_preflight_inputs_exported": False,
+        "raw_provider_values_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    active_proposal_ids = (
+        [
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_qwen_agentworld",
+            "p3_agent_harness_eval_fundamental_ava",
+            "p4_agent_harness_eval_looper",
+            "p5_workflow_trend_harness_eval_seedance",
+            "p1-skill-route-discovery-zhengxi",
+            "p2-agent-harness-eval-general-projects",
+            "p3-workflow-agent-harness-eval",
+            "p4-route-hint-coverage-audit",
+            "trend:lyra81604/zhengxi-views-1",
+            "p2_agent_harness_eval_fixture",
+            "p3_workflow_agent_eval_documentation",
+        ]
+        if current_204709_window
+        else [
+            "p1-skill-route-discovery-lane",
+            "p2-agent-harness-eval-fixtures",
+            "p3-workflow-usecase-documentation-probe",
+            "p4-route-metadata-preflight",
+            "p5-self-model-risk-boundary-test",
+            "p1_skill_route_discovery_zhengxi_views",
+            "p2_agent_harness_eval_trending_agents",
+            "p3_workflow_agent_eval_blender_seedance",
+            "p4_provider_independent_preflight_guard",
+            "trend:lyra81604/zhengxi-views-1",
+            "p2_agent_harness_eval_fundamental_ava",
+            "p3_agentworld_harness_fixture",
+        ]
+    )
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass3_provider_runtime_preflight_lane",
         "status": "ready" if ready else "blocked",
@@ -23948,20 +24037,7 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [str(row["proposal_id"]) for row in rows],
-        "active_proposal_ids": [
-            "p1-skill-route-discovery-lane",
-            "p2-agent-harness-eval-fixtures",
-            "p3-workflow-usecase-documentation-probe",
-            "p4-route-metadata-preflight",
-            "p5-self-model-risk-boundary-test",
-            "p1_skill_route_discovery_zhengxi_views",
-            "p2_agent_harness_eval_trending_agents",
-            "p3_workflow_agent_eval_blender_seedance",
-            "p4_provider_independent_preflight_guard",
-            "trend:lyra81604/zhengxi-views-1",
-            "p2_agent_harness_eval_fundamental_ava",
-            "p3_agentworld_harness_fixture",
-        ],
+        "active_proposal_ids": active_proposal_ids,
         "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
         "skill_route_candidate_count": len(candidate_lane_inventory),
@@ -23978,11 +24054,7 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
         ],
         "provider_runtime_preflight_contract": {
             "diagnostics_mode": "body_free",
-            "recovery_hint_codes": [
-                "run_skill_route_discovery_validation",
-                "run_local_agent_harness_eval_fixture",
-                "keep_provider_runtime_launch_denied",
-            ],
+            "recovery_hint_codes": recovery_hint_codes,
             "replay_command_hashes_only": True,
             "provider_runtime_launch_allowed": False,
             "runtime_action": "none",
@@ -23990,6 +24062,7 @@ def _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
             "raw_evidence_urls_exported": False,
             "raw_upstream_body_exported": False,
         },
+        "operator_recovery_workflow": operator_recovery_workflow,
         "route_interpretation_rule": {
             "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
             "general_agent_project_evaluation_lane": "agent_harness_eval_required",

@@ -10027,6 +10027,95 @@ def test_skill_route_discovery_current_digest_20260702T144626_pass3_provider_run
     assert "runtime_execution" not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260702T204709_pass3_provider_runtime_control_lane():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260702T204709_provider_runtime_control_pass3.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass3_activation_review_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    workflow = lane["operator_recovery_workflow"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260702T204709.437283Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_pass3_provider_runtime_preflight_lane"
+    )
+    assert lane["capability_theme"] == "provider-runtime-control"
+    assert lane["status"] == "ready"
+    assert lane["active_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert lane["selected_local_lanes"] == ["config", "test"]
+    assert lane["agent_harness_eval_required_count"] == 4
+
+    skill_row = rows["p1_skill_route_discovery_zhengxi_views"]
+    assert skill_row["candidate_names"] == ["zhengxi-views"]
+    assert skill_row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert skill_row["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert skill_row["selected_local_lane"] == "test"
+    assert skill_row["runtime_action"] == "none"
+    assert skill_row["provider_runtime_launch_allowed"] is False
+
+    assert set(adjacent) == {
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Fundamental-Ava",
+        "Qwen-AgentWorld",
+        "looper",
+    }
+    for name, row in adjacent.items():
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        if name == "Awesome-Blender-Seedance-Workflow-Usecases":
+            assert row["proposal_id"] == "p3_workflow_agent_eval_documentation"
+        else:
+            assert row["proposal_id"] == "p2_agent_harness_eval_fixture"
+
+    assert workflow["controller_surface"] == "provider_runtime_control_pass3_operator_recovery_workflow"
+    assert workflow["status"] == "ready"
+    assert workflow["decision"] == "provider_runtime_control_pass3_ready_for_local_replay"
+    assert workflow["current_pass"] == 3
+    assert workflow["next_pass"] == 4
+    assert workflow["agent_harness_eval_required_count"] == 4
+    assert workflow["recovery_hint_codes"] == [
+        "run_skill_route_discovery_validation",
+        "run_local_agent_harness_eval_fixture",
+        "keep_provider_runtime_launch_denied",
+    ]
+    assert workflow["body_free_diagnostics_only"] is True
+    assert workflow["provider_runtime_launch_allowed"] is False
+    assert workflow["raw_replay_commands_exported"] is False
+    assert workflow["raw_preflight_inputs_exported"] is False
+    assert workflow["raw_provider_values_exported"] is False
+
+    contract = lane["provider_runtime_preflight_contract"]
+    assert contract["diagnostics_mode"] == "body_free"
+    assert contract["replay_command_hashes_only"] is True
+    assert contract["provider_runtime_launch_allowed"] is False
+
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_skill_route_discovery_bounded_route_profile_matrix_covers_skill_workflow_lanes():
     registry = build_skill_route_discovery_registry_from_evidence_items(
         [

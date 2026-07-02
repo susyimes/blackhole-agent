@@ -266,6 +266,18 @@ as `provider_runtime_degraded_replay_only` with `success_claim_allowed: false`
 and `provider_runtime_launch_allowed: false`. This prevents a scheduler from
 treating body-free diagnostics as a successful provider launch or promotion.
 
+Source digest `github-growth-20260702T204709.437283Z` advances pass 3 of the
+`provider-runtime-control` window with a current-digest
+`provider_runtime_control_pass3_operator_recovery_workflow`. The zhengxi-views
+Agent Skill evidence still maps only to bounded `skill_route_discovery` local
+lanes, while Qwen-AgentWorld, Fundamental-Ava, looper, and workflow-only
+Seedance usecase evidence remain behind `agent_harness_eval_required`. The
+pass-3 workflow exposes recovery hint codes and replay command hashes only; it
+does not export raw source URLs, replay commands, provider inputs, provider
+values, diagnostics bodies, or upstream content. Provider runtime launch,
+external harness execution, remote execution, and runtime action remain denied
+until a later supervisor-controlled path explicitly permits them.
+
 Both surfaces are replay-only. They may expose hint codes, affected harness
 labels, counts, replay commands, and boolean launch decisions. They must not
 export raw model commands, prompt bodies, review output, terminal panes, URLs,
