@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 153
-    assert payload["pass_count"] == 152
+    assert payload["fixture_count"] == 154
+    assert payload["pass_count"] == 153
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -168,6 +168,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260703T090050-pass4-completion"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260703T110050-pass2-validation-lane"
         ]["passed"]
         is True
     )
@@ -20936,6 +20942,95 @@ def test_skill_route_discovery_current_digest_20260702T214709_pass2_harness_lane
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260703T110050_pass2_validation_lane():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260703T110050_pass2_validation_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass2_local_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    checklist = output["pass2_secondary_harness_checklist"]
+    adjacent = {row["item_id"]: row for row in checklist["rows"]}
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert output["lane_map"]["local_validation_required"] is True
+
+    assert lane["source_digest"] == "github-growth-20260703T110050.082761Z"
+    assert lane["status"] == "ready"
+    assert lane["selected_local_lanes"] == ["test"]
+    assert lane["agent_harness_eval_required_count"] == 2
+    assert set(rows) == {
+        "p1-skill-route-discovery-codex-workflow-gate",
+        "p2-generic-skill-workflow-route-discovery",
+    }
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["candidate_names"] == [
+        "lingbol088-spec-reverse-flow-skill"
+    ]
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["route_profiles"] == [
+        "codex_workflow_gate"
+    ]
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["skill_route_discovery_first"] is True
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["local_validation_required"] is True
+    assert rows["p1-skill-route-discovery-codex-workflow-gate"]["runtime_action"] == "none"
+    assert rows["p2-generic-skill-workflow-route-discovery"]["candidate_names"] == ["zhengxi-views"]
+    assert rows["p2-generic-skill-workflow-route-discovery"]["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert rows["p2-generic-skill-workflow-route-discovery"]["selected_evidence_item_ids"] == [
+        "trend:lyra81604/zhengxi-views-1"
+    ]
+    assert rows["p2-generic-skill-workflow-route-discovery"]["local_validation_required"] is True
+
+    assert checklist["status"] == "ready"
+    assert checklist["decision"] == "hold_adjacent_agent_projects_for_local_harness_fixture"
+    assert checklist["record_count"] == 2
+    assert checklist["ready_fixture_count"] == 0
+    assert checklist["blocked_fixture_count"] == 2
+    assert checklist["local_eval_activation_allowed"] is False
+    assert set(adjacent) == {
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    }
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["activation_status"] == "blocked_until_local_agent_harness_fixture" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["local_validation_required"] is True for row in adjacent.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent.values())
+    assert all(row["provider_runtime_launch_allowed"] is False for row in adjacent.values())
+
+    assert checklist["required_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    ]
+    assert output["privacy"]["raw_source_urls_exported"] is False
+    assert output["privacy"]["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert all(row["runtime_action"] == "none" for row in rows.values())
+    assert all(row["provider_runtime_launch_allowed"] is False for row in rows.values())
 
 
 def test_skill_route_discovery_current_digest_20260702T224121_pass4_harness_handoff():

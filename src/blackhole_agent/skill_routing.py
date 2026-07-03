@@ -8271,6 +8271,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260703T094050.021818Z",
         "github-growth-20260703T094050Z",
     }
+    current_20260703_110050_window = source_digest in {
+        "github-growth-20260703T110050.082761Z",
+        "github-growth-20260703T110050Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -8809,6 +8813,52 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                     "validation_script",
                     "test_file",
                     "source_citation_boundary",
+                ),
+            },
+        )
+    if current_20260703_110050_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_codex_workflow_gate_bounded_lane",
+                "validation_task": (
+                    "classify reverse-flow-skill as Codex workflow-gate evidence and prove "
+                    "skill_route_discovery remains first with only documentation, config, "
+                    "test, or code_patch lanes before activation"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "agent_metadata",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-route-discovery",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_generic_skill_workflow_bounded_lane",
+                "validation_task": (
+                    "classify zhengxi-views as generic and source-cited skill workflow "
+                    "evidence with local_validation_required=true and bounded local lanes only"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "test_file",
+                    "source_citation_boundary",
+                    "advice_disclaimer_boundary",
                 ),
             },
         )

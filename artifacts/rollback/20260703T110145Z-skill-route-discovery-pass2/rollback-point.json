@@ -1,0 +1,14 @@
+{
+  "timestamp": "20260703T110145Z",
+  "source_digest": "github-growth-20260703T110050.082761Z",
+  "theme": "skill-route-discovery",
+  "pass": "2_of_4",
+  "original_branch": "codex/blackhole-evolve/20260703T110145.829675-add-or-extend-local-tests-for-skill-route-discov",
+  "head": "dc437db62f5571bda3e1450ab87265178b44563a",
+  "rollback_ref": "refs/blackhole-rollback/20260703T110145Z-skill-route-discovery-pass2",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260703T110145.829675-add-or-extend-local-tests-for-skill-route-discov",
+    "git reset --hard refs/blackhole-rollback/20260703T110145Z-skill-route-discovery-pass2"
+  ],
+  "note": "Rollback execution is explicit and destructive; do not run recovery commands without operator approval."
+}
