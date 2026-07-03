@@ -28,6 +28,22 @@ adjacent `agent_harness_eval_required` rows and do not inherit
 provider launch, external harness execution, remote execution, or external
 agent activation before local harness evaluation.
 
+For the `github-growth-20260703T060050.289743Z` pass-3 lane, the current
+reverse-flow evidence is exposed through
+`current_digest_pass3_route_to_validation_lane` rather than a standalone
+fixture. The repository trend and its issue warning are folded into the same
+body-free reverse-flow candidate, selecting a local test lane for
+`p1-skill-route-discovery-reverse-flow` and recording verification uncertainty
+before any implementation route. Generic skill-workflow evidence from
+reverse-flow-skill and zhengxi-views remains bounded to documentation, config,
+test, or code_patch through `p2-generic-skill-route-discovery-fixture`.
+Awesome-Blender-Seedance-Workflow-Usecases, Qwen-AgentWorld, and
+Fundamental-Ava stay in `agent_harness_eval_required` under
+`p3-agent-harness-eval-general-projects`; they do not inherit
+`skill_route_discovery`, direct runtime, direct code_patch, provider launch,
+external harness execution, or remote execution before local harness
+evaluation.
+
 Source digest `github-growth-20260702T152626.587436Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific replay lane for the
 current proposal IDs. The zhengxi-views signal is treated as public Agent Skill
