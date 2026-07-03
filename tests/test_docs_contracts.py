@@ -210,6 +210,8 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
 
     required_phrases = [
         "source digest `github-growth-20260618T062043.878926Z`",
+        "`github-growth-20260703T171922.860113Z`",
+        "`p2-agent-harness-eval-routing`",
         "`github-growth-20260618T215207.204133Z`",
         "`github-growth-20260618T233207.218276Z`",
         "https://github.com/baskduf/FableCodex",
