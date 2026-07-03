@@ -14741,6 +14741,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260703T215923.849099Z",
         "github-growth-20260703T215923Z",
     }
+    current_234924_20260703_window = source_digest in {
+        "github-growth-20260703T234924.826468Z",
+        "github-growth-20260703T234924Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -14837,6 +14841,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_191923_20260703_window
         or current_203923_20260703_window
         or current_215923_20260703_window
+        or current_234924_20260703_window
     ):
         return _skill_route_discovery_current_digest_20260703T135922_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -28487,8 +28492,14 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         "github-growth-20260703T215923.849099Z",
         "github-growth-20260703T215923Z",
     }
+    current_234924_window = source_digest in {
+        "github-growth-20260703T234924.826468Z",
+        "github-growth-20260703T234924Z",
+    }
     reverse_flow_proposal_id = (
-        "p1_skill_route_discovery_reverse_flow"
+        "p1-skill-route-discovery-reverse-flow"
+        if current_234924_window
+        else "p1_skill_route_discovery_reverse_flow"
         if current_215923_window
         else "p3-codex-skill-workflow-probe"
         if current_203923_window
@@ -28502,7 +28513,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         else "p1_reverse_flow_skill_route_discovery"
     )
     skill_workflow_matrix_proposal_id = (
-        "p2_skill_route_discovery_generic"
+        "p2-skill-route-discovery-zhengxi"
+        if current_234924_window
+        else "p2_skill_route_discovery_generic"
         if current_215923_window
         else "p2-skill-route-discovery-zhengxi"
         if current_203923_window
@@ -28519,7 +28532,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         else "p2_skill_workflow_candidate_matrix"
     )
     agent_harness_proposal_id = (
-        "p3_agent_harness_eval_trending_agent_projects"
+        "p3-agent-harness-eval-general-trends"
+        if current_234924_window
+        else "p3_agent_harness_eval_trending_agent_projects"
         if current_215923_window
         else "p1-agent-harness-eval-general-trends"
         if current_203923_window
@@ -28540,7 +28555,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "proposal_id": reverse_flow_proposal_id,
             "proposal_kind": "test",
             "proposal_track": (
-                "reverse_flow_skill_route_discovery_completion"
+                "reverse_flow_skill_route_discovery_final_validation"
+                if current_234924_window
+                else "reverse_flow_skill_route_discovery_completion"
                 if current_215923_window
                 else "codex_skill_workflow_probe_route_discovery"
                 if current_203923_window
@@ -28557,7 +28574,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             ),
             "candidate_name_terms": (
                 ("lingbol088-spec-reverse-flow-skill",)
-                if current_215923_window
+                if current_215923_window or current_234924_window
                 else
                 (
                     "TaoDevil-reverse-flow-skill",
@@ -28576,7 +28593,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "selected_local_lane": "test",
             "validation_target": "reverse_flow_skill_signals_classify_before_runtime_workflow",
             "completion_requirement": (
-                "reverse_flow_codex_skill_signal_completes_only_through_bounded_local_validation"
+                "reverse_flow_codex_skill_signal_requires_discovery_validation_before_routing_change"
+                if current_234924_window
+                else "reverse_flow_codex_skill_signal_completes_only_through_bounded_local_validation"
                 if current_215923_window
                 else "codex_skill_workflow_probe_must_enter_skill_route_discovery_before_workflow_gate"
                 if current_203923_window
@@ -28591,7 +28610,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "proposal_id": skill_workflow_matrix_proposal_id,
             "proposal_kind": "documentation",
             "proposal_track": (
-                "generic_skill_workflow_bounded_documentation_route"
+                "zhengxi_views_generic_skill_workflow_documentation_validation"
+                if current_234924_window
+                else "generic_skill_workflow_bounded_documentation_route"
                 if current_215923_window
                 else "zhengxi_views_bounded_skill_route_documentation_lane"
                 if current_203923_window
@@ -28605,7 +28626,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "candidate_name_terms": ("zhengxi-views",),
             "selected_local_lane": "documentation",
             "validation_target": (
-                "generic_skill_workflow_trend_signal_documents_bounded_validation_lane"
+                "zhengxi_views_generic_skill_workflow_documents_bounded_local_lane"
+                if current_234924_window
+                else "generic_skill_workflow_trend_signal_documents_bounded_validation_lane"
                 if current_215923_window
                 else "generic_skill_workflow_evidence_documents_bounded_route_interpretation"
                 if current_163922_window or current_175922_window
@@ -28623,6 +28646,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             replay_marker=(
                 "current_digest_20260703T191923_pass4_completion"
                 if current_191923_window
+                else "current_digest_20260703T234924_pass4_completion"
+                if current_234924_window
                 else "current_digest_20260703T215923_pass4_completion"
                 if current_215923_window
                 else "current_digest_20260703T203923_pass4_completion"
@@ -28691,6 +28716,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         or current_175922_window
         or current_191923_window
         or current_203923_window
+        or current_234924_window
         else {"Qwen-AgentWorld", "agent-apprenticeship"}
         if current_215923_window
         else {"Qwen-AgentWorld", "Fundamental-Ava"}
@@ -28764,6 +28790,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                 + (
                     "current_digest_20260703T191923"
                     if current_191923_window
+                    else "current_digest_20260703T234924"
+                    if current_234924_window
                     else "current_digest_20260703T215923"
                     if current_215923_window
                     else "current_digest_20260703T203923"
@@ -28855,6 +28883,30 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                     "trend:Forsy-AI/agent-apprenticeship-1",
                 ]
                 if current_151923_window
+                else [
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-skill-route-discovery-zhengxi",
+                    "p3-agent-harness-eval-general-trends",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:lyra81604/zhengxi-views-1",
+                    "trend:Forsy-AI/agent-apprenticeship-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "p1-skill-route-discovery-codex-workflow",
+                    "p2-generic-skill-workflow-discovery",
+                    "p3-agent-harness-eval-for-general-agent-projects",
+                    "p4-route-metadata-consistency-check",
+                    "p2-generic-skill-workflow-route-discovery",
+                    "p3-agent-harness-eval-fixtures",
+                    "p4-agent-harness-eval-route-note",
+                    "p5-proposal-schema-guard-for-item-citations",
+                    "p1-skill-route-discovery-codex-gate",
+                    "p2-generic-skill-workflow-route",
+                    "p3-agent-harness-eval-fixture",
+                    "trend:Forsy-AI/agent-apprenticeship-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                ]
+                if current_234924_window
                 else [
                     "p1-skill-route-discovery-codex-gate",
                     "p2-generic-skill-route-discovery-fixture",

@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260703T234924.826468Z`, pass 4 completes the
+active skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. The lingbol088-spec
+reverse-flow-skill evidence maps to `p1-skill-route-discovery-reverse-flow` in
+the local test lane and must prove `skill_route_discovery_first` before any
+secondary Codex workflow, install, runtime, provider, or external activation
+interpretation. The zhengxi-views evidence maps to
+`p2-skill-route-discovery-zhengxi` in the documentation lane because it is a
+generic/source-cited Agent Skill workflow signal. Both rows remain bounded to
+documentation, config, test, or code_patch.
+
+The same final handoff keeps agent-apprenticeship, Qwen-AgentWorld, and
+Fundamental-Ava behind `p3-agent-harness-eval-general-trends`. They do not
+inherit `skill_route_discovery`, have no direct local lanes before harness
+evaluation, and cannot enable runtime action, direct code_patch, provider
+launch, external harness execution, remote execution, or external activation.
+The operator completion packet requires rollback metadata and focused local
+validation, exports only body-free lane matrices and hashes, and leaves
+promotion, push, restart, and activation to the external supervisor. Replay
+with: `python -m pytest tests/test_skill_routing.py -q -k 20260703T234924`.
+
 For source digest `github-growth-20260703T221922.915909Z`, pass 1 opens the
 active skill-route-discovery window through
 `current_digest_pass1_validation_lane`. The lingbol088-spec reverse-flow-skill
