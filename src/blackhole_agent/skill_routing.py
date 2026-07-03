@@ -4036,6 +4036,7 @@ def _skill_route_discovery_current_pass1_route_discovery_index(
             for profile in (
                 "generic_skill_workflow",
                 "source_cited_domain_research",
+                "codex_workflow_gate",
                 "game_frontend_workflow",
                 "skill_ecosystem_state_handoff",
             )
@@ -5187,6 +5188,7 @@ def _skill_route_discovery_current_window_pass2_route_lane_matrix(
             for profile in (
                 "generic_skill_workflow",
                 "source_cited_domain_research",
+                "codex_workflow_gate",
                 "game_frontend_workflow",
                 "skill_ecosystem_state_handoff",
             )
@@ -6015,13 +6017,45 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_183119_window = source_digest == "github-growth-20260702T183119.073308Z"
     current_20260702_212709_window = source_digest == "github-growth-20260702T212709.490066Z"
     current_20260703_002121_window = source_digest == "github-growth-20260703T002121.806126Z"
+    current_20260703_023735_window = source_digest == "github-growth-20260703T023735.914741Z"
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260703_002121_window:
+    if current_20260703_023735_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-current-skill-workflows",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_current_pass1_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "current_skill_workflow_terms_stay_in_bounded_local_lanes",
+                "validation_task": (
+                    "feed reverse-flow-style Codex skill workflow evidence through route "
+                    "classification and verify the lane remains documentation, config, "
+                    "test, or code_patch with local validation required"
+                ),
+            },
+            {
+                "proposal_id": "p2-document-current-skill-route-interpretation",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_discovery_non_runtime_default",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_current_skill_route_discovery_non_runtime_default",
+                "validation_task": (
+                    "record that skill, codex, and workflow repository signals create "
+                    "bounded local validation candidates only; they do not imply immediate "
+                    "runtime action, provider launch, or external skill activation"
+                ),
+            },
+        )
+    elif current_20260703_002121_window:
         specs = (
             {
                 "proposal_id": "p1_reverse_flow_skill_route_validation_lane",
@@ -7059,7 +7093,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         ignored_evidence_items,
         proposal_id=(
             "p3_agent_harness_eval_general_agent_projects"
-            if current_20260703_002121_window
+            if current_20260703_002121_window or current_20260703_023735_window
             else
             "p2_agent_harness_eval_general_agent_projects"
             if current_20260702_212709_window
@@ -7235,7 +7269,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p2_agent_harness_eval_general_agent_projects"
             elif "workflow" in lowered_name:
                 row["proposal_id"] = "p3_workflow_trend_eval_fixture"
-        if current_20260703_002121_window:
+        if current_20260703_002121_window or current_20260703_023735_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
                 row["proposal_id"] = "p3_agent_harness_eval_general_agent_projects"
@@ -7305,6 +7339,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1",
+            "p2",
+            "p3",
+            "p4",
+            "p5",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260703_023735_window
+        else
         [
             "p1",
             "p2",
@@ -7751,6 +7799,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             for profile in (
                 "generic_skill_workflow",
                 "source_cited_domain_research",
+                "codex_workflow_gate",
                 "game_frontend_workflow",
                 "skill_ecosystem_state_handoff",
             )
@@ -7766,7 +7815,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             adjacent_rows,
             proposal_id=(
                 "p4_workflow_usecase_agent_harness_boundary"
-                if current_20260703_002121_window
+                if current_20260703_002121_window or current_20260703_023735_window
                 else
                 "p3_workflow_trend_eval_fixture"
                 if current_20260702_212709_window
@@ -25350,6 +25399,7 @@ def _ordered_route_profiles(profiles: Sequence[str]) -> list[str]:
         for profile in (
             "generic_skill_workflow",
             "source_cited_domain_research",
+            "codex_workflow_gate",
             "game_frontend_workflow",
             "skill_ecosystem_state_handoff",
         )

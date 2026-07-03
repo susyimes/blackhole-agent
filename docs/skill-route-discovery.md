@@ -6045,3 +6045,22 @@ code_patch can be considered after local harness evidence exists. The operator
 recovery packet requires rollback metadata and focused validation, and exports
 hashes plus lane names rather than raw source URLs, replay commands, upstream
 bodies, provider inputs, target paths, or activation authority.
+
+## Current Digest 20260703T023735 Pass 1
+
+The `github-growth-20260703T023735.914741Z` pass-1 lane reopens the
+skill-route-discovery slice for current skill, Codex, and workflow signals.
+The lingbol088-spec reverse-flow-skill item is treated as Codex workflow skill
+evidence because the body-free summary carries Agent/Codex skill packaging,
+`skills/reverse-flow/SKILL.md`, references, scripts, and local sandbox workflow
+framing. It maps to the local test lane only inside the documentation, config,
+test, and code_patch envelope. The zhengxi-views item remains a generic and
+source-cited skill-workflow documentation row with the same bounded lane set.
+
+Awesome-Blender-Seedance-Workflow-Usecases, Qwen-AgentWorld, and
+Fundamental-Ava remain adjacent `agent_harness_eval_required` rows. They do not
+inherit `skill_route_discovery`; direct runtime, direct code_patch, provider
+launch, external harness execution, remote execution, raw URL export, replay
+command export, and upstream-body export remain disabled until local
+agent-harness evaluation produces a bounded documentation, test, or code_patch
+follow-up lane.
