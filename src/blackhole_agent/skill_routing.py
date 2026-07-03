@@ -21250,7 +21250,57 @@ def _skill_route_discovery_pass3_current_wake_acceptance_packet(
 
     current_073942_window = source_digest == "github-growth-20260629T073942.884739Z"
     current_093324_window = source_digest == "github-growth-20260629T093324.244697Z"
-    if current_093324_window:
+    current_20260703_185923_window = source_digest == "github-growth-20260703T185923.990705Z"
+    if current_20260703_185923_window:
+        proposal_specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_skill_workflow_discovery",
+                "route_profiles": ("codex_workflow_gate",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "codex_workflow_candidates_route_through_skill_route_discovery_first"
+                ),
+                "replay_command": (
+                    "python -m pytest tests/test_skill_routing.py -q "
+                    "-k pass3_current_digest_20260703T185923"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-discovery",
+                "proposal_kind": "code_patch",
+                "proposal_track": "generic_skill_workflow_discovery",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "code_patch",
+                "validation_target": (
+                    "generic_skill_workflow_candidates_expose_bounded_local_lanes_only"
+                ),
+                "replay_command": (
+                    "python -m pytest tests/test_skill_routing.py -q "
+                    "-k pass3_current_digest_20260703T185923"
+                ),
+            },
+        )
+        adjacent_proposal_id = "p3-agent-harness-eval-fixtures"
+        adjacent_validation_target = (
+            "general_agent_projects_without_skill_workflow_require_local_harness_eval_first"
+        )
+        required_profiles = (
+            "codex_workflow_gate",
+            "generic_skill_workflow",
+            "source_cited_domain_research",
+        )
+        required_evidence = [
+            "reverse_flow_codex_skill_workflow_fixture",
+            "zhengxi_views_generic_skill_workflow_fixture",
+            "general_agent_project_items_without_skill_workflow_signal",
+            "selected_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+        ]
+    elif current_093324_window:
         proposal_specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-zhengxi-views",
@@ -21624,7 +21674,13 @@ def _skill_route_discovery_pass3_current_wake_acceptance_packet(
         "observed_route_profiles": sorted(dict.fromkeys(route_profiles)),
         "missing_route_profiles": missing_profiles,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
-        "selected_local_lanes": ["test", "documentation"],
+        "selected_local_lanes": list(
+            dict.fromkeys(
+                str(spec["selected_local_lane"])
+                for spec in proposal_specs
+                if str(spec["selected_local_lane"]) in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            )
+        ),
         "adjacent_evaluation_lane": "agent_harness_eval_required",
         "unsupported_lane_names_removed": sorted(dict.fromkeys(unsupported_lane_names)),
         "required_evidence": required_evidence,
