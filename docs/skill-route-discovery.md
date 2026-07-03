@@ -5829,6 +5829,20 @@ and route reason codes only; runtime action, external harness execution,
 provider launch, remote execution, raw source URLs, and upstream bodies remain
 denied.
 
+Source digest `github-growth-20260703T223922.916308Z` keeps that pass-2 queue
+as the operator-visible handoff for the active skill-route-discovery slice. The
+Codex-oriented `reverse-flow-skill` evidence is accepted only as
+`skill_route_discovery_first` for the `codex_workflow_gate` profile and maps to
+bounded local documentation, config, test, or code_patch lanes with the test
+lane selected for validation. The generic `zhengxi-views` skill workflow item
+maps to the documentation lane for local interpretation work. General
+agent-project evidence from Agent Apprenticeship and Qwen-AgentWorld remains
+adjacent `agent_harness_eval_required` material: it must declare a local
+`agent_harness_eval_lane` fixture before any documentation, test, or code patch
+implementation is selected from that popularity signal. Runtime action,
+external skill or agent activation, external harness execution, provider
+launch, remote execution, raw source URLs, and upstream bodies remain denied.
+
 ## Current Digest Pass 3 Focused Validation Packet
 
 Source digest `github-growth-20260628T182729.632246Z` advances pass 3 with
