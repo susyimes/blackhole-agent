@@ -64,6 +64,25 @@ Qwen-AgentWorld, and Fundamental-Ava remain adjacent
 does not inherit `skill_route_discovery`, and only documentation, test, or
 code_patch may be considered after local harness evaluation.
 
+For the `github-growth-20260703T070049.855381Z` pass-2 lane, the same fork
+cluster is promoted from first-pass route pressure into a replayable local
+validation lane. `p1-skill-route-discovery-codex-workflow` selects the local
+test lane only after the candidate records expose `skill_route_discovery_first`
+for the Codex workflow gate. `p2-generic-skill-route-discovery` records the
+generic skill-workflow path as documentation-first: sufficient evidence is a
+body-free repository summary, selected digest item IDs or a frozen fixture,
+route profiles, bounded lane inventory, downgraded unsupported lane pressure,
+and a focused local validation result. The only follow-up lanes remain
+documentation, config, test, and code_patch.
+
+The pass-2 surface keeps Qwen-AgentWorld and Fundamental-Ava in
+`p3-agent-harness-eval-baseline`, and the workflow-only Seedance usecase row in
+`p4-workflow-agent-eval-lane`. Those rows do not inherit skill-route discovery,
+have no direct implementation lane before local harness evaluation, and do not
+authorize runtime action, install, provider launch, external skill activation,
+external harness execution, remote execution, raw source URL export, raw replay
+command export, or upstream-body export.
+
 Source digest `github-growth-20260702T152626.587436Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific replay lane for the
 current proposal IDs. The zhengxi-views signal is treated as public Agent Skill
