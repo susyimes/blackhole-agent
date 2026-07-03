@@ -15,6 +15,19 @@ Qwen-AgentWorld, Fundamental-Ava, and Awesome-Blender-Seedance-Workflow-Usecases
 stay in `agent_harness_eval_required` with no direct implementation lane until
 a local harness evaluation result exists.
 
+For the `github-growth-20260703T040049.885608Z` pass-1 lane, the same split is
+reopened as a bounded local validation lane. A repository summary carrying
+agent, Codex, skill, and workflow signals maps to the `codex_workflow_gate`
+profile only after `skill_route_discovery_first` is recorded; its allowed local
+lanes remain documentation, config, test, and code_patch, with test selected for
+the focused validation pass. Generic skill-workflow evidence is documentation
+triage unless a later local validation result justifies another bounded lane.
+General agent project trends such as Qwen-AgentWorld and Fundamental-Ava remain
+adjacent `agent_harness_eval_required` rows and do not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch routing,
+provider launch, external harness execution, remote execution, or external
+agent activation before local harness evaluation.
+
 Source digest `github-growth-20260702T152626.587436Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific replay lane for the
 current proposal IDs. The zhengxi-views signal is treated as public Agent Skill

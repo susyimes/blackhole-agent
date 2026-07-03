@@ -6018,13 +6018,55 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260702_212709_window = source_digest == "github-growth-20260702T212709.490066Z"
     current_20260703_002121_window = source_digest == "github-growth-20260703T002121.806126Z"
     current_20260703_023735_window = source_digest == "github-growth-20260703T023735.914741Z"
+    current_20260703_040049_window = source_digest == "github-growth-20260703T040049.885608Z"
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260703_023735_window:
+    if current_20260703_040049_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_skill_workflow_route_discovery",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_skill_workflow_summary_stays_bounded_before_activation",
+                "validation_task": (
+                    "classify a body-free repository summary with agent, Codex, skill, "
+                    "and workflow signals, then verify skill_route_discovery_first, "
+                    "local validation, and documentation/config/test/code_patch lanes only"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-discovery-doc",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_route_interpretation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_generic_skill_workflow_bounded_local_lanes",
+                "validation_task": (
+                    "record that generic skill workflow trend evidence maps only to "
+                    "documentation, config, test, or code_patch local validation lanes"
+                ),
+            },
+        )
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-discovery-doc",
+            "p3-agent-harness-eval-fixtures",
+            "p4-workflow-agent-harness-eval-doc",
+            "p5-skill-vs-agent-routing-matrix",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+    elif current_20260703_023735_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-current-skill-workflows",
@@ -7065,6 +7107,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "queued_local_lanes": [lane for lane in bounded_lanes if lane != selected_lane],
                 "selected_evidence_item_ids": list(dict.fromkeys(evidence_item_ids)),
                 "validation_gates": list(dict.fromkeys(validation_gates)),
+                "skill_route_discovery_first": (
+                    "skill_route_discovery_first_before_workflow_gate" in set(validation_gates)
+                ),
                 "validation_target": str(spec["validation_target"]),
                 "validation_task": str(spec["validation_task"]),
                 "route_probe_metadata": route_probe_rows,
@@ -7092,6 +7137,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3-agent-harness-eval-fixtures"
+            if current_20260703_040049_window
+            else
             "p3_agent_harness_eval_general_agent_projects"
             if current_20260703_002121_window or current_20260703_023735_window
             else
@@ -7339,6 +7387,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-discovery-doc",
+            "p3-agent-harness-eval-fixtures",
+            "p4-workflow-agent-harness-eval-doc",
+            "p5-skill-vs-agent-routing-matrix",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260703_040049_window
+        else
         [
             "p1",
             "p2",
