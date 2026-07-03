@@ -44,6 +44,26 @@ Fundamental-Ava stay in `agent_harness_eval_required` under
 external harness execution, or remote execution before local harness
 evaluation.
 
+For the `github-growth-20260703T064052.697831Z` pass-1 lane, the carried
+reverse-flow-skill fork cluster is treated as correlated route pressure, not as
+extra implementation authority. The chishubiao, kaijiang666, lanmomoling, and
+lingbol088-spec rows expose the same public Codex/AI Agent skill-package shape:
+`skills/reverse-flow/SKILL.md`, local sandbox or CTF reverse-analysis framing,
+scripts, and workflow-gate language. The local lane selects `test` for
+`p1_reverse_flow_skill_route_discovery` and records unsupported install,
+provider-runtime, or runtime-execution pressure as downgraded lanes only. Fork
+activity does not authorize installing, executing, provider launch, external
+skill activation, external harness execution, remote execution, raw URL export,
+or upstream-body export.
+
+The same pass keeps zhengxi-views in
+`p2_zhengxi_views_skill_probe` as documentation-first skill-route evidence
+before any config or code change. Awesome-Blender-Seedance-Workflow-Usecases,
+Qwen-AgentWorld, and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows; workflow-only or general-agent evidence
+does not inherit `skill_route_discovery`, and only documentation, test, or
+code_patch may be considered after local harness evaluation.
+
 Source digest `github-growth-20260702T152626.587436Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific replay lane for the
 current proposal IDs. The zhengxi-views signal is treated as public Agent Skill

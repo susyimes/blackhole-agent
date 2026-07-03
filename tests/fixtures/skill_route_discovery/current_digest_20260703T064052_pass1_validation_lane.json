@@ -1,0 +1,163 @@
+{
+  "source_digest": "github-growth-20260703T064052.697831Z",
+  "items": [
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:chishubiao/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "chishubiao-reverse-flow-skill",
+      "source_url": "https://github.com/chishubiao/reverse-flow-skill",
+      "summary": "Fork of reverse-flow-skill with AI Agent and Codex skill packaging, skills/reverse-flow/SKILL.md, local sandbox CTF crackme framing, scripts, and workflow gate language.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "ctf", "fork"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/agents/openai.yaml",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script", "agent_metadata"],
+        "source_metadata_signals": ["fork_lineage_pressure", "local_sandbox_context", "codex_workflow_language"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:kaijiang666/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "kaijiang666-reverse-flow-skill",
+      "source_url": "https://github.com/kaijiang666/reverse-flow-skill",
+      "summary": "Fork of reverse-flow-skill with the same public AI Agent and Codex reverse workflow skill shape; useful as fork pressure but not independent activation evidence.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "fork"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/scripts/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+        "source_metadata_signals": ["fork_lineage_pressure", "local_sandbox_context"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:lanmomoling/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lanmomoling-reverse-flow-skill",
+      "source_url": "https://github.com/lanmomoling/reverse-flow-skill",
+      "summary": "Fork of reverse-flow-skill carrying AI Agent and Codex skill workflow evidence plus local CTF reverse-analysis language.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "fork"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/references/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory"],
+        "source_metadata_signals": ["fork_lineage_pressure", "local_sandbox_context"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Upstream reverse-flow-skill repository with AI Agent and Codex skill packaging, skills/reverse-flow/SKILL.md, references, scripts, local sandbox CTF crackme context, and workflow gate language.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "ctf"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/agents/openai.yaml",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script", "agent_metadata"],
+        "source_metadata_signals": ["primary_lineage_source", "local_sandbox_context", "codex_workflow_language"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "RepositoryTrend",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, scripts, source-cited workflow language, and advice-boundary metadata.",
+      "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "observed_paths": [
+        "SKILL.md",
+        "skill.yml",
+        "references/method.md",
+        "evals/source_citation_eval.py",
+        "scripts/validate_package.py"
+      ],
+      "metadata_files": ["skill.yml"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script", "test_file"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary", "advice_disclaimer_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+      "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+      "summary": "Workflow usecase collection without local skill package evidence or a harness evaluation fixture.",
+      "topics": ["workflow", "seedance", "usecases"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "summary": "Language world model and benchmark project for general agents without a skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260703T064052.697831Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "Autonomous collaborative social agent simulation project without a skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "simulation", "autonomous-agent", "benchmark"],
+      "route_hints": [],
+      "suggested_lanes": []
+    }
+  ]
+}

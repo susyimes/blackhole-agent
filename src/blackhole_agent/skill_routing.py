@@ -6020,13 +6020,46 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260703_023735_window = source_digest == "github-growth-20260703T023735.914741Z"
     current_20260703_040049_window = source_digest == "github-growth-20260703T040049.885608Z"
     current_20260703_052050_window = source_digest == "github-growth-20260703T052050.251723Z"
+    current_20260703_064052_window = source_digest == "github-growth-20260703T064052.697831Z"
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260703_052050_window:
+    if current_20260703_064052_window:
+        specs = (
+            {
+                "proposal_id": "p1_reverse_flow_skill_route_discovery",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_fork_cluster_route_discovery",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_fork_cluster_maps_only_to_bounded_lanes",
+                "validation_task": (
+                    "map reverse-flow-skill fork-cluster evidence into documentation, "
+                    "config, test, or code_patch lanes only; treat fork activity and "
+                    "workflow language as local validation pressure, not runtime, "
+                    "provider, install, or external skill activation authority"
+                ),
+            },
+            {
+                "proposal_id": "p2_zhengxi_views_skill_probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "zhengxi_views_skill_route_probe",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "zhengxi_views_skill_workflow_signals_stay_bounded",
+                "validation_task": (
+                    "record zhengxi-views skill workflow signals as documentation, "
+                    "config, test, or code_patch candidates only before any config or "
+                    "code change is considered"
+                ),
+            },
+        )
+    elif current_20260703_052050_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-fixture",
@@ -7106,7 +7139,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
             uncertainty_reasons.extend(_string_list(candidate.get("uncertainty_reasons")))
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
-            if current_20260703_052050_window:
+            if current_20260703_052050_window or current_20260703_064052_window:
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             route_probe_rows.append(
                 _skill_route_discovery_current_digest_route_probe_metadata(
@@ -7364,6 +7397,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p2_agent_harness_eval_general_agent_projects"
             elif "workflow" in lowered_name:
                 row["proposal_id"] = "p3_workflow_trend_eval_fixture"
+        if current_20260703_064052_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p3_agent_harness_eval_general_projects"
+            elif "workflow" in lowered_name or "seedance" in lowered_name:
+                row["proposal_id"] = "p4_blender_seedance_workflow_triage"
         if current_20260703_052050_window:
             lowered_name = str(row.get("name") or "").casefold()
             if (
@@ -7442,6 +7481,22 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_reverse_flow_skill_route_discovery",
+            "p2_zhengxi_views_skill_probe",
+            "p3_agent_harness_eval_general_projects",
+            "p4_blender_seedance_workflow_triage",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:chishubiao/reverse-flow-skill-1",
+            "trend:kaijiang666/reverse-flow-skill-1",
+            "trend:lanmomoling/reverse-flow-skill-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+        if current_20260703_064052_window
+        else
         [
             "p1-skill-route-discovery-fixture",
             "p2-codex-workflow-gate-doc",
