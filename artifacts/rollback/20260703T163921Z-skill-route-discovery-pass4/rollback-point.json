@@ -1,0 +1,9 @@
+{
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260703T164012.449151-add-a-local-validation-test-lane-for-codex-orien git reset --hard refs/blackhole-rollback/20260703T163921Z-skill-route-discovery-pass4 git clean -fd"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260703T164012.449151-add-a-local-validation-test-lane-for-codex-orien",
+  "rollback_ref": "refs/blackhole-rollback/20260703T163921Z-skill-route-discovery-pass4",
+  "created": "2026-07-03T16:39:21Z",
+  "original_head": "0c233247c380f12b16059eaf42727d3b9069d710"
+}
