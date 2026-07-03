@@ -83,6 +83,20 @@ authorize runtime action, install, provider launch, external skill activation,
 external harness execution, remote execution, raw source URL export, raw replay
 command export, or upstream-body export.
 
+Source digest `github-growth-20260703T074049.962015Z` completes the four-pass
+window with an operator-visible pass-4 handoff. The reverse-flow-skill fork
+cluster is treated as correlated Codex skill-route evidence, not as additional
+runtime authority: every fork row must begin at `skill_route_discovery_first`
+and remain inside documentation, config, test, or code_patch lanes with local
+validation required. The codex workflow-gate documentation lane records the
+interpretation path before any workflow behavior is changed.
+
+The same closure keeps zhengxi-views as generic/source-cited skill-workflow
+evidence and keeps Qwen-AgentWorld in `agent_harness_eval_required`. General
+agent projects do not inherit `skill_route_discovery`, and they have no direct
+runtime or code_patch lane before local harness evaluation; only documentation,
+test, or code_patch may be considered after that evaluation is represented.
+
 Source digest `github-growth-20260702T152626.587436Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific replay lane for the
 current proposal IDs. The zhengxi-views signal is treated as public Agent Skill
