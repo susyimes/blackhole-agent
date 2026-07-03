@@ -12235,6 +12235,62 @@ def skill_route_discovery_local_kernel_handoff(
         "raw_replay_commands_exported": False,
         "raw_upstream_body_exported": False,
     }
+    current_pass_profile_closure = completion_report.get("current_pass_profile_closure")
+    current_pass_profile_closure = (
+        current_pass_profile_closure if isinstance(current_pass_profile_closure, dict) else {}
+    )
+    final_pass_operator_replay_manifest = {
+        "controller_surface": "skill_route_discovery_final_pass_operator_replay_manifest",
+        "source_digest": source_digest,
+        "status": optional_string(current_pass_profile_closure.get("status")) or "blocked",
+        "decision": "replay_current_digest_bounded_lanes_with_adjacent_agent_harness_gated"
+        if current_pass_profile_closure.get("status") == "ready"
+        else "repair_current_digest_profile_closure_before_replay",
+        "planned_window_complete": planned_window_complete,
+        "skill_route_proposal_count": int(current_pass_profile_closure.get("skill_route_proposal_count") or 0),
+        "skill_route_proposal_ids": string_list(current_pass_profile_closure.get("skill_route_proposal_ids")),
+        "adjacent_agent_harness_proposal_count": int(
+            current_pass_profile_closure.get("adjacent_agent_harness_proposal_count") or 0
+        ),
+        "adjacent_agent_harness_proposal_hashes": string_list(
+            current_pass_profile_closure.get("adjacent_agent_harness_proposal_hashes")
+        ),
+        "matched_skill_route_proposal_count": int(
+            current_pass_profile_closure.get("matched_proposal_count") or 0
+        ),
+        "unmatched_skill_route_proposal_count": int(
+            current_pass_profile_closure.get("unmatched_proposal_count") or 0
+        ),
+        "selected_local_lanes": string_list(current_pass_profile_closure.get("selected_local_lanes")),
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "adjacent_agent_harness_route": "agent_harness_eval_required" if adjacent_agent_count else "",
+        "agent_harness_eval_required": bool(adjacent_agent_count),
+        "skill_route_discovery_inherited_by_adjacent_harness": False,
+        "required_validation_hashes": [
+            stable_text_hash(command)
+            for command in string_list(current_pass_profile_closure.get("required_validation"))
+        ],
+        "provider_runtime_replay_command_hashes": [
+            stable_text_hash(command)
+            for command in string_list(current_pass_profile_closure.get("provider_runtime_replay_commands"))
+        ],
+        "external_supervisor_required": True,
+        "restart_required_by_kernel": False,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     provider_runtime_supervisor_card = skill_route_discovery_provider_runtime_supervisor_card(
         theme=theme,
         current_pass=current_pass,
@@ -12316,6 +12372,7 @@ def skill_route_discovery_local_kernel_handoff(
         },
         "proposal_completion_summary": proposal_completion_summary,
         "current_digest_completion_lane": completion_lane_summary,
+        "final_pass_operator_replay_manifest": final_pass_operator_replay_manifest,
         "final_route_closure_manifest": final_route_closure_manifest,
         "operator_replay_summary": operator_replay_summary,
         "provider_runtime_supervisor_card": provider_runtime_supervisor_card,
@@ -13791,19 +13848,27 @@ def skill_route_discovery_current_pass_profile_closure(
 
     allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
     proposal_ids = sorted(dict.fromkeys(anchoring_proposals))
+    adjacent_agent_harness_proposal_ids = [
+        proposal_id for proposal_id in proposal_ids if _skill_route_discovery_is_general_agent_ref(proposal_id)
+    ]
+    skill_route_proposal_ids = [
+        proposal_id for proposal_id in proposal_ids if proposal_id not in adjacent_agent_harness_proposal_ids
+    ]
     rows_source = final_route_handoff_manifest.get("rows")
     rows_source = rows_source if isinstance(rows_source, list) else []
 
     rows: list[dict[str, Any]] = []
-    unmatched_proposal_ids = set(proposal_ids)
+    unmatched_proposal_ids = set(skill_route_proposal_ids)
     for source_row in rows_source:
         if not isinstance(source_row, dict):
             continue
         evidence_item_ids = string_list(source_row.get("evidence_item_ids"))
         matched_proposals = (
-            sorted(set(evidence_item_ids) & set(proposal_ids)) if proposal_ids else evidence_item_ids
+            sorted(set(evidence_item_ids) & set(skill_route_proposal_ids))
+            if skill_route_proposal_ids
+            else evidence_item_ids
         )
-        if proposal_ids and not matched_proposals:
+        if skill_route_proposal_ids and not matched_proposals:
             continue
         unmatched_proposal_ids -= set(matched_proposals)
 
@@ -13875,6 +13940,12 @@ def skill_route_discovery_current_pass_profile_closure(
         "planned_window_complete": planned_window_complete,
         "anchoring_proposal_count": len(proposal_ids),
         "anchoring_proposal_ids": proposal_ids,
+        "skill_route_proposal_count": len(skill_route_proposal_ids),
+        "skill_route_proposal_ids": skill_route_proposal_ids,
+        "adjacent_agent_harness_proposal_count": len(adjacent_agent_harness_proposal_ids),
+        "adjacent_agent_harness_proposal_hashes": [
+            stable_text_hash(proposal_id) for proposal_id in adjacent_agent_harness_proposal_ids
+        ],
         "matched_proposal_count": sum(row["matched_proposal_count"] for row in rows),
         "unmatched_proposal_count": len(unmatched_proposal_ids),
         "unmatched_proposal_hashes": [stable_text_hash(proposal_id) for proposal_id in sorted(unmatched_proposal_ids)],
