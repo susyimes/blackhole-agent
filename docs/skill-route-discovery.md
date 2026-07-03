@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260703T084049.971768Z`, pass 3 now exposes
+`current_pass3_operator_validation_gate` inside the route readiness index. The
+gate is body-free and uses selected `item_id` values only. A Codex-oriented
+skill repository such as `reverse-flow-skill` must confirm
+`skill_route_discovery_first` before any workflow, runtime, or secondary
+agent-harness interpretation; the only eligible local lanes remain
+documentation, config, test, and code_patch, with runtime action set to `none`.
+
+The same gate keeps generic Agent Skill evidence such as `zhengxi-views` in the
+bounded skill-route validation envelope and keeps general-agent items such as
+Qwen-AgentWorld and Fundamental-Ava behind `agent_harness_eval_required`.
+Adjacent agent rows do not inherit `skill_route_discovery`, and they do not
+enable provider launch, external harness execution, remote execution, external
+skill or agent activation, raw source URL export, raw evidence URL export, or
+upstream-body export before a local harness result exists.
+
 For source digest `github-growth-20260703T082050.341048Z`, pass 2 of the
 current skill-route-discovery window is replayed by
 `skill_route_discovery_current_digest_20260703T082050_pass2_validation_lane`.

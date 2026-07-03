@@ -1184,6 +1184,113 @@ def test_route_classifier_does_not_treat_negated_skill_inheritance_as_skill_sign
     assert classification["evaluation_lane"] == "agent_harness_eval_required"
 
 
+def test_current_pass3_operator_gate_validates_codex_skill_workflow_before_activation():
+    digest = {
+        "digest_id": "github-growth-20260703T084049.971768Z",
+        "generated_at": "2026-07-03T08:40:49.971768Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is an AI Agent / Codex skill repository with "
+                    "skills/reverse-flow/SKILL.md, scripts, local sandbox CTF workflow, "
+                    "tool checks, and install/runtime pressure."
+                ),
+                "relevance_reason": (
+                    "Agent, Codex, skill, and workflow signals require skill_route_discovery_first "
+                    "before any secondary workflow or runtime interpretation."
+                ),
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "trend:lyra81604/zhengxi-views-1",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "zhengxi-views is an Agent Skill with SKILL.md, skill.yml, references, "
+                    "evals, scripts, source-cited workflow boundaries, and non-investment-advice limits."
+                ),
+                "relevance_reason": "Generic skill workflow evidence maps to bounded local validation lanes.",
+                "risk_flags": [],
+                "confidence": 0.84,
+            },
+            {
+                "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld is a general agent benchmark and environment project.",
+                "relevance_reason": "General agent trend evidence requires local agent_harness_eval first.",
+                "risk_flags": [],
+                "confidence": 0.8,
+            },
+            {
+                "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "event_kind": "RepositoryTrend",
+                "summary": "Fundamental-Ava is an autonomous collaborative social agent project.",
+                "relevance_reason": "General agent project evidence has no skill workflow route hint.",
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=500)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    readiness = lane_map["current_pass3_route_readiness_index"]
+    gate = readiness["operator_validation_gate"]
+    rows = {row["item_id"]: row for row in gate["rows"]}
+    serialized = json.dumps(readiness, sort_keys=True)
+
+    assert readiness["status"] == "ready_with_adjacent_agent_eval_blocked"
+    assert readiness["evidence_ref_scope"] == "selected_item_ids_only"
+    assert set(readiness["selected_item_ids"]) == {
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    }
+    assert set(readiness["blocked_validation_target_item_ids"]) == {
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    }
+
+    assert gate["controller_surface"] == "current_pass3_operator_validation_gate"
+    assert gate["status"] == "ready_for_local_validation"
+    assert gate["codex_workflow_gate_count"] == 1
+    assert gate["codex_workflow_gate_confirmed"] is True
+    assert gate["adjacent_agent_harness_eval_required"] is True
+    assert gate["adjacent_agent_harness_eval_blocked"] is True
+    assert gate["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert gate["runtime_action"] == "none"
+    assert gate["external_skill_activation_allowed"] is False
+    assert gate["external_agent_activation_allowed"] is False
+    assert gate["external_harness_execution_allowed"] is False
+    assert gate["provider_runtime_launch_allowed"] is False
+    assert gate["remote_execution_allowed"] is False
+    assert gate["raw_source_url_export_allowed"] is False
+    assert gate["raw_evidence_url_export_allowed"] is False
+    assert gate["diagnostics"] == []
+
+    reverse_flow = rows["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["requires_skill_route_discovery_first"] is True
+    assert reverse_flow["route_probe_decision"] == "skill_route_discovery_first"
+    assert reverse_flow["skill_route_discovery_first_confirmed"] is True
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["final_scope"] == "local_validation_candidate"
+
+    zhengxi = rows["trend:lyra81604/zhengxi-views-1"]
+    assert zhengxi["requires_skill_route_discovery_first"] is False
+    assert zhengxi["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert zhengxi["local_validation_required"] is True
+
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_skill_route_profile_classifies_phaser_game_engine_evidence_as_frontend_workflow():
     classification = classify_digest_item_route(
         {

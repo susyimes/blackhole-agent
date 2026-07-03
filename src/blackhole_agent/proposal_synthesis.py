@@ -1328,6 +1328,13 @@ def build_current_pass3_route_readiness_index(
             if str(row.get("selected_local_lane") or "").strip()
         }
     )
+    operator_validation_gate = build_current_pass3_operator_validation_gate(
+        items=items,
+        skill_rows=skill_rows,
+        adjacent_rows=adjacent_rows,
+        skill_rows_ready=skill_rows_ready,
+        adjacent_blocked=adjacent_blocked,
+    )
     validation_targets: list[dict[str, Any]] = []
     for row in skill_rows:
         item_id = str(row.get("item_id") or "")
@@ -1410,6 +1417,7 @@ def build_current_pass3_route_readiness_index(
         "selected_local_lanes": selected_lanes,
         "validation_targets": validation_targets,
         "first_ready_validation_target": validation_targets[0] if validation_targets else {},
+        "operator_validation_gate": operator_validation_gate,
         "blocked_validation_target_item_ids": [
             str(row.get("item_id") or "")
             for row in validation_targets
@@ -1442,6 +1450,112 @@ def build_current_pass3_route_readiness_index(
         "remote_execution_allowed": False,
         "profile_write_allowed": False,
         "memory_write_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass3_operator_validation_gate(
+    *,
+    items: list[Any],
+    skill_rows: list[dict[str, Any]],
+    adjacent_rows: list[dict[str, Any]],
+    skill_rows_ready: bool,
+    adjacent_blocked: bool,
+) -> dict[str, Any]:
+    """Expose the pass-3 activation boundary as a compact operator check."""
+
+    item_classification_by_id: dict[str, dict[str, Any]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("item_id") or "")
+        if not item_id:
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+        item_classification_by_id[item_id] = classification
+
+    gate_rows: list[dict[str, Any]] = []
+    codex_rows_confirmed = True
+    for row in skill_rows:
+        item_id = str(row.get("item_id") or "")
+        classification = item_classification_by_id.get(item_id, {})
+        route_profiles = [
+            str(profile)
+            for profile in classification.get("route_profiles", row.get("route_profiles", []))
+            if str(profile).strip()
+        ]
+        route_probe_decision = str(classification.get("route_probe_decision") or "")
+        is_codex_workflow_gate = "codex_workflow_gate" in route_profiles
+        skill_route_first_confirmed = (
+            not is_codex_workflow_gate
+            or route_probe_decision == "skill_route_discovery_first"
+        )
+        codex_rows_confirmed = codex_rows_confirmed and skill_route_first_confirmed
+        gate_rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "skill_workflow",
+                "route_profiles": route_profiles,
+                "requires_skill_route_discovery_first": is_codex_workflow_gate,
+                "route_probe_decision": route_probe_decision,
+                "skill_route_discovery_first_confirmed": skill_route_first_confirmed,
+                "allowed_local_lanes": [
+                    str(lane)
+                    for lane in row.get("allowed_local_lanes", [])
+                    if str(lane) in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+                ],
+                "selected_local_lane": str(row.get("selected_local_lane") or ""),
+                "final_scope": str(row.get("final_scope") or ""),
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
+
+    status = (
+        "ready_for_local_validation"
+        if skill_rows_ready and codex_rows_confirmed and (not adjacent_rows or adjacent_blocked)
+        else "blocked_before_activation"
+    )
+    diagnostics = []
+    if not skill_rows_ready:
+        diagnostics.append("skill_route_rows_not_ready_for_bounded_local_validation")
+    if not codex_rows_confirmed:
+        diagnostics.append("codex_workflow_gate_requires_skill_route_discovery_first")
+    if adjacent_rows and not adjacent_blocked:
+        diagnostics.append("adjacent_general_agent_rows_not_blocked_before_harness_eval")
+
+    return {
+        "controller_surface": "current_pass3_operator_validation_gate",
+        "status": status,
+        "decision": (
+            "validate_bounded_skill_route_rows_before_activation"
+            if status == "ready_for_local_validation"
+            else "hold_before_activation"
+        ),
+        "codex_workflow_gate_count": sum(
+            1
+            for row in gate_rows
+            if row["requires_skill_route_discovery_first"]
+        ),
+        "codex_workflow_gate_confirmed": codex_rows_confirmed,
+        "skill_route_rows_ready": skill_rows_ready,
+        "adjacent_agent_harness_eval_required": bool(adjacent_rows),
+        "adjacent_agent_harness_eval_blocked": adjacent_blocked,
+        "evidence_ref_scope": "selected_item_ids_only",
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "rows": gate_rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
         "raw_source_url_export_allowed": False,
         "raw_evidence_url_export_allowed": False,
         "upstream_body_export_allowed": False,
