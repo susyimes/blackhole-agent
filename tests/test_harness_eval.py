@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 152
-    assert payload["pass_count"] == 151
+    assert payload["fixture_count"] == 153
+    assert payload["pass_count"] == 152
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -162,6 +162,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260703T082050-pass2-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260703T090050-pass4-completion"
         ]["passed"]
         is True
     )
@@ -17134,6 +17140,94 @@ def test_skill_route_discovery_current_digest_pass4_local_kernel_handoff_is_read
     assert handoff["provider_runtime_launch_allowed"] is False
     assert handoff["profile_write_allowed"] is False
     assert handoff["memory_write_allowed"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert handoff["raw_replay_commands_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260703T090050_pass4_completion_manifest_is_ready():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260703T090050_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    completion = output["capability_window_completion"]
+    handoff = completion["local_kernel_handoff"]
+    replay_manifest = handoff["final_pass_operator_replay_manifest"]
+    closure = completion["completion_report"]["current_pass_profile_closure"]
+    serialized = json.dumps(completion, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert completion["status"] == "ready"
+    assert completion["planned_window_complete"] is True
+    assert closure["status"] == "ready"
+    assert closure["skill_route_proposal_count"] == 4
+    assert closure["adjacent_agent_harness_proposal_count"] == 1
+    assert closure["unmatched_proposal_count"] == 0
+    assert replay_manifest == {
+        "controller_surface": "skill_route_discovery_final_pass_operator_replay_manifest",
+        "source_digest": "github-growth-20260703T090050.734126Z",
+        "status": "ready",
+        "decision": "replay_current_digest_bounded_lanes_with_adjacent_agent_harness_gated",
+        "planned_window_complete": True,
+        "skill_route_proposal_count": 4,
+        "skill_route_proposal_ids": [
+            "p1-skill-route-discovery-codex-gate",
+            "p2-generic-skill-route-discovery",
+            "p5-route-policy-coverage",
+            "trend:lyra81604/zhengxi-views-1",
+        ],
+        "adjacent_agent_harness_proposal_count": 1,
+        "adjacent_agent_harness_proposal_hashes": [
+            stable_text_hash("p3-agent-harness-eval-suite"),
+        ],
+        "matched_skill_route_proposal_count": 7,
+        "unmatched_skill_route_proposal_count": 0,
+        "selected_local_lanes": ["documentation", "test"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "adjacent_agent_harness_route": "agent_harness_eval_required",
+        "agent_harness_eval_required": True,
+        "skill_route_discovery_inherited_by_adjacent_harness": False,
+        "required_validation_hashes": [
+            stable_text_hash(command)
+            for command in skill_route_discovery_preactivation_validation_commands()
+        ],
+        "provider_runtime_replay_command_hashes": [
+            stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"),
+            stable_text_hash("pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary"),
+        ],
+        "external_supervisor_required": True,
+        "restart_required_by_kernel": False,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    assert handoff["agent_harness_eval_required"] is True
+    assert handoff["adjacent_general_agent_project_count"] == 2
+    assert handoff["adjacent_general_agent_skill_route_inherited"] is False
+    assert handoff["runtime_action_allowed"] is False
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
     assert handoff["raw_evidence_urls_exported"] is False
     assert handoff["raw_replay_commands_exported"] is False
     assert "https://github.com/" not in serialized

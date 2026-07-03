@@ -1,0 +1,238 @@
+{
+  "name": "skill-route-discovery-current-digest-20260703T090050-pass4-completion",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-current-digest-20260703T090050-pass4-completion",
+    "source_digest": "github-growth-20260703T090050.734126Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "codex_workflow_gate",
+        "generic_skill_workflow",
+        "source_cited_domain_research"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-route-discovery",
+        "p3-agent-harness-eval-suite",
+        "p5-route-policy-coverage",
+        "trend:lyra81604/zhengxi-views-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/github-baboben/reverse-flow-skill",
+        "https://github.com/hadis112233/reverse-flow-skill",
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/TianhangZhuzth/Fundamental-Ava"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "reverse-flow-skill-codex-workflow",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "evidence_summary": "Public Codex and AI Agent skill workflow package with skills/reverse-flow/SKILL.md, scripts, local sandbox CTF or crackme framing, explicit workflow steps, install pressure, and a local validation target.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "script_directory"],
+        "source_metadata_signals": ["body_free_workflow_summary", "local_gate_or_test_target", "install_pressure"],
+        "public_activity_signals": ["fork_cluster", "stars"],
+        "evidence_item_ids": ["p1-skill-route-discovery-codex-gate"],
+        "evidence_urls": ["https://github.com/lingbol088-spec/reverse-flow-skill"]
+      },
+      {
+        "name": "reverse-flow-skill-fork-pressure",
+        "source_url": "https://github.com/github-baboben/reverse-flow-skill",
+        "evidence_summary": "Fork pressure for the same reverse-flow skill package; correlated route pressure only, not independent activation authority.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["generic_skill_workflow"],
+        "source_layout_signals": ["skill_directory", "skill_markdown"],
+        "source_metadata_signals": ["fork_lineage_pressure"],
+        "public_activity_signals": ["fork_cluster"],
+        "evidence_item_ids": ["p5-route-policy-coverage"],
+        "evidence_urls": ["https://github.com/github-baboben/reverse-flow-skill"]
+      },
+      {
+        "name": "zhengxi-views-generic-skill-workflow",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "evidence_summary": "Public Agent Skill workflow with SKILL.md, skill.yml, references, evals, scripts, source-cited research boundary, non-investment-advice limit, and cross-tool skill interpretation notes.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "test_file"],
+        "source_metadata_signals": ["body_free_domain_research_summary", "source_citation_boundary", "advice_disclaimer_boundary", "local_evidence_replay_target"],
+        "evidence_item_ids": [
+          "p2-generic-skill-route-discovery",
+          "trend:lyra81604/zhengxi-views-1"
+        ],
+        "evidence_urls": ["https://github.com/lyra81604/zhengxi-views"]
+      }
+    ],
+    "summaries": [
+      {
+        "name": "qwen-agentworld-adjacent-general-agent-project",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "evidence_summary": "Adjacent general-agent project signal without skill workflow evidence; requires agent_harness_eval before any implementation lane.",
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": []
+      },
+      {
+        "name": "fundamental-ava-adjacent-general-agent-project",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "evidence_summary": "Adjacent general-agent project signal; no direct skill-route inheritance before local harness evaluation.",
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": []
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260703T090050Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass-4 documentation lane records generic skill workflow interpretation before runtime adoption."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260703T090050Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass-4 config lane remains bounded and locally eligible only after focused validation."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260703T090050_pass4_completion.json",
+          "tests/test_harness_eval.py"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260703T090050Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass-4 test lane verifies Codex workflow skill signals are discovery-first and bounded."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback-20260703T090050Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass-4 code_patch lane is locally eligible but does not install, run, or import upstream skill code."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    },
+    {
+      "path": "lane_map.proposal_kinds",
+      "equals": ["code_patch", "config", "documentation", "test"]
+    },
+    {
+      "path": "capability_window_completion.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.planned_window_complete",
+      "equals": true
+    },
+    {
+      "path": "capability_window_completion.completion_report.current_pass_profile_closure.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.completion_report.current_pass_profile_closure.skill_route_proposal_count",
+      "equals": 4
+    },
+    {
+      "path": "capability_window_completion.completion_report.current_pass_profile_closure.adjacent_agent_harness_proposal_count",
+      "equals": 1
+    },
+    {
+      "path": "capability_window_completion.completion_report.current_pass_profile_closure.unmatched_proposal_count",
+      "equals": 0
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.status",
+      "equals": "ready"
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.skill_route_proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-route-discovery",
+        "p5-route-policy-coverage",
+        "trend:lyra81604/zhengxi-views-1"
+      ]
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.allowed_local_lanes",
+      "equals": ["documentation", "config", "test", "code_patch"]
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.adjacent_agent_harness_proposal_count",
+      "equals": 1
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.agent_harness_eval_required",
+      "equals": true
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.skill_route_discovery_inherited_by_adjacent_harness",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.external_agent_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "capability_window_completion.local_kernel_handoff.final_pass_operator_replay_manifest.raw_replay_commands_exported",
+      "equals": false
+    }
+  ]
+}
