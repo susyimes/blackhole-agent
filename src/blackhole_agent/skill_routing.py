@@ -22132,6 +22132,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260703T115316.886295Z",
         "github-growth-20260703T115316Z",
     }
+    current_20260703_161922_window = source_digest in {
+        "github-growth-20260703T161922.895398Z",
+        "github-growth-20260703T161922Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -22263,6 +22267,31 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "selected_local_lane": "documentation",
                 "validation_target": (
                     "generic_skill_workflow_remains_reviewable_until_local_validation"
+                ),
+            },
+        )
+    if current_20260703_161922_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1_reverse_flow_skill_route_discovery",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "reverse_flow_skill_codex_agent_terms_classify_to_bounded_local_lanes"
+                ),
+            },
+            {
+                "proposal_id": "p2_skill_route_discovery_documentation_lane",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_route_documentation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": (
+                    "skill_workflow_trend_fork_push_signals_document_local_lane_mapping"
                 ),
             },
         )
@@ -22413,6 +22442,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260703_100051_window
             else "p3-agent-harness-eval-fixtures"
             if current_20260703_115316_window
+            else "p3_general_agent_harness_eval_tests"
+            if current_20260703_161922_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -22455,6 +22486,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         if current_20260703_100051_window
         else "p3-agent-harness-eval-fixtures"
         if current_20260703_115316_window
+        else "p3_general_agent_harness_eval_tests"
+        if current_20260703_161922_window
         else "p2-agent-harness-eval-general-agent-projects"
     )
     pass3_operator_validation_packet = {
@@ -22658,6 +22691,25 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:TianhangZhuzth/Fundamental-Ava-1",
             ]
             if current_20260703_115316_window
+            else [
+                "p1-skill-route-discovery-codex-gate",
+                "p2-generic-skill-route-discovery-fixture",
+                "p3-agent-harness-eval-documentation",
+                "p4-agent-harness-eval-test-skeleton",
+                "p5-skill-route-policy-config-check",
+                "p1-reverse-flow-skill-route-discovery",
+                "p2-generic-skill-workflow-route-fixture",
+                "p3-agent-harness-eval-for-general-agent-projects",
+                "p4-route-policy-documentation-clarification",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1_reverse_flow_skill_route_discovery",
+                "p2_skill_route_discovery_documentation_lane",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:Forsy-AI/agent-apprenticeship-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260703_161922_window
             else []
         ),
         "skill_route_candidate_count": len(

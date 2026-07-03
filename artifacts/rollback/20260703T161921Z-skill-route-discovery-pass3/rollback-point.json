@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-07-03T16:19:21Z",
+  "source_digest": "github-growth-20260703T161922.895398Z",
+  "capability_theme": "skill-route-discovery",
+  "capability_pass": 3,
+  "original_branch": "codex/blackhole-evolve/20260703T162021.867985-add-or-extend-local-validation-coverage-for-skil",
+  "head": "efcd0d3f09c87506137c308c4f2941a101217c29",
+  "rollback_ref": "refs/heads/codex/blackhole-evolve/20260703T162021.867985-add-or-extend-local-validation-coverage-for-skil",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260703T162021.867985-add-or-extend-local-validation-coverage-for-skil",
+    "git reset --hard efcd0d3f09c87506137c308c4f2941a101217c29"
+  ],
+  "notes": [
+    "Rollback execution is explicit and destructive; this run records the commands but does not execute them.",
+    "Do not delete this artifact during the run that created it."
+  ]
+}

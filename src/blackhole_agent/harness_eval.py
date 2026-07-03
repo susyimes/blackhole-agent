@@ -2739,6 +2739,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "automation_bug_agent_eval_checklist": automation_bug_agent_eval_checklist,
         "current_digest_pass1_validation_lane": lane_map["current_digest_pass1_validation_lane"],
         "current_digest_pass2_local_validation_lane": lane_map["current_digest_pass2_local_validation_lane"],
+        "current_digest_pass3_route_to_validation_lane": lane_map[
+            "current_digest_pass3_route_to_validation_lane"
+        ],
         "current_digest_pass3_activation_review_lane": lane_map["current_digest_pass3_activation_review_lane"],
         "current_digest_pass4_completion_handoff": lane_map["current_digest_pass4_completion_handoff"],
         "current_digest_pass4_final_closure": lane_map["current_digest_pass4_final_closure"],
