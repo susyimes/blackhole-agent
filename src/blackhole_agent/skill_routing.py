@@ -8425,6 +8425,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260703T143923.402501Z",
         "github-growth-20260703T143923Z",
     }
+    current_20260703_155923_window = source_digest in {
+        "github-growth-20260703T155923.781249Z",
+        "github-growth-20260703T155923Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -10015,6 +10019,91 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:TianhangZhuzth/Fundamental-Ava-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
+    if current_20260703_155923_window:
+        specs = (
+            {
+                "proposal_id": "p1-reverse-flow-skill-route-discovery",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_skill_workflow_signals_stay_bounded_before_runtime_routing",
+                "validation_task": (
+                    "classify reverse-flow-skill Codex, agent, skill, and workflow evidence "
+                    "as skill_route_discovery_first, bounded to documentation, config, test, "
+                    "or code_patch lanes, while preserving local_validation_required"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "agent_metadata",
+                    "local_sandbox_context",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-route-fixture",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "generic_skill_workflow_hints_map_to_bounded_lanes",
+                "validation_task": (
+                    "classify generic skill_workflow evidence with skill_route_discovery hints "
+                    "into documentation, config, test, or code_patch candidates only, and "
+                    "preserve runtime_action none until focused validation passes"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "test_file",
+                    "source_citation_boundary",
+                    "advice_disclaimer_boundary",
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-eval-for-general-agent-projects",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_eval_boundary",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "general_agent_projects_require_harness_eval_before_implementation_lanes",
+                "validation_task": (
+                    "keep general_agent_project items without skill workflow signals out of direct "
+                    "implementation lanes until an agent_harness_eval gate produces concrete, "
+                    "locally validated findings"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                ),
+            },
+        )
+        active_proposal_ids = [
+            "p1-skill-route-discovery-codex-gate",
+            "p2-generic-skill-route-discovery-fixture",
+            "p3-agent-harness-eval-documentation",
+            "p4-agent-harness-eval-test-skeleton",
+            "p5-skill-route-policy-config-check",
+            "p1-reverse-flow-skill-route-discovery",
+            "p2-generic-skill-workflow-route-fixture",
+            "p3-agent-harness-eval-for-general-agent-projects",
+            "p4-route-policy-documentation-clarification",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:Forsy-AI/agent-apprenticeship-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
     if current_20260703_070049_window:
         active_proposal_ids = [
             "p1_reverse_flow_skill_route_discovery",
@@ -10206,6 +10295,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260703_094050_window
             else "p3-agent-harness-eval-fixtures"
             if current_20260703_143923_window
+            else "p3-agent-harness-eval-for-general-agent-projects"
+            if current_20260703_155923_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -10256,6 +10347,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             row["proposal_id"] = "p3-agent-harness-eval-general-agent-projects"
         if current_20260703_143923_window:
             row["proposal_id"] = "p3-agent-harness-eval-fixtures"
+        if current_20260703_155923_window:
+            row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-projects"
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         if current_090714_window:

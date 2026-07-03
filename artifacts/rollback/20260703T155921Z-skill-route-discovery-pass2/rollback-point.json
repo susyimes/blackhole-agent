@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-07-03T15:59:21Z",
+  "source_digest": "github-growth-20260703T155923.781249Z",
+  "capability_theme": "skill-route-discovery",
+  "capability_pass": 2,
+  "original_branch": "codex/blackhole-evolve/20260703T160209.393512-add-or-extend-local-skill-route-discovery-valida",
+  "head": "7e14fa1ff09bb85a7a10af6ab0bc4035e92bab6f",
+  "rollback_ref": "refs/rollback/blackhole-agent/20260703T155921Z-skill-route-discovery-pass2",
+  "recovery_commands": [
+    "git reset --hard 7e14fa1ff09bb85a7a10af6ab0bc4035e92bab6f",
+    "git clean -fd"
+  ],
+  "notes": [
+    "Rollback execution is explicit and destructive; do not run these commands unless an operator or supervisor chooses rollback.",
+    "This rollback point was created before local source, fixture, or artifact edits for the pass-2 skill-route-discovery wake."
+  ]
+}
