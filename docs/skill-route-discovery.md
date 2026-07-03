@@ -6024,3 +6024,24 @@ or code_patch. Fork rows are lineage pressure rather than independent
 implementation authority. Runtime action, upstream install, external skill
 activation, provider launch, external harness execution, remote execution, raw
 URL export, and upstream body export remain denied.
+
+## Current Digest 20260703T021735 Pass 4
+
+The `github-growth-20260703T021735.773118Z` final pass exposes a concrete
+completion handoff for the reverse-flow skill-route window. The dukehao and
+lingbol088-spec reverse-flow-skill rows are treated as Codex workflow skill
+evidence because the body-free summaries carry Agent/Codex skill packaging,
+`skills/reverse-flow/SKILL.md`, scripts, and local sandbox/CTF/crackme workflow
+framing. The completion row keeps `codex_workflow_gate` in the test lane and
+records `skill_route_discovery_first` before any secondary workflow or harness
+interpretation.
+
+The same handoff keeps zhengxi-views in generic skill-workflow documentation
+triage, while Awesome-Blender-Seedance-Workflow-Usecases, Qwen-AgentWorld, and
+Fundamental-Ava remain adjacent `agent_harness_eval_required` rows. Those
+general-agent rows do not inherit `skill_route_discovery`; their direct lanes
+before harness evaluation are empty, and only documentation, test, or
+code_patch can be considered after local harness evidence exists. The operator
+recovery packet requires rollback metadata and focused validation, and exports
+hashes plus lane names rather than raw source URLs, replay commands, upstream
+bodies, provider inputs, target paths, or activation authority.
