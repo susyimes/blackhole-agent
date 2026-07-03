@@ -1,0 +1,218 @@
+{
+  "name": "skill-route-discovery-current-digest-20260703T153924-pass1-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-current-digest-20260703T153924-pass1-validation-lane",
+    "source_digest": "github-growth-20260703T153924.100531Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "codex_workflow_gate",
+        "generic_skill_workflow",
+        "source_cited_domain_research"
+      ],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-route-discovery-fixture",
+        "p3-agent-harness-eval-documentation",
+        "p4-agent-harness-eval-test-skeleton",
+        "p5-skill-route-policy-config-check"
+      ],
+      "evidence_urls": [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/lyra81604/zhengxi-views",
+        "https://github.com/Forsy-AI/agent-apprenticeship",
+        "https://github.com/QwenLM/Qwen-AgentWorld"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260703T153924.100531Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "RepositoryTrend",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "summary": "Public Codex and AI Agent skill package with skills/reverse-flow/SKILL.md, references, scripts, local sandbox CTF framing, workflow gate language, and unsupported install or runtime pressure.",
+        "topics": ["codex", "agent", "skill", "workflow", "ctf", "reverse"],
+        "route_hints": ["skill_route_discovery"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "observed_paths": [
+          "skills/reverse-flow/SKILL.md",
+          "skills/reverse-flow/references/",
+          "skills/reverse-flow/scripts/tool_audit.py"
+        ],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": [
+            "skill_directory",
+            "skill_markdown",
+            "reference_directory",
+            "validation_script"
+          ],
+          "source_metadata_signals": [
+            "agent_metadata",
+            "local_sandbox_context",
+            "body_free_workflow_summary",
+            "local_gate_or_test_target"
+          ]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260703T153924.100531Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "RepositoryTrend",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, scripts, source-cited workflow language, and non-investment-advice boundary metadata.",
+        "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+        "route_hints": ["skill_route_discovery"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "observed_paths": [
+          "SKILL.md",
+          "skill.yml",
+          "references/method.md",
+          "evals/source_citation_eval.py",
+          "scripts/validate_package.py"
+        ],
+        "metadata_files": ["skill.yml"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": [
+            "skill_markdown",
+            "skill_manifest",
+            "reference_directory",
+            "validation_script",
+            "test_file"
+          ],
+          "source_metadata_signals": [
+            "skill_manifest",
+            "source_citation_boundary",
+            "advice_disclaimer_boundary"
+          ]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260703T153924.100531Z",
+        "item_id": "trend:Forsy-AI/agent-apprenticeship-1",
+        "item_kind": "RepositoryTrend",
+        "name": "agent-apprenticeship",
+        "source_url": "https://github.com/Forsy-AI/agent-apprenticeship",
+        "summary": "General agent project about workflow loops, mentor or human evaluation, reusable work experience, and data for future agents without a skill workflow route hint or local harness result.",
+        "topics": ["general-agent", "workflow-loop", "evaluation", "mentor-agent"],
+        "route_hints": [],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260703T153924.100531Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "summary": "Language world model and agent evaluation benchmark without a skill workflow route hint or local harness evaluation result.",
+        "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+        "route_hints": [],
+        "suggested_lanes": []
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k 20260703T153924",
+          "pytest tests/test_skill_routing.py -q -k 20260703T153924"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260703T153921Z-skill-route-discovery-pass1-current-window/rollback-point.json",
+        "review_note": "Pass-1 documentation records the skill-route versus general-agent evaluation boundary."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260703T153924_pass1_validation_lane.json",
+          "tests/test_harness_eval.py"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k 20260703T153924",
+          "pytest tests/test_skill_routing.py -q -k 20260703T153924"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260703T153921Z-skill-route-discovery-pass1-current-window/rollback-point.json",
+        "review_note": "Pass-1 fixture validates Codex skill workflows before broader agent handling."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 2},
+    {"path": "registry.ignored_evidence_item_count", "equals": 2},
+    {"path": "lane_map.proposal_kinds", "equals": ["code_patch", "config", "documentation", "test"]},
+    {"path": "lane_map.lanes_bounded", "equals": true},
+    {"path": "lane_map.local_validation_required", "equals": true},
+    {"path": "current_digest_pass1_validation_lane.status", "equals": "ready"},
+    {"path": "current_digest_pass1_validation_lane.source_digest", "equals": "github-growth-20260703T153924.100531Z"},
+    {
+      "path": "current_digest_pass1_validation_lane.proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-route-discovery-fixture",
+        "p3-agent-harness-eval-documentation"
+      ]
+    },
+    {
+      "path": "current_digest_pass1_validation_lane.anchoring_proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-route-discovery-fixture",
+        "p3-agent-harness-eval-documentation",
+        "p4-agent-harness-eval-test-skeleton",
+        "p5-skill-route-policy-config-check",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:Forsy-AI/agent-apprenticeship-1",
+        "trend:QwenLM/Qwen-AgentWorld-1"
+      ]
+    },
+    {"path": "current_digest_pass1_validation_lane.selected_local_lanes", "equals": ["documentation", "test"]},
+    {"path": "current_digest_pass1_validation_lane.observed_route_profiles", "equals": ["generic_skill_workflow", "source_cited_domain_research", "codex_workflow_gate"]},
+    {"path": "current_digest_pass1_validation_lane.agent_harness_eval_required_count", "equals": 2},
+    {"path": "current_digest_pass1_validation_lane.rows.0.candidate_names", "equals": ["lingbol088-spec-reverse-flow-skill"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.route_profiles", "equals": ["codex_workflow_gate"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.allowed_local_lanes", "equals": ["documentation", "config", "test", "code_patch"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass1_validation_lane.rows.0.skill_route_discovery_first", "equals": true},
+    {"path": "current_digest_pass1_validation_lane.rows.0.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass1_validation_lane.rows.0.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.rows.1.candidate_names", "equals": ["zhengxi-views"]},
+    {"path": "current_digest_pass1_validation_lane.rows.1.route_profiles", "equals": ["generic_skill_workflow", "source_cited_domain_research"]},
+    {"path": "current_digest_pass1_validation_lane.rows.1.allowed_local_lanes", "equals": ["documentation", "config", "test", "code_patch"]},
+    {"path": "current_digest_pass1_validation_lane.rows.1.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass1_validation_lane.rows.2.selected_local_lane", "equals": "documentation"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.proposal_id", "equals": "p3-agent-harness-eval-fixtures"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.skill_route_discovery_inherited", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.direct_runtime_route_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.direct_code_patch_route_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.route_interpretation_rule.general_agent_project_evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.route_interpretation_rule.direct_allowed_lanes_before_agent_harness_eval", "equals": []},
+    {"path": "current_digest_pass1_validation_lane.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass1_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_agent_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_source_url_exported", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_evidence_urls_exported", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_upstream_body_exported", "equals": false}
+  ]
+}

@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 154
-    assert payload["pass_count"] == 153
+    assert payload["fixture_count"] == 155
+    assert payload["pass_count"] == 154
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -174,6 +174,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260703T110050-pass2-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260703T153924-pass1-validation-lane"
         ]["passed"]
         is True
     )
@@ -20937,6 +20943,84 @@ def test_skill_route_discovery_current_digest_20260702T214709_pass2_harness_lane
     assert all(row["provider_runtime_launch_allowed"] is False for row in adjacent)
     assert lane["runtime_action"] == "none"
     assert lane["external_harness_execution_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260703T153924_pass1_validation_lane():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260703T153924_pass1_validation_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass1_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert output["lane_map"]["local_validation_required"] is True
+
+    assert lane["source_digest"] == "github-growth-20260703T153924.100531Z"
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-route-discovery-fixture",
+        "p3-agent-harness-eval-documentation",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["agent_harness_eval_required_count"] == 2
+
+    codex_gate = rows["p1-skill-route-discovery-codex-gate"]
+    assert codex_gate["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert codex_gate["route_profiles"] == ["codex_workflow_gate"]
+    assert codex_gate["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert codex_gate["selected_local_lane"] == "test"
+    assert codex_gate["skill_route_discovery_first"] is True
+    assert codex_gate["runtime_action"] == "none"
+    assert codex_gate["external_skill_activation_allowed"] is False
+
+    generic = rows["p2-generic-skill-route-discovery-fixture"]
+    assert generic["candidate_names"] == ["zhengxi-views"]
+    assert generic["route_profiles"] == ["generic_skill_workflow", "source_cited_domain_research"]
+    assert generic["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert generic["selected_local_lane"] == "test"
+
+    docs_row = rows["p3-agent-harness-eval-documentation"]
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["runtime_action"] == "none"
+
+    assert set(adjacent) == {
+        "trend:Forsy-AI/agent-apprenticeship-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+    }
+    assert all(row["proposal_id"] == "p3-agent-harness-eval-fixtures" for row in adjacent.values())
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent.values())
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent.values())
+    assert all(row["provider_runtime_launch_allowed"] is False for row in adjacent.values())
+
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
     assert lane["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
