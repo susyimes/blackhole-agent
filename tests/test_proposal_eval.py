@@ -1291,6 +1291,117 @@ def test_current_pass3_operator_gate_validates_codex_skill_workflow_before_activ
     assert "runtime_execution" not in serialized
 
 
+def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals():
+    digest = {
+        "digest_id": "github-growth-20260703T232924.872543Z",
+        "generated_at": "2026-07-03T23:29:24.872543Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is an AI Agent and Codex skill repository with SKILL.md, "
+                    "workflow routing, local tests, validation notes, and install pressure."
+                ),
+                "relevance_reason": (
+                    "Agent, codex, and skill signals must map to skill_route_discovery_first before "
+                    "secondary workflow handling."
+                ),
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "trend:lyra81604/zhengxi-views-1",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "zhengxi-views is an Agent Skill workflow repository with SKILL.md, skill.yml, "
+                    "references, scripts, and source-cited local validation expectations."
+                ),
+                "relevance_reason": "Generic skill workflow evidence stays in bounded local lanes.",
+                "risk_flags": [],
+                "confidence": 0.84,
+            },
+            {
+                "item_id": "trend:Forsy-AI/agent-apprenticeship-1",
+                "source_url": "https://github.com/Forsy-AI/agent-apprenticeship",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "agent-apprenticeship is a general agent project and training harness with "
+                    "agent evaluation and apprenticeship claims but no local route-specific workflow signals."
+                ),
+                "relevance_reason": (
+                    "General agent project evidence requires agent_harness_eval before implementation lanes."
+                ),
+                "risk_flags": [],
+                "confidence": 0.8,
+            },
+            {
+                "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Qwen-AgentWorld is a general agent benchmark and environment project with "
+                    "agent training and evaluation claims but no explicit route-specific workflow."
+                ),
+                "relevance_reason": (
+                    "Empty route hints should not become direct code_patch authorization."
+                ),
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=520)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    replay_lane = lane_map["current_pass3_skill_route_replay_lane"]
+    serialized = json.dumps(replay_lane, sort_keys=True)
+
+    assert replay_lane["controller_surface"] == "current_pass3_skill_route_replay_lane"
+    assert replay_lane["status"] == "ready"
+    assert replay_lane["source_digest"] == "github-growth-20260703T232924.872543Z"
+    assert replay_lane["proposal_ids"] == [
+        "p1-skill-route-discovery-codex-gate",
+        "p2-generic-skill-workflow-route",
+        "p3-agent-harness-eval-fixture",
+    ]
+    assert replay_lane["skill_route_candidate_count"] == 2
+    assert replay_lane["agent_harness_eval_required_count"] == 2
+    assert replay_lane["skill_route_ready"] is True
+    assert replay_lane["adjacent_agent_harness_eval_blocked"] is True
+    assert replay_lane["codex_workflow_gate_confirmed"] is True
+    assert set(replay_lane["selected_skill_route_lanes"]) <= {
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    }
+    assert set(replay_lane["blocked_validation_target_item_ids"]) == {
+        "trend:Forsy-AI/agent-apprenticeship-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+    }
+    assert all(row["runtime_action"] == "none" for row in replay_lane["skill_route_rows"])
+    assert all(
+        row["direct_allowed_lanes_before_eval"] == []
+        and row["implementation_lanes_enabled"] is False
+        and row["skill_route_discovery_inherited"] is False
+        for row in replay_lane["adjacent_agent_harness_eval_rows"]
+    )
+    assert replay_lane["general_agent_direct_allowed_lanes_before_eval"] == []
+    assert replay_lane["external_skill_activation_allowed"] is False
+    assert replay_lane["external_agent_activation_allowed"] is False
+    assert replay_lane["external_harness_execution_allowed"] is False
+    assert replay_lane["raw_replay_command_export_allowed"] is False
+    assert replay_lane["raw_source_url_export_allowed"] is False
+    assert replay_lane["raw_evidence_url_export_allowed"] is False
+    assert replay_lane["upstream_body_export_allowed"] is False
+    assert all(len(command_hash) == 64 for command_hash in replay_lane["replay_command_hashes"])
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+
+
 def test_skill_route_profile_classifies_phaser_game_engine_evidence_as_frontend_workflow():
     classification = classify_digest_item_route(
         {
