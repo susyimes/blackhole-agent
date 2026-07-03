@@ -5959,3 +5959,24 @@ The selected lane for the replay probe is `test`; local validation remains
 required, runtime action is `none`, and external skill activation, provider
 launch, external harness execution, remote execution, raw URL export, and
 upstream-body export remain denied.
+
+## Current Digest 20260703T002121 Pass 1
+
+The `github-growth-20260703T002121.806126Z` pass-1 lane turns the
+reverse-flow cluster into an explicit route-classifier surface. The
+baojunxiong, lingbol088-spec, and minxiang0101 reverse-flow-skill repositories
+are treated as public Codex/AI Agent skill package evidence because their
+body-free summaries expose a `skills/reverse-flow/SKILL.md` package shape,
+scripts, and local sandbox/CTF/crackme workflow framing. They may select only
+documentation, config, test, or code_patch local lanes. Unsupported pressure
+from the upstream workflow, such as install or runtime/provider execution, is
+not exported from the pass-1 lane.
+
+The same lane carries zhengxi-views as source-cited Agent Skill evidence for a
+documentation interpretation row: `skill_route_discovery` discovers local route
+shape only. It does not authorize runtime action, external skill activation,
+provider launch, external harness execution, remote execution, or final scope by
+itself; controller policy and focused local validation still choose gates before
+activation review. Qwen-AgentWorld, Fundamental-Ava, and workflow-only Seedance
+usecase evidence remain adjacent `agent_harness_eval_required` rows with direct
+lanes empty before local harness evaluation.
