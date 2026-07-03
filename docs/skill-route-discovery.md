@@ -6598,3 +6598,26 @@ code_patch may be considered. The pass-3 packet exports hashes and lane names,
 not raw source URLs, replay commands, target paths, provider inputs, upstream
 bodies, external activation, provider launch, remote execution, profile writes,
 or memory writes.
+
+## Current Digest 20260703T193923 Pass 1
+
+The `github-growth-20260703T193923.799406Z` pass-1 lane adds a focused
+reverse-flow validation surface for the active `skill-route-discovery` window.
+`p1_reverse_flow_skill_discovery` groups TaoDevil and lingbol088-spec
+reverse-flow-skill evidence as Codex workflow-gate rows. The selected local lane
+is test, and the row must prove `skill_route_discovery_first` before any
+documentation, config, test, or code_patch work can be considered for local
+adoption.
+
+`p2_generic_skill_workflow_probe` keeps zhengxi-views in the documentation lane
+as a generic skill-workflow intake checklist. `p3_agent_harness_eval_baseline`
+keeps agent-apprenticeship as adjacent `agent_harness_eval_required` evidence:
+it does not inherit `skill_route_discovery`, has no direct runtime or code_patch
+lane before local harness evaluation, and may only produce documentation, test,
+or code_patch work after local harness evidence exists.
+
+The pass-1 fixture exports body-free proposal IDs, selected item IDs, route
+profiles, lane names, source hashes, and replay command hashes. It denies raw
+source URL export, upstream body export, external skill activation, external
+agent activation, external harness execution, provider runtime launch, remote
+execution, profile writes, memory writes, and runtime action.

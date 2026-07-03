@@ -6041,13 +6041,62 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260703T181923.507461Z",
         "github-growth-20260703T181923Z",
     }
+    current_20260703_193923_window = source_digest in {
+        "github-growth-20260703T193923.799406Z",
+        "github-growth-20260703T193923Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260703_181923_window:
+    if current_20260703_193923_window:
+        specs = (
+            {
+                "proposal_id": "p1_reverse_flow_skill_discovery",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_repositories_route_to_bounded_local_lanes",
+                "validation_task": (
+                    "map TaoDevil and lingbol088-spec reverse-flow-skill evidence through "
+                    "skill_route_discovery_first, require focused local validation, and "
+                    "expose only documentation, config, test, or code_patch lanes"
+                ),
+            },
+            {
+                "proposal_id": "p2_generic_skill_workflow_probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_intake_checklist",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_evidence_intake_checklist",
+                "validation_task": (
+                    "record the evidence checklist for skill-like repositories that can "
+                    "enter documentation, config, test, or code_patch lanes, while "
+                    "insufficient local evidence blocks runtime behavior changes"
+                ),
+            },
+            {
+                "proposal_id": "p3_agent_harness_eval_baseline",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_eval_baseline",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "general_agent_projects_stay_adjacent_until_harness_eval",
+                "validation_task": (
+                    "validate that general agent project evidence without a skill workflow "
+                    "route hint stays in agent_harness_eval_required before documentation, "
+                    "test, code_patch, or runtime behavior is proposed"
+                ),
+            },
+        )
+    elif current_20260703_181923_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-reverse-flow",
@@ -7658,6 +7707,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"agent-apprenticeship", "qwen-agentworld", "fundamental-ava"}:
                 row["proposal_id"] = "p3-agent-harness-eval-preflight"
+        if current_20260703_193923_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "agent-apprenticeship":
+                row["proposal_id"] = "p3_agent_harness_eval_baseline"
         if current_20260703_181923_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"agent-apprenticeship", "qwen-agentworld", "fundamental-ava"}:
@@ -7742,6 +7795,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_reverse_flow_skill_discovery",
+            "p2_generic_skill_workflow_probe",
+            "p3_agent_harness_eval_baseline",
+            "p4_route_classifier_coverage",
+            "p5_no_external_adoption_without_local_probe",
+            "trend:TaoDevil/reverse-flow-skill-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:Forsy-AI/agent-apprenticeship-1",
+        ]
+        if current_20260703_193923_window
+        else
         [
             "p1-skill-route-discovery-reverse-flow",
             "p2-skill-route-discovery-zhengxi",
