@@ -1,0 +1,10 @@
+rollback_point: 20260704T000000Z-skill-route-discovery-pass1-current-window
+original_branch: codex/blackhole-evolve/20260703T210019.821734-add-or-extend-a-local-skill-route-discovery-vali
+head: cb284d8bc765e6ebef49c78dcbf32dbd920a0cc7
+rollback_ref: refs/rollback/20260704T000000Z-skill-route-discovery-pass1-current-window
+source_digest: github-growth-20260703T205924.382214Z
+recovery_commands:
+  git switch codex/blackhole-evolve/20260703T210019.821734-add-or-extend-a-local-skill-route-discovery-vali
+  git reset --hard refs/rollback/20260704T000000Z-skill-route-discovery-pass1-current-window
+  git clean -fd
+notes: Created before local self-modification for skill-route-discovery pass 1 current window.
