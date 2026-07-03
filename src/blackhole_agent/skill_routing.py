@@ -22629,6 +22629,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260703T161922.895398Z",
         "github-growth-20260703T161922Z",
     }
+    current_20260703_201923_window = source_digest in {
+        "github-growth-20260703T201923.796362Z",
+        "github-growth-20260703T201923Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -22788,6 +22792,31 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 ),
             },
         )
+    if current_20260703_201923_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1_skill_route_discovery_codex_workflow_gate",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate_discovery_first",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "codex_workflow_gate_style_skill_detected_without_new_permissions"
+                ),
+            },
+            {
+                "proposal_id": "p2_skill_route_discovery_generic_workflow",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_discovery_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": (
+                    "generic_skill_workflow_evidence_maps_to_documentation_config_test_or_code_patch"
+                ),
+            },
+        )
     allowed_profiles = {
         profile for proposal in skill_proposals for profile in _string_list(proposal["route_profiles"])
     }
@@ -22937,6 +22966,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260703_115316_window
             else "p3_general_agent_harness_eval_tests"
             if current_20260703_161922_window
+            else "p3_agent_harness_eval_trending_projects"
+            if current_20260703_201923_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -22981,6 +23012,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         if current_20260703_115316_window
         else "p3_general_agent_harness_eval_tests"
         if current_20260703_161922_window
+        else "p3_agent_harness_eval_trending_projects"
+        if current_20260703_201923_window
         else "p2-agent-harness-eval-general-agent-projects"
     )
     pass3_operator_validation_packet = {
@@ -23203,6 +23236,27 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:TianhangZhuzth/Fundamental-Ava-1",
             ]
             if current_20260703_161922_window
+            else [
+                "p1_reverse_flow_skill_discovery",
+                "p2_generic_skill_workflow_probe",
+                "p3_agent_harness_eval_baseline",
+                "p4_route_classifier_coverage",
+                "p5_no_external_adoption_without_local_probe",
+                "p1_skill_route_discovery_probe",
+                "p2_skill_workflow_documentation",
+                "p3_agent_harness_eval_fixtures",
+                "p4_fork_signal_dedup",
+                "p5_route_policy_regression_check",
+                "p1_skill_route_discovery_codex_workflow_gate",
+                "p2_skill_route_discovery_generic_workflow",
+                "trend:TaoDevil/reverse-flow-skill-1",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:Forsy-AI/agent-apprenticeship-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260703_201923_window
             else []
         ),
         "skill_route_candidate_count": len(
