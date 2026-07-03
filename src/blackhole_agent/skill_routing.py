@@ -7939,6 +7939,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     current_20260702_154626_window = source_digest == "github-growth-20260702T154626.821848Z"
     current_20260702_170629_window = source_digest == "github-growth-20260702T170629.644914Z"
     current_20260702_214709_window = source_digest == "github-growth-20260702T214709.510460Z"
+    current_20260703_004121_window = source_digest in {
+        "github-growth-20260703T004121.758638Z",
+        "github-growth-20260703T004121Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -9102,6 +9106,65 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
+    if current_20260703_004121_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_skill_workflow_routes_to_skill_discovery_first",
+                "validation_task": (
+                    "feed Codex, agent, and skill topic evidence from reverse-flow-skill "
+                    "through route classification and verify it maps to skill_route_discovery_first "
+                    "with documentation, config, test, and code_patch lanes only"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "agent_metadata",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-discovery-lane",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_agent_skill_workflow_discovery_path_documented",
+                "validation_task": (
+                    "document that agent plus skill repositories without deeper local evidence "
+                    "enter skill_route_discovery only as bounded documentation, config, test, "
+                    "or code_patch validation candidates"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "source_citation_boundary",
+                ),
+            },
+        )
+        active_proposal_ids = [
+            "p1",
+            "p2",
+            "p3",
+            "p4",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-codex-workflow-gate",
+            "p2-generic-skill-workflow-discovery-lane",
+            "p3-agent-harness-eval-fixture",
+            "p4-workflow-agent-harness-routing",
+            "p5-combined-route-regression-suite",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
 
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
@@ -9121,6 +9184,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         downgraded_lanes: list[str] = []
         source_layout_signals: list[str] = []
         source_metadata_signals: list[str] = []
+        route_probe_decisions: list[str] = []
 
         for candidate in sorted(
             candidate_lane_inventory,
@@ -9149,6 +9213,9 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
             source_layout_signals.extend(_string_list(candidate.get("source_layout_signals")))
             source_metadata_signals.extend(_string_list(candidate.get("source_metadata_signals")))
+            route_probe_decision = str(candidate.get("route_probe_decision") or "")
+            if route_probe_decision:
+                route_probe_decisions.append(route_probe_decision)
 
         bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
         selected_lane = str(spec["selected_local_lane"])
@@ -9191,6 +9258,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 "expected_input_signals": list(spec["expected_input_signals"]),
                 "observed_layout_signals": list(dict.fromkeys(source_layout_signals)),
                 "observed_metadata_signals": list(dict.fromkeys(source_metadata_signals)),
+                "route_probe_decisions": list(dict.fromkeys(route_probe_decisions)),
+                "skill_route_discovery_first": "skill_route_discovery_first" in set(route_probe_decisions),
                 "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
                 "accepted_outputs": ["docs", "config", "tests", "code_patch"],
@@ -9244,6 +9313,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260702_102714_window
             else "p2_agent_harness_eval_general_projects"
             if current_20260702_214709_window
+            else "p3-agent-harness-eval-fixture"
+            if current_20260703_004121_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -9280,6 +9351,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             row["proposal_id"] = "p3-agent-harness-eval-general-projects"
         if current_20260702_170629_window:
             row["proposal_id"] = "p2_agent_harness_eval_trending_python_agents"
+        if current_20260703_004121_window:
+            row["proposal_id"] = "p3-agent-harness-eval-fixture"
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         if current_090714_window:
@@ -9454,6 +9527,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             for profile in (
                 "generic_skill_workflow",
                 "source_cited_domain_research",
+                "codex_workflow_gate",
                 "game_frontend_workflow",
                 "skill_ecosystem_state_handoff",
             )

@@ -5980,3 +5980,21 @@ itself; controller policy and focused local validation still choose gates before
 activation review. Qwen-AgentWorld, Fundamental-Ava, and workflow-only Seedance
 usecase evidence remain adjacent `agent_harness_eval_required` rows with direct
 lanes empty before local harness evaluation.
+
+## Current Digest 20260703T004121 Pass 2
+
+The `github-growth-20260703T004121.758638Z` pass-2 lane promotes the
+reverse-flow cluster from generic skill evidence into a Codex workflow gate.
+When a repository trend item carries agent, Codex, skill, and workflow signals,
+the local route must expose `skill_route_discovery_first` before any secondary
+agent-harness interpretation. The Codex row may still select only
+documentation, config, test, or code_patch lanes, with `test` as the focused
+local validation lane for this pass.
+
+The same pass keeps zhengxi-views in the generic skill workflow documentation
+lane because it has agent and skill evidence but not a Codex workflow gate.
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under the pass-2 harness fixture proposal:
+they do not inherit `skill_route_discovery`, direct runtime routing, direct
+code_patch authority, provider launch, external harness execution, or remote
+execution before local harness evaluation succeeds.
