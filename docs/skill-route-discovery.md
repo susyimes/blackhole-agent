@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260703T203923.819609Z`, pass 4 completes
+the active skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. TaoDevil and lingbol088-spec
+reverse-flow-skill evidence maps to `p3-codex-skill-workflow-probe` in the
+local test lane and must record `skill_route_discovery_first` before any
+secondary workflow-gate interpretation. The zhengxi-views evidence maps to
+`p2-skill-route-discovery-zhengxi` in the documentation lane because the
+repository shape is a generic/source-cited skill workflow with citation and
+advice-boundary metadata.
+
+The same handoff keeps agent-apprenticeship, Qwen-AgentWorld, and
+Fundamental-Ava behind `p1-agent-harness-eval-general-trends`. They do not
+inherit `skill_route_discovery`, have no direct local lanes before harness
+evaluation, and cannot enable runtime action, direct code_patch, provider
+launch, external harness execution, remote execution, or external activation.
+The operator completion packet requires rollback metadata and focused
+validation, exports only body-free lane matrices and hashes, and leaves
+promotion, push, restart, and replay to the external supervisor. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260703T203923`.
+
 For source digest `github-growth-20260703T201923.796362Z`, pass 3 exposes the
 active skill-route-discovery window through
 `current_digest_pass3_route_to_validation_lane`. TaoDevil and lingbol088-spec

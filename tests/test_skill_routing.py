@@ -23931,3 +23931,119 @@ def test_skill_route_discovery_current_digest_20260703T201923_pass3_routes_activ
     assert "runtime_execution" not in serialized
     assert "install" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260703T203923_pass4_completes_current_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260703T201923_pass3_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    payload["source_digest"] = "github-growth-20260703T203923.819609Z"
+    for item in payload["items"]:
+        item["source_digest"] = payload["source_digest"]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    packet = handoff["operator_completion_packet"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260703T203923.819609Z"
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 3
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p3-codex-skill-workflow-probe",
+        "p2-skill-route-discovery-zhengxi",
+        "p1-agent-harness-eval-general-trends",
+    ]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["agent_harness_eval_required_count"] == 3
+    assert handoff["blocked_proposal_ids"] == []
+
+    codex_probe = rows["p3-codex-skill-workflow-probe"]
+    assert codex_probe["candidate_names"] == [
+        "lingbol088-spec-reverse-flow-skill",
+        "TaoDevil-reverse-flow-skill",
+    ]
+    assert codex_probe["route_profiles"] == ["codex_workflow_gate"]
+    assert codex_probe["selected_local_lane"] == "test"
+    assert codex_probe["route_probe_decisions"] == ["skill_route_discovery_first"]
+    assert codex_probe["skill_route_discovery_first"] is True
+    assert codex_probe["secondary_workflow_gate_status"] == "blocked_until_local_validation"
+    assert codex_probe["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert codex_probe["runtime_action"] == "none"
+    assert codex_probe["external_skill_activation_allowed"] is False
+    assert codex_probe["provider_runtime_launch_allowed"] is False
+
+    zhengxi = rows["p2-skill-route-discovery-zhengxi"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert zhengxi["selected_local_lane"] == "documentation"
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_skill_activation_allowed"] is False
+
+    assert set(adjacent) == {"agent-apprenticeship", "Qwen-AgentWorld", "Fundamental-Ava"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p1-agent-harness-eval-general-trends"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["accepted_outputs_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    matrix = {row["proposal_id"]: row for row in handoff["validation_lane_matrix"]}
+    assert matrix["p3-codex-skill-workflow-probe"]["primary_route"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert matrix["p3-codex-skill-workflow-probe"]["selected_local_lane"] == "test"
+    assert matrix["p2-skill-route-discovery-zhengxi"]["selected_local_lane"] == "documentation"
+    assert matrix["p1-agent-harness-eval-general-trends"]["selected_local_lane"] == (
+        "agent_harness_eval_required"
+    )
+    assert matrix["p1-agent-harness-eval-general-trends"]["allowed_local_lanes_after_eval"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+
+    assert packet["status"] == "ready"
+    assert packet["rollback_ref_required"] is True
+    assert packet["rollback_artifact_required"] is True
+    assert packet["focused_validation_required"] is True
+    assert packet["validation_lane_matrix_ready"] is True
+    assert packet["runtime_action"] == "none"
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert all("install" not in row.get("allowed_local_lanes", []) for row in handoff["rows"])
+    assert '"provider_runtime"' not in serialized
