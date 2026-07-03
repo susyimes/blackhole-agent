@@ -5,6 +5,23 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260703T143923.402501Z`, pass 2 exposes the
+active skill-route-discovery window through
+`current_digest_pass2_local_validation_lane`. The Kylin2021, lingbol088-spec,
+and poker117 `reverse-flow-skill` fork cluster is treated as correlated Codex
+workflow-gate evidence, not as install or runtime authority: the selected lane
+is `test`, `skill_route_discovery_first` remains required, and unsupported
+install/runtime pressure is downgraded. The `zhengxi-views` source-cited Agent
+Skill item takes the documentation lane so its decision path, citation boundary,
+advice boundary, and uncertainty stay visible before activation.
+
+The same pass keeps Qwen-AgentWorld and Fundamental-Ava as adjacent
+`agent_harness_eval_required` rows under `p3-agent-harness-eval-fixtures`.
+They do not inherit `skill_route_discovery`, and they cannot select direct
+runtime, direct code_patch, provider launch, external harness execution, remote
+execution, or external activation before local harness evaluation. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260703T143923`.
+
 For source digest `github-growth-20260703T141923.320717Z`, pass 1 groups the
 Kylin2021, lingbol088-spec, and poker117 `reverse-flow-skill` fork evidence as
 one Codex/generic skill-route validation lane. The upstream shape exposes AI

@@ -1,0 +1,10 @@
+{
+  "created_at": "2026-07-03T14:39:21Z",
+  "original_branch": "codex/blackhole-evolve/20260703T144021.724014-add-or-extend-local-validation-coverage-for-skil",
+  "original_head": "a9524a1447f109ea050ec77afe70c9641e3f7808",
+  "rollback_ref": "refs/blackhole/rollback/20260703T143921Z-skill-route-discovery-pass2",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260703T144021.724014-add-or-extend-local-validation-coverage-for-skil",
+    "git reset --hard a9524a1447f109ea050ec77afe70c9641e3f7808"
+  ]
+}
