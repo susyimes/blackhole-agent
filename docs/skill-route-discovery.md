@@ -6133,3 +6133,23 @@ evaluation are empty, and only documentation, test, or code_patch may be
 considered after local harness evidence exists. The pass-4 recovery packet
 requires rollback metadata plus focused validation and leaves replay, promotion,
 restart, and activation to the configured supervisor.
+
+## Current Digest 20260703T044050 Pass 3
+
+The `github-growth-20260703T044050.250851Z` pass-3 lane binds the active
+skill-route-discovery slice to `current_digest_pass3_route_to_validation_lane`.
+zhengxi-views is the source-cited skill workflow validation row for
+`p1-skill-route-discovery-zhengxi-views`; reverse-flow-skill is the Codex
+workflow-gate row for `p2-codex-skill-workflow-gate-reverse-flow`. Both rows
+select the local test lane before activation. The reverse-flow row keeps
+code_patch as a queued bounded lane, but only after `skill_route_discovery_first`
+is proven by focused local validation.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-qwen-agentworld`. They do not inherit
+`skill_route_discovery`, direct runtime, direct code_patch, provider launch,
+external harness execution, or remote execution. The pass-3 surface exports
+selected item IDs, proposal IDs, route profiles, lane names, source hashes, and
+replay command hashes rather than raw source URLs, replay commands, target
+paths, provider inputs, upstream bodies, or activation authority.
