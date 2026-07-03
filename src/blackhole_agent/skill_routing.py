@@ -7992,6 +7992,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260703T004121.758638Z",
         "github-growth-20260703T004121Z",
     }
+    current_20260703_025735_window = source_digest in {
+        "github-growth-20260703T025735.929695Z",
+        "github-growth-20260703T025735Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -9155,10 +9159,14 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:ksimback/looper-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
-    if current_20260703_004121_window:
+    if current_20260703_004121_window or current_20260703_025735_window:
         specs = (
             {
-                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_id": (
+                    "p2-skill-route-discovery-local-test"
+                    if current_20260703_025735_window
+                    else "p1-skill-route-discovery-codex-workflow-gate"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "codex_workflow_gate",
                 "route_profiles": ("codex_workflow_gate",),
@@ -9178,7 +9186,11 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 ),
             },
             {
-                "proposal_id": "p2-generic-skill-workflow-discovery-lane",
+                "proposal_id": (
+                    "p1-skill-route-discovery-index"
+                    if current_20260703_025735_window
+                    else "p2-generic-skill-workflow-discovery-lane"
+                ),
                 "proposal_kind": "documentation",
                 "proposal_track": "generic_skill_workflow",
                 "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
@@ -9198,21 +9210,41 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 ),
             },
         )
-        active_proposal_ids = [
-            "p1",
-            "p2",
-            "p3",
-            "p4",
-            "trend:lyra81604/zhengxi-views-1",
-            "p1-skill-route-discovery-codex-workflow-gate",
-            "p2-generic-skill-workflow-discovery-lane",
-            "p3-agent-harness-eval-fixture",
-            "p4-workflow-agent-harness-routing",
-            "p5-combined-route-regression-suite",
-            "trend:lingbol088-spec/reverse-flow-skill-1",
-            "trend:QwenLM/Qwen-AgentWorld-1",
-            "trend:TianhangZhuzth/Fundamental-Ava-1",
-        ]
+        active_proposal_ids = (
+            [
+                "p1",
+                "p2",
+                "p3",
+                "p4",
+                "p5",
+                "p1-skill-route-discovery-index",
+                "p2-skill-route-discovery-local-test",
+                "p3-agent-harness-eval-fixture",
+                "p4-agent-harness-eval-doc",
+                "p5-route-policy-consistency-check",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260703_025735_window
+            else [
+                "p1",
+                "p2",
+                "p3",
+                "p4",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-codex-workflow-gate",
+                "p2-generic-skill-workflow-discovery-lane",
+                "p3-agent-harness-eval-fixture",
+                "p4-workflow-agent-harness-routing",
+                "p5-combined-route-regression-suite",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+        )
         anchoring_proposal_ids = list(active_proposal_ids)
 
     rows: list[dict[str, Any]] = []
@@ -9364,6 +9396,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260702_214709_window
             else "p3-agent-harness-eval-fixture"
             if current_20260703_004121_window
+            else "p3-agent-harness-eval-fixture"
+            if current_20260703_025735_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -9401,6 +9435,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         if current_20260702_170629_window:
             row["proposal_id"] = "p2_agent_harness_eval_trending_python_agents"
         if current_20260703_004121_window:
+            row["proposal_id"] = "p3-agent-harness-eval-fixture"
+        if current_20260703_025735_window:
             row["proposal_id"] = "p3-agent-harness-eval-fixture"
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
@@ -11814,6 +11850,7 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         or skill_rows_by_track.get("source_cited_domain_research")
         or {}
     )
+    codex_row = skill_rows_by_track.get("codex_workflow_gate") or {}
     compass_row = skill_rows_by_track.get("skill_ecosystem_state_handoff") or {}
     game_row = skill_rows_by_track.get("game_frontend_workflow") or {}
     qwen_row = next(
@@ -11842,7 +11879,36 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
     current_074714_window = source_digest == "github-growth-20260630T074714.730934Z"
     current_090714_window = source_digest == "github-growth-20260630T090714.437117Z"
     current_131922_window = source_digest == "github-growth-20260701T131922.972375Z"
-    if current_074714_window or current_090714_window or current_131922_window:
+    current_20260703_025735_window = source_digest in {
+        "github-growth-20260703T025735.929695Z",
+        "github-growth-20260703T025735Z",
+    }
+    if current_20260703_025735_window:
+        focused_agent_rows = [
+            _skill_route_discovery_current_digest_pass2_focused_agent_row(
+                row,
+                proposal_id="p3-agent-harness-eval-fixture",
+            )
+            for row in adjacent_rows
+        ]
+        proposal_rows = [
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                codex_row,
+                proposal_id="p2-skill-route-discovery-local-test",
+                proposal_kind="test",
+                selected_local_lane="test",
+                validation_target="codex_skill_workflow_routes_to_skill_discovery_first",
+            ),
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                generic_row,
+                proposal_id="p1-skill-route-discovery-index",
+                proposal_kind="documentation",
+                selected_local_lane="documentation",
+                validation_target="generic_agent_skill_workflow_discovery_path_documented",
+            ),
+            *focused_agent_rows,
+        ]
+    elif current_074714_window or current_090714_window or current_131922_window:
         agent_proposal_id = (
             "p2_agent_harness_eval_trending_python_agents"
             if current_090714_window

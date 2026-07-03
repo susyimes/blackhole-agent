@@ -6064,3 +6064,25 @@ launch, external harness execution, remote execution, raw URL export, replay
 command export, and upstream-body export remain disabled until local
 agent-harness evaluation produces a bounded documentation, test, or code_patch
 follow-up lane.
+
+## Current Digest 20260703T025735 Pass 2
+
+The `github-growth-20260703T025735.929695Z` pass-2 lane binds the active
+skill-route-discovery slice to `current_digest_pass2_local_validation_lane`.
+The two skill-workflow examples remain local validation candidates only:
+lingbol088-spec reverse-flow-skill supplies Codex workflow gate evidence for
+`p2-skill-route-discovery-local-test`, and zhengxi-views supplies generic plus
+source-cited skill-workflow evidence for `p1-skill-route-discovery-index`.
+Both rows may select only documentation, config, test, or code_patch lanes;
+`skill_route_discovery_first` is required for the reverse-flow Codex gate before
+any secondary agent-harness interpretation.
+
+Awesome-Blender-Seedance-Workflow-Usecases, Qwen-AgentWorld, and
+Fundamental-Ava remain adjacent `agent_harness_eval_required` rows under
+`p3-agent-harness-eval-fixture`. They do not inherit `skill_route_discovery`,
+and direct runtime or direct code_patch lanes remain disabled until local
+harness evaluation exists. The pass-2 controller surfaces expose focused review,
+operator replay, acceptance, and supervisor handoff status while denying
+runtime action, upstream skill activation, external harness execution, provider
+launch, remote execution, raw source URL export, replay-command export,
+target-path export, and upstream-body export.
