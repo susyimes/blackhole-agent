@@ -6021,13 +6021,48 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260703_040049_window = source_digest == "github-growth-20260703T040049.885608Z"
     current_20260703_052050_window = source_digest == "github-growth-20260703T052050.251723Z"
     current_20260703_064052_window = source_digest == "github-growth-20260703T064052.697831Z"
+    current_20260703_104050_window = source_digest in {
+        "github-growth-20260703T104050.173684Z",
+        "github-growth-20260703T104050Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260703_064052_window:
+    if current_20260703_104050_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_workflow_gate_routes_to_bounded_local_validation",
+                "validation_task": (
+                    "feed a Codex, agent, skill, and workflow repository signal through "
+                    "skill_route_discovery and assert it maps only to documentation, "
+                    "config, test, or code_patch lanes with local validation required"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-route-discovery",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "generic_skill_workflow_routes_to_bounded_local_validation",
+                "validation_task": (
+                    "probe generic skill workflow evidence with source-cited and advice "
+                    "boundary metadata and keep the allowed local lanes bounded before "
+                    "any config or code change is activated"
+                ),
+            },
+        )
+    elif current_20260703_064052_window:
         specs = (
             {
                 "proposal_id": "p1_reverse_flow_skill_route_discovery",
@@ -7195,6 +7230,22 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "route_probe_metadata": route_probe_rows,
                 "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
+                "unsupported_lane_pressure_removed_count": (
+                    len(
+                        [
+                            lane
+                            for lane in dict.fromkeys(
+                                unsupported_lane
+                                for candidate in candidate_lane_inventory
+                                for unsupported_lane in _string_list(candidate.get("unsupported_lane_pressure"))
+                                if str(candidate.get("candidate_name") or "") in set(candidate_names)
+                            )
+                            if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                        ]
+                    )
+                    if current_20260703_104050_window
+                    else 0
+                ),
                 "replay_command_hash": _stable_hash(replay_command) if replay_command else "",
                 "local_validation_required": True,
                 "runtime_action": "none",
@@ -7403,6 +7454,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p3_agent_harness_eval_general_projects"
             elif "workflow" in lowered_name or "seedance" in lowered_name:
                 row["proposal_id"] = "p4_blender_seedance_workflow_triage"
+        if current_20260703_104050_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p3-agent-harness-eval-for-agentworld"
+            elif lowered_name == "fundamental-ava":
+                row["proposal_id"] = "p4-agent-harness-eval-for-ava"
+            elif "workflow" in lowered_name or "usecase" in lowered_name:
+                row["proposal_id"] = "p5-workflow-usecase-harness-eval"
         if current_20260703_052050_window:
             lowered_name = str(row.get("name") or "").casefold()
             if (
@@ -7435,6 +7494,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         }
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
+        row["direct_allowed_lanes_before_eval"] = []
+        row["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
         row["raw_replay_command_exported"] = False
         adjacent_rows.append(row)
@@ -7481,6 +7542,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-codex-workflow-gate",
+            "p2-generic-skill-workflow-route-discovery",
+            "p3-agent-harness-eval-for-agentworld",
+            "p4-agent-harness-eval-for-ava",
+            "p5-workflow-usecase-harness-eval",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260703_104050_window
+        else
         [
             "p1_reverse_flow_skill_route_discovery",
             "p2_zhengxi_views_skill_probe",
