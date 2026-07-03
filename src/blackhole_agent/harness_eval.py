@@ -2419,6 +2419,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         source_lineage=source_lineage,
         evidence_strength=evidence_strength,
     )
+    candidate_registry_lane = skill_route_discovery_candidate_registry_lane(
+        raw_input=raw_input,
+        candidate_lane_intake=candidate_lane_intake,
+        route_profile_review=route_profile_review,
+    )
     profile_lane_acceptance_contract = skill_route_discovery_profile_lane_acceptance_contract(
         route_profile_review=route_profile_review,
         mixed_local_lane_probe=mixed_local_lane_probe,
@@ -2702,6 +2707,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "proposal_validation_lane_catalog": proposal_validation_lane_catalog,
         "route_triage_plan": route_triage_plan,
         "route_profile_review": route_profile_review,
+        "candidate_registry_lane": candidate_registry_lane,
         "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
         "activity_signal_panel": activity_signal_panel,
         "generic_validation_prompt": generic_validation_prompt,
@@ -17004,6 +17010,173 @@ def skill_route_discovery_candidate_lane_intake(
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
         "raw_evidence_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_candidate_registry_lane(
+    *,
+    raw_input: dict[str, Any],
+    candidate_lane_intake: dict[str, Any],
+    route_profile_review: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate a metadata-only candidate registry before local lane replay."""
+
+    from blackhole_agent.skill_routing import SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+
+    allowed_lanes = set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    raw_registry = raw_input.get("candidate_registry")
+    registry_rows = raw_registry if isinstance(raw_registry, list) else []
+    candidate_rows = candidate_lane_intake.get("rows")
+    candidate_rows = candidate_rows if isinstance(candidate_rows, list) else []
+    known_item_ids = {
+        item_id
+        for row in candidate_rows
+        if isinstance(row, dict)
+        for item_id in string_list(row.get("evidence_item_ids"))
+    }
+    reviewed_profiles = set(string_list(route_profile_review.get("profiles")))
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    disallowed_raw_fields = {
+        "source_url",
+        "source_urls",
+        "evidence_url",
+        "evidence_urls",
+        "related_source_urls",
+        "summary",
+        "evidence_summary",
+        "upstream_body",
+        "readme_body",
+        "raw_body",
+        "body",
+    }
+    allowed_registry_fields = {
+        "item_id",
+        "source_digest",
+        "proposal_id",
+        "source_kind",
+        "route_hint",
+        "route_profiles",
+        "allowed_local_lanes",
+        "selected_local_lane",
+        "fork_lineage_role",
+        "public_activity_signal_count",
+        "evidence_summary_hash",
+        "metadata_only",
+        "consumed_by",
+    }
+
+    for index, entry in enumerate(registry_rows):
+        if not isinstance(entry, dict):
+            diagnostics.append(f"entry_{index}:registry_entry_not_object")
+            continue
+
+        item_id = optional_string(entry.get("item_id")) or ""
+        route_profiles = string_list(entry.get("route_profiles"))
+        allowed_local_lanes = [lane for lane in string_list(entry.get("allowed_local_lanes")) if lane]
+        selected_local_lane = optional_string(entry.get("selected_local_lane")) or ""
+        consumed_by = optional_string(entry.get("consumed_by")) or ""
+        unknown_fields = sorted(set(entry) - allowed_registry_fields)
+        raw_field_names = sorted(set(entry) & disallowed_raw_fields)
+        serialized_entry = json.dumps(entry, sort_keys=True)
+        raw_url_present = any(token in serialized_entry for token in ("http://", "https://", "github.com/"))
+
+        row_diagnostics: list[str] = []
+        if not item_id:
+            row_diagnostics.append("item_id_missing")
+        elif known_item_ids and item_id not in known_item_ids:
+            row_diagnostics.append("item_id_not_in_candidate_intake")
+        if unknown_fields:
+            row_diagnostics.append("unknown_registry_fields")
+        if raw_field_names or raw_url_present:
+            row_diagnostics.append("raw_source_or_evidence_url_present")
+        if entry.get("metadata_only") is not True:
+            row_diagnostics.append("metadata_only_not_confirmed")
+        if consumed_by != "skill_route_discovery_lane":
+            row_diagnostics.append("registry_consumed_outside_skill_route_discovery_lane")
+        if not route_profiles:
+            row_diagnostics.append("route_profiles_missing")
+        elif reviewed_profiles and not set(route_profiles) <= reviewed_profiles:
+            row_diagnostics.append("route_profiles_not_reviewed")
+        if not allowed_local_lanes or not set(allowed_local_lanes) <= allowed_lanes:
+            row_diagnostics.append("allowed_local_lanes_not_bounded")
+        if selected_local_lane and selected_local_lane not in allowed_lanes:
+            row_diagnostics.append("selected_local_lane_not_bounded")
+        if selected_local_lane and selected_local_lane not in set(allowed_local_lanes):
+            row_diagnostics.append("selected_local_lane_not_in_allowed_lanes")
+        if not optional_string(entry.get("evidence_summary_hash")):
+            row_diagnostics.append("evidence_summary_hash_missing")
+
+        diagnostics.extend(
+            f"{stable_text_hash(item_id or str(index))}:{diagnostic}"
+            for diagnostic in row_diagnostics
+        )
+        rows.append(
+            {
+                "item_id_hash": stable_text_hash(item_id),
+                "proposal_id_hash": stable_text_hash(optional_string(entry.get("proposal_id")) or ""),
+                "source_digest_hash": stable_text_hash(optional_string(entry.get("source_digest")) or ""),
+                "source_kind": optional_string(entry.get("source_kind")) or "",
+                "route_hint": optional_string(entry.get("route_hint")) or "",
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": allowed_local_lanes,
+                "selected_local_lane": selected_local_lane,
+                "fork_lineage_role": optional_string(entry.get("fork_lineage_role")) or "",
+                "public_activity_signal_count": int(entry.get("public_activity_signal_count") or 0),
+                "metadata_only": entry.get("metadata_only") is True,
+                "consumed_by": consumed_by,
+                "diagnostics": row_diagnostics,
+                "row_status": "ready" if not row_diagnostics else "blocked",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_item_ids_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        bool(rows)
+        and not diagnostics
+        and candidate_lane_intake.get("status") == "ready"
+        and route_profile_review.get("status") == "ready"
+    )
+    return {
+        "controller_surface": "skill_route_discovery_candidate_registry_lane",
+        "status": "ready" if ready else "review" if rows else "not_provided",
+        "decision": "registry_metadata_ready_for_bounded_local_lane_replay"
+        if ready
+        else "review_candidate_registry_metadata_before_local_lane_replay"
+        if rows
+        else "no_candidate_registry_fixture_provided",
+        "registry_entry_count": len(rows),
+        "ready_entry_count": sum(1 for row in rows if row["row_status"] == "ready"),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "candidate_intake_status": optional_string(candidate_lane_intake.get("status")) or "",
+        "route_profile_review_status": optional_string(route_profile_review.get("status")) or "",
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "metadata_only": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_item_ids_exported": False,
         "raw_source_urls_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,

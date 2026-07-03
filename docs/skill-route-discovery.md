@@ -5998,3 +5998,29 @@ Qwen-AgentWorld and Fundamental-Ava remain adjacent
 they do not inherit `skill_route_discovery`, direct runtime routing, direct
 code_patch authority, provider launch, external harness execution, or remote
 execution before local harness evaluation succeeds.
+
+## Current Digest 20260703T010121 Pass 3
+
+The `github-growth-20260703T010121.773810Z` pass-3 lane makes the reverse-flow
+cluster operator-visible as a metadata-only candidate registry before final
+activation review. The public evidence reviewed for this pass was a
+reverse-flow-skill repository shape with a Codex/AI Agent skill package,
+`skills/reverse-flow/SKILL.md`, scripts, local sandbox/CTF/crackme workflow
+framing, and fork pressure, plus the carried zhengxi-views source-cited skill
+item.
+
+The registry fixture stores only item IDs, source digest, proposal IDs, route
+profiles, bounded lane names, selected lane, fork-lineage role, public activity
+counts, and body-free summary hashes. It must not store raw source URLs,
+evidence URLs, upstream README text, command bodies, target paths, or upstream
+bodies. A registry row is ready only when its item ID is already present in
+candidate intake, its route profiles have passed local profile review, its
+selected lane is one of documentation, config, test, or code_patch, and
+`consumed_by` is `skill_route_discovery_lane`.
+
+Reverse-flow-style Codex/workflow skill evidence still reports
+`skill_route_discovery` first and may select only documentation, config, test,
+or code_patch. Fork rows are lineage pressure rather than independent
+implementation authority. Runtime action, upstream install, external skill
+activation, provider launch, external harness execution, remote execution, raw
+URL export, and upstream body export remain denied.

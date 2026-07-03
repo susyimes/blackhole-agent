@@ -1,0 +1,212 @@
+{
+  "name": "skill-route-discovery-current-digest-20260703T010121-pass3-candidate-registry-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-current-digest-20260703T010121-pass3-candidate-registry-lane",
+    "source_digest": "github-growth-20260703T010121.773810Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 3,
+      "total_passes": 4,
+      "required_route_profiles": [
+        "codex_workflow_gate",
+        "generic_skill_workflow",
+        "source_cited_domain_research"
+      ],
+      "anchoring_proposals": [
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_skill_workflow_discovery_docs",
+        "p3_skill_candidate_registry_config",
+        "trend:lyra81604/zhengxi-views-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/lyra81604/zhengxi-views"
+      ]
+    },
+    "source_kind": "candidates",
+    "candidates": [
+      {
+        "name": "reverse-flow-skill-primary-package",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "evidence_summary": "Public Codex and AI Agent skill workflow package with skills/reverse-flow/SKILL.md, scripts, local sandbox CTF framing, workflow gate language, test target notes, verification coverage, and body-free selected item evidence.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+        "source_metadata_signals": ["selected_digest_item_ids", "body_free_workflow_summary", "local_gate_or_test_target"],
+        "public_activity_signals": ["fork_cluster", "stars"],
+        "evidence_item_ids": ["trend:lingbol088-spec/reverse-flow-skill-1"],
+        "evidence_urls": ["https://github.com/lingbol088-spec/reverse-flow-skill"]
+      },
+      {
+        "name": "reverse-flow-skill-fork-pressure",
+        "source_url": "https://github.com/spfvpn/reverse-flow-skill",
+        "evidence_summary": "Fork pressure for the same reverse-flow skill workflow cluster; public activity signal only, preserving the primary selected item as implementation evidence.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["generic_skill_workflow"],
+        "source_layout_signals": ["skill_directory", "skill_markdown"],
+        "public_activity_signals": ["fork_cluster"],
+        "evidence_item_ids": ["trend:spfvpn/reverse-flow-skill-1"],
+        "evidence_urls": ["https://github.com/spfvpn/reverse-flow-skill"]
+      },
+      {
+        "name": "zhengxi-views-source-cited-skill",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "evidence_summary": "Public Agent Skill workflow with SKILL.md, skill.yml, references, evals, scripts, source-cited research, traceable citation boundary, investment advice disclaimer, local evidence replay target, and validation test notes.",
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "test_file"],
+        "source_metadata_signals": ["body_free_domain_research_summary", "source_citation_boundary", "advice_disclaimer_boundary", "local_evidence_replay_target"],
+        "evidence_item_ids": ["trend:lyra81604/zhengxi-views-1"],
+        "evidence_urls": ["https://github.com/lyra81604/zhengxi-views"]
+      }
+    ],
+    "candidate_registry": [
+      {
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "source_digest": "github-growth-20260703T010121.773810Z",
+        "proposal_id": "p1_reverse_flow_skill_route_discovery",
+        "source_kind": "RepositoryTrend",
+        "route_hint": "skill_route_discovery",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lane": "test",
+        "fork_lineage_role": "primary_selected_item",
+        "public_activity_signal_count": 2,
+        "evidence_summary_hash": "sha256:ce8ddc3953356bbd8d5f5b37582dc6cfbcee94ee705ba52b7a8d041c29aa8f11",
+        "metadata_only": true,
+        "consumed_by": "skill_route_discovery_lane"
+      },
+      {
+        "item_id": "trend:spfvpn/reverse-flow-skill-1",
+        "source_digest": "github-growth-20260703T010121.773810Z",
+        "proposal_id": "p1_reverse_flow_skill_route_discovery",
+        "source_kind": "RepositoryTrend",
+        "route_hint": "skill_route_discovery",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lane": "test",
+        "fork_lineage_role": "fork_pressure_only",
+        "public_activity_signal_count": 1,
+        "evidence_summary_hash": "sha256:68b4ebb08c4114939c2e3a643c14dd08f0e6470b1778b0537120b7a6c795b3d1",
+        "metadata_only": true,
+        "consumed_by": "skill_route_discovery_lane"
+      },
+      {
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "source_digest": "github-growth-20260703T010121.773810Z",
+        "proposal_id": "p2_skill_workflow_discovery_docs",
+        "source_kind": "RepositoryTrend",
+        "route_hint": "skill_route_discovery",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "selected_local_lane": "documentation",
+        "fork_lineage_role": "carried_source_cited_skill_item",
+        "public_activity_signal_count": 1,
+        "evidence_summary_hash": "sha256:595b8bb3848b359d47a964c5e4bf50a863c6a44ea35b9c483c13889ef04d2c78",
+        "metadata_only": true,
+        "consumed_by": "skill_route_discovery_lane"
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/self-evolution/github-growth-20260703T010121Z-rollback.md",
+        "review_note": "Pass-3 documentation lane records reverse-flow and source-cited skill routing decisions without upstream activation."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/self-evolution/github-growth-20260703T010121Z-rollback.md",
+        "review_note": "Pass-3 registry lane is metadata-only and consumed by local skill-route tests."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": ["tests/test_harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/self-evolution/github-growth-20260703T010121Z-rollback.md",
+        "review_note": "Pass-3 test lane validates reverse-flow candidates map only to documentation, config, test, or code_patch."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/harness_eval.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/self-evolution/github-growth-20260703T010121Z-rollback.md",
+        "review_note": "Pass-3 code patch exposes a bounded registry surface; it does not install or run upstream skills."
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "candidate_registry_lane.status",
+      "equals": "ready"
+    },
+    {
+      "path": "candidate_registry_lane.registry_entry_count",
+      "equals": 3
+    },
+    {
+      "path": "candidate_registry_lane.rows.0.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "candidate_registry_lane.rows.1.fork_lineage_role",
+      "equals": "fork_pressure_only"
+    },
+    {
+      "path": "candidate_registry_lane.rows.2.selected_local_lane",
+      "equals": "documentation"
+    },
+    {
+      "path": "candidate_registry_lane.raw_source_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "candidate_registry_lane.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "candidate_registry_lane.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "candidate_registry_lane.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "bounded_profile_lane_matrix.status",
+      "equals": "ready"
+    },
+    {
+      "path": "bounded_profile_lane_matrix.missing_route_profiles",
+      "equals": []
+    }
+  ]
+}
