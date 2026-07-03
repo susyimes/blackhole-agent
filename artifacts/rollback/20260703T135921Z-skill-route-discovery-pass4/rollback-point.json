@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-07-03T13:59:21Z",
+  "source_digest": "github-growth-20260703T135922.969245Z",
+  "theme": "skill-route-discovery",
+  "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+  "original_branch": "codex/blackhole-evolve/20260703T140024.421982-create-a-local-validation-lane-that-probes-rever",
+  "original_head": "e782b6775deb671714b50ee4a7938db7551bb1fc",
+  "local_rollback_ref": "refs/rollback/20260703T135921Z-skill-route-discovery-pass4",
+  "recovery_commands": [
+    "git reset --hard refs/rollback/20260703T135921Z-skill-route-discovery-pass4",
+    "git clean -fd"
+  ],
+  "notes": [
+    "Rollback execution is explicit and destructive; supervisor or human operator must choose it.",
+    "This run reviewed docs/self-model.md and left it unchanged because it already describes rollback-backed local evolution and narrow safety boundaries."
+  ]
+}

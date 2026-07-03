@@ -5,6 +5,20 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260703T135922.969245Z`, pass 4 completes
+the skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. The handoff adds an
+operator-visible `validation_lane_matrix`: reverse-flow-style Codex skill
+workflow evidence stays in the local test lane after
+`skill_route_discovery_first`; generic skill-workflow evidence stays in the
+documentation lane; and general agent projects without skill-workflow signals
+stay in `agent_harness_eval_required` with no direct local lane before harness
+evaluation. The exported handoff is body-free and keeps runtime action,
+external activation, provider launch, external harness execution, remote
+execution, raw URL export, replay-command export, target-path export, and
+upstream-body export denied. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k current_digest_20260703T135922`.
+
 For source digest `github-growth-20260703T115316.886295Z`, pass 3 now replays
 the active skill-route-discovery window through
 `current_digest_pass3_route_to_validation_lane`. The Codex-oriented
