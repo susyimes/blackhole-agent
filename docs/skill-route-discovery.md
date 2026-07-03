@@ -5,6 +5,16 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For the `github-growth-20260703T025735.929695Z` pass-3 lane, Codex-adjacent
+skill repositories use a discovery-first interpretation. `reverse-flow-skill`
+and `zhengxi-views` remain `skill_route_discovery` evidence only, with follow-up
+limited to documentation, config, test, or code_patch after local validation.
+The Codex workflow-gate row records `skill_route_discovery_first` before any
+local workflow change. General agent or workflow-only repositories such as
+Qwen-AgentWorld, Fundamental-Ava, and Awesome-Blender-Seedance-Workflow-Usecases
+stay in `agent_harness_eval_required` with no direct implementation lane until
+a local harness evaluation result exists.
+
 Source digest `github-growth-20260702T152626.587436Z` starts pass 1 of the
 active `skill-route-discovery` window with a digest-specific replay lane for the
 current proposal IDs. The zhengxi-views signal is treated as public Agent Skill
