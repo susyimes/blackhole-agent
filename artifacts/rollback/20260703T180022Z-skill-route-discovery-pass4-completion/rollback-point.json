@@ -1,0 +1,12 @@
+{
+  "created_at": "2026-07-03T18:00:22Z",
+  "source_digest": "github-growth-20260703T175922.824303Z",
+  "original_branch": "codex/blackhole-evolve/20260703T180022.719318-add-or-extend-a-local-agent-harness-evaluation-l",
+  "original_head": "290699e702274d19b39763c36d82349ebd64a44a",
+  "rollback_ref": "refs/rollback/20260703T180022Z-skill-route-discovery-pass4-completion",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260703T180022.719318-add-or-extend-a-local-agent-harness-evaluation-l",
+    "git reset --hard refs/rollback/20260703T180022Z-skill-route-discovery-pass4-completion"
+  ],
+  "notes": "Rollback execution is explicit and destructive; supervisor or operator must choose it."
+}

@@ -22062,6 +22062,119 @@ def test_skill_route_discovery_current_digest_20260703T165923_pass1_validates_lo
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260703T175922_pass4_completes_route_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260703T175922_pass4_completion_handoff.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    matrix = {row["proposal_id"]: row for row in handoff["validation_lane_matrix"]}
+    packet = handoff["operator_completion_packet"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260703T175922.824303Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert handoff["controller_surface"] == "skill_route_discovery_current_digest_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p2-skill-route-discovery-codex-workflow-gate",
+        "p3-skill-route-discovery-generic-workflow",
+        "p1-agent-harness-eval-general-agent-trends",
+    ]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:lyra81604/zhengxi-views-1",
+    ]
+    assert handoff["agent_harness_eval_required_count"] == 3
+    assert handoff["missing_agent_harness_eval_names"] == []
+
+    codex_gate = rows["p2-skill-route-discovery-codex-workflow-gate"]
+    assert codex_gate["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert codex_gate["proposal_kind"] == "test"
+    assert codex_gate["proposal_track"] == "codex_oriented_skill_workflow_discovery_gate"
+    assert codex_gate["route_profiles"] == ["codex_workflow_gate"]
+    assert codex_gate["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert codex_gate["selected_local_lane"] == "test"
+    assert codex_gate["skill_route_discovery_first"] is True
+    assert codex_gate["runtime_action"] == "none"
+    assert codex_gate["external_skill_activation_allowed"] is False
+
+    generic = rows["p3-skill-route-discovery-generic-workflow"]
+    assert generic["candidate_names"] == ["zhengxi-views"]
+    assert generic["proposal_kind"] == "documentation"
+    assert generic["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert generic["selected_local_lane"] == "documentation"
+    assert generic["runtime_action"] == "none"
+
+    assert matrix["p2-skill-route-discovery-codex-workflow-gate"]["primary_route"] == (
+        "skill_route_discovery"
+    )
+    assert matrix["p2-skill-route-discovery-codex-workflow-gate"]["selected_local_lane"] == "test"
+    assert matrix["p3-skill-route-discovery-generic-workflow"]["selected_local_lane"] == "documentation"
+    assert matrix["p1-agent-harness-eval-general-agent-trends"]["primary_route"] == (
+        "agent_harness_eval_required"
+    )
+    assert matrix["p1-agent-harness-eval-general-agent-trends"]["allowed_local_lanes"] == []
+    assert matrix["p1-agent-harness-eval-general-agent-trends"]["allowed_local_lanes_after_eval"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+
+    assert set(adjacent) == {"Fundamental-Ava", "Qwen-AgentWorld", "agent-apprenticeship"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p1-agent-harness-eval-general-agent-trends"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["accepted_outputs_before_eval"] == []
+        assert row["accepted_outputs_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert packet["status"] == "ready"
+    assert packet["validation_lane_matrix_ready"] is True
+    assert packet["rollback_ref_required"] is True
+    assert packet["focused_validation_required"] is True
+    assert packet["runtime_action"] == "none"
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260703T104050_pass1_routes_current_window():
     fixture_path = (
         Path(__file__).parent
