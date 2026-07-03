@@ -6019,13 +6019,58 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     current_20260703_002121_window = source_digest == "github-growth-20260703T002121.806126Z"
     current_20260703_023735_window = source_digest == "github-growth-20260703T023735.914741Z"
     current_20260703_040049_window = source_digest == "github-growth-20260703T040049.885608Z"
+    current_20260703_052050_window = source_digest == "github-growth-20260703T052050.251723Z"
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260703_040049_window:
+    if current_20260703_052050_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-fixture",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_fixture",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_route_discovery_fixture",
+                "validation_task": (
+                    "validate reverse-flow-skill Codex workflow evidence as a bounded "
+                    "skill_route_discovery lane before any runtime, provider, or external "
+                    "skill activation path is considered"
+                ),
+            },
+            {
+                "proposal_id": "p2-codex-workflow-gate-doc",
+                "proposal_kind": "documentation",
+                "proposal_track": "codex_workflow_gate_documentation",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "codex_workflow_gate_before_code_patch",
+                "validation_task": (
+                    "record that Codex-oriented skill workflow discoveries first pass "
+                    "skill_route_discovery and focused local validation before documentation, "
+                    "config, test, or code_patch lanes can be selected"
+                ),
+            },
+            {
+                "proposal_id": "p4-route-metadata-consistency-check",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_route_metadata",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_skill_route_metadata_consistency",
+                "validation_task": (
+                    "verify zhengxi-views skill route hints and metadata stay mapped to "
+                    "documentation, config, test, or code_patch lanes only"
+                ),
+            },
+        )
+    elif current_20260703_040049_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-codex-workflow",
@@ -7061,6 +7106,8 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
             uncertainty_reasons.extend(_string_list(candidate.get("uncertainty_reasons")))
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
+            if current_20260703_052050_window:
+                downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             route_probe_rows.append(
                 _skill_route_discovery_current_digest_route_probe_metadata(
                     candidate,
@@ -7138,7 +7185,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         ignored_evidence_items,
         proposal_id=(
             "p3-agent-harness-eval-fixtures"
-            if current_20260703_040049_window
+            if current_20260703_040049_window or current_20260703_052050_window
             else
             "p3_agent_harness_eval_general_agent_projects"
             if current_20260703_002121_window or current_20260703_023735_window
@@ -7317,6 +7364,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p2_agent_harness_eval_general_agent_projects"
             elif "workflow" in lowered_name:
                 row["proposal_id"] = "p3_workflow_trend_eval_fixture"
+        if current_20260703_052050_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if (
+                lowered_name in {"qwen-agentworld", "fundamental-ava"}
+                or "workflow" in lowered_name
+                or "seedance" in lowered_name
+            ):
+                row["proposal_id"] = "p3-agent-harness-eval-tests"
         if current_20260703_002121_window or current_20260703_023735_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
@@ -7387,6 +7442,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-fixture",
+            "p2-codex-workflow-gate-doc",
+            "p3-agent-harness-eval-tests",
+            "p4-route-metadata-consistency-check",
+            "p5-skill-discovery-config-map",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260703_052050_window
+        else
         [
             "p1-skill-route-discovery-codex-workflow",
             "p2-generic-skill-workflow-discovery-doc",
