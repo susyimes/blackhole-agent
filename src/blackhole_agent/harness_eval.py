@@ -6831,6 +6831,7 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
         record = raw_record if isinstance(raw_record, dict) else {}
         item_id = optional_string(record.get("item_id")) or f"adjacent-agent-record-{index}"
         source_hash = optional_string(record.get("source_url_hash")) or ""
+        topic_codes = string_list(record.get("topics"))
         local_fixture = record.get("local_harness_fixture")
         local_fixture = local_fixture if isinstance(local_fixture, dict) else {}
         fixture_declared = bool(optional_string(local_fixture.get("fixture_path")))
@@ -6898,6 +6899,44 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
                     "rollback_path_required": True,
                     "non_secret_config_required": True,
                 },
+                "fixture_intake": {
+                    "intake_id": stable_text_hash(
+                        "|".join(
+                            [
+                                item_id,
+                                source_hash,
+                                ",".join(sorted(topic_codes)),
+                            ]
+                        )
+                    ),
+                    "intake_status": "ready_for_local_harness_eval"
+                    if local_fixture_ready
+                    else "blocked_until_fixture_fields_declared",
+                    "next_local_action": "run_declared_agent_harness_fixture"
+                    if local_fixture_ready
+                    else "declare_agent_harness_eval_fixture",
+                    "required_fixture_fields": [
+                        "fixture_path",
+                        "expected_behavior",
+                        "expected_output",
+                        "pass_fail_signal",
+                        "rollback_artifact",
+                        "non_secret_config",
+                    ],
+                    "missing_fixture_fields": list(row_diagnostics),
+                    "route_reason_codes": sorted(topic_codes),
+                    "source_ref_mode": "source_url_hash_only",
+                    "source_hash": source_hash,
+                    "local_corroboration_required": True,
+                    "implementation_patch_allowed": False,
+                    "runtime_action": "none",
+                    "runtime_action_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_upstream_body_exported": False,
+                },
                 "acceptance_gates": {
                     "local_fixture_declared": fixture_declared,
                     "expected_behavior_declared": expected_behavior_declared,
@@ -6915,9 +6954,11 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
                 "row_diagnostics": row_diagnostics,
                 "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND],
                 "local_validation_required": True,
+                "local_corroboration_required": True,
                 "body_free": True,
                 "runtime_action": "none",
                 "runtime_action_allowed": False,
+                "implementation_patch_allowed": False,
                 "external_skill_activation_allowed": False,
                 "external_agent_activation_allowed": False,
                 "external_harness_execution_allowed": False,
@@ -6930,6 +6971,28 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
         )
 
     present = bool(rows)
+    fixture_intake_rows = [
+        {
+            "item_id": row["item_id"],
+            "source_ref_mode": "source_url_hash_only",
+            "source_hash": row["source_hash"],
+            "evaluation_lane": row["evaluation_lane"],
+            "activation_status": row["activation_status"],
+            "fixture_intake": row["fixture_intake"],
+            "acceptance_gates": row["acceptance_gates"],
+            "row_diagnostics": row["row_diagnostics"],
+            "local_corroboration_required": True,
+            "implementation_patch_allowed": False,
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for row in rows
+    ]
     return {
         "controller_surface": "skill_route_discovery_pass2_secondary_harness_checklist",
         "status": "ready" if current_pass == 2 and present else "not_present" if not present else "not_applicable",
@@ -6956,12 +7019,55 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
             "rollback_path",
             "non_secret_config",
         ],
+        "local_harness_fixture_intake_queue": {
+            "controller_surface": "skill_route_discovery_pass2_local_harness_fixture_intake_queue",
+            "status": "ready" if current_pass == 2 and present else "not_present" if not present else "not_applicable",
+            "decision": "declare_local_agent_harness_fixture_before_implementation_patch"
+            if present
+            else "no_local_harness_fixture_intake_required",
+            "queue_scope": "adjacent_general_agent_projects_only",
+            "work_item_count": len(fixture_intake_rows),
+            "ready_fixture_count": sum(
+                1
+                for row in fixture_intake_rows
+                if row["activation_status"] == "local_harness_fixture_ready"
+            ),
+            "blocked_fixture_count": sum(
+                1
+                for row in fixture_intake_rows
+                if row["activation_status"] == "blocked_until_local_agent_harness_fixture"
+            ),
+            "blocked_before_implementation_patch_count": len(fixture_intake_rows),
+            "required_fixture_fields": [
+                "fixture_path",
+                "expected_behavior",
+                "expected_output",
+                "pass_fail_signal",
+                "rollback_artifact",
+                "non_secret_config",
+            ],
+            "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
+            "rows": fixture_intake_rows,
+            "local_corroboration_required": present,
+            "implementation_patch_allowed": False,
+            "local_validation_required": present,
+            "body_free": True,
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
         "local_validation_required": present,
+        "local_corroboration_required": present,
         "body_free": True,
         "runtime_action_allowed": False,
+        "implementation_patch_allowed": False,
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,

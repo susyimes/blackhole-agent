@@ -5775,6 +5775,20 @@ writes, memory writes, remote execution, raw source URL export, raw evidence
 URL export, target path export, replay-command export, and upstream body export
 remain denied.
 
+Source digest `github-growth-20260703T211924.184160Z` extends the pass-2
+secondary harness surface with
+`local_harness_fixture_intake_queue`. The queue is emitted inside
+`pass2_secondary_harness_checklist` and repeated through the pass-2 handoff so
+an operator can see the next bounded local work item for adjacent general-agent
+projects such as Agent Apprenticeship or Qwen-AgentWorld. These rows do not
+inherit `skill_route_discovery`: each requires a declared local
+`agent_harness_eval_lane` fixture with fixture path, expected behavior,
+expected output, pass/fail signal, rollback artifact, and non-secret config
+before any implementation patch is considered. The queue exports source hashes
+and route reason codes only; runtime action, external harness execution,
+provider launch, remote execution, raw source URLs, and upstream bodies remain
+denied.
+
 ## Current Digest Pass 3 Focused Validation Packet
 
 Source digest `github-growth-20260628T182729.632246Z` advances pass 3 with
