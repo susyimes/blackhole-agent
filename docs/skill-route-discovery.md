@@ -22,6 +22,21 @@ or remote-execution proposals until a local agent-harness fixture records
 capability, safety, rollback, and validation coverage. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260703T094050`.
 
+For source digest `github-growth-20260703T102050.412488Z`, pass 4 now closes
+the active skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. The reverse-flow-skill evidence is
+kept in the local test lane under the `codex_workflow_gate` profile and must
+record `skill_route_discovery_first` before any secondary workflow handling.
+The zhengxi-views evidence is kept in the documentation lane with source
+citation and advice-boundary validation. Qwen-AgentWorld is kept as an adjacent
+`agent_harness_eval_required` row: it does not inherit `skill_route_discovery`
+and has no direct runtime or code_patch lane before local harness evaluation.
+The handoff exports only body-free IDs, hashes, profiles, and lane names, while
+external skill activation, external agent activation, provider launch, external
+harness execution, remote execution, raw URL export, replay-command export,
+target-path export, and upstream-body export remain denied. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k current_digest_20260703T102050`.
+
 For source digest `github-growth-20260703T084049.971768Z`, pass 3 now exposes
 `current_pass3_operator_validation_gate` inside the route readiness index. The
 gate is body-free and uses selected `item_id` values only. A Codex-oriented

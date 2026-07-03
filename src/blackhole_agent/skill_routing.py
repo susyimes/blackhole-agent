@@ -13554,6 +13554,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
     current_034049_20260703_window = source_digest == "github-growth-20260703T034049.949785Z"
     current_050050_20260703_window = source_digest == "github-growth-20260703T050050.256364Z"
     current_074049_20260703_window = source_digest == "github-growth-20260703T074049.962015Z"
+    current_102050_20260703_window = source_digest == "github-growth-20260703T102050.412488Z"
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -13622,6 +13623,12 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         )
     if current_074049_20260703_window:
         return _skill_route_discovery_current_digest_20260703T074049_pass4_completion_handoff(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if current_102050_20260703_window:
+        return _skill_route_discovery_current_digest_20260703T102050_pass4_completion_handoff(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
@@ -26690,6 +26697,251 @@ def _skill_route_discovery_current_digest_20260703T074049_pass4_completion_hando
             "rollback_artifact",
             "focused_local_validation",
             "agent_harness_eval_gate_for_general_agent_projects",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_current_digest_20260703T102050_pass4_completion_handoff(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Complete the bounded skill-route discovery slice for the active wake."""
+
+    reverse_flow_proposal_id = "p1-skill-route-discovery-reverse-flow"
+    zhengxi_proposal_id = "p2-skill-route-discovery-zhengxi-views"
+    agent_harness_proposal_id = "p3-agent-harness-qwen-agentworld"
+    specs = (
+        {
+            "proposal_id": reverse_flow_proposal_id,
+            "proposal_kind": "test",
+            "proposal_track": "reverse_flow_codex_skill_route_completion",
+            "route_profiles": ("codex_workflow_gate",),
+            "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+            "selected_local_lane": "test",
+            "validation_target": "reverse_flow_codex_workflow_gate_preserves_skill_route_first",
+            "completion_requirement": (
+                "reverse_flow_skill_workflow_evidence_maps_only_to_bounded_local_lanes"
+            ),
+        },
+        {
+            "proposal_id": zhengxi_proposal_id,
+            "proposal_kind": "documentation",
+            "proposal_track": "zhengxi_views_source_cited_skill_route_probe",
+            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+            "candidate_name_terms": ("zhengxi-views",),
+            "selected_local_lane": "documentation",
+            "validation_target": "zhengxi_views_skill_terms_resolve_to_bounded_route_lanes",
+            "completion_requirement": (
+                "source_cited_skill_workflow_evidence_records_boundaries_before_activation"
+            ),
+        },
+    )
+    rows, blocked_proposal_ids, selected_lanes, selected_item_ids, observed_profiles = (
+        _skill_route_discovery_current_digest_20260702T070714_skill_rows(
+            candidate_lane_inventory,
+            specs,
+            replay_marker="current_digest_20260703T102050_pass4_completion",
+        )
+    )
+    rows = [_without_downgraded_unsupported_lanes(row) for row in rows]
+    for row in rows:
+        if row["proposal_id"] == reverse_flow_proposal_id:
+            row["route_probe_decisions"] = ["skill_route_discovery_first"]
+            row["skill_route_discovery_first"] = True
+            row["agent_harness_eval_required_before_secondary_workflow"] = True
+            row["secondary_workflow_gate_status"] = "blocked_until_local_validation"
+
+    adjacent_rows = [
+        _without_raw_replay_command(row)
+        for row in _skill_route_discovery_adjacent_general_agent_rows(
+            ignored_evidence_items,
+            proposal_id=agent_harness_proposal_id,
+        )
+    ]
+    for row in adjacent_rows:
+        row["selected_local_lane"] = "agent_harness_eval_required"
+        row["direct_allowed_lanes_before_eval"] = []
+        row["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
+        row["validation_target"] = (
+            "qwen_agentworld_requires_local_agent_harness_eval_before_any_local_lane"
+        )
+        row["raw_replay_command_exported"] = False
+
+    adjacent_blockers: list[str] = []
+    for row in adjacent_rows:
+        item_id = str(row.get("item_id") or "")
+        if row.get("evaluation_lane") != "agent_harness_eval_required":
+            adjacent_blockers.append(f"{item_id}:evaluation_lane_not_agent_harness_eval_required")
+        if row.get("skill_route_discovery_inherited") is not False:
+            adjacent_blockers.append(f"{item_id}:skill_route_discovery_inherited")
+        if row.get("direct_runtime_route_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:direct_runtime_route_allowed")
+        if row.get("direct_code_patch_route_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:direct_code_patch_route_allowed")
+        if row.get("external_harness_execution_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:external_harness_execution_allowed")
+        if row.get("provider_runtime_launch_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:provider_runtime_launch_allowed")
+        if row.get("remote_execution_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:remote_execution_allowed")
+
+    expected_agent_names = {"Qwen-AgentWorld"}
+    observed_agent_names = {str(row.get("name") or "") for row in adjacent_rows}
+    missing_agent_names = sorted(expected_agent_names - observed_agent_names)
+    if adjacent_blockers or missing_agent_names:
+        blocked_proposal_ids.append(agent_harness_proposal_id)
+
+    ready = bool(rows) and not blocked_proposal_ids
+    operator_completion_packet = {
+        "controller_surface": "skill_route_discovery_current_digest_pass4_operator_completion_packet",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_skill_route_discovery_pass4_ready_for_supervisor_replay"
+            if ready
+            else "repair_current_skill_route_discovery_pass4_before_replay"
+        ),
+        "source_digest": source_digest,
+        "rollback_ref_required": True,
+        "rollback_artifact_required": True,
+        "focused_validation_required": True,
+        "route_interpretation_path": [
+            "skill_route_discovery_first",
+            "bounded_local_lane_selection",
+            "agent_harness_eval_before_general_agent_implementation",
+            "external_supervisor_replay_without_kernel_restart",
+        ],
+        "replay_command_hashes": [
+            _stable_hash(
+                "python -m pytest tests/test_skill_routing.py -q -k current_digest_20260703T102050"
+            )
+        ],
+        "recovery_hint_codes": [
+            "verify_rollback_ref_and_artifact",
+            "run_current_digest_pass4_completion_regression",
+            "keep_qwen_agentworld_in_agent_harness_eval",
+            "keep_external_activation_denied",
+        ],
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_pass4_completion_handoff",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_digest_pass4_skill_route_slice_ready_for_supervisor_replay"
+            if ready
+            else "repair_current_digest_pass4_skill_route_completion_before_handoff"
+        ),
+        "source_digest": source_digest,
+        "capability_theme": "skill-route-discovery",
+        "capability_pass": 4,
+        "total_passes": 4,
+        "capability_slice_complete": ready,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [
+            reverse_flow_proposal_id,
+            zhengxi_proposal_id,
+            agent_harness_proposal_id,
+        ],
+        "anchoring_proposal_ids": [
+            "p1_reverse_flow_skill_discovery",
+            "p2_zhengxi_views_skill_probe",
+            "p3_agent_harness_eval_backlog",
+            "p4_workflow_usecase_catalog_probe",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-route-discovery-fixture",
+            "p3-agent-harness-eval-general-agent-projects",
+            "p4-workflow-usecase-documentation-probe",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "p1-skill-route-discovery-fixture",
+            "p2-agent-harness-eval-contract",
+            "p3-agent-harness-smoke-tests",
+            reverse_flow_proposal_id,
+            zhengxi_proposal_id,
+            agent_harness_proposal_id,
+            "trend:QwenLM/Qwen-AgentWorld-1",
+        ],
+        "ready_skill_route_proposal_count": len(rows) - len(
+            [row for row in rows if row.get("status") != "ready"]
+        ),
+        "blocked_proposal_ids": list(dict.fromkeys(blocked_proposal_ids)),
+        "skill_route_candidate_count": len(candidate_lane_inventory),
+        "adjacent_general_agent_count": len(adjacent_rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "observed_route_profiles": [
+            profile
+            for profile in (
+                "generic_skill_workflow",
+                "source_cited_domain_research",
+                "codex_workflow_gate",
+            )
+            if profile in set(observed_profiles)
+        ],
+        "selected_evidence_item_ids": list(dict.fromkeys(selected_item_ids)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "missing_agent_harness_eval_names": missing_agent_names,
+        "route_interpretation_rule": {
+            "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "codex_workflow_gate_requires_skill_route_discovery_first": True,
+            "source_cited_skill_requires_citation_and_advice_boundary": True,
+            "general_agent_project_evaluation_lane": "agent_harness_eval_required",
+            "direct_allowed_lanes_before_agent_harness_eval": [],
+            "allowed_local_lanes_after_agent_harness_eval": ["documentation", "test", "code_patch"],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "operator_completion_packet": operator_completion_packet,
+        "operator_handoff": "external_supervisor_replay_without_kernel_restart",
+        "operator_next_action": (
+            "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+            if ready
+            else "repair_current_digest_pass4_completion_handoff_after_repairing_blocked_rows"
+        ),
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "rollback_artifact",
+            "focused_local_validation",
+            "agent_harness_eval_gate_for_qwen_agentworld",
             "review_note",
         ],
         "local_validation_required": True,
