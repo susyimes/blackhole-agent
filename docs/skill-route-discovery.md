@@ -26,6 +26,25 @@ an `operator_recovery_packet` requiring a rollback ref, rollback artifact,
 changed-file review, and focused local validation before pass 4. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260703T145923`.
 
+For source digest `github-growth-20260703T151923.811435Z`, pass 4 completes
+the same window through `current_digest_pass4_completion_handoff`. The Kylin2021,
+lingbol088-spec, and poker117 reverse-flow-skill rows are correlated Codex skill
+workflow evidence, not install or runtime authority: the selected lane remains
+`test`, `skill_route_discovery_first` is required, and install/runtime pressure
+is exported only as a downgrade signal. The generic zhengxi-views skill workflow
+row remains documentation-first, bounded to documentation, config, test, and
+code_patch after local validation.
+
+The final handoff also carries agent-apprenticeship, Qwen-AgentWorld, and
+Fundamental-Ava as adjacent `agent_harness_eval_required` rows. They do not
+inherit `skill_route_discovery`, have no direct lanes before harness evaluation,
+and cannot enable runtime action, direct code_patch, provider launch, external
+harness execution, remote execution, or external activation. The operator
+completion packet requires rollback metadata and focused validation and exports
+hashes, lane names, IDs, and booleans rather than raw URLs, replay commands,
+target paths, upstream bodies, or runtime tokens. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k current_digest_20260703T151923`.
+
 For source digest `github-growth-20260703T143923.402501Z`, pass 2 exposes the
 active skill-route-discovery window through
 `current_digest_pass2_local_validation_lane`. The Kylin2021, lingbol088-spec,
