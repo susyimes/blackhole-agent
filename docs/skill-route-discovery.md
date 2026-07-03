@@ -5,6 +5,23 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260703T094050.021818Z`, pass 2 now routes the
+active skill-route discovery proposals through
+`current_digest_pass2_local_validation_lane`. The Codex-oriented
+`reverse-flow-skill` row must prove `skill_route_discovery_first` under the
+`codex_workflow_gate` profile before any workflow handling, while
+`zhengxi-views` validates the generic skill workflow fixture path. Both rows are
+bounded to documentation, config, test, and code_patch lanes; the selected local
+lane is test, local validation remains required, and final implementation scope
+is still controller-recomputed after review.
+
+The same pass keeps Qwen-AgentWorld and Fundamental-Ava as adjacent
+`agent_harness_eval_required` rows. They do not inherit `skill_route_discovery`
+and cannot produce direct implementation, runtime, provider, external harness,
+or remote-execution proposals until a local agent-harness fixture records
+capability, safety, rollback, and validation coverage. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260703T094050`.
+
 For source digest `github-growth-20260703T084049.971768Z`, pass 3 now exposes
 `current_pass3_operator_validation_gate` inside the route readiness index. The
 gate is body-free and uses selected `item_id` values only. A Codex-oriented

@@ -8193,6 +8193,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260703T070049.855381Z",
         "github-growth-20260703T070049Z",
     }
+    current_20260703_094050_window = source_digest in {
+        "github-growth-20260703T094050.021818Z",
+        "github-growth-20260703T094050Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -9615,6 +9619,68 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
+    if current_20260703_094050_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_skill_workflow_routes_to_bounded_local_validation",
+                "validation_task": (
+                    "validate that a skill_workflow item with skill_route_discovery hints "
+                    "and codex_workflow_gate profile maps only to documentation, config, "
+                    "test, or code_patch lanes, preserves skill_route_discovery_first, "
+                    "and leaves final implementation scope to the controller"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "agent_metadata",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-route-discovery-fixture",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "generic_skill_workflow_maps_to_bounded_local_validation",
+                "validation_task": (
+                    "validate that generic agent and skill trend signals without Codex "
+                    "routing profiles map only to documentation, config, test, or "
+                    "code_patch candidate lanes and do not imply runtime action"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "test_file",
+                    "source_citation_boundary",
+                ),
+            },
+        )
+        active_proposal_ids = [
+            "p1_reverse_flow_skill_discovery",
+            "p2_zhengxi_views_skill_probe",
+            "p3_agent_harness_eval_backlog",
+            "p4_workflow_usecase_catalog_probe",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-route-discovery-fixture",
+            "p3-agent-harness-eval-general-agent-projects",
+            "p4-workflow-usecase-documentation-probe",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
     if current_20260703_070049_window:
         active_proposal_ids = [
             "p1_reverse_flow_skill_route_discovery",
@@ -9800,6 +9866,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260703_054049_window
             else "p3-agent-harness-eval-baseline"
             if current_20260703_070049_window
+            else "p3-agent-harness-eval-general-agent-projects"
+            if current_20260703_094050_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -9846,6 +9914,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 row["proposal_id"] = "p3-agent-harness-eval-baseline"
             elif "workflow" in lowered_name or "seedance" in lowered_name:
                 row["proposal_id"] = "p4-workflow-agent-eval-lane"
+        if current_20260703_094050_window:
+            row["proposal_id"] = "p3-agent-harness-eval-general-agent-projects"
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         if current_090714_window:
