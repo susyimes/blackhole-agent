@@ -21682,6 +21682,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260703T100051.113454Z",
         "github-growth-20260703T100051Z",
     }
+    current_20260703_115316_window = source_digest in {
+        "github-growth-20260703T115316.886295Z",
+        "github-growth-20260703T115316Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -21791,6 +21795,31 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 ),
             },
         )
+    if current_20260703_115316_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "codex_skill_workflow_routes_to_bounded_local_validation"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-route-discovery",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_review_rule",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": (
+                    "generic_skill_workflow_remains_reviewable_until_local_validation"
+                ),
+            },
+        )
     allowed_profiles = {
         profile for proposal in skill_proposals for profile in _string_list(proposal["route_profiles"])
     }
@@ -21810,6 +21839,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         downgraded_lanes: list[str] = []
         source_hashes: list[str] = []
         uncertainty_reasons: list[str] = []
+        route_probe_decisions: list[str] = []
 
         for candidate in sorted(
             candidate_lane_inventory,
@@ -21841,6 +21871,9 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
             source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
             uncertainty_reasons.extend(_string_list(candidate.get("uncertainty_reasons")))
+            route_probe_decision = str(candidate.get("route_probe_decision") or "")
+            if route_probe_decision:
+                route_probe_decisions.append(route_probe_decision)
 
         bounded_lanes = [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)
@@ -21891,6 +21924,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "selected_evidence_item_ids": list(dict.fromkeys(evidence_item_ids)),
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": str(proposal["validation_target"]),
+                "route_probe_decisions": list(dict.fromkeys(route_probe_decisions)),
+                "skill_route_discovery_first": (
+                    "skill_route_discovery_first" in set(route_probe_decisions)
+                ),
                 "verification_uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
                 "implementation_route_requires_focused_validation": True,
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
@@ -21928,6 +21965,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260703_072049_window
             else "p3-agent-harness-smoke-tests"
             if current_20260703_100051_window
+            else "p3-agent-harness-eval-fixtures"
+            if current_20260703_115316_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -21935,6 +21974,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         row = dict(adjacent_row)
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
+        row["selected_local_lane"] = "agent_harness_eval_required"
+        row["direct_allowed_lanes_before_eval"] = []
         row["accepted_outputs_before_eval"] = []
         row["accepted_outputs_after_eval"] = ["documentation", "test", "code_patch"]
         row["raw_replay_command_exported"] = False
@@ -21966,6 +22007,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         if current_20260703_072049_window
         else "p3-agent-harness-smoke-tests"
         if current_20260703_100051_window
+        else "p3-agent-harness-eval-fixtures"
+        if current_20260703_115316_window
         else "p2-agent-harness-eval-general-agent-projects"
     )
     pass3_operator_validation_packet = {
@@ -21986,6 +22029,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "p3-agent-harness-smoke-tests",
             ]
             if current_20260703_100051_window
+            else [
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-route-discovery",
+                "p3-agent-harness-eval-fixtures",
+            ]
+            if current_20260703_115316_window
             else [str(proposal["proposal_id"]) for proposal in skill_proposals]
             + [agent_harness_proposal_id]
         ),
@@ -22144,6 +22193,25 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:TianhangZhuzth/Fundamental-Ava-1",
             ]
             if current_20260703_100051_window
+            else [
+                "p1-skill-route-discovery-codex-workflow-gate",
+                "p2-generic-skill-workflow-route-discovery",
+                "p3-agent-harness-eval-for-agentworld",
+                "p4-agent-harness-eval-for-ava",
+                "p5-workflow-usecase-harness-eval",
+                "p1-skill-route-discovery-fixture",
+                "p2-skill-route-discovery-docs",
+                "p3-agent-harness-eval-tests",
+                "p4-agent-harness-eval-docs",
+                "p5-route-metadata-consistency-check",
+                "p1-skill-route-discovery-codex-workflow",
+                "p3-agent-harness-eval-fixtures",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260703_115316_window
             else []
         ),
         "skill_route_candidate_count": len(
