@@ -6153,3 +6153,28 @@ external harness execution, or remote execution. The pass-3 surface exports
 selected item IDs, proposal IDs, route profiles, lane names, source hashes, and
 replay command hashes rather than raw source URLs, replay commands, target
 paths, provider inputs, upstream bodies, or activation authority.
+
+## Current Digest 20260703T050050 Pass 4
+
+The `github-growth-20260703T050050.256364Z` final pass closes the active
+skill-route-discovery slice through `current_digest_pass4_completion_handoff`.
+The handoff maps reverse-flow-skill and zhengxi-views through
+`p1-skill-route-discovery-lane`, selecting only bounded local lanes:
+documentation, config, test, or code_patch. The current selected lane is test,
+and runtime action remains `none`.
+
+The mixed agent, Codex, and skill signal from reverse-flow-skill is also exposed
+through `p2-codex-workflow-gate-coverage`. That row must record
+`skill_route_discovery_first` before any secondary workflow, implementation, or
+runtime interpretation. Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under `p3-agent-harness-eval-fixtures`; they
+do not inherit `skill_route_discovery`, have no direct lanes before harness
+evaluation, and may only move to documentation, test, or code_patch after local
+harness evidence exists.
+
+The pass-4 operator recovery packet requires rollback metadata and focused local
+validation. It exports body-free proposal IDs, route profiles, lane names,
+selected item IDs, source hashes, and replay command hashes while denying raw
+source URL export, raw replay command export, upstream body export, external
+skill activation, external agent activation, external harness execution,
+provider runtime launch, remote execution, profile writes, and memory writes.
