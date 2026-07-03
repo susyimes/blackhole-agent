@@ -21547,6 +21547,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260703T072049.930896Z",
         "github-growth-20260703T072049Z",
     }
+    current_20260703_100051_window = source_digest in {
+        "github-growth-20260703T100051.113454Z",
+        "github-growth-20260703T100051Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -21637,6 +21641,23 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
                 "selected_local_lane": "test",
                 "validation_target": "reverse_flow_codex_workflow_gate_requires_skill_route_discovery_first",
+            },
+        )
+    if current_20260703_100051_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1-skill-route-discovery-fixture",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_and_zhengxi_skill_route_fixture",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "reverse_flow_and_zhengxi_skill_workflows_map_only_to_bounded_lanes"
+                ),
             },
         )
     allowed_profiles = {
@@ -21774,6 +21795,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260703_060050_window
             else "p3-agent-harness-eval-qwen-agentworld"
             if current_20260703_072049_window
+            else "p3-agent-harness-smoke-tests"
+            if current_20260703_100051_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -21799,6 +21822,79 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         for row in adjacent_rows
     )
     ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
+    agent_harness_proposal_id = (
+        "p2-agent-harness-eval-trending-projects"
+        if current_100533_window
+        else "p2-agent-harness-eval-fixture"
+        if current_20260702_window
+        else "p3-agent-harness-eval-qwen-agentworld"
+        if current_20260703_044050_window
+        else "p3-agent-harness-eval-general-projects"
+        if current_20260703_060050_window
+        else "p3-agent-harness-eval-qwen-agentworld"
+        if current_20260703_072049_window
+        else "p3-agent-harness-smoke-tests"
+        if current_20260703_100051_window
+        else "p2-agent-harness-eval-general-agent-projects"
+    )
+    pass3_operator_validation_packet = {
+        "controller_surface": "skill_route_discovery_current_digest_pass3_operator_validation_packet",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_digest_pass3_operator_can_replay_bounded_lane_and_agent_harness_contract"
+            if ready
+            else "repair_current_digest_pass3_operator_validation_packet_before_replay"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 3,
+        "total_passes": 4,
+        "proposal_ids": (
+            [
+                "p1-skill-route-discovery-fixture",
+                "p2-agent-harness-eval-contract",
+                "p3-agent-harness-smoke-tests",
+            ]
+            if current_20260703_100051_window
+            else [str(proposal["proposal_id"]) for proposal in skill_proposals]
+            + [agent_harness_proposal_id]
+        ),
+        "skill_route_fixture_status": "ready" if rows and not blocked_proposal_ids else "blocked",
+        "agent_harness_eval_contract_status": "ready" if adjacent_ready and adjacent_rows else "blocked",
+        "agent_harness_smoke_status": "ready" if adjacent_ready and adjacent_rows else "blocked",
+        "operator_lane_sequence": [
+            "confirm_rollback_ref_and_artifact_exist",
+            "replay_bounded_skill_route_fixture",
+            "verify_agent_harness_eval_contract_before_any_general_agent_lane",
+            "continue_to_pass4_without_external_activation",
+        ],
+        "recovery_hint_codes": [
+            "repair_missing_skill_route_fixture_rows",
+            "keep_general_agent_projects_in_agent_harness_eval",
+            "rerun_current_digest_pass3_route_to_validation_lane",
+            "leave_restart_push_and_promotion_to_supervisor",
+        ],
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "general_agent_direct_allowed_lanes_before_eval": [],
+        "general_agent_allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "skill_route_candidate_count": len(rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
+        "body_free_diagnostics_only": True,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass3_route_to_validation_lane",
         "status": "ready" if ready else "blocked",
@@ -21813,19 +21909,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
         "proposal_ids": [str(proposal["proposal_id"]) for proposal in skill_proposals]
-        + [
-            "p2-agent-harness-eval-trending-projects"
-            if current_100533_window
-            else "p2-agent-harness-eval-fixture"
-            if current_20260702_window
-            else "p3-agent-harness-eval-qwen-agentworld"
-            if current_20260703_044050_window
-            else "p3-agent-harness-eval-general-projects"
-            if current_20260703_060050_window
-            else "p3-agent-harness-eval-qwen-agentworld"
-            if current_20260703_072049_window
-            else "p2-agent-harness-eval-general-agent-projects"
-        ],
+        + [agent_harness_proposal_id],
         "anchoring_proposal_ids": (
             [
                 "p1-skill-route-discovery-zhengxi-views",
@@ -21911,6 +21995,24 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:QwenLM/Qwen-AgentWorld-1",
             ]
             if current_20260703_072049_window
+            else [
+                "p1_reverse_flow_skill_discovery",
+                "p2_zhengxi_views_skill_probe",
+                "p3_agent_harness_eval_backlog",
+                "p4_workflow_usecase_catalog_probe",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-route-discovery-fixture",
+                "p3-agent-harness-eval-general-agent-projects",
+                "p4-workflow-usecase-documentation-probe",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "p1-skill-route-discovery-fixture",
+                "p2-agent-harness-eval-contract",
+                "p3-agent-harness-smoke-tests",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260703_100051_window
             else []
         ),
         "skill_route_candidate_count": len(
@@ -21956,6 +22058,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if ready
             else "repair_blocked_rows_then_rebuild_current_digest_pass3_route_to_validation_lane"
         ),
+        "pass3_operator_validation_packet": pass3_operator_validation_packet,
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,

@@ -6298,3 +6298,24 @@ selected item IDs, source hashes, and replay command hashes while denying raw
 source URL export, raw replay command export, upstream body export, external
 skill activation, external agent activation, external harness execution,
 provider runtime launch, remote execution, profile writes, and memory writes.
+
+## Current Digest 20260703T100051 Pass 3
+
+The `github-growth-20260703T100051.113454Z` pass-3 lane adds an operator-facing
+validation packet for the active skill-route-discovery window. The
+reverse-flow-skill and zhengxi-views rows are grouped under
+`p1-skill-route-discovery-fixture` as local test-lane evidence only. The grouped
+row must preserve the Codex workflow `skill_route_discovery_first` gate and the
+source-cited/advice-boundary validation gate, and it may resolve only to
+documentation, config, test, or code_patch.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under `p3-agent-harness-smoke-tests`. The
+operator packet also names `p2-agent-harness-eval-contract` so the documentation
+contract and smoke-test route are visible before any general-agent
+implementation lane can open. General-agent direct lanes before harness
+evaluation are empty; after a local harness result, only documentation, test, or
+code_patch may be considered. The pass-3 packet exports hashes and lane names,
+not raw source URLs, replay commands, target paths, provider inputs, upstream
+bodies, external activation, provider launch, remote execution, profile writes,
+or memory writes.
