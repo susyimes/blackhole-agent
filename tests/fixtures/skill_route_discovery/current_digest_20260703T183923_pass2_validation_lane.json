@@ -1,0 +1,77 @@
+{
+  "source_digest": "github-growth-20260703T183923.572332Z",
+  "items": [
+    {
+      "source_digest": "github-growth-20260703T183923.572332Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Reverse-flow-skill presents a Codex and AI Agent skill package with skills/reverse-flow/SKILL.md, references, scripts, local CTF sandbox context, and workflow gate language.",
+      "topics": ["codex", "agent", "skill", "workflow", "ctf", "reverse"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["agent_metadata", "local_sandbox_context"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T183923.572332Z",
+      "item_id": "trend:lyra81604/zhengxi-views-1",
+      "item_kind": "RepositoryTrend",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, scripts, source-cited workflow language, and investment-advice boundary metadata.",
+      "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "observed_paths": [
+        "SKILL.md",
+        "skill.yml",
+        "references/method.md",
+        "evals/source_citation_eval.py",
+        "scripts/validate_package.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script", "test_file"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary", "advice_disclaimer_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260703T183923.572332Z",
+      "item_id": "trend:Forsy-AI/agent-apprenticeship-1",
+      "item_kind": "RepositoryTrend",
+      "name": "agent-apprenticeship",
+      "source_url": "https://github.com/Forsy-AI/agent-apprenticeship",
+      "summary": "General agent apprenticeship workflow loop and evaluation project without a skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "workflow", "evaluation", "mentor-agent"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260703T183923.572332Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "summary": "General agent benchmark and world-model project without a skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+      "route_hints": [],
+      "suggested_lanes": []
+    }
+  ]
+}
