@@ -11274,7 +11274,31 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "github-growth-20260703T025735.929695Z",
         "github-growth-20260703T025735Z",
     }
+    current_20260703_145923_window = source_digest in {
+        "github-growth-20260703T145923.276089Z",
+        "github-growth-20260703T145923Z",
+    }
     active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-validation",
+            "p2-skill-workflow-docs",
+            "p3-agent-harness-eval-fixtures",
+            "p4-route-confidence-metadata-check",
+            "trend:lyra81604/zhengxi-views-1",
+            "p4-routing-config-preflight",
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_generic",
+            "p3_agent_harness_eval_general_projects",
+            "p4_document_route_policy_observations",
+            "trend:Kylin2021/reverse-flow-skill-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:poker117/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:Forsy-AI/agent-apprenticeship-1",
+        ]
+        if current_20260703_145923_window
+        else
         [
             "p1",
             "p2",
@@ -12015,6 +12039,33 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                 "activation_review_step": "record_codex_workflow_gate_as_discovery_first_before_local_change",
             },
         )
+    if current_20260703_145923_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate_discovery_first",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": (
+                    "Kylin2021-reverse-flow-skill",
+                    "lingbol088-spec-reverse-flow-skill",
+                    "poker117-reverse-flow-skill",
+                ),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_codex_workflow_gate_requires_bounded_local_validation",
+                "activation_review_step": "prove_skill_route_discovery_first_before_any_reverse_flow_workflow_adoption",
+            },
+            {
+                "proposal_id": "p2_skill_route_discovery_generic",
+                "proposal_kind": "test",
+                "proposal_track": "generic_source_cited_skill_workflow_route",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_term_evidence_routes_to_bounded_local_validation_lanes",
+                "activation_review_step": "validate_generic_skill_workflow_boundary_before_any_activation",
+            },
+        )
     has_state_handoff_evidence = any(
         "skill_ecosystem_state_handoff" in set(_string_list(candidate.get("route_profiles")))
         for candidate in candidate_lane_inventory
@@ -12135,6 +12186,28 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                     SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
                 )
                 row["agent_harness_eval_required_before_secondary_workflow"] = True
+    if current_20260703_145923_window:
+        reverse_flow_unsupported_pressure = sorted(
+            dict.fromkeys(
+                lane
+                for candidate in candidate_lane_inventory
+                if str(candidate.get("candidate_name") or "") in {
+                    "Kylin2021-reverse-flow-skill",
+                    "lingbol088-spec-reverse-flow-skill",
+                    "poker117-reverse-flow-skill",
+                }
+                for lane in _string_list(candidate.get("unsupported_lane_pressure"))
+            )
+        )
+        for row in rows:
+            if row["proposal_id"] == "p1_skill_route_discovery_reverse_flow":
+                row["route_probe_decisions"] = ["skill_route_discovery_first"]
+                row["skill_route_discovery_first"] = True
+                row["permitted_followup_lanes_after_local_validation"] = list(
+                    SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                )
+                row["agent_harness_eval_required_before_secondary_workflow"] = True
+                row["downgraded_unsupported_lanes"] = reverse_flow_unsupported_pressure
 
     adjacent_source_items = ignored_evidence_items
     if current_20260702_222121_window:
@@ -12148,6 +12221,9 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         adjacent_source_items,
         proposal_id=(
+            "p3_agent_harness_eval_general_projects"
+            if current_20260703_145923_window
+            else
             "p3-agent-harness-eval-fixtures"
             if current_20260703_025735_window
             else "p3-general-agent-harness-eval-fixture"
@@ -12223,6 +12299,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             row["proposal_id"] = "p2-agent-harness-eval-general-projects"
         elif current_20260703_025735_window:
             row["proposal_id"] = "p3-agent-harness-eval-fixtures"
+        elif current_20260703_145923_window:
+            row["proposal_id"] = "p3_agent_harness_eval_general_projects"
         elif current_20260702_175118_window:
             row["proposal_id"] = "p2_agent_harness_eval_fixture_general_agent_projects"
         elif current_024715_window:
@@ -12348,6 +12426,8 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             else
             "p3-agent-harness-eval-fixtures"
             if current_20260703_025735_window
+            else "p3_agent_harness_eval_general_projects"
+            if current_20260703_145923_window
             else "p3-general-agent-harness-eval-fixture"
         ),
         "proposal_kind": "test",
@@ -12613,6 +12693,7 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
                     "codex_workflow_gate",
                 )
                 if current_20260703_025735_window
+                or current_20260703_145923_window
                 else
                 (
                     "generic_skill_workflow",
@@ -12663,7 +12744,46 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
             "external_skill_activation_allowed": False,
             "provider_runtime_launch_allowed": False,
             "remote_execution_allowed": False,
-        } if current_20260703_025735_window else {},
+        } if current_20260703_025735_window or current_20260703_145923_window else {},
+        "operator_recovery_packet": (
+            {
+                "controller_surface": "skill_route_discovery_current_digest_pass3_operator_recovery_packet",
+                "status": "ready" if ready else "blocked",
+                "decision": (
+                    "operator_can_replay_pass3_skill_routes_before_final_pass"
+                    if ready
+                    else "repair_pass3_skill_route_rows_before_final_pass"
+                ),
+                "source_digest_hash": _stable_hash(source_digest),
+                "rollback_ref_required": True,
+                "rollback_artifact_required": True,
+                "focused_validation_required": True,
+                "changed_file_review_required": True,
+                "selected_skill_route_lanes": [
+                    lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+                ],
+                "agent_harness_eval_required_count": len(adjacent_rows),
+                "operator_sequence": [
+                    "confirm_rollback_ref_and_artifact_exist",
+                    "review_pass3_route_rows_and_adjacent_harness_rows",
+                    "run_focused_local_validation",
+                    "continue_to_pass4_without_kernel_restart_or_external_activation",
+                ],
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_commands_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+            if current_20260703_145923_window
+            else {}
+        ),
         "operator_handoff": "external_supervisor_replay_without_kernel_restart",
         "operator_next_action": (
             "replay_current_digest_pass3_activation_review_lane_then_continue_to_pass4"
