@@ -41,6 +41,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
         "omnigent-release-evidence-validation",
         "omnigent-route-contract",
         "public-agent-trend-validation-harness",
+        "reverse-flow-skill-route-probe",
         "skill-route-discovery-current-window-game-frontend-lanes",
         "skill-route-discovery-four-item-lanes",
         "security-adjacent-context-pressure",
@@ -52,11 +53,11 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 12
-    assert report.passed_count == 12
+    assert report.case_count == 13
+    assert report.passed_count == 13
     assert report.failed_count == 0
-    assert report.accepted_count == 23
-    assert report.rejected_count == 11
+    assert report.accepted_count == 24
+    assert report.rejected_count == 14
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -113,6 +114,14 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
         "validation_gate": "offensive-behavior-human-review",
     }
     assert boundary.proposal_validation_preflights["mock-e2e-push-test-pattern"]["status"] == "ready"
+    reverse_flow = results_by_name["reverse-flow-skill-route-probe"]
+    assert reverse_flow.selected_item_ids == ["reverse-flow-skill-primary-package"]
+    assert reverse_flow.truncated_item_ids == [
+        "reverse-flow-skill-fork-diaol",
+        "reverse-flow-skill-fork-netstat2016",
+        "reverse-flow-skill-fork-tallasd",
+    ]
+    assert reverse_flow.proposal_controls["p1-reverse-flow-skill-route-probe"]["kind"] == "test"
     assert report.to_dict()["suite_name"] == "proposal-replay-benchmark"
 
 
@@ -120,7 +129,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 12
+    assert report.case_count == 13
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
@@ -132,6 +141,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "current-wake-agent-harness-validation",
         "agent-codex-workflow-local-validation",
         "skill-workflow-route-discovery",
+        "reverse-flow-skill-route-probe",
         "skill-route-discovery-four-item-lanes",
         "skill-route-discovery-current-window-game-frontend-lanes",
     ]
@@ -141,6 +151,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/NotPBShaw/burner-agents",
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
         "https://github.com/majidmanzarpour/threejs-game-skills",
         "https://github.com/microsoft/fastcontext",
         "https://github.com/omnigent-ai/omnigent",
@@ -152,6 +163,48 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/xiaoguomeiyitian/threejs-game-skills",
     ]
     assert report.to_dict()["failures"] == []
+
+
+def test_reverse_flow_skill_route_probe_keeps_forks_out_of_direct_implementation_refs():
+    case = load_proposal_replay_case(FIXTURE_DIR / "reverse_flow_skill_route_probe.json")
+    result = run_proposal_replay_case(case)
+    evidence_package = build_proposal_evidence_package(
+        case["digest"],
+        max_items=case["options"]["max_items"],
+        max_item_text_chars=case["options"]["max_item_text_chars"],
+    )
+    lane_map = build_route_hint_lane_map(evidence_package)
+    implementation_preflight = lane_map["skill_route_implementation_preflight"]
+
+    assert result.passed is True
+    assert result.selected_item_ids == ["reverse-flow-skill-primary-package"]
+    assert result.truncated_item_ids == [
+        "reverse-flow-skill-fork-diaol",
+        "reverse-flow-skill-fork-netstat2016",
+        "reverse-flow-skill-fork-tallasd",
+    ]
+    assert set(result.proposal_controls) == {"p1-reverse-flow-skill-route-probe"}
+    assert all(
+        ref in result.selected_item_ids
+        for refs in case["expected"]["accepted_evidence_refs"].values()
+        for ref in refs
+    )
+    assert any("reverse-flow-skill-fork-diaol" in error for error in result.rejected_errors)
+    assert any("https://github.com/diaol/reverse-flow-skill" in error for error in result.rejected_errors)
+    assert lane_map["ok"] is True
+    assert lane_map["selected_route_hints"] == ["skill_route_discovery"]
+    assert implementation_preflight["status"] == "ready"
+    assert implementation_preflight["candidate_count"] == 1
+    assert implementation_preflight["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert implementation_preflight["rows"][0]["selected_local_lane"] == "test"
+    assert implementation_preflight["rows"][0]["local_validation_required"] is True
+    assert implementation_preflight["runtime_action"] == "none"
+    assert implementation_preflight["external_skill_activation_allowed"] is False
 
 
 def test_proposal_replay_manifest_detects_evidence_source_drift(tmp_path):

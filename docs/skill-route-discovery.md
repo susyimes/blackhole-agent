@@ -5942,3 +5942,20 @@ bodies, provider inputs, provider values, diagnostics bodies, target paths, or
 upstream bodies. Provider runtime launch, external harness execution, remote
 execution, supervisor promotion, and external skill or agent activation remain
 denied.
+
+## Current Digest 20260703T000121 Reverse-Flow Probe
+
+The `github-growth-20260703T000121.763879Z` final provider-runtime-control pass
+adds a local replay probe for reverse-flow-style skill/workflow signals. The
+public evidence reviewed for this run was a fork-heavy `reverse-flow-skill`
+cluster with Codex/AI-agent skill packaging, `skills/reverse-flow/SKILL.md`,
+scripts, and local CTF/crackme/sandbox reverse-analysis workflow language.
+
+The local fixture selects only `reverse-flow-skill-primary-package` into the
+proposal context budget. Fork rows are preserved as truncated pressure, not
+direct implementation evidence, so accepted proposals may cite only selected
+item IDs and may map only to documentation, config, test, or code_patch lanes.
+The selected lane for the replay probe is `test`; local validation remains
+required, runtime action is `none`, and external skill activation, provider
+launch, external harness execution, remote execution, raw URL export, and
+upstream-body export remain denied.

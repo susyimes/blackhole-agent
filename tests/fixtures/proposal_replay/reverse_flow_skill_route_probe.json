@@ -1,0 +1,158 @@
+{
+  "name": "reverse-flow-skill-route-probe",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 1,
+    "max_item_text_chars": 420
+  },
+  "digest": {
+    "digest_id": "github-growth-20260703T000121-reverse-flow-skill-route-probe",
+    "generated_at": "2026-07-03T00:01:21Z",
+    "items": [
+      {
+        "item_id": "reverse-flow-skill-primary-package",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "event_kind": "RepositoryTrend",
+        "summary": "reverse-flow-skill presents a Codex and AI Agent skill package with skills/reverse-flow/SKILL.md, scripts, local CTF/crackme training context, and reverse-analysis workflow guidance.",
+        "relevance_reason": "The repository shape is useful as skill_route_discovery metadata, but the reverse-analysis domain and fork-heavy signal require local validation before any implementation route.",
+        "risk_flags": [],
+        "confidence": 0.92
+      },
+      {
+        "item_id": "reverse-flow-skill-fork-diaol",
+        "source_url": "https://github.com/diaol/reverse-flow-skill",
+        "event_kind": "RepositoryTrend",
+        "summary": "Fork-lineage reverse-flow-skill signal with the same local CTF reverse-analysis workflow shape and copied package layout.",
+        "relevance_reason": "Fork presence is route pressure only; it must not become independent implementation evidence.",
+        "risk_flags": [],
+        "confidence": 0.45
+      },
+      {
+        "item_id": "reverse-flow-skill-fork-netstat2016",
+        "source_url": "https://github.com/netstat2016/reverse-flow-skill",
+        "event_kind": "RepositoryTrend",
+        "summary": "Fork-lineage reverse-flow-skill signal with skill package metadata and reverse workflow text.",
+        "relevance_reason": "Fork presence is weak corroboration only and should not expand evidence refs.",
+        "risk_flags": [],
+        "confidence": 0.44
+      },
+      {
+        "item_id": "reverse-flow-skill-fork-tallasd",
+        "source_url": "https://github.com/tallasd/reverse-flow-skill",
+        "event_kind": "RepositoryTrend",
+        "summary": "Fork-lineage reverse-flow-skill signal for the same Codex reverse-flow skill package.",
+        "relevance_reason": "Fork presence should remain outside direct implementation evidence unless selected by context budget and locally validated.",
+        "risk_flags": [],
+        "confidence": 0.43
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-20260703T000121-reverse-flow-skill-route-probe",
+    "run_interpretation": "Reverse-flow-style skill evidence routes only to bounded local validation lanes; fork rows are not direct implementation evidence.",
+    "self_model_reading": {
+      "status": "left_unchanged",
+      "reason": "The current self-model already supports rollback-backed local experiments while keeping offensive behavior and privacy leakage review-only."
+    },
+    "proposals": [
+      {
+        "proposal_id": "p1-reverse-flow-skill-route-probe",
+        "kind": "test",
+        "summary": "Add a local reverse-flow-style skill route probe that proves selected item IDs, not fork URLs, drive implementation candidates.",
+        "evidence_refs": [
+          "reverse-flow-skill-primary-package"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Run proposal replay unit tests and assert skill_route_discovery stays in documentation, config, test, or code_patch lanes with local validation required.",
+        "rationale": "The package shape is reusable route evidence, but reverse-analysis workflow details and fork repetition justify only a local validation probe.",
+        "uncertainty": "Fork rows and missing upstream detail remain outside the selected context budget, so this fixture does not claim upstream implementation parity.",
+        "self_effect": "Improves future trend routing by turning fork-heavy skill/workflow signals into replayable local diagnostics.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p2-reverse-flow-fork-direct-code",
+        "kind": "code_patch",
+        "summary": "Incorrectly use a fork-only reverse-flow item as direct implementation evidence.",
+        "evidence_refs": [
+          "reverse-flow-skill-fork-diaol"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving truncated fork item IDs cannot be cited as implementation evidence.",
+        "rationale": "This candidate is intentionally malformed because the fork row was not selected into the replay context.",
+        "uncertainty": "Malformed candidate; fork detail is truncated and not selected.",
+        "self_effect": "Would amplify fork activity into implementation evidence if accepted.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p3-reverse-flow-url-ref",
+        "kind": "documentation",
+        "summary": "Incorrectly cite a reverse-flow repository URL instead of a selected item ID.",
+        "evidence_refs": [
+          "https://github.com/diaol/reverse-flow-skill"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving proposal citations stay item-id based.",
+        "rationale": "This candidate is intentionally malformed to prevent URL-based evidence expansion.",
+        "uncertainty": "Malformed candidate; URL refs are not replayable selected item IDs.",
+        "self_effect": "Would weaken body-free replayability if accepted.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p4-reverse-flow-follow-up-escape",
+        "kind": "follow_up_issue",
+        "summary": "Incorrectly route reverse-flow skill discovery outside bounded local lanes.",
+        "evidence_refs": [
+          "reverse-flow-skill-primary-package"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving skill_route_discovery rejects lanes outside documentation, config, test, or code_patch.",
+        "rationale": "This candidate is intentionally malformed to exercise deterministic lane rejection.",
+        "uncertainty": "Malformed candidate; follow-up routing is outside the allowed lane envelope.",
+        "self_effect": "Would weaken route discovery if accepted.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 3,
+    "selected_item_ids": [
+      "reverse-flow-skill-primary-package"
+    ],
+    "truncated_item_ids": [
+      "reverse-flow-skill-fork-diaol",
+      "reverse-flow-skill-fork-netstat2016",
+      "reverse-flow-skill-fork-tallasd"
+    ],
+    "accepted_evidence_refs": {
+      "p1-reverse-flow-skill-route-probe": [
+        "reverse-flow-skill-primary-package"
+      ]
+    },
+    "rejected_error_substrings": [
+      "evidence_refs contain unknown item ids: reverse-flow-skill-fork-diaol",
+      "evidence_refs contain unknown item ids: https://github.com/diaol/reverse-flow-skill",
+      "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
+    ],
+    "proposal_controls": {
+      "p1-reverse-flow-skill-route-probe": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    },
+    "proposal_validation_preflights": {
+      "p1-reverse-flow-skill-route-probe": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      }
+    }
+  }
+}
