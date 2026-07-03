@@ -6096,3 +6096,27 @@ operator replay, acceptance, and supervisor handoff status while denying
 runtime action, upstream skill activation, external harness execution, provider
 launch, remote execution, raw source URL export, replay-command export,
 target-path export, and upstream-body export.
+
+## Current Digest 20260703T034049 Pass 4
+
+The `github-growth-20260703T034049.949785Z` final pass completes the active
+skill-route-discovery window with a current proposal handoff. The
+lingbol088-spec reverse-flow-skill item remains a Codex workflow-gate evidence
+row because its public shape carries Agent/Codex skill packaging,
+`skills/reverse-flow/SKILL.md`, references, scripts, and local sandbox/CTF
+workflow framing. It maps to `p1-skill-route-discovery-codex-workflow` in the
+local test lane and must record `skill_route_discovery_first` before any
+secondary workflow or harness interpretation.
+
+The generic skill workflow proposal
+`p2-generic-skill-workflow-routing` is evidence-item interpretation only:
+reverse-flow-skill and zhengxi-views may select documentation, config, test, or
+code_patch after local validation, but they do not grant install, runtime
+execution, provider launch, external skill activation, or raw upstream export.
+Awesome-Blender-Seedance-Workflow-Usecases, Qwen-AgentWorld, and Fundamental-Ava
+stay in `agent_harness_eval_required` under `p3-agent-harness-eval-fixtures`.
+They do not inherit `skill_route_discovery`; direct lanes before harness
+evaluation are empty, and only documentation, test, or code_patch may be
+considered after local harness evidence exists. The pass-4 recovery packet
+requires rollback metadata plus focused validation and leaves replay, promotion,
+restart, and activation to the configured supervisor.
