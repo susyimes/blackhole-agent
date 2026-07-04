@@ -1481,6 +1481,109 @@ def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals()
     assert "python -m pytest" not in serialized
 
 
+def test_current_pass3_active_window_manifest_binds_exact_proposals_to_bounded_lanes():
+    digest = {
+        "digest_id": "github-growth-20260704T154434.930893Z",
+        "generated_at": "2026-07-04T15:44:34.930893Z",
+        "items": [
+            {
+                "item_id": "trend:lyra81604/zhengxi-views-1",
+                "source_url": "https://github.com/lyra81604/zhengxi-views",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "zhengxi-views is a traceable Agent Skill workflow repository with SKILL.md, "
+                    "source-cited research behavior, scripts, and local validation expectations."
+                ),
+                "relevance_reason": (
+                    "Repository-derived skill signals should become documentation, config, test, "
+                    "or code_patch lanes without runtime authority."
+                ),
+                "risk_flags": [],
+                "confidence": 0.84,
+            },
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is an AI Agent and Codex skill repository with SKILL.md, "
+                    "workflow routing, local sandbox defaults, validation notes, and install pressure."
+                ),
+                "relevance_reason": (
+                    "Mixed Codex workflow probes must evaluate skill_route_discovery_first before "
+                    "broader agent workflow gates."
+                ),
+                "risk_flags": [],
+                "confidence": 0.86,
+            },
+            {
+                "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Qwen-AgentWorld is a general agent benchmark and environment project with "
+                    "agent training and evaluation claims but no explicit route-specific workflow."
+                ),
+                "relevance_reason": (
+                    "Empty route hints should not become direct code_patch authorization."
+                ),
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=520)
+    replay_lane = build_route_hint_lane_map(evidence_package)["current_pass3_skill_route_replay_lane"]
+    manifest = replay_lane["active_window_proposal_manifest"]
+    rows = {row["proposal_id"]: row for row in manifest["rows"]}
+    serialized = json.dumps(manifest, sort_keys=True)
+
+    assert manifest["controller_surface"] == "current_pass3_active_window_proposal_manifest"
+    assert manifest["status"] == "ready"
+    assert manifest["source_digest"] == "github-growth-20260704T154434.930893Z"
+    assert manifest["proposal_ids"] == [
+        "p1-skill-route-discovery-zhenxi-views",
+        "p2-codex-workflow-gate-reverse-flow-skill",
+        "p3-agent-harness-eval-qwen-agentworld",
+    ]
+    assert manifest["activation_blockers"] == []
+    assert manifest["runtime_action"] == "none"
+    assert manifest["external_skill_activation_allowed"] is False
+    assert manifest["external_agent_activation_allowed"] is False
+    assert manifest["external_harness_execution_allowed"] is False
+    assert manifest["remote_execution_allowed"] is False
+
+    zhengxi = rows["p1-skill-route-discovery-zhenxi-views"]
+    assert zhengxi["primary_route"] == "skill_route_discovery"
+    assert zhengxi["evaluation_lane"] == ""
+    assert zhengxi["selected_local_lane"] == "documentation"
+    assert zhengxi["bounded_local_lanes_only"] is True
+    assert set(zhengxi["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+    assert zhengxi["runtime_action"] == "none"
+    assert zhengxi["external_execution_allowed"] is False
+
+    reverse_flow = rows["p2-codex-workflow-gate-reverse-flow-skill"]
+    assert reverse_flow["primary_route"] == "skill_route_discovery"
+    assert reverse_flow["evaluation_lane"] == "skill_route_discovery_first"
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["implementation_route_allowed"] is True
+    assert reverse_flow["runtime_action"] == "none"
+
+    qwen = rows["p3-agent-harness-eval-qwen-agentworld"]
+    assert qwen["primary_route"] == "agent_harness_eval_required"
+    assert qwen["evaluation_lane"] == "agent_harness_eval_required"
+    assert qwen["selected_local_lane"] == "agent_harness_eval"
+    assert qwen["direct_allowed_lanes_before_eval"] == []
+    assert qwen["implementation_route_allowed"] is False
+    assert qwen["direct_implementation_blocked_until_harness_eval"] is True
+    assert qwen["runtime_action"] == "none"
+
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert "python -m pytest" not in serialized
+
+
 def test_skill_route_profile_classifies_phaser_game_engine_evidence_as_frontend_workflow():
     classification = classify_digest_item_route(
         {
