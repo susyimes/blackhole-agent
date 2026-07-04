@@ -7112,3 +7112,31 @@ while denying raw source URL export, raw replay command export, upstream body
 export, external skill activation, external agent activation, external harness
 execution, provider runtime launch, remote execution, profile writes, memory
 writes, and runtime action.
+
+## Current Digest 20260704T063309 Pass 4
+
+The `github-growth-20260704T063309.450936Z` final pass closes the active
+skill-route-discovery window through `current_digest_pass4_completion_handoff`.
+The pass binds `p1_reverse_flow_skill_route_discovery`,
+`p2_zhengxi_views_skill_probe`, and `p3_agentworld_harness_eval` to a
+supervisor-visible replay record.
+
+The reverse-flow-skill signal includes the direct `lingbol088-spec` repository
+and the observed `iunclear` fork. The local fixture records the fork with
+`forked_from_url`, so registry construction collapses both items into one
+reverse-flow lineage candidate. That row selects the local test lane, keeps
+`skill_route_discovery_first`, treats install and runtime pressure as diagnostic
+only, and does not create a separate activation candidate for fork activity.
+
+The zhengxi-views row remains a documentation lane for generic source-cited
+skill workflow criteria. Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under `p3_agentworld_harness_eval`; they do
+not inherit skill-route lanes and have no direct runtime or code_patch lane
+before bounded local harness evaluation.
+
+The handoff is record-only for an external supervisor. It exports body-free
+proposal IDs, selected item IDs, route profiles, lane names, source hashes, and
+replay command hashes while denying raw source URL export, raw replay command
+export, upstream body export, external skill activation, external agent
+activation, external harness execution, provider runtime launch, remote
+execution, profile writes, memory writes, and runtime action.
