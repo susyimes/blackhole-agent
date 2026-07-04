@@ -7507,6 +7507,35 @@ export, upstream body export, external skill activation, external agent
 activation, external harness execution, provider runtime launch, remote
 execution, profile writes, memory writes, and runtime action.
 
+## Current Digest 20260704T170435 Pass 3
+
+The `github-growth-20260704T170435.079487Z` pass-3 lane specializes
+`current_digest_pass3_route_to_validation_lane` for the active skill-route
+window. It maps `zhengxi-views` to `p1-skill-route-discovery-zviews` in the
+local test lane because its public evidence shows a skill package with
+`SKILL.md`, `skill.yml`, references, evals, scripts, source-cited research
+workflow language, and an advice boundary.
+
+`reverse-flow-skill` maps to `p2-codex-skill-workflow-gate` in the local test
+lane and must preserve `skill_route_discovery_first` before any Codex workflow
+gate is treated as a local behavior candidate. Its install and runtime pressure
+is retained only as downgraded unsupported-lane evidence.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-trending-projects`. They do not inherit
+`skill_route_discovery`, have no direct lanes before local harness evaluation,
+and may only produce documentation, test, or code_patch follow-up after bounded
+agent-harness evidence exists.
+
+The operator packet is body-free and record-only: it exports proposal IDs,
+selected item IDs, route profiles, lane names, source hashes, and replay command
+hashes while denying raw source URLs, raw replay commands, upstream bodies,
+external skill activation, external agent activation, external harness
+execution, provider runtime launch, remote execution, profile writes, memory
+writes, and runtime action. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260704T170435`.
+
 ## Current Digest 20260704T061309 Pass 3
 
 The `github-growth-20260704T061309.969283Z` pass-3 operator lane exposes the
