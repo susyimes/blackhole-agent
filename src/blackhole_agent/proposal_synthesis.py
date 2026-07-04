@@ -985,6 +985,10 @@ def build_current_pass2_lane_handoff(
         items,
         context_budget=context_budget,
     )
+    route_evidence_lane_source = build_current_pass2_route_evidence_lane_source(
+        items,
+        context_budget=context_budget,
+    )
     general_eval = build_general_agent_project_eval_lane(items)
     selected_item_ids = sorted(
         {
@@ -1096,6 +1100,7 @@ def build_current_pass2_lane_handoff(
         "skill_workflow_count": len(skill_rows),
         "general_agent_project_count": len(general_rows),
         "blocked_general_agent_item_ids": blocked_item_ids,
+        "route_evidence_lane_source": route_evidence_lane_source,
         "skill_route_rows": skill_rows,
         "general_agent_rows": general_rows,
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
@@ -1119,6 +1124,137 @@ def build_current_pass2_lane_handoff(
         "raw_evidence_url_export_allowed": False,
         "raw_replay_command_export_allowed": False,
         "raw_target_path_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass2_route_evidence_lane_source(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+) -> dict[str, Any]:
+    """Show how pass-2 skill-route lanes were derived from route evidence."""
+
+    implementation_preflight = build_skill_route_implementation_preflight(
+        items,
+        context_budget=context_budget,
+    )
+    selected_item_ids = sorted(
+        {
+            str(item_id)
+            for item_id in (
+                context_budget.get("selected_item_ids", [])
+                if isinstance(context_budget, dict)
+                else []
+            )
+            if str(item_id).strip()
+        }
+    )
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for row in implementation_preflight.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("item_id") or "")
+        source_item = find_item_by_id(items, item_id)
+        classification = source_item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(source_item)["route_classification"]
+        route_hints = [
+            str(route_hint)
+            for route_hint in classification.get("route_hints", [])
+            if str(route_hint).strip()
+        ]
+        route_class = str(classification.get("route_class") or "")
+        allowed_lanes = [
+            str(lane)
+            for lane in classification.get("allowed_lanes", [])
+            if str(lane).strip()
+        ]
+        unsupported_lanes = _unsupported_skill_route_classification_lanes(classification)
+        lane_bounded = (
+            route_class == "skill_workflow"
+            and "skill_route_discovery" in route_hints
+            and bool(allowed_lanes)
+            and set(allowed_lanes).issubset(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+            and not unsupported_lanes
+            and row.get("implementation_route_allowed") is True
+        )
+        if not lane_bounded:
+            diagnostics.append(f"{item_id}:route_evidence_lane_unbounded")
+        rows.append(
+            {
+                "item_id": item_id,
+                "route_class": route_class,
+                "route_hints": route_hints,
+                "route_hint_source": "route_classification.route_hints",
+                "route_classification_source": "controller_recomputed_from_digest_item",
+                "primary_route": (
+                    "skill_route_discovery"
+                    if "skill_route_discovery" in route_hints
+                    else str(classification.get("evaluation_lane") or "")
+                ),
+                "selected_local_lane": str(row.get("selected_local_lane") or ""),
+                "allowed_local_lanes": [
+                    lane
+                    for lane in allowed_lanes
+                    if lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+                ],
+                "unsupported_lanes": unsupported_lanes,
+                "route_probe_decision": str(classification.get("route_probe_decision") or ""),
+                "route_profiles": [
+                    str(profile)
+                    for profile in classification.get("route_profiles", [])
+                    if str(profile).strip()
+                ],
+                "reasons": [
+                    str(reason)
+                    for reason in classification.get("reasons", [])
+                    if str(reason).strip()
+                ],
+                "skill_route_discovery_first_required": (
+                    classification.get("route_probe_decision") == "skill_route_discovery_first"
+                ),
+                "lane_source_bounded": lane_bounded,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_export_allowed": False,
+                "upstream_body_export_allowed": False,
+            }
+        )
+
+    rows_bounded = bool(rows) and all(row["lane_source_bounded"] for row in rows)
+    return {
+        "controller_surface": "current_pass2_route_evidence_lane_source",
+        "status": "ready" if rows_bounded else "blocked" if rows else "not_applicable",
+        "decision": (
+            "use_route_hints_and_route_classification_for_bounded_skill_route_lanes"
+            if rows_bounded
+            else "repair_route_evidence_before_pass2_lane_handoff"
+            if rows
+            else "no_skill_route_evidence_selected"
+        ),
+        "capability_pass": "2_of_4",
+        "selected_item_ids": selected_item_ids,
+        "evidence_ref_scope": "selected_item_ids_only",
+        "skill_route_candidate_count": len(rows),
+        "skill_route_discovery_first_count": sum(
+            1 for row in rows if row["skill_route_discovery_first_required"]
+        ),
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
 

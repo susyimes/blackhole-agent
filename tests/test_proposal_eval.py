@@ -207,6 +207,78 @@ def test_reverse_flow_skill_route_probe_keeps_forks_out_of_direct_implementation
     assert implementation_preflight["external_skill_activation_allowed"] is False
 
 
+def test_pass2_route_evidence_lane_source_uses_route_hints_and_classification():
+    reverse_flow_case = load_proposal_replay_case(FIXTURE_DIR / "reverse_flow_skill_route_probe.json")
+    reverse_flow_package = build_proposal_evidence_package(
+        reverse_flow_case["digest"],
+        max_items=reverse_flow_case["options"]["max_items"],
+        max_item_text_chars=reverse_flow_case["options"]["max_item_text_chars"],
+    )
+    reverse_flow_handoff = build_route_hint_lane_map(reverse_flow_package)["current_pass2_lane_handoff"]
+    reverse_flow_source = reverse_flow_handoff["route_evidence_lane_source"]
+
+    assert reverse_flow_source["controller_surface"] == "current_pass2_route_evidence_lane_source"
+    assert reverse_flow_source["status"] == "ready"
+    assert reverse_flow_source["decision"] == (
+        "use_route_hints_and_route_classification_for_bounded_skill_route_lanes"
+    )
+    assert reverse_flow_source["selected_item_ids"] == ["reverse-flow-skill-primary-package"]
+    assert reverse_flow_source["skill_route_candidate_count"] == 1
+    assert reverse_flow_source["skill_route_discovery_first_count"] == 1
+    assert reverse_flow_source["allowed_skill_route_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    reverse_flow_row = reverse_flow_source["rows"][0]
+    assert reverse_flow_row["item_id"] == "reverse-flow-skill-primary-package"
+    assert reverse_flow_row["route_class"] == "skill_workflow"
+    assert reverse_flow_row["route_hints"] == ["skill_route_discovery"]
+    assert reverse_flow_row["route_hint_source"] == "route_classification.route_hints"
+    assert reverse_flow_row["route_classification_source"] == "controller_recomputed_from_digest_item"
+    assert reverse_flow_row["primary_route"] == "skill_route_discovery"
+    assert reverse_flow_row["selected_local_lane"] == "test"
+    assert reverse_flow_row["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow_row["route_probe_decision"] == "skill_route_discovery_first"
+    assert {"skill_term", "mixed_skill_workflow_probe"} <= set(reverse_flow_row["reasons"])
+    assert reverse_flow_row["skill_route_discovery_first_required"] is True
+    assert reverse_flow_row["lane_source_bounded"] is True
+    assert reverse_flow_row["runtime_action"] == "none"
+    assert reverse_flow_row["external_skill_activation_allowed"] is False
+    assert reverse_flow_row["provider_runtime_launch_allowed"] is False
+    assert reverse_flow_row["remote_execution_allowed"] is False
+    assert reverse_flow_source["diagnostics"] == []
+
+    skill_case = load_proposal_replay_case(FIXTURE_DIR / "skill_workflow_route_discovery.json")
+    skill_package = build_proposal_evidence_package(
+        skill_case["digest"],
+        max_items=skill_case["options"]["max_items"],
+        max_item_text_chars=skill_case["options"]["max_item_text_chars"],
+    )
+    skill_source = build_route_hint_lane_map(skill_package)["current_pass2_lane_handoff"][
+        "route_evidence_lane_source"
+    ]
+
+    assert skill_source["status"] == "ready"
+    assert skill_source["skill_route_candidate_count"] == 2
+    assert skill_source["skill_route_discovery_first_count"] == 1
+    assert all(row["primary_route"] == "skill_route_discovery" for row in skill_source["rows"])
+    assert all(row["lane_source_bounded"] is True for row in skill_source["rows"])
+    assert all(
+        set(row["allowed_local_lanes"]) <= {"documentation", "config", "test", "code_patch"}
+        for row in skill_source["rows"]
+    )
+    assert all("skill_term" in row["reasons"] for row in skill_source["rows"])
+    assert any("mixed_skill_workflow_probe" in row["reasons"] for row in skill_source["rows"])
+    assert all(
+        row["skill_route_discovery_first_required"]
+        == ("mixed_skill_workflow_probe" in row["reasons"])
+        for row in skill_source["rows"]
+    )
+    assert all(row["runtime_action"] == "none" for row in skill_source["rows"])
+
+
 def test_proposal_replay_manifest_detects_evidence_source_drift(tmp_path):
     manifest = load_proposal_replay_case(MANIFEST_PATH)
     manifest["cases"][0]["evidence_urls"] = ["https://github.com/example/not-in-fixture"]

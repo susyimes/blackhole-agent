@@ -5,6 +5,19 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260704T152434.856651Z`, pass 2 adds an
+operator-visible `current_pass2_route_evidence_lane_source` packet inside the
+pass-2 handoff. The packet derives each skill-route row from controller-owned
+`route_hints` and `route_classification`, not from repository labels, proposal
+text, or raw upstream bodies. Reverse-flow-style skill evidence and generic
+skill workflow evidence must resolve to `skill_route_discovery` first when the
+classifier sees `skill_term` plus `mixed_skill_workflow_probe` pressure; the
+only local lanes remain documentation, config, test, or code_patch. The packet
+is metadata-only and keeps install, execute, provider launch, external skill
+activation, remote execution, source URL export, and upstream body export
+denied. Replay with:
+`python -m pytest tests/test_proposal_eval.py -q -k pass2_route_evidence_lane_source`.
+
 For source digest `github-growth-20260704T150434.812972Z`, pass 1 keeps
 reverse-flow-style skill evidence in a bounded probe lane. The
 `lingbol088-spec/reverse-flow-skill` repository and the carried
