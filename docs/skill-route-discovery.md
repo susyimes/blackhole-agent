@@ -7628,6 +7628,35 @@ commands, upstream bodies, external skill activation, external agent activation,
 external harness execution, provider runtime launch, remote execution, profile
 writes, memory writes, and runtime action.
 
+## Current Digest 20260704T200436 Pass 4
+
+The `github-growth-20260704T200436.445375Z` pass-4 fixture closes the active
+skill-route-discovery slice through the local-kernel completion handoff. The
+selected skill evidence remains bounded to three local route profiles:
+`codex_workflow_gate`, `generic_skill_workflow`, and
+`source_cited_domain_research`.
+
+`lingbol088-spec/reverse-flow-skill` is treated as a Codex workflow-gate skill
+candidate. It can select only the local test lane after
+`skill_route_discovery_first`; its install examples, runtime wording, and
+reverse-engineering workflow remain diagnostic evidence, not activation
+authority.
+
+`lyra81604/zhengxi-views` remains a generic, source-cited skill workflow
+candidate. Its fund-data and advice-boundary pressure is useful route evidence
+for documentation or test follow-up, but trend metadata alone is insufficient
+to run providers, fetch data, or produce investment-advice behavior.
+
+`QwenLM/Qwen-AgentWorld` and the workflow-usecase cluster remain adjacent
+`agent_harness_eval_required` pressure. They do not inherit
+`skill_route_discovery` lanes, and the final closure manifest keeps external
+skill activation, external agent activation, external harness execution,
+provider launch, remote execution, profile writes, memory writes, raw replay
+commands, raw source URLs, and upstream bodies denied.
+
+Replay the current completion check with:
+`python -m pytest tests/test_harness_eval.py -q -k 20260704T200436`.
+
 ## Current Digest 20260704T035308 Pass 4
 
 The `github-growth-20260704T035308.799236Z` pass-4 handoff completes the active
