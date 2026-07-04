@@ -8810,6 +8810,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260703T223922.916308Z",
         "github-growth-20260703T223922Z",
     }
+    current_20260704_002924_window = source_digest in {
+        "github-growth-20260704T002924.779596Z",
+        "github-growth-20260704T002924Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -10402,6 +10406,71 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:QwenLM/Qwen-AgentWorld-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
+    if current_20260704_002924_window:
+        specs = (
+            {
+                "proposal_id": "p2-codex-skill-workflow-gate-reverse-flow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_route_discovery_first_before_runtime_action",
+                "validation_task": (
+                    "classify reverse-flow-skill Codex workflow evidence through "
+                    "skill_route_discovery first, preserving only documentation, config, "
+                    "test, or code_patch lanes before any local workflow or runtime action"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "agent_metadata",
+                    "local_sandbox_context",
+                ),
+            },
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_metadata_maps_to_bounded_local_lanes",
+                "validation_task": (
+                    "inspect zhengxi-views skill metadata and source-cited workflow signals "
+                    "as a bounded local validation candidate without importing upstream data, "
+                    "installing the skill, launching providers, or enabling runtime execution"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "test_file",
+                    "source_citation_boundary",
+                    "advice_disclaimer_boundary",
+                ),
+            },
+        )
+        active_proposal_ids = [
+            "proposal-skill-route-discovery-001",
+            "proposal-agent-harness-eval-002",
+            "proposal-workflow-usecase-classifier-003",
+            "proposal-route-hint-policy-fixture-004",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-codex-skill-workflow-gate-reverse-flow",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-agent-harness-eval-fundamental-ava",
+            "p5-agent-workflow-harness-eval-blender-seedance",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
     if current_20260703_143923_window:
         specs = (
             {
@@ -10891,6 +10960,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260703_195925_window
             else "p3-agent-harness-eval-for-general-agent-projects"
             if current_20260703_223922_window
+            else "p3-agent-harness-eval-qwen-agentworld"
+            if current_20260704_002924_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -10951,6 +11022,15 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             row["proposal_id"] = "p3_agent_harness_eval_fixtures"
         if current_20260703_223922_window:
             row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-projects"
+        if current_20260704_002924_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            row["proposal_id"] = (
+                "p3-agent-harness-eval-qwen-agentworld"
+                if lowered_name == "qwen-agentworld"
+                else "p4-agent-harness-eval-fundamental-ava"
+                if lowered_name == "fundamental-ava"
+                else "p5-agent-workflow-harness-eval-blender-seedance"
+            )
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         if current_090714_window:
@@ -13828,6 +13908,7 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
     }
     generic_row = (
         skill_rows_by_track.get("generic_skill_workflow")
+        or skill_rows_by_track.get("source_cited_skill_workflow")
         or skill_rows_by_track.get("source_cited_domain_research")
         or {}
     )
@@ -13868,7 +13949,36 @@ def _skill_route_discovery_current_digest_pass2_focused_review_lane(
         "github-growth-20260703T183923.572332Z",
         "github-growth-20260703T183923Z",
     }
-    if current_20260703_183923_window:
+    current_20260704_002924_window = source_digest in {
+        "github-growth-20260704T002924.779596Z",
+        "github-growth-20260704T002924Z",
+    }
+    if current_20260704_002924_window:
+        focused_agent_rows = [
+            _skill_route_discovery_current_digest_pass2_focused_agent_row(
+                row,
+                proposal_id=str(row.get("proposal_id") or "p3-agent-harness-eval-qwen-agentworld"),
+            )
+            for row in adjacent_rows
+        ]
+        proposal_rows = [
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                codex_row,
+                proposal_id="p2-codex-skill-workflow-gate-reverse-flow",
+                proposal_kind="test",
+                selected_local_lane="test",
+                validation_target="reverse_flow_skill_route_discovery_first_before_runtime_action",
+            ),
+            _skill_route_discovery_current_digest_pass2_focused_skill_row(
+                generic_row,
+                proposal_id="p1-skill-route-discovery-zhengxi-views",
+                proposal_kind="test",
+                selected_local_lane="test",
+                validation_target="zhengxi_views_skill_metadata_maps_to_bounded_local_lanes",
+            ),
+            *focused_agent_rows,
+        ]
+    elif current_20260703_183923_window:
         focused_agent_rows = [
             _skill_route_discovery_current_digest_pass2_focused_agent_row(
                 row,
