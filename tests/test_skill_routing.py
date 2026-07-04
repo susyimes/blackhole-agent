@@ -9,6 +9,7 @@ from blackhole_agent.skill_routing import (
     SKILL_ROUTE_DISCOVERY_DISABLED,
     SKILL_ROUTE_DISCOVERY_HINT,
     SKILL_ROUTE_DISCOVERY_INVALID,
+    SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE,
     SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
     SKILL_ROUTE_DISCOVERY_VALIDATION_PROFILES,
     NO_SKILL_MATCH,
@@ -812,6 +813,90 @@ def test_skill_route_discovery_summary_classifier_collapses_fork_lineage():
     ]
     assert candidate["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
     assert candidate["validation_errors"] == []
+
+
+def test_reverse_flow_fork_lineage_keeps_install_pressure_out_of_activation_lanes():
+    registry = build_skill_route_discovery_registry_from_summaries(
+        [
+            {
+                "name": "reverse-flow-skill",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "AI Agent / Codex skill repository with skills/reverse-flow/SKILL.md, "
+                    "local CTF reverse-analysis workflow, scripts, and install instructions."
+                ),
+                "observed_paths": [
+                    "skills/reverse-flow/SKILL.md",
+                    "skills/reverse-flow/README.md",
+                    "skills/reverse-flow/scripts/create_case.py",
+                    "skills/reverse-flow/scripts/tool_audit.py",
+                ],
+                "suggested_lanes": ["documentation", "test", "install", "runtime_execution"],
+                "upstream_action_pressure": ["install", "run"],
+            },
+            {
+                "name": "reverse-flow-skill-fork",
+                "source_url": "https://github.com/iamcaozhi/reverse-flow-skill",
+                "upstream_source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Fork of the reverse-flow Codex skill workflow with the same SKILL.md layout, "
+                    "reverse-analysis scripts, local sandbox framing, and README usage examples."
+                ),
+                "observed_paths": [
+                    "skills/reverse-flow/SKILL.md",
+                    "skills/reverse-flow/agents/openai.yaml",
+                    "skills/reverse-flow/references/workflow.md",
+                    "skills/reverse-flow/scripts/triage_artifact.py",
+                ],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "execute"],
+                "upstream_action_pressure": ["install", "execute"],
+            },
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["registry_status"] == "classification_only"
+    assert registry["summary_count"] == 2
+    assert registry["candidate_count"] == 1
+    assert registry["duplicate_summary_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+    assert registry["invalid_candidate_count"] == 0
+
+    candidate = registry["candidates"][0]
+    assert candidate["name"] == "reverse-flow-skill"
+    assert candidate["source_url"] == "https://github.com/lingbol088-spec/reverse-flow-skill"
+    assert candidate["related_source_urls"] == [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/iamcaozhi/reverse-flow-skill",
+    ]
+    assert set(candidate["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert candidate["route_profiles"] == ["codex_workflow_gate"]
+    assert candidate["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert candidate["enabled"] is False
+    assert candidate["validation_errors"] == []
+    assert candidate["requested_actions"] == []
+    assert candidate["unsupported_lane_pressure"] == [
+        "install",
+        "runtime_execution",
+        "run",
+        "execute",
+    ]
+    assert "fork_or_mirror_lineage_collapsed" in candidate["uncertainty_reasons"]
+
+    lane_rows = [
+        row
+        for row in lane_map["proposal_lanes"]
+        if row["candidate_name"] == "reverse-flow-skill"
+    ]
+    assert {row["proposal_kind"] for row in lane_rows} == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(row["status"] == SKILL_ROUTE_DISCOVERY_PROPOSAL_LANE for row in lane_rows)
+    assert all(row["runtime_action"] == "none" for row in lane_rows)
+    assert all(row["external_skill_activation_allowed"] is False for row in lane_rows)
+    assert all(
+        row["handoff_metadata"]["external_harness_execution_allowed"] is False
+        for row in lane_rows
+    )
 
 
 def test_skill_route_discovery_current_window_game_frontend_evidence_stays_bounded():

@@ -453,6 +453,7 @@ class ExternalSkillRepositorySummary:
     observed_paths: tuple[str, ...] = ()
     metadata_files: tuple[str, ...] = ()
     upstream_source_url: str = ""
+    unsupported_lane_pressure: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillRepositorySummary":
@@ -488,6 +489,11 @@ class ExternalSkillRepositorySummary:
                 or value.get("parent_source_url")
                 or ""
             ).strip(),
+            unsupported_lane_pressure=_string_tuple(
+                value.get("unsupported_lane_pressure")
+                or value.get("upstream_action_pressure")
+                or value.get("blocked_action_pressure")
+            ),
         )
 
     def to_candidate(self) -> ExternalSkillRouteCandidate | None:
@@ -507,7 +513,9 @@ class ExternalSkillRepositorySummary:
             candidate_lanes=_bounded_skill_discovery_lanes(self),
             related_source_urls=_summary_related_source_urls(self),
             unsupported_lane_pressure=tuple(
-                lane for lane in self.suggested_lanes if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                lane
+                for lane in (*self.suggested_lanes, *self.unsupported_lane_pressure)
+                if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
             ),
             source_layout_signals=source_layout_signals,
             source_metadata_signals=source_metadata_signals,
@@ -34235,11 +34243,15 @@ def _merge_external_skill_route_candidates(
         evidence_urls=tuple(dict.fromkeys((*left.evidence_urls, *right.evidence_urls))),
         evidence_item_urls=tuple(dict.fromkeys((*left.evidence_item_urls, *right.evidence_item_urls))),
         related_source_urls=tuple(dict.fromkeys((*left.related_source_urls, *right.related_source_urls))),
+        route_profiles=tuple(dict.fromkeys((*left.route_profiles, *right.route_profiles))),
         source_layout_signals=tuple(dict.fromkeys((*left.source_layout_signals, *right.source_layout_signals))),
         source_metadata_signals=tuple(
             dict.fromkeys((*left.source_metadata_signals, *right.source_metadata_signals))
         ),
         requested_actions=tuple(dict.fromkeys((*left.requested_actions, *right.requested_actions))),
+        unsupported_lane_pressure=tuple(
+            dict.fromkeys((*left.unsupported_lane_pressure, *right.unsupported_lane_pressure))
+        ),
         validation_status=left.validation_status,
         enabled=left.enabled or right.enabled,
         public_activity_signals=tuple(

@@ -1,0 +1,11 @@
+{
+  "created": "2026-07-04T15:05:29Z",
+  "branch": "codex/blackhole-evolve/20260704T150529.595988-add-or-extend-local-tests-that-exercise-skill-ro",
+  "head": "dfaf2e0adec7771cdc3a2c9fb15012898801558b",
+  "scope": "skill-route-discovery pass 1 reverse-flow bounded lane improvement",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T150529.595988-add-or-extend-local-tests-that-exercise-skill-ro",
+    "git reset --hard dfaf2e0adec7771cdc3a2c9fb15012898801558b",
+    "git clean -fd"
+  ]
+}
