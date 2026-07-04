@@ -7084,3 +7084,31 @@ replay command hashes while denying raw source URL export, raw replay command
 export, upstream body export, external skill activation, external agent
 activation, external harness execution, provider runtime launch, remote
 execution, profile writes, memory writes, and runtime action.
+
+## Current Digest 20260704T061309 Pass 3
+
+The `github-growth-20260704T061309.969283Z` pass-3 operator lane exposes the
+active skill-route-discovery window through
+`current_source_digest_pass3_operator_lane`. `zhengxi-views` is selected through
+its source-cited skill workflow profile and maps to a local test lane with both
+generic workflow validation and source-citation/advice-boundary validation.
+
+`reverse-flow-skill` is selected as Codex workflow-gate evidence under
+`p2-codex-workflow-gate-reverse-flow-skill`. It must pass
+`skill_route_discovery_first_before_workflow_gate` before any workflow or
+controller change is considered, and its install or runtime pressure remains
+diagnostic only.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-qwen-agentworld`. They do not inherit skill-route lanes,
+cannot open direct runtime or code_patch routes before local harness evaluation,
+and may only produce documentation, tests, or code_patch after bounded harness
+evidence exists.
+
+The packet is body-free and operator-visible: it exports proposal IDs, selected
+item IDs, route profiles, lane names, source hashes, and replay command hashes
+while denying raw source URL export, raw replay command export, upstream body
+export, external skill activation, external agent activation, external harness
+execution, provider runtime launch, remote execution, profile writes, memory
+writes, and runtime action.

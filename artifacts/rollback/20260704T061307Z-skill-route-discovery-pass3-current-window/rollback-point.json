@@ -1,0 +1,10 @@
+{
+  "created": "20260704T061307Z",
+  "original_branch": "codex/blackhole-evolve/20260704T061412.338460-run-a-bounded-skill-route-discovery-evaluation-f",
+  "head": "cafdaa05d018169d693531d12830d4a47333f659",
+  "rollback_ref": "refs/rollback/20260704T061307Z-skill-route-discovery-pass3-current-window",
+  "recovery_commands": [
+    "git reset --hard cafdaa05d018169d693531d12830d4a47333f659",
+    "git clean -fd"
+  ]
+}

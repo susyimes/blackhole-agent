@@ -21008,7 +21008,27 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
     current_175904_window = source_digest == "github-growth-20260629T175904.233445Z"
     current_191904_window = source_digest == "github-growth-20260629T191904.276263Z"
     current_203904_window = source_digest == "github-growth-20260629T203904.306145Z"
-    if current_203904_window:
+    current_061309_window = source_digest == "github-growth-20260704T061309.969283Z"
+    if current_061309_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("source_cited_domain_research",),
+                "selected_local_lane": "test",
+                "validation_target": "zhengxi_views_skill_workflow_maps_to_bounded_local_test_lane",
+            },
+            {
+                "proposal_id": "p2-codex-workflow-gate-reverse-flow-skill",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_requires_discovery_first_before_workflow_gate",
+            },
+        )
+    elif current_203904_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-compass-skills",
@@ -21167,6 +21187,7 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
                 "route_profiles": [
                     profile
                     for profile in (
+                        "codex_workflow_gate",
                         "source_cited_domain_research",
                         "generic_skill_workflow",
                         "game_frontend_workflow",
@@ -21209,7 +21230,9 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
-            "p3-agent-harness-eval-agentworld"
+            "p3-agent-harness-eval-qwen-agentworld"
+            if current_061309_window
+            else "p3-agent-harness-eval-agentworld"
             if current_203904_window
             else "p3-agent-harness-eval-general"
             if current_191904_window
@@ -21264,7 +21287,9 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
     blocked_proposal_ids = [str(row["proposal_id"]) for row in rows if row["status"] != "ready"]
     if adjacent_blockers:
         blocked_proposal_ids.append(
-            "p3-agent-harness-eval-agentworld"
+            "p3-agent-harness-eval-qwen-agentworld"
+            if current_061309_window
+            else "p3-agent-harness-eval-agentworld"
             if current_203904_window
             else "p3-agent-harness-eval-general"
             if current_191904_window
@@ -21286,6 +21311,12 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-codex-workflow-gate-reverse-flow-skill",
+            "p3-agent-harness-eval-qwen-agentworld",
+        ]
+        if current_061309_window
+        else [
             "p1-skill-route-discovery-compass-skills",
             "p2-skill-route-discovery-generic-skill-workflow",
             "p3-agent-harness-eval-agentworld",
@@ -21309,6 +21340,21 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
             "p3-threejs-game-skills-route",
         ],
         "anchoring_proposal_ids": [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-route-documentation",
+            "p3-agent-harness-eval-fixtures",
+            "p4-workflow-usecase-routing-guard",
+            "p5-proposal-interpreter-citation-test",
+            "p2-generic-skill-route-discovery",
+            "p3-agentworld-harness-eval",
+            "p4-fundamental-ava-agent-eval",
+            "p5-workflow-usecase-triage",
+            "p1-skill-route-discovery-zhengxi-views",
+            "p2-codex-workflow-gate-reverse-flow-skill",
+            "p3-agent-harness-eval-qwen-agentworld",
+        ]
+        if current_061309_window
+        else [
             "p1-skill-route-discovery-compass-skills",
             "p2-generic-skill-workflow-probe",
             "p3-agent-harness-eval-qwen-agentworld",
@@ -21370,6 +21416,7 @@ def _skill_route_discovery_current_source_digest_pass3_operator_lane(
         "observed_route_profiles": [
             profile
             for profile in (
+                "codex_workflow_gate",
                 "source_cited_domain_research",
                 "generic_skill_workflow",
                 "game_frontend_workflow",
