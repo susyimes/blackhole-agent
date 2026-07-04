@@ -9656,6 +9656,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260704T164435.298496Z",
         "github-growth-20260704T164435Z",
     }
+    current_20260704_180435_window = source_digest in {
+        "github-growth-20260704T180435.622778Z",
+        "github-growth-20260704T180435Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -12184,6 +12188,67 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
 
+    if current_20260704_180435_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-zhengxi-views",
+                "proposal_kind": "test",
+                "proposal_track": "source_cited_skill_workflow",
+                "route_profiles": ("source_cited_domain_research",),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": "source_cited_skill_workflow_boundary_check",
+                "validation_task": (
+                    "validate zhengxi-views as source-cited skill workflow evidence only, "
+                    "keeping provider, data-fetching, and financial-advice pressure as "
+                    "metadata before any local documentation, config, test, or code_patch lane"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "source_citation_boundary",
+                    "advice_disclaimer_boundary",
+                ),
+            },
+            {
+                "proposal_id": "p2-skill-route-reverse-flow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_workflow_gate_requires_skill_route_discovery_first",
+                "validation_task": (
+                    "validate reverse-flow-skill as a Codex workflow-gate route candidate "
+                    "that must prove skill_route_discovery_first while install, runtime, "
+                    "external activation, provider launch, and remote execution stay denied"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "validation_script",
+                    "codex_workflow_gate",
+                    "local_sandbox_boundary",
+                ),
+            },
+        )
+        active_proposal_ids = [
+            "p1-reverse-flow-skill-route-discovery",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-fixtures",
+            "p4-workflow-usecase-agent-eval",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-zhengxi-views",
+            "p2-skill-route-reverse-flow",
+            "p3-agent-harness-qwen-agentworld",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:820101274/reverse-flow-skill-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
+
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
     selected_lanes: list[str] = []
@@ -12243,6 +12308,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 or current_20260704_083309_window
                 or current_20260704_100436_window
                 or current_20260704_164435_window
+                or current_20260704_180435_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             source_layout_signals.extend(_string_list(candidate.get("source_layout_signals")))
@@ -12387,6 +12453,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260704_124434_window
             else "p3-agent-harness-eval-trending-agent-projects"
             if current_20260704_164435_window
+            else "p3-agent-harness-qwen-agentworld"
+            if current_20260704_180435_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
