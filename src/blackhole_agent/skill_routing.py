@@ -6085,13 +6085,71 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260704T110437.006867Z",
         "github-growth-20260704T110437Z",
     }
+    current_20260704_122435_window = source_digest in {
+        "github-growth-20260704T122435.341572Z",
+        "github-growth-20260704T122435Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260704_110437_window:
+    if current_20260704_122435_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-batch",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_route_discovery_batch_validation",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_workflow_batch_maps_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate reverse-flow-skill and zhengxi-views as skill/workflow "
+                    "route evidence; preserve only documentation, config, test, or "
+                    "code_patch lanes, selected item-id evidence refs, and no runtime "
+                    "or external activation authority"
+                ),
+            },
+            {
+                "proposal_id": "p2-codex-workflow-gate-probe",
+                "proposal_kind": "documentation",
+                "proposal_track": "codex_workflow_gate_discovery_first_note",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "codex_workflow_gate_requires_skill_route_discovery_first",
+                "validation_task": (
+                    "record that Codex-associated skill workflow signals enter "
+                    "skill_route_discovery first, then only documentation, config, "
+                    "test, or code_patch proposals after focused local validation"
+                ),
+            },
+            {
+                "proposal_id": "p5-trend-routing-policy-regression",
+                "proposal_kind": "config",
+                "proposal_track": "trend_routing_policy_regression",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "config",
+                "validation_target": "trend_route_policy_preserves_item_id_only_refs",
+                "validation_task": (
+                    "check that skill-route proposals cite selected evidence item IDs "
+                    "rather than repository URLs, and general agent projects remain "
+                    "behind agent_harness_eval_required before implementation lanes"
+                ),
+            },
+        )
+    elif current_20260704_110437_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-codex-workflow",
@@ -8223,6 +8281,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p3_agent_harness_eval_for_agentworld"
             elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
                 row["proposal_id"] = "p4_workflow_usecase_eval_note"
+        if current_20260704_122435_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p3-agent-harness-eval-fixtures"
+            elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
+                row["proposal_id"] = "p4-workflow-usecase-harness-eval"
         if current_20260704_013308_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
@@ -8332,6 +8396,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-batch",
+            "p2-codex-workflow-gate-probe",
+            "p3-agent-harness-eval-fixtures",
+            "p4-workflow-usecase-harness-eval",
+            "p5-trend-routing-policy-regression",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260704_122435_window
+        else
         [
             "p1-skill-route-discovery-codex-workflow",
             "p2-generic-skill-workflow-route-discovery",

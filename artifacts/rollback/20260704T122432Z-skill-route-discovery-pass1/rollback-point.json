@@ -1,0 +1,12 @@
+{
+  "created_at": "2026-07-04T12:24:32Z",
+  "original_branch": "codex/blackhole-evolve/20260704T122539.086280-create-a-bounded-local-validation-task-for-skill",
+  "original_head": "b4ec81f4dcb49e73e54fbc918bc4fc5ace50a490",
+  "rollback_ref": "refs/blackhole-rollback/20260704T122432Z-skill-route-discovery-pass1",
+  "source_digest": "github-growth-20260704T122435.341572Z",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T122539.086280-create-a-bounded-local-validation-task-for-skill",
+    "git reset --hard refs/blackhole-rollback/20260704T122432Z-skill-route-discovery-pass1"
+  ],
+  "status_porcelain": "## codex/blackhole-evolve/20260704T122539.086280-create-a-bounded-local-validation-task-for-skill"
+}

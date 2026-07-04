@@ -21082,6 +21082,167 @@ def test_skill_route_discovery_current_digest_20260703T153924_pass1_validation_l
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260704T122435_pass1_validation_batch():
+    evidence_items = [
+        {
+            "source_digest": "github-growth-20260704T122435.341572Z",
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "RepositoryTrend",
+            "name": "lingbol088-spec-reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow/SKILL.md, "
+                "local sandbox, CTF framing, scripts, reports, and verification gate language."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent", "codex", "skill", "workflow", "validation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+            "observed_paths": [
+                "skills/reverse-flow/SKILL.md",
+                "skills/reverse-flow/README.md",
+                "skills/reverse-flow/scripts/tool_audit.py",
+            ],
+            "metadata_files": ["agents/openai.yaml"],
+            "route_classification": {
+                "route_profiles": ["codex_workflow_gate"],
+                "source_layout_signals": ["skill_markdown", "skill_directory", "validation_script"],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260704T122435.341572Z",
+            "item_id": "trend:lyra81604/zhengxi-views-1",
+            "item_kind": "RepositoryTrend",
+            "name": "zhengxi-views",
+            "source_url": "https://github.com/lyra81604/zhengxi-views",
+            "summary": (
+                "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, "
+                "source-cited research workflow, traceable citations, and advice boundary language."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent", "skill", "workflow", "source-cited", "validation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+            "observed_paths": ["SKILL.md", "skill.yml", "references/method.md", "evals/source_citation_eval.py"],
+            "metadata_files": ["skill.yml"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+                "source_layout_signals": ["skill_markdown", "reference_directory", "test_file"],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260704T122435.341572Z",
+            "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+            "item_kind": "RepositoryTrend",
+            "name": "Qwen-AgentWorld",
+            "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+            "summary": "Language world models for general agents; no skill workflow route hint.",
+            "route_hints": [],
+            "topics": ["agent", "benchmark", "world-model"],
+        },
+        {
+            "source_digest": "github-growth-20260704T122435.341572Z",
+            "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "item_kind": "RepositoryTrend",
+            "name": "Fundamental-Ava",
+            "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+            "summary": "Autonomous, collaborative, and socially intelligent general agent project.",
+            "route_hints": [],
+            "topics": ["agent", "collaboration", "social"],
+        },
+    ]
+
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "current-digest-20260704T122435-pass1-validation-batch",
+            "source_digest": "github-growth-20260704T122435.341572Z",
+            "source_kind": "evidence_items",
+            "evidence_items": evidence_items,
+        },
+        source_path=Path("tests/fixtures/local_harness_eval/current_digest_20260704T122435_pass1.json"),
+    )
+    lane = output["current_digest_pass1_validation_lane"]
+    active_evidence_lane = output["active_pass1_evidence_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert output["lane_map"]["local_validation_required"] is True
+
+    assert lane["source_digest"] == "github-growth-20260704T122435.341572Z"
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-batch",
+        "p2-codex-workflow-gate-probe",
+        "p5-trend-routing-policy-regression",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-batch",
+        "p2-codex-workflow-gate-probe",
+        "p3-agent-harness-eval-fixtures",
+        "p4-workflow-usecase-harness-eval",
+        "p5-trend-routing-policy-regression",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert lane["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:lyra81604/zhengxi-views-1",
+    ]
+    assert lane["agent_harness_eval_required_count"] == 2
+
+    batch = rows["p1-skill-route-discovery-batch"]
+    assert batch["candidate_names"] == ["lingbol088-spec-reverse-flow-skill", "zhengxi-views"]
+    assert batch["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert batch["selected_local_lane"] == "test"
+    assert batch["skill_route_discovery_first"] is True
+    assert batch["runtime_action"] == "none"
+    assert batch["external_skill_activation_allowed"] is False
+
+    codex_gate = rows["p2-codex-workflow-gate-probe"]
+    assert codex_gate["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert codex_gate["route_profiles"] == ["codex_workflow_gate"]
+    assert codex_gate["selected_local_lane"] == "documentation"
+
+    policy = rows["p5-trend-routing-policy-regression"]
+    assert policy["candidate_names"] == ["lingbol088-spec-reverse-flow-skill", "zhengxi-views"]
+    assert policy["selected_local_lane"] == "config"
+
+    assert set(adjacent) == {
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    }
+    assert all(row["proposal_id"] == "p3-agent-harness-eval-fixtures" for row in adjacent.values())
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent.values())
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent.values())
+
+    assert active_evidence_lane["controller_surface"] == "skill_route_discovery_active_pass1_evidence_lane"
+    assert active_evidence_lane["source_digest"] == "github-growth-20260704T122435.341572Z"
+    assert active_evidence_lane["accepted_skill_route_count"] == 2
+    assert active_evidence_lane["adjacent_general_agent_count"] == 2
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260703T155923_pass2_validation_lane():
     fixture_path = (
         LOCAL_EVAL_FIXTURE_DIR
