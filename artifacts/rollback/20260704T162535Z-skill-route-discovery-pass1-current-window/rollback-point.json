@@ -1,0 +1,10 @@
+{
+  "created": "20260704T162535Z",
+  "original_branch": "codex/blackhole-evolve/20260704T162535.478837-add-or-extend-local-route-discovery-validation-f",
+  "original_head": "0b841adc46bbd79e1e708cedd2d192dafac88374",
+  "rollback_ref": "refs/rollback/20260704T162535Z-skill-route-discovery-pass1-current-window",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T162535.478837-add-or-extend-local-route-discovery-validation-f",
+    "git reset --hard refs/rollback/20260704T162535Z-skill-route-discovery-pass1-current-window"
+  ]
+}
