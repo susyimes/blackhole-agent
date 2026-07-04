@@ -24057,6 +24057,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260704T085309.981717Z",
         "github-growth-20260704T085309Z",
     }
+    current_20260704_102435_window = source_digest in {
+        "github-growth-20260704T102435.124198Z",
+        "github-growth-20260704T102435Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -24341,6 +24345,31 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 ),
             },
         )
+    if current_20260704_102435_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_skill_workflow_discovery_first",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "reverse_flow_codex_skill_workflow_starts_with_skill_route_discovery_first"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-lane-coverage",
+                "proposal_kind": "test",
+                "proposal_track": "generic_skill_workflow_lane_coverage",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "agent_skill_topic_match_routes_to_skill_route_discovery_without_runtime_action"
+                ),
+            },
+        )
     allowed_profiles = {
         profile for proposal in skill_proposals for profile in _string_list(proposal["route_profiles"])
     }
@@ -24392,7 +24421,11 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
             if current_20260704_033308_window:
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
-            if current_20260704_073310_window or current_20260704_085309_window:
+            if (
+                current_20260704_073310_window
+                or current_20260704_085309_window
+                or current_20260704_102435_window
+            ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
             uncertainty_reasons.extend(_string_list(candidate.get("uncertainty_reasons")))
@@ -24504,6 +24537,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260704_073310_window
             else "p3-agent-harness-eval-fixture"
             if current_20260704_085309_window
+            else "p3-agent-harness-eval-for-general-agent-projects"
+            if current_20260704_102435_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -24555,10 +24590,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         else "p3_general_agent_harness_eval_fixture"
         if current_20260704_033308_window
         else "p3-agent-harness-eval-for-general-agent-projects"
-        if current_20260704_073310_window
-        else "p3-agent-harness-eval-fixture"
-        if current_20260704_085309_window
-        else "p2-agent-harness-eval-general-agent-projects"
+            if current_20260704_073310_window
+            else "p3-agent-harness-eval-fixture"
+            if current_20260704_085309_window
+            else "p3-agent-harness-eval-for-general-agent-projects"
+            if current_20260704_102435_window
+            else "p2-agent-harness-eval-general-agent-projects"
     )
     pass3_operator_validation_packet = {
         "controller_surface": "skill_route_discovery_current_digest_pass3_operator_validation_packet",
@@ -24875,6 +24912,27 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:TianhangZhuzth/Fundamental-Ava-1",
             ]
             if current_20260704_085309_window
+            else [
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-route-doc",
+                "p3-agent-harness-eval-fixtures",
+                "p4-agent-workflow-eval-doc",
+                "p5-route-summary-metadata",
+                "p1-skill-route-discovery-zhengxi-views",
+                "p2-codex-skill-workflow-gate",
+                "p3-agent-harness-eval-general-projects",
+                "p4-workflow-usecase-harness-eval",
+                "p5-route-summary-metadata",
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-lane-coverage",
+                "p3-agent-harness-eval-for-general-agent-projects",
+                "p4-workflow-usecase-harness-eval",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:lyra81604/zhengxi-views-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260704_102435_window
             else []
         ),
         "skill_route_candidate_count": len(
