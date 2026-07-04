@@ -7113,6 +7113,30 @@ export, external skill activation, external agent activation, external harness
 execution, provider runtime launch, remote execution, profile writes, memory
 writes, and runtime action.
 
+## Current Digest 20260704T065309 Pass 1
+
+The `github-growth-20260704T065309.891207Z` pass-1 lane specializes
+`current_digest_pass1_validation_lane` to the active proposal IDs.
+`reverse-flow-skill` maps to
+`p1_skill_route_discovery_for_codex_reverse_flow` in the local test lane. It
+must preserve `skill_route_discovery_first` before any secondary Codex workflow,
+install, runtime, provider, external skill activation, or remote execution path
+is considered.
+
+`zhengxi-views` maps to `p2_generic_skill_workflow_route_probe` in the
+documentation lane. The local validation path records only selected evidence
+item IDs and body-free route metadata, then maps skill workflow evidence into
+documentation, config, test, or code_patch candidates after focused local
+validation.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under
+`p3_agent_harness_eval_for_agentworld`. They do not inherit
+`skill_route_discovery`, have no direct local lanes before bounded harness
+evaluation, and cannot become direct code_patch, runtime, provider, external
+harness, or remote-execution candidates from trend evidence alone. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260704T065309`.
+
 ## Current Digest 20260704T063309 Pass 4
 
 The `github-growth-20260704T063309.450936Z` final pass closes the active
