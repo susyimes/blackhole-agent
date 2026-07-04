@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260704T085309.981717Z`, pass 3 advances the
+active `skill-route-discovery` slice through
+`current_digest_pass3_route_to_validation_lane`. The lingbol088-spec
+`reverse-flow-skill` evidence is treated as Agent/Codex skill workflow
+evidence under `p1-skill-route-discovery-reverse-flow`: it selects the local
+test lane, preserves `skill_route_discovery_first`, and downgrades install or
+runtime pressure to diagnostics. The `zhengxi-views` evidence is interpreted
+under `p2-generic-skill-workflow-discovery-doc` as generic/source-cited skill
+workflow documentation, with local validation required before any config, test,
+or code_patch follow-up.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-fixture`. They do not inherit
+`skill_route_discovery`, have no direct lanes before local harness evaluation,
+and may only produce documentation, test, or code_patch follow-up after a
+bounded harness result exists. The pass-3 operator packet exports body-free
+proposal IDs, hashes, lane names, and denial booleans while denying runtime
+action, external skill activation, external harness execution, provider launch,
+remote execution, and kernel restart. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260704T085309`.
+
 For source digest `github-growth-20260704T083309.688268Z`, pass 2 advances the
 active `skill-route-discovery` slice through
 `current_digest_pass2_local_validation_lane`. The lingbol088-spec
