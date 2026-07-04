@@ -1,0 +1,162 @@
+{
+  "name": "skill-route-discovery-current-digest-20260704T015308-pass3-route-to-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-current-digest-20260704T015308-pass3-route-to-validation-lane",
+    "source_kind": "evidence_items",
+    "source_digest": "github-growth-20260704T015308.851001Z",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260704T015308.851001Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "RepositoryTrend",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "summary": "Codex and AI Agent reverse-flow skill repository with SKILL.md, scripts, references, local sandbox workflow framing, install examples, and no local validation result.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent", "skill", "workflow", "reverse-engineering", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "observed_paths": [
+          "skills/reverse-flow/SKILL.md",
+          "skills/reverse-flow/README.md",
+          "skills/reverse-flow/agents/openai.yaml",
+          "skills/reverse-flow/references/",
+          "skills/reverse-flow/scripts/create_case.py",
+          "skills/reverse-flow/scripts/tool_audit.py"
+        ],
+        "metadata_files": ["skills/reverse-flow/agents/openai.yaml"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": [
+            "skill_directory",
+            "skill_markdown",
+            "reference_directory",
+            "validation_script"
+          ],
+          "source_metadata_signals": [
+            "agent_metadata",
+            "local_sandbox_context",
+            "workflow_gate"
+          ]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260704T015308.851001Z",
+        "item_id": "trend:lyra81604/zhengxi-views-1",
+        "item_kind": "RepositoryTrend",
+        "name": "zhengxi-views",
+        "source_url": "https://github.com/lyra81604/zhengxi-views",
+        "summary": "Public Agent Skill repository with SKILL.md, skill.yml, references, evals, scripts, source-cited research workflow language, and explicit research-only non-investment-advice boundary.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["python", "agent", "skill", "workflow", "source-cited", "validation"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+        "observed_paths": [
+          "SKILL.md",
+          "skill.yml",
+          "references/method.md",
+          "evals/",
+          "scripts/",
+          "requirements.txt"
+        ],
+        "metadata_files": ["skill.yml"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": [
+            "skill_markdown",
+            "skill_manifest",
+            "reference_directory",
+            "validation_script",
+            "test_file"
+          ],
+          "source_metadata_signals": [
+            "skill_manifest",
+            "source_citation_boundary",
+            "advice_disclaimer_boundary"
+          ]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260704T015308.851001Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "summary": "Language world model and AgentWorldBench repository for general agents across MCP, Search, Terminal, SWE, Android, Web, and OS domains; no skill workflow route hint or local harness result.",
+        "route_hints": [],
+        "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260704T015308.851001Z",
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "summary": "Autonomous, collaborative, and socially intelligent agent project without skill workflow route hint or local harness result.",
+        "route_hints": [],
+        "topics": ["general-agent", "simulation", "autonomous-agent", "benchmark"],
+        "suggested_lanes": []
+      },
+      {
+        "source_digest": "github-growth-20260704T015308.851001Z",
+        "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "item_kind": "RepositoryTrend",
+        "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+        "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+        "summary": "Workflow-themed usecase collection without skill_route_discovery hint, SKILL.md evidence, or local agent harness result.",
+        "route_hints": [],
+        "topics": ["workflow", "seedance", "blender", "usecases"],
+        "suggested_lanes": ["documentation"]
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "current_digest_pass3_route_to_validation_lane.controller_surface", "equals": "skill_route_discovery_current_digest_pass3_route_to_validation_lane"},
+    {"path": "current_digest_pass3_route_to_validation_lane.status", "equals": "ready"},
+    {"path": "current_digest_pass3_route_to_validation_lane.source_digest", "equals": "github-growth-20260704T015308.851001Z"},
+    {
+      "path": "current_digest_pass3_route_to_validation_lane.proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-generic",
+        "p3-agent-trend-route-policy",
+        "p2-agent-harness-eval-general-agent-projects"
+      ]
+    },
+    {"path": "current_digest_pass3_route_to_validation_lane.selected_skill_route_lanes", "equals": ["documentation", "test"]},
+    {"path": "current_digest_pass3_route_to_validation_lane.agent_harness_eval_required_count", "equals": 3},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.candidate_names", "equals": ["lingbol088-spec-reverse-flow-skill", "zhengxi-views"]},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.route_profiles", "equals": ["generic_skill_workflow", "source_cited_domain_research"]},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.route_probe_decisions", "equals": ["skill_route_discovery_first"]},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.skill_route_discovery_first", "equals": true},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.allowed_local_lanes", "equals": ["documentation", "config", "test", "code_patch"]},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.0.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.rows.1.selected_local_lane", "equals": "documentation"},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.0.name", "equals": "Qwen-AgentWorld"},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.0.evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.0.skill_route_discovery_inherited", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.0.direct_runtime_route_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.0.direct_code_patch_route_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.1.name", "equals": "Fundamental-Ava"},
+    {"path": "current_digest_pass3_route_to_validation_lane.adjacent_general_agent_rows.1.evaluation_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass3_route_to_validation_lane.operator_next_action", "equals": "replay_current_digest_pass3_route_to_validation_lane_then_continue_to_pass4"},
+    {"path": "current_digest_pass3_route_to_validation_lane.runtime_action", "equals": "none"},
+    {"path": "current_digest_pass3_route_to_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.external_agent_activation_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.raw_source_url_exported", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.raw_evidence_urls_exported", "equals": false},
+    {"path": "current_digest_pass3_route_to_validation_lane.raw_upstream_body_exported", "equals": false}
+  ]
+}
