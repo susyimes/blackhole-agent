@@ -6787,3 +6787,26 @@ profiles, lane names, source hashes, and replay command hashes. It denies raw
 source URL export, upstream body export, external skill activation, external
 agent activation, external harness execution, provider runtime launch, remote
 execution, profile writes, memory writes, and runtime action.
+
+## Current Digest 20260704T000924 Pass 1
+
+The `github-growth-20260704T000924.757419Z` pass-1 lane exposes the current
+skill-route-discovery window through `current_digest_pass1_validation_lane`.
+`proposal-skill-route-discovery-001` groups reverse-flow-skill and zhengxi-views
+as explicit skill workflow evidence. The selected local lane is test, with
+documentation, config, test, and code_patch as the only allowed local lanes.
+
+`proposal-route-hint-policy-fixture-004` records the same evidence as a config
+policy fixture so route hints remain bounded before activation. Qwen-AgentWorld
+and Fundamental-Ava stay under `proposal-agent-harness-eval-002` as adjacent
+`agent_harness_eval_required` rows. The workflow-only Seedance usecase item
+stays under `proposal-workflow-usecase-classifier-003` and must pass local agent
+harness evaluation before any documentation, test, or code_patch follow-up lane
+can be selected.
+
+The operator validation lane is replayable but not an activation route. It
+exports proposal IDs, selected item IDs, route profiles, lane names, source
+hashes, and replay command hashes while denying raw source URLs, raw replay
+commands, upstream bodies, external skill activation, external agent activation,
+external harness execution, provider runtime launch, remote execution, profile
+writes, memory writes, and runtime action.
