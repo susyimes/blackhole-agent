@@ -15421,6 +15421,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260704T035308.799236Z",
         "github-growth-20260704T035308Z",
     }
+    current_051308_20260704_window = source_digest in {
+        "github-growth-20260704T051308.904452Z",
+        "github-growth-20260704T051308Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -15521,6 +15525,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_011308_20260704_window
         or current_023308_20260704_window
         or current_035308_20260704_window
+        or current_051308_20260704_window
     ):
         return _skill_route_discovery_current_digest_20260703T135922_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -28092,7 +28097,6 @@ def _skill_route_discovery_current_digest_20260703T021735_pass4_completion_hando
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
-
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass4_completion_handoff",
         "status": "ready" if ready else "blocked",
@@ -29295,9 +29299,13 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         "github-growth-20260704T035308.799236Z",
         "github-growth-20260704T035308Z",
     }
+    current_051308_window = source_digest in {
+        "github-growth-20260704T051308.904452Z",
+        "github-growth-20260704T051308Z",
+    }
     reverse_flow_proposal_id = (
         "p1-skill-route-discovery-codex-workflow"
-        if current_035308_window
+        if current_035308_window or current_051308_window
         else "p1-skill-route-discovery-codex-workflow"
         if current_023308_window
         else "p2-skill-route-discovery-reverse-flow"
@@ -29318,7 +29326,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         else "p1_reverse_flow_skill_route_discovery"
     )
     skill_workflow_matrix_proposal_id = (
-        "p2-generic-skill-route-discovery-doc"
+        "p2-generic-skill-workflow-probe"
+        if current_051308_window
+        else "p2-generic-skill-route-discovery-doc"
         if current_035308_window
         else "p2-generic-skill-workflow-route-doc"
         if current_023308_window
@@ -29343,7 +29353,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         else "p2_skill_workflow_candidate_matrix"
     )
     agent_harness_proposal_id = (
-        "p3-agent-harness-eval-fixtures"
+        "p3-agent-harness-eval-qwen-agentworld"
+        if current_051308_window
+        else "p3-agent-harness-eval-fixtures"
         if current_035308_window
         else "p3-agent-harness-eval-fixtures"
         if current_023308_window
@@ -29375,6 +29387,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                 "codex_workflow_skill_route_discovery_completion"
                 if current_023308_window
                 or current_035308_window
+                or current_051308_window
                 else "reverse_flow_codex_workflow_gate_completion"
                 if current_011308_window
                 else "reverse_flow_skill_route_discovery_final_validation"
@@ -29400,6 +29413,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                     current_011308_window
                     or current_023308_window
                     or current_035308_window
+                    or current_051308_window
                     or current_215923_window
                     or current_234924_window
                 )
@@ -29422,7 +29436,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "validation_target": "reverse_flow_skill_signals_classify_before_runtime_workflow",
             "completion_requirement": (
                 "reverse_flow_codex_workflow_repository_maps_only_to_bounded_local_validation_lanes"
-                if current_023308_window or current_035308_window
+                if current_023308_window or current_035308_window or current_051308_window
                 else "reverse_flow_codex_workflow_gate_must_remain_discovery_first_and_local_test_lane"
                 if current_011308_window
                 else "reverse_flow_codex_skill_signal_requires_discovery_validation_before_routing_change"
@@ -29443,7 +29457,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "proposal_kind": "documentation",
             "proposal_track": (
                 "generic_skill_workflow_bounded_route_documentation"
-                if current_023308_window or current_035308_window
+                if current_023308_window or current_035308_window or current_051308_window
                 else "zhengxi_views_source_cited_skill_workflow_validation"
                 if current_011308_window
                 else "zhengxi_views_generic_skill_workflow_documentation_validation"
@@ -29463,7 +29477,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "selected_local_lane": "documentation",
             "validation_target": (
                 "generic_skill_workflow_interpretation_documents_bounded_local_lanes"
-                if current_023308_window or current_035308_window
+                if current_023308_window or current_035308_window or current_051308_window
                 else "zhengxi_views_source_cited_skill_workflow_routes_to_bounded_local_lane"
                 if current_011308_window
                 else "zhengxi_views_generic_skill_workflow_documents_bounded_local_lane"
@@ -29488,6 +29502,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                 if current_191923_window
                 else "current_digest_20260704T035308_pass4_completion"
                 if current_035308_window
+                else "current_digest_20260704T051308_pass4_completion"
+                if current_051308_window
                 else "current_digest_20260704T023308_pass4_completion"
                 if current_023308_window
                 else "current_digest_20260704T011308_pass4_completion"
@@ -29643,6 +29659,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                     if current_191923_window
                     else "current_digest_20260704T035308"
                     if current_035308_window
+                    else "current_digest_20260704T051308"
+                    if current_051308_window
                     else "current_digest_20260704T023308"
                     if current_023308_window
                     else "current_digest_20260704T011308"
@@ -29673,6 +29691,42 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "keep_external_activation_denied",
         ],
         "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    operator_recovery_workflow = {
+        "controller_surface": "skill_route_discovery_pass4_operator_recovery_workflow",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "pass4_skill_route_replay_and_recovery_ready_for_supervisor"
+            if ready
+            else "repair_pass4_skill_route_rows_before_recovery_handoff"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 4,
+        "total_passes": 4,
+        "capability_slice_complete": ready,
+        "ordered_recovery_steps": [
+            "confirm_rollback_ref_and_artifact_exist",
+            "rerun_focused_skill_route_validation",
+            "inspect_operator_completion_packet",
+            "keep_general_agent_projects_in_agent_harness_eval",
+            "leave_restart_promotion_and_activation_to_supervisor",
+        ],
+        "replay_command_hashes": list(operator_completion_packet["replay_command_hashes"]),
+        "rollback_ref_required": True,
+        "rollback_artifact_required": True,
+        "focused_local_validation_required": True,
+        "supervisor_activation_scope": "record_only",
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,
@@ -29761,6 +29815,25 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                     "trend:TianhangZhuzth/Fundamental-Ava-1",
                 ]
                 if current_023308_window
+                else [
+                    "p1-skill-route-discovery-for-codex-workflows",
+                    "p2-agent-harness-eval-gate-for-general-agent-projects",
+                    "p3-workflow-usecase-evaluation-lane",
+                    "p4-route-classification-regression-fixtures",
+                    "p5-skill-discovery-to-doc-config-codepatch-contract",
+                    "p1-skill-route-discovery-codex-workflow",
+                    "p2-generic-skill-workflow-discovery",
+                    "p3-agent-harness-eval-qwen-agentworld",
+                    "p4-route-classification-regression-fixtures",
+                    "p5-workflow-usecase-evaluation",
+                    "proposal-skill-route-discovery-zhengxi-views",
+                    "proposal-codex-skill-workflow-gate",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:lyra81604/zhengxi-views-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                ]
+                if current_051308_window
                 else [
                     "p1-skill-route-discovery-reverse-flow",
                     "p2-generic-skill-workflow-classifier-fixture",
@@ -29968,6 +30041,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "remote_execution_allowed": False,
         },
         "operator_completion_packet": operator_completion_packet,
+        "operator_recovery_workflow": operator_recovery_workflow,
         "activation_handoff_contract": {
             "controller_surface": "skill_route_discovery_pass4_activation_handoff_contract",
             "status": "ready" if ready else "blocked",
