@@ -6089,13 +6089,82 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260704T122435.341572Z",
         "github-growth-20260704T122435Z",
     }
+    current_20260704_134434_window = source_digest in {
+        "github-growth-20260704T134434.634232Z",
+        "github-growth-20260704T134434Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260704_122435_window:
+    if current_20260704_134434_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-fixture",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_fixture_for_current_window",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_related_trend_metadata_maps_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "feed reverse-flow-skill and zhengxi-views body-free trend metadata "
+                    "through skill_route_discovery; preserve only documentation, config, "
+                    "test, or code_patch as local lanes and keep install, runtime, "
+                    "provider, remote execution, and external activation denied"
+                ),
+            },
+            {
+                "proposal_id": "p2-codex-workflow-gate-documentation",
+                "proposal_kind": "documentation",
+                "proposal_track": "codex_workflow_gate_discovery_first_documentation",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "mixed_skill_and_codex_workflow_signals_require_discovery_first",
+                "validation_task": (
+                    "record that mixed skill_workflow_probe and codex_workflow_gate "
+                    "signals must be interpreted as skill_route_discovery_first before "
+                    "any workflow, config, test, or code_patch proposal can be promoted"
+                ),
+            },
+            {
+                "proposal_id": "p4-route-classification-matrix",
+                "proposal_kind": "config",
+                "proposal_track": "route_classification_matrix_for_skill_and_agent_boundary",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "config",
+                "validation_target": "route_classification_matrix_keeps_skill_and_agent_lanes_separate",
+                "validation_task": (
+                    "make the current pass replayable by exposing proposal IDs, selected "
+                    "item IDs, route profiles, bounded lane names, and harness-eval "
+                    "boundaries without raw upstream bodies or activation authority"
+                ),
+            },
+        )
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-fixture",
+            "p2-codex-workflow-gate-documentation",
+            "p3-agent-harness-eval-smoke-tests",
+            "p4-route-classification-matrix",
+            "p5-routing-preflight-config-check",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+        ]
+    elif current_20260704_122435_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-batch",
@@ -8287,6 +8356,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p3-agent-harness-eval-fixtures"
             elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
                 row["proposal_id"] = "p4-workflow-usecase-harness-eval"
+        if current_20260704_134434_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p3-agent-harness-eval-smoke-tests"
+            elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
+                row["proposal_id"] = "p3-agent-harness-eval-smoke-tests"
         if current_20260704_013308_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
@@ -8396,6 +8471,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-fixture",
+            "p2-codex-workflow-gate-documentation",
+            "p3-agent-harness-eval-smoke-tests",
+            "p4-route-classification-matrix",
+            "p5-routing-preflight-config-check",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+        ]
+        if current_20260704_134434_window
+        else
         [
             "p1-skill-route-discovery-batch",
             "p2-codex-workflow-gate-probe",
