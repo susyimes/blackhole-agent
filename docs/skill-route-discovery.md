@@ -5,6 +5,33 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260704T192436.767658Z`, pass 2 exposes a
+normalized `route_activation_contract` inside
+`current_digest_pass2_local_validation_lane`. The contract is operator-visible
+and checks three preactivation facts together: skill-route rows are bounded to
+documentation, config, test, or code_patch; Codex workflow-gate rows prove
+`skill_route_discovery_first`; and adjacent general-agent projects remain in
+`agent_harness_eval_required`.
+
+`lingbol088-spec/reverse-flow-skill` maps to
+`p2-codex-skill-workflow-gate` in the local test lane because the public
+repository shape exposes a Codex/AI Agent skill workflow with a
+`skills/reverse-flow` package, `SKILL.md`, local sandbox and CTF framing,
+scripts, install examples, and runtime pressure. That pressure is diagnostic
+only: install, execution, external skill activation, provider launch, remote
+execution, raw source URL export, replay-command export, and upstream body
+export stay denied.
+
+`zhengxi-views` maps to `p1-skill-route-discovery-fixtures` in the local test
+lane as source-cited Agent Skill evidence with `SKILL.md`, `skill.yml`,
+references, evals, scripts, automation/MCP pressure, and an advice boundary.
+`Qwen-AgentWorld` remains adjacent under
+`p3-agent-harness-eval-baseline`; it does not inherit `skill_route_discovery`,
+direct runtime routing, direct code_patch authority, external harness
+execution, provider launch, or remote execution before bounded local harness
+evaluation exists. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k "current_run_pass2_local_validation_lane or 20260704T192436"`.
+
 For source digest `github-growth-20260704T190435.517226Z`, pass 1 exposes the
 active `skill-route-discovery` window through
 `current_run_pass1_activation_readiness`. `lingbol088-spec/reverse-flow-skill`

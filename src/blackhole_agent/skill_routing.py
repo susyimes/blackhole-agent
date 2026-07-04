@@ -9704,6 +9704,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260704T180435.622778Z",
         "github-growth-20260704T180435Z",
     }
+    current_20260704_192436_window = source_digest in {
+        "github-growth-20260704T192436.767658Z",
+        "github-growth-20260704T192436Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -12232,10 +12236,14 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
 
-    if current_20260704_180435_window:
+    if current_20260704_180435_window or current_20260704_192436_window:
         specs = (
             {
-                "proposal_id": "p1-skill-route-zhengxi-views",
+                "proposal_id": (
+                    "p1-skill-route-zhengxi-views"
+                    if current_20260704_180435_window
+                    else "p1-skill-route-discovery-fixtures"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "source_cited_skill_workflow",
                 "route_profiles": ("source_cited_domain_research",),
@@ -12257,7 +12265,11 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 ),
             },
             {
-                "proposal_id": "p2-skill-route-reverse-flow",
+                "proposal_id": (
+                    "p2-skill-route-reverse-flow"
+                    if current_20260704_180435_window
+                    else "p2-codex-skill-workflow-gate"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "codex_workflow_gate",
                 "route_profiles": ("codex_workflow_gate",),
@@ -12278,19 +12290,36 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 ),
             },
         )
-        active_proposal_ids = [
-            "p1-reverse-flow-skill-route-discovery",
-            "p2-generic-skill-workflow-discovery",
-            "p3-agent-harness-eval-fixtures",
-            "p4-workflow-usecase-agent-eval",
-            "trend:lyra81604/zhengxi-views-1",
-            "p1-skill-route-zhengxi-views",
-            "p2-skill-route-reverse-flow",
-            "p3-agent-harness-qwen-agentworld",
-            "trend:QwenLM/Qwen-AgentWorld-1",
-            "trend:820101274/reverse-flow-skill-1",
-            "trend:lingbol088-spec/reverse-flow-skill-1",
-        ]
+        active_proposal_ids = (
+            [
+                "p1-reverse-flow-skill-route-discovery",
+                "p2-generic-skill-workflow-discovery",
+                "p3-agent-harness-eval-fixtures",
+                "p4-workflow-usecase-agent-eval",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-zhengxi-views",
+                "p2-skill-route-reverse-flow",
+                "p3-agent-harness-qwen-agentworld",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:820101274/reverse-flow-skill-1",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+            ]
+            if current_20260704_180435_window
+            else [
+                "proposal_skill_route_discovery_codex_reverse_flow",
+                "proposal_skill_route_discovery_zhengxi_views",
+                "proposal_agent_harness_eval_qwen_agentworld",
+                "proposal_agent_harness_eval_general_project_cluster",
+                "trend:lyra81604/zhengxi-views-1",
+                "p1-skill-route-discovery-fixtures",
+                "p2-codex-skill-workflow-gate",
+                "p3-agent-harness-eval-baseline",
+                "p4-workflow-usecase-evaluation-doc",
+                "p5-route-classification-regression-suite",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+            ]
+        )
         anchoring_proposal_ids = list(active_proposal_ids)
 
     rows: list[dict[str, Any]] = []
@@ -12353,6 +12382,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 or current_20260704_100436_window
                 or current_20260704_164435_window
                 or current_20260704_180435_window
+                or current_20260704_192436_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             source_layout_signals.extend(_string_list(candidate.get("source_layout_signals")))
@@ -12497,6 +12527,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260704_124434_window
             else "p3-agent-harness-eval-trending-agent-projects"
             if current_20260704_164435_window
+            else "p3-agent-harness-eval-baseline"
+            if current_20260704_192436_window
             else "p3-agent-harness-qwen-agentworld"
             if current_20260704_180435_window
             else "p2_agent_harness_eval_trending_python_agents"
@@ -12706,6 +12738,11 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         source_digest=source_digest,
     )
     activation_readiness = _skill_route_discovery_current_digest_pass2_activation_readiness(
+        rows,
+        adjacent_rows,
+        source_digest=source_digest,
+    )
+    route_activation_contract = _skill_route_discovery_pass2_route_activation_contract(
         rows,
         adjacent_rows,
         source_digest=source_digest,
@@ -13138,6 +13175,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "adjacent_agent_recovery_contract": adjacent_agent_recovery_contract,
         "acceptance_surface": acceptance_surface,
         "activation_readiness": activation_readiness,
+        "route_activation_contract": route_activation_contract,
         "supervisor_handoff": supervisor_handoff,
         "preactivation_checklist": preactivation_checklist,
     }
@@ -13241,6 +13279,91 @@ def _skill_route_discovery_current_digest_pass2_activation_readiness(
             for row in adjacent
         ],
         "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_pass2_route_activation_contract(
+    rows: Sequence[Mapping[str, Any]],
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Compact pass-2 route contract for operator preactivation checks."""
+
+    skill_rows = [
+        row
+        for row in rows
+        if isinstance(row, Mapping)
+        and str(row.get("route_hint") or "") == SKILL_ROUTE_DISCOVERY_HINT
+    ]
+    adjacent = [row for row in adjacent_rows if isinstance(row, Mapping)]
+    codex_rows = [
+        row
+        for row in skill_rows
+        if "codex_workflow_gate" in set(_string_list(row.get("route_profiles")))
+    ]
+    skill_lanes_bounded = bool(skill_rows) and all(
+        str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        and set(_string_list(row.get("allowed_local_lanes"))) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        and row.get("local_validation_required") is True
+        for row in skill_rows
+    )
+    codex_gate_bounded = all(
+        row.get("skill_route_discovery_first") is True
+        and "skill_route_discovery_first" in set(_string_list(row.get("route_probe_decisions")))
+        for row in codex_rows
+    )
+    adjacent_harness_holdback = all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("direct_runtime_route_allowed") is False
+        and row.get("direct_code_patch_route_allowed") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        and row.get("remote_execution_allowed") is False
+        for row in adjacent
+    )
+    side_effects_denied = all(
+        str(row.get("runtime_action") or "") == "none"
+        and row.get("external_skill_activation_allowed") is not True
+        and row.get("external_agent_activation_allowed") is not True
+        and row.get("external_harness_execution_allowed") is not True
+        and row.get("provider_runtime_launch_allowed") is not True
+        and row.get("remote_execution_allowed") is not True
+        and row.get("raw_source_url_exported") is not True
+        and row.get("raw_evidence_urls_exported") is not True
+        and row.get("raw_target_paths_exported") is not True
+        and row.get("raw_upstream_body_exported") is not True
+        for row in [*skill_rows, *adjacent]
+    )
+    ready = skill_lanes_bounded and codex_gate_bounded and adjacent_harness_holdback and side_effects_denied
+
+    return {
+        "controller_surface": "skill_route_discovery_pass2_route_activation_contract",
+        "status": "ready" if ready else "blocked",
+        "source_digest": source_digest,
+        "skill_route_candidate_count": len(skill_rows),
+        "codex_workflow_gate_count": len(codex_rows),
+        "adjacent_agent_harness_eval_count": len(adjacent),
+        "skill_route_discovery_first_required": bool(codex_rows),
+        "skill_route_discovery_first_satisfied": codex_gate_bounded,
+        "skill_lanes_bounded": skill_lanes_bounded,
+        "adjacent_harness_holdback": adjacent_harness_holdback,
+        "side_effects_denied": side_effects_denied,
+        "allowed_skill_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "adjacent_evaluation_lane": "agent_harness_eval_required" if adjacent else "",
+        "allowed_adjacent_lanes_after_eval": ["documentation", "test", "code_patch"],
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
         "external_agent_activation_allowed": False,
@@ -18975,6 +19098,11 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
 
     blocked_proposal_ids = [str(row["proposal_id"]) for row in rows if row["status"] != "ready"]
     ready = bool(rows) and not blocked_proposal_ids and bool(adjacent_rows)
+    route_activation_contract = _skill_route_discovery_pass2_route_activation_contract(
+        rows,
+        adjacent_rows,
+        source_digest=source_digest or "github-growth-20260628T020729.523438Z",
+    )
     return {
         "controller_surface": "skill_route_discovery_current_run_pass2_local_validation_lane",
         "status": "ready" if ready else "blocked",
@@ -19034,6 +19162,7 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "route_activation_contract": route_activation_contract,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
     }

@@ -5345,6 +5345,15 @@ def test_skill_route_discovery_current_run_pass2_local_validation_lane_routes_cu
     assert lane["raw_evidence_urls_exported"] is False
     assert lane["raw_target_paths_exported"] is False
     assert lane["raw_upstream_body_exported"] is False
+    contract = lane["route_activation_contract"]
+    assert contract["controller_surface"] == "skill_route_discovery_pass2_route_activation_contract"
+    assert contract["status"] == "ready"
+    assert contract["skill_route_candidate_count"] == 3
+    assert contract["codex_workflow_gate_count"] == 0
+    assert contract["adjacent_agent_harness_eval_count"] == 1
+    assert contract["skill_lanes_bounded"] is True
+    assert contract["adjacent_harness_holdback"] is True
+    assert contract["side_effects_denied"] is True
 
     rows = {row["proposal_id"]: row for row in lane["rows"]}
     assert rows["proposal-skill-route-discovery-zxv-001"]["candidate_names"] == ["zhengxi-views"]
@@ -9098,6 +9107,105 @@ def test_skill_route_discovery_current_digest_20260704T180435_pass2_validates_ac
     assert adjacent["runtime_action"] == "none"
     assert adjacent["external_harness_execution_allowed"] is False
 
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["rows"]],
+        sort_keys=True,
+    )
+
+
+def test_skill_route_discovery_current_digest_20260704T192436_pass2_validates_skill_route_contract():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260704T192436_pass2_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass2_local_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    contract = lane["route_activation_contract"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260704T192436.767658Z"
+    assert registry["registry_status"] == "classification_only"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+    assert registry["enabled_candidate_count"] == 0
+    assert registry["executable_skill_count"] == 0
+
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass2_local_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-fixtures",
+        "p2-codex-skill-workflow-gate",
+    ]
+    assert lane["active_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert lane["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert lane["selected_local_lanes"] == ["test"]
+    assert lane["agent_harness_eval_required_count"] == 1
+
+    zhengxi = rows["p1-skill-route-discovery-fixtures"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == ["source_cited_domain_research"]
+    assert zhengxi["selected_local_lane"] == "test"
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["selected_evidence_item_ids"] == ["trend:lyra81604/zhengxi-views-1"]
+    assert "provider_runtime" in zhengxi["downgraded_unsupported_lanes"]
+    assert zhengxi["provider_runtime_launch_allowed"] is False
+
+    reverse_flow = rows["p2-codex-skill-workflow-gate"]
+    assert reverse_flow["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["selected_evidence_item_ids"] == ["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["downgraded_unsupported_lanes"] == ["install", "runtime_execution"]
+    assert reverse_flow["runtime_action"] == "none"
+    assert reverse_flow["external_skill_activation_allowed"] is False
+    assert reverse_flow["provider_runtime_launch_allowed"] is False
+    assert reverse_flow["remote_execution_allowed"] is False
+
+    assert set(adjacent) == {"Qwen-AgentWorld"}
+    assert adjacent["Qwen-AgentWorld"]["proposal_id"] == "p3-agent-harness-eval-baseline"
+    assert adjacent["Qwen-AgentWorld"]["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["Qwen-AgentWorld"]["skill_route_discovery_inherited"] is False
+    assert adjacent["Qwen-AgentWorld"]["direct_runtime_route_allowed"] is False
+    assert adjacent["Qwen-AgentWorld"]["direct_code_patch_route_allowed"] is False
+    assert adjacent["Qwen-AgentWorld"]["external_harness_execution_allowed"] is False
+    assert adjacent["Qwen-AgentWorld"]["provider_runtime_launch_allowed"] is False
+    assert adjacent["Qwen-AgentWorld"]["remote_execution_allowed"] is False
+
+    assert contract["controller_surface"] == "skill_route_discovery_pass2_route_activation_contract"
+    assert contract["status"] == "ready"
+    assert contract["source_digest"] == "github-growth-20260704T192436.767658Z"
+    assert contract["skill_route_candidate_count"] == 2
+    assert contract["codex_workflow_gate_count"] == 1
+    assert contract["adjacent_agent_harness_eval_count"] == 1
+    assert contract["skill_route_discovery_first_required"] is True
+    assert contract["skill_route_discovery_first_satisfied"] is True
+    assert contract["skill_lanes_bounded"] is True
+    assert contract["adjacent_harness_holdback"] is True
+    assert contract["side_effects_denied"] is True
+    assert contract["external_skill_activation_allowed"] is False
+    assert contract["external_agent_activation_allowed"] is False
+    assert contract["external_harness_execution_allowed"] is False
+    assert contract["provider_runtime_launch_allowed"] is False
+    assert contract["remote_execution_allowed"] is False
+
+    assert lane["activation_readiness"]["status"] == "ready"
+    assert lane["acceptance_surface"]["status"] == "ready"
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in json.dumps(
