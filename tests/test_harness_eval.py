@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 164
-    assert payload["pass_count"] == 163
+    assert payload["fixture_count"] == 165
+    assert payload["pass_count"] == 164
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -347,6 +347,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["skill-route-discovery-lane-pass4-closure"]["passed"] is True
     assert results["skill-route-discovery-current-pass4-local-probe"]["passed"] is True
     assert results["skill-route-discovery-lane-pass1-current-action"]["passed"] is True
+    assert results["skill-route-discovery-current-digest-20260704T190435-pass1-current-window"]["passed"] is True
     assert results["skill-route-discovery-lane-current-window-pass1"]["passed"] is True
     assert results["skill-route-discovery-lane-20260627-pass1-window"]["passed"] is True
     assert results["skill-route-discovery-current-pass-skill-shapes"]["passed"] is True
@@ -17474,6 +17475,81 @@ def test_skill_route_discovery_current_run_pass1_activation_readiness_is_operato
     assert panel["provider_runtime_launch_allowed"] is False
     assert panel["raw_evidence_urls_exported"] is False
     assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260704T190435_pass1_current_window():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260704T190435_pass1_current_window.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    panel = output["current_run_pass1_activation_readiness"]
+    rows = {row["proposal_id"]: row for row in panel["rows"]}
+    adjacent = panel["adjacent_general_agent_rows"][0]
+    serialized = json.dumps(panel, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 1
+    assert panel["source_digest"] == "github-growth-20260704T190435.517226Z"
+    assert panel["proposal_ids"] == [
+        "proposal_skill_route_discovery_codex_reverse_flow",
+        "proposal_skill_route_discovery_zhengxi_views",
+    ]
+    assert panel["anchoring_proposal_ids"] == [
+        "proposal_skill_route_discovery_codex_reverse_flow",
+        "proposal_skill_route_discovery_zhengxi_views",
+        "proposal_agent_harness_eval_qwen_agentworld",
+        "proposal_agent_harness_eval_general_project_cluster",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+    ]
+    assert panel["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "source_cited_domain_research",
+    ]
+    assert panel["selected_local_lanes"] == ["documentation", "test"]
+
+    reverse_flow = rows["proposal_skill_route_discovery_codex_reverse_flow"]
+    assert reverse_flow["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["runtime_action"] == "none"
+    assert reverse_flow["external_skill_activation_allowed"] is False
+
+    zhengxi = rows["proposal_skill_route_discovery_zhengxi_views"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["route_profiles"] == ["source_cited_domain_research"]
+    assert zhengxi["selected_local_lane"] == "documentation"
+
+    assert adjacent["proposal_id"] == "proposal_agent_harness_eval_qwen_agentworld"
+    assert adjacent["name"] == "Qwen-AgentWorld"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+
+    assert panel["runtime_action"] == "none"
+    assert panel["external_skill_activation_allowed"] is False
+    assert panel["external_agent_activation_allowed"] is False
+    assert panel["external_harness_execution_allowed"] is False
+    assert panel["provider_runtime_launch_allowed"] is False
+    assert panel["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert "install" not in serialized
 
 
 def test_skill_route_discovery_current_digest_230729_pass1_current_window_routes_adjacent_agent_eval():

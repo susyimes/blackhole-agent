@@ -3397,7 +3397,33 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     current_171904_window = source_digest == "github-growth-20260629T171904.272271Z"
     current_183904_window = source_digest == "github-growth-20260629T183904.255941Z"
+    current_190435_window = source_digest in {
+        "github-growth-20260704T190435.517226Z",
+        "github-growth-20260704T190435Z",
+    }
     proposal_specs = (
+        (
+            {
+                "proposal_id": "proposal_skill_route_discovery_codex_reverse_flow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_reverse_flow_skill_route_discovery",
+                "route_profiles": ("codex_workflow_gate",),
+                "selected_local_lane": "test",
+                "validation_gate": "focused-evidence-review",
+                "validation_target": "reverse_flow_codex_workflow_remains_skill_route_discovery_first",
+            },
+            {
+                "proposal_id": "proposal_skill_route_discovery_zhengxi_views",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_probe",
+                "route_profiles": ("source_cited_domain_research",),
+                "selected_local_lane": "documentation",
+                "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                "validation_target": "document_generic_source_cited_skill_route_probe",
+            },
+        )
+        if current_190435_window
+        else
         (
             {
                 "proposal_id": "p1-skill-route-discovery-compass",
@@ -3636,6 +3662,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     adjacent_rows: list[dict[str, Any]] = []
     adjacent_proposal_ids = {
         "Qwen-AgentWorld": (
+            "proposal_agent_harness_eval_qwen_agentworld"
+            if current_190435_window
+            else
             "p3-agent-harness-qwen-agentworld"
             if current_171904_window
             else
@@ -3671,6 +3700,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         ),
     }
     default_adjacent_proposal_id = (
+        "proposal_agent_harness_eval_qwen_agentworld"
+        if current_190435_window
+        else
         "p3-agent-harness-qwen-agentworld"
         if current_171904_window
         else
@@ -3715,6 +3747,16 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     )
     ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
     anchoring_proposal_ids = (
+        [
+            "proposal_skill_route_discovery_codex_reverse_flow",
+            "proposal_skill_route_discovery_zhengxi_views",
+            "proposal_agent_harness_eval_qwen_agentworld",
+            "proposal_agent_harness_eval_general_project_cluster",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+        ]
+        if current_190435_window
+        else
         [
             "p1-skill-route-discovery-compass",
             "p2-generic-skill-workflow-zhengxi",
@@ -3794,6 +3836,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "observed_route_profiles": [
             profile
             for profile in (
+                "codex_workflow_gate",
                 "source_cited_domain_research",
                 "generic_skill_workflow",
                 "game_frontend_workflow",
@@ -3808,6 +3851,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "required_evidence": [
             "selected_item_ids_or_frozen_fixture",
             "body_free_repository_summary",
+            "source_layout_or_metadata_signals",
             "focused_local_validation",
             "rollback_artifact",
             "review_note",
