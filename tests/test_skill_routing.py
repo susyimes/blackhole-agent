@@ -7881,6 +7881,110 @@ def test_skill_route_discovery_current_digest_20260704T104434_pass4_completes_ac
     assert all("install" not in row.get("allowed_local_lanes", []) for row in handoff["rows"])
 
 
+def test_skill_route_discovery_current_digest_20260704T120435_pass4_exposes_activation_readiness():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260704T104434_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    payload["source_digest"] = "github-growth-20260704T120435.796553Z"
+    payload["capability_window"]["anchoring_proposals"] = [
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-route-discovery",
+        "p3-agent-harness-eval-for-general-agent-projects",
+        "p4-workflow-usecase-harness-eval",
+        "p5-route-classification-coverage",
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_skill_workflow_documentation_lane",
+        "p3_zhengxi_views_skill_probe",
+        "p4_agent_harness_eval_backlog",
+    ]
+    for item in payload["items"]:
+        item["source_digest"] = "github-growth-20260704T120435.796553Z"
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    readiness = handoff["activation_readiness_packet"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260704T120435.796553Z"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1_reverse_flow_skill_route_discovery",
+        "p3_zhengxi_views_skill_probe",
+        "p4_agent_harness_eval_backlog",
+    ]
+    assert "p2_skill_workflow_documentation_lane" in handoff["anchoring_proposal_ids"]
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+
+    reverse_flow = rows["p1_reverse_flow_skill_route_discovery"]
+    assert reverse_flow["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["install_or_runtime_pressure_downgraded"] is True
+    assert "install" not in reverse_flow["allowed_local_lanes"]
+    assert "runtime_execution" not in reverse_flow["allowed_local_lanes"]
+
+    zhengxi = rows["p3_zhengxi_views_skill_probe"]
+    assert zhengxi["candidate_names"] == ["zhengxi-views"]
+    assert zhengxi["selected_local_lane"] == "documentation"
+    assert zhengxi["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi["runtime_action"] == "none"
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava"}
+    assert all(row["proposal_id"] == "p4_agent_harness_eval_backlog" for row in adjacent.values())
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent.values())
+
+    assert readiness == {
+        "controller_surface": "skill_route_discovery_pass4_activation_readiness_packet",
+        "status": "ready",
+        "decision": "bounded_skill_route_lanes_ready_for_external_supervisor_record_only_handoff",
+        "source_digest": "github-growth-20260704T120435.796553Z",
+        "capability_pass": 4,
+        "total_passes": 4,
+        "capability_slice_complete": True,
+        "skill_route_rows_ready": True,
+        "skill_route_discovery_first_confirmed": True,
+        "bounded_local_lanes_confirmed": True,
+        "adjacent_agent_harness_eval_ready": True,
+        "agent_harness_eval_required_count": 2,
+        "missing_agent_harness_eval_names": [],
+        "rollback_ref_required": True,
+        "rollback_artifact_required": True,
+        "focused_local_validation_required": True,
+        "external_supervisor_handoff": "record_only_no_kernel_restart",
+        "accepted_outputs": ["documentation", "config", "test", "code_patch"],
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in json.dumps(
+        [row["allowed_local_lanes"] for row in handoff["rows"]],
+        sort_keys=True,
+    )
+
+
 def test_skill_route_discovery_current_20260704T013308_pass1_opens_bounded_local_lanes():
     fixture_path = (
         Path(__file__).parent
