@@ -8882,6 +8882,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260704T002924.779596Z",
         "github-growth-20260704T002924Z",
     }
+    current_20260704_015308_window = source_digest in {
+        "github-growth-20260704T015308.851001Z",
+        "github-growth-20260704T015308Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -9513,6 +9517,54 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                     "validation_script",
                     "test_file",
                     "source_citation_boundary",
+                ),
+            },
+        )
+    if current_20260704_015308_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_codex_workflow_gate_pass2_validation_lane",
+                "validation_task": (
+                    "classify reverse-flow-skill as Codex workflow-gate evidence and prove "
+                    "skill_route_discovery_first before documentation, config, test, or "
+                    "code_patch work is considered locally"
+                ),
+                "expected_input_signals": (
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                    "agent_metadata",
+                    "local_sandbox_context",
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-discovery",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_repository_maps_to_bounded_local_lanes",
+                "validation_task": (
+                    "document that generic skill workflow repositories may enter only "
+                    "documentation, config, test, or code_patch lanes after local validation, "
+                    "with source-citation and advice boundaries retained as metadata"
+                ),
+                "expected_input_signals": (
+                    "skill_markdown",
+                    "skill_manifest",
+                    "reference_directory",
+                    "validation_script",
+                    "test_file",
+                    "source_citation_boundary",
+                    "advice_disclaimer_boundary",
                 ),
             },
         )
@@ -10847,6 +10899,22 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
+    if current_20260704_015308_window:
+        active_proposal_ids = [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-fixtures",
+            "p3-agent-harness-eval-backlog",
+            "p4-workflow-usecase-evaluation-note",
+            "trend:lyra81604/zhengxi-views-1",
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-trending-agent-projects",
+            "p4-workflow-usecase-evaluation",
+            "p5-routing-policy-regression-coverage",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
 
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
@@ -11030,6 +11098,8 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             if current_20260703_223922_window
             else "p3-agent-harness-eval-qwen-agentworld"
             if current_20260704_002924_window
+            else "p3-agent-harness-eval-trending-agent-projects"
+            if current_20260704_015308_window
             else "p2_agent_harness_eval_trending_python_agents"
             if current_20260702_170629_window
             else "p3-agent-harness-eval-qwen-agentworld"
@@ -11098,6 +11168,13 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 else "p4-agent-harness-eval-fundamental-ava"
                 if lowered_name == "fundamental-ava"
                 else "p5-agent-workflow-harness-eval-blender-seedance"
+            )
+        if current_20260704_015308_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            row["proposal_id"] = (
+                "p3-agent-harness-eval-trending-agent-projects"
+                if lowered_name in {"qwen-agentworld", "fundamental-ava"}
+                else "p4-workflow-usecase-evaluation"
             )
         if current_074714_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
@@ -11190,28 +11267,28 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         source_digest=source_digest,
         acceptance_surface=acceptance_surface,
     )
-    if current_20260703_070049_window:
-        current_070049_proposal_ids = [str(row.get("proposal_id") or "") for row in rows]
-        current_070049_adjacent_ids = sorted(
+    if current_20260703_070049_window or current_20260704_015308_window:
+        current_pass2_proposal_ids = [str(row.get("proposal_id") or "") for row in rows]
+        current_pass2_adjacent_ids = sorted(
             {str(row.get("proposal_id") or "") for row in adjacent_rows if row.get("proposal_id")}
         )
-        current_070049_selected_lanes = [
+        current_pass2_selected_lanes = [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
         ]
-        current_070049_source_hashes = list(
+        current_pass2_source_hashes = list(
             dict.fromkeys(
                 source_hash
                 for row in rows
                 for source_hash in _string_list(row.get("candidate_source_hashes"))
             )
         )
-        current_070049_common = {
+        current_pass2_common = {
             "source_digest": source_digest,
             "capability_pass": 2,
             "total_passes": 4,
             "review_gate": "focused-evidence-review",
             "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
-            "selected_local_lanes": current_070049_selected_lanes,
+            "selected_local_lanes": current_pass2_selected_lanes,
             "local_validation_required": True,
             "runtime_action": "none",
             "external_skill_activation_allowed": False,
@@ -11228,7 +11305,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "controller_surface": "skill_route_discovery_current_digest_pass2_focused_evidence_review_lane",
             "status": "ready",
             "decision": "current_pass2_fork_cluster_ready_for_bounded_validation",
-            "proposal_ids": current_070049_proposal_ids + current_070049_adjacent_ids,
+            "proposal_ids": current_pass2_proposal_ids + current_pass2_adjacent_ids,
             "blocked_proposal_ids": [],
             "agent_harness_eval_required_count": len(adjacent_rows),
             "required_evidence": [
@@ -11238,13 +11315,13 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 "focused_local_validation",
             ],
             "operator_next_action": "replay_current_digest_pass2_local_validation_lane_before_pass3",
-            **current_070049_common,
+            **current_pass2_common,
         }
         active_slice_review_lane = {
             "controller_surface": "skill_route_discovery_current_digest_pass2_active_slice_review_lane",
             "status": "ready",
             "decision": "active_skill_route_slice_ready_for_pass2_validation",
-            "proposal_ids": current_070049_proposal_ids + current_070049_adjacent_ids,
+            "proposal_ids": current_pass2_proposal_ids + current_pass2_adjacent_ids,
             "anchoring_proposal_ids": anchoring_proposal_ids,
             "blocked_proposal_ids": [],
             "ready_proposal_count": len(rows) + len(adjacent_rows),
@@ -11259,21 +11336,21 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             ],
             "agent_harness_eval_required_count": len(adjacent_rows),
             "operator_next_action": "continue_to_pass3_after_focused_validation",
-            **current_070049_common,
+            **current_pass2_common,
         }
         operator_replay_surface = {
             "controller_surface": "skill_route_discovery_current_digest_pass2_operator_replay_surface",
             "status": "ready",
             "decision": "current_pass2_skill_route_lanes_ready_for_supervisor_replay",
-            "proposal_ids": current_070049_proposal_ids + current_070049_adjacent_ids,
+            "proposal_ids": current_pass2_proposal_ids + current_pass2_adjacent_ids,
             "blocked_proposal_ids": [],
-            "candidate_source_hashes": current_070049_source_hashes,
+            "candidate_source_hashes": current_pass2_source_hashes,
             "validation_command_hashes": list(dict.fromkeys(replay_command_hashes)),
             "changed_file_review_required": True,
             "rollback_artifact_required": True,
             "focused_local_validation_required": True,
             "operator_next_action": "replay_hashed_pass2_validation_commands_then_continue_to_pass3",
-            **current_070049_common,
+            **current_pass2_common,
         }
         acceptance_surface = {
             "controller_surface": "skill_route_discovery_current_digest_pass2_acceptance_surface",
@@ -11284,7 +11361,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "blocked_skill_route_row_count": 0,
             "adjacent_agent_project_count": len(adjacent_rows),
             "agent_harness_eval_required_count": len(adjacent_rows),
-            "accepted_skill_route_lanes": current_070049_selected_lanes,
+            "accepted_skill_route_lanes": current_pass2_selected_lanes,
             "adjacent_allowed_lanes_after_eval": ["documentation", "test", "code_patch"],
             "required_before_activation": [
                 "focused_evidence_review",
@@ -11294,7 +11371,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             ],
             "rows": rows,
             "adjacent_agent_harness_lanes": adjacent_rows,
-            **current_070049_common,
+            **current_pass2_common,
         }
         activation_readiness = {
             "controller_surface": "skill_route_discovery_current_digest_pass2_activation_readiness",
@@ -11305,7 +11382,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 [row for row in rows if "codex_workflow_gate" in _string_list(row.get("route_profiles"))]
             ),
             "adjacent_agent_harness_eval_count": len(adjacent_rows),
-            "selected_skill_lanes": current_070049_selected_lanes,
+            "selected_skill_lanes": current_pass2_selected_lanes,
             "next_operator_lanes": rows,
             "adjacent_agent_harness_lanes": adjacent_rows,
             "required_before_activation": [
@@ -11314,7 +11391,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 "rollback_artifact",
                 "external_supervisor_replay",
             ],
-            **current_070049_common,
+            **current_pass2_common,
         }
         supervisor_handoff = {
             "controller_surface": "skill_route_discovery_current_digest_pass2_supervisor_handoff",
@@ -11323,16 +11400,16 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "source_digest_hash": _stable_hash(source_digest),
             "source_digest_recorded": bool(source_digest),
             "capability_slice": "skill-route-discovery",
-            "proposal_id_count": len(current_070049_proposal_ids + current_070049_adjacent_ids),
+            "proposal_id_count": len(current_pass2_proposal_ids + current_pass2_adjacent_ids),
             "skill_route_row_count": len(rows),
             "ready_skill_route_row_count": len(rows),
             "blocked_skill_route_row_count": 0,
             "adjacent_agent_project_count": len(adjacent_rows),
             "agent_harness_eval_required_count": len(adjacent_rows),
-            "candidate_source_hashes": current_070049_source_hashes,
+            "candidate_source_hashes": current_pass2_source_hashes,
             "acceptance_surface_status": acceptance_surface["status"],
             "operator_next_action": "supervisor_may_replay_pass2_validation_before_pass3",
-            **current_070049_common,
+            **current_pass2_common,
         }
     preactivation_checklist = {
         "controller_surface": "skill_route_discovery_pass2_preactivation_checklist",
