@@ -1,0 +1,10 @@
+{
+  "run": "20260704T160433Z-skill-route-discovery-pass4",
+  "original_head": "1d06f1d269eb3c5c7cb654216e6a989a96f93110",
+  "rollback_ref": "refs/rollback/20260704T160433Z-skill-route-discovery-pass4",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T160537.161857-run-a-bounded-local-discovery-lane-for-reverse-f",
+    "git reset --hard refs/rollback/20260704T160433Z-skill-route-discovery-pass4"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260704T160537.161857-run-a-bounded-local-discovery-lane-for-reverse-f"
+}
