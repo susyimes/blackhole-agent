@@ -29534,6 +29534,84 @@ def test_skill_route_discovery_current_digest_20260704T091310_pass4_completes_sk
     assert '"install"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260704T202435_pass1_routes_skill_and_agent_evidence():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260704T202435_pass1_skill_route_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    validation_lane = lane_map["current_digest_pass1_validation_lane"]
+    adjacent = {row["name"]: row for row in validation_lane["adjacent_general_agent_rows"]}
+    route_matrix_rows = {
+        row["candidate_name"]: row
+        for row in lane_map["local_lane_matrix"]["rows"]
+    }
+    serialized = json.dumps(validation_lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260704T202435.356776Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert validation_lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_pass1_validation_lane"
+    )
+    assert validation_lane["status"] == "blocked"
+    assert validation_lane["capability_pass"] == 1
+    assert validation_lane["total_passes"] == 4
+    assert validation_lane["selected_local_lanes"] == ["test"]
+    assert validation_lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert validation_lane["agent_harness_eval_required_count"] == 2
+    assert lane_map["local_lane_matrix"]["status"] == "ready"
+    assert lane_map["local_lane_matrix"]["observed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+
+    assert set(adjacent) == {"Qwen-AgentWorld", "Fundamental-Ava"}
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p4-agent-harness-eval-qwen"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    reverse_flow_matrix = route_matrix_rows["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow_matrix["first_route_required"] is True
+    assert reverse_flow_matrix["first_route_confirmed"] is True
+    assert reverse_flow_matrix["route_probe_decision"] == "skill_route_discovery_first"
+    assert set(reverse_flow_matrix["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow_matrix["selected_local_lane"] == "test"
+    assert "skill_route_discovery_first_before_workflow_gate" in reverse_flow_matrix["validation_gates"]
+    assert reverse_flow_matrix["runtime_action"] == "none"
+
+    zhengxi_matrix = route_matrix_rows["zhengxi-views"]
+    assert zhengxi_matrix["first_route_required"] is False
+    assert zhengxi_matrix["first_route_confirmed"] is True
+    assert zhengxi_matrix["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert zhengxi_matrix["selected_local_lane"] == "documentation"
+    assert set(zhengxi_matrix["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert zhengxi_matrix["runtime_action"] == "none"
+
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"install"' not in serialized
+    assert "https://github.com/" not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260704T011308_pass4_exposes_operator_completion():
     fixture_path = (
         Path(__file__).parent

@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260704T202435.356776Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 1,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "proposal_skill_route_discovery_001",
+      "proposal_codex_skill_gate_002",
+      "proposal_agent_harness_eval_003",
+      "proposal_workflow_agent_eval_004",
+      "proposal_route_policy_regression_005",
+      "trend:lingbol088-spec/reverse-flow-skill-1",
+      "trend:lyra81604/zhengxi-views-1",
+      "trend:QwenLM/Qwen-AgentWorld-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260704T202435.356776Z",
+      "item_id": "proposal_skill_route_discovery_001",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Public Codex and AI Agent reverse-flow skill package with skills/reverse-flow/SKILL.md, local sandbox and CTF framing, scripts, install examples, and workflow-gate pressure. Codex workflow gate profiles require skill_route_discovery_first before any secondary workflow or harness interpretation.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+      "unsupported_lane_pressure": ["install", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["agent_metadata", "codex_workflow_gate", "local_sandbox_boundary", "body_free_workflow_summary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260704T202435.356776Z",
+      "item_id": "proposal_codex_skill_gate_002",
+      "item_kind": "RepositoryTrend",
+      "name": "zhengxi-views",
+      "source_url": "https://github.com/lyra81604/zhengxi-views",
+      "summary": "Public Agent Skill workflow with SKILL.md, skill metadata, references, evals, scripts, source-cited research workflow language, fund-data pressure, and explicit non-investment-advice boundary.",
+      "topics": ["agent", "skill", "workflow", "source-cited", "validation", "advice-boundary"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
+      "unsupported_lane_pressure": ["provider_runtime"],
+      "observed_paths": [
+        "SKILL.md",
+        "skill.yml",
+        "references/method.md",
+        "evals/source_citation_eval.py",
+        "scripts/validate_package.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script", "test_file"],
+        "source_metadata_signals": ["skill_manifest", "source_citation_boundary", "advice_disclaimer_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260704T202435.356776Z",
+      "item_id": "proposal_agent_harness_eval_003",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "summary": "General agent project with language world model and benchmark signals, evaluation directories, and prompts, but no skill_route_discovery route hint.",
+      "topics": ["general-agent", "benchmark", "world-model", "evaluation"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260704T202435.356776Z",
+      "item_id": "proposal_workflow_agent_eval_004",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous and collaborative digital-human agent project without skill workflow route hints or local skill package evidence.",
+      "topics": ["general-agent", "autonomous-agent", "collaboration", "simulation"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "runtime_execution"]
+    }
+  ]
+}
