@@ -1,0 +1,11 @@
+{
+  "created_at": "2026-07-04T05:53:07Z",
+  "original_branch": "codex/blackhole-evolve/20260704T055407.677347-evaluate-the-codex-oriented-reverse-flow-skill-r",
+  "original_head": "6750506f9dd262f273151d1cc62b803819caaac8",
+  "rollback_ref": "refs/rollback/blackhole-agent/20260704T055307Z-skill-route-discovery-pass2",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T055407.677347-evaluate-the-codex-oriented-reverse-flow-skill-r",
+    "git reset --hard refs/rollback/blackhole-agent/20260704T055307Z-skill-route-discovery-pass2"
+  ],
+  "destructive": true
+}
