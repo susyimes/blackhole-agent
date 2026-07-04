@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-07-04T01:14:03Z",
+  "original_branch": "codex/blackhole-evolve/20260704T011403.047568-run-bounded-skill-route-discovery-for-the-zhengx",
+  "original_head": "cd3a47217d85ab1d8f4cf310d6a3ab6235a5cf75",
+  "rollback_ref": "refs/rollback/20260704T011403Z-skill-route-discovery-pass4",
+  "source_digest": "github-growth-20260704T011308.815521Z",
+  "recovery_commands": [
+    "git fetch --all --prune",
+    "git reset --hard refs/rollback/20260704T011403Z-skill-route-discovery-pass4",
+    "git clean -fd"
+  ],
+  "execution_policy": "record_only_explicit_operator_or_supervisor_rollback_required"
+}
