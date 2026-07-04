@@ -25424,6 +25424,132 @@ def test_skill_route_discovery_current_digest_20260704T025308_pass1_routes_rever
     assert "install" not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260704T041308_pass1_routes_active_skill_and_workflow_lanes():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260704T041308_pass1_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass1_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    workflow_boundary = lane["workflow_topic_boundary"]
+    operator_lane = lane["operator_validation_lane"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260704T041308.895594Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass1_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 1
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-for-codex-workflows",
+        "p4-route-classification-regression-fixtures",
+        "p5-skill-discovery-to-doc-config-codepatch-contract",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-for-codex-workflows",
+        "p2-agent-harness-eval-gate-for-general-agent-projects",
+        "p3-workflow-usecase-evaluation-lane",
+        "p4-route-classification-regression-fixtures",
+        "p5-skill-discovery-to-doc-config-codepatch-contract",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:lyra81604/zhengxi-views-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+    ]
+    assert lane["selected_local_lanes"] == ["test", "code_patch"]
+    assert lane["agent_harness_eval_required_count"] == 3
+    assert lane["blocked_proposal_ids"] == []
+
+    codex = rows["p1-skill-route-discovery-for-codex-workflows"]
+    assert codex["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert codex["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert codex["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert codex["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert codex["selected_local_lane"] == "test"
+    assert codex["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert codex["selected_evidence_item_ids"] == ["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert codex["local_validation_required"] is True
+    assert codex["runtime_action"] == "none"
+    assert codex["external_skill_activation_allowed"] is False
+    assert codex["provider_runtime_launch_allowed"] is False
+    assert codex["remote_execution_allowed"] is False
+
+    regression = rows["p4-route-classification-regression-fixtures"]
+    assert regression["candidate_names"] == [
+        "lingbol088-spec-reverse-flow-skill",
+        "zhengxi-views",
+    ]
+    assert regression["selected_local_lane"] == "test"
+    assert regression["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert set(regression["route_profiles"]) == {
+        "codex_workflow_gate",
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    }
+
+    contract = rows["p5-skill-discovery-to-doc-config-codepatch-contract"]
+    assert contract["proposal_kind"] == "code_patch"
+    assert contract["selected_local_lane"] == "code_patch"
+    assert contract["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert contract["local_validation_required"] is True
+    assert contract["runtime_action"] == "none"
+
+    assert set(adjacent) == {
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+    }
+    for name in {"Qwen-AgentWorld", "Fundamental-Ava"}:
+        row = adjacent[name]
+        assert row["proposal_id"] == "p2-agent-harness-eval-gate-for-general-agent-projects"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+
+    workflow_row = adjacent["Awesome-Blender-Seedance-Workflow-Usecases"]
+    assert workflow_row["proposal_id"] == "p3-workflow-usecase-evaluation-lane"
+    assert workflow_row["evaluation_lane"] == "agent_harness_eval_required"
+    assert workflow_row["skill_route_discovery_inherited"] is False
+    assert workflow_row["direct_allowed_lanes_before_eval"] == []
+    assert workflow_row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert workflow_boundary["proposal_id"] == "p3-workflow-usecase-evaluation-lane"
+    assert workflow_boundary["workflow_keyword_only"] is True
+    assert workflow_boundary["skill_route_discovery_inherited"] is False
+    assert workflow_boundary["direct_allowed_lanes_before_eval"] == []
+    assert workflow_boundary["runtime_action"] == "none"
+    assert workflow_boundary["external_harness_execution_allowed"] is False
+
+    assert operator_lane["status"] == "ready"
+    assert operator_lane["skill_route_row_count"] == 3
+    assert operator_lane["adjacent_agent_harness_eval_row_count"] == 3
+    assert operator_lane["blocked_items"] == []
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert "install" not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260704T011308_pass4_exposes_operator_completion():
     fixture_path = (
         Path(__file__).parent

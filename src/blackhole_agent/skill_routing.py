@@ -6065,13 +6065,70 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260704T025308.858460Z",
         "github-growth-20260704T025308Z",
     }
+    current_20260704_041308_window = source_digest in {
+        "github-growth-20260704T041308.895594Z",
+        "github-growth-20260704T041308Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260704_025308_window:
+    if current_20260704_041308_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-for-codex-workflows",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_workflow_skill_repositories_map_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "classify reverse-flow skill evidence as skill_route_discovery first; "
+                    "preserve only documentation, config, test, or code_patch lanes and "
+                    "deny upstream setup, runtime execution, provider launch, and remote execution"
+                ),
+            },
+            {
+                "proposal_id": "p4-route-classification-regression-fixtures",
+                "proposal_kind": "test",
+                "proposal_track": "route_classification_regression_fixtures",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_and_codex_workflow_signals_preserve_bounded_lane_contract",
+                "validation_task": (
+                    "replay reverse-flow and zhengxi-views route evidence through local "
+                    "classification fixtures before any documentation, config, test, or "
+                    "code_patch proposal is considered activation-ready"
+                ),
+            },
+            {
+                "proposal_id": "p5-skill-discovery-to-doc-config-codepatch-contract",
+                "proposal_kind": "code_patch",
+                "proposal_track": "skill_discovery_to_local_lane_contract",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "code_patch",
+                "validation_target": "skill_discovery_routes_only_to_doc_config_test_or_codepatch_after_validation",
+                "validation_task": (
+                    "make the local lane contract operator-visible: skill discovery may "
+                    "feed documentation, config, test, or code_patch work only after "
+                    "focused local validation and rollback-backed review"
+                ),
+            },
+        )
+    elif current_20260704_025308_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-reverse-flow",
@@ -7981,6 +8038,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 or "blender" in lowered_name
             ):
                 row["proposal_id"] = "p3-agent-harness-eval-queue"
+        if current_20260704_041308_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava"}:
+                row["proposal_id"] = "p2-agent-harness-eval-gate-for-general-agent-projects"
+            elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
+                row["proposal_id"] = "p3-workflow-usecase-evaluation-lane"
         if current_20260703_181923_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"agent-apprenticeship", "qwen-agentworld", "fundamental-ava"}:
@@ -8642,6 +8705,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "trend:QwenLM/Qwen-AgentWorld-1",
             "trend:TianhangZhuzth/Fundamental-Ava-1",
         ]
+    elif current_20260704_041308_window:
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-for-codex-workflows",
+            "p2-agent-harness-eval-gate-for-general-agent-projects",
+            "p3-workflow-usecase-evaluation-lane",
+            "p4-route-classification-regression-fixtures",
+            "p5-skill-discovery-to-doc-config-codepatch-contract",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
     elif current_20260704_025308_window:
         anchoring_proposal_ids = [
             "p1-skill-route-discovery-reverse-flow",
@@ -8724,6 +8800,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             proposal_id=(
                 "proposal-workflow-usecase-classifier-003"
                 if current_20260704_000924_window
+                else
+                "p3-workflow-usecase-evaluation-lane"
+                if current_20260704_041308_window
                 else
                 "p4_workflow_usecase_agent_harness_boundary"
                 if current_20260703_002121_window or current_20260703_023735_window

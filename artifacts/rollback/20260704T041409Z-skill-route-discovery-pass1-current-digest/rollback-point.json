@@ -1,0 +1,11 @@
+{
+  "recovery_commands": [
+    "git reset --hard refs/blackhole-rollback/20260704T041409Z-skill-route-discovery-pass1-current-digest",
+    "git clean -fd"
+  ],
+  "created": "20260704T041409Z",
+  "head": "a4658f00826abd17ac33734e8c784d975e129108",
+  "branch": "codex/blackhole-evolve/20260704T041409.425131-add-a-local-validation-lane-that-probes-skill-wo",
+  "source_digest": "github-growth-20260704T041308.895594Z",
+  "rollback_ref": "refs/blackhole-rollback/20260704T041409Z-skill-route-discovery-pass1-current-digest"
+}
