@@ -1,0 +1,8 @@
+rollback_point: 20260704T184526.286058Z
+original_branch: codex/blackhole-evolve/20260704T184526.286058-add-or-extend-a-local-validation-case-for-skill-
+head: 1e73983bdeacd659437e1dfd948a1e5beb30f1e3
+rollback_ref: refs/rollback/blackhole-agent/20260704T184526.286058Z
+recover_branch: git switch codex/blackhole-evolve/20260704T184526.286058-add-or-extend-a-local-validation-case-for-skill-
+recover_head: git reset --hard 1e73983bdeacd659437e1dfd948a1e5beb30f1e3
+recover_ref: git reset --hard refs/rollback/blackhole-agent/20260704T184526.286058Z
+cleanup_untracked_review_first: git clean -fd <paths-after-review>

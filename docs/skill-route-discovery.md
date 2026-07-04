@@ -753,6 +753,28 @@ replay commands, target paths, upstream bodies, provider inputs, or activation
 authority. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260704_pass3`.
 
+For source digest `github-growth-20260704T184436.169593Z`, pass 4 completes
+the current skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. The lingbol088-spec
+reverse-flow-skill signal maps to `p1-skill-route-discovery-codex-workflow`
+in the local test lane, must prove `skill_route_discovery_first`, and keeps
+install or runtime pressure diagnostic only. The zhengxi-views signal maps to
+`p2-generic-skill-route-discovery` in the documentation lane because it is a
+generic/source-cited skill workflow. Both routes may expose only documentation,
+config, test, or code_patch lanes.
+
+Qwen-AgentWorld and Fundamental-Ava remain adjacent
+`agent_harness_eval_required` rows under `p3-agent-harness-eval-fixtures`.
+They do not inherit `skill_route_discovery`, have no direct local lanes before
+local harness evaluation, and cannot enable runtime action, direct code_patch,
+provider launch, external harness execution, remote execution, or external
+activation. The operator completion packet is body-free and record-only:
+rollback metadata, focused validation, route matrices, and denial booleans are
+visible for supervisor replay, while raw URLs, replay commands, upstream
+bodies, push, promotion, restart, and activation stay outside the kernel.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260704T184436`.
+
 For source digest `github-growth-20260703T234924.826468Z`, pass 4 completes the
 active skill-route-discovery window through
 `current_digest_pass4_completion_handoff`. The lingbol088-spec
