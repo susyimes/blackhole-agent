@@ -6328,15 +6328,15 @@ def test_skill_route_discovery_current_run_pass3_validation_lane_routes_active_p
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
 
     assert registry["registry_status"] == "classification_only"
-    assert registry["evidence_item_count"] == 4
-    assert registry["candidate_count"] == 3
+    assert registry["evidence_item_count"] == 3
+    assert registry["candidate_count"] == 2
     assert registry["ignored_evidence_item_count"] == 1
     assert registry["enabled_candidate_count"] == 0
     assert registry["executable_skill_count"] == 0
     assert registry["invalid_candidate_count"] == 0
 
     ignored = registry["ignored_evidence_items"][0]
-    assert ignored["item_id"] == "proposal_agent_harness_eval_003-qwen-agentworld"
+    assert ignored["item_id"] == "p3-agent-harness-qwen-agentworld"
     assert ignored["evaluation_lane"] == "agent_harness_eval_required"
     assert ignored["skill_route_discovery_inherited"] is False
     assert ignored["direct_runtime_route_allowed"] is False
@@ -6346,23 +6346,23 @@ def test_skill_route_discovery_current_run_pass3_validation_lane_routes_active_p
     assert lane["controller_surface"] == "skill_route_discovery_current_run_pass3_validation_lane"
     assert lane["status"] == "ready"
     assert lane["decision"] == "current_run_pass3_skill_routes_ready_for_bounded_validation"
-    assert lane["source_digest"] == "github-growth-20260628T022729.498868Z"
+    assert lane["source_digest"] == "github-growth-20260704T182436.018333Z"
     assert lane["capability_pass"] == 3
     assert lane["total_passes"] == 4
     assert lane["review_gate"] == "focused-evidence-review"
     assert lane["proposal_ids"] == [
-        "proposal_skill_route_discovery_catalog_001",
-        "proposal_skill_profile_documentation_002",
-        "proposal_agent_harness_eval_003",
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-fixtures",
     ]
     assert lane["ready_proposal_count"] == 3
     assert lane["blocked_proposal_ids"] == []
-    assert lane["skill_route_candidate_count"] == 3
+    assert lane["skill_route_candidate_count"] == 2
     assert lane["adjacent_general_agent_count"] == 1
     assert lane["observed_route_profiles"] == [
+        "codex_workflow_gate",
+        "generic_skill_workflow",
         "source_cited_domain_research",
-        "game_frontend_workflow",
-        "skill_ecosystem_state_handoff",
     ]
     assert lane["selected_local_lanes"] == ["documentation", "test"]
     assert lane["unsupported_lane_names_removed"] == []
@@ -6387,24 +6387,24 @@ def test_skill_route_discovery_current_run_pass3_validation_lane_routes_active_p
     assert lane["raw_upstream_body_exported"] is False
 
     rows = {row["proposal_id"]: row for row in lane["rows"]}
-    catalog = rows["proposal_skill_route_discovery_catalog_001"]
-    assert catalog["proposal_kind"] == "test"
-    assert catalog["candidate_names"] == ["compass-skills", "threejs-game-skills", "zhengxi-views"]
-    assert catalog["route_profiles"] == [
-        "source_cited_domain_research",
-        "game_frontend_workflow",
-        "skill_ecosystem_state_handoff",
-    ]
-    assert catalog["selected_local_lane"] == "test"
-    assert catalog["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    codex = rows["p1-skill-route-discovery-codex-workflow"]
+    assert codex["proposal_kind"] == "test"
+    assert codex["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert codex["route_profiles"] == ["codex_workflow_gate"]
+    assert codex["selected_local_lane"] == "test"
+    assert codex["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert codex["skill_route_discovery_first"] is True
+    assert "skill_route_discovery_first_before_workflow_gate" in codex["validation_gates"]
+    assert codex["runtime_action"] == "none"
 
-    docs = rows["proposal_skill_profile_documentation_002"]
+    docs = rows["p2-generic-skill-workflow-discovery"]
     assert docs["proposal_kind"] == "documentation"
-    assert docs["candidate_names"] == ["compass-skills", "threejs-game-skills", "zhengxi-views"]
+    assert docs["candidate_names"] == ["zhengxi-views"]
+    assert docs["route_profiles"] == ["generic_skill_workflow", "source_cited_domain_research"]
     assert docs["selected_local_lane"] == "documentation"
     assert docs["queued_local_lanes"] == ["config", "test", "code_patch"]
 
-    agent_row = rows["proposal_agent_harness_eval_003"]
+    agent_row = rows["p3-agent-harness-eval-fixtures"]
     assert agent_row["proposal_track"] == "agent_harness_evaluation_lane"
     assert agent_row["route_hint"] == "agent_harness_eval_required"
     assert agent_row["route_class"] == "adjacent_general_agent_project"
@@ -6431,7 +6431,7 @@ def test_skill_route_discovery_current_run_pass3_validation_lane_routes_active_p
         assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
 
     adjacent = lane["adjacent_general_agent_rows"][0]
-    assert adjacent["proposal_id"] == "proposal_agent_harness_eval_003"
+    assert adjacent["proposal_id"] == "p3-agent-harness-eval-fixtures"
     assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
     assert adjacent["skill_route_discovery_inherited"] is False
     assert adjacent["direct_runtime_route_allowed"] is False
@@ -6463,14 +6463,14 @@ def test_skill_route_discovery_current_run_pass3_acceptance_lane_gates_validatio
     assert lane["source_status"] == "ready"
     assert lane["status"] == "ready"
     assert lane["decision"] == "current_run_pass3_routes_accepted_for_supervisor_replay"
-    assert lane["source_digest"] == "github-growth-20260628T022729.498868Z"
+    assert lane["source_digest"] == "github-growth-20260704T182436.018333Z"
     assert lane["capability_pass"] == 3
     assert lane["total_passes"] == 4
     assert lane["review_gate"] == "focused-evidence-review"
     assert lane["proposal_ids"] == [
-        "proposal_skill_route_discovery_catalog_001",
-        "proposal_skill_profile_documentation_002",
-        "proposal_agent_harness_eval_003",
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-fixtures",
     ]
     assert lane["ready_proposal_count"] == 3
     assert lane["blocked_proposal_ids"] == []
@@ -6501,10 +6501,13 @@ def test_skill_route_discovery_current_run_pass3_acceptance_lane_gates_validatio
     assert lane["raw_upstream_body_exported"] is False
 
     rows = {row["proposal_id"]: row for row in lane["rows"]}
-    skill_row = rows["proposal_skill_route_discovery_catalog_001"]
+    skill_row = rows["p1-skill-route-discovery-codex-workflow"]
     assert skill_row["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
     assert skill_row["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
     assert skill_row["selected_local_lane"] == "test"
+    assert skill_row["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert skill_row["route_profiles"] == ["codex_workflow_gate"]
+    assert "skill_route_discovery_first_before_workflow_gate" in skill_row["validation_gates"]
     assert all(skill_row["acceptance_gates"].values())
     assert skill_row["acceptance_gates"]["bounded_lane"] is True
     assert skill_row["acceptance_gates"]["selected_evidence_present"] is True
@@ -6513,7 +6516,13 @@ def test_skill_route_discovery_current_run_pass3_acceptance_lane_gates_validatio
     assert skill_row["acceptance_gates"]["external_skill_activation_denied"] is True
     assert skill_row["acceptance_gates"]["raw_replay_command_not_exported"] is True
 
-    agent_row = rows["proposal_agent_harness_eval_003"]
+    docs_row = rows["p2-generic-skill-workflow-discovery"]
+    assert docs_row["candidate_names"] == ["zhengxi-views"]
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert all(docs_row["acceptance_gates"].values())
+
+    agent_row = rows["p3-agent-harness-eval-fixtures"]
     assert agent_row["route_hint"] == "agent_harness_eval_required"
     assert agent_row["route_class"] == "adjacent_general_agent_project"
     assert agent_row["selected_local_lane"] == "agent_harness_eval_required"

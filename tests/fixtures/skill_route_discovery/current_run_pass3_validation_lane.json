@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_digest": "github-growth-20260628T022729.498868Z",
+  "source_digest": "github-growth-20260704T182436.018333Z",
   "capability_window": {
     "theme": "skill-route-discovery",
     "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
@@ -9,73 +9,55 @@
   },
   "items": [
     {
-      "source_digest": "github-growth-20260628T022729.498868Z",
-      "item_id": "proposal_skill_route_discovery_catalog_001-compass",
+      "source_digest": "github-growth-20260704T182436.018333Z",
+      "item_id": "p1-skill-route-discovery-codex-workflow",
       "item_kind": "repository",
-      "name": "compass-skills",
-      "source_url": "https://github.com/dongshuyan/compass-skills",
-      "title": "COMPASS Skills local skill ecosystem",
-      "summary": "Public skill ecosystem evidence with SKILL.md skills, repo-local task memory, collaboration profile, handoff prompts, skills directory, and route metadata.",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "title": "Codex reverse-flow workflow skill route candidate",
+      "summary": "Codex and AI Agent reverse engineering skill workflow with skills/reverse-flow/SKILL.md, local sandbox and CTF framing, scripts, install examples, runtime examples, and workflow-gate pressure that must remain skill_route_discovery_first before any secondary workflow interpretation.",
       "route_hints": ["skill_route_discovery"],
-      "topics": ["agent-skills", "workflow", "local-memory", "profile", "handoff"],
-      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "topics": ["codex", "agent-skill", "workflow", "ctf", "local-sandbox"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
       "route_classification": {
         "route_hints": ["skill_route_discovery"],
         "route_class": "external_skill_route_discovery_classification",
-        "route_profiles": ["skill_ecosystem_state_handoff"],
-        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
-        "source_layout_signals": ["skill_directory", "qa_checklist"],
-        "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
-      }
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+        "source_metadata_signals": ["codex_workflow_gate", "local_sandbox_boundary"]
+      },
+      "related_source_urls": ["https://github.com/820101274/reverse-flow-skill"]
     },
     {
-      "source_digest": "github-growth-20260628T022729.498868Z",
-      "item_id": "proposal_skill_route_discovery_catalog_001-zhengxi",
+      "source_digest": "github-growth-20260704T182436.018333Z",
+      "item_id": "p2-generic-skill-workflow-discovery",
       "item_kind": "repository",
       "name": "zhengxi-views",
       "source_url": "https://github.com/lyra81604/zhengxi-views",
-      "title": "zhengxi-views source-cited agent skill",
-      "summary": "Source-cited generic agent skill workflow with public source evidence, citation traceability, validation scripts, advisory boundary language, and skill-term discovery pressure.",
+      "title": "generic source-cited public agent skill workflow",
+      "summary": "Agent Skill package evidence with SKILL.md, skill.yml, references, evals, scripts, source-cited research workflow language, WorkBuddy and MCP automation notes, fund-data retrieval pressure, and explicit non-investment-advice boundary.",
       "route_hints": ["skill_route_discovery"],
-      "topics": ["agent-skills", "source-cited", "research", "workflow"],
+      "topics": ["agent-skill", "source-cited", "research", "workflow", "advice-boundary"],
       "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
       "route_classification": {
         "route_hints": ["skill_route_discovery"],
         "route_class": "external_skill_route_discovery_classification",
-        "route_profiles": ["source_cited_domain_research"],
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
         "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
-        "source_layout_signals": ["skill_markdown", "validation_script"],
-        "source_metadata_signals": ["skill_registry_metadata"]
+        "source_layout_signals": ["skill_markdown", "skill_manifest", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["skill_registry_metadata", "source_citation_boundary", "advice_disclaimer_boundary"]
       }
     },
     {
-      "source_digest": "github-growth-20260628T022729.498868Z",
-      "item_id": "proposal_game_frontend_skill_route_001-threejs",
-      "item_kind": "repository",
-      "name": "threejs-game-skills",
-      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
-      "title": "Three.js game frontend skill workflow",
-      "summary": "Game frontend skill workflow evidence with Three.js, playable browser games, gameplay validation, UI, QA, scaffold helpers, and optional asset boundary pressure.",
-      "route_hints": ["skill_route_discovery"],
-      "topics": ["agent-skills", "threejs", "browser-game", "qa"],
-      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
-      "route_classification": {
-        "route_hints": ["skill_route_discovery"],
-        "route_class": "external_skill_route_discovery_classification",
-        "route_profiles": ["game_frontend_workflow"],
-        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
-        "source_layout_signals": ["skill_directory", "validation_script", "scaffold_asset"]
-      }
-    },
-    {
-      "source_digest": "github-growth-20260628T022729.498868Z",
-      "item_id": "proposal_agent_harness_eval_003-qwen-agentworld",
+      "source_digest": "github-growth-20260704T182436.018333Z",
+      "item_id": "p3-agent-harness-qwen-agentworld",
       "item_kind": "repository",
       "name": "Qwen-AgentWorld",
       "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
-      "title": "Qwen-AgentWorld general agent evaluation project",
-      "summary": "General-agent project and benchmark-style evaluation evidence for language world models, without skill workflow route hints, SKILL.md layout, or local skill activation signal.",
-      "topics": ["general-agent", "evaluation", "world-model"],
+      "title": "general agent world model and benchmark signal",
+      "summary": "General agent project with language world model release, AgentWorldBench evaluation benchmark, eval directory, prompts directory, and multi-domain agent environment simulation. It has no skill_route_discovery route hint and needs a local agent harness evaluation lane before any implementation follow-up.",
+      "topics": ["general-agent", "benchmark", "world-model", "evaluation"],
       "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
     }
   ]

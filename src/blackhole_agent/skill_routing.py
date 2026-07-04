@@ -20850,12 +20850,17 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
 ) -> dict[str, Any]:
     """Expose this pass-3 proposal set as bounded local validation lanes."""
 
+    current_20260704_182436_window = source_digest in {
+        "github-growth-20260704T182436.018333Z",
+        "github-growth-20260704T182436Z",
+    }
     skill_specs = (
         {
             "proposal_id": "proposal_skill_route_discovery_catalog_001",
             "proposal_kind": "test",
             "proposal_track": "skill_route_discovery_catalog",
             "route_profiles": (
+                "codex_workflow_gate",
                 "generic_skill_workflow",
                 "source_cited_domain_research",
                 "game_frontend_workflow",
@@ -20869,6 +20874,7 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
             "proposal_kind": "documentation",
             "proposal_track": "skill_profile_route_documentation",
             "route_profiles": (
+                "codex_workflow_gate",
                 "generic_skill_workflow",
                 "source_cited_domain_research",
                 "game_frontend_workflow",
@@ -20878,6 +20884,31 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
             "validation_target": "generic_game_and_handoff_route_profiles_are_documented_separately",
         },
     )
+    adjacent_proposal_id = "proposal_agent_harness_eval_003"
+    adjacent_proposal_track = "agent_harness_evaluation_lane"
+    if current_20260704_182436_window:
+        skill_specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_skill_route_discovery_first",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_skill_workflow_routes_through_skill_route_discovery_first",
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-discovery",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_bounded_lane_interpretation",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_evidence_stays_in_bounded_local_lanes",
+            },
+        )
+        adjacent_proposal_id = "p3-agent-harness-eval-fixtures"
+        adjacent_proposal_track = "agent_harness_evaluation_lane"
 
     rows: list[dict[str, Any]] = []
     selected_lanes: list[str] = []
@@ -20887,6 +20918,7 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
 
     for spec in skill_specs:
         required_profiles = set(_string_list(spec["route_profiles"]))
+        candidate_name_terms = tuple(term.casefold() for term in _string_list(spec.get("candidate_name_terms")))
         candidate_names: list[str] = []
         candidate_source_hashes: list[str] = []
         evidence_item_ids: list[str] = []
@@ -20901,8 +20933,10 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
             candidate_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
             if not required_profiles.intersection(candidate_profiles):
                 continue
-
             candidate_name = str(candidate.get("candidate_name") or "")
+            if candidate_name_terms and not any(term in candidate_name.casefold() for term in candidate_name_terms):
+                continue
+
             candidate_names.append(candidate_name)
             candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
             evidence_item_ids.extend(_string_list(candidate.get("evidence_item_ids")))
@@ -20946,6 +20980,7 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
                 "route_profiles": [
                     profile
                     for profile in (
+                        "codex_workflow_gate",
                         "generic_skill_workflow",
                         "source_cited_domain_research",
                         "game_frontend_workflow",
@@ -20959,6 +20994,10 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
                 "selected_evidence_item_ids": list(dict.fromkeys(evidence_item_ids)),
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": spec["validation_target"],
+                "skill_route_discovery_first": (
+                    "codex_workflow_gate" in set(matched_profiles)
+                    and "skill_route_discovery_first_before_workflow_gate" in set(validation_gates)
+                ),
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q "
@@ -20983,7 +21022,7 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
 
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="proposal_agent_harness_eval_003",
+        proposal_id=adjacent_proposal_id,
     )
     adjacent_rows = [
         {
@@ -21016,9 +21055,9 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
     if adjacent_rows:
         rows.append(
             {
-                "proposal_id": "proposal_agent_harness_eval_003",
+                "proposal_id": adjacent_proposal_id,
                 "proposal_kind": "test",
-                "proposal_track": "agent_harness_evaluation_lane",
+                "proposal_track": adjacent_proposal_track,
                 "status": "ready" if not adjacent_blockers else "blocked",
                 "activation_blockers": adjacent_blockers,
                 "candidate_names": [str(row.get("name") or "") for row in adjacent_rows],
@@ -21068,11 +21107,13 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
-            "proposal_skill_route_discovery_catalog_001",
-            "proposal_skill_profile_documentation_002",
-            "proposal_agent_harness_eval_003",
-        ],
+            str(spec["proposal_id"]) for spec in skill_specs
+        ]
+        + ([adjacent_proposal_id] if adjacent_rows else []),
         "anchoring_proposal_ids": [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-fixtures",
             "p1-skill-route-discovery-catalog",
             "p2-skill-profile-routing-tests",
             "p3-agent-harness-evaluation-lane",
@@ -21090,6 +21131,7 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
         "observed_route_profiles": [
             profile
             for profile in (
+                "codex_workflow_gate",
                 "generic_skill_workflow",
                 "source_cited_domain_research",
                 "game_frontend_workflow",
