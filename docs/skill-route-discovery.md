@@ -6951,3 +6951,33 @@ hashes, and replay command hashes while denying raw source URLs, raw replay
 commands, upstream bodies, external skill activation, external agent activation,
 external harness execution, provider runtime launch, remote execution, profile
 writes, memory writes, and runtime action.
+
+## Current Digest 20260704T035308 Pass 4
+
+The `github-growth-20260704T035308.799236Z` pass-4 handoff completes the active
+skill-route-discovery slice as a supervisor-visible local validation record.
+The reverse-flow-skill evidence is a Codex workflow-gate row under
+`p1-skill-route-discovery-codex-workflow`: it must expose
+`skill_route_discovery_first`, select the local test lane, and stay within
+documentation, config, test, or code_patch. The upstream install and runtime
+pressure remains diagnostic and does not grant activation authority.
+
+The zhengxi-views evidence remains under
+`p2-generic-skill-route-discovery-doc` as a generic source-cited skill workflow
+documentation lane. Link-Start reverse-flow fork evidence is retained only as
+corroborating skill-route context; the pass-4 row uses the direct
+lingbol088-spec source for the Codex workflow gate.
+
+Awesome-Blender-Seedance-Workflow-Usecases, Qwen-AgentWorld, and
+Fundamental-Ava remain adjacent `agent_harness_eval_required` rows under
+`p3-agent-harness-eval-fixtures`. They do not inherit
+`skill_route_discovery`, have no direct local lanes before harness evaluation,
+and may only produce documentation, test, or code_patch follow-up after bounded
+local harness evidence exists.
+
+The handoff is record-only for an external supervisor. It exports body-free
+proposal IDs, selected item IDs, route profiles, lane names, source hashes, and
+replay command hashes while denying raw source URL export, raw replay command
+export, upstream body export, external skill activation, external agent
+activation, external harness execution, provider runtime launch, remote
+execution, profile writes, memory writes, and runtime action.

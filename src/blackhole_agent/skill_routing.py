@@ -15240,6 +15240,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260704T023308.798072Z",
         "github-growth-20260704T023308Z",
     }
+    current_035308_20260704_window = source_digest in {
+        "github-growth-20260704T035308.799236Z",
+        "github-growth-20260704T035308Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -15339,6 +15343,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_234924_20260703_window
         or current_011308_20260704_window
         or current_023308_20260704_window
+        or current_035308_20260704_window
     ):
         return _skill_route_discovery_current_digest_20260703T135922_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -29109,8 +29114,14 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         "github-growth-20260704T023308.798072Z",
         "github-growth-20260704T023308Z",
     }
+    current_035308_window = source_digest in {
+        "github-growth-20260704T035308.799236Z",
+        "github-growth-20260704T035308Z",
+    }
     reverse_flow_proposal_id = (
         "p1-skill-route-discovery-codex-workflow"
+        if current_035308_window
+        else "p1-skill-route-discovery-codex-workflow"
         if current_023308_window
         else "p2-skill-route-discovery-reverse-flow"
         if current_011308_window
@@ -29130,7 +29141,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
         else "p1_reverse_flow_skill_route_discovery"
     )
     skill_workflow_matrix_proposal_id = (
-        "p2-generic-skill-workflow-route-doc"
+        "p2-generic-skill-route-discovery-doc"
+        if current_035308_window
+        else "p2-generic-skill-workflow-route-doc"
         if current_023308_window
         else "p1-skill-route-discovery-zhengxi-views"
         if current_011308_window
@@ -29154,6 +29167,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
     )
     agent_harness_proposal_id = (
         "p3-agent-harness-eval-fixtures"
+        if current_035308_window
+        else "p3-agent-harness-eval-fixtures"
         if current_023308_window
         else "p3-agent-harness-eval-qwen-agentworld"
         if current_011308_window
@@ -29182,6 +29197,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "proposal_track": (
                 "codex_workflow_skill_route_discovery_completion"
                 if current_023308_window
+                or current_035308_window
                 else "reverse_flow_codex_workflow_gate_completion"
                 if current_011308_window
                 else "reverse_flow_skill_route_discovery_final_validation"
@@ -29206,6 +29222,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                 if (
                     current_011308_window
                     or current_023308_window
+                    or current_035308_window
                     or current_215923_window
                     or current_234924_window
                 )
@@ -29228,7 +29245,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "validation_target": "reverse_flow_skill_signals_classify_before_runtime_workflow",
             "completion_requirement": (
                 "reverse_flow_codex_workflow_repository_maps_only_to_bounded_local_validation_lanes"
-                if current_023308_window
+                if current_023308_window or current_035308_window
                 else "reverse_flow_codex_workflow_gate_must_remain_discovery_first_and_local_test_lane"
                 if current_011308_window
                 else "reverse_flow_codex_skill_signal_requires_discovery_validation_before_routing_change"
@@ -29249,7 +29266,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "proposal_kind": "documentation",
             "proposal_track": (
                 "generic_skill_workflow_bounded_route_documentation"
-                if current_023308_window
+                if current_023308_window or current_035308_window
                 else "zhengxi_views_source_cited_skill_workflow_validation"
                 if current_011308_window
                 else "zhengxi_views_generic_skill_workflow_documentation_validation"
@@ -29269,7 +29286,7 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             "selected_local_lane": "documentation",
             "validation_target": (
                 "generic_skill_workflow_interpretation_documents_bounded_local_lanes"
-                if current_023308_window
+                if current_023308_window or current_035308_window
                 else "zhengxi_views_source_cited_skill_workflow_routes_to_bounded_local_lane"
                 if current_011308_window
                 else "zhengxi_views_generic_skill_workflow_documents_bounded_local_lane"
@@ -29292,6 +29309,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             replay_marker=(
                 "current_digest_20260703T191923_pass4_completion"
                 if current_191923_window
+                else "current_digest_20260704T035308_pass4_completion"
+                if current_035308_window
                 else "current_digest_20260704T023308_pass4_completion"
                 if current_023308_window
                 else "current_digest_20260704T011308_pass4_completion"
@@ -29360,7 +29379,9 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
             adjacent_blockers.append(f"{item_id}:remote_execution_allowed")
 
     expected_agent_names = (
-        {"Qwen-AgentWorld", "Fundamental-Ava"}
+        {"Qwen-AgentWorld", "Fundamental-Ava", "Awesome-Blender-Seedance-Workflow-Usecases"}
+        if current_035308_window
+        else {"Qwen-AgentWorld", "Fundamental-Ava"}
         if current_011308_window or current_023308_window
         else
         {"Qwen-AgentWorld", "Fundamental-Ava", "agent-apprenticeship"}
@@ -29443,6 +29464,8 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                 + (
                     "current_digest_20260703T191923"
                     if current_191923_window
+                    else "current_digest_20260704T035308"
+                    if current_035308_window
                     else "current_digest_20260704T023308"
                     if current_023308_window
                     else "current_digest_20260704T011308"
@@ -29561,6 +29584,29 @@ def _skill_route_discovery_current_digest_20260703T135922_pass4_completion_hando
                     "trend:TianhangZhuzth/Fundamental-Ava-1",
                 ]
                 if current_023308_window
+                else [
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-generic-skill-workflow-classifier-fixture",
+                    "p3-agent-harness-eval-queue",
+                    "p4-route-policy-docs",
+                    "p5-controller-metadata-consistency-check",
+                    "p1-skill-route-discovery-index",
+                    "p2-codex-workflow-gate-doc",
+                    "p3-agent-harness-eval-fixtures",
+                    "p4-workflow-usecase-triage-note",
+                    "trend:lyra81604/zhengxi-views-1",
+                    "p1_reverse_flow_skill_route_discovery",
+                    "p2_skill_workflow_documentation_gate",
+                    "p1-skill-route-discovery-codex-workflow",
+                    "p2-generic-skill-route-discovery-doc",
+                    "p3-agent-harness-eval-fixtures",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:lyra81604/zhengxi-views-1",
+                    "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                ]
+                if current_035308_window
                 else [
                     "proposal-skill-route-discovery-001",
                     "proposal-agent-harness-eval-002",
