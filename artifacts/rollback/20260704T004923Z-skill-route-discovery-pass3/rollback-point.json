@@ -1,0 +1,13 @@
+{
+  "capability_theme": "skill-route-discovery",
+  "created_at": "2026-07-04T00:49:23Z",
+  "original_head": "78789d0f26f0ecabd7246245120c3656b10293bd",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T005025.449430-create-or-extend-a-local-skill-route-discovery-v",
+    "git reset --hard refs/rollback/20260704T004923Z-skill-route-discovery-pass3"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260704T005025.449430-create-or-extend-a-local-skill-route-discovery-v",
+  "source_digest": "github-growth-20260704T004924.800316Z",
+  "rollback_ref": "refs/rollback/20260704T004923Z-skill-route-discovery-pass3",
+  "capability_pass": 3
+}
