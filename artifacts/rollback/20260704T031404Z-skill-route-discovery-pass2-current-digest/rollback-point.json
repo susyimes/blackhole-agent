@@ -1,0 +1,11 @@
+{
+  "created": "2026-07-04T03:14:04Z",
+  "original_branch": "codex/blackhole-evolve/20260704T031404.746294-add-or-extend-local-validation-around-skill-rout",
+  "original_head": "d86a4b85310f52e8ae292c351ff8461dbdec79e1",
+  "rollback_ref": "refs/blackhole-rollback/20260704T031404Z-skill-route-discovery-pass2-current-digest",
+  "source_digest": "github-growth-20260704T031308.789628Z",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260704T031404.746294-add-or-extend-local-validation-around-skill-rout",
+    "git reset --hard refs/blackhole-rollback/20260704T031404Z-skill-route-discovery-pass2-current-digest"
+  ]
+}
