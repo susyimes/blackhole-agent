@@ -9056,6 +9056,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260704T031308.789628Z",
         "github-growth-20260704T031308Z",
     }
+    current_20260704_043308_window = source_digest in {
+        "github-growth-20260704T043308.886255Z",
+        "github-growth-20260704T043308Z",
+    }
     inventory_profiles = {
         profile
         for candidate in candidate_lane_inventory
@@ -9690,21 +9694,37 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 ),
             },
         )
-    if current_20260704_015308_window or current_20260704_031308_window:
+    if (
+        current_20260704_015308_window
+        or current_20260704_031308_window
+        or current_20260704_043308_window
+    ):
         specs = (
             {
                 "proposal_id": (
+                    "p1-skill-route-discovery-codex-workflow"
+                    if current_20260704_043308_window
+                    else
                     "p1-skill-route-discovery-index"
                     if current_20260704_031308_window
                     else "p1-skill-route-discovery-codex-workflow"
                 ),
                 "proposal_kind": "test",
                 "proposal_track": (
+                    "codex_workflow_gate"
+                    if current_20260704_043308_window
+                    else
                     "skill_term_route_index_validation"
                     if current_20260704_031308_window
                     else "codex_workflow_gate"
                 ),
                 "route_profiles": (
+                    (
+                        "codex_workflow_gate",
+                        "generic_skill_workflow",
+                    )
+                    if current_20260704_043308_window
+                    else
                     (
                         "codex_workflow_gate",
                         "generic_skill_workflow",
@@ -9714,18 +9734,31 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                     else ("codex_workflow_gate",)
                 ),
                 "candidate_name_terms": (
+                    ("reverse-flow-skill",)
+                    if current_20260704_043308_window
+                    else
                     ("reverse-flow-skill", "zhengxi-views")
                     if current_20260704_031308_window
                     else ("reverse-flow-skill",)
                 ),
                 "selected_local_lane": "test",
                 "validation_target": (
+                    "reverse_flow_skill_codex_workflow_route_discovery_probe"
+                    if current_20260704_043308_window
+                    else
                     "skill_term_repository_trends_route_to_policy_allowed_validation_lanes"
                     if current_20260704_031308_window
                     else "reverse_flow_skill_codex_workflow_gate_pass2_validation_lane"
                 ),
                 "validation_task": (
                     (
+                        "run a bounded local skill-route discovery check for reverse-flow "
+                        "Codex workflow evidence; verify expected skill metadata shape, "
+                        "routing triggers, and workflow-gate behavior without executing "
+                        "external code or changing runtime permissions"
+                    )
+                    if current_20260704_043308_window
+                    else (
                         "validate that repositories with skill_route_discovery hints and skill "
                         "terms select only documentation, config, test, or code_patch local "
                         "lanes before any activation path is considered"
@@ -9748,34 +9781,55 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             },
             {
                 "proposal_id": (
+                    "p2-generic-skill-workflow-discovery"
+                    if current_20260704_043308_window
+                    else
                     "p2-codex-workflow-gate-doc"
                     if current_20260704_031308_window
                     else "p2-generic-skill-workflow-discovery"
                 ),
                 "proposal_kind": "documentation",
                 "proposal_track": (
+                    "generic_skill_workflow_discovery_checklist"
+                    if current_20260704_043308_window
+                    else
                     "codex_workflow_gate_policy_documentation"
                     if current_20260704_031308_window
                     else "generic_skill_workflow"
                 ),
                 "route_profiles": (
+                    ("generic_skill_workflow", "source_cited_domain_research")
+                    if current_20260704_043308_window
+                    else
                     ("codex_workflow_gate",)
                     if current_20260704_031308_window
                     else ("generic_skill_workflow", "source_cited_domain_research")
                 ),
                 "candidate_name_terms": (
+                    ("zhengxi-views",)
+                    if current_20260704_043308_window
+                    else
                     ("reverse-flow-skill",)
                     if current_20260704_031308_window
                     else ("zhengxi-views",)
                 ),
                 "selected_local_lane": "documentation",
                 "validation_target": (
+                    "generic_skill_workflow_discovery_checklist_records_bounded_route_decisions"
+                    if current_20260704_043308_window
+                    else
                     "codex_workflow_gate_discover_first_validate_locally_policy_note"
                     if current_20260704_031308_window
                     else "generic_skill_workflow_repository_maps_to_bounded_local_lanes"
                 ),
                 "validation_task": (
                     (
+                        "document and validate a generic skill workflow discovery checklist "
+                        "covering topic match, allowed lanes, local_validation_required, and "
+                        "rejection conditions before any activation interpretation"
+                    )
+                    if current_20260704_043308_window
+                    else (
                         "document that Codex-adjacent skill workflow candidates must be "
                         "discovered first, validated locally, and limited to documentation, "
                         "config, test, or code_patch outcomes"
@@ -9799,6 +9853,19 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             },
         )
     active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-route-classification-regression-fixtures",
+            "p5-workflow-usecase-evaluation",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260704_043308_window
+        else
         [
             "p1-skill-route-discovery-reverse-flow",
             "p2-generic-skill-workflow-classifier-fixture",
@@ -11164,6 +11231,19 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
             "trend:QwenLM/Qwen-AgentWorld-1",
         ]
         anchoring_proposal_ids = list(active_proposal_ids)
+    if current_20260704_043308_window:
+        active_proposal_ids = [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-qwen-agentworld",
+            "p4-route-classification-regression-fixtures",
+            "p5-workflow-usecase-evaluation",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        anchoring_proposal_ids = list(active_proposal_ids)
 
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
@@ -11418,9 +11498,22 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
                 if lowered_name == "fundamental-ava"
                 else "p5-agent-workflow-harness-eval-blender-seedance"
             )
-        if current_20260704_015308_window or current_20260704_031308_window:
+        if (
+            current_20260704_015308_window
+            or current_20260704_031308_window
+            or current_20260704_043308_window
+        ):
             lowered_name = str(row.get("name") or "").casefold()
             row["proposal_id"] = (
+                "p3-agent-harness-eval-qwen-agentworld"
+                if current_20260704_043308_window
+                and lowered_name == "qwen-agentworld"
+                else "p4-agent-harness-eval-fundamental-ava"
+                if current_20260704_043308_window
+                and lowered_name == "fundamental-ava"
+                else "p5-workflow-usecase-evaluation"
+                if current_20260704_043308_window
+                else
                 "p3-agent-harness-eval-fixtures"
                 if current_20260704_031308_window
                 and lowered_name in {"qwen-agentworld", "fundamental-ava"}
@@ -11521,7 +11614,12 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         source_digest=source_digest,
         acceptance_surface=acceptance_surface,
     )
-    if current_20260703_070049_window or current_20260704_015308_window or current_20260704_031308_window:
+    if (
+        current_20260703_070049_window
+        or current_20260704_015308_window
+        or current_20260704_031308_window
+        or current_20260704_043308_window
+    ):
         current_pass2_proposal_ids = [str(row.get("proposal_id") or "") for row in rows]
         current_pass2_adjacent_ids = sorted(
             {str(row.get("proposal_id") or "") for row in adjacent_rows if row.get("proposal_id")}
