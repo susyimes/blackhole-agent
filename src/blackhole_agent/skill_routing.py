@@ -6081,13 +6081,78 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260704T094434.421996Z",
         "github-growth-20260704T094434Z",
     }
+    current_20260704_110437_window = source_digest in {
+        "github-growth-20260704T110437.006867Z",
+        "github-growth-20260704T110437Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260704_094434_window:
+    if current_20260704_110437_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_reverse_flow_skill_workflow_validation",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_trigger_terms_and_workflow_gate_stay_bounded",
+                "validation_task": (
+                    "validate reverse-flow-skill as Codex-oriented skill evidence with "
+                    "trigger terms, local sandbox framing, and workflow-gate pressure; "
+                    "preserve skill_route_discovery_first and keep install, runtime, "
+                    "provider launch, external activation, and remote execution denied"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-route-discovery",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_discovery_checklist",
+                "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+                "candidate_name_terms": ("zhengxi-views",),
+                "selected_local_lane": "documentation",
+                "validation_target": "generic_skill_workflow_checklist_maps_to_bounded_lanes",
+                "validation_task": (
+                    "document how generic skill-like repositories are classified by "
+                    "selected item IDs, body-free summaries, route profiles, and allowed "
+                    "documentation, config, test, or code_patch lanes"
+                ),
+            },
+            {
+                "proposal_id": "p5-route-classification-coverage",
+                "proposal_kind": "test",
+                "proposal_track": "route_classification_coverage_for_active_window",
+                "route_profiles": (
+                    "codex_workflow_gate",
+                    "generic_skill_workflow",
+                    "source_cited_domain_research",
+                ),
+                "candidate_name_terms": ("reverse-flow-skill", "zhengxi-views"),
+                "selected_local_lane": "test",
+                "validation_target": "active_skill_route_classification_coverage_is_replayable",
+                "validation_task": (
+                    "check that the active route-classification coverage exposes proposal "
+                    "IDs, selected evidence item IDs, route profiles, lane names, and "
+                    "denial booleans without raw upstream bodies or activation authority"
+                ),
+            },
+        )
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-route-discovery",
+            "p3-agent-harness-eval-for-general-agent-projects",
+            "p4-workflow-usecase-harness-eval",
+            "p5-route-classification-coverage",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+    elif current_20260704_094434_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-codex-workflow",
@@ -7824,6 +7889,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 current_20260703_052050_window
                 or current_20260703_064052_window
                 or current_20260703_141923_window
+                or current_20260704_110437_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             route_probe_rows.append(
@@ -7927,6 +7993,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 or current_20260703_141923_window
                 or current_20260703_153924_window
                 or current_20260703_165923_window
+                or current_20260704_110437_window
                 or current_20260704_094434_window
             )
             else
@@ -8265,6 +8332,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-route-discovery",
+            "p3-agent-harness-eval-for-general-agent-projects",
+            "p4-workflow-usecase-harness-eval",
+            "p5-route-classification-coverage",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:lyra81604/zhengxi-views-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260704_110437_window
+        else
         [
             "p1_reverse_flow_skill_discovery",
             "p2_generic_skill_workflow_probe",
