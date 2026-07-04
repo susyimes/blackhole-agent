@@ -1502,51 +1502,107 @@ def build_current_pass3_skill_route_replay_lane(
     codex_gate_confirmed = gate.get("codex_workflow_gate_confirmed") is True
     ready = skill_ready and adjacent_blocked and codex_gate_confirmed
     proposal_ids = [
-        "p1-skill-route-discovery-codex-gate",
-        "p2-generic-skill-workflow-route",
-        "p3-agent-harness-eval-fixture",
+        "proposal-skill-route-discovery-zhengxi-views",
+        "proposal-codex-skill-workflow-gate",
+        "proposal-agent-harness-qwen-agentworld",
     ]
     replay_commands = [
         "python -m pytest tests/test_proposal_eval.py -q -k current_pass3_skill_route_replay_lane",
         "python -m pytest tests/test_github_growth.py -q -k current_pass3_route_readiness_index",
         "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
     ]
-    skill_rows = [
-        {
+    skill_rows = []
+    proposal_replay_rows: list[dict[str, Any]] = []
+    for target in skill_targets:
+        item_id = str(target.get("item_id") or "")
+        selected_lane = str(target.get("selected_local_lane") or "")
+        allowed_lanes = [
+            str(lane)
+            for lane in target.get("allowed_local_lanes", [])
+            if str(lane) in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+        ]
+        validation_gates = [
+            str(gate_name)
+            for gate_name in target.get("validation_gates", [])
+            if str(gate_name).strip()
+        ]
+        lower_item_id = item_id.lower()
+        proposal_id = (
+            "proposal-codex-skill-workflow-gate"
+            if "reverse-flow-skill" in lower_item_id
+            else "proposal-skill-route-discovery-zhengxi-views"
+            if "zhengxi-views" in lower_item_id
+            else "proposal-skill-route-discovery-local-probe"
+        )
+        row = {
             "item_id": str(target.get("item_id") or ""),
             "primary_route": "skill_route_discovery",
-            "selected_local_lane": str(target.get("selected_local_lane") or ""),
-            "allowed_local_lanes": [
-                str(lane)
-                for lane in target.get("allowed_local_lanes", [])
-                if str(lane) in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
-            ],
-            "validation_gates": [
-                str(gate_name)
-                for gate_name in target.get("validation_gates", [])
-                if str(gate_name).strip()
-            ],
+            "selected_local_lane": selected_lane,
+            "allowed_local_lanes": allowed_lanes,
+            "validation_gates": validation_gates,
             "implementation_lanes_enabled": target.get("implementation_lanes_enabled") is True,
             "local_validation_required": True,
             "runtime_action": "none",
         }
-        for target in skill_targets
-    ]
-    adjacent_rows = [
-        {
-            "item_id": str(target.get("item_id") or ""),
-            "primary_route": "agent_harness_eval_required",
-            "selected_local_lane": "agent_harness_eval",
-            "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
-            "direct_allowed_lanes_before_eval": [],
-            "implementation_lanes_enabled": False,
-            "blocked_until": "local_agent_harness_evaluation_result",
-            "skill_route_discovery_inherited": False,
-            "local_validation_required": True,
-            "runtime_action": "none",
-        }
-        for target in adjacent_agent_targets
-    ]
+        skill_rows.append(row)
+        proposal_replay_rows.append(
+            {
+                "proposal_id": proposal_id,
+                "item_id": item_id,
+                "primary_route": "skill_route_discovery",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_lanes,
+                "validation_gates": validation_gates,
+                "local_validation_task": (
+                    "run_skill_route_discovery_first_codex_workflow_gate"
+                    if proposal_id == "proposal-codex-skill-workflow-gate"
+                    else "classify_skill_repository_into_bounded_local_lane"
+                ),
+                "activation_gate": "local_validation_before_activation",
+                "implementation_route_allowed": target.get("implementation_lanes_enabled") is True,
+                "runtime_action": "none",
+                "external_execution_allowed": False,
+            }
+        )
+
+    adjacent_rows = []
+    for target in adjacent_agent_targets:
+        item_id = str(target.get("item_id") or "")
+        lower_item_id = item_id.lower()
+        proposal_id = (
+            "proposal-agent-harness-qwen-agentworld"
+            if "qwen-agentworld" in lower_item_id
+            else "proposal-agent-harness-eval-required"
+        )
+        adjacent_rows.append(
+            {
+                "item_id": str(target.get("item_id") or ""),
+                "primary_route": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval",
+                "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "direct_allowed_lanes_before_eval": [],
+                "implementation_lanes_enabled": False,
+                "blocked_until": "local_agent_harness_evaluation_result",
+                "skill_route_discovery_inherited": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+        )
+        proposal_replay_rows.append(
+            {
+                "proposal_id": proposal_id,
+                "item_id": item_id,
+                "primary_route": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval",
+                "allowed_local_lanes": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "direct_allowed_lanes_before_eval": [],
+                "local_validation_task": "run_agent_harness_eval_before_implementation_lane",
+                "activation_gate": "blocked_until_local_agent_harness_eval_result",
+                "implementation_route_allowed": False,
+                "runtime_action": "none",
+                "external_execution_allowed": False,
+            }
+        )
 
     return {
         "controller_surface": "current_pass3_skill_route_replay_lane",
@@ -1564,9 +1620,26 @@ def build_current_pass3_skill_route_replay_lane(
         + [
             "trend:lingbol088-spec/reverse-flow-skill-1",
             "trend:lyra81604/zhengxi-views-1",
-            "trend:Forsy-AI/agent-apprenticeship-1",
             "trend:QwenLM/Qwen-AgentWorld-1",
         ],
+        "proposal_replay_plan": {
+            "controller_surface": "current_pass3_proposal_replay_plan",
+            "status": "ready" if ready else "blocked",
+            "proposal_count": len(proposal_replay_rows),
+            "skill_route_proposal_count": sum(
+                1 for row in proposal_replay_rows if row["primary_route"] == "skill_route_discovery"
+            ),
+            "agent_harness_eval_proposal_count": sum(
+                1 for row in proposal_replay_rows if row["primary_route"] == "agent_harness_eval_required"
+            ),
+            "rows": proposal_replay_rows,
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_execution_allowed": False,
+            "raw_source_url_export_allowed": False,
+            "raw_evidence_url_export_allowed": False,
+            "upstream_body_export_allowed": False,
+        },
         "skill_route_candidate_count": len(skill_rows),
         "agent_harness_eval_required_count": len(adjacent_rows),
         "skill_route_ready": skill_ready,

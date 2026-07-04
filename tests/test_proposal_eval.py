@@ -1324,20 +1324,6 @@ def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals()
                 "confidence": 0.84,
             },
             {
-                "item_id": "trend:Forsy-AI/agent-apprenticeship-1",
-                "source_url": "https://github.com/Forsy-AI/agent-apprenticeship",
-                "event_kind": "RepositoryTrend",
-                "summary": (
-                    "agent-apprenticeship is a general agent project and training harness with "
-                    "agent evaluation and apprenticeship claims but no local route-specific workflow signals."
-                ),
-                "relevance_reason": (
-                    "General agent project evidence requires agent_harness_eval before implementation lanes."
-                ),
-                "risk_flags": [],
-                "confidence": 0.8,
-            },
-            {
                 "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
                 "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
                 "event_kind": "RepositoryTrend",
@@ -1354,7 +1340,7 @@ def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals()
         ],
     }
 
-    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=520)
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=520)
     lane_map = build_route_hint_lane_map(evidence_package)
     replay_lane = lane_map["current_pass3_skill_route_replay_lane"]
     serialized = json.dumps(replay_lane, sort_keys=True)
@@ -1363,12 +1349,33 @@ def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals()
     assert replay_lane["status"] == "ready"
     assert replay_lane["source_digest"] == "github-growth-20260703T232924.872543Z"
     assert replay_lane["proposal_ids"] == [
-        "p1-skill-route-discovery-codex-gate",
-        "p2-generic-skill-workflow-route",
-        "p3-agent-harness-eval-fixture",
+        "proposal-skill-route-discovery-zhengxi-views",
+        "proposal-codex-skill-workflow-gate",
+        "proposal-agent-harness-qwen-agentworld",
     ]
+    plan = replay_lane["proposal_replay_plan"]
+    plan_rows = {row["proposal_id"]: row for row in plan["rows"]}
+    assert plan["controller_surface"] == "current_pass3_proposal_replay_plan"
+    assert plan["status"] == "ready"
+    assert plan["skill_route_proposal_count"] == 2
+    assert plan["proposal_count"] == 3
+    assert plan["agent_harness_eval_proposal_count"] == 1
+    assert plan_rows["proposal-codex-skill-workflow-gate"]["local_validation_task"] == (
+        "run_skill_route_discovery_first_codex_workflow_gate"
+    )
+    assert plan_rows["proposal-codex-skill-workflow-gate"]["implementation_route_allowed"] is True
+    assert plan_rows["proposal-skill-route-discovery-zhengxi-views"]["local_validation_task"] == (
+        "classify_skill_repository_into_bounded_local_lane"
+    )
+    assert plan_rows["proposal-agent-harness-qwen-agentworld"]["primary_route"] == (
+        "agent_harness_eval_required"
+    )
+    assert plan_rows["proposal-agent-harness-qwen-agentworld"]["direct_allowed_lanes_before_eval"] == []
+    assert plan_rows["proposal-agent-harness-qwen-agentworld"]["implementation_route_allowed"] is False
+    assert all(row["runtime_action"] == "none" for row in plan["rows"])
+    assert all(row["external_execution_allowed"] is False for row in plan["rows"])
     assert replay_lane["skill_route_candidate_count"] == 2
-    assert replay_lane["agent_harness_eval_required_count"] == 2
+    assert replay_lane["agent_harness_eval_required_count"] == 1
     assert replay_lane["skill_route_ready"] is True
     assert replay_lane["adjacent_agent_harness_eval_blocked"] is True
     assert replay_lane["codex_workflow_gate_confirmed"] is True
@@ -1378,10 +1385,7 @@ def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals()
         "test",
         "code_patch",
     }
-    assert set(replay_lane["blocked_validation_target_item_ids"]) == {
-        "trend:Forsy-AI/agent-apprenticeship-1",
-        "trend:QwenLM/Qwen-AgentWorld-1",
-    }
+    assert replay_lane["blocked_validation_target_item_ids"] == ["trend:QwenLM/Qwen-AgentWorld-1"]
     assert all(row["runtime_action"] == "none" for row in replay_lane["skill_route_rows"])
     assert all(
         row["direct_allowed_lanes_before_eval"] == []
@@ -1397,6 +1401,9 @@ def test_current_pass3_skill_route_replay_lane_matches_active_window_proposals()
     assert replay_lane["raw_source_url_export_allowed"] is False
     assert replay_lane["raw_evidence_url_export_allowed"] is False
     assert replay_lane["upstream_body_export_allowed"] is False
+    assert plan["raw_source_url_export_allowed"] is False
+    assert plan["raw_evidence_url_export_allowed"] is False
+    assert plan["upstream_body_export_allowed"] is False
     assert all(len(command_hash) == 64 for command_hash in replay_lane["replay_command_hashes"])
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
