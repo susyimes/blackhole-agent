@@ -1791,6 +1791,38 @@ def _has_negated_skill_workflow_signal(text: str) -> bool:
     )
 
 
+def _looks_like_workflow_usecase_summary(summary: ExternalSkillRepositorySummary) -> bool:
+    """Identify workflow-topic repositories that are not skill-route evidence."""
+
+    if _looks_like_skill_repository_summary(summary):
+        return False
+    text = _summary_text(summary)
+    workflow_markers = (
+        "seedance",
+        "usecase",
+        "usecases",
+        "workflow",
+        "workflows",
+    )
+    general_agent_markers = (
+        "agent benchmark",
+        "agent environment",
+        "agent evaluation",
+        "agent world",
+        "agentworld",
+        "autonomous agent",
+        "fundamental-ava",
+        "general agent",
+        "general-agent",
+        "looper",
+        "multi-agent",
+        "world model",
+    )
+    return any(marker in text for marker in workflow_markers) and not any(
+        marker in text for marker in general_agent_markers
+    )
+
+
 def _bounded_skill_discovery_lanes(summary: ExternalSkillRepositorySummary) -> tuple[str, ...]:
     text = _summary_text(summary)
     suggested = tuple(lane for lane in summary.suggested_lanes if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
@@ -1851,14 +1883,18 @@ def _skill_route_discovery_ignored_evidence_item(
     except ValueError:
         source_hash = _stable_hash(evidence_item.source_url)
 
+    route_class = ""
     if summary is None:
         ignored_reason = "route_hint_not_skill_route_discovery"
     elif explicit_route_metadata:
         ignored_reason = "explicit_route_metadata_without_skill_workflow_signal"
+    elif _looks_like_workflow_usecase_summary(summary):
+        ignored_reason = "workflow_usecase_without_skill_route_signal"
+        route_class = "workflow_usecase_repository"
     else:
         ignored_reason = "no_skill_workflow_signal"
 
-    return {
+    result = {
         "item_id": evidence_item.item_id,
         "item_kind": evidence_item.item_kind,
         "name": evidence_item.name or _repository_name_from_url(evidence_item.source_url),
@@ -1879,6 +1915,11 @@ def _skill_route_discovery_ignored_evidence_item(
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+    if route_class:
+        result["route_class"] = route_class
+        result["route_hint"] = "agent_harness_eval_required"
+        result["required_before_implementation"] = "local_agent_harness_eval_route_established"
+    return result
 
 
 def _skill_route_discovery_mixed_probe_metadata(
@@ -28915,8 +28956,9 @@ def _skill_route_discovery_adjacent_general_agent_rows(
 ) -> list[dict[str, Any]]:
     """Represent non-skill general-agent evidence as eval-only adjacent rows."""
 
-    return [
-        {
+    rows: list[dict[str, Any]] = []
+    for item in ignored_evidence_items:
+        row = {
             "proposal_id": proposal_id,
             "item_id": str(item.get("item_id") or ""),
             "item_kind": str(item.get("item_kind") or ""),
@@ -28942,8 +28984,12 @@ def _skill_route_discovery_adjacent_general_agent_rows(
             "raw_target_paths_exported": False,
             "raw_upstream_body_exported": False,
         }
-        for item in ignored_evidence_items
-    ]
+        if item.get("route_class"):
+            row["route_class"] = str(item.get("route_class") or "")
+        if item.get("route_hint"):
+            row["route_hint"] = str(item.get("route_hint") or "")
+        rows.append(row)
+    return rows
 
 
 def _skill_route_discovery_is_workflow_only_evidence_item(item: Mapping[str, Any]) -> bool:

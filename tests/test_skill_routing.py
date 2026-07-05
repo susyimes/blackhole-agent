@@ -352,6 +352,89 @@ def test_skill_route_discovery_registry_validation_lane_reports_malformed_record
     ]
 
 
+def test_skill_route_discovery_routes_workflow_usecases_to_agent_harness_eval():
+    registry = build_skill_route_discovery_registry_from_evidence_items(
+        [
+            {
+                "source_digest": "github-growth-20260705T161641.350480Z",
+                "item_id": "p1-skill-route-discovery-reverse-flow",
+                "item_kind": "repository",
+                "name": "reverse-flow-skill",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "title": "Reverse-flow Codex workflow skill",
+                "summary": (
+                    "Codex and AI Agent skill workflow with skills/reverse-flow/SKILL.md, "
+                    "references, scripts, local sandbox and CTF framing, install examples, "
+                    "and runtime pressure that must remain diagnostic."
+                ),
+                "topics": ["codex", "agent-skill", "workflow"],
+                "suggested_lanes": ["documentation", "test", "runtime_execution"],
+                "route_classification": {
+                    "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                    "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                    "source_metadata_signals": ["local_sandbox_boundary"],
+                },
+            },
+            {
+                "source_digest": "github-growth-20260705T161641.350480Z",
+                "item_id": "p3-workflow-agent-harness-eval",
+                "item_kind": "repository",
+                "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+                "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+                "title": "Seedance workflow usecase catalog",
+                "summary": (
+                    "Workflow usecase repository for Blender and Seedance examples, with no "
+                    "skill package, no SKILL.md, and no skill route activation signal."
+                ),
+                "topics": ["workflow", "usecases", "seedance"],
+                "suggested_lanes": ["documentation", "code_patch", "runtime_execution"],
+            },
+        ]
+    )
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    adjacent_rows = lane_map["current_run_pass1_activation_readiness"]["adjacent_general_agent_rows"]
+    serialized = json.dumps(lane_map["current_run_pass1_activation_readiness"], sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260705T161641.350480Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 1
+
+    reverse_flow = registry["candidates"][0]
+    assert reverse_flow["name"] == "reverse-flow-skill"
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert set(reverse_flow["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["unsupported_lane_pressure"] == ["runtime_execution"]
+    assert reverse_flow["enabled"] is False
+    assert reverse_flow["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+
+    workflow = registry["ignored_evidence_items"][0]
+    assert workflow["name"] == "Awesome-Blender-Seedance-Workflow-Usecases"
+    assert workflow["ignored_reason"] == "workflow_usecase_without_skill_route_signal"
+    assert workflow["route_class"] == "workflow_usecase_repository"
+    assert workflow["route_hint"] == "agent_harness_eval_required"
+    assert workflow["evaluation_lane"] == "agent_harness_eval_required"
+    assert workflow["skill_route_discovery_inherited"] is False
+    assert workflow["direct_runtime_route_allowed"] is False
+    assert workflow["direct_code_patch_route_allowed"] is False
+
+    assert len(adjacent_rows) == 1
+    adjacent = adjacent_rows[0]
+    assert adjacent["route_class"] == "workflow_usecase_repository"
+    assert adjacent["route_hint"] == "agent_harness_eval_required"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+
+
 def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():
     registry = build_skill_route_discovery_registry(
         [

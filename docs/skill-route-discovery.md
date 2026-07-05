@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260705T161641.350480Z`, pass 4 completes
+the active `skill-route-discovery` window by making the workflow-only boundary
+explicit in the reusable classifier. `lingbol088-spec/reverse-flow-skill`
+remains a disabled skill-route candidate when the frozen evidence carries
+Codex/AI Agent skill package markers such as `skills/reverse-flow`,
+`SKILL.md`, references, scripts, and local sandbox/CTF framing. Its runtime,
+install, and script pressure is diagnostic only; the local lanes remain bounded
+to documentation, config, test, or code_patch.
+
+Workflow-usecase repositories such as
+`Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases` no longer collapse into
+a generic ignored bucket when they lack explicit skill package or skill-route
+signals. The classifier records
+`workflow_usecase_without_skill_route_signal`,
+`workflow_usecase_repository`, and `agent_harness_eval_required`, then denies
+skill-route inheritance, direct runtime routing, direct code_patch routing,
+external harness execution, provider launch, and remote execution before local
+agent-harness evaluation. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k workflow_usecases_to_agent_harness_eval`.
+
 For source digest `github-growth-20260705T153637.166417Z`, pass 2 exposes the
 active `skill-route-discovery` window through
 `current_digest_pass2_local_validation_lane`. The
