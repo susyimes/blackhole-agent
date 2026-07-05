@@ -6176,13 +6176,49 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260705T094958.194978Z",
         "github-growth-20260705T094958Z",
     }
+    current_20260705_110958_window = source_digest in {
+        "github-growth-20260705T110958.050064Z",
+        "github-growth-20260705T110958Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260705_094958_window:
+    if current_20260705_110958_window:
+        specs = (
+            {
+                "proposal_id": "p2-skill-route-discovery-for-reverse-flow-skill",
+                "proposal_kind": "code_patch",
+                "proposal_track": "reverse_flow_skill_route_discovery_bounded_lanes",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "code_patch",
+                "validation_target": "reverse_flow_skill_workflow_produces_only_bounded_local_lanes",
+                "validation_task": (
+                    "classify reverse-flow-skill as Codex and Agent skill workflow evidence; "
+                    "preserve skill_route_discovery_first and restrict outcomes to documentation, "
+                    "config, test, or code_patch while upstream install, script execution, "
+                    "external activation, provider launch, harness execution, and remote execution stay denied"
+                ),
+            },
+            {
+                "proposal_id": "p3-document-routing-policy-for-trending-agent-inputs",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_vs_general_agent_harness_policy",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_workflow_and_general_agent_route_split",
+                "validation_task": (
+                    "record that explicit skill workflow signals enter skill_route_discovery, "
+                    "while general agent and workflow-topic repositories require local "
+                    "agent_harness_eval before documentation, test, or code_patch follow-up"
+                ),
+            },
+        )
+    elif current_20260705_094958_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-reverse-flow",
@@ -8467,6 +8503,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p1-agent-harness-eval-for-general-agent-trends"
+            if current_20260705_110958_window
+            else
             "p3-agent-harness-eval-for-general-agent-trends"
             if current_20260705_042818_window
             else
@@ -8848,6 +8887,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-agent-harness-eval-for-general-agent-trends",
+            "p2-skill-route-discovery-for-reverse-flow-skill",
+            "p3-document-routing-policy-for-trending-agent-inputs",
+            "p4-controller-metadata-test-for-route-hint-lane-bounds",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+        ]
+        if current_20260705_110958_window
+        else
         [
             "p1_skill_route_discovery_reverse_flow",
             "p2_agent_harness_qwen_agentworld",
@@ -9666,6 +9718,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "workflow_topic_boundary": _skill_route_discovery_workflow_topic_boundary(
             adjacent_rows,
             proposal_id=(
+                "p3-document-routing-policy-for-trending-agent-inputs"
+                if current_20260705_110958_window
+                else
                 "proposal-workflow-usecase-classifier-003"
                 if current_20260704_000924_window
                 else
