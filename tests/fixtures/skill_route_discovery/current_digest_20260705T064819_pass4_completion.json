@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260705T064819.468069Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 4,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1_reverse_flow_skill_route_discovery",
+      "p2_bionemo_skill_workflow_discovery",
+      "p3_skill_route_discovery_regression_pair",
+      "trend:QwenLM/Qwen-AgentWorld-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-2"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260705T064819.468069Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Public Codex-oriented reverse-flow skill repository with agent, skill, workflow, local sandbox, script, and install wording. Install, execution, and reverse-engineering workflow pressure must remain diagnostic only before local validation.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+      "unsupported_lane_pressure": ["install", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/agents/openai.yaml",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "agent_metadata", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["codex_workflow_signal", "body_free_workflow_summary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260705T064819.468069Z",
+      "item_id": "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+      "item_kind": "RepositoryTrend",
+      "name": "bionemo-agent-toolkit",
+      "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+      "summary": "Public domain-specific agent toolkit with agent, skills, plugin marketplace, catalog, and workflow signals. Treat as a generic skill workflow route candidate that validates accepted mappings before any local behavior or install change.",
+      "topics": ["agent", "agents", "skill", "skills", "workflow", "plugin", "toolkit", "life-science"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+      "unsupported_lane_pressure": ["install", "runtime_execution"],
+      "observed_paths": [
+        ".agents/plugins/marketplace.json",
+        "library-skills/",
+        "nim-skills/",
+        "open-models-skills/",
+        "skills.sh.json",
+        "workflows/generative_protein_binder_design/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_registry_metadata", "agent_plugin_marketplace"],
+        "source_metadata_signals": ["skill_manifest", "body_free_workflow_summary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260705T064819.468069Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "summary": "General agent project and benchmark evidence without explicit skill workflow route hints or local harness evaluation result.",
+      "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+      "route_hints": [],
+      "suggested_lanes": []
+    },
+    {
+      "source_digest": "github-growth-20260705T064819.468069Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-2",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous-agent project evidence without explicit skill workflow route hints or local harness evaluation result.",
+      "topics": ["general-agent", "agent", "workflow"],
+      "route_hints": [],
+      "suggested_lanes": []
+    }
+  ]
+}
