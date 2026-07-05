@@ -25393,6 +25393,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260705T050821.175166Z",
         "github-growth-20260705T050821Z",
     }
+    current_20260705_074818_window = source_digest in {
+        "github-growth-20260705T074818.241950Z",
+        "github-growth-20260705T074818Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -25852,6 +25856,31 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 ),
             },
         )
+    if current_20260705_074818_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1_reverse_flow_skill_discovery",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "reverse_flow_skill_lineage_routes_to_bounded_local_test_lane"
+                ),
+            },
+            {
+                "proposal_id": "p2_skill_route_documentation_contract",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_evidence_interpretation_contract",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": (
+                    "reverse_flow_skill_evidence_documents_allowed_lanes_and_citation_constraints"
+                ),
+            },
+        )
     allowed_profiles = {
         profile for proposal in skill_proposals for profile in _string_list(proposal["route_profiles"])
     }
@@ -25912,6 +25941,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 or current_20260704_142434_window
                 or current_20260704_170435_window
                 or current_20260705_050821_window
+                or current_20260705_074818_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
@@ -26036,6 +26066,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260704_170435_window
             else "p3-agent-harness-eval-for-general-agent-trends"
             if current_20260705_050821_window
+            else "p3_agent_harness_eval_fixture"
+            if current_20260705_074818_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -26102,6 +26134,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260704_170435_window
             else "p3-agent-harness-eval-for-general-agent-trends"
             if current_20260705_050821_window
+            else "p3_agent_harness_eval_fixture"
+            if current_20260705_074818_window
             else "p2-agent-harness-eval-general-agent-projects"
     )
     pass3_operator_validation_packet = {
@@ -26532,6 +26566,26 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
             ]
             if current_20260705_050821_window
+            else [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-agent-harness-eval-general-agent-trends",
+                "p3-agent-workflow-signal-triage-doc",
+                "p4-workflow-usecase-harness-probe",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "p1_reverse_flow_skill_route_discovery",
+                "p2_skill_workflow_routing_docs",
+                "p3_agent_harness_eval_fixture",
+                "p4_workflow_usecase_classification_check",
+                "p5_policy_metadata_consistency_check",
+                "p1_reverse_flow_skill_discovery",
+                "p2_skill_route_documentation_contract",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:dreamwho/reverse-flow-skill-1",
+                "trend:InternScience/Agents-A1-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260705_074818_window
             else []
         ),
         "skill_route_candidate_count": len(
