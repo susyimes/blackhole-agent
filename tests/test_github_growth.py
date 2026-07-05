@@ -2647,6 +2647,111 @@ def test_current_pass2_skill_route_operator_lane_replays_active_skill_window():
     assert "runtime_execution" not in serialized
 
 
+def test_current_pass2_operator_lane_routes_124958_reverse_flow_and_general_agents():
+    digest = {
+        "digest_id": "github-growth-20260705T124958.128997Z",
+        "generated_at": "2026-07-05T12:49:58.128997Z",
+        "items": [
+            {
+                "item_id": "p1-skill-route-discovery-reverse-flow",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is an AI Agent / Codex skill workflow with "
+                    "skills/reverse-flow/SKILL.md, scripts, local sandbox defaults, "
+                    "install examples, and workflow-gate pressure."
+                ),
+                "relevance_reason": (
+                    "Route matching agent, codex, and skill terms must enter "
+                    "skill_route_discovery and map only to bounded local lanes."
+                ),
+                "risk_flags": [],
+                "confidence": 0.79,
+            },
+            {
+                "item_id": "p2-agent-harness-eval-qwen-agentworld",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld is a general agent benchmark and world-model project.",
+                "relevance_reason": (
+                    "General agent project evidence without skill workflow signals requires "
+                    "agent_harness_eval before local implementation lanes."
+                ),
+                "risk_flags": [],
+                "confidence": 0.66,
+            },
+            {
+                "item_id": "p3-agent-harness-eval-fundamental-ava",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "event_kind": "RepositoryTrend",
+                "summary": "Fundamental-Ava is a general autonomous collaborative agent project.",
+                "relevance_reason": (
+                    "A second general-agent trend with no route_hints should remain a "
+                    "local_validation_candidate behind agent_harness_eval_required."
+                ),
+                "risk_flags": [],
+                "confidence": 0.64,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=3, max_item_text_chars=560)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    operator_lane = lane_map["current_pass2_skill_route_operator_lane"]
+    skill_rows = {row["item_id"]: row for row in operator_lane["skill_route_rows"]}
+    adjacent_rows = {row["item_id"]: row for row in operator_lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(operator_lane, sort_keys=True)
+
+    assert operator_lane["source_digest"] == "github-growth-20260705T124958.128997Z"
+    assert operator_lane["active_proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-fundamental-ava",
+        "p4-agent-harness-eval-agents-a1",
+        "p5-workflow-usecase-documentation-eval",
+        "p4-agent-project-trend-triage-doc",
+        "p5-no-direct-runtime-action-for-awesome-workflow",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    ]
+    assert operator_lane["status"] == "ready_with_adjacent_agent_eval_gated"
+    assert operator_lane["skill_workflow_count"] == 1
+    assert operator_lane["adjacent_general_agent_count"] == 2
+
+    reverse_flow = skill_rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["primary_route"] == "skill_route_discovery"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["accepted_outputs_before_validation"] == []
+    assert reverse_flow["accepted_outputs_after_validation"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["route_uncertainty"] == [
+        "repository_level_summary_only",
+        "low_or_medium_confidence_route_signal",
+        "external_skill_not_activated",
+    ]
+
+    assert sorted(adjacent_rows) == [
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-fundamental-ava",
+    ]
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in adjacent_rows.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows.values())
+    assert all(row["implementation_route_allowed"] is False for row in adjacent_rows.values())
+    assert all("missing_local_agent_harness_fixture" in row["route_uncertainty"] for row in adjacent_rows.values())
+    assert all("low_or_medium_confidence_route_signal" in row["route_uncertainty"] for row in adjacent_rows.values())
+
+    assert operator_lane["runtime_action"] == "none"
+    assert operator_lane["external_skill_activation_allowed"] is False
+    assert operator_lane["external_agent_activation_allowed"] is False
+    assert operator_lane["external_harness_execution_allowed"] is False
+    assert operator_lane["provider_runtime_launch_allowed"] is False
+    assert operator_lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():
     digest = {
         "digest_id": "github-growth-mixed-skill-workflow-probe",

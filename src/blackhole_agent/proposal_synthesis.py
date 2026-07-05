@@ -102,6 +102,10 @@ GENERAL_AGENT_PROJECT_EVAL_COMMANDS = [
     "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
     "pytest tests/test_proposal_eval.py -q -k omnigent",
 ]
+CURRENT_PASS2_SKILL_ROUTE_20260705T124958_DIGEST_IDS = {
+    "github-growth-20260705T124958.128997Z",
+    "github-growth-20260705T124958Z",
+}
 PASS2_AGENT_HARNESS_FIXTURE_FIELDS = [
     "fixture_path",
     "expected_behavior",
@@ -1380,6 +1384,7 @@ def build_current_pass2_skill_route_operator_lane(
         selected_lane = str(row.get("selected_local_lane") or "")
         allowed_lanes = [str(lane) for lane in row.get("allowed_local_lanes", [])]
         route_profiles = [str(profile) for profile in row.get("route_profiles", [])]
+        source_item = find_item_by_id(items, item_id)
         local_lane_ready = (
             bool(item_id)
             and selected_lane in allowed_lanes
@@ -1407,6 +1412,10 @@ def build_current_pass2_skill_route_operator_lane(
                 "queued_local_lanes": [str(lane) for lane in row.get("queued_local_lanes", [])],
                 "accepted_outputs_before_validation": [],
                 "accepted_outputs_after_validation": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+                "route_uncertainty": current_pass2_route_uncertainty_for_item(
+                    source_item,
+                    route_class="skill_workflow",
+                ),
                 "local_lane_ready": local_lane_ready,
                 "skill_route_discovery_first_confirmed": bool(
                     row.get("skill_route_discovery_first_confirmed")
@@ -1426,6 +1435,7 @@ def build_current_pass2_skill_route_operator_lane(
         if not isinstance(row, dict):
             continue
         item_id = str(row.get("item_id") or "")
+        source_item = find_item_by_id(items, item_id)
         adjacent_rows.append(
             {
                 "item_id": item_id,
@@ -1436,6 +1446,10 @@ def build_current_pass2_skill_route_operator_lane(
                 "direct_allowed_lanes_before_eval": [],
                 "accepted_outputs_before_eval": [],
                 "accepted_outputs_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "route_uncertainty": current_pass2_route_uncertainty_for_item(
+                    source_item,
+                    route_class="general_agent_project",
+                ),
                 "skill_route_discovery_inherited": False,
                 "implementation_route_allowed": False,
                 "blocked_until": "local_agent_harness_evaluation_result",
@@ -1468,6 +1482,33 @@ def build_current_pass2_skill_route_operator_lane(
         for blocker in pass2_handoff.get("blocked_general_agent_item_ids", [])
         if str(blocker).strip()
     ]
+    active_proposal_ids = (
+        [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-fundamental-ava",
+            "p4-agent-harness-eval-agents-a1",
+            "p5-workflow-usecase-documentation-eval",
+            "p4-agent-project-trend-triage-doc",
+            "p5-no-direct-runtime-action-for-awesome-workflow",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if digest_id in CURRENT_PASS2_SKILL_ROUTE_20260705T124958_DIGEST_IDS
+        else [
+            "p1_reverse_flow_skill_route_discovery",
+            "p2_bionemo_skill_workflow_discovery",
+            "p3_skill_route_discovery_regression_pair",
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-routing-bionemo",
+            "p3-agent-harness-eval-for-general-agent-trends",
+            "p4-workflow-usecase-intake-gating",
+            "p5-route-classification-regression-bundle",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-2",
+        ]
+    )
     return {
         "controller_surface": "current_pass2_skill_route_operator_lane",
         "status": status,
@@ -1479,18 +1520,7 @@ def build_current_pass2_skill_route_operator_lane(
         "capability_theme": "skill-route-discovery",
         "capability_pass": "2_of_4",
         "source_digest": digest_id,
-        "active_proposal_ids": [
-            "p1_reverse_flow_skill_route_discovery",
-            "p2_bionemo_skill_workflow_discovery",
-            "p3_skill_route_discovery_regression_pair",
-            "p1-skill-route-discovery-reverse-flow",
-            "p2-generic-skill-workflow-routing-bionemo",
-            "p3-agent-harness-eval-for-general-agent-trends",
-            "p4-workflow-usecase-intake-gating",
-            "p5-route-classification-regression-bundle",
-            "trend:QwenLM/Qwen-AgentWorld-1",
-            "trend:TianhangZhuzth/Fundamental-Ava-2",
-        ],
+        "active_proposal_ids": active_proposal_ids,
         "selected_item_ids": selected_item_ids,
         "skill_workflow_count": len(skill_rows),
         "adjacent_general_agent_count": len(adjacent_rows),
@@ -1520,6 +1550,36 @@ def build_current_pass2_skill_route_operator_lane(
         "raw_target_path_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
+
+
+def current_pass2_route_uncertainty_for_item(
+    item: dict[str, Any],
+    *,
+    route_class: str,
+) -> list[str]:
+    """Return bounded uncertainty labels for operator route rows."""
+
+    if not isinstance(item, dict):
+        item = {}
+    reasons = ["repository_level_summary_only"]
+    try:
+        confidence = float(item.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    if confidence < 0.7:
+        reasons.append("low_or_medium_confidence_route_signal")
+    if route_class == "skill_workflow":
+        summary = " ".join(
+            str(item.get(key) or "")
+            for key in ("summary", "relevance_reason", "recommended_action")
+        ).lower()
+        if "skill.md" not in summary and "skills/" not in summary:
+            reasons.append("missing_skill_package_shape_detail")
+        reasons.append("external_skill_not_activated")
+    elif route_class == "general_agent_project":
+        reasons.append("missing_local_agent_harness_fixture")
+        reasons.append("direct_runtime_action_not_inferred")
+    return list(dict.fromkeys(reasons))
 
 
 def build_current_pass2_route_evidence_lane_source(
