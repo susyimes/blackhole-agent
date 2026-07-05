@@ -5,6 +5,25 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260705T092958.273399Z`, pass 4 closes the
+current `skill-route-discovery` window through
+`current_digest_pass4_completion_handoff`. The reverse-flow-skill cluster is
+treated as one lineage candidate: the Huiiyi and yzx20051 fork-style signals
+corroborate the direct `lingbol088-spec/reverse-flow-skill` route evidence, but
+do not create extra activation routes. The pass maps the lineage to
+`p1-skill-route-discovery-reverse-flow` in the local test lane and
+`p2-skill-route-discovery-docs` in the documentation lane. Both rows require
+`skill_route_discovery_first`, selected item IDs, focused local validation, and
+bounded lanes only: documentation, config, test, or code_patch.
+
+`QwenLM/Qwen-AgentWorld`, `TianhangZhuzth/Fundamental-Ava`, and
+`InternScience/Agents-A1` remain adjacent
+`agent_harness_eval_required` rows under `p3-agent-harness-eval-routing`.
+They do not inherit `skill_route_discovery`, direct runtime routing, direct
+code_patch authority, external harness execution, provider launch, or remote
+execution before bounded local harness evaluation. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T092958`.
+
 For source digest `github-growth-20260705T082958.436037Z`, pass 1 opens the
 current `skill-route-discovery` window through
 `current_digest_pass1_validation_lane`. The reverse-flow-skill signal maps to

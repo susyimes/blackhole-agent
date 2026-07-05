@@ -17497,6 +17497,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260705T080817.787301Z",
         "github-growth-20260705T080817Z",
     }
+    current_092958_20260705_window = source_digest in {
+        "github-growth-20260705T092958.273399Z",
+        "github-growth-20260705T092958Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -17589,8 +17593,8 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         )
     if (
         current_080817_20260705_window
-        or
-        current_163922_20260703_window
+        or current_092958_20260705_window
+        or current_163922_20260703_window
         or current_175922_20260703_window
         or current_191923_20260703_window
         or current_203923_20260703_window
@@ -17614,7 +17618,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_052819_20260705_window
         or current_064819_20260705_window
     ):
-        if current_080817_20260705_window:
+        if current_080817_20260705_window or current_092958_20260705_window:
             return _skill_route_discovery_current_digest_20260705T080817_pass4_completion_handoff(
                 candidate_lane_inventory,
                 ignored_evidence_items,
@@ -19102,16 +19106,36 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
     """Complete the current reverse-flow skill-route window as a replayable handoff."""
 
     reverse_flow_proposal_id = "p1-skill-route-discovery-reverse-flow"
-    docs_proposal_id = "p3-document-growth-route-policy"
-    agent_harness_proposal_id = "p2-agent-harness-eval-trending-agent-projects"
-    replay_marker = "current_digest_20260705T080817_pass4_completion"
+    current_092958_window = source_digest in {
+        "github-growth-20260705T092958.273399Z",
+        "github-growth-20260705T092958Z",
+    }
+    docs_proposal_id = (
+        "p2-skill-route-discovery-docs"
+        if current_092958_window
+        else "p3-document-growth-route-policy"
+    )
+    agent_harness_proposal_id = (
+        "p3-agent-harness-eval-routing"
+        if current_092958_window
+        else "p2-agent-harness-eval-trending-agent-projects"
+    )
+    replay_marker = (
+        "current_digest_20260705T092958_pass4_completion"
+        if current_092958_window
+        else "current_digest_20260705T080817_pass4_completion"
+    )
     specs = (
         {
             "proposal_id": reverse_flow_proposal_id,
             "proposal_kind": "test",
             "proposal_track": "reverse_flow_skill_route_discovery_completion",
             "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
-            "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+            "candidate_name_terms": (
+                "Huiiyi-reverse-flow-skill",
+                "lingbol088-spec-reverse-flow-skill",
+                "yzx20051-reverse-flow-skill",
+            ),
             "selected_local_lane": "test",
             "validation_target": "reverse_flow_skill_workflow_stays_in_bounded_local_lanes",
             "completion_requirement": (
@@ -19123,7 +19147,11 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             "proposal_kind": "documentation",
             "proposal_track": "skill_workflow_vs_general_agent_route_policy",
             "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
-            "candidate_name_terms": ("lingbol088-spec-reverse-flow-skill",),
+            "candidate_name_terms": (
+                "Huiiyi-reverse-flow-skill",
+                "lingbol088-spec-reverse-flow-skill",
+                "yzx20051-reverse-flow-skill",
+            ),
             "selected_local_lane": "documentation",
             "validation_target": "document_skill_workflow_and_general_agent_eval_boundary",
             "completion_requirement": (
@@ -19305,6 +19333,27 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         ],
         "anchoring_proposal_ids": [
             "p1-skill-route-discovery-reverse-flow",
+            *(
+                [
+                    "p2-skill-route-discovery-docs",
+                    "p3-agent-harness-eval-routing",
+                    "p2_agent_harness_qwen_agentworld",
+                    "p3_agent_harness_fundamental_ava",
+                    "p4_agent_harness_agents_a1",
+                    "p5_agent_harness_workflow_usecases",
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-agent-harness-eval-trending-agent-projects",
+                    "p3-route-classification-docs",
+                    "trend:Huiiyi/reverse-flow-skill-1",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:yzx20051/reverse-flow-skill-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "trend:InternScience/Agents-A1-1",
+                ]
+                if current_092958_window
+                else []
+            ),
             "p2-agent-harness-eval-general-agent-trends",
             "p3-agent-workflow-signal-triage-doc",
             "p4-workflow-usecase-harness-probe",
