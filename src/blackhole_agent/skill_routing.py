@@ -25053,6 +25053,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260704T170435.079487Z",
         "github-growth-20260704T170435Z",
     }
+    current_20260705_050821_window = source_digest in {
+        "github-growth-20260705T050821.175166Z",
+        "github-growth-20260705T050821Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -25476,6 +25480,42 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 ),
             },
         )
+    if current_20260705_050821_window:
+        skill_proposals = (
+            {
+                "proposal_id": "p1_reverse_flow_skill_route_discovery",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "reverse_flow_trend_and_fork_lineage_collapse_to_one_bounded_lane"
+                ),
+            },
+            {
+                "proposal_id": "p2_skill_workflow_documentation_lane",
+                "proposal_kind": "documentation",
+                "proposal_track": "public_skill_workflow_route_decision_path",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit", "reverse-flow-skill"),
+                "selected_local_lane": "documentation",
+                "validation_target": (
+                    "skill_term_and_mixed_skill_workflow_evidence_map_to_allowed_lanes"
+                ),
+            },
+            {
+                "proposal_id": "p3_bionemo_skill_route_probe",
+                "proposal_kind": "test",
+                "proposal_track": "agent_toolkit_skill_route_probe",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "test",
+                "validation_target": (
+                    "agent_toolkit_with_skill_topics_enters_skill_route_discovery_first"
+                ),
+            },
+        )
     allowed_profiles = {
         profile for proposal in skill_proposals for profile in _string_list(proposal["route_profiles"])
     }
@@ -25535,6 +25575,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 or current_20260704_130435_window
                 or current_20260704_142434_window
                 or current_20260704_170435_window
+                or current_20260705_050821_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
@@ -25657,6 +25698,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260704_142434_window
             else "p3-agent-harness-eval-trending-projects"
             if current_20260704_170435_window
+            else "p3-agent-harness-eval-for-general-agent-trends"
+            if current_20260705_050821_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -25721,6 +25764,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260704_142434_window
             else "p3-agent-harness-eval-trending-projects"
             if current_20260704_170435_window
+            else "p3-agent-harness-eval-for-general-agent-trends"
+            if current_20260705_050821_window
             else "p2-agent-harness-eval-general-agent-projects"
     )
     pass3_operator_validation_packet = {
@@ -26130,6 +26175,27 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:TianhangZhuzth/Fundamental-Ava-4",
             ]
             if current_20260704_170435_window
+            else [
+                "p1-skill-route-discovery-codex-workflow-gate",
+                "p2-generic-skill-workflow-discovery",
+                "p3-agent-harness-eval-for-general-agent-trends",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-2",
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-route-coverage",
+                "p3-agent-harness-eval-gate",
+                "p4-route-hint-documentation",
+                "p1_reverse_flow_skill_route_discovery",
+                "p2_skill_workflow_documentation_lane",
+                "p3_bionemo_skill_route_probe",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "fork:LLLL2266/reverse-flow-skill-1",
+                "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-2",
+                "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            ]
+            if current_20260705_050821_window
             else []
         ),
         "skill_route_candidate_count": len(

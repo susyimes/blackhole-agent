@@ -7847,3 +7847,42 @@ replay command hashes while denying raw source URL export, raw replay command
 export, upstream body export, external skill activation, external agent
 activation, external harness execution, provider runtime launch, remote
 execution, profile writes, memory writes, and runtime action.
+
+## Current Digest 20260705T050821 Pass 3
+
+The `github-growth-20260705T050821.175166Z` pass-3 lane specializes
+`current_digest_pass3_route_to_validation_lane` for the active skill route
+discovery window. It turns the carried reverse-flow and BioNeMo evidence into
+operator-visible local validation rows before any activation path.
+
+`lingbol088-spec/reverse-flow-skill` and the carried
+`LLLL2266/reverse-flow-skill` fork-lineage signal collapse into one
+reverse-flow candidate. The row maps to
+`p1_reverse_flow_skill_route_discovery` in the local test lane, records both
+selected evidence item IDs, preserves `skill_route_discovery_first`, and treats
+install, execute, and runtime pressure as downgraded diagnostics rather than
+as implementation evidence.
+
+`NVIDIA-BioNeMo/bionemo-agent-toolkit` maps to
+`p3_bionemo_skill_route_probe` in the local test lane as generic agent-toolkit
+skill workflow evidence. The same skill evidence also feeds
+`p2_skill_workflow_documentation_lane`, which is the documentation decision
+path for public repositories that mention skills, routes, plugins, catalogs,
+or workflows but still require local validation before documentation, config,
+test, or code_patch work.
+
+Qwen-AgentWorld, Fundamental-Ava, and
+Awesome-Blender-Seedance-Workflow-Usecases remain adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-for-general-agent-trends`. They do not inherit
+skill-route lanes, cannot open direct runtime or code_patch routes before local
+harness evaluation, and may only produce documentation, tests, or code_patch
+after bounded harness evidence exists.
+
+The lane exports proposal IDs, selected evidence item IDs, route profiles,
+lane names, source hashes, and replay command hashes. It denies raw source URL
+export, raw evidence URL export, raw replay command export, upstream body
+export, external skill activation, external agent activation, external harness
+execution, provider runtime launch, remote execution, profile writes, memory
+writes, and runtime action. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T050821`.

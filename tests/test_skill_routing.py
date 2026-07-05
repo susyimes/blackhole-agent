@@ -29829,6 +29829,156 @@ def test_skill_route_discovery_current_digest_20260705T042818_pass1_routes_skill
     assert '"install"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260705T050821_pass3_routes_forks_and_toolkits_to_validation():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260705T050821_pass3_route_to_validation.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass3_route_to_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    candidates = {candidate["name"]: candidate for candidate in registry["candidates"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260705T050821.175166Z"
+    assert registry["evidence_item_count"] == 6
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert registry["duplicate_evidence_item_count"] == 0
+
+    reverse_flow = candidates["reverse-flow-skill"]
+    assert reverse_flow["source_url"] == "https://github.com/lingbol088-spec/reverse-flow-skill"
+    assert reverse_flow["related_source_urls"] == [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/LLLL2266/reverse-flow-skill",
+    ]
+    assert reverse_flow["evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "fork:LLLL2266/reverse-flow-skill-1",
+    ]
+    assert set(reverse_flow["candidate_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert reverse_flow["enabled"] is False
+    assert "fork_or_mirror_lineage_collapsed" in reverse_flow["uncertainty_reasons"]
+
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass3_route_to_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 3
+    assert lane["total_passes"] == 4
+    assert lane["proposal_ids"] == [
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_skill_workflow_documentation_lane",
+        "p3_bionemo_skill_route_probe",
+        "p3-agent-harness-eval-for-general-agent-trends",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-codex-workflow-gate",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-for-general-agent-trends",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-2",
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-route-coverage",
+        "p3-agent-harness-eval-gate",
+        "p4-route-hint-documentation",
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_skill_workflow_documentation_lane",
+        "p3_bionemo_skill_route_probe",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "fork:LLLL2266/reverse-flow-skill-1",
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-2",
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+    ]
+    assert lane["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert lane["agent_harness_eval_required_count"] == 3
+
+    reverse_row = rows["p1_reverse_flow_skill_route_discovery"]
+    assert reverse_row["candidate_names"] == ["reverse-flow-skill"]
+    assert len(reverse_row["candidate_source_hashes"]) == 1
+    assert reverse_row["route_profiles"] == ["generic_skill_workflow", "codex_workflow_gate"]
+    assert reverse_row["selected_local_lane"] == "test"
+    assert reverse_row["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_row["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "fork:LLLL2266/reverse-flow-skill-1",
+    ]
+    assert reverse_row["skill_route_discovery_first"] is True
+    assert "fork_or_mirror_lineage_collapsed" in reverse_row["verification_uncertainty_reasons"]
+    assert reverse_row["downgraded_unsupported_lanes"] == [
+        "execute",
+        "install",
+        "runtime_execution",
+    ]
+    assert reverse_row["runtime_action"] == "none"
+    assert reverse_row["external_skill_activation_allowed"] is False
+    assert reverse_row["provider_runtime_launch_allowed"] is False
+    assert reverse_row["remote_execution_allowed"] is False
+
+    docs_row = rows["p2_skill_workflow_documentation_lane"]
+    assert docs_row["candidate_names"] == ["bionemo-agent-toolkit", "reverse-flow-skill"]
+    assert docs_row["selected_local_lane"] == "documentation"
+    assert docs_row["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert docs_row["local_validation_required"] is True
+    assert docs_row["runtime_action"] == "none"
+
+    bionemo = rows["p3_bionemo_skill_route_probe"]
+    assert bionemo["candidate_names"] == ["bionemo-agent-toolkit"]
+    assert bionemo["route_profiles"] == ["generic_skill_workflow"]
+    assert bionemo["selected_local_lane"] == "test"
+    assert bionemo["selected_evidence_item_ids"] == [
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1"
+    ]
+    assert bionemo["runtime_action"] == "none"
+    assert bionemo["external_skill_activation_allowed"] is False
+
+    assert set(adjacent) == {
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+    }
+    for row in adjacent.values():
+        assert row["proposal_id"] == "p3-agent-harness-eval-for-general-agent-trends"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["accepted_outputs_before_eval"] == []
+        assert row["accepted_outputs_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    packet = lane["pass3_operator_validation_packet"]
+    assert packet["status"] == "ready"
+    assert packet["skill_route_candidate_count"] == 3
+    assert packet["agent_harness_eval_required_count"] == 3
+    assert packet["operator_lane_sequence"] == [
+        "confirm_rollback_ref_and_artifact_exist",
+        "replay_bounded_skill_route_fixture",
+        "verify_agent_harness_eval_contract_before_any_general_agent_lane",
+        "continue_to_pass4_without_external_activation",
+    ]
+
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260704T011308_pass4_exposes_operator_completion():
     fixture_path = (
         Path(__file__).parent
