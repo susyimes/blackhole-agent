@@ -6180,13 +6180,51 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260705T110958.050064Z",
         "github-growth-20260705T110958Z",
     }
+    current_20260705_122958_window = source_digest in {
+        "github-growth-20260705T122958.181363Z",
+        "github-growth-20260705T122958Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260705_110958_window:
+    if current_20260705_122958_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_route_hints_stay_bounded_to_local_lanes",
+                "validation_task": (
+                    "classify reverse-flow-skill as Codex and AI Agent skill workflow evidence; "
+                    "preserve skill_route_discovery_first and restrict candidate outputs to "
+                    "documentation, config, test, or code_patch while install, script execution, "
+                    "vulnerability-analysis, external activation, provider launch, harness execution, "
+                    "and remote execution remain diagnostic only"
+                ),
+            },
+            {
+                "proposal_id": "p5-workflow-usecase-documentation-eval",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_route_vs_agent_harness_workflow_documentation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_route_and_general_agent_harness_split",
+                "validation_task": (
+                    "record the pass-1 rule that explicit skill route evidence may open only "
+                    "documentation, config, test, or code_patch lanes, while general-agent and "
+                    "workflow-usecase proposals require local agent_harness_eval before any "
+                    "implementation lane is considered"
+                ),
+            },
+        )
+    elif current_20260705_110958_window:
         specs = (
             {
                 "proposal_id": "p2-skill-route-discovery-for-reverse-flow-skill",
@@ -8503,6 +8541,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2-agent-harness-eval-qwen-agentworld"
+            if current_20260705_122958_window
+            else
             "p1-agent-harness-eval-for-general-agent-trends"
             if current_20260705_110958_window
             else
@@ -8825,6 +8866,16 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
                 row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+        if current_20260705_122958_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "qwen-agentworld":
+                row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+            elif lowered_name == "fundamental-ava":
+                row["proposal_id"] = "p3-agent-harness-eval-fundamental-ava"
+            elif lowered_name == "agents-a1":
+                row["proposal_id"] = "p4-agent-harness-eval-agents-a1"
+            elif "workflow" in lowered_name or "usecase" in lowered_name:
+                row["proposal_id"] = "p5-workflow-usecase-documentation-eval"
         row["route_probe_metadata"] = {
             "route_hint": "agent_harness_eval_required",
             "evaluation_lane": "agent_harness_eval_required",
@@ -8840,6 +8891,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         row.pop("replay_command", None)
         row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
         row["direct_allowed_lanes_before_eval"] = []
+        row["selected_local_lane"] = "agent_harness_eval_required"
         row["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
         row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
         row["raw_replay_command_exported"] = False
@@ -9544,7 +9596,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "p5-agent-harness-eval-looper",
         ]
     )
-    if current_20260705_094958_window:
+    if current_20260705_122958_window:
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-agent-harness-eval-qwen-agentworld",
+            "p3-agent-harness-eval-fundamental-ava",
+            "p4-agent-harness-eval-agents-a1",
+            "p5-workflow-usecase-documentation-eval",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:InternScience/Agents-A1-1",
+        ]
+    elif current_20260705_094958_window:
         anchoring_proposal_ids = [
             "p1-skill-route-discovery-reverse-flow",
             "p2-agent-harness-eval-qwen-agentworld",
@@ -9718,6 +9782,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "workflow_topic_boundary": _skill_route_discovery_workflow_topic_boundary(
             adjacent_rows,
             proposal_id=(
+                "p5-workflow-usecase-documentation-eval"
+                if current_20260705_122958_window
+                else
                 "p3-document-routing-policy-for-trending-agent-inputs"
                 if current_20260705_110958_window
                 else
