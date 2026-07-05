@@ -28,6 +28,28 @@ external harness execution before bounded local harness evaluation. Replay
 with: `PYTHONPATH=src python -m pytest tests/test_skill_routing.py -q -k
 20260705T141637`.
 
+For source digest `github-growth-20260705T143637.069684Z`, pass 3 advances the
+same active window through `current_digest_pass3_route_to_validation_lane`. The
+`lingbol088-spec/reverse-flow-skill` evidence remains a Codex/AI Agent skill
+workflow signal and maps to `p1-skill-route-discovery-reverse-flow` in the
+local test lane. Its package layout, `SKILL.md`, references, scripts, local
+CTF/sandbox framing, install examples, staged reverse workflow, and
+vulnerability-analysis pressure are route evidence only; install, script
+execution, provider launch, external harness execution, runtime execution, and
+remote execution remain denied.
+
+`QwenLM/Qwen-AgentWorld` maps to `p2-agent-harness-eval-qwen-agentworld`, while
+`TianhangZhuzth/Fundamental-Ava` maps to
+`p3-agent-harness-eval-fundamental-ava`. `InternScience/Agents-A1` is retained
+as adjacent window context under `p4-agent-harness-eval-agents-a1`. All three
+general-agent rows remain `agent_harness_eval_required`, do not inherit
+`skill_route_discovery`, and cannot open direct runtime or code_patch lanes
+before bounded local harness evaluation. The pass-3 operator packet records the
+rollback check, bounded skill-route replay, agent-harness verification, and
+pass-4 continuation sequence without exporting raw URLs, replay commands, or
+upstream bodies. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T143637`.
+
 For source digest `github-growth-20260705T135637.037461Z`, pass 1 opens the
 active `skill-route-discovery` window through
 `current_digest_pass1_validation_lane`. The
