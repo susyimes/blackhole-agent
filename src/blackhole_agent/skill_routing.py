@@ -545,6 +545,7 @@ class ExternalSkillEvidenceItem:
     observed_paths: tuple[str, ...] = ()
     metadata_files: tuple[str, ...] = ()
     upstream_source_url: str = ""
+    unsupported_lane_pressure: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "ExternalSkillEvidenceItem":
@@ -567,6 +568,11 @@ class ExternalSkillEvidenceItem:
             route_hints=route_hints,
             topics=_string_tuple(value.get("topics")),
             suggested_lanes=_string_tuple(value.get("suggested_lanes")),
+            unsupported_lane_pressure=_string_tuple(
+                value.get("unsupported_lane_pressure")
+                or value.get("upstream_action_pressure")
+                or value.get("blocked_action_pressure")
+            ),
             observed_paths=_string_tuple(
                 value.get("observed_paths")
                 or value.get("file_paths")
@@ -608,6 +614,7 @@ class ExternalSkillEvidenceItem:
             observed_paths=self.observed_paths,
             metadata_files=self.metadata_files,
             upstream_source_url=self.upstream_source_url,
+            unsupported_lane_pressure=self.unsupported_lane_pressure,
         )
 
 
@@ -22234,6 +22241,10 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
         "github-growth-20260704T182436.018333Z",
         "github-growth-20260704T182436Z",
     }
+    current_20260705_102958_window = source_digest in {
+        "github-growth-20260705T102958.116667Z",
+        "github-growth-20260705T102958Z",
+    }
     skill_specs = (
         {
             "proposal_id": "proposal_skill_route_discovery_catalog_001",
@@ -22266,7 +22277,21 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
     )
     adjacent_proposal_id = "proposal_agent_harness_eval_003"
     adjacent_proposal_track = "agent_harness_evaluation_lane"
-    if current_20260704_182436_window:
+    if current_20260705_102958_window:
+        skill_specs = (
+            {
+                "proposal_id": "proposal_skill_route_discovery_reverse_flow_skill",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_workflow_routes_to_bounded_local_validation_before_activation",
+            },
+        )
+        adjacent_proposal_id = "proposal_agent_harness_eval_general_agent_projects"
+        adjacent_proposal_track = "agent_harness_evaluation_lane"
+    elif current_20260704_182436_window:
         skill_specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-codex-workflow",
@@ -22330,6 +22355,8 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
             )
             validation_gates.extend(_skill_route_discovery_validation_gates(candidate))
             downgraded_lanes.extend(_string_list(candidate.get("downgraded_lane_names")))
+            if current_20260705_102958_window:
+                downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
 
         bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
         selected_lane = str(spec["selected_local_lane"])
@@ -22418,6 +22445,17 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
         }
         for row in adjacent_rows
     ]
+    if current_20260705_102958_window:
+        adjacent_proposal_ids_by_name = {
+            "Qwen-AgentWorld": "proposal_agent_harness_eval_qwen_agentworld",
+            "Fundamental-Ava": "proposal_agent_harness_eval_fundamental_ava",
+            "Agents-A1": "proposal_agent_harness_eval_agents_a1",
+        }
+        for row in adjacent_rows:
+            row["proposal_id"] = adjacent_proposal_ids_by_name.get(
+                str(row.get("name") or ""),
+                adjacent_proposal_id,
+            )
     adjacent_blockers: list[str] = []
     for row in adjacent_rows:
         item_id = str(row.get("item_id") or "")
@@ -22491,9 +22529,21 @@ def _skill_route_discovery_current_run_pass3_validation_lane(
         ]
         + ([adjacent_proposal_id] if adjacent_rows else []),
         "anchoring_proposal_ids": [
-            "p1-skill-route-discovery-codex-workflow",
-            "p2-generic-skill-workflow-discovery",
-            "p3-agent-harness-eval-fixtures",
+            *(
+                [
+                    "proposal_skill_route_discovery_reverse_flow_skill",
+                    "proposal_agent_harness_eval_qwen_agentworld",
+                    "proposal_agent_harness_eval_fundamental_ava",
+                    "proposal_agent_harness_eval_agents_a1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                ]
+                if current_20260705_102958_window
+                else [
+                    "p1-skill-route-discovery-codex-workflow",
+                    "p2-generic-skill-workflow-discovery",
+                    "p3-agent-harness-eval-fixtures",
+                ]
+            ),
             "p1-skill-route-discovery-catalog",
             "p2-skill-profile-routing-tests",
             "p3-agent-harness-evaluation-lane",
