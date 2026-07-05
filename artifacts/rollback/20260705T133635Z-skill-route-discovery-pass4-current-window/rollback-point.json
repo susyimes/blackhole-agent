@@ -1,0 +1,12 @@
+{
+  "created_for": "github-growth-20260705T133637.071370Z skill-route-discovery pass 4",
+  "original_branch": "codex/blackhole-evolve/20260705T133729.134449-run-a-bounded-local-skill-route-discovery-valida",
+  "original_head": "0c65bfd8c81c61a46feef059a143dc1333265d2a",
+  "local_rollback_ref": "refs/blackhole/rollback/20260705T133635Z-skill-route-discovery-pass4",
+  "recovery_commands": [
+    "git reset --hard refs/blackhole/rollback/20260705T133635Z-skill-route-discovery-pass4",
+    "git clean -fd"
+  ],
+  "rollback_executed_by_kernel": false,
+  "restart_executed_by_kernel": false
+}
