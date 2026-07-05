@@ -1,0 +1,11 @@
+{
+  "run": "20260705T113048Z-skill-route-discovery-pass2-bounded-lanes",
+  "original_branch": "codex/blackhole-evolve/20260705T113048.885759-run-a-bounded-skill-route-discovery-validation-l",
+  "rollback_ref": "refs/rollback/20260705T113048Z-skill-route-discovery-pass2-bounded-lanes",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260705T113048.885759-run-a-bounded-skill-route-discovery-validation-l",
+    "git reset --hard 0afd031b8936bd60c5a508934dd0c7edb9e587ff",
+    "git clean -fd"
+  ],
+  "original_head": "0afd031b8936bd60c5a508934dd0c7edb9e587ff"
+}
