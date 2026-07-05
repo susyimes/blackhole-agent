@@ -2525,6 +2525,128 @@ def test_current_pass1_skill_route_validation_matrix_pairs_codex_and_generic_ski
     assert matrix["external_agent_activation_allowed"] is False
 
 
+def test_current_pass2_skill_route_operator_lane_replays_active_skill_window():
+    digest = {
+        "digest_id": "github-growth-20260705T060819.666814Z",
+        "generated_at": "2026-07-05T06:08:19.666814Z",
+        "items": [
+            {
+                "item_id": "p1_reverse_flow_skill_route_discovery",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is a Codex and AI Agent skill workflow with "
+                    "skills/reverse-flow/SKILL.md, local sandbox defaults, scripts, "
+                    "install examples, and workflow-gate pressure."
+                ),
+                "relevance_reason": (
+                    "The local controller must route this as skill_route_discovery first "
+                    "and validate only bounded local lanes."
+                ),
+                "risk_flags": [],
+                "confidence": 0.79,
+            },
+            {
+                "item_id": "p2_bionemo_skill_workflow_discovery",
+                "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "BioNeMo Agent Toolkit describes generic agent skills, plugins, "
+                    "catalogs, and skill workflow routing for life science agents."
+                ),
+                "relevance_reason": (
+                    "Generic skill workflow evidence may propose documentation, config, "
+                    "test, or code_patch only after local validation gates are recomputed."
+                ),
+                "risk_flags": [],
+                "confidence": 0.73,
+            },
+            {
+                "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld is a general agent project and benchmark environment.",
+                "relevance_reason": "General agent projects require local harness evaluation first.",
+                "risk_flags": [],
+                "confidence": 0.67,
+            },
+            {
+                "item_id": "trend:TianhangZhuzth/Fundamental-Ava-2",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "event_kind": "RepositoryTrend",
+                "summary": "Fundamental-Ava is an autonomous collaborative agent simulation project.",
+                "relevance_reason": "General autonomous-agent claims stay in agent_harness_eval_required.",
+                "risk_flags": [],
+                "confidence": 0.65,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=560)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    operator_lane = lane_map["current_pass2_skill_route_operator_lane"]
+    skill_rows = {row["item_id"]: row for row in operator_lane["skill_route_rows"]}
+    adjacent_rows = {row["item_id"]: row for row in operator_lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(operator_lane, sort_keys=True)
+
+    assert operator_lane["controller_surface"] == "current_pass2_skill_route_operator_lane"
+    assert operator_lane["status"] == "ready_with_adjacent_agent_eval_gated"
+    assert operator_lane["capability_pass"] == "2_of_4"
+    assert operator_lane["source_digest"] == "github-growth-20260705T060819.666814Z"
+    assert operator_lane["active_proposal_ids"] == [
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_bionemo_skill_workflow_discovery",
+        "p3_skill_route_discovery_regression_pair",
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-routing-bionemo",
+        "p3-agent-harness-eval-for-general-agent-trends",
+        "p4-workflow-usecase-intake-gating",
+        "p5-route-classification-regression-bundle",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-2",
+    ]
+    assert operator_lane["skill_workflow_count"] == 2
+    assert operator_lane["adjacent_general_agent_count"] == 2
+    assert operator_lane["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert operator_lane["activation_blockers"] == []
+
+    reverse_flow = skill_rows["p1_reverse_flow_skill_route_discovery"]
+    assert reverse_flow["route_profile_kind"] == "codex_specific"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first_confirmed"] is True
+    assert reverse_flow["accepted_outputs_before_validation"] == []
+    assert reverse_flow["accepted_outputs_after_validation"] == ["documentation", "config", "test", "code_patch"]
+
+    bionemo = skill_rows["p2_bionemo_skill_workflow_discovery"]
+    assert bionemo["route_profile_kind"] == "generic_skill_workflow"
+    assert bionemo["selected_local_lane"] == "documentation"
+    assert bionemo["accepted_outputs_before_validation"] == []
+    assert bionemo["accepted_outputs_after_validation"] == ["documentation", "config", "test", "code_patch"]
+
+    assert all(row["local_lane_ready"] is True for row in skill_rows.values())
+    assert all(row["runtime_action"] == "none" for row in skill_rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in skill_rows.values())
+
+    assert sorted(adjacent_rows) == [
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-2",
+    ]
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in adjacent_rows.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent_rows.values())
+    assert all(row["implementation_route_allowed"] is False for row in adjacent_rows.values())
+
+    assert operator_lane["runtime_action"] == "none"
+    assert operator_lane["external_skill_activation_allowed"] is False
+    assert operator_lane["external_agent_activation_allowed"] is False
+    assert operator_lane["external_harness_execution_allowed"] is False
+    assert operator_lane["provider_runtime_launch_allowed"] is False
+    assert operator_lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():
     digest = {
         "digest_id": "github-growth-mixed-skill-workflow-probe",
