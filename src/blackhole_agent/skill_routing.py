@@ -10290,7 +10290,14 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "github-growth-20260705T112958.062294Z",
         "github-growth-20260705T112958Z",
     }
+    current_141637_window = source_digest in {
+        "github-growth-20260705T141637.046693Z",
+        "github-growth-20260705T141637Z",
+    }
     agent_proposal_id = (
+        "p3-general-agent-project-batch-eval"
+        if current_141637_window
+        else
         "p2-agent-harness-eval-suite"
         if current_112958_window
         else
@@ -10299,6 +10306,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     documentation_proposal_id = (
+        "p4-route-classification-regression-coverage"
+        if current_141637_window
+        else
         "p3-agent-routing-documentation"
         if current_112958_window
         else
@@ -10307,6 +10317,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p3-route-classification-docs"
     )
     documentation_validation_target = (
+        "reverse_flow_and_general_agent_route_classification_regression_coverage"
+        if current_141637_window
+        else
         "workflow_topic_without_skill_route_signal_stays_in_agent_harness_eval_path"
         if current_100958_window or current_112958_window
         else "skill_workflow_and_general_agent_route_split_is_operator_visible"
@@ -10462,6 +10475,12 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         )
     ]
     for row in adjacent_rows:
+        if current_141637_window:
+            row["proposal_id"] = (
+                "p2-agent-harness-eval-qwen-agentworld"
+                if str(row.get("name") or "").casefold() == "qwen-agentworld"
+                else "p3-general-agent-project-batch-eval"
+            )
         row["selected_local_lane"] = "agent_harness_eval_required"
         row["evaluation_lane"] = "agent_harness_eval_required"
         row["direct_allowed_lanes_before_eval"] = []
@@ -10551,6 +10570,7 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
             "p1-skill-route-discovery-reverse-flow",
+            *(["p2-agent-harness-eval-qwen-agentworld"] if current_141637_window else []),
             agent_proposal_id,
             documentation_proposal_id,
         ],
@@ -10587,6 +10607,18 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                     ),
                 ]
                 if current_100958_window or current_112958_window
+                else [
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-agent-harness-eval-qwen-agentworld",
+                    "p3-general-agent-project-batch-eval",
+                    "p4-route-classification-regression-coverage",
+                    "p5-no-runtime-change-until-local-eval",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                ]
+                if current_141637_window
                 else [
                     "p1_skill_route_discovery_reverse_flow",
                     "p2_agent_harness_qwen_agentworld",
@@ -10792,13 +10824,22 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260705T112958.062294Z",
         "github-growth-20260705T112958Z",
     }
+    current_20260705_141637_window = source_digest in {
+        "github-growth-20260705T141637.046693Z",
+        "github-growth-20260705T141637Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260705_084958_window or current_20260705_100958_window or current_20260705_112958_window:
+    if (
+        current_20260705_084958_window
+        or current_20260705_100958_window
+        or current_20260705_112958_window
+        or current_20260705_141637_window
+    ):
         return _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
