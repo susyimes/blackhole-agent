@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260705T155637.137762Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 3,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-general-agent-harness-eval-fixtures",
+      "p3-fork-dedup-agent-signal"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260705T155637.137762Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Public Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow, SKILL.md, references, local CTF and sandbox framing, staged analysis/report/reverse workflow, install examples, scripts, and vulnerability-analysis pressure. Treat install, script execution, external activation, provider launch, vulnerability-analysis, harness execution, and remote execution as diagnostic only before local validation.",
+      "topics": ["codex", "ai-agent", "skill", "workflow", "reverse", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "runtime_execution",
+        "script_execution",
+        "provider_runtime",
+        "external_harness_execution"
+      ],
+      "unsupported_lane_pressure": [
+        "install",
+        "runtime_execution",
+        "script_execution",
+        "provider_runtime",
+        "external_harness_execution",
+        "vulnerability_analysis"
+      ],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "reference_directory",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "codex_workflow_signal",
+          "local_sandbox_boundary",
+          "body_free_workflow_summary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260705T155637.137762Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agentic model project with long-horizon trajectory, evaluation, model, and benchmark claims, but no explicit local skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "evaluation", "benchmark", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260705T155637.137762Z",
+      "item_id": "fork:anubis770/Agents-A1-1",
+      "item_kind": "ForkEvent",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/anubis770/Agents-A1",
+      "upstream_source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "Fork signal for an already represented general agent project. Use as supporting evidence for the Agents-A1 harness-eval row, not as a separate growth route.",
+      "topics": ["general-agent", "evaluation", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260705T155637.137762Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "summary": "General agent benchmark and language world model project with task execution, environment simulation, evaluation, and model behavior claims, but no explicit local skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "benchmark", "evaluation", "task-execution"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260705T155637.137762Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous agent project with memory, collaboration, social simulation, research infrastructure, experiment, and workflow claims, but no explicit local skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "agent", "workflow", "benchmark"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}
