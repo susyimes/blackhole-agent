@@ -1117,6 +1117,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     claim_evaluation = build_agent_harness_eval_claim_evaluation(claim_rows)
     claim_remediation_plan = build_agent_harness_eval_claim_remediation_plan(claim_evaluation)
     project_intake_probe = build_agent_harness_eval_project_intake_probe(project_probe_rows)
+    fork_cluster_eval_queue = build_agent_harness_fork_cluster_eval_queue(records)
     failure_mode = agent_harness_eval_lane_failure_mode(
         recognized_count=recognized_count,
         lane_count=len(lane_records),
@@ -1194,6 +1195,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activation_lanes": activation_lanes,
         "activation_review": activation_review,
         "general_agent_route_review_queue": general_agent_route_review_queue,
+        "fork_cluster_eval_queue": fork_cluster_eval_queue,
         "implementation_readiness_contract": implementation_readiness_contract,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
@@ -1220,6 +1222,130 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
             "offensive_behavior_local_execution": False,
         },
     }
+
+
+def build_agent_harness_fork_cluster_eval_queue(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Collapse repeated forks of one upstream general-agent project into one eval candidate."""
+
+    prepared_records: list[dict[str, Any]] = []
+    fork_cluster_keys: set[str] = set()
+    for index, record in enumerate(records, start=1):
+        item_id = optional_string(record.get("item_id")) or f"item-{index}"
+        source_url = optional_string(record.get("source_url")) or ""
+        upstream_url = (
+            optional_string(record.get("upstream_source_url"))
+            or optional_string(record.get("forked_from_url"))
+            or optional_string(record.get("forked_from"))
+            or ""
+        )
+        source_key = normalize_agent_harness_repository_key(source_url)
+        upstream_key = normalize_agent_harness_repository_key(upstream_url)
+        cluster_key = upstream_key or source_key
+        if not cluster_key:
+            continue
+        is_fork_signal = (
+            bool(upstream_key)
+            or truthy(record.get("is_fork"))
+            or "fork" in agent_harness_eval_record_text(record)
+        )
+        prepared_records.append(
+            {
+                "cluster_key": cluster_key,
+                "source_key": source_key,
+                "is_fork_signal": is_fork_signal,
+                "item_id": item_id,
+                "name": optional_string(record.get("name")) or "",
+                "source_url": source_url,
+                "upstream_url": upstream_url,
+            }
+        )
+        if is_fork_signal:
+            fork_cluster_keys.add(cluster_key)
+
+    clusters: dict[str, list[dict[str, Any]]] = {}
+    for record in prepared_records:
+        cluster_key = str(record.get("cluster_key") or "")
+        source_key = str(record.get("source_key") or "")
+        if cluster_key not in fork_cluster_keys and source_key not in fork_cluster_keys:
+            continue
+        clusters.setdefault(cluster_key if cluster_key in fork_cluster_keys else source_key, []).append(record)
+
+    rows: list[dict[str, Any]] = []
+    for cluster_key, members in sorted(clusters.items()):
+        if len(members) < 2:
+            continue
+        source_urls = [str(member.get("source_url") or "") for member in members if member.get("source_url")]
+        upstream_urls = [str(member.get("upstream_url") or "") for member in members if member.get("upstream_url")]
+        rows.append(
+            {
+                "cluster_id_hash": stable_text_hash(cluster_key),
+                "upstream_source_hash": stable_text_hash(upstream_urls[0] if upstream_urls else cluster_key),
+                "representative_name": next(
+                    iter(
+                        sorted(
+                            {str(member.get("name") or "") for member in members if str(member.get("name") or "")}
+                        )
+                    ),
+                    cluster_key,
+                ),
+                "item_ids": sorted({str(member.get("item_id") or "") for member in members}),
+                "evidence_item_id_count": len({str(member.get("item_id") or "") for member in members}),
+                "source_hashes": [stable_text_hash(source_url) for source_url in sorted(dict.fromkeys(source_urls))],
+                "source_count": len(set(source_urls)),
+                "corroborating_fork_count": max(0, len(set(source_urls)) - 1),
+                "candidate_lane": "agent_harness_eval_required",
+                "candidate_strength": "corroborated_fork_cluster",
+                "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+                "selected_local_lane_before_eval": "agent_harness_eval_required",
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_upstream_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "controller_surface": "agent_harness_fork_cluster_eval_queue",
+        "status": "ready" if rows else "not_applicable",
+        "decision": (
+            "collapse_fork_clusters_to_single_agent_harness_eval_candidates"
+            if rows
+            else "no_repeated_fork_clusters_detected"
+        ),
+        "cluster_count": len(rows),
+        "clustered_evidence_item_count": sum(int(row["evidence_item_id_count"]) for row in rows),
+        "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def normalize_agent_harness_repository_key(url: str) -> str:
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in {"http", "https"}:
+        return ""
+    host = parsed.netloc.casefold()
+    if host not in {"github.com", "www.github.com"}:
+        return ""
+    path_parts = [part for part in parsed.path.strip("/").split("/") if part]
+    if len(path_parts) < 2:
+        return ""
+    return f"{path_parts[0].casefold()}/{path_parts[1].removesuffix('.git').casefold()}"
 
 
 def evaluate_agent_harness_policy_eval(raw_input: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

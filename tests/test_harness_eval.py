@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 166
-    assert payload["pass_count"] == 165
+    assert payload["fixture_count"] == 167
+    assert payload["pass_count"] == 166
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -143,6 +143,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["external-harness-adapter-contract-databricks-genie"]["passed"] is True
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
+    assert results["agent-harness-eval-lane-agents-a1-fork-cluster"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T090714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-qwen-looper-readiness"]["passed"] is True
@@ -2630,6 +2631,45 @@ def test_agent_harness_eval_lane_maps_general_agent_project_claims_before_activa
     assert all(row["source_url_hash"].startswith("sha256:") for row in probe_rows.values())
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
     assert "https://github.com/ziqihe10-droid/xuefeng-agent" not in serialized
+
+
+def test_agent_harness_eval_lane_collapses_agents_a1_forks_to_one_eval_candidate():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_agents_a1_fork_cluster.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    queue = output["fork_cluster_eval_queue"]
+    row = queue["rows"][0]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert queue["controller_surface"] == "agent_harness_fork_cluster_eval_queue"
+    assert queue["status"] == "ready"
+    assert queue["cluster_count"] == 1
+    assert queue["clustered_evidence_item_count"] == 3
+    assert row["candidate_lane"] == "agent_harness_eval_required"
+    assert row["candidate_strength"] == "corroborated_fork_cluster"
+    assert row["item_ids"] == [
+        "fork:Ardynai/agents-a1-1",
+        "fork:RKLIXEN/Agents-A1-1",
+        "trend:InternScience/Agents-A1-1",
+    ]
+    assert row["source_count"] == 3
+    assert row["corroborating_fork_count"] == 2
+    assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert row["direct_runtime_route_allowed"] is False
+    assert row["direct_code_patch_route_allowed"] is False
+    assert row["external_harness_execution_allowed"] is False
+    assert row["provider_launch_allowed"] is False
+    assert row["remote_execution_allowed"] is False
+    assert output["privacy"]["upstream_project_imported"] is False
+    assert output["privacy"]["runtime_actions_executed"] is False
+    assert "https://github.com/" not in serialized
 
 
 def test_skill_route_discovery_current_pass_skill_shapes_stay_bounded_without_url_expansion():

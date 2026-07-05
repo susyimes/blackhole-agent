@@ -1,0 +1,94 @@
+{
+  "name": "agent-harness-eval-lane-agents-a1-fork-cluster",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-agents-a1-fork-cluster",
+    "evidence_items": [
+      {
+        "item_id": "trend:InternScience/Agents-A1-1",
+        "name": "Agents-A1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public general agent project evidence with deterministic benchmark evaluation, multi-agent orchestration, policy control, provider configuration, and session state claims.",
+        "relevance_reason": "Queue for local agent harness evaluation before any implementation route.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["python_package"],
+        "entrypoints": ["cli", "benchmark"],
+        "dependency_boundaries": ["provider_api_key", "sandbox_runtime"],
+        "task_loop_assumptions": ["orchestrated_multi_agent", "policy_gate"],
+        "observable_behaviors": ["multi_agent_supervision", "policy_control", "session_sync"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "fork:Ardynai/agents-a1-1",
+        "name": "agents-a1",
+        "source_url": "https://github.com/Ardynai/agents-a1",
+        "upstream_source_url": "https://github.com/InternScience/Agents-A1",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Fork signal for the same general agent project with benchmark evaluation and multi-agent orchestration interest.",
+        "relevance_reason": "Strengthen one local evaluation candidate without creating a duplicate implementation proposal.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["python_package"],
+        "entrypoints": ["cli", "benchmark"],
+        "dependency_boundaries": ["provider_api_key", "sandbox_runtime"],
+        "task_loop_assumptions": ["orchestrated_multi_agent", "policy_gate"],
+        "observable_behaviors": ["multi_agent_supervision", "policy_control", "session_sync"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "fork:RKLIXEN/Agents-A1-1",
+        "name": "Agents-A1",
+        "source_url": "https://github.com/RKLIXEN/Agents-A1",
+        "forked_from_url": "https://github.com/InternScience/Agents-A1",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Additional fork signal for the same general agent evaluation project.",
+        "relevance_reason": "Corroborating route pressure only; no upstream code execution.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["python_package"],
+        "entrypoints": ["cli", "benchmark"],
+        "dependency_boundaries": ["provider_api_key", "sandbox_runtime"],
+        "task_loop_assumptions": ["orchestrated_multi_agent", "policy_gate"],
+        "observable_behaviors": ["multi_agent_supervision", "policy_control", "session_sync"],
+        "risk_flags": []
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "fork_cluster_eval_queue.status", "equals": "ready"},
+    {
+      "path": "fork_cluster_eval_queue.decision",
+      "equals": "collapse_fork_clusters_to_single_agent_harness_eval_candidates"
+    },
+    {"path": "fork_cluster_eval_queue.cluster_count", "equals": 1},
+    {"path": "fork_cluster_eval_queue.clustered_evidence_item_count", "equals": 3},
+    {"path": "fork_cluster_eval_queue.rows.0.evidence_item_id_count", "equals": 3},
+    {
+      "path": "fork_cluster_eval_queue.rows.0.item_ids",
+      "equals": [
+        "fork:Ardynai/agents-a1-1",
+        "fork:RKLIXEN/Agents-A1-1",
+        "trend:InternScience/Agents-A1-1"
+      ]
+    },
+    {"path": "fork_cluster_eval_queue.rows.0.candidate_lane", "equals": "agent_harness_eval_required"},
+    {"path": "fork_cluster_eval_queue.rows.0.candidate_strength", "equals": "corroborated_fork_cluster"},
+    {
+      "path": "fork_cluster_eval_queue.rows.0.allowed_local_lanes_after_eval",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {"path": "fork_cluster_eval_queue.rows.0.direct_runtime_route_allowed", "equals": false},
+    {"path": "fork_cluster_eval_queue.rows.0.direct_code_patch_route_allowed", "equals": false},
+    {"path": "fork_cluster_eval_queue.rows.0.external_harness_execution_allowed", "equals": false},
+    {"path": "fork_cluster_eval_queue.rows.0.provider_launch_allowed", "equals": false},
+    {"path": "fork_cluster_eval_queue.rows.0.remote_execution_allowed", "equals": false},
+    {"path": "fork_cluster_eval_queue.raw_source_urls_exported", "equals": false},
+    {"path": "fork_cluster_eval_queue.raw_upstream_urls_exported", "equals": false},
+    {"path": "fork_cluster_eval_queue.raw_upstream_body_exported", "equals": false},
+    {"path": "lane_map.proposal_lane_count", "equals": 9},
+    {"path": "activation_gate.local_eval_activation_allowed", "equals": true},
+    {"path": "privacy.upstream_project_imported", "equals": false},
+    {"path": "privacy.runtime_actions_executed", "equals": false}
+  ]
+}
