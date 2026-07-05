@@ -16,6 +16,27 @@ requirements for `codex_workflow_gate` and `generic_skill_workflow`, keeps
 `skill_route_discovery_first`, and treats install, script execution, runtime,
 provider launch, external activation, and remote execution as diagnostic only.
 
+For source digest `github-growth-20260705T084958.837379Z`, pass 2 now exposes
+`current_digest_pass2_local_validation_lane` for the same active window.
+`lingbol088-spec/reverse-flow-skill` maps to
+`p1-skill-route-discovery-reverse-flow` in the local test lane and
+`p3-route-classification-docs` in the documentation lane because the public
+shape includes a `skills/reverse-flow` package, `SKILL.md`, references, scripts,
+Codex workflow language, and local sandbox/CTF framing. The lane records the
+recognized workflow markers, keeps `skill_route_discovery_first`, and downgrades
+install, script, runtime, external activation, provider launch, harness
+execution, and remote execution to diagnostics.
+
+The same pass keeps `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `InternScience/Agents-A1` under
+`p2-agent-harness-eval-trending-agent-projects` as adjacent
+`agent_harness_eval_required` rows. They expose bounded harness ranking inputs
+for capability fit, expected local benefit, route safety, and testability, but
+do not inherit `skill_route_discovery`, direct runtime routes, direct code_patch
+routes, external harness execution, provider launch, or remote execution before
+local harness evaluation. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T084958`.
+
 `QwenLM/Qwen-AgentWorld`, `TianhangZhuzth/Fundamental-Ava`, and
 `InternScience/Agents-A1` remain adjacent `agent_harness_eval_required` rows.
 They do not inherit `skill_route_discovery`, direct runtime routing, direct
