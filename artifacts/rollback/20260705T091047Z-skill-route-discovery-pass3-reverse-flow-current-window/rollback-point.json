@@ -1,0 +1,10 @@
+{
+  "created": "2026-07-05T09:10:47Z",
+  "original_head": "6fd3163a589f9e75d1603591dc21b8ecf220293a",
+  "original_branch": "codex/blackhole-evolve/20260705T091047.318173-run-a-bounded-local-discovery-pass-for-reverse-f",
+  "rollback_ref": "refs/rollback/20260705T091047Z-skill-route-discovery-pass3-reverse-flow-current-window",
+  "source_digest": "github-growth-20260705T090958.166843Z",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260705T091047.318173-run-a-bounded-local-discovery-pass-for-reverse-f git reset --hard refs/rollback/20260705T091047Z-skill-route-discovery-pass3-reverse-flow-current-window git clean -fd"
+  ]
+}
