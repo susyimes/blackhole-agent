@@ -7657,6 +7657,34 @@ commands, raw source URLs, and upstream bodies denied.
 Replay the current completion check with:
 `python -m pytest tests/test_harness_eval.py -q -k 20260704T200436`.
 
+## Current Digest 20260705T040819 Pass 4
+
+The `github-growth-20260705T040819.295202Z` pass-4 fixture completes the
+active skill-route-discovery slice through `current_digest_pass4_completion_handoff`.
+`lingbol088-spec/reverse-flow-skill` remains a Codex workflow-gate skill
+candidate and must prove `skill_route_discovery_first` before any workflow or
+harness follow-up. Its install and runtime pressure is downgraded to
+diagnostic evidence only.
+
+`NVIDIA-BioNeMo/bionemo-agent-toolkit` is treated as generic agent-plus-skills
+workflow evidence. It routes through `skill_route_discovery` and may open only
+bounded local documentation, config, test, or code_patch lanes; the current
+operator-visible lane is `code_patch` because this pass implements the local
+normalization behavior.
+
+`QwenLM/Qwen-AgentWorld` and `TianhangZhuzth/Fundamental-Ava` remain adjacent
+`agent_harness_eval_required` rows. They do not inherit skill-route lanes, have
+no direct lanes before harness evaluation, and may only produce documentation,
+test, or code_patch follow-up after local harness evidence exists.
+
+The handoff is record-only for an external supervisor. It exports body-free
+proposal IDs, selected item IDs, route profiles, lane names, source hashes, and
+replay command hashes while denying raw source URL export, raw replay command
+export, upstream body export, external skill activation, external agent
+activation, external harness execution, provider runtime launch, remote
+execution, profile writes, memory writes, and runtime action. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T040819`.
+
 ## Current Digest 20260704T035308 Pass 4
 
 The `github-growth-20260704T035308.799236Z` pass-4 handoff completes the active
