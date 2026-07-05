@@ -1205,9 +1205,9 @@ def test_route_hint_lane_map_exposes_pass2_activation_readiness_for_current_skil
     assert readiness["status"] == "blocked"
     assert readiness["capability_pass"] == "2_of_4"
     assert readiness["active_proposal_ids"] == [
-        "p1-skill-route-discovery-compass-zhengxi",
-        "p2-threejs-game-skill-workflow-doc",
-        "p3-agent-harness-eval-general-agent-projects",
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-route-coverage",
+        "p3-agent-harness-eval-gate",
     ]
     assert readiness["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
     assert readiness["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
@@ -1224,6 +1224,15 @@ def test_route_hint_lane_map_exposes_pass2_activation_readiness_for_current_skil
             "route_class": "general_agent_project",
             "primary_route": "agent_harness_eval_required",
             "allowed_local_lanes": ["documentation", "test", "code_patch"],
+            "fixture_gate_status": "blocked_until_local_agent_harness_fixture",
+            "missing_fixture_fields": [
+                "fixture_path",
+                "expected_behavior",
+                "expected_output",
+                "pass_fail_signal",
+                "rollback_artifact",
+                "non_secret_config",
+            ],
             "implementation_lanes_enabled": False,
             "selected_implementation_lanes": [],
             "blocked_until": "local_agent_harness_evaluation_result",

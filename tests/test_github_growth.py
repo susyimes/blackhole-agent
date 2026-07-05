@@ -2176,9 +2176,9 @@ def test_current_pass2_lane_handoff_bounds_zhengxi_and_gates_general_agents():
     assert handoff["decision"] == "replay_bounded_skill_route_lane_keep_general_agents_in_eval_gate"
     assert handoff["capability_pass"] == "2_of_4"
     assert handoff["active_proposal_ids"] == [
-        "p1_skill_route_discovery_zhengxi_views",
-        "p2_agent_harness_eval_trending_agents",
-        "p3_document_route_interpretation_rules",
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-route-coverage",
+        "p3-agent-harness-eval-gate",
     ]
     assert handoff["skill_workflow_count"] == 1
     assert handoff["general_agent_project_count"] == 2
@@ -2226,11 +2226,185 @@ def test_current_pass2_lane_handoff_bounds_zhengxi_and_gates_general_agents():
     assert all(row["primary_route"] == "agent_harness_eval_required" for row in general_rows.values())
     assert all(row["implementation_lanes_enabled"] is False for row in general_rows.values())
     assert all(row["blocked_until"] == "local_agent_harness_evaluation_result" for row in general_rows.values())
+    assert all(
+        row["fixture_gate_status"] == "blocked_until_local_agent_harness_fixture"
+        for row in general_rows.values()
+    )
+    assert all(
+        row["missing_fixture_fields"]
+        == [
+            "fixture_path",
+            "expected_behavior",
+            "expected_output",
+            "pass_fail_signal",
+            "rollback_artifact",
+            "non_secret_config",
+        ]
+        for row in general_rows.values()
+    )
     assert all(row["skill_route_discovery_inherited"] is False for row in general_rows.values())
+    checklist = handoff["secondary_harness_checklist"]
+    assert checklist["controller_surface"] == "current_pass2_secondary_harness_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["record_count"] == 2
+    assert checklist["blocked_fixture_count"] == 2
+    assert checklist["ready_fixture_count"] == 0
+    assert checklist["agent_harness_eval_required"] is True
+    assert checklist["fixture_requirements"] == [
+        "runnable_scenario",
+        "expected_output",
+        "pass_fail_signal",
+        "rollback_path",
+        "non_secret_config",
+    ]
+    assert all(
+        row["activation_status"] == "blocked_until_local_agent_harness_fixture"
+        for row in checklist["rows"]
+    )
+    assert all(row["implementation_patch_allowed"] is False for row in checklist["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in checklist["rows"])
+    assert checklist["runtime_action"] == "none"
+    assert checklist["raw_source_url_export_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "github.com/lyra81604" not in serialized
     assert "github.com/QwenLM" not in serialized
     assert "github.com/ksimback" not in serialized
+
+
+def test_current_pass2_skill_route_window_gates_codex_generic_and_general_agent_routes():
+    digest = {
+        "digest_id": "github-growth-20260705T044818.919983Z",
+        "generated_at": "2026-07-05T04:48:18.919983Z",
+        "items": [
+            {
+                "item_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill Codex and AI Agent skill workflow with SKILL.md, "
+                    "references, scripts, local sandbox framing, workflow gate language, "
+                    "and install/run wording that must not become runtime activation."
+                ),
+                "relevance_reason": (
+                    "Codex-oriented skill terminology should map only to bounded local "
+                    "documentation, config, test, or code_patch lanes."
+                ),
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+            {
+                "item_id": "p2-generic-skill-workflow-discovery",
+                "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "BioNeMo Agent Toolkit exposes agent skills, workflow directories, "
+                    "library skills, plugin metadata, and generic skill workflow routing."
+                ),
+                "relevance_reason": "Generic skill and skills topic signals enter skill_route_discovery lanes.",
+                "risk_flags": [],
+                "confidence": 0.72,
+            },
+            {
+                "item_id": "p3-agent-harness-eval-for-agentworld",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": "Qwen-AgentWorld is a general agent world-model and benchmark project.",
+                "relevance_reason": "General agent project evidence requires local harness evaluation first.",
+                "risk_flags": [],
+                "confidence": 0.66,
+            },
+            {
+                "item_id": "p3-agent-harness-eval-simulation",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "event_kind": "RepositoryTrend",
+                "summary": "Fundamental-Ava is a general autonomous collaborative agent simulation project.",
+                "relevance_reason": "General agent simulation evidence stays in agent_harness_eval_required.",
+                "risk_flags": [],
+                "confidence": 0.64,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=480)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    handoff = lane_map["current_pass2_lane_handoff"]
+    checklist = lane_map["current_pass2_secondary_harness_checklist"]
+    readiness = lane_map["current_pass2_activation_readiness"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert handoff["source_digest"] == "github-growth-20260705T044818.919983Z"
+    assert handoff["active_proposal_ids"] == [
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-route-coverage",
+        "p3-agent-harness-eval-gate",
+    ]
+    assert handoff["status"] == "ready_with_adjacent_agent_eval_gated"
+    assert handoff["skill_workflow_count"] == 2
+    assert handoff["general_agent_project_count"] == 2
+    assert handoff["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert handoff["allowed_general_agent_lanes"] == ["documentation", "test", "code_patch"]
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["raw_source_url_export_allowed"] is False
+    assert handoff["upstream_body_export_allowed"] is False
+
+    skill_rows = {row["item_id"]: row for row in handoff["skill_route_rows"]}
+    general_rows = {row["item_id"]: row for row in handoff["general_agent_rows"]}
+    assert sorted(skill_rows) == [
+        "p1-skill-route-discovery-codex-workflow-gate",
+        "p2-generic-skill-workflow-discovery",
+    ]
+    assert sorted(general_rows) == [
+        "p3-agent-harness-eval-for-agentworld",
+        "p3-agent-harness-eval-simulation",
+    ]
+    assert skill_rows["p1-skill-route-discovery-codex-workflow-gate"]["selected_local_lane"] == "test"
+    assert skill_rows["p2-generic-skill-workflow-discovery"]["selected_local_lane"] in {
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    }
+    assert all(row["lane_bounded"] is True for row in skill_rows.values())
+    assert all(
+        row["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+        for row in skill_rows.values()
+    )
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in general_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in general_rows.values())
+    assert all(row["implementation_lanes_enabled"] is False for row in general_rows.values())
+    assert all(
+        row["fixture_gate_status"] == "blocked_until_local_agent_harness_fixture"
+        for row in general_rows.values()
+    )
+
+    assert checklist["controller_surface"] == "current_pass2_secondary_harness_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["record_count"] == 2
+    assert checklist["blocked_fixture_count"] == 2
+    assert checklist["required_fixture_fields"] == [
+        "fixture_path",
+        "expected_behavior",
+        "expected_output",
+        "pass_fail_signal",
+        "rollback_artifact",
+        "non_secret_config",
+    ]
+    assert handoff["secondary_harness_checklist"] == checklist
+    assert readiness["secondary_harness_checklist"] == checklist
+    assert readiness["blocked_general_agent_item_ids"] == [
+        "p3-agent-harness-eval-for-agentworld",
+        "p3-agent-harness-eval-simulation",
+    ]
+    assert all(row["implementation_patch_allowed"] is False for row in checklist["rows"])
+    assert all(row["external_harness_execution_allowed"] is False for row in checklist["rows"])
+    assert "https://github.com/" not in serialized
+    assert "QwenLM" not in serialized
+    assert "Fundamental-Ava" not in serialized
 
 
 def test_mixed_skill_workflow_probe_routes_fablecodex_to_skill_discovery_first():

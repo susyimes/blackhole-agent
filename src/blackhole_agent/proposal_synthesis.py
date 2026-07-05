@@ -102,6 +102,21 @@ GENERAL_AGENT_PROJECT_EVAL_COMMANDS = [
     "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
     "pytest tests/test_proposal_eval.py -q -k omnigent",
 ]
+PASS2_AGENT_HARNESS_FIXTURE_FIELDS = [
+    "fixture_path",
+    "expected_behavior",
+    "expected_output",
+    "pass_fail_signal",
+    "rollback_artifact",
+    "non_secret_config",
+]
+PASS2_AGENT_HARNESS_FIXTURE_REQUIREMENTS = [
+    "runnable_scenario",
+    "expected_output",
+    "pass_fail_signal",
+    "rollback_path",
+    "non_secret_config",
+]
 MIXED_SKILL_ROUTE_PROBE_COMMANDS = [
     "pytest tests/test_github_growth.py -q -k mixed_skill_workflow",
     "pytest tests/test_proposal_eval.py -q -k route_hint_lane_map",
@@ -610,6 +625,9 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
         ),
         "mixed_skill_workflow_probe": build_mixed_skill_workflow_probe(package_items),
         "general_agent_project_eval": build_general_agent_project_eval_lane(package_items),
+        "current_pass2_secondary_harness_checklist": build_current_pass2_secondary_harness_checklist(
+            package_items
+        ),
         "skill_route_boundary_report": build_skill_route_boundary_report(package_items),
         "route_activation_preflight": build_route_activation_preflight(package_items),
         "current_pass2_activation_readiness": build_current_pass2_activation_readiness(
@@ -872,6 +890,7 @@ def build_current_pass2_activation_readiness(
         context_budget=context_budget,
     )
     general_eval = build_general_agent_project_eval_lane(items)
+    secondary_harness_checklist = build_current_pass2_secondary_harness_checklist(items)
     selected_item_ids = sorted(
         {
             str(item_id)
@@ -907,12 +926,15 @@ def build_current_pass2_activation_readiness(
         item_id = str(candidate.get("item_id") or "")
         source_item = find_item_by_id(items, item_id)
         has_local_eval = general_agent_project_has_local_eval_result(source_item)
+        fixture_gate = pass2_harness_fixture_gate_for_item(source_item)
         general_rows.append(
             {
                 "item_id": item_id,
                 "route_class": "general_agent_project",
                 "primary_route": "agent_harness_eval_required",
                 "allowed_local_lanes": [str(lane) for lane in candidate.get("allowed_local_lanes", [])],
+                "fixture_gate_status": fixture_gate["activation_status"],
+                "missing_fixture_fields": fixture_gate["missing_fixture_fields"],
                 "implementation_lanes_enabled": has_local_eval,
                 "selected_implementation_lanes": (
                     [str(lane) for lane in candidate.get("allowed_local_lanes", [])]
@@ -943,13 +965,14 @@ def build_current_pass2_activation_readiness(
         ),
         "capability_pass": "2_of_4",
         "active_proposal_ids": [
-            "p1-skill-route-discovery-compass-zhengxi",
-            "p2-threejs-game-skill-workflow-doc",
-            "p3-agent-harness-eval-general-agent-projects",
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-route-coverage",
+            "p3-agent-harness-eval-gate",
         ],
         "selected_item_ids": selected_item_ids,
         "skill_workflow_count": len(skill_rows),
         "general_agent_project_count": len(general_rows),
+        "secondary_harness_checklist": secondary_harness_checklist,
         "skill_route_rows": skill_rows,
         "general_agent_rows": general_rows,
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
@@ -990,6 +1013,7 @@ def build_current_pass2_lane_handoff(
         context_budget=context_budget,
     )
     general_eval = build_general_agent_project_eval_lane(items)
+    secondary_harness_checklist = build_current_pass2_secondary_harness_checklist(items)
     selected_item_ids = sorted(
         {
             str(item_id)
@@ -1047,6 +1071,7 @@ def build_current_pass2_lane_handoff(
         item_id = str(candidate.get("item_id") or "")
         source_item = find_item_by_id(items, item_id)
         has_local_eval = general_agent_project_has_local_eval_result(source_item)
+        fixture_gate = pass2_harness_fixture_gate_for_item(source_item)
         general_rows.append(
             {
                 "item_id": item_id,
@@ -1054,6 +1079,8 @@ def build_current_pass2_lane_handoff(
                 "route_class": "general_agent_project",
                 "evaluation_lane": "agent_harness_eval_required",
                 "allowed_local_lanes": [str(lane) for lane in candidate.get("allowed_local_lanes", [])],
+                "fixture_gate_status": fixture_gate["activation_status"],
+                "missing_fixture_fields": fixture_gate["missing_fixture_fields"],
                 "implementation_lanes_enabled": has_local_eval,
                 "blocked_until": "" if has_local_eval else "local_agent_harness_evaluation_result",
                 "skill_route_discovery_inherited": False,
@@ -1092,15 +1119,16 @@ def build_current_pass2_lane_handoff(
         "capability_pass": "2_of_4",
         "source_digest": digest_id,
         "active_proposal_ids": [
-            "p1_skill_route_discovery_zhengxi_views",
-            "p2_agent_harness_eval_trending_agents",
-            "p3_document_route_interpretation_rules",
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-route-coverage",
+            "p3-agent-harness-eval-gate",
         ],
         "selected_item_ids": selected_item_ids,
         "skill_workflow_count": len(skill_rows),
         "general_agent_project_count": len(general_rows),
         "blocked_general_agent_item_ids": blocked_item_ids,
         "route_evidence_lane_source": route_evidence_lane_source,
+        "secondary_harness_checklist": secondary_harness_checklist,
         "skill_route_rows": skill_rows,
         "general_agent_rows": general_rows,
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
@@ -1256,6 +1284,141 @@ def build_current_pass2_route_evidence_lane_source(
         "remote_execution_allowed": False,
         "raw_source_url_export_allowed": False,
         "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass2_secondary_harness_checklist(items: list[Any]) -> dict[str, Any]:
+    """Require a local harness fixture before adjacent agent projects open implementation lanes."""
+
+    general_eval = build_general_agent_project_eval_lane(items)
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for candidate in general_eval.get("candidates", []):
+        if not isinstance(candidate, dict):
+            continue
+        item_id = str(candidate.get("item_id") or "")
+        source_item = find_item_by_id(items, item_id)
+        fixture_gate = pass2_harness_fixture_gate_for_item(source_item)
+        diagnostics.extend(
+            f"{stable_hash({'item_id': item_id})}:{diagnostic}"
+            for diagnostic in fixture_gate["missing_fixture_fields"]
+        )
+        rows.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": str(candidate.get("source_url_hash") or ""),
+                "evaluation_lane": "agent_harness_eval_required",
+                "activation_status": fixture_gate["activation_status"],
+                "skill_route_discovery_inherited": False,
+                "minimal_fixture": {
+                    "behavior": "agent_harness_eval_lane",
+                    "required_fixture_fields": list(PASS2_AGENT_HARNESS_FIXTURE_FIELDS),
+                    "runnable_scenario_required": True,
+                    "expected_output_required": True,
+                    "pass_fail_signal_required": True,
+                    "rollback_path_required": True,
+                    "non_secret_config_required": True,
+                },
+                "missing_fixture_fields": fixture_gate["missing_fixture_fields"],
+                "next_local_action": (
+                    "run_declared_agent_harness_fixture"
+                    if fixture_gate["fixture_ready"]
+                    else "declare_agent_harness_eval_fixture"
+                ),
+                "implementation_patch_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_export_allowed": False,
+                "upstream_body_export_allowed": False,
+            }
+        )
+
+    present = bool(rows)
+    return {
+        "controller_surface": "current_pass2_secondary_harness_checklist",
+        "status": "ready" if present else "not_present",
+        "decision": (
+            "hold_adjacent_agent_projects_for_local_harness_fixture"
+            if present
+            else "no_adjacent_agent_project_checklist_required"
+        ),
+        "capability_pass": "2_of_4",
+        "record_count": len(rows),
+        "ready_fixture_count": sum(
+            1 for row in rows if row["activation_status"] == "local_harness_fixture_ready"
+        ),
+        "blocked_fixture_count": sum(
+            1
+            for row in rows
+            if row["activation_status"] == "blocked_until_local_agent_harness_fixture"
+        ),
+        "agent_harness_eval_required": present,
+        "fixture_requirements": list(PASS2_AGENT_HARNESS_FIXTURE_REQUIREMENTS),
+        "required_fixture_fields": list(PASS2_AGENT_HARNESS_FIXTURE_FIELDS),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_corroboration_required": present,
+        "implementation_patch_allowed": False,
+        "local_validation_required": present,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def pass2_harness_fixture_gate_for_item(item: dict[str, Any]) -> dict[str, Any]:
+    """Return the local fixture gate for a general-agent pass-2 row."""
+
+    if not isinstance(item, dict):
+        item = {}
+    local_fixture = item.get("local_harness_fixture")
+    if not isinstance(local_fixture, dict):
+        classification = item.get("route_classification")
+        if isinstance(classification, dict):
+            local_fixture = classification.get("local_harness_fixture")
+    local_fixture = local_fixture if isinstance(local_fixture, dict) else {}
+
+    field_checks = {
+        "fixture_path": bool(str(local_fixture.get("fixture_path") or "").strip()),
+        "expected_behavior": bool(
+            str(local_fixture.get("expected_behavior") or local_fixture.get("behavior") or "").strip()
+            or local_fixture.get("expected_behaviors")
+        ),
+        "expected_output": bool(
+            str(local_fixture.get("expected_output") or "").strip()
+            or local_fixture.get("expected_outputs")
+        ),
+        "pass_fail_signal": bool(
+            str(local_fixture.get("pass_fail_signal") or "").strip()
+            or local_fixture.get("assertions")
+        ),
+        "rollback_artifact": bool(str(local_fixture.get("rollback_artifact") or "").strip()),
+        "non_secret_config": local_fixture.get("non_secret_config") is True,
+    }
+    missing_fixture_fields = [
+        field for field in PASS2_AGENT_HARNESS_FIXTURE_FIELDS if not field_checks.get(field)
+    ]
+    fixture_ready = not missing_fixture_fields
+    return {
+        "fixture_ready": fixture_ready,
+        "activation_status": (
+            "local_harness_fixture_ready"
+            if fixture_ready
+            else "blocked_until_local_agent_harness_fixture"
+        ),
+        "missing_fixture_fields": missing_fixture_fields,
     }
 
 
