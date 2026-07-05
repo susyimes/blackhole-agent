@@ -6153,13 +6153,67 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260704T174435.250220Z",
         "github-growth-20260704T174435Z",
     }
+    current_20260705_042818_window = source_digest in {
+        "github-growth-20260705T042818.506501Z",
+        "github-growth-20260705T042818Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260704_174435_window:
+    if current_20260705_042818_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_kind": "test",
+                "proposal_track": "codex_reverse_flow_skill_workflow_route_discovery",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_skill_workflow_repository_selects_discovery_first",
+                "validation_task": (
+                    "validate reverse-flow-skill as Codex-oriented skill workflow evidence; "
+                    "preserve skill_route_discovery_first and restrict follow-on work to "
+                    "documentation, config, test, or code_patch lanes while install, runtime, "
+                    "provider launch, external activation, and remote execution stay denied"
+                ),
+            },
+            {
+                "proposal_id": "p2-generic-skill-workflow-discovery",
+                "proposal_kind": "code_patch",
+                "proposal_track": "generic_agent_skill_topics_route_through_skill_route_discovery",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("bionemo-agent-toolkit",),
+                "selected_local_lane": "code_patch",
+                "validation_target": (
+                    "generic_agent_skill_topics_route_to_bounded_local_lanes_before_behavior_change"
+                ),
+                "validation_task": (
+                    "record BioNeMo-style agent skills repositories as generic skill workflow "
+                    "route evidence only; they may propose documentation, config, test, or "
+                    "code_patch local lanes after validation, but upstream install and runtime "
+                    "pressure remains diagnostic"
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-eval-for-general-agent-trends",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_harness_eval_queue",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill", "bionemo-agent-toolkit"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_route_and_general_agent_eval_boundaries_are_replayable",
+                "validation_task": (
+                    "expose an operator-visible pass-1 route matrix proving selected skill "
+                    "evidence stays in bounded local lanes while Qwen-AgentWorld, "
+                    "Fundamental-Ava, and workflow-usecase repositories remain "
+                    "agent_harness_eval_required before implementation lanes"
+                ),
+            },
+        )
+    elif current_20260704_174435_window:
         specs = (
             {
                 "proposal_id": "p1-reverse-flow-skill-route-discovery",
@@ -8272,6 +8326,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3-agent-harness-eval-for-general-agent-trends"
+            if current_20260705_042818_window
+            else
             "p3-agent-harness-eval-fixtures"
             if (
                 current_20260703_221922_window
@@ -8285,6 +8342,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 or current_20260704_162434_window
                 or current_20260704_110437_window
                 or current_20260704_094434_window
+                or current_20260705_042818_window
             )
             else
             "p3-agent-harness-eval-general-projects"
@@ -9263,7 +9321,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "p5-agent-harness-eval-looper",
         ]
     )
-    if current_20260704_094434_window:
+    if current_20260705_042818_window:
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-codex-workflow-gate",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-for-general-agent-trends",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-2",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-2",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+    elif current_20260704_094434_window:
         anchoring_proposal_ids = [
             "p1-skill-route-discovery-codex-workflow",
             "p2-generic-skill-workflow-route-doc",
