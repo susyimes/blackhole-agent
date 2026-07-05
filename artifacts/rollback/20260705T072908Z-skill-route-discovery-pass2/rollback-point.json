@@ -1,0 +1,12 @@
+{
+  "created_at": "2026-07-05T07:29:08Z",
+  "source_digest": "github-growth-20260705T072819.148283Z",
+  "original_branch": "codex/blackhole-evolve/20260705T072908.713671-run-a-bounded-local-skill-route-discovery-evalua",
+  "original_head": "92e7e2fe7e6fba4d326311cf97e7adc2f2927dc3",
+  "local_rollback_ref": "refs/rollback/20260705T072908Z-skill-route-discovery-pass2",
+  "recovery_commands": [
+    "git reset --hard 92e7e2fe7e6fba4d326311cf97e7adc2f2927dc3",
+    "git clean -fd"
+  ],
+  "execution_policy": "record_only; destructive rollback must be explicitly selected by a human operator or external supervisor"
+}

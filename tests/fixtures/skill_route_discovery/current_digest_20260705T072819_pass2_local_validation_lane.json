@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260705T072819.148283Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-agent-harness-eval-general-agent-trends",
+      "p3-agent-workflow-signal-triage-doc",
+      "p4-workflow-usecase-harness-probe",
+      "trend:QwenLM/Qwen-AgentWorld-1",
+      "p1_reverse_flow_skill_route_discovery",
+      "p2_skill_workflow_routing_docs",
+      "p3_agent_harness_eval_fixture",
+      "p4_workflow_usecase_classification_check",
+      "p5_policy_metadata_consistency_check"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260705T072819.148283Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Public Codex-oriented reverse-flow skill repository with a skills/reverse-flow package, SKILL.md, local CTF and sandbox framing, workflow steps, install examples, and script examples. Treat install, script, reverse workflow, and runtime pressure as diagnostic only before local validation.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution", "script_execution"],
+      "unsupported_lane_pressure": ["install", "runtime_execution", "script_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["codex_workflow_signal", "local_sandbox_boundary", "body_free_workflow_summary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260705T072819.148283Z",
+      "item_id": "trend:Ovlvllo/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Ovlvllo-reverse-flow-skill",
+      "source_url": "https://github.com/Ovlvllo/reverse-flow-skill",
+      "upstream_source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Fork-lineage reverse-flow skill signal with Codex, skill, workflow, install, and runtime wording. It corroborates the reverse-flow route-discovery candidate but does not create a second activation route.",
+      "topics": ["codex", "agent", "skill", "workflow", "fork-lineage"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution", "script_execution"],
+      "unsupported_lane_pressure": ["install", "runtime_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["fork_lineage_present", "body_free_workflow_summary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260705T072819.148283Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agent project with assets, docs, evaluation, and scripts, but no explicit skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "evaluation", "benchmark", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260705T072819.148283Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "summary": "General agent world-model and benchmark project with eval and prompt folders, but no explicit skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260705T072819.148283Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous and socially intelligent agent project with source, benchmark, experiment, and test folders, but no explicit skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "agent", "workflow", "benchmark"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}
