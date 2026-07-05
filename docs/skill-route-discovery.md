@@ -7709,6 +7709,29 @@ activation, external harness execution, provider runtime launch, remote
 execution, profile writes, memory writes, and runtime action. Replay with
 `python -m pytest tests/test_skill_routing.py -q -k 20260705T040819`.
 
+## Current Digest 20260705T052819 Pass 4
+
+The `github-growth-20260705T052819.665146Z` pass-4 fixture completes the
+active skill-route-discovery slice through
+`current_digest_pass4_completion_handoff`. `lingbol088-spec/reverse-flow-skill`
+maps to `p1-skill-route-discovery-reverse-flow` in the local test lane. It must
+prove `skill_route_discovery_first`; upstream install, script, reverse workflow,
+and runtime pressure remain diagnostic and do not activate external code.
+
+`NVIDIA-BioNeMo/bionemo-agent-toolkit` maps to
+`p2-skill-route-discovery-bionemo` in the documentation lane. Its skills CLI,
+plugin marketplace, catalog, and domain workflow language are useful route
+evidence, but the accepted local mapping is still only documentation, config,
+test, or code_patch after focused validation.
+
+`QwenLM/Qwen-AgentWorld` and `TianhangZhuzth/Fundamental-Ava` remain adjacent
+`agent_harness_eval_required` rows under
+`p3-agent-harness-eval-general-agent-projects`. They do not inherit
+`skill_route_discovery`, direct runtime routing, direct code_patch authority,
+external harness execution, provider launch, or remote execution before bounded
+local harness evaluation exists. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T052819`.
+
 ## Current Digest 20260704T035308 Pass 4
 
 The `github-growth-20260704T035308.799236Z` pass-4 handoff completes the active
