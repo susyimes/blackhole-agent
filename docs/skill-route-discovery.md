@@ -5,6 +5,19 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260705T054818.762095Z`, pass 1 exposes
+`current_pass1_skill_route_validation_matrix` from the proposal route map.
+`lingbol088-spec/reverse-flow-skill` is classified as the Codex-specific
+regression half: it must prove `skill_route_discovery_first`, selects the local
+test lane, and keeps upstream install/run/script pressure diagnostic only.
+`NVIDIA-BioNeMo/bionemo-agent-toolkit` is classified as the generic skill
+workflow half: it enters `skill_route_discovery` first and may proceed only to
+documentation, config, test, or code_patch after local validation.
+`Qwen-AgentWorld` and `Fundamental-Ava` remain adjacent
+`agent_harness_eval_required` rows; they do not inherit `skill_route_discovery`
+or direct implementation lanes before local harness evaluation. Replay with:
+`pytest tests/test_github_growth.py -q -k current_pass1_skill_route_validation_matrix`.
+
 For source digest `github-growth-20260705T042818.506501Z`, pass 1 exposes a
 bounded `current_digest_pass1_validation_lane` for the active window.
 `lingbol088-spec/reverse-flow-skill` maps to

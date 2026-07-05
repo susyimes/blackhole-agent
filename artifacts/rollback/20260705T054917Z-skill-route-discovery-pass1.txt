@@ -1,0 +1,8 @@
+rollback_point: 20260705T054917Z-skill-route-discovery-pass1
+original_branch: codex/blackhole-evolve/20260705T054917.948208-add-a-bounded-local-skill-route-discovery-valida
+head: 347fbdb002b3cca693ebbebae77dc125c2755e99
+local_ref: refs/blackhole-rollback/20260705T054917Z-skill-route-discovery-pass1
+recover_branch_command: git switch codex/blackhole-evolve/20260705T054917.948208-add-a-bounded-local-skill-route-discovery-valida
+recover_head_command: git reset --hard 347fbdb002b3cca693ebbebae77dc125c2755e99
+recover_ref_command: git reset --hard refs/blackhole-rollback/20260705T054917Z-skill-route-discovery-pass1
+note: rollback execution is explicit and destructive; do not run recovery commands without operator approval
