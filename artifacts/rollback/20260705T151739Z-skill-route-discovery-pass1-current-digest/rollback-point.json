@@ -1,0 +1,11 @@
+{
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260705T151739.610463-add-or-run-a-bounded-agent-harness-evaluation-la",
+    "git reset --hard refs/blackhole-rollback/20260705T151739Z-skill-route-discovery-pass1-current-digest"
+  ],
+  "created": "2026-07-05T15:17:39Z",
+  "source_digest": "github-growth-20260705T151637.013264Z",
+  "original_branch": "codex/blackhole-evolve/20260705T151739.610463-add-or-run-a-bounded-agent-harness-evaluation-la",
+  "rollback_ref": "refs/blackhole-rollback/20260705T151739Z-skill-route-discovery-pass1-current-digest",
+  "original_head": "353ce40c19b1c546f7a08e02146c8ddcf001120c"
+}

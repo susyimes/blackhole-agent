@@ -6188,47 +6188,100 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260705T135637.037461Z",
         "github-growth-20260705T135637Z",
     }
+    current_20260705_151637_window = source_digest in {
+        "github-growth-20260705T151637.013264Z",
+        "github-growth-20260705T151637Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260705_135637_window:
+    if current_20260705_151637_window or current_20260705_135637_window:
         specs = (
             {
-                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_id": (
+                    "p1-agent-harness-trending-project-eval"
+                    if current_20260705_151637_window
+                    else "p1_skill_route_discovery_reverse_flow"
+                ),
                 "proposal_kind": "test",
-                "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                "proposal_track": (
+                    "agent_harness_trending_project_eval_gate"
+                    if current_20260705_151637_window
+                    else "reverse_flow_skill_route_discovery_validation"
+                ),
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
                 "candidate_name_terms": ("reverse-flow-skill",),
                 "selected_local_lane": "test",
-                "validation_target": "reverse_flow_skill_workflow_classifies_to_bounded_local_lanes",
+                "validation_target": (
+                    "general_agent_projects_without_skill_workflow_cannot_bypass_harness_eval"
+                    if current_20260705_151637_window
+                    else "reverse_flow_skill_workflow_classifies_to_bounded_local_lanes"
+                ),
                 "validation_task": (
-                    "classify reverse-flow-skill as Codex and AI Agent skill workflow evidence; "
-                    "preserve skill_route_discovery_first and restrict candidate outputs to "
-                    "documentation, config, test, or code_patch while install, script execution, "
-                    "vulnerability-analysis, provider launch, external harness execution, and "
-                    "remote execution remain diagnostic only"
+                    (
+                        "map Agents-A1, Qwen-AgentWorld, and Fundamental-Ava trend metadata "
+                        "into agent_harness_eval_required rows; verify that projects without "
+                        "explicit skill-workflow signals cannot open documentation, test, "
+                        "code_patch, runtime, provider, external harness, or remote execution "
+                        "lanes before bounded local harness evaluation"
+                    )
+                    if current_20260705_151637_window
+                    else (
+                        "classify reverse-flow-skill as Codex and AI Agent skill workflow evidence; "
+                        "preserve skill_route_discovery_first and restrict candidate outputs to "
+                        "documentation, config, test, or code_patch while install, script execution, "
+                        "vulnerability-analysis, provider launch, external harness execution, and "
+                        "remote execution remain diagnostic only"
+                    )
                 ),
             },
             {
-                "proposal_id": "p2_agent_harness_eval_trending_agent_projects",
-                "proposal_kind": "test",
-                "proposal_track": "general_agent_project_harness_eval_lane",
+                "proposal_id": (
+                    "p2-skill-route-discovery-probe"
+                    if current_20260705_151637_window
+                    else "p2_agent_harness_eval_trending_agent_projects"
+                ),
+                "proposal_kind": "code_patch" if current_20260705_151637_window else "test",
+                "proposal_track": (
+                    "bounded_skill_route_discovery_probe"
+                    if current_20260705_151637_window
+                    else "general_agent_project_harness_eval_lane"
+                ),
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
                 "candidate_name_terms": ("reverse-flow-skill",),
-                "selected_local_lane": "test",
-                "validation_target": "general_agent_project_trends_require_local_harness_eval",
+                "selected_local_lane": "code_patch" if current_20260705_151637_window else "test",
+                "validation_target": (
+                    "skill_route_discovery_outputs_only_documentation_config_test_or_code_patch"
+                    if current_20260705_151637_window
+                    else "general_agent_project_trends_require_local_harness_eval"
+                ),
                 "validation_task": (
-                    "record how Qwen-AgentWorld, Fundamental-Ava, and Agents-A1 are evaluated "
-                    "locally before implementation lanes open: relevance, safety boundary, "
-                    "rollback coverage, testability, and no external harness, provider, agent, "
-                    "or remote execution"
+                    (
+                        "classify reverse-flow-skill using metadata and safe repository "
+                        "inspection signals only; assert the discovered route remains limited "
+                        "to documentation, config, test, or code_patch work, with install, "
+                        "script execution, vulnerability-analysis, provider launch, external "
+                        "harness execution, runtime execution, and remote execution downgraded "
+                        "to diagnostic pressure"
+                    )
+                    if current_20260705_151637_window
+                    else (
+                        "record how Qwen-AgentWorld, Fundamental-Ava, and Agents-A1 are evaluated "
+                        "locally before implementation lanes open: relevance, safety boundary, "
+                        "rollback coverage, testability, and no external harness, provider, agent, "
+                        "or remote execution"
+                    )
                 ),
             },
             {
-                "proposal_id": "p3_workflow_signal_harness_for_blender_seedance",
+                "proposal_id": (
+                    "p3-workflow-usecase-eval-documentation"
+                    if current_20260705_151637_window
+                    else "p3_workflow_signal_harness_for_blender_seedance"
+                ),
                 "proposal_kind": "documentation",
                 "proposal_track": "workflow_topic_agent_harness_eval_documentation",
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
@@ -6236,10 +6289,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "selected_local_lane": "documentation",
                 "validation_target": "workflow_topic_without_skill_route_signal_enters_agent_harness_eval",
                 "validation_task": (
-                    "document that workflow-oriented repositories without explicit skill-route "
-                    "signals remain agent_harness_eval_required candidates and do not open "
-                    "direct workflow-routing, runtime, or code_patch lanes before bounded "
-                    "local harness evaluation"
+                    (
+                        "document that workflow-usecase repositories such as Blender/Seedance "
+                        "collections are not directly installable skills; they remain "
+                        "agent_harness_eval_required and need local validation gates before "
+                        "tool, runner, provider, or workflow integration"
+                    )
+                    if current_20260705_151637_window
+                    else (
+                        "document that workflow-oriented repositories without explicit skill-route "
+                        "signals remain agent_harness_eval_required candidates and do not open "
+                        "direct workflow-routing, runtime, or code_patch lanes before bounded "
+                        "local harness evaluation"
+                    )
                 ),
             },
         )
@@ -8919,6 +8981,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "looper"}:
                 row["proposal_id"] = "p2-agent-harness-eval-qwen-agentworld"
+        if current_20260705_151637_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name in {"qwen-agentworld", "fundamental-ava", "agents-a1"}:
+                row["proposal_id"] = "p1-agent-harness-trending-project-eval"
+            elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
+                row["proposal_id"] = "p3-workflow-usecase-eval-documentation"
         if current_20260705_135637_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name in {"qwen-agentworld", "fundamental-ava", "agents-a1"}:
@@ -9655,7 +9723,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "p5-agent-harness-eval-looper",
         ]
     )
-    if current_20260705_135637_window:
+    if current_20260705_151637_window:
+        anchoring_proposal_ids = [
+            "p1-agent-harness-trending-project-eval",
+            "p2-skill-route-discovery-probe",
+            "p3-workflow-usecase-eval-documentation",
+            "p4-route-classification-regression-tests",
+            "p5-local-validation-first-policy-check",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+    elif current_20260705_135637_window:
         anchoring_proposal_ids = [
             "p1_skill_route_discovery_reverse_flow",
             "p2_agent_harness_eval_trending_agent_projects",
@@ -9854,6 +9935,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "workflow_topic_boundary": _skill_route_discovery_workflow_topic_boundary(
             adjacent_rows,
             proposal_id=(
+                "p3-workflow-usecase-eval-documentation"
+                if current_20260705_151637_window
+                else
                 "p3_workflow_signal_harness_for_blender_seedance"
                 if current_20260705_135637_window
                 else
