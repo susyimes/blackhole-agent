@@ -1,0 +1,10 @@
+{
+  "timestamp": "20260705T114956Z",
+  "head": "014379f96ae0fdadb29286b3d857d18157072ca3",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260705T115044.337937-add-or-run-a-bounded-local-skill-route-discovery",
+    "git reset --hard refs/blackhole/rollback/20260705T114956Z-skill-route-discovery-pass3-current-window"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260705T115044.337937-add-or-run-a-bounded-local-skill-route-discovery",
+  "rollback_ref": "refs/blackhole/rollback/20260705T114956Z-skill-route-discovery-pass3-current-window"
+}
