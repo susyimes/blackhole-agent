@@ -30594,6 +30594,167 @@ def test_skill_route_discovery_current_digest_20260705T042818_pass1_routes_skill
     assert '"install"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260705T094958_pass1_queues_agent_projects():
+    items = [
+        {
+            "source_digest": "github-growth-20260705T094958.194978Z",
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "RepositoryTrend",
+            "name": "lingbol088-spec-reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "summary": (
+                "Public Codex-oriented reverse-flow skill repository with agent, skill, "
+                "workflow, package, script, install, and local sandbox wording. Install "
+                "and runtime pressure must remain diagnostic only before local validation."
+            ),
+            "topics": ["codex", "agent", "skill", "workflow", "reverse", "local-sandbox"],
+            "route_hints": ["skill_route_discovery"],
+            "suggested_lanes": [
+                "documentation",
+                "config",
+                "test",
+                "code_patch",
+                "install",
+                "runtime_execution",
+            ],
+            "unsupported_lane_pressure": ["install", "runtime_execution"],
+            "observed_paths": [
+                "skills/reverse-flow/SKILL.md",
+                "skills/reverse-flow/README.md",
+                "skills/reverse-flow/references/",
+                "skills/reverse-flow/scripts/tool_audit.py",
+            ],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": "external_skill_route_discovery_classification",
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+                "source_layout_signals": [
+                    "skill_directory",
+                    "skill_markdown",
+                    "reference_directory",
+                    "validation_script",
+                ],
+                "source_metadata_signals": [
+                    "agent_metadata",
+                    "codex_workflow_signal",
+                    "local_sandbox_boundary",
+                    "body_free_workflow_summary",
+                ],
+            },
+        },
+        {
+            "source_digest": "github-growth-20260705T094958.194978Z",
+            "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+            "item_kind": "RepositoryTrend",
+            "name": "Qwen-AgentWorld",
+            "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+            "summary": (
+                "General agent language world-model and benchmark project across terminal, "
+                "web, Android, SWE, OS, MCP, and search domains without local skill workflow "
+                "route hints or a completed local harness result."
+            ),
+            "topics": ["general-agent", "benchmark", "evaluation", "world-model"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+        {
+            "source_digest": "github-growth-20260705T094958.194978Z",
+            "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "item_kind": "RepositoryTrend",
+            "name": "Fundamental-Ava",
+            "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+            "summary": (
+                "General autonomous collaborative agent simulation project for digital beings "
+                "with memory, relationships, and population-level behavior."
+            ),
+            "topics": ["general-agent", "simulation", "autonomous-agent"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+        {
+            "source_digest": "github-growth-20260705T094958.194978Z",
+            "item_id": "trend:InternScience/Agents-A1-1",
+            "item_kind": "RepositoryTrend",
+            "name": "Agents-A1",
+            "source_url": "https://github.com/InternScience/Agents-A1",
+            "summary": (
+                "General agent project signal without local skill workflow layout evidence "
+                "or a completed local harness result."
+            ),
+            "topics": ["general-agent", "agent", "benchmark"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass1_validation_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["name"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260705T094958.194978Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 3
+    assert lane["controller_surface"] == "skill_route_discovery_current_digest_pass1_validation_lane"
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-route-classification-regression",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-agent-harness-eval-qwen-agentworld",
+        "p3-agent-harness-eval-fundamental-ava",
+        "p4-agent-harness-eval-agents-a1",
+        "p5-agent-workflow-harness-blender-seedance",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:InternScience/Agents-A1-1",
+    ]
+    assert lane["ready_skill_route_proposal_count"] == 3
+    assert lane["blocked_proposal_ids"] == []
+    assert lane["selected_local_lanes"] == ["test"]
+    assert lane["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+    assert lane["agent_harness_eval_required_count"] == 3
+
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["status"] == "ready"
+    assert reverse_flow["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["runtime_action"] == "none"
+    assert reverse_flow["external_skill_activation_allowed"] is False
+
+    assert set(adjacent) == {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld"}
+    for row in adjacent.values():
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260705T070818_pass1_routes_current_window():
     fixture_path = (
         Path(__file__).parent
