@@ -5,6 +5,31 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260705T153637.166417Z`, pass 2 exposes the
+active `skill-route-discovery` window through
+`current_digest_pass2_local_validation_lane`. The
+`trend:lingbol088-spec/reverse-flow-skill-1` row maps to
+`proposal_skill_route_discovery_reverse_flow_skill` in the local test lane
+because its body-free repository shape carries Codex/AI Agent skill workflow
+signals: `skills/reverse-flow`, `SKILL.md`, references, scripts, local
+sandbox/CTF framing, staged reverse workflow language, install examples, and
+vulnerability-analysis pressure. Those signals remain diagnostic route
+evidence only. Install, script execution, vulnerability-analysis, runtime,
+provider, external harness, and remote execution pressure is downgraded before
+activation.
+
+`trend:QwenLM/Qwen-AgentWorld-1` maps to
+`proposal_agent_harness_eval_qwen_agentworld`, while
+`trend:InternScience/Agents-A1-1`,
+`trend:TianhangZhuzth/Fundamental-Ava-1`, and
+`trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1` map to the
+general agent-harness cluster. They stay as adjacent
+`agent_harness_eval_required` rows with no inherited `skill_route_discovery`,
+no direct runtime lane, no direct code_patch lane, no provider launch, no
+external harness execution, and no remote execution before bounded local
+harness evaluation. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260705T153637`.
+
 For source digest `github-growth-20260705T151637.013264Z`, pass 1 opens the
 active `skill-route-discovery` window through
 `current_digest_pass1_validation_lane`. The
