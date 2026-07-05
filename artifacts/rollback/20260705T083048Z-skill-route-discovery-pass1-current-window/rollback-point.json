@@ -1,0 +1,15 @@
+{
+  "created": "2026-07-05T08:30:48Z",
+  "original_branch": "codex/blackhole-evolve/20260705T083048.350393-add-or-run-a-bounded-local-skill-route-discovery",
+  "original_head": "39510cacaf5261579bd7beb8667b178051fdf9bc",
+  "local_rollback_ref": "refs/rollback/20260705T083048Z-skill-route-discovery-pass1-current-window",
+  "source_digest": "github-growth-20260705T082958.436037Z",
+  "capability_theme": "skill-route-discovery",
+  "capability_pass": 1,
+  "total_passes": 4,
+  "recovery_commands": [
+    "git reset --hard 39510cacaf5261579bd7beb8667b178051fdf9bc",
+    "git clean -fd"
+  ],
+  "rollback_execution": "explicit_destructive_operator_action_only"
+}

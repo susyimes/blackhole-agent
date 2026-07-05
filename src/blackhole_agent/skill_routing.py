@@ -6161,6 +6161,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260705T070818.682441Z",
         "github-growth-20260705T070818Z",
     }
+    current_20260705_082958_window = source_digest in {
+        "github-growth-20260705T082958.436037Z",
+        "github-growth-20260705T082958Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
@@ -8229,6 +8233,25 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 ),
             },
         )
+    if current_20260705_082958_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_pattern_maps_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate reverse-flow-skill as Codex and Agent skill workflow evidence; "
+                    "preserve skill_route_discovery_first and restrict outcomes to "
+                    "documentation, config, test, or code_patch while upstream install, "
+                    "script execution, provider launch, external activation, and remote "
+                    "execution remain diagnostic only"
+                ),
+            },
+        )
 
     rows: list[dict[str, Any]] = []
     observed_profiles: list[str] = []
@@ -8334,6 +8357,16 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "skill_route_discovery_first": (
                     "skill_route_discovery_first_before_workflow_gate" in set(validation_gates)
                 ),
+                **(
+                    {
+                        "profile_validation_requirements": _skill_route_discovery_profile_validation_requirements(
+                            list(dict.fromkeys(route_profiles)),
+                            bounded_lanes,
+                        )
+                    }
+                    if current_20260705_082958_window
+                    else {}
+                ),
                 "validation_target": str(spec["validation_target"]),
                 "validation_task": str(spec["validation_task"]),
                 "route_probe_metadata": route_probe_rows,
@@ -8382,6 +8415,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             else
             "p2-agent-harness-eval-general-agent-trends"
             if current_20260705_070818_window
+            or current_20260705_082958_window
             else
             "p3-agent-harness-eval-fixtures"
             if (
@@ -8757,6 +8791,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_agent_harness_qwen_agentworld",
+            "p3_agent_harness_fundamental_ava",
+            "p4_agent_harness_agents_a1",
+            "p5_agent_harness_workflow_usecases",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260705_082958_window
+        else
         [
             "p1-skill-route-discovery-reverse-flow",
             "p2-agent-harness-eval-general-agent-trends",
