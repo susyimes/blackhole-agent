@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 171
-    assert payload["pass_count"] == 170
+    assert payload["fixture_count"] == 172
+    assert payload["pass_count"] == 171
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -150,6 +150,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-20260706T133555-activity-shapes"]["passed"] is True
     assert results["agent-harness-eval-lane-qwen-looper-readiness"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260706T141555-pass3-agent-harness-intake"
+        ]["passed"]
+        is True
+    )
     assert (
         results["skill-route-discovery-current-digest-20260702T154626-pass2-local-validation-lane"][
             "passed"
@@ -8067,6 +8073,60 @@ def test_skill_route_discovery_active_window_matrix_separates_skill_and_agent_la
     assert activation_lane["runtime_action_allowed"] is False
     assert activation_lane["external_harness_execution_allowed"] is False
     assert activation_lane["raw_source_urls_exported"] is False
+
+
+def test_skill_route_discovery_current_digest_pass3_builds_agent_harness_intake():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260706T141555_pass3_agent_harness_intake.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["route_family_agent_harness_intake"], sort_keys=True)
+    intake = output["route_family_agent_harness_intake"]
+    rows_by_item_id = {row["item_id"]: row for row in intake["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert intake["controller_surface"] == "skill_route_discovery_route_family_agent_harness_intake"
+    assert intake["status"] == "blocked"
+    assert intake["decision"] == "declare_general_agent_project_probe_fields_before_eval"
+    assert intake["record_count"] == 4
+    assert intake["ready_record_count"] == 0
+    assert intake["blocked_record_count"] == 4
+    assert intake["fixture_behavior"] == "agent_harness_eval_lane"
+    assert intake["required_fixture_fields"] == [
+        "route_hints",
+        "suggested_lanes",
+        "install_shape",
+        "entrypoints",
+        "dependency_boundaries",
+        "task_loop_assumptions",
+        "observable_behaviors",
+    ]
+    assert intake["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert intake["direct_allowed_lanes_before_eval"] == []
+    assert intake["skill_route_discovery_inherited"] is False
+    assert intake["runtime_action"] == "none"
+    assert intake["external_harness_execution_allowed"] is False
+    assert intake["raw_source_urls_exported"] is False
+    assert rows_by_item_id["p1-agent-harness-eval-general-trends:agents-a1"][
+        "intake_status"
+    ] == "blocked_until_probe_fields_declared"
+    assert rows_by_item_id["p1-agent-harness-eval-general-trends:agents-a1"][
+        "selected_local_lanes_after_eval"
+    ] == ["documentation", "test", "code_patch"]
+    assert rows_by_item_id["p2-agent-harness-eval-shepherd-activity:shepherd"][
+        "route_reason_codes"
+    ] == ["agent-harness", "agent_harness_eval", "replay", "rollback", "runtime"]
+    assert all(row["source_hash"].startswith("sha256:") for row in intake["rows"])
+    assert all(row["runtime_action"] == "none" for row in intake["rows"])
+    assert "https://github.com/" not in serialized
+    assert "Scaling the Horizon" not in serialized
 
 
 def test_skill_route_discovery_lane_carries_current_source_digest_into_active_pass():

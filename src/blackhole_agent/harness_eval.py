@@ -2947,6 +2947,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         lane_map=lane_map,
         activation_gate=activation_gate,
     )
+    route_family_agent_harness_intake = skill_route_discovery_route_family_agent_harness_intake(
+        raw_input=raw_input,
+        route_family_eval_matrix=route_family_eval_matrix,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -3071,6 +3075,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
         "automation_bug_agent_eval_checklist": automation_bug_agent_eval_checklist,
         "route_family_eval_matrix": route_family_eval_matrix,
+        "route_family_agent_harness_intake": route_family_agent_harness_intake,
         "current_digest_pass1_validation_lane": lane_map["current_digest_pass1_validation_lane"],
         "current_digest_pass2_local_validation_lane": lane_map["current_digest_pass2_local_validation_lane"],
         "current_digest_pass3_route_to_validation_lane": lane_map[
@@ -19059,6 +19064,141 @@ def skill_route_discovery_route_family_eval_matrix(
         "skill_rows": skill_rows,
         "general_agent_rows": general_rows,
         "required_validation": validation_commands,
+    }
+
+
+def skill_route_discovery_route_family_agent_harness_intake(
+    *,
+    raw_input: Mapping[str, Any],
+    route_family_eval_matrix: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Convert adjacent general-agent route rows into a replayable local intake queue."""
+
+    raw_items = raw_input.get("evidence_items")
+    evidence_items = [
+        item
+        for item in (raw_items if isinstance(raw_items, list) else [])
+        if isinstance(item, Mapping)
+    ]
+    evidence_by_item_id = {
+        optional_string(item.get("item_id")) or "": item for item in evidence_items
+    }
+    evidence_by_name = {
+        optional_string(item.get("name")) or "": item for item in evidence_items
+    }
+    raw_general_rows = route_family_eval_matrix.get("general_agent_rows")
+    general_rows = [
+        row
+        for row in (raw_general_rows if isinstance(raw_general_rows, list) else [])
+        if isinstance(row, Mapping)
+    ]
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    required_probe_fields = list(AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS)
+    for index, general_row in enumerate(general_rows, start=1):
+        item_id = optional_string(general_row.get("item_id")) or f"general-agent-project-{index}"
+        name = optional_string(general_row.get("name")) or ""
+        evidence_item = evidence_by_item_id.get(item_id) or evidence_by_name.get(name) or {}
+        source_url = optional_string(evidence_item.get("source_url")) or ""
+        suggested_lanes = [
+            lane
+            for lane in string_list(evidence_item.get("suggested_lanes"))
+            if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+        ]
+        missing_probe_fields = [
+            field
+            for field in required_probe_fields
+            if not string_list(evidence_item.get(field))
+        ]
+        row_ready = not missing_probe_fields
+        route_reason_codes = sorted(
+            dict.fromkeys(
+                [
+                    *string_list(evidence_item.get("topics")),
+                    *string_list(evidence_item.get("route_hints")),
+                ]
+            )
+        )
+        row_diagnostics = [f"{field}_missing" for field in missing_probe_fields]
+        diagnostics.extend(f"{stable_text_hash(item_id)}:{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "item_id": item_id,
+                "name_hash": stable_text_hash(name) if name else "",
+                "source_hash": stable_text_hash(source_url) if source_url else "",
+                "route_family": "general_agent_project",
+                "evaluation_lane": "agent_harness_eval_required",
+                "intake_status": "ready_for_agent_harness_eval" if row_ready else "blocked_until_probe_fields_declared",
+                "next_local_action": "run_agent_harness_eval_lane" if row_ready else "declare_agent_harness_probe_fields",
+                "required_probe_fields": required_probe_fields,
+                "missing_probe_fields": missing_probe_fields,
+                "route_reason_codes": route_reason_codes,
+                "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+                "selected_local_lanes_after_eval": suggested_lanes,
+                "skill_route_discovery_inherited": False,
+                "direct_allowed_lanes_before_eval": [],
+                "implementation_patch_allowed_before_eval": False,
+                "runtime_action": "none",
+                "runtime_action_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+                "row_diagnostics": row_diagnostics,
+                "required_validation": [
+                    "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+                ],
+            }
+        )
+
+    present = bool(rows)
+    ready_count = sum(1 for row in rows if row["intake_status"] == "ready_for_agent_harness_eval")
+    status = "ready" if present and ready_count == len(rows) else "blocked" if present else "not_present"
+    return {
+        "controller_surface": "skill_route_discovery_route_family_agent_harness_intake",
+        "status": status,
+        "decision": (
+            "general_agent_projects_ready_for_local_agent_harness_eval"
+            if status == "ready"
+            else "declare_general_agent_project_probe_fields_before_eval"
+            if present
+            else "no_general_agent_project_intake_required"
+        ),
+        "source": "route_family_eval_matrix.general_agent_rows",
+        "record_count": len(rows),
+        "ready_record_count": ready_count,
+        "blocked_record_count": len(rows) - ready_count,
+        "evaluation_lane": "agent_harness_eval_required" if present else "none",
+        "fixture_behavior": "agent_harness_eval_lane",
+        "required_fixture_fields": [
+            "route_hints",
+            "suggested_lanes",
+            *required_probe_fields,
+        ],
+        "required_validation": [
+            "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+        ],
+        "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "direct_allowed_lanes_before_eval": [],
+        "local_validation_required": True,
+        "local_corroboration_required": True,
+        "body_free": True,
+        "skill_route_discovery_inherited": False,
+        "implementation_patch_allowed_before_eval": False,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "rows": rows,
     }
 
 

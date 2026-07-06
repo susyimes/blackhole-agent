@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T141555.983852Z`, pass 3 keeps
+`lingbol088-spec/reverse-flow-skill` in the bounded skill-route lane because
+the public repository exposes a `skills/reverse-flow` skill package shape,
+local sandbox defaults, workflow scripts, and explicit install/run pressure.
+That pressure remains route evidence only: no upstream skill code is installed,
+run, activated, or used as controller behavior.
+
+The same mixed window routes `InternScience/Agents-A1`,
+`QwenLM/Qwen-AgentWorld`, `TianhangZhuzth/Fundamental-Ava`, and
+`shepherd-agents/shepherd` through `agent_harness_eval_required`. The
+`route_family_agent_harness_intake` surface now turns those adjacent
+general-agent rows into a local harness intake queue before activation. It
+records the required project-shape probe fields for `agent_harness_eval_lane`,
+hashes source URLs, keeps direct implementation lanes empty before evaluation,
+and allows only documentation, test, or code_patch after a local harness result.
+Runtime action, upstream execution, provider launch, external harness
+execution, remote execution, raw source URLs, and upstream bodies remain
+disabled. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k skill_route_discovery_current_digest_20260706T141555_pass3_agent_harness_intake`.
+
 For source digest `github-growth-20260706T135555.942816Z`, pass 2 keeps
 `lingbol088-spec/reverse-flow-skill` in the bounded skill-route lane and routes
 the current `InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,

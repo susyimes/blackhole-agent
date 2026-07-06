@@ -1,0 +1,195 @@
+{
+  "name": "skill-route-discovery-current-digest-20260706T141555-pass3-agent-harness-intake",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "skill-route-discovery-current-digest-20260706T141555-pass3-agent-harness-intake",
+    "source_digest": "github-growth-20260706T141555.983852Z",
+    "source_kind": "evidence_items",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "current_pass": 3,
+      "total_passes": 4,
+      "source_digest": "github-growth-20260706T141555.983852Z",
+      "anchoring_proposals": [
+        "p1-agent-harness-eval-general-trends",
+        "p2-skill-route-discovery-reverse-flow",
+        "p3-document-route-class-boundaries",
+        "trend:QwenLM/Qwen-AgentWorld-2"
+      ]
+    },
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260706T141555.983852Z",
+        "item_id": "p2-skill-route-discovery-reverse-flow",
+        "item_kind": "repository",
+        "name": "reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex workflow skill",
+        "summary": "Codex and AI Agent local workflow skill with skills/reverse-flow/SKILL.md, references, scripts, local sandbox and CTF framing, and reverse-analysis workflow guidance. Install, run, execute, and runtime wording is route pressure only.",
+        "topics": ["codex", "agent-skill", "workflow", "local-sandbox"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "route_classification": {
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+          "source_metadata_signals": ["local_sandbox_boundary", "ctf_training_context"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260706T141555.983852Z",
+        "item_id": "p1-agent-harness-eval-general-trends:agents-a1",
+        "item_kind": "repository",
+        "name": "Agents-A1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "title": "Agents-A1 long-horizon agentic model",
+        "summary": "General agent project signal with long-horizon trajectories, tool use, domain evaluation code, and heterogeneous agent abilities. It is not a Codex skill package and requires local agent harness evaluation before implementation.",
+        "topics": ["agent", "tool-use", "evaluation", "long-horizon"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260706T141555.983852Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-2",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "Qwen-AgentWorld language world models for general agents",
+        "summary": "General agent benchmark and simulator-style evidence for language world models and agent evaluation. It has no explicit skill-route package signal and must enter the agent harness eval lane.",
+        "topics": ["agentworld", "general-agent", "benchmark", "evaluation"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      },
+      {
+        "source_digest": "github-growth-20260706T141555.983852Z",
+        "item_id": "p3-general-agent-project-eval-fixtures:fundamental-ava",
+        "item_kind": "repository",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "title": "Fundamental-Ava autonomous collaborative agents",
+        "summary": "General autonomous and collaborative agent project with social intelligence framing. It is not a skill workflow package and remains blocked behind local harness evaluation.",
+        "topics": ["autonomous-agent", "general-agent", "collaboration"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test"]
+      },
+      {
+        "source_digest": "github-growth-20260706T141555.983852Z",
+        "item_id": "p2-agent-harness-eval-shepherd-activity:shepherd",
+        "item_kind": "repository",
+        "name": "shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "title": "Shepherd reversible agent execution substrate",
+        "summary": "General agent runtime substrate signal with reversible trace, fork, replay, and revert claims. It suggests recovery workflow ideas but needs local agent harness evaluation before any runtime adoption.",
+        "topics": ["agent-harness", "runtime", "replay", "rollback"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test", "code_patch"]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "route_family_eval_matrix.status",
+      "equals": "ready"
+    },
+    {
+      "path": "route_family_eval_matrix.general_agent_project_count",
+      "equals": 4
+    },
+    {
+      "path": "route_family_eval_matrix.operator_next_action",
+      "equals": "validate_skill_route_lanes_then_replay_agent_harness_eval_matrix"
+    },
+    {
+      "path": "route_family_agent_harness_intake.controller_surface",
+      "equals": "skill_route_discovery_route_family_agent_harness_intake"
+    },
+    {
+      "path": "route_family_agent_harness_intake.status",
+      "equals": "blocked"
+    },
+    {
+      "path": "route_family_agent_harness_intake.decision",
+      "equals": "declare_general_agent_project_probe_fields_before_eval"
+    },
+    {
+      "path": "route_family_agent_harness_intake.record_count",
+      "equals": 4
+    },
+    {
+      "path": "route_family_agent_harness_intake.ready_record_count",
+      "equals": 0
+    },
+    {
+      "path": "route_family_agent_harness_intake.blocked_record_count",
+      "equals": 4
+    },
+    {
+      "path": "route_family_agent_harness_intake.fixture_behavior",
+      "equals": "agent_harness_eval_lane"
+    },
+    {
+      "path": "route_family_agent_harness_intake.required_fixture_fields",
+      "equals": [
+        "route_hints",
+        "suggested_lanes",
+        "install_shape",
+        "entrypoints",
+        "dependency_boundaries",
+        "task_loop_assumptions",
+        "observable_behaviors"
+      ]
+    },
+    {
+      "path": "route_family_agent_harness_intake.allowed_local_lanes_after_eval",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {
+      "path": "route_family_agent_harness_intake.direct_allowed_lanes_before_eval",
+      "equals": []
+    },
+    {
+      "path": "route_family_agent_harness_intake.skill_route_discovery_inherited",
+      "equals": false
+    },
+    {
+      "path": "route_family_agent_harness_intake.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "route_family_agent_harness_intake.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "route_family_agent_harness_intake.raw_source_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "route_family_agent_harness_intake.rows.0.intake_status",
+      "equals": "blocked_until_probe_fields_declared"
+    },
+    {
+      "path": "route_family_agent_harness_intake.rows.0.missing_probe_fields",
+      "equals": [
+        "install_shape",
+        "entrypoints",
+        "dependency_boundaries",
+        "task_loop_assumptions",
+        "observable_behaviors"
+      ]
+    },
+    {
+      "path": "route_family_agent_harness_intake.rows.0.selected_local_lanes_after_eval",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {
+      "path": "route_family_agent_harness_intake.rows.0.direct_allowed_lanes_before_eval",
+      "equals": []
+    },
+    {
+      "path": "route_family_agent_harness_intake.rows.0.implementation_patch_allowed_before_eval",
+      "equals": false
+    }
+  ]
+}
