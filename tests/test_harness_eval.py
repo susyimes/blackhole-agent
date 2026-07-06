@@ -11886,6 +11886,8 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
         "failure_mode": "none",
         "raw_report_body_exported": False,
     }
+    assert output["control_plane"]["replay"]["replay_artifact_required"] is True
+    assert output["control_plane"]["replay"]["replay_artifact_recorded"] is True
     assert output["control_plane"]["replay"]["replay_artifact_hash"].startswith("sha256:")
     assert "overview-title-painted" not in serialized
     assert "idle-status-after-teardown" not in serialized
@@ -11919,6 +11921,7 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
             },
             "artifacts": {
                 "report_recorded": True,
+                "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_stale_observation_inline.json",
                 "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
             },
         },
@@ -11931,6 +11934,50 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
     assert stale_gate["observations"]["failed_load_bearing_count"] == 1
     assert stale_gate["control_plane"]["complete"] is False
     assert "PRIVATE_STALE_OBSERVATION_ID_DO_NOT_EXPORT" not in stale_serialized
+
+    missing_replay_artifact = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-missing-replay-artifact",
+            "plan": {"steps": [{"id": "intake", "status": "completed"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "validation": {
+                "gate": "runner-harness-control-plane",
+                "checks": [{"name": "pytest-agent-workflow-control-plane", "returncode": 0}],
+            },
+            "rollback": {
+                "created": True,
+                "ref": "refs/rollback/PRIVATE_REPLAY_REF_DO_NOT_EXPORT",
+            },
+            "artifacts": {
+                "report_recorded": True,
+                "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_missing_replay_artifact_inline.json",
+    )
+    missing_replay_serialized = json.dumps(missing_replay_artifact, sort_keys=True)
+
+    assert missing_replay_artifact["route_status"] == "failed_recoverable"
+    assert missing_replay_artifact["failure_mode"] == "control_plane_stage_missing"
+    assert missing_replay_artifact["control_plane"]["complete"] is False
+    assert missing_replay_artifact["control_plane"]["missing_stages"] == ["replay"]
+    assert missing_replay_artifact["control_plane"]["stage_diagnostics"][3]["reason"] == "replay_artifact_missing"
+    assert missing_replay_artifact["control_plane"]["stage_diagnostics"][3]["action"] == (
+        "record_replay_artifact_before_operator_replay"
+    )
+    assert missing_replay_artifact["control_plane"]["replay"]["replay_artifact_required"] is True
+    assert missing_replay_artifact["control_plane"]["replay"]["replay_artifact_recorded"] is False
+    assert missing_replay_artifact["control_plane"]["operator_replay_checklist"]["status"] == "blocked"
+    assert missing_replay_artifact["control_plane"]["operator_replay_checklist"]["actions"] == [
+        {
+            "stage": "replay",
+            "action": "record_replay_artifact_before_operator_replay",
+            "reason": "replay_artifact_missing",
+            "required_before_replay": True,
+        }
+    ]
+    assert "PRIVATE_REPLAY_REF_DO_NOT_EXPORT" not in missing_replay_serialized
 
     missing_handoff = evaluate_harness_behavior(
         "agent_workflow_route",
@@ -11952,6 +11999,7 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
             },
             "artifacts": {
                 "report_recorded": True,
+                "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_missing_recovery_handoff_inline.json",
                 "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
             },
         },

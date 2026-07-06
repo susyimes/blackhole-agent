@@ -27325,6 +27325,8 @@ def build_agent_workflow_control_plane(
 
     report_path = optional_string(report_artifacts.get("report_path"))
     replay_path = optional_string(report_artifacts.get("replay_path"))
+    replay_artifact_recorded = bool(replay_path)
+    replay_artifact_required = validation_gate == "runner-harness-control-plane"
     intake_contract = evaluate_agent_workflow_intake_contract(intake)
     report_contract = evaluate_agent_workflow_report_contract(
         report_artifacts,
@@ -27340,7 +27342,11 @@ def build_agent_workflow_control_plane(
         and bool(watchdog_result["passed"])
     )
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
-    replay_ready = bool(validation_gate and validation_checks) and bool(recovery_handoff.get("replay_ready", True))
+    replay_ready = (
+        bool(validation_gate and validation_checks)
+        and bool(recovery_handoff.get("replay_ready", True))
+        and (not replay_artifact_required or replay_artifact_recorded)
+    )
     report_ready = bool(report_contract["passed"])
     stages = {
         "intake": intake_ready,
@@ -27361,7 +27367,8 @@ def build_agent_workflow_control_plane(
         inbox_result=inbox_result,
         watchdog_result=watchdog_result,
         validation_check_count=len(validation_checks),
-        replay_artifact_recorded=bool(replay_path),
+        replay_artifact_recorded=replay_artifact_recorded,
+        replay_artifact_required=replay_artifact_required,
     )
     workflow_handoff = build_agent_workflow_handoff(
         stage_diagnostics=stage_diagnostics,
@@ -27435,6 +27442,8 @@ def build_agent_workflow_control_plane(
             "fixture_source_hash": stable_text_hash(source_path.as_posix()),
             "validation_gate_recorded": bool(validation_gate),
             "validation_check_count": len(validation_checks),
+            "replay_artifact_required": replay_artifact_required,
+            "replay_artifact_recorded": replay_artifact_recorded,
             "replay_artifact_hash": stable_text_hash(replay_path) if replay_path else None,
         },
         "recovery": recovery_handoff,
@@ -27642,10 +27651,16 @@ def build_agent_workflow_operator_replay_checklist(
         "replay": "record_validation_gate_checks_and_replay_command",
         "report": "record_report_artifact_with_required_sections",
     }
+    diagnostic_by_stage = {
+        str(diagnostic.get("stage")): diagnostic for diagnostic in stage_diagnostics if diagnostic.get("stage")
+    }
     actions: list[dict[str, Any]] = [
         {
             "stage": stage,
-            "action": action_by_stage.get(stage, "inspect_control_plane_stage"),
+            "action": str(
+                diagnostic_by_stage.get(stage, {}).get("action")
+                or action_by_stage.get(stage, "inspect_control_plane_stage")
+            ),
             "reason": next(
                 (
                     str(diagnostic.get("reason") or "stage_not_ready")
@@ -27969,6 +27984,7 @@ def build_agent_workflow_stage_diagnostics(
     watchdog_result: dict[str, Any],
     validation_check_count: int,
     replay_artifact_recorded: bool,
+    replay_artifact_required: bool = False,
 ) -> list[dict[str, Any]]:
     """Describe why each control-plane stage is or is not ready."""
 
@@ -28019,11 +28035,16 @@ def build_agent_workflow_stage_diagnostics(
         elif stage == "replay":
             evidence_counts = {
                 "validation_check_count": validation_check_count,
+                "replay_artifact_required": replay_artifact_required,
                 "replay_artifact_recorded": replay_artifact_recorded,
             }
             if not ready:
-                reason = "replay_validation_or_command_missing"
-                action = "record_validation_gate_checks_and_replay_command"
+                if replay_artifact_required and not replay_artifact_recorded:
+                    reason = "replay_artifact_missing"
+                    action = "record_replay_artifact_before_operator_replay"
+                else:
+                    reason = "replay_validation_or_command_missing"
+                    action = "record_validation_gate_checks_and_replay_command"
         elif stage == "report":
             evidence_counts = {
                 "recorded_section_count": report_contract["recorded_section_count"],
