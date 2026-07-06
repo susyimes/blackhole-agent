@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T040238.831794Z`, pass 4 completes
+the active `skill-route-discovery` window through
+`current_digest_pass4_completion_handoff`. The reverse-flow-skill trend maps to
+`p1-skill-route-discovery-reverse-flow` in the local test lane and keeps
+`skill_route_discovery_first`, selected item IDs, body-free route metadata, and
+controller recomputation of final scope before activation. Install, script
+execution, vulnerability-analysis, runtime execution, provider launch, external
+harness execution, external skill activation, and remote execution remain
+diagnostic pressure only.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` remain adjacent
+`agent_harness_eval_required` rows under
+`p2-agent-harness-eval-trending-agent-projects`. The Shepherd workflow and
+automation signal is recorded as a local harness case, not as direct controller,
+scheduling, runner, or tool-routing authority. Before bounded local harness
+evaluation, these rows have no direct documentation, test, code_patch, runtime,
+provider, external harness, or remote-execution lane. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T040238`.
+
 For source digest `github-growth-20260706T034238.736996Z`, pass 3 exposes
 the active `skill-route-discovery` window through
 `current_digest_pass3_route_to_validation_lane`. The direct
