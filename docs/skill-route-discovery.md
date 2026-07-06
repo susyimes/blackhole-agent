@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T143556.012746Z`, pass 4 completes
+the active skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. `lingbol088-spec/reverse-flow-skill`
+is classified as a Codex/AI Agent skill workflow because the public repository
+exposes a `skills/reverse-flow` package shape, `SKILL.md`, references, scripts,
+local sandbox and CTF/crackme framing, install examples, and run examples.
+Those signals may close only through bounded local lanes: documentation,
+config, test, or code_patch, with focused validation required. Install, run,
+script execution, runtime, provider, external harness, external skill
+activation, and remote execution pressure remains diagnostic.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` remain
+general-agent project evidence under
+`p2-agent-harness-eval-general-projects`. They do not inherit
+`skill_route_discovery`, expose no direct local implementation lane before
+local harness evaluation, and after that gate may only produce documentation,
+test, or code_patch follow-up. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T143556`.
+
 For source digest `github-growth-20260706T141555.983852Z`, pass 3 keeps
 `lingbol088-spec/reverse-flow-skill` in the bounded skill-route lane because
 the public repository exposes a `skills/reverse-flow` skill package shape,

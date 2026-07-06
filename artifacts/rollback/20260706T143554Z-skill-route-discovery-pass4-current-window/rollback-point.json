@@ -1,0 +1,10 @@
+{
+  "rollback_ref": "refs/rollback/blackhole-agent/20260706T143554Z-skill-route-discovery-pass4-current-window",
+  "original_branch": "codex/blackhole-evolve/20260706T143701.921178-add-or-exercise-a-local-skill-route-discovery-va",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260706T143701.921178-add-or-exercise-a-local-skill-route-discovery-va",
+    "git reset --hard refs/rollback/blackhole-agent/20260706T143554Z-skill-route-discovery-pass4-current-window"
+  ],
+  "original_head": "972df21a89805c9bebdd5cb2b141d04c3cff85f5",
+  "created": "2026-07-06T14:35:54Z"
+}
