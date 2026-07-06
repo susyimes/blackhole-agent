@@ -6544,13 +6544,48 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260706T145556.011572Z",
         "github-growth-20260706T145556Z",
     }
+    current_20260706_173555_window = source_digest in {
+        "github-growth-20260706T173555.511473Z",
+        "github-growth-20260706T173555Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260706_145556_window:
+    if current_20260706_173555_window:
+        specs = (
+            {
+                "proposal_id": "p2-skill-route-discovery-reverse-flow",
+                "proposal_kind": "documentation",
+                "proposal_track": "reverse_flow_skill_route_discovery_lane",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "reverse_flow_skill_maps_to_documentation_config_test_or_code_patch",
+                "validation_task": (
+                    "inspect the reverse-flow-skill workflow shape as bounded skill-route evidence; "
+                    "record candidate integration points, required tests, and rollback expectations "
+                    "without installing, running, activating, or exporting upstream skill content"
+                ),
+            },
+            {
+                "proposal_id": "p3-agent-harness-routing-doc",
+                "proposal_kind": "documentation",
+                "proposal_track": "general_agent_project_harness_gate_documentation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "general_agent_trends_without_skill_signals_enter_agent_harness_eval_first",
+                "validation_task": (
+                    "document that general agent trends without explicit skill workflow signals "
+                    "must enter agent_harness_eval_required before runtime, runner, scheduling, "
+                    "memory, tool-routing, test, documentation, or code_patch work is proposed"
+                ),
+            },
+        )
+    elif current_20260706_145556_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-reverse-flow",
@@ -9639,6 +9674,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p4-agent-harness-eval-agents-a1"
             elif "workflow" in lowered_name or "usecase" in lowered_name:
                 row["proposal_id"] = "p5-workflow-usecase-documentation-eval"
+        if current_20260706_173555_window:
+            row["proposal_id"] = "p1-agent-harness-eval-general-projects"
+            row["implementation_lane_selected"] = False
         if current_20260706_103129_window:
             row["proposal_id"] = "p3_agent_harness_eval_for_general_agent_trends"
             row["implementation_lane_selected"] = False
@@ -9705,6 +9743,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-agent-harness-eval-general-projects",
+            "p2-skill-route-discovery-reverse-flow",
+            "p3-agent-harness-routing-doc",
+            "p4-trend-item-ranking-fixture",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:shepherd-agents/shepherd-1",
+        ]
+        if current_20260706_173555_window
+        else
         [
             "p1_skill_route_discovery_reverse_flow",
             "p2_agent_harness_eval_trending_agents",
