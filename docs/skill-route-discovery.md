@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T203555.443958Z`, pass 2 adds an
+operator-visible `agent_harness_eval_queue` inside
+`current_digest_pass2_local_validation_lane`. The reverse-flow-skill evidence
+stays in `p1_skill_route_discovery_reverse_flow` as a bounded local test lane
+because it presents a Codex/AI Agent skill workflow shape; install, run,
+script, provider, runtime, external-harness, external skill activation, and
+remote execution pressure remains diagnostic only.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`, and
+`TianhangZhuzth/Fundamental-Ava` now become fixture-ready rows under
+`p2_agent_harness_eval_queue`. Each row declares a scenario class, required
+fixture fields, expected measurable outcome, rollback expectation, controller
+approval gate, validation requirement propagation into `agent_harness_eval_lane`,
+and no direct implementation lane before local harness evidence exists. The
+queue exports item IDs, names, source hashes, route metadata, and validation
+requirements only; raw source URLs, upstream bodies, replay commands, provider
+launch, external harness execution, external agent activation, and remote
+execution remain disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T203555`.
+
 For source digest `github-growth-20260706T201555.949510Z`, pass 1 exposes an
 operator-visible `agent_harness_eval_intake_checklist` inside
 `current_digest_pass1_validation_lane`. The reverse-flow-skill evidence maps to

@@ -12270,6 +12270,315 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
     }
 
 
+def _skill_route_discovery_current_digest_20260706T203555_pass2_agent_harness_eval_queue(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Expose pass-2 general-agent evidence as fixture-ready local harness lanes."""
+
+    skill_rows: list[dict[str, Any]] = []
+    for candidate in candidate_lane_inventory:
+        route_profiles = _string_list(candidate.get("route_profiles"))
+        allowed_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        selected_lane = "test" if "test" in allowed_lanes else (allowed_lanes[0] if allowed_lanes else "")
+        candidate_names = [str(candidate.get("candidate_name") or "")] if candidate.get("candidate_name") else []
+        selected_item_ids = _string_list(candidate.get("evidence_item_ids"))
+        acceptance_gates = {
+            "skill_route_discovery_first": True,
+            "selected_lane_bounded": selected_lane in set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "selected_evidence_present": bool(selected_item_ids),
+            "local_validation_required": True,
+            "runtime_action_none": True,
+            "external_skill_activation_denied": True,
+            "external_harness_execution_denied": True,
+            "provider_runtime_launch_denied": True,
+            "remote_execution_denied": True,
+        }
+        failed_gates = [gate for gate, passed in acceptance_gates.items() if passed is not True]
+        skill_rows.append(
+            {
+                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_kind": "test",
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": route_profiles,
+                "status": "ready" if not failed_gates else "blocked",
+                "activation_blockers": [f"acceptance_gate_failed:{gate}" for gate in failed_gates],
+                "candidate_names": candidate_names,
+                "candidate_source_hashes": [
+                    _stable_hash(str(candidate.get("source_url") or ""))
+                ]
+                if candidate.get("source_url")
+                else [],
+                "allowed_local_lanes": allowed_lanes,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": selected_item_ids,
+                "validation_gates": [
+                    "skill_route_discovery_first",
+                    "focused_local_validation",
+                    "no_direct_runtime_adoption",
+                ],
+                "validation_target": "reverse_flow_skill_route_stays_bounded_before_agent_harness_queue",
+                "acceptance_gates": acceptance_gates,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    queue_rows = [
+        _skill_route_discovery_current_digest_20260706T203555_agent_harness_queue_row(item)
+        for item in ignored_evidence_items
+    ]
+    blocked_skill_ids = [
+        str(row["proposal_id"]) for row in skill_rows if row.get("status") != "ready"
+    ]
+    blocked_queue_ids = [
+        str(row["item_id"]) for row in queue_rows if row.get("queue_status") != "fixture_ready"
+    ]
+    ready = bool(skill_rows) and bool(queue_rows) and not blocked_skill_ids and not blocked_queue_ids
+    selected_lanes = [
+        str(row.get("selected_local_lane"))
+        for row in skill_rows
+        if str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    ]
+    agent_harness_eval_queue = {
+        "controller_surface": "skill_route_discovery_agent_harness_eval_fixture_queue",
+        "status": "ready" if queue_rows and not blocked_queue_ids else "blocked",
+        "decision": (
+            "general_agent_projects_fixture_ready_for_local_agent_harness_eval"
+            if queue_rows and not blocked_queue_ids
+            else "declare_agent_harness_fixture_requirements_before_behavior_adoption"
+        ),
+        "proposal_id": "p2_agent_harness_eval_queue",
+        "route_class": "general_agent_project",
+        "evaluation_lane": "agent_harness_eval_required",
+        "fixture_behavior": "agent_harness_eval_lane",
+        "record_count": len(queue_rows),
+        "fixture_ready_count": sum(1 for row in queue_rows if row["queue_status"] == "fixture_ready"),
+        "blocked_record_count": len(blocked_queue_ids),
+        "blocked_item_ids": blocked_queue_ids,
+        "required_fixture_fields": [
+            "route_hints",
+            "suggested_lanes",
+            "install_shape",
+            "entrypoints",
+            "dependency_boundaries",
+            "task_loop_assumptions",
+            "observable_behaviors",
+            "expected_measurable_outcome",
+            "rollback_expectation",
+            "controller_owned_approval_gate",
+        ],
+        "validation_requirement_propagation": {
+            "source": "skill_route_discovery_pass2_agent_harness_eval_queue",
+            "target_behavior": "agent_harness_eval_lane",
+            "required_validation_gate": "focused-evidence-review",
+            "local_validation_required": True,
+            "downstream_runner_execution_allowed": False,
+        },
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "skill_route_discovery_inherited": False,
+        "implementation_patch_allowed_before_eval": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": queue_rows,
+    }
+
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_pass2_local_validation_lane",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_digest_pass2_agent_harness_eval_queue_ready_for_local_fixture_replay"
+            if ready
+            else "repair_current_digest_pass2_agent_harness_eval_queue_before_activation"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 2,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "capability_slice": "skill-route-discovery",
+        "proposal_ids": [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_agent_harness_eval_queue",
+            "p3_agent_harness_smoke_tests",
+        ],
+        "active_proposal_ids": [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_agent_harness_eval_queue",
+            "p3_agent_harness_smoke_tests",
+            "p4_skill_discovery_docs",
+            "p5_no_direct_runtime_adoption",
+        ],
+        "ready_skill_route_proposal_count": len(skill_rows) - len(blocked_skill_ids),
+        "blocked_proposal_ids": blocked_skill_ids,
+        "skill_route_candidate_count": len(candidate_lane_inventory),
+        "adjacent_general_agent_count": len(queue_rows),
+        "agent_harness_eval_required_count": len(queue_rows),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_evidence_item_ids": list(
+            dict.fromkeys(
+                item_id
+                for row in skill_rows
+                for item_id in _string_list(row.get("selected_evidence_item_ids"))
+            )
+        ),
+        "agent_harness_eval_queue": agent_harness_eval_queue,
+        "adjacent_general_agent_policy": {
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "direct_local_change_proposals_allowed": False,
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "required_before_implementation": "local_agent_harness_eval_fixture_result",
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "operator_next_action": (
+            "replay_agent_harness_eval_fixture_queue_before_pass3"
+            if ready
+            else "repair_agent_harness_eval_fixture_queue_before_pass3"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": skill_rows,
+        "adjacent_general_agent_rows": queue_rows,
+    }
+
+
+def _skill_route_discovery_current_digest_20260706T203555_agent_harness_queue_row(
+    item: Mapping[str, Any],
+) -> dict[str, Any]:
+    item_id = str(item.get("item_id") or "")
+    name = str(item.get("name") or "")
+    scenario_class = _skill_route_discovery_agent_harness_scenario_class(name, item_id)
+    missing_fixture_fields: list[str] = []
+    acceptance_gates = {
+        "agent_harness_eval_required": item.get("evaluation_lane") == "agent_harness_eval_required",
+        "skill_route_discovery_not_inherited": item.get("skill_route_discovery_inherited") is False,
+        "direct_runtime_route_denied": item.get("direct_runtime_route_allowed") is False,
+        "direct_code_patch_route_denied": item.get("direct_code_patch_route_allowed") is False,
+        "external_harness_execution_denied": item.get("external_harness_execution_allowed") is False,
+        "provider_runtime_launch_denied": item.get("provider_runtime_launch_allowed") is False,
+        "remote_execution_denied": item.get("remote_execution_allowed") is False,
+        "fixture_requirements_declared": True,
+        "local_validation_required": True,
+        "runtime_action_none": True,
+    }
+    failed_gates = [gate for gate, passed in acceptance_gates.items() if passed is not True]
+    return {
+        "item_id": item_id,
+        "name": name,
+        "source_hash": str(item.get("source_hash") or ""),
+        "route_class": "general_agent_project",
+        "primary_route": "agent_harness_eval_required",
+        "evaluation_lane": "agent_harness_eval_required",
+        "queue_status": "fixture_ready" if not failed_gates else "blocked",
+        "activation_blockers": [f"acceptance_gate_failed:{gate}" for gate in failed_gates],
+        "scenario_class": scenario_class,
+        "fixture_name": f"agent_harness_eval_lane_{scenario_class}",
+        "route_hints_for_fixture": ["agent_harness_eval"],
+        "selected_local_lane": "agent_harness_eval_required",
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "required_fixture_fields": [
+            "route_hints",
+            "suggested_lanes",
+            "install_shape",
+            "entrypoints",
+            "dependency_boundaries",
+            "task_loop_assumptions",
+            "observable_behaviors",
+            "expected_measurable_outcome",
+            "rollback_expectation",
+            "controller_owned_approval_gate",
+        ],
+        "missing_fixture_fields": missing_fixture_fields,
+        "expected_measurable_outcome": "agent_harness_route_classification_and_validation_metadata_asserted",
+        "rollback_expectation": "rollback_ref_and_artifact_recorded_before_behavior_change",
+        "controller_owned_approval_gate": "focused-evidence-review",
+        "validation_requirement_propagated": True,
+        "validation_requirements": [
+            "route_classification",
+            "validation_requirement_propagation",
+            "no_unsafe_escalation",
+            "body_free_output",
+        ],
+        "skill_route_discovery_inherited": False,
+        "implementation_patch_allowed_before_eval": False,
+        "direct_runtime_route_allowed": False,
+        "direct_code_patch_route_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "acceptance_gates": acceptance_gates,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_agent_harness_scenario_class(name: str, item_id: str) -> str:
+    text = " ".join((name, item_id)).casefold()
+    if "agents-a1" in text or "agents_a1" in text:
+        return "long_horizon_agent_project"
+    if "qwen" in text or "agentworld" in text:
+        return "agent_world_model_eval"
+    if "fundamental-ava" in text or "fundamental_ava" in text:
+        return "collaborative_agent_project"
+    if "shepherd" in text:
+        return "reversible_agent_runtime"
+    return "general_agent_project"
+
+
 def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -12450,6 +12759,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260706T135555.942816Z",
         "github-growth-20260706T135555Z",
     }
+    current_20260706_203555_window = source_digest in {
+        "github-growth-20260706T203555.443958Z",
+        "github-growth-20260706T203555Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -12470,6 +12783,12 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260706_135555_window
     ):
         return _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation_lane(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if current_20260706_203555_window:
+        return _skill_route_discovery_current_digest_20260706T203555_pass2_agent_harness_eval_queue(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
