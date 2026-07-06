@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 170
-    assert payload["pass_count"] == 169
+    assert payload["fixture_count"] == 171
+    assert payload["pass_count"] == 170
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -147,6 +147,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-20260702T090714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T091129-general-agent-projects"]["passed"] is True
+    assert results["agent-harness-eval-lane-20260706T133555-activity-shapes"]["passed"] is True
     assert results["agent-harness-eval-lane-qwen-looper-readiness"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert (
@@ -2677,6 +2678,48 @@ def test_agent_harness_eval_lane_collapses_agents_a1_forks_to_one_eval_candidate
     assert row["remote_execution_allowed"] is False
     assert output["privacy"]["upstream_project_imported"] is False
     assert output["privacy"]["runtime_actions_executed"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_agent_harness_eval_lane_records_current_activity_shapes_without_runtime_action():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "agent_harness_eval_lane_20260706T133555_activity_shapes.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+    panel = output["activity_intake_panel"]
+    rows = {row["item_id"]: row for row in panel["rows"]}
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert panel["status"] == "ready"
+    assert panel["event_kinds"] == [
+        "issue_comment",
+        "pull_request_merged",
+        "pull_request_opened",
+        "push",
+        "repository_trend",
+    ]
+    assert panel["missing_required_event_kinds"] == []
+    assert panel["candidate_lane"] == "agent_harness_eval_required"
+    assert panel["direct_behavior_change_allowed"] is False
+    assert panel["external_harness_execution_allowed"] is False
+    assert panel["provider_launch_allowed"] is False
+    assert rows["pr-merged:shepherd-agents/shepherd-24"]["event_kind"] == "pull_request_merged"
+    assert rows["pr-merged:shepherd-agents/shepherd-24"]["activity_signals"] == [
+        "controller_extraction",
+        "merged_pr",
+        "pull_request",
+        "strict_typecheck_gate",
+    ]
+    assert rows["push:shepherd-agents/shepherd-5cf6987"]["event_kind"] == "push"
+    assert rows["trend:shepherd-agents/shepherd-1"]["activity_signals"] == [
+        "replay_recovery",
+    ]
     assert "https://github.com/" not in serialized
 
 

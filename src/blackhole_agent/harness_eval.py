@@ -1075,11 +1075,13 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     task_id = optional_string(raw_input.get("task_id")) or source_path.stem
     evidence_items = raw_input.get("evidence_items") if isinstance(raw_input.get("evidence_items"), list) else []
     records = [item for item in evidence_items if isinstance(item, dict)]
+    required_activity_event_kinds = string_list(raw_input.get("required_activity_event_kinds"))
     lane_records: list[dict[str, Any]] = []
     review_notes: list[dict[str, Any]] = []
     unsupported_lanes: list[str] = []
     claim_rows: list[dict[str, Any]] = []
     project_probe_rows: list[dict[str, Any]] = []
+    activity_rows: list[dict[str, Any]] = []
     recognized_count = 0
     detailed_count = 0
 
@@ -1100,6 +1102,9 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         claim_rows.extend(agent_harness_eval_claim_rows(item_id=item_id, text=text))
         project_probe_rows.append(
             agent_harness_eval_project_probe_row(item_id=item_id, source_url=source_url, record=record)
+        )
+        activity_rows.append(
+            agent_harness_eval_activity_row(item_id=item_id, source_url=source_url, record=record, text=text)
         )
         lanes = string_list(record.get("suggested_lanes")) or ["test"]
         allowed_lanes = [lane for lane in lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES]
@@ -1136,6 +1141,10 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
     claim_evaluation = build_agent_harness_eval_claim_evaluation(claim_rows)
     claim_remediation_plan = build_agent_harness_eval_claim_remediation_plan(claim_evaluation)
     project_intake_probe = build_agent_harness_eval_project_intake_probe(project_probe_rows)
+    activity_intake_panel = build_agent_harness_eval_activity_intake_panel(
+        activity_rows,
+        required_event_kinds=required_activity_event_kinds,
+    )
     fork_cluster_eval_queue = build_agent_harness_fork_cluster_eval_queue(records)
     failure_mode = agent_harness_eval_lane_failure_mode(
         recognized_count=recognized_count,
@@ -1214,6 +1223,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activation_lanes": activation_lanes,
         "activation_review": activation_review,
         "general_agent_route_review_queue": general_agent_route_review_queue,
+        "activity_intake_panel": activity_intake_panel,
         "fork_cluster_eval_queue": fork_cluster_eval_queue,
         "implementation_readiness_contract": implementation_readiness_contract,
         "claim_evaluation": claim_evaluation,
@@ -1241,6 +1251,140 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
             "offensive_behavior_local_execution": False,
         },
     }
+
+
+def agent_harness_eval_activity_row(
+    *,
+    item_id: str,
+    source_url: str,
+    record: dict[str, Any],
+    text: str,
+) -> dict[str, Any]:
+    """Preserve public activity shape without importing upstream bodies or actions."""
+
+    event_kind = normalize_agent_harness_activity_event_kind(
+        record.get("event_kind")
+        or record.get("activity_kind")
+        or record.get("discovery_event_kind")
+        or record.get("item_kind")
+        or record.get("kind")
+    )
+    local_signal_set = {
+        signal
+        for marker, signal in (
+            ("controller", "controller_extraction"),
+            ("typecheck", "strict_typecheck_gate"),
+            ("mypy", "strict_typecheck_gate"),
+            ("ci", "ci_gate"),
+            ("merged", "merged_pr"),
+            ("pull request", "pull_request"),
+            ("push", "push_movement"),
+            ("issue", "issue_comment"),
+            ("reversible", "replay_recovery"),
+            ("replay", "replay_recovery"),
+            ("rollback", "replay_recovery"),
+        )
+        if marker in text
+    }
+    if re.search(r"\bpr\b", text):
+        local_signal_set.add("pull_request")
+    local_signals = sorted(local_signal_set)
+    return {
+        "item_id": item_id,
+        "source_url_hash": stable_text_hash(source_url) if source_url else None,
+        "event_kind": event_kind,
+        "activity_signals": local_signals,
+        "signal_count": len(local_signals),
+        "candidate_lane": "agent_harness_eval_required",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "direct_behavior_change_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_activity_body_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def build_agent_harness_eval_activity_intake_panel(
+    activity_rows: list[dict[str, Any]],
+    *,
+    required_event_kinds: list[str],
+) -> dict[str, Any]:
+    """Summarize trend and activity event shapes before harness adoption."""
+
+    event_kinds = sorted({str(row.get("event_kind") or "unknown") for row in activity_rows})
+    missing_required_event_kinds = [
+        event_kind
+        for event_kind in required_event_kinds
+        if event_kind not in event_kinds
+    ]
+    activity_signal_count = sum(int(row.get("signal_count") or 0) for row in activity_rows)
+    ready = bool(activity_rows) and not missing_required_event_kinds
+    return {
+        "controller_surface": "agent_harness_activity_intake_panel",
+        "status": "ready" if ready else "incomplete",
+        "decision": (
+            "activity_shapes_recorded_before_agent_harness_eval"
+            if ready
+            else "collect_required_activity_shapes_before_agent_harness_eval"
+        ),
+        "record_count": len(activity_rows),
+        "event_kinds": event_kinds,
+        "required_event_kinds": required_event_kinds,
+        "missing_required_event_kinds": missing_required_event_kinds,
+        "activity_signal_count": activity_signal_count,
+        "trend_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "repository_trend"),
+        "push_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "push"),
+        "issue_comment_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "issue_comment"),
+        "opened_pr_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "pull_request_opened"),
+        "merged_pr_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "pull_request_merged"),
+        "candidate_lane": "agent_harness_eval_required",
+        "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "direct_behavior_change_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_activity_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": activity_rows,
+    }
+
+
+def normalize_agent_harness_activity_event_kind(value: Any) -> str:
+    raw = optional_string(value)
+    normalized = re.sub(r"[^a-z0-9]+", "_", raw.casefold()).strip("_") if raw else ""
+    aliases = {
+        "forkevent": "fork",
+        "fork_event": "fork",
+        "issuecomment": "issue_comment",
+        "issue_comment_event": "issue_comment",
+        "opened_pr": "pull_request_opened",
+        "pr_opened": "pull_request_opened",
+        "pullrequest": "pull_request",
+        "pullrequestevent": "pull_request",
+        "pull_request_event": "pull_request",
+        "repository": "repository_trend",
+        "repositorytrend": "repository_trend",
+        "repository_trend_event": "repository_trend",
+        "trend": "repository_trend",
+        "merged_pr": "pull_request_merged",
+        "pr_merged": "pull_request_merged",
+        "pushevent": "push",
+        "push_event": "push",
+        "pullrequestopened": "pull_request_opened",
+        "pull_request_opened_event": "pull_request_opened",
+        "pullrequestmerged": "pull_request_merged",
+        "pull_request_merged_event": "pull_request_merged",
+    }
+    return aliases.get(normalized, normalized or "unknown")
 
 
 def build_agent_harness_fork_cluster_eval_queue(records: list[dict[str, Any]]) -> dict[str, Any]:
