@@ -26,6 +26,24 @@ local harness result exists. `p3-agent-harness-routing-doc` records that
 decision rule for general-agent trend ingestion. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260706T173555`.
 
+For source digest `github-growth-20260706T175555.480042Z`, pass 2 makes the
+active split replayable as a route-priority validation packet.
+`lingbol088-spec/reverse-flow-skill` is the priority-0 skill workflow row
+because the public evidence exposes a `skills/reverse-flow` package, `SKILL.md`,
+references, scripts, local sandbox defaults, CTF/crackme framing, and Codex
+workflow language. It selects the local test lane while documentation, config,
+and code_patch remain queued bounded lanes. Install, run, script execution,
+provider, runtime, external-harness, external skill activation, and remote
+execution pressure remains diagnostic.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` are priority-10
+general-agent project rows. They keep `agent_harness_eval_required`, inherit no
+`skill_route_discovery` route, expose no direct implementation lane before
+local harness evaluation, and may only produce documentation, test, or
+code_patch follow-up after that gate. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T175555`.
+
 For source digest `github-growth-20260706T171555.486656Z`, pass 4 closes the
 current capability slice with an operator-visible
 `current_digest_pass4_completion_handoff`. `lingbol088-spec/reverse-flow-skill`
