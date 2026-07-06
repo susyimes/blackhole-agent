@@ -1,0 +1,12 @@
+{
+  "run": "github-growth-20260706T020239.308113Z",
+  "branch": "codex/blackhole-evolve/20260706T020341.313506-add-a-local-provider-config-preflight-validation",
+  "head": "e9133bbb5b1079ca21f08e6d66741b41add50752",
+  "rollback_ref": "refs/rollback/20260706T020237Z-skill-route-discovery-pass2",
+  "recovery_commands": [
+    "git reset --hard refs/rollback/20260706T020237Z-skill-route-discovery-pass2",
+    "git clean -fd"
+  ],
+  "destructive": true,
+  "requires_explicit_operator_selection": true
+}
