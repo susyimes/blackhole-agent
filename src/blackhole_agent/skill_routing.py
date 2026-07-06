@@ -18154,6 +18154,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260705T145637.046753Z",
         "github-growth-20260705T145637Z",
     }
+    current_024238_20260706_window = source_digest in {
+        "github-growth-20260706T024238.951790Z",
+        "github-growth-20260706T024238Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -18251,6 +18255,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_120958_20260705_window
         or current_133637_20260705_window
         or current_145637_20260705_window
+        or current_024238_20260706_window
         or current_163922_20260703_window
         or current_175922_20260703_window
         or current_191923_20260703_window
@@ -18282,6 +18287,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_120958_20260705_window
             or current_133637_20260705_window
             or current_145637_20260705_window
+            or current_024238_20260706_window
         ):
             return _skill_route_discovery_current_digest_20260705T080817_pass4_completion_handoff(
                 candidate_lane_inventory,
@@ -19790,7 +19796,14 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         "github-growth-20260705T145637.046753Z",
         "github-growth-20260705T145637Z",
     }
+    current_024238_20260706_window = source_digest in {
+        "github-growth-20260706T024238.951790Z",
+        "github-growth-20260706T024238Z",
+    }
     reverse_flow_proposal_id = (
+        "p1-skill-route-discovery-reverse-flow"
+        if current_024238_20260706_window
+        else
         "p1_skill_route_discovery_reverse_flow"
         if current_145637_window
         else
@@ -19802,6 +19815,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p1-skill-route-discovery-reverse-flow"
     )
     docs_proposal_id = (
+        "p3-document-routing-policy-for-trend-items"
+        if current_024238_20260706_window
+        else
         "p3_route_reason_documentation"
         if current_145637_window
         else
@@ -19818,6 +19834,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p3-document-growth-route-policy"
     )
     agent_harness_proposal_id = (
+        "p2-agent-harness-eval-general-trends"
+        if current_024238_20260706_window
+        else
         "p2_agent_harness_eval_for_general_projects"
         if current_145637_window
         else
@@ -19834,6 +19853,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     replay_marker = (
+        "current_digest_20260706T024238_pass4_completion"
+        if current_024238_20260706_window
+        else
         "current_digest_20260705T145637_pass4_completion"
         if current_145637_window
         else
@@ -19851,7 +19873,12 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
     )
     reverse_flow_candidate_terms = (
         ("lingbol088-spec-reverse-flow-skill",)
-        if current_120958_window or current_133637_window or current_145637_window
+        if (
+            current_120958_window
+            or current_133637_window
+            or current_145637_window
+            or current_024238_20260706_window
+        )
         else
         (
             "MrHoobers-reverse-flow-skill",
@@ -19899,8 +19926,16 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         )
     )
     for row in rows:
+        downgraded_lanes = _string_list(row.pop("downgraded_unsupported_lanes", []))
         row["skill_route_discovery_first"] = True
         row["install_or_runtime_pressure_downgraded"] = True
+        if current_024238_20260706_window:
+            row["downgraded_unsupported_lane_count"] = len(downgraded_lanes)
+            row["downgraded_unsupported_lane_categories"] = (
+                ["install_script_or_runtime_pressure"] if downgraded_lanes else []
+            )
+        elif downgraded_lanes:
+            row["downgraded_unsupported_lanes"] = downgraded_lanes
         row["route_activation_contract"] = {
             "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
             "controller_recomputes_final_scope": True,
@@ -19929,6 +19964,13 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         )
 
     expected_agent_names = (
+        {
+            "Agents-A1",
+            "Awesome-Blender-Seedance-Workflow-Usecases",
+            "Qwen-AgentWorld",
+        }
+        if current_024238_20260706_window
+        else
         {
             "Agents-A1",
             "Awesome-Blender-Seedance-Workflow-Usecases",
@@ -20090,6 +20132,26 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             "p1-skill-route-discovery-reverse-flow",
             *(
                 [
+                    "p1_skill_route_discovery_reverse_flow_skill",
+                    "p2_agent_harness_eval_qwen_agentworld",
+                    "p3_agent_harness_eval_multi_repo_baseline",
+                    "p4_document_route_policy_for_trending_agent_inputs",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "p1_provider_preflight_claude_cli_empty_envelope",
+                    "p2_skill_route_discovery_reverse_flow",
+                    "p3_governance_permission_truth_pass",
+                    "p4_release_evidence_and_deep_lane_gates",
+                    "p5_agent_harness_eval_for_full_state_fork_semantics",
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-agent-harness-eval-general-trends",
+                    "p3-document-routing-policy-for-trend-items",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                ]
+                if current_024238_20260706_window
+                else [
                     "p1_skill_route_discovery_reverse_flow",
                     "p2_agent_harness_eval_trending_agent_projects",
                     "p3_workflow_signal_harness_for_blender_seedance",
