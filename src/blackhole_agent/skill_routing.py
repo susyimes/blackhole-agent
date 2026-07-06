@@ -27354,6 +27354,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260706T022238.766569Z",
         "github-growth-20260706T022238Z",
     }
+    current_20260706_034238_window = source_digest in {
+        "github-growth-20260706T034238.736996Z",
+        "github-growth-20260706T034238Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -27844,10 +27848,14 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         or current_20260705_130958_window
         or current_20260705_143637_window
         or current_20260706_022238_window
+        or current_20260706_034238_window
     ):
         skill_proposals = (
             {
                 "proposal_id": (
+                    "p1_skill_route_discovery_reverse_flow"
+                    if current_20260706_034238_window
+                    else
                     "p1-skill-route-discovery-reverse-flow"
                     if (
                         current_20260705_130958_window
@@ -27865,10 +27873,14 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         or current_20260705_130958_window
                         or current_20260705_143637_window
                         or current_20260706_022238_window
+                        or current_20260706_034238_window
                     )
                     else "documentation"
                 ),
                 "proposal_track": (
+                    "reverse_flow_skill_route_discovery_validation_lane"
+                    if current_20260706_034238_window
+                    else
                     "reverse_flow_fork_lineage_bounded_lane"
                     if current_20260706_022238_window
                     else "reverse_flow_skill_route_discovery_validation"
@@ -27889,10 +27901,14 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         or current_20260705_130958_window
                         or current_20260705_143637_window
                         or current_20260706_022238_window
+                        or current_20260706_034238_window
                     )
                     else "documentation"
                 ),
                 "validation_target": (
+                    "reverse_flow_skill_workflow_maps_to_bounded_validation_lanes"
+                    if current_20260706_034238_window
+                    else
                     "reverse_flow_fork_lineage_maps_to_one_bounded_skill_route_lane"
                     if current_20260706_022238_window
                     else "reverse_flow_skill_entrypoints_map_to_bounded_local_test_lane"
@@ -27912,6 +27928,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     or current_20260705_130958_window
                     or current_20260705_143637_window
                     or current_20260706_022238_window
+                    or current_20260706_034238_window
                 )
                 else (
                     {
@@ -27926,6 +27943,21 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         ),
                     },
                 )
+            ),
+            *(
+                (
+                    {
+                        "proposal_id": "p3_document_route_policy_for_trend_evidence",
+                        "proposal_kind": "documentation",
+                        "proposal_track": "repository_trend_route_policy",
+                        "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                        "candidate_name_terms": ("reverse-flow-skill",),
+                        "selected_local_lane": "documentation",
+                        "validation_target": "document_repository_trend_skill_vs_agent_route_policy",
+                    },
+                )
+                if current_20260706_034238_window
+                else ()
             ),
         )
     allowed_profiles = {
@@ -28139,6 +28171,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260705_143637_window
             else "p3-agent-harness-eval-multi-repo-baseline"
             if current_20260706_022238_window
+            else "p2_agent_harness_eval_trending_agent_projects"
+            if current_20260706_034238_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -28161,6 +28195,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 if str(row.get("name") or "").casefold() == "qwen-agentworld"
                 else "p3-agent-harness-eval-multi-repo-baseline"
             )
+        if current_20260706_034238_window:
+            row["proposal_id"] = "p2_agent_harness_eval_trending_agent_projects"
         row["direct_allowed_lanes_before_eval"] = []
         row["accepted_outputs_before_eval"] = []
         row["accepted_outputs_after_eval"] = ["documentation", "test", "code_patch"]
@@ -28229,6 +28265,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260705_143637_window
             else "p3-agent-harness-eval-multi-repo-baseline"
             if current_20260706_022238_window
+            else "p2_agent_harness_eval_trending_agent_projects"
+            if current_20260706_034238_window
             else "p2-agent-harness-eval-general-agent-projects"
     )
     workflow_topic_boundary = {}
@@ -28294,6 +28332,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "p3_workflow_agent_harness_eval",
             ]
             if current_20260705_114958_window
+            else [
+                "p1_skill_route_discovery_reverse_flow",
+                "p2_agent_harness_eval_trending_agent_projects",
+                "p3_document_route_policy_for_trend_evidence",
+            ]
+            if current_20260706_034238_window
             else [
                 "p1-skill-route-discovery-reverse-flow",
                 "p2-agent-harness-eval-qwen-agentworld",
@@ -28372,6 +28416,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "p3_workflow_agent_harness_eval",
             ]
             if current_20260705_114958_window
+            else [
+                "p1_skill_route_discovery_reverse_flow",
+                "p2_agent_harness_eval_trending_agent_projects",
+                "p3_document_route_policy_for_trend_evidence",
+            ]
+            if current_20260706_034238_window
             else [
                 "p1-skill-route-discovery-reverse-flow",
                 "p2-agent-harness-eval-qwen-agentworld",
@@ -28820,6 +28870,25 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "trend:InternScience/Agents-A1-1",
             ]
             if current_20260705_143637_window
+            else [
+                "p1_skill_route_discovery_reverse_flow",
+                "p2_agent_harness_eval_trending_agents",
+                "p3_route_classification_docs",
+                "p4_workflow_signal_regression_case",
+                "p5_no_direct_integration_from_trends",
+                "p1-skill-route-discovery",
+                "p2-agent-harness-eval-fixtures",
+                "p3-route-policy-doc-clarification",
+                "p4-agent-workflow-routing-metadata",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "p2_agent_harness_eval_trending_agent_projects",
+                "p3_document_route_policy_for_trend_evidence",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:InternScience/Agents-A1-1",
+                "trend:QwenLM/Qwen-AgentWorld-1",
+                "trend:TianhangZhuzth/Fundamental-Ava-1",
+            ]
+            if current_20260706_034238_window
             else [
                 "p1_skill_route_discovery_reverse_flow_skill",
                 "p2_agent_harness_eval_qwen_agentworld",
