@@ -5,6 +5,29 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T042239.700823Z`, pass 1 exposes the
+active `skill-route-discovery` window through
+`current_digest_pass1_validation_lane`. The reverse-flow-skill trend maps to
+`p1_skill_route_discovery_reverse_flow` in the local test lane because its
+public shape carries explicit Codex/AI Agent skill workflow signals:
+`skills/reverse-flow`, `SKILL.md`, references, scripts, local sandbox and CTF
+framing, install examples, run examples, and staged workflow language. Install,
+script execution, vulnerability-analysis, runtime execution, provider launch,
+external harness execution, external skill activation, and remote execution
+remain diagnostic pressure only.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`, and
+`TianhangZhuzth/Fundamental-Ava` remain adjacent
+`agent_harness_eval_required` rows before any implementation route. The active
+proposal IDs `p2_agent_harness_eval_queue` and
+`p3_agent_harness_eval_fixture` make the queue and fixture obligations visible:
+general-agent projects have no direct lanes before bounded local harness
+evaluation, and after that evaluation only documentation, test, or code_patch
+may be considered. `p4_shepherd_workflow_probe` records the same rule for
+workflow-oriented agent evidence without importing Shepherd-specific behavior.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T042239`.
+
 For source digest `github-growth-20260706T040238.831794Z`, pass 4 completes
 the active `skill-route-discovery` window through
 `current_digest_pass4_completion_handoff`. The reverse-flow-skill trend maps to
