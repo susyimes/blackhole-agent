@@ -8887,3 +8887,21 @@ export, external skill activation, external agent activation, external harness
 execution, provider runtime launch, remote execution, profile writes, memory
 writes, and runtime action. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260705T050821`.
+
+## Current Digest 20260706T151555 Pass 2
+
+The pass-2 validation packet now exposes `route_priority_policy` and
+`route_validation_queue` for mixed reverse-flow plus general-agent evidence.
+The queue is body-free priority metadata: explicit `skill_route_discovery`
+rows validate first through documentation, config, test, or code_patch lanes;
+adjacent general-agent projects with no skill-route hint remain queued behind
+`agent_harness_eval_required` and have no direct implementation lane before
+bounded harness evaluation.
+
+For the current window, `lingbol088-spec/reverse-flow-skill` is the priority-0
+skill route and selects the local test lane. Shepherd, Agents-A1,
+Qwen-AgentWorld, and Fundamental-Ava are priority-10 agent-harness rows. The
+packet keeps runtime action, external skill activation, external harness
+execution, provider launch, remote execution, raw source URL export, and
+upstream body export disabled for every queued row. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k current_digest_pass2_prioritizes_route_hints`.

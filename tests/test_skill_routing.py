@@ -544,6 +544,81 @@ def test_skill_route_discovery_validation_route_packet_splits_skill_and_agent_pr
     assert '"provider_runtime_launch_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_pass2_prioritizes_route_hints_before_agent_harness_queue():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260706T151555_pass2_route_priority.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(fixture["items"])
+
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    queue = packet["route_validation_queue"]
+    rows_by_id = {row["route_id"]: row for row in packet["rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert packet["status"] == "ready"
+    assert packet["source_digest"] == "github-growth-20260706T151555.739121Z"
+    assert packet["operator_next_action"] == "validate_skill_route_lanes_then_queue_general_agent_harness_eval"
+    assert packet["route_priority_policy"] == {
+        "controller_surface": "skill_route_discovery_route_priority_policy",
+        "decision": "explicit_skill_route_hints_validate_before_adjacent_general_agent_projects",
+        "skill_route_priority": 0,
+        "agent_harness_eval_priority": 10,
+        "skill_route_discovery_inherited_by_agent_projects": False,
+        "direct_agent_implementation_lanes_before_eval": [],
+        "runtime_action": "none",
+        "external_harness_execution_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    assert packet["skill_workflow_count"] == 1
+    assert packet["general_agent_project_count"] == 4
+    assert packet["route_validation_queue_status"] == "ready"
+    assert [entry["validation_order"] for entry in queue] == [1, 2, 3, 4, 5]
+    assert queue[0]["route_id"] == "p1_skill_route_discovery_reverse_flow"
+    assert queue[0]["route_hint"] == "skill_route_discovery"
+    assert queue[0]["validation_priority"] == 0
+    assert queue[0]["selected_local_lane"] == "test"
+    assert all(entry["runtime_action"] == "none" for entry in queue)
+    assert all(entry["local_validation_required"] is True for entry in queue)
+
+    agent_queue = queue[1:]
+    assert len(agent_queue) == 4
+    assert all(entry["route_hint"] == "agent_harness_eval_required" for entry in agent_queue)
+    assert all(entry["validation_priority"] == 10 for entry in agent_queue)
+    assert all(entry["selected_local_lane"] == "agent_harness_eval_required" for entry in agent_queue)
+
+    reverse_flow = rows_by_id["p1_skill_route_discovery_reverse_flow"]
+    assert reverse_flow["priority_reason"] == "explicit_skill_route_hint_validates_before_adjacent_agent_projects"
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["external_skill_activation_allowed"] is False
+
+    for item_id in (
+        "p2_agent_harness_eval_trending_projects:shepherd",
+        "p2_agent_harness_eval_trending_projects:agents-a1",
+        "p2_agent_harness_eval_trending_projects:qwen-agentworld",
+        "p2_agent_harness_eval_trending_projects:fundamental-ava",
+    ):
+        row = rows_by_id[item_id]
+        assert row["route_kind"] == "general_agent_project"
+        assert row["route_hints"] == []
+        assert row["priority_reason"] == (
+            "general_agent_project_waits_for_agent_harness_eval_without_skill_route_inheritance"
+        )
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["implementation_lanes_enabled"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():
     registry = build_skill_route_discovery_registry(
         [

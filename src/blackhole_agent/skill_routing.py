@@ -1666,6 +1666,19 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
     candidate_rows: list[dict[str, Any]] = []
     blocked_route_ids: list[str] = []
     selected_local_lanes: list[str] = []
+    skill_route_priority = 0
+    agent_harness_priority = 10
+
+    def route_order_value(row: Mapping[str, Any], field_name: str, default: int) -> int:
+        value = row.get(field_name)
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, int):
+            return value
+        try:
+            return int(str(value))
+        except (TypeError, ValueError):
+            return default
 
     for candidate in _mapping_list(lane_map.get("candidate_lane_inventory")):
         candidate_name = str(candidate.get("candidate_name") or "")
@@ -1700,6 +1713,9 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
             {
                 "route_id": row_id,
                 "route_kind": "skill_workflow",
+                "validation_priority": skill_route_priority,
+                "validation_order": len(candidate_rows) + 1,
+                "priority_reason": "explicit_skill_route_hint_validates_before_adjacent_agent_projects",
                 "candidate_name": candidate_name,
                 "candidate_source_hash": _stable_hash(str(candidate.get("source_url") or candidate_name)),
                 "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
@@ -1752,6 +1768,9 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
             {
                 "route_id": route_id,
                 "route_kind": "general_agent_project",
+                "validation_priority": agent_harness_priority,
+                "validation_order": len(candidate_rows) + len(agent_rows) + 1,
+                "priority_reason": "general_agent_project_waits_for_agent_harness_eval_without_skill_route_inheritance",
                 "item_id": route_id,
                 "item_kind": str(row.get("item_kind") or ""),
                 "name": str(row.get("name") or ""),
@@ -1786,6 +1805,29 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
         )
 
     row_count = len(candidate_rows) + len(agent_rows)
+    ordered_rows = sorted(
+        [*candidate_rows, *agent_rows],
+        key=lambda row: (
+            route_order_value(row, "validation_priority", 100),
+            route_order_value(row, "validation_order", 100),
+            str(row.get("route_id") or ""),
+        ),
+    )
+    route_validation_queue = [
+        {
+            "route_id": str(row.get("route_id") or ""),
+            "route_kind": str(row.get("route_kind") or ""),
+            "route_hint": str(row.get("route_hint") or ""),
+            "validation_priority": route_order_value(row, "validation_priority", 100),
+            "validation_order": index + 1,
+            "selected_local_lane": str(row.get("selected_local_lane") or ""),
+            "validation_gate": str(row.get("validation_gate") or ""),
+            "status": str(row.get("status") or ""),
+            "runtime_action": "none",
+            "local_validation_required": True,
+        }
+        for index, row in enumerate(ordered_rows)
+    ]
     status = "ready" if row_count and not blocked_route_ids else "blocked"
     return {
         "schema_version": 1,
@@ -1802,6 +1844,24 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
         "general_agent_project_count": len(agent_rows),
         "row_count": row_count,
         "blocked_route_ids": blocked_route_ids,
+        "route_priority_policy": {
+            "controller_surface": "skill_route_discovery_route_priority_policy",
+            "decision": "explicit_skill_route_hints_validate_before_adjacent_general_agent_projects",
+            "skill_route_priority": skill_route_priority,
+            "agent_harness_eval_priority": agent_harness_priority,
+            "skill_route_discovery_inherited_by_agent_projects": False,
+            "direct_agent_implementation_lanes_before_eval": [],
+            "runtime_action": "none",
+            "external_harness_execution_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "route_validation_queue": route_validation_queue,
+        "route_validation_queue_status": "ready" if route_validation_queue and not blocked_route_ids else "blocked",
+        "operator_next_action": (
+            "validate_skill_route_lanes_then_queue_general_agent_harness_eval"
+            if agent_rows
+            else "validate_skill_route_lanes_before_activation"
+        ),
         "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "allowed_agent_lanes_after_eval": ["documentation", "test", "code_patch"],
         "selected_skill_local_lanes": [
@@ -1820,7 +1880,7 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
-        "rows": [*candidate_rows, *agent_rows],
+        "rows": ordered_rows,
     }
 
 
