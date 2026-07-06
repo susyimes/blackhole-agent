@@ -6432,13 +6432,76 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260706T103129.849391Z",
         "github-growth-20260706T103129Z",
     }
+    current_20260706_145556_window = source_digest in {
+        "github-growth-20260706T145556.011572Z",
+        "github-growth-20260706T145556Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260706_103129_window:
+    if current_20260706_145556_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_workflow_maps_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "validate that reverse-flow-skill-style Codex and AI Agent skill workflow "
+                    "metadata enters skill_route_discovery first and maps only to documentation, "
+                    "config, test, or code_patch lanes with local validation required"
+                ),
+            },
+            {
+                "proposal_id": "p2-agent-harness-eval-shepherd",
+                "proposal_kind": "test",
+                "proposal_track": "shepherd_activity_harness_eval_required",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "shepherd_activity_requires_local_harness_eval_before_workflow_change",
+                "validation_task": (
+                    "route shepherd public-surface synchronization, PR activity, workflow, replay, "
+                    "and reversible-runtime signals through agent_harness_eval_required before any "
+                    "controller, workflow, VCS, runtime, provider, or external harness behavior is adopted"
+                ),
+            },
+            {
+                "proposal_id": "p3-general-agent-benchmark-scout",
+                "proposal_kind": "documentation",
+                "proposal_track": "general_agent_project_eval_shortlist",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "general_agent_projects_remain_harness_eval_shortlist",
+                "validation_task": (
+                    "record Agents-A1, Qwen-AgentWorld, and Fundamental-Ava as local harness "
+                    "evaluation candidates for benchmark, world-modeling, and general architecture "
+                    "lessons without direct runtime or code adoption"
+                ),
+            },
+            {
+                "proposal_id": "p4-route-classification-coverage",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_vs_agent_harness_boundary_coverage",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "current_window_skill_and_general_agent_routes_are_separated",
+                "validation_task": (
+                    "prove that explicit skill package evidence selects bounded skill-route lanes, "
+                    "while general agent projects expose no direct documentation, test, code_patch, "
+                    "runtime, provider, external harness, or remote execution lane before local harness evaluation"
+                ),
+            },
+        )
+    elif current_20260706_103129_window:
         specs = (
             {
                 "proposal_id": "p1_reverse_flow_skill_route_discovery",
@@ -8985,6 +9048,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 or current_20260703_141923_window
                 or current_20260704_110437_window
                 or current_20260706_103129_window
+                or current_20260706_145556_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             route_probe_rows.append(
@@ -9051,7 +9115,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "route_probe_metadata": route_probe_rows,
                 "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
                 "downgraded_unsupported_lanes": (
-                    [] if current_20260706_103129_window else sorted(dict.fromkeys(downgraded_lanes))
+                    []
+                    if current_20260706_103129_window or current_20260706_145556_window
+                    else sorted(dict.fromkeys(downgraded_lanes))
                 ),
                 **(
                     {
@@ -9059,7 +9125,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                             ["install_script_or_runtime_pressure"] if downgraded_lanes else []
                         ),
                     }
-                    if current_20260706_103129_window
+                    if current_20260706_103129_window or current_20260706_145556_window
                     else {}
                 ),
                 "unsupported_lane_pressure_removed_count": (
@@ -9079,6 +9145,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                         current_20260703_104050_window
                         or current_20260703_141923_window
                         or current_20260706_103129_window
+                        or current_20260706_145556_window
                     )
                     else 0
                 ),
@@ -9086,7 +9153,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                     {
                         "install_or_runtime_pressure_downgraded": bool(downgraded_lanes),
                     }
-                    if current_20260706_103129_window
+                    if current_20260706_103129_window or current_20260706_145556_window
                     else {}
                 ),
                 "replay_command_hash": _stable_hash(replay_command) if replay_command else "",
@@ -9111,6 +9178,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2-agent-harness-eval-shepherd"
+            if current_20260706_145556_window
+            else
             "p2_agent_harness_eval_trending_agents"
             if current_20260706_030239_window
             else
@@ -10197,7 +10267,20 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "p5-agent-harness-eval-looper",
         ]
     )
-    if current_20260706_042239_window:
+    if current_20260706_145556_window:
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-agent-harness-eval-shepherd",
+            "p3-general-agent-benchmark-scout",
+            "p4-route-classification-coverage",
+            "11412835377-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+    elif current_20260706_042239_window:
         anchoring_proposal_ids = [
             "p1_skill_route_discovery_reverse_flow",
             "p2_agent_harness_eval_queue",
