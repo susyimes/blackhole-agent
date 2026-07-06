@@ -2743,6 +2743,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         provider_runtime_diagnostic_panel=provider_runtime_diagnostic_panel,
         provider_runtime_replay_sample=provider_runtime_replay_sample,
     )
+    route_family_eval_matrix = skill_route_discovery_route_family_eval_matrix(
+        lane_map=lane_map,
+        activation_gate=activation_gate,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -2866,6 +2870,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "pass1_focused_evidence_review_lane": pass1_focused_evidence_review_lane,
         "pass1_route_registry_handoff": pass1_route_registry_handoff,
         "automation_bug_agent_eval_checklist": automation_bug_agent_eval_checklist,
+        "route_family_eval_matrix": route_family_eval_matrix,
         "current_digest_pass1_validation_lane": lane_map["current_digest_pass1_validation_lane"],
         "current_digest_pass2_local_validation_lane": lane_map["current_digest_pass2_local_validation_lane"],
         "current_digest_pass3_route_to_validation_lane": lane_map[
@@ -18720,6 +18725,141 @@ def skill_route_discovery_preactivation_validation_commands() -> list[str]:
         SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND,
         SKILL_ROUTE_DISCOVERY_PROPOSAL_INTERPRETATION_COMMAND,
     ]
+
+
+def skill_route_discovery_route_family_eval_matrix(
+    *,
+    lane_map: Mapping[str, Any],
+    activation_gate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Summarize skill-workflow and general-agent route families before activation."""
+
+    raw_proposal_lanes = lane_map.get("proposal_lanes")
+    proposal_lanes = [
+        lane
+        for lane in (raw_proposal_lanes if isinstance(raw_proposal_lanes, list) else [])
+        if isinstance(lane, Mapping)
+    ]
+    skill_rows_by_name: dict[str, dict[str, Any]] = {}
+    for lane in proposal_lanes:
+        candidate_name = optional_string(lane.get("candidate_name")) or "unknown-skill-candidate"
+        row = skill_rows_by_name.setdefault(
+            candidate_name,
+            {
+                "route_family": "skill_workflow",
+                "candidate_name": candidate_name,
+                "route_class": "external_skill_route_discovery_classification",
+                "route_gate": "skill_route_discovery_first",
+                "allowed_local_lanes": [],
+                "evidence_item_ids": string_list(lane.get("evidence_item_ids")),
+                "source_hashes": [],
+                "local_validation_required": True,
+                "direct_runtime_route_allowed": False,
+                "external_activation_allowed": False,
+                "required_validation": [
+                    "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane"
+                ],
+            },
+        )
+        proposal_kind = optional_string(lane.get("proposal_kind"))
+        if proposal_kind and proposal_kind not in row["allowed_local_lanes"]:
+            row["allowed_local_lanes"].append(proposal_kind)
+        for url in string_list(lane.get("evidence_urls")):
+            source_hash = stable_text_hash(url)
+            if source_hash not in row["source_hashes"]:
+                row["source_hashes"].append(source_hash)
+
+    activation_readiness = lane_map.get("current_run_pass1_activation_readiness")
+    raw_adjacent_rows = (
+        activation_readiness.get("adjacent_general_agent_rows")
+        if isinstance(activation_readiness, Mapping)
+        else []
+    )
+    adjacent_rows = [
+        row
+        for row in (raw_adjacent_rows if isinstance(raw_adjacent_rows, list) else [])
+        if isinstance(row, Mapping)
+    ]
+    general_rows_by_key: dict[str, dict[str, Any]] = {}
+    for adjacent in adjacent_rows:
+        item_id = optional_string(adjacent.get("item_id")) or optional_string(adjacent.get("name")) or ""
+        row_key = item_id or stable_text_hash(json.dumps(dict(adjacent), sort_keys=True))
+        general_rows_by_key[row_key] = {
+            "route_family": "general_agent_project",
+            "item_id": item_id,
+            "name": optional_string(adjacent.get("name")) or "",
+            "route_class": optional_string(adjacent.get("route_class")) or "general_agent_project",
+            "route_gate": "agent_harness_eval_required",
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "direct_allowed_lanes_before_eval": [],
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "local_validation_required": True,
+            "required_validation": [
+                "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+            ],
+        }
+
+    skill_rows = sorted(skill_rows_by_name.values(), key=lambda row: str(row["candidate_name"]))
+    for row in skill_rows:
+        row["allowed_local_lanes"] = sorted(row["allowed_local_lanes"])
+        row["source_hashes"] = sorted(row["source_hashes"])
+    general_rows = sorted(
+        general_rows_by_key.values(),
+        key=lambda row: (str(row.get("name") or ""), str(row.get("item_id") or "")),
+    )
+    routes_distinct = bool(skill_rows) and all(
+        row.get("route_gate") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("direct_allowed_lanes_before_eval") == []
+        for row in general_rows
+    )
+    status = "ready" if skill_rows and routes_distinct else "blocked"
+    validation_commands = [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+    ]
+    if general_rows:
+        validation_commands.append("pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane")
+
+    return {
+        "controller_surface": "skill_route_discovery_route_family_eval_matrix",
+        "status": status,
+        "decision": (
+            "skill_workflow_and_general_agent_routes_ready_for_separate_local_validation"
+            if status == "ready"
+            else "repair_skill_workflow_general_agent_route_split_before_activation"
+        ),
+        "skill_workflow_candidate_count": len(skill_rows),
+        "general_agent_project_count": len(general_rows),
+        "route_families": ["skill_workflow", "general_agent_project"] if general_rows else ["skill_workflow"],
+        "routes_distinct_before_activation": routes_distinct,
+        "skill_route_allowed_lanes": ["documentation", "config", "test", "code_patch"],
+        "general_agent_direct_allowed_lanes_before_eval": [],
+        "general_agent_allowed_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "operator_next_action": (
+            "validate_skill_route_lanes_then_replay_agent_harness_eval_matrix"
+            if general_rows
+            else "validate_skill_route_lanes"
+        ),
+        "activation_gate_decision": optional_string(activation_gate.get("decision")) or "",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "skill_rows": skill_rows,
+        "general_agent_rows": general_rows,
+        "required_validation": validation_commands,
+    }
 
 
 def skill_route_discovery_lane_failure_mode(
