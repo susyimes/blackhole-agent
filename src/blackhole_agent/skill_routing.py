@@ -28157,6 +28157,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260706T083130.126341Z",
         "github-growth-20260706T083130Z",
     }
+    current_20260706_111130_window = source_digest in {
+        "github-growth-20260706T111130.944672Z",
+        "github-growth-20260706T111130Z",
+    }
     skill_proposals = (
         {
             "proposal_id": (
@@ -28651,6 +28655,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         or current_20260706_050238_window
         or current_20260706_062238_window
         or current_20260706_083130_window
+        or current_20260706_111130_window
     ):
         skill_proposals = (
             {
@@ -28662,6 +28667,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         current_20260706_050238_window
                         or current_20260706_062238_window
                         or current_20260706_083130_window
+                        or current_20260706_111130_window
                     )
                     else
                     "p1-skill-route-discovery-reverse-flow"
@@ -28685,6 +28691,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         or current_20260706_050238_window
                         or current_20260706_062238_window
                         or current_20260706_083130_window
+                        or current_20260706_111130_window
                     )
                     else "documentation"
                 ),
@@ -28692,7 +28699,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     "reverse_flow_skill_route_discovery_validation_lane"
                     if current_20260706_034238_window
                     else "reverse_flow_skill_route_discovery_operator_validation_lane"
-                    if current_20260706_083130_window
+                    if (current_20260706_083130_window or current_20260706_111130_window)
                     else "reverse_flow_skill_route_discovery_current_window"
                     if current_20260706_062238_window
                     else "reverse_flow_skill_route_discovery_validation"
@@ -28722,6 +28729,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         or current_20260706_050238_window
                         or current_20260706_062238_window
                         or current_20260706_083130_window
+                        or current_20260706_111130_window
                     )
                     else "documentation"
                 ),
@@ -28729,7 +28737,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     "reverse_flow_skill_workflow_maps_to_bounded_validation_lanes"
                     if current_20260706_034238_window
                     else "reverse_flow_skill_route_discovery_hint_maps_only_to_bounded_local_lanes"
-                    if current_20260706_083130_window
+                    if (current_20260706_083130_window or current_20260706_111130_window)
                     else "reverse_flow_skill_route_hint_requires_local_discovery_before_activation"
                     if current_20260706_062238_window
                     else "reverse_flow_skill_workflow_routes_only_to_bounded_local_lanes"
@@ -28758,6 +28766,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     or current_20260706_050238_window
                     or current_20260706_062238_window
                     or current_20260706_083130_window
+                    or current_20260706_111130_window
                 )
                 else (
                     {
@@ -28786,6 +28795,20 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     },
                 )
                 if current_20260706_034238_window
+                else (
+                    {
+                        "proposal_id": "p3-route-classification-docs",
+                        "proposal_kind": "documentation",
+                        "proposal_track": "skill_workflow_vs_general_agent_route_policy",
+                        "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                        "candidate_name_terms": ("reverse-flow-skill",),
+                        "selected_local_lane": "documentation",
+                        "validation_target": (
+                            "document_skill_route_discovery_lanes_and_agent_harness_eval_boundary"
+                        ),
+                    },
+                )
+                if current_20260706_111130_window
                 else (
                     {
                         "proposal_id": "p4-route-policy-doc-note",
@@ -28893,6 +28916,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 or current_20260705_130958_window
                 or current_20260705_143637_window
                 or current_20260706_022238_window
+                or current_20260706_111130_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
@@ -29046,6 +29070,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260706_062238_window
             else "p3-agent-harness-eval-for-trending-agent-projects"
             if current_20260706_083130_window
+            else "p2-agent-harness-trend-eval"
+            if current_20260706_111130_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -29076,9 +29102,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             row["proposal_id"] = "p2-general-agent-harness-eval-fixtures"
         if current_20260706_083130_window:
             row["proposal_id"] = "p3-agent-harness-eval-for-trending-agent-projects"
+        if current_20260706_111130_window:
+            row["proposal_id"] = "p2-agent-harness-trend-eval"
         row["direct_allowed_lanes_before_eval"] = []
         row["accepted_outputs_before_eval"] = []
         row["accepted_outputs_after_eval"] = ["documentation", "test", "code_patch"]
+        row["implementation_lane_selected"] = False
         row["raw_replay_command_exported"] = False
         adjacent_rows.append(row)
         if replay_command:
@@ -29152,6 +29181,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260706_062238_window
             else "p3-agent-harness-eval-for-trending-agent-projects"
             if current_20260706_083130_window
+            else "p2-agent-harness-trend-eval"
+            if current_20260706_111130_window
             else "p2-agent-harness-eval-general-agent-projects"
     )
     workflow_topic_boundary = {}
@@ -29230,6 +29261,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "p4-route-policy-doc-note",
             ]
             if current_20260706_083130_window
+            else [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-agent-harness-trend-eval",
+                "p3-route-classification-docs",
+            ]
+            if current_20260706_111130_window
             else [
                 "p1-skill-route-discovery-reverse-flow",
                 "p2-general-agent-harness-eval-fixtures",
@@ -29343,6 +29380,12 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "p4-route-policy-doc-note",
             ]
             if current_20260706_083130_window
+            else [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-agent-harness-trend-eval",
+                "p3-route-classification-docs",
+            ]
+            if current_20260706_111130_window
             else [
                 "p1-skill-route-discovery-reverse-flow",
                 "p2-general-agent-harness-eval-fixtures",
