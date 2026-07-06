@@ -1,0 +1,213 @@
+{
+  "name": "agent-workflow-route-runner-harness-control-pass4-completion",
+  "behavior": "agent_workflow_route",
+  "input": {
+    "task_id": "fixture-runner-harness-control-pass4-completion",
+    "intake": {
+      "source_digest": "github-growth-20260706T195555.503007Z",
+      "proposal_ids": [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-agent-harness-eval-general-projects",
+        "p3-route-classification-regression-tests"
+      ],
+      "evidence_urls": [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/InternScience/Agents-A1",
+        "https://github.com/QwenLM/Qwen-AgentWorld",
+        "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "https://github.com/shepherd-agents/shepherd"
+      ],
+      "capability_window": {
+        "theme": "runner-harness-control",
+        "current_pass": 4,
+        "total_passes": 4,
+        "required_route_profiles": [
+          "codex_workflow_gate",
+          "generic_skill_workflow",
+          "agent_harness_eval"
+        ]
+      }
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "intake",
+          "status": "completed"
+        },
+        {
+          "id": "midflight-state",
+          "status": "completed"
+        },
+        {
+          "id": "recovery-handoff",
+          "status": "completed"
+        },
+        {
+          "id": "replay-artifact",
+          "status": "completed"
+        },
+        {
+          "id": "report-artifact",
+          "status": "completed"
+        }
+      ]
+    },
+    "runner": {
+      "invoked": true,
+      "returncode": 0,
+      "timed_out": false
+    },
+    "observations": [
+      {
+        "id": "PRIVATE_PASS4_RUNNER_STATE_DO_NOT_EXPORT",
+        "phase": "midflight",
+        "load_bearing": true,
+        "reliable": true,
+        "observed": true
+      }
+    ],
+    "lifecycle": {
+      "expected_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ],
+      "observed_phases": [
+        "planned",
+        "runner_invoked",
+        "runner_completed",
+        "validation_recorded",
+        "rollback_checked",
+        "completed"
+      ]
+    },
+    "validation": {
+      "gate": "runner-harness-control-plane",
+      "checks": [
+        {
+          "name": "pytest-agent-workflow-route-pass4-completion",
+          "returncode": 0
+        }
+      ]
+    },
+    "rollback": {
+      "created": true,
+      "ref": "refs/blackhole-rollback/20260706T195554Z-runner-harness-control-pass4",
+      "artifact_path": "artifacts/rollback/20260706T195554Z-runner-harness-control-pass4/rollback-point.md"
+    },
+    "recovery": {
+      "required": true,
+      "operator_required": true,
+      "commands": [
+        "git switch codex/blackhole-evolve/20260706T195643.618840-run-a-bounded-local-skill-route-discovery-valida",
+        "git reset --hard refs/blackhole-rollback/20260706T195554Z-runner-harness-control-pass4"
+      ],
+      "replay_command": "pytest tests/test_harness_eval.py -q -k agent_workflow_route_runner_harness_control_pass4_completion"
+    },
+    "artifacts": {
+      "report_recorded": true,
+      "report_path": "artifacts/self-evolution/github-growth-20260706T195555Z-runner-harness-control-pass4.md",
+      "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_runner_harness_control_pass4_completion.json",
+      "report_sections": [
+        "changed_files",
+        "validation",
+        "rollback",
+        "replay",
+        "review_notes"
+      ]
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.controller_surface",
+      "equals": "runner_harness_workflow_completion_packet"
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.status",
+      "equals": "ready"
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.decision",
+      "equals": "supervisor_handoff_ready"
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.capability_theme",
+      "equals": "runner-harness-control"
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.capability_pass",
+      "equals": 4
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.capability_total_passes",
+      "equals": 4
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.final_pass",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.workflow_complete",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.supervisor_handoff_ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.ready_stage_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.ready_artifact_count",
+      "equals": 5
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.replay_ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.recovery_ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.report_ready",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.operator_action_count",
+      "equals": 0
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.blockers",
+      "equals": []
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.raw_recovery_commands_exported",
+      "equals": false
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.raw_report_body_exported",
+      "equals": false
+    },
+    {
+      "path": "control_plane.workflow_completion_packet.raw_artifact_paths_exported",
+      "equals": false
+    },
+    {
+      "path": "failure_mode",
+      "equals": "none"
+    }
+  ]
+}

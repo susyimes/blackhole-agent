@@ -27396,6 +27396,12 @@ def build_agent_workflow_control_plane(
         inbox_result=inbox_result,
         watchdog_result=watchdog_result,
     )
+    workflow_completion_packet = build_agent_workflow_completion_packet(
+        workflow_handoff=workflow_handoff,
+        operator_replay_checklist=operator_replay_checklist,
+        recovery_handoff=recovery_handoff,
+        report_contract=report_contract,
+    )
 
     if missing_stages:
         failure_mode = "control_plane_stage_missing"
@@ -27436,6 +27442,7 @@ def build_agent_workflow_control_plane(
         "missing_stages": missing_stages,
         "stage_diagnostics": stage_diagnostics,
         "workflow_handoff": workflow_handoff,
+        "workflow_completion_packet": workflow_completion_packet,
         "intake": intake_contract,
         "operator_replay_checklist": operator_replay_checklist,
         "replay": {
@@ -27635,6 +27642,97 @@ def build_agent_workflow_handoff(
             }
             for diagnostic in blocked_stages
         ],
+        "raw_evidence_urls_exported": False,
+        "raw_recovery_commands_exported": False,
+        "raw_report_body_exported": False,
+        "raw_artifact_paths_exported": False,
+    }
+
+
+def build_agent_workflow_completion_packet(
+    *,
+    workflow_handoff: dict[str, Any],
+    operator_replay_checklist: dict[str, Any],
+    recovery_handoff: dict[str, Any],
+    report_contract: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize whether the full runner workflow is ready for supervisor handoff."""
+
+    source_intake = (
+        workflow_handoff.get("source_intake") if isinstance(workflow_handoff.get("source_intake"), dict) else {}
+    )
+    replay = workflow_handoff.get("replay") if isinstance(workflow_handoff.get("replay"), dict) else {}
+    report = workflow_handoff.get("report") if isinstance(workflow_handoff.get("report"), dict) else {}
+    artifact_manifest = (
+        workflow_handoff.get("artifact_manifest") if isinstance(workflow_handoff.get("artifact_manifest"), list) else []
+    )
+    checklist_actions = (
+        operator_replay_checklist.get("actions")
+        if isinstance(operator_replay_checklist.get("actions"), list)
+        else []
+    )
+    current_pass = optional_int(source_intake.get("capability_pass"))
+    total_passes = optional_int(source_intake.get("capability_total_passes"))
+    final_pass = bool(current_pass is not None and total_passes is not None and current_pass >= total_passes)
+    artifact_ready = bool(artifact_manifest) and all(
+        isinstance(row, dict) and bool(row.get("ready")) for row in artifact_manifest
+    )
+    handoff_ready = workflow_handoff.get("status") == "ready"
+    checklist_ready = operator_replay_checklist.get("status") == "ready"
+    replay_ready = bool(replay.get("validation_check_count")) and bool(replay.get("replay_artifact_recorded"))
+    report_ready = bool(report.get("passed")) and bool(report.get("report_artifact_recorded"))
+    recovery_ready = bool(recovery_handoff.get("ready"))
+    complete = handoff_ready and checklist_ready and artifact_ready and replay_ready and report_ready and recovery_ready
+    blockers: list[str] = []
+    if not handoff_ready:
+        blockers.append("workflow_handoff_blocked")
+    if not checklist_ready:
+        blockers.append("operator_replay_checklist_blocked")
+    if not artifact_ready:
+        blockers.append("artifact_manifest_incomplete")
+    if not replay_ready:
+        blockers.append("replay_artifact_or_validation_missing")
+    if not report_ready:
+        blockers.append(str(report_contract.get("failure_mode") or "report_artifact_missing"))
+    if not recovery_ready:
+        blockers.extend(str(blocker) for blocker in recovery_handoff.get("blockers", []) or ["recovery_handoff_incomplete"])
+
+    return {
+        "controller_surface": "runner_harness_workflow_completion_packet",
+        "status": "ready" if complete else "blocked",
+        "decision": (
+            "supervisor_handoff_ready"
+            if complete
+            else "repair_runner_workflow_before_supervisor_handoff"
+        ),
+        "capability_theme": source_intake.get("capability_theme"),
+        "capability_pass": current_pass,
+        "capability_total_passes": total_passes,
+        "final_pass": final_pass,
+        "workflow_complete": complete,
+        "supervisor_handoff_ready": complete,
+        "stage_count": workflow_handoff.get("stage_count"),
+        "ready_stage_count": workflow_handoff.get("ready_stage_count"),
+        "blocked_stage_count": workflow_handoff.get("blocked_stage_count"),
+        "artifact_count": len(artifact_manifest),
+        "ready_artifact_count": sum(
+            1 for row in artifact_manifest if isinstance(row, dict) and bool(row.get("ready"))
+        ),
+        "replay_ready": replay_ready,
+        "recovery_ready": recovery_ready,
+        "report_ready": report_ready,
+        "operator_action_count": len(checklist_actions),
+        "blockers": list(dict.fromkeys(blockers)),
+        "completion_fingerprint": stable_json_hash(
+            {
+                "artifact_manifest": artifact_manifest,
+                "blockers": blockers,
+                "source_intake": source_intake,
+                "stage_order": workflow_handoff.get("stage_order_contract"),
+            }
+        ),
+        "required_report_sections": list(AGENT_WORKFLOW_REPORT_REQUIRED_SECTIONS),
+        "missing_report_sections": list(report_contract.get("missing_sections", [])),
         "raw_evidence_urls_exported": False,
         "raw_recovery_commands_exported": False,
         "raw_report_body_exported": False,
