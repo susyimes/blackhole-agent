@@ -1269,6 +1269,7 @@ def agent_harness_eval_activity_row(
         or record.get("item_kind")
         or record.get("kind")
     )
+    source_project_key = normalize_agent_harness_repository_key(source_url)
     local_signal_set = {
         signal
         for marker, signal in (
@@ -1289,12 +1290,25 @@ def agent_harness_eval_activity_row(
     if re.search(r"\bpr\b", text):
         local_signal_set.add("pull_request")
     local_signals = sorted(local_signal_set)
+    title = optional_string(record.get("title")) or ""
+    low_detail_activity = event_kind in {
+        "push",
+        "pull_request",
+        "pull_request_merged",
+        "pull_request_opened",
+    } and (
+        not title.strip()
+        or title.strip().casefold() in {"untitled", "no title", "update"}
+        or len(text.strip()) < 160
+    )
     return {
         "item_id": item_id,
         "source_url_hash": stable_text_hash(source_url) if source_url else None,
+        "source_project_hash": stable_text_hash(source_project_key) if source_project_key else None,
         "event_kind": event_kind,
         "activity_signals": local_signals,
         "signal_count": len(local_signals),
+        "low_detail_activity": low_detail_activity,
         "candidate_lane": "agent_harness_eval_required",
         "local_validation_required": True,
         "runtime_action": "none",
@@ -1323,6 +1337,7 @@ def build_agent_harness_eval_activity_intake_panel(
         if event_kind not in event_kinds
     ]
     activity_signal_count = sum(int(row.get("signal_count") or 0) for row in activity_rows)
+    project_groups = build_agent_harness_eval_project_activity_groups(activity_rows)
     ready = bool(activity_rows) and not missing_required_event_kinds
     return {
         "controller_surface": "agent_harness_activity_intake_panel",
@@ -1333,10 +1348,16 @@ def build_agent_harness_eval_activity_intake_panel(
             else "collect_required_activity_shapes_before_agent_harness_eval"
         ),
         "record_count": len(activity_rows),
+        "project_group_count": len(project_groups),
         "event_kinds": event_kinds,
         "required_event_kinds": required_event_kinds,
         "missing_required_event_kinds": missing_required_event_kinds,
         "activity_signal_count": activity_signal_count,
+        "low_detail_activity_count": sum(1 for row in activity_rows if row.get("low_detail_activity") is True),
+        "activity_grouping_prevents_overweighting": any(
+            group.get("raw_event_count", 0) > group.get("capped_project_weight", 0)
+            for group in project_groups
+        ),
         "trend_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "repository_trend"),
         "push_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "push"),
         "issue_comment_event_count": sum(1 for row in activity_rows if row.get("event_kind") == "issue_comment"),
@@ -1354,8 +1375,48 @@ def build_agent_harness_eval_activity_intake_panel(
         "raw_source_urls_exported": False,
         "raw_activity_bodies_exported": False,
         "raw_upstream_body_exported": False,
+        "project_activity_groups": project_groups,
         "rows": activity_rows,
     }
+
+
+def build_agent_harness_eval_project_activity_groups(activity_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group repeated upstream activity so push/PR churn stays one eval candidate."""
+
+    grouped_rows: dict[str, list[dict[str, Any]]] = {}
+    for row in activity_rows:
+        key = optional_string(row.get("source_project_hash")) or optional_string(row.get("source_url_hash"))
+        if not key:
+            key = stable_text_hash(optional_string(row.get("item_id")) or "unknown-activity")
+        grouped_rows.setdefault(key, []).append(row)
+
+    groups: list[dict[str, Any]] = []
+    for project_hash, rows in sorted(grouped_rows.items()):
+        event_kinds = sorted({str(row.get("event_kind") or "unknown") for row in rows})
+        trend_count = sum(1 for row in rows if row.get("event_kind") == "repository_trend")
+        low_detail_count = sum(1 for row in rows if row.get("low_detail_activity") is True)
+        detailed_activity_count = len(rows) - trend_count - low_detail_count
+        weighted_activity_score = round(
+            trend_count + (detailed_activity_count * 0.5) + (low_detail_count * 0.25),
+            2,
+        )
+        groups.append(
+            {
+                "source_project_hash": project_hash,
+                "raw_event_count": len(rows),
+                "event_kinds": event_kinds,
+                "trend_event_count": trend_count,
+                "low_detail_activity_count": low_detail_count,
+                "detailed_activity_count": detailed_activity_count,
+                "weighted_activity_score": weighted_activity_score,
+                "capped_project_weight": min(weighted_activity_score, 2.0),
+                "candidate_lane": "agent_harness_eval_required",
+                "direct_behavior_change_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_activity_bodies_exported": False,
+            }
+        )
+    return groups
 
 
 def normalize_agent_harness_activity_event_kind(value: Any) -> str:

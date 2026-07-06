@@ -1,0 +1,85 @@
+{
+  "name": "agent-harness-eval-lane-20260706T161555-shepherd-low-detail-grouping",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-20260706T161555-shepherd-low-detail-grouping",
+    "required_activity_event_kinds": [
+      "repository_trend",
+      "push",
+      "pull_request_merged"
+    ],
+    "evidence_items": [
+      {
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "event_kind": "RepositoryTrend",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent runtime substrate with reversible execution traces, replay, retained outputs, sandboxing, and validation signals. Treat as harness evidence only before local adoption.",
+        "relevance_reason": "Route recovery workflow ideas through agent_harness_eval_required.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["runtime_substrate", "local_module"],
+        "entrypoints": ["runtime_api", "replay_runner"],
+        "dependency_boundaries": ["copy_on_write_runtime", "model_provider", "workspace_snapshot"],
+        "task_loop_assumptions": ["session_supervision", "state_replay", "policy_gate"],
+        "observable_behaviors": ["session_sync", "sandboxing", "workflow_validation"]
+      },
+      {
+        "item_id": "push:shepherd-agents/shepherd-5cf6987",
+        "event_kind": "PushEvent",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Push activity.",
+        "relevance_reason": "Freshness only.",
+        "suggested_lanes": ["test"],
+        "install_shape": ["runtime_substrate"],
+        "entrypoints": ["ci_gate"],
+        "dependency_boundaries": ["local_workspace"],
+        "task_loop_assumptions": ["controller_replay"],
+        "observable_behaviors": ["ci_gate"]
+      },
+      {
+        "item_id": "pr-merged:shepherd-agents/shepherd-25",
+        "event_kind": "PullRequestMerged",
+        "source_url": "https://github.com/shepherd-agents/shepherd/pull/25",
+        "route_hints": ["agent_harness_eval"],
+        "title": "Untitled",
+        "summary": "Merged pull request.",
+        "relevance_reason": "Movement only.",
+        "suggested_lanes": ["test", "code_patch"],
+        "install_shape": ["runtime_substrate"],
+        "entrypoints": ["pull_request_diff"],
+        "dependency_boundaries": ["local_workspace"],
+        "task_loop_assumptions": ["controller_replay"],
+        "observable_behaviors": ["workflow_validation"]
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "activity_intake_panel.status", "equals": "ready"},
+    {"path": "activity_intake_panel.project_group_count", "equals": 1},
+    {"path": "activity_intake_panel.record_count", "equals": 3},
+    {"path": "activity_intake_panel.low_detail_activity_count", "equals": 2},
+    {"path": "activity_intake_panel.activity_grouping_prevents_overweighting", "equals": true},
+    {"path": "activity_intake_panel.candidate_lane", "equals": "agent_harness_eval_required"},
+    {"path": "activity_intake_panel.direct_behavior_change_allowed", "equals": false},
+    {"path": "activity_intake_panel.external_harness_execution_allowed", "equals": false},
+    {"path": "activity_intake_panel.provider_launch_allowed", "equals": false},
+    {"path": "activity_intake_panel.remote_execution_allowed", "equals": false},
+    {"path": "activity_intake_panel.raw_source_urls_exported", "equals": false},
+    {"path": "activity_intake_panel.raw_activity_bodies_exported", "equals": false},
+    {"path": "activity_intake_panel.project_activity_groups.0.raw_event_count", "equals": 3},
+    {"path": "activity_intake_panel.project_activity_groups.0.event_kinds", "equals": ["pull_request_merged", "push", "repository_trend"]},
+    {"path": "activity_intake_panel.project_activity_groups.0.trend_event_count", "equals": 1},
+    {"path": "activity_intake_panel.project_activity_groups.0.low_detail_activity_count", "equals": 2},
+    {"path": "activity_intake_panel.project_activity_groups.0.weighted_activity_score", "equals": 1.5},
+    {"path": "activity_intake_panel.project_activity_groups.0.capped_project_weight", "equals": 1.5},
+    {"path": "activity_intake_panel.project_activity_groups.0.candidate_lane", "equals": "agent_harness_eval_required"},
+    {"path": "activity_intake_panel.project_activity_groups.0.direct_behavior_change_allowed", "equals": false},
+    {"path": "activity_intake_panel.project_activity_groups.0.raw_source_urls_exported", "equals": false},
+    {"path": "activity_intake_panel.project_activity_groups.0.raw_activity_bodies_exported", "equals": false},
+    {"path": "privacy.raw_source_urls_exported", "equals": false},
+    {"path": "privacy.runtime_actions_executed", "equals": false}
+  ]
+}

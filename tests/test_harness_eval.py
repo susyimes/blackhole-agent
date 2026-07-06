@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 172
-    assert payload["pass_count"] == 171
+    assert payload["fixture_count"] == 173
+    assert payload["pass_count"] == 172
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -148,6 +148,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T091129-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T133555-activity-shapes"]["passed"] is True
+    assert (
+        results[
+            "agent-harness-eval-lane-20260706T161555-shepherd-low-detail-grouping"
+        ]["passed"]
+        is True
+    )
     assert results["agent-harness-eval-lane-qwen-looper-readiness"]["passed"] is True
     assert results["agent-harness-eval-lane-visa-current-wake"]["passed"] is True
     assert (
@@ -2726,6 +2732,43 @@ def test_agent_harness_eval_lane_records_current_activity_shapes_without_runtime
     assert rows["trend:shepherd-agents/shepherd-1"]["activity_signals"] == [
         "replay_recovery",
     ]
+    assert "https://github.com/" not in serialized
+
+
+def test_agent_harness_eval_lane_groups_low_detail_activity_by_upstream_project():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260706T161555_shepherd_low_detail_grouping.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output["activity_intake_panel"], sort_keys=True)
+    panel = output["activity_intake_panel"]
+    group = panel["project_activity_groups"][0]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert panel["project_group_count"] == 1
+    assert panel["record_count"] == 3
+    assert panel["low_detail_activity_count"] == 2
+    assert panel["activity_grouping_prevents_overweighting"] is True
+    assert group["raw_event_count"] == 3
+    assert group["event_kinds"] == ["pull_request_merged", "push", "repository_trend"]
+    assert group["trend_event_count"] == 1
+    assert group["low_detail_activity_count"] == 2
+    assert group["weighted_activity_score"] == 1.5
+    assert group["capped_project_weight"] == 1.5
+    assert group["candidate_lane"] == "agent_harness_eval_required"
+    assert group["direct_behavior_change_allowed"] is False
+    assert panel["direct_behavior_change_allowed"] is False
+    assert panel["external_harness_execution_allowed"] is False
+    assert panel["provider_launch_allowed"] is False
+    assert panel["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
 
 
