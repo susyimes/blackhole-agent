@@ -804,6 +804,145 @@ def build_skill_route_discovery_registry_from_summaries(
     return registry
 
 
+def build_skill_route_discovery_repository_lane_probe(
+    summaries: Sequence[ExternalSkillRepositorySummary | Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Explain how repository-level skill signals map into bounded local lanes.
+
+    This is an operator-facing pre-activation probe: it classifies body-free
+    repository metadata into documentation, config, test, or code_patch lanes
+    only. Unsupported install/run/provider/runtime pressure is recorded as
+    diagnostic pressure, never as an executable lane.
+    """
+
+    rows: list[dict[str, Any]] = []
+    candidate_count = 0
+    ignored_count = 0
+    validation_error_count = 0
+
+    for index, summary in enumerate(summaries):
+        descriptor = _coerce_external_skill_repository_summary(summary)
+        source_hash = _stable_hash(_summary_lineage_key(descriptor))
+        candidate = descriptor.to_candidate()
+        if candidate is None:
+            ignored_count += 1
+            rows.append(
+                {
+                    "index": index,
+                    "name": descriptor.name,
+                    "source_hash": source_hash,
+                    "route_status": "ignored",
+                    "ignored_reason": "no_skill_workflow_signal",
+                    "allowed_local_lanes": [],
+                    "selected_local_lane": "",
+                    "lane_mapping_limited_to_allowed": True,
+                    "matched_route_terms": [],
+                    "source_layout_signals": list(_skill_repository_layout_signals(descriptor)),
+                    "source_metadata_signals": list(_skill_repository_metadata_signals(descriptor)),
+                    "unsupported_lane_pressure": [
+                        lane
+                        for lane in descriptor.suggested_lanes
+                        if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                    ],
+                    "diagnostics": ["no_skill_workflow_signal"],
+                    "local_validation_required": True,
+                    "runtime_action": "none",
+                    "external_skill_activation_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "provider_runtime_launch_allowed": False,
+                    "remote_execution_allowed": False,
+                    "raw_source_url_exported": False,
+                    "raw_evidence_urls_exported": False,
+                    "raw_upstream_body_exported": False,
+                }
+            )
+            continue
+
+        candidate_count += 1
+        registry_entry = candidate.to_registry_entry()
+        allowed_lanes = [
+            lane
+            for lane in registry_entry["candidate_lanes"]
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        route_profiles = _skill_route_discovery_route_profiles(candidate)
+        preferred_lanes = tuple(
+            dict.fromkeys(
+                lane
+                for profile in route_profiles
+                for lane in SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS.get(profile, {}).get(
+                    "preferred_lanes",
+                    (),
+                )
+                if lane in allowed_lanes
+            )
+        )
+        selected_lane = (preferred_lanes or tuple(allowed_lanes) or ("documentation",))[0]
+        validation_errors = list(registry_entry["validation_errors"])
+        validation_error_count += len(validation_errors)
+        unsupported_pressure = list(registry_entry.get("unsupported_lane_pressure") or [])
+        diagnostics = [*validation_errors]
+        if unsupported_pressure:
+            diagnostics.append("unsupported_lane_pressure_stripped")
+
+        rows.append(
+            {
+                "index": index,
+                "name": candidate.name,
+                "source_hash": source_hash,
+                "route_status": registry_entry["route_status"],
+                "route_profiles": list(route_profiles),
+                "allowed_local_lanes": allowed_lanes,
+                "selected_local_lane": selected_lane,
+                "lane_mapping_limited_to_allowed": set(allowed_lanes) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "matched_route_terms": list(registry_entry["matched_route_terms"]),
+                "source_layout_signals": list(candidate.source_layout_signals),
+                "source_metadata_signals": list(candidate.source_metadata_signals),
+                "unsupported_lane_pressure": unsupported_pressure,
+                "diagnostics": diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = candidate_count > 0 and validation_error_count == 0
+    return {
+        "controller_surface": "skill_route_discovery_repository_lane_probe",
+        "status": "ready" if ready else "review",
+        "decision": "repository_skill_signals_mapped_to_bounded_local_lanes"
+        if ready
+        else "review_repository_skill_signal_mapping_before_activation",
+        "summary_count": len(summaries),
+        "candidate_count": candidate_count,
+        "ignored_summary_count": ignored_count,
+        "validation_error_count": validation_error_count,
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane
+            for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            if any(row["selected_local_lane"] == lane for row in rows)
+        ],
+        "rows": rows,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def build_skill_route_discovery_registry_from_evidence_items(
     items: Sequence[ExternalSkillEvidenceItem | Mapping[str, Any]],
 ) -> dict[str, Any]:

@@ -23,6 +23,7 @@ from blackhole_agent.skill_routing import (
     build_skill_route_discovery_registry_from_evidence_items,
     build_skill_route_discovery_registry_from_summaries,
     build_skill_route_discovery_registry_validation_lane,
+    build_skill_route_discovery_repository_lane_probe,
     build_skill_route_discovery_validation_route_packet,
     build_skill_routing_index,
     rank_skills_for_task,
@@ -434,6 +435,101 @@ def test_skill_route_discovery_routes_workflow_usecases_to_agent_harness_eval():
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime_launch_allowed": true' not in serialized
+
+
+def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow_metadata():
+    probe = build_skill_route_discovery_repository_lane_probe(
+        [
+            {
+                "name": "reverse-flow-skill",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Codex and AI Agent workflow skill package with skills/reverse-flow/SKILL.md, "
+                    "references, scripts, local sandbox defaults, CTF/crackme framing, install "
+                    "examples, run examples, and validation guidance."
+                ),
+                "topics": ["codex", "agent-skill", "workflow"],
+                "suggested_lanes": [
+                    "documentation",
+                    "config",
+                    "test",
+                    "code_patch",
+                    "install",
+                    "runtime_execution",
+                    "provider_runtime",
+                ],
+                "observed_paths": [
+                    "skills/reverse-flow/SKILL.md",
+                    "skills/reverse-flow/references/README.md",
+                    "skills/reverse-flow/scripts/tool_audit.py",
+                    "skills/reverse-flow/agents/openai.yaml",
+                ],
+            },
+            {
+                "name": "codex-workflow-examples",
+                "source_url": "https://github.com/example/codex-workflow-examples",
+                "summary": (
+                    "Codex workflow examples for general automation without skill package, "
+                    "without SKILL.md, and no skill route activation signal."
+                ),
+                "topics": ["codex", "workflow"],
+                "suggested_lanes": ["documentation", "execute"],
+            },
+            {
+                "name": "developer-skill-notes",
+                "source_url": "https://github.com/example/developer-skill-notes",
+                "summary": (
+                    "A personal learning repository about improving developer skill, with no "
+                    "Codex skill package, no workflow skill, and no SKILL.md."
+                ),
+                "topics": ["learning"],
+                "suggested_lanes": ["documentation", "run"],
+            },
+        ]
+    )
+
+    serialized = json.dumps(probe, sort_keys=True)
+
+    assert probe["controller_surface"] == "skill_route_discovery_repository_lane_probe"
+    assert probe["status"] == "ready"
+    assert probe["candidate_count"] == 1
+    assert probe["ignored_summary_count"] == 2
+    assert probe["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert probe["selected_local_lanes"] == ["test"]
+    assert probe["runtime_action"] == "none"
+    assert probe["external_skill_activation_allowed"] is False
+    assert probe["external_harness_execution_allowed"] is False
+    assert probe["provider_runtime_launch_allowed"] is False
+    assert probe["remote_execution_allowed"] is False
+
+    reverse_flow = probe["rows"][0]
+    assert reverse_flow["name"] == "reverse-flow-skill"
+    assert reverse_flow["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["lane_mapping_limited_to_allowed"] is True
+    assert reverse_flow["unsupported_lane_pressure"] == [
+        "install",
+        "runtime_execution",
+        "provider_runtime",
+    ]
+    assert reverse_flow["diagnostics"] == ["unsupported_lane_pressure_stripped"]
+    assert "skill_directory" in reverse_flow["source_layout_signals"]
+    assert "skill_markdown" in reverse_flow["source_layout_signals"]
+    assert "reference_directory" in reverse_flow["source_layout_signals"]
+    assert "validation_script" in reverse_flow["source_layout_signals"]
+
+    ignored_rows = probe["rows"][1:]
+    assert [row["route_status"] for row in ignored_rows] == ["ignored", "ignored"]
+    assert all(row["allowed_local_lanes"] == [] for row in ignored_rows)
+    assert all(row["ignored_reason"] == "no_skill_workflow_signal" for row in ignored_rows)
+    assert all(row["lane_mapping_limited_to_allowed"] is True for row in ignored_rows)
+
+    assert "https://github.com/" not in serialized
+    assert "execute" not in reverse_flow["allowed_local_lanes"]
+    assert "install" not in reverse_flow["allowed_local_lanes"]
+    assert "runtime_execution" not in reverse_flow["allowed_local_lanes"]
+    assert "provider_runtime" not in reverse_flow["allowed_local_lanes"]
 
 
 def test_skill_route_discovery_validation_route_packet_splits_skill_and_agent_projects():

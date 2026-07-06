@@ -9179,3 +9179,26 @@ packet keeps runtime action, external skill activation, external harness
 execution, provider launch, remote execution, raw source URL export, and
 upstream body export disabled for every queued row. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k current_digest_pass2_prioritizes_route_hints`.
+
+## Source Digest 20260706T231555 Pass 2
+
+The pass-2 lane adds `skill_route_discovery_repository_lane_probe` as a
+body-free pre-activation surface for repository metadata. The probe is meant
+for evidence shaped like `lingbol088-spec/reverse-flow-skill`: public Codex or
+AI Agent skill packages with `skills/.../SKILL.md`, references, scripts, local
+sandbox framing, install/run examples, and workflow language.
+
+The probe maps those signals only into the bounded local lanes:
+documentation, config, test, and code_patch. Existing route-profile preference
+still chooses the local test lane for Codex workflow-gate evidence. Install,
+run, execute, provider runtime, or remote execution pressure is recorded as
+stripped diagnostic pressure and never becomes a lane. Ambiguous repositories
+that merely mention Codex, workflow, or developer skill without a skill package
+signal are reported as ignored rows instead of inheriting skill-route lanes.
+
+The output exports source hashes, route profiles, matched terms, layout and
+metadata signal names, selected local lanes, and diagnostic pressure. It denies
+runtime action, external skill activation, external harness execution, provider
+runtime launch, remote execution, raw source URL export, evidence URL export,
+and upstream body export. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k repository_lane_probe`.

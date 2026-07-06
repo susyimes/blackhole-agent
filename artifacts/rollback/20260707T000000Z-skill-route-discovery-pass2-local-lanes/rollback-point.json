@@ -1,0 +1,12 @@
+{
+  "created": "2026-07-07T00:00:00Z",
+  "original_branch": "codex/blackhole-evolve/20260706T231659.241461-add-or-extend-a-local-provider-config-preflight-",
+  "original_head": "37605d68e018579262883b2e684dcb045c428bdc",
+  "source_digest": "github-growth-20260706T231555.494659Z",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260706T231659.241461-add-or-extend-a-local-provider-config-preflight-",
+    "git reset --hard 37605d68e018579262883b2e684dcb045c428bdc",
+    "git clean -fd"
+  ],
+  "rollback_ref": "refs/rollback/20260707T000000Z-skill-route-discovery-pass2-local-lanes"
+}
