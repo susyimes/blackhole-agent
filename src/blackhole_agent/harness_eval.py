@@ -1272,6 +1272,7 @@ def build_general_agent_project_route_plan(
     }
     rows: list[dict[str, Any]] = []
     diagnostics: list[str] = []
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
 
     for index, record in enumerate(records, start=1):
         if not isinstance(record, dict):
@@ -1305,6 +1306,20 @@ def build_general_agent_project_route_plan(
                 "selected_local_lane": "agent_harness_eval_required",
                 "route_hints": sorted(route_hints),
                 "allowed_local_lanes_after_eval": allowed_lanes,
+                "post_eval_candidate_routes": [
+                    {
+                        "lane": lane,
+                        "status": "candidate_after_local_eval",
+                        "required_validation": [validation_command],
+                        "local_validation_required": True,
+                        "runtime_action": "none",
+                        "external_agent_activation_allowed": False,
+                        "external_harness_execution_allowed": False,
+                        "provider_runtime_launch_allowed": False,
+                        "remote_execution_allowed": False,
+                    }
+                    for lane in allowed_lanes
+                ],
                 "direct_allowed_lanes_before_eval": [],
                 "rejected_direct_lanes": rejected_lanes,
                 "missing_probe_fields": missing_probe_fields,
@@ -1334,6 +1349,33 @@ def build_general_agent_project_route_plan(
         "route_class": "general_agent_project",
         "primary_route": "agent_harness_eval_required",
         "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "post_eval_route_queue": {
+            "controller_surface": "general_agent_post_eval_route_queue",
+            "status": "ready" if rows and not diagnostics else "blocked",
+            "decision": "candidate_behavior_routes_available_after_harness_eval"
+            if rows and not diagnostics
+            else "repair_project_probe_or_lane_bounds_before_followup",
+            "route_count": sum(len(row["post_eval_candidate_routes"]) for row in rows),
+            "project_count": len(rows),
+            "allowed_local_lanes": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+            "selected_local_lanes": sorted(
+                {
+                    route["lane"]
+                    for row in rows
+                    for route in row["post_eval_candidate_routes"]
+                    if route["lane"] in AGENT_HARNESS_EVAL_ALLOWED_LANES
+                }
+            ),
+            "required_validation": [validation_command],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "direct_allowed_lanes_before_eval": [],
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),

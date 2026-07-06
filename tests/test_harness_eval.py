@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 175
-    assert payload["pass_count"] == 174
+    assert payload["fixture_count"] == 176
+    assert payload["pass_count"] == 175
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -144,6 +144,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-orchestrator-inbox-delivery"]["passed"] is True
     assert results["agent-harness-eval-lane-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-agents-a1-fork-cluster"]["passed"] is True
+    assert results["agent-harness-eval-lane-20260706T205555-general-agent-route-queue"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T090714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T091129-general-agent-projects"]["passed"] is True
@@ -2740,6 +2741,46 @@ def test_agent_harness_eval_lane_records_current_activity_shapes_without_runtime
         "replay_recovery",
     ]
     assert "https://github.com/" not in serialized
+
+
+def test_agent_harness_eval_lane_exposes_post_eval_route_queue_for_current_general_agent_set():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260706T205555_general_agent_route_queue.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    plan = output["general_agent_project_route_plan"]
+    queue = plan["post_eval_route_queue"]
+    serialized = json.dumps(plan, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert plan["status"] == "ready"
+    assert plan["record_count"] == 4
+    assert queue["status"] == "ready"
+    assert queue["route_count"] == 10
+    assert queue["selected_local_lanes"] == ["code_patch", "documentation", "test"]
+    assert queue["required_validation"] == ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"]
+    assert queue["runtime_action"] == "none"
+    assert queue["external_agent_activation_allowed"] is False
+    assert queue["external_harness_execution_allowed"] is False
+    assert queue["provider_runtime_launch_allowed"] is False
+    assert queue["remote_execution_allowed"] is False
+    assert all(row["selected_local_lane"] == "agent_harness_eval_required" for row in plan["rows"])
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in plan["rows"])
+    assert all(
+        route["lane"] in {"documentation", "test", "code_patch"}
+        for row in plan["rows"]
+        for route in row["post_eval_candidate_routes"]
+    )
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
 
 
 def test_agent_harness_eval_lane_groups_low_detail_activity_by_upstream_project():
