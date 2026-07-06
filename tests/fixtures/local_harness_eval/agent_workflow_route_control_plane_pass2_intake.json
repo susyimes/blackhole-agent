@@ -213,6 +213,48 @@
       "equals": 0
     },
     {
+      "path": "control_plane.workflow_handoff.stage_order_contract.passed",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_handoff.stage_order_contract.expected_stages",
+      "equals": [
+        "intake",
+        "midflight",
+        "recovery",
+        "replay",
+        "report"
+      ]
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.0.artifact_kind",
+      "equals": "source_digest_and_evidence"
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.1.artifact_kind",
+      "equals": "state_transition_trace"
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.2.artifact_kind",
+      "equals": "rollback_and_operator_recovery"
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.3.artifact_kind",
+      "equals": "local_replay_fixture"
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.4.artifact_kind",
+      "equals": "operator_report"
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.3.hash_present",
+      "equals": true
+    },
+    {
+      "path": "control_plane.workflow_handoff.artifact_manifest.4.hash_present",
+      "equals": true
+    },
+    {
       "path": "control_plane.workflow_handoff.source_intake.capability_theme",
       "equals": "runner-harness-control"
     },

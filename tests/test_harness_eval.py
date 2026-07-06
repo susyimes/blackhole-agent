@@ -11863,6 +11863,34 @@ def test_agent_workflow_route_control_plane_marks_flaky_teardown_non_load_bearin
         "replay",
         "report",
     ]
+    assert handoff["stage_order_contract"] == {
+        "expected_stages": ["intake", "midflight", "recovery", "replay", "report"],
+        "observed_stages": ["intake", "midflight", "recovery", "replay", "report"],
+        "passed": True,
+        "failure_mode": "none",
+        "missing_stages": [],
+        "duplicate_stages": [],
+        "unexpected_stages": [],
+        "raw_stage_values_exported": False,
+    }
+    assert [artifact["artifact_kind"] for artifact in handoff["artifact_manifest"]] == [
+        "source_digest_and_evidence",
+        "state_transition_trace",
+        "rollback_and_operator_recovery",
+        "local_replay_fixture",
+        "operator_report",
+    ]
+    assert [artifact["stage"] for artifact in handoff["artifact_manifest"]] == [
+        "intake",
+        "midflight",
+        "recovery",
+        "replay",
+        "report",
+    ]
+    assert all(artifact["ready"] is True for artifact in handoff["artifact_manifest"])
+    assert handoff["artifact_manifest"][3]["hash_present"] is True
+    assert handoff["artifact_manifest"][4]["hash_present"] is True
+    assert all(artifact["raw_values_exported"] is False for artifact in handoff["artifact_manifest"])
     assert handoff["midflight_state"]["state_transition_count"] == 6
     assert handoff["recovery"]["command_count"] == 2
     assert handoff["replay"]["replay_artifact_recorded"] is True

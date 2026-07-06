@@ -27549,7 +27549,17 @@ def build_agent_workflow_handoff(
     """Return one ordered, body-free handoff packet for operator replay."""
 
     blocked_stages = [diagnostic for diagnostic in stage_diagnostics if not bool(diagnostic.get("ready"))]
-    ready = not blocked_stages
+    stage_order_contract = evaluate_agent_workflow_handoff_stage_order(stage_diagnostics)
+    artifact_manifest = build_agent_workflow_handoff_artifact_manifest(
+        intake_contract=intake_contract,
+        state_transition_count=state_transition_count,
+        recovery_handoff=recovery_handoff,
+        validation_check_count=validation_check_count,
+        replay_artifact_hash=replay_artifact_hash,
+        report_contract=report_contract,
+        report_artifact_hash=report_artifact_hash,
+    )
+    ready = not blocked_stages and bool(stage_order_contract["passed"])
     window = intake_contract.get("capability_window") if isinstance(intake_contract.get("capability_window"), dict) else {}
     return {
         "controller_surface": "runner_harness_workflow_handoff",
@@ -27571,6 +27581,8 @@ def build_agent_workflow_handoff(
             }
             for diagnostic in stage_diagnostics
         ],
+        "stage_order_contract": stage_order_contract,
+        "artifact_manifest": artifact_manifest,
         "source_intake": {
             "required": intake_contract["required"],
             "passed": intake_contract["passed"],
@@ -27628,6 +27640,97 @@ def build_agent_workflow_handoff(
         "raw_report_body_exported": False,
         "raw_artifact_paths_exported": False,
     }
+
+
+def evaluate_agent_workflow_handoff_stage_order(stage_diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
+    """Validate the operator handoff stays in the canonical runner workflow order."""
+
+    expected = ["intake", "midflight", "recovery", "replay", "report"]
+    observed = [str(diagnostic.get("stage")) for diagnostic in stage_diagnostics]
+    duplicate_stages = sorted(stage for stage in set(observed) if observed.count(stage) > 1)
+    missing_stages = [stage for stage in expected if stage not in observed]
+    unexpected_stages = [stage for stage in observed if stage not in expected]
+    order_matches = observed == expected
+    passed = order_matches and not duplicate_stages and not missing_stages and not unexpected_stages
+    return {
+        "expected_stages": expected,
+        "observed_stages": observed,
+        "passed": passed,
+        "failure_mode": "none" if passed else "handoff_stage_order_mismatch",
+        "missing_stages": missing_stages,
+        "duplicate_stages": duplicate_stages,
+        "unexpected_stages": unexpected_stages,
+        "raw_stage_values_exported": False,
+    }
+
+
+def build_agent_workflow_handoff_artifact_manifest(
+    *,
+    intake_contract: dict[str, Any],
+    state_transition_count: int,
+    recovery_handoff: dict[str, Any],
+    validation_check_count: int,
+    replay_artifact_hash: str | None,
+    report_contract: dict[str, Any],
+    report_artifact_hash: str | None,
+) -> list[dict[str, Any]]:
+    """Expose a compact stage-to-artifact checklist without raw paths or commands."""
+
+    intake_required = bool(intake_contract["required"])
+    report_required = bool(report_contract["required"])
+    recovery_required = bool(recovery_handoff["required"])
+    return [
+        {
+            "stage": "intake",
+            "artifact_kind": "source_digest_and_evidence",
+            "required": intake_required,
+            "recorded": (not intake_required) or bool(intake_contract["source_digest_recorded"]),
+            "ready": bool(intake_contract["passed"]),
+            "count": int(intake_contract["proposal_id_count"]) + int(intake_contract["evidence_url_count"]),
+            "hash_present": bool(intake_contract.get("source_digest_hash")),
+            "raw_values_exported": False,
+        },
+        {
+            "stage": "midflight",
+            "artifact_kind": "state_transition_trace",
+            "required": True,
+            "recorded": state_transition_count > 0,
+            "ready": state_transition_count > 0,
+            "count": state_transition_count,
+            "hash_present": False,
+            "raw_values_exported": False,
+        },
+        {
+            "stage": "recovery",
+            "artifact_kind": "rollback_and_operator_recovery",
+            "required": recovery_required,
+            "recorded": (not recovery_required) or bool(recovery_handoff["command_count"]),
+            "ready": bool(recovery_handoff["ready"]),
+            "count": int(recovery_handoff["command_count"]),
+            "hash_present": bool(recovery_handoff.get("rollback_ref_hash") or recovery_handoff.get("rollback_artifact_hash")),
+            "raw_values_exported": False,
+        },
+        {
+            "stage": "replay",
+            "artifact_kind": "local_replay_fixture",
+            "required": True,
+            "recorded": bool(replay_artifact_hash),
+            "ready": bool(replay_artifact_hash) and validation_check_count > 0,
+            "count": validation_check_count,
+            "hash_present": bool(replay_artifact_hash),
+            "raw_values_exported": False,
+        },
+        {
+            "stage": "report",
+            "artifact_kind": "operator_report",
+            "required": report_required,
+            "recorded": bool(report_artifact_hash),
+            "ready": bool(report_contract["passed"]) and bool(report_artifact_hash),
+            "count": int(report_contract["recorded_section_count"]),
+            "hash_present": bool(report_artifact_hash),
+            "raw_values_exported": False,
+        },
+    ]
 
 
 def build_agent_workflow_operator_replay_checklist(

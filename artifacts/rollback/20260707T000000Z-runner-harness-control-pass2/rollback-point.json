@@ -1,0 +1,11 @@
+{
+  "created_at": "2026-07-07T00:00:00+08:00",
+  "original_branch": "codex/blackhole-evolve/20260706T191647.107527-run-a-bounded-skill-route-discovery-lane-for-the",
+  "head": "80c4a37f02f561f0a9952ea853d6d32143100800",
+  "rollback_ref": "refs/blackhole-rollback/20260707T000000Z-runner-harness-control-pass2",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260706T191647.107527-run-a-bounded-skill-route-discovery-lane-for-the",
+    "git reset --hard refs/blackhole-rollback/20260707T000000Z-runner-harness-control-pass2",
+    "git clean -fd"
+  ]
+}
