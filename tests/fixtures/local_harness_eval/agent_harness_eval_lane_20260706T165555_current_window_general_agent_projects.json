@@ -1,0 +1,87 @@
+{
+  "name": "agent-harness-eval-lane-20260706T165555-current-window-general-agent-projects",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-20260706T165555-current-window-general-agent-projects",
+    "evidence_items": [
+      {
+        "item_id": "p1-agent-harness-trend-eval:agents-a1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent project with long-horizon agent trajectories, tool use, domain evaluation, and benchmark-style validation signals.",
+        "relevance_reason": "Keep broad model and agent behavior claims behind local agent harness evaluation before any behavior adoption.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["research_project", "benchmark_suite"],
+        "entrypoints": ["evaluation_runner", "technical_report"],
+        "dependency_boundaries": ["model_provider", "benchmark_data", "workspace_fixture"],
+        "task_loop_assumptions": ["long_horizon_agent_tasks", "tool_use_replay", "benchmark_replay"],
+        "observable_behaviors": ["structured_validation", "agent_task_reporting", "tool_use_trace"]
+      },
+      {
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent benchmark and simulator project for language world models, agent evaluation, and replayable world-model tasks.",
+        "relevance_reason": "Treat benchmark claims as harness inputs until local pass/fail criteria are replayed.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["benchmark_suite", "simulator"],
+        "entrypoints": ["evaluation_runner", "dataset_manifest"],
+        "dependency_boundaries": ["model_provider", "benchmark_data", "local_workspace"],
+        "task_loop_assumptions": ["agent_world_simulation", "replay_stage_eval", "provider_configuration"],
+        "observable_behaviors": ["benchmark_reporting", "provider_configuration", "structured_validation"]
+      },
+      {
+        "item_id": "p3-routing-docs:fundamental-ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General autonomous and collaborative agent project with social intelligence framing, scheduling, and multi-agent coordination signals.",
+        "relevance_reason": "Collaboration and scheduling claims need local harness probes before local runtime or controller changes.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["agent_framework", "simulation_framework"],
+        "entrypoints": ["python_module", "demo_runner"],
+        "dependency_boundaries": ["model_provider", "simulation_runtime"],
+        "task_loop_assumptions": ["multi_agent_orchestration", "session_state_replay", "scheduled_simulation_steps"],
+        "observable_behaviors": ["multi_agent_supervision", "conversation_state", "workflow_validation"]
+      },
+      {
+        "item_id": "p3-shepherd-activity-harness-regression:shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent runtime substrate evidence with reversible trace, fork, replay, revert, sandboxing, and validation signals.",
+        "relevance_reason": "Recovery workflow ideas can inform local harness tests only after bounded probe fields are declared.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["runtime_substrate", "local_module"],
+        "entrypoints": ["runtime_api", "replay_runner"],
+        "dependency_boundaries": ["copy_on_write_runtime", "model_provider", "workspace_snapshot"],
+        "task_loop_assumptions": ["session_supervision", "state_replay", "policy_gate"],
+        "observable_behaviors": ["session_sync", "sandboxing", "workflow_validation"]
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "general_agent_project_route_plan.controller_surface", "equals": "general_agent_project_route_plan"},
+    {"path": "general_agent_project_route_plan.status", "equals": "ready"},
+    {"path": "general_agent_project_route_plan.decision", "equals": "agent_harness_eval_required_before_behavior_adoption"},
+    {"path": "general_agent_project_route_plan.record_count", "equals": 4},
+    {"path": "general_agent_project_route_plan.ready_record_count", "equals": 4},
+    {"path": "general_agent_project_route_plan.blocked_record_count", "equals": 0},
+    {"path": "general_agent_project_route_plan.route_class", "equals": "general_agent_project"},
+    {"path": "general_agent_project_route_plan.primary_route", "equals": "agent_harness_eval_required"},
+    {"path": "general_agent_project_route_plan.allowed_local_lanes_after_eval", "equals": ["documentation", "test", "code_patch"]},
+    {"path": "general_agent_project_route_plan.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "general_agent_project_route_plan.runtime_action", "equals": "none"},
+    {"path": "general_agent_project_route_plan.implementation_patch_allowed_before_eval", "equals": false},
+    {"path": "general_agent_project_route_plan.external_harness_execution_allowed", "equals": false},
+    {"path": "general_agent_project_route_plan.rows.0.route_class", "equals": "general_agent_project"},
+    {"path": "general_agent_project_route_plan.rows.0.primary_route", "equals": "agent_harness_eval_required"},
+    {"path": "general_agent_project_route_plan.rows.0.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "general_agent_project_route_plan.rows.0.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "general_agent_project_route_plan.rows.0.implementation_patch_allowed_before_eval", "equals": false},
+    {"path": "general_agent_project_route_plan.rows.0.direct_runtime_route_allowed", "equals": false},
+    {"path": "general_agent_project_route_plan.rows.0.direct_code_patch_route_allowed", "equals": false},
+    {"path": "general_agent_project_route_plan.rows.0.skill_route_discovery_inherited", "equals": false},
+    {"path": "privacy.raw_source_urls_exported", "equals": false}
+  ]
+}

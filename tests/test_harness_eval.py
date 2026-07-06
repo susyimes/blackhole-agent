@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 173
-    assert payload["pass_count"] == 172
+    assert payload["fixture_count"] == 174
+    assert payload["pass_count"] == 173
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -147,6 +147,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-20260702T090714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T091129-general-agent-projects"]["passed"] is True
+    assert (
+        results[
+            "agent-harness-eval-lane-20260706T165555-current-window-general-agent-projects"
+        ]["passed"]
+        is True
+    )
     assert results["agent-harness-eval-lane-20260706T133555-activity-shapes"]["passed"] is True
     assert (
         results[

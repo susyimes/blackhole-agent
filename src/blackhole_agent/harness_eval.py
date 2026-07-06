@@ -1197,6 +1197,10 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         project_intake_probe=project_intake_probe,
         general_agent_route_review_queue=general_agent_route_review_queue,
     )
+    general_agent_project_route_plan = build_general_agent_project_route_plan(
+        records,
+        project_intake_probe=project_intake_probe,
+    )
 
     return {
         "schema_version": 1,
@@ -1226,6 +1230,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "activity_intake_panel": activity_intake_panel,
         "fork_cluster_eval_queue": fork_cluster_eval_queue,
         "implementation_readiness_contract": implementation_readiness_contract,
+        "general_agent_project_route_plan": general_agent_project_route_plan,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
@@ -1250,6 +1255,98 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
             "runtime_actions_executed": False,
             "offensive_behavior_local_execution": False,
         },
+    }
+
+
+def build_general_agent_project_route_plan(
+    records: list[dict[str, Any]],
+    *,
+    project_intake_probe: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose the pre-adoption route gate for broad public agent projects."""
+
+    probe_rows = {
+        str(row.get("item_id") or ""): row
+        for row in project_intake_probe.get("rows", [])
+        if isinstance(row, dict)
+    }
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            continue
+        text = agent_harness_eval_record_text(record)
+        route_hints = set(string_list(record.get("route_hints")))
+        recognized = AGENT_HARNESS_EVAL_HINT in route_hints or any(
+            marker in text for marker in ("agent harness", "benchmark", "eval", "evaluation", "harness")
+        )
+        if not recognized:
+            continue
+        item_id = optional_string(record.get("item_id")) or f"item-{index}"
+        suggested_lanes = string_list(record.get("suggested_lanes"))
+        allowed_lanes = [
+            lane for lane in suggested_lanes if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+        ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+        rejected_lanes = sorted(set(suggested_lanes) - set(AGENT_HARNESS_EVAL_ALLOWED_LANES))
+        missing_probe_fields = string_list(probe_rows.get(item_id, {}).get("missing_fields"))
+        row_diagnostics = []
+        if missing_probe_fields:
+            row_diagnostics.append("missing_agent_harness_probe_fields")
+        if rejected_lanes:
+            row_diagnostics.append("unsupported_direct_lane_requested")
+        diagnostics.extend(f"{item_id}:{diagnostic}" for diagnostic in row_diagnostics)
+        source_url = optional_string(record.get("source_url")) or ""
+        rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "general_agent_project",
+                "primary_route": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval_required",
+                "route_hints": sorted(route_hints),
+                "allowed_local_lanes_after_eval": allowed_lanes,
+                "direct_allowed_lanes_before_eval": [],
+                "rejected_direct_lanes": rejected_lanes,
+                "missing_probe_fields": missing_probe_fields,
+                "probe_ready": not missing_probe_fields,
+                "skill_route_discovery_inherited": False,
+                "implementation_patch_allowed_before_eval": False,
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "runtime_action": "none",
+                "source_url_hash": stable_text_hash(source_url) if source_url else None,
+            }
+        )
+
+    return {
+        "controller_surface": "general_agent_project_route_plan",
+        "status": "ready" if rows and not diagnostics else "blocked",
+        "decision": "agent_harness_eval_required_before_behavior_adoption"
+        if rows and not diagnostics
+        else "declare_probe_fields_and_remove_direct_lanes_before_eval",
+        "record_count": len(rows),
+        "ready_record_count": sum(1 for row in rows if row["probe_ready"]),
+        "blocked_record_count": sum(1 for row in rows if not row["probe_ready"] or row["rejected_direct_lanes"]),
+        "route_class": "general_agent_project",
+        "primary_route": "agent_harness_eval_required",
+        "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "direct_allowed_lanes_before_eval": [],
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "implementation_patch_allowed_before_eval": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
