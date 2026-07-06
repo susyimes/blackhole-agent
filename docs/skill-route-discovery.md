@@ -5,6 +5,33 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T221555.480207Z`, pass 3 exposes
+`current_pass3_validation_route_packet` inside the existing replay lane.
+`lingbol088-spec/reverse-flow-skill` is the only skill-route row because the
+evidence shows a Codex/AI Agent package under `skills/reverse-flow`,
+`SKILL.md`, references, scripts, and local sandbox or CTF framing. It remains a
+bounded local validation candidate in the test lane, with documentation,
+config, test, and code_patch as the only allowed local lanes.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` are
+general-agent project rows for this pass. Even when their summaries mention
+agents, evaluation, workflow, replay, rollback, or runtime substrates, negated
+skill-package evidence such as no selected skill package, no `SKILL.md`
+evidence, or no explicit skill workflow route signal keeps them behind
+`agent_harness_eval_required`. They inherit no `skill_route_discovery` route,
+have no direct implementation lanes before local harness evaluation, and may
+only produce documentation, test, or code_patch follow-up after that bounded
+harness result exists.
+
+The packet is item-id-only: each row's `evidence_refs` contains only its
+selected digest `item_id`, never repository URLs or added external evidence.
+Replay commands are exported only as hashes, and runtime action, upstream skill
+activation, upstream agent activation, external harness execution, provider
+launch, remote execution, raw source URL export, raw evidence URL export, and
+upstream body export remain disabled. Replay with:
+`python -m pytest tests/test_proposal_eval.py -q -k current_pass3_validation_route_packet`.
+
 For source digest `github-growth-20260706T213555.505315Z`, pass 1 makes the
 current reverse-flow plus general-agent split replayable under
 `current_digest_pass1_validation_lane`. `lingbol088-spec/reverse-flow-skill`

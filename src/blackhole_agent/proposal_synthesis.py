@@ -61,10 +61,22 @@ SKILL_WORKFLOW_CONTEXT_TERMS = (
 )
 NEGATED_SKILL_WORKFLOW_TERMS = (
     "lacks skill",
+    "no explicit skill workflow",
     "no skill",
+    "no selected skill",
+    "no skill package",
+    "no skill.md evidence",
     "not a skill",
     "not skill",
+    "not a codex skill",
     "without skill",
+)
+STRONG_NEGATED_SKILL_WORKFLOW_TERMS = (
+    "no explicit skill workflow route signal",
+    "no selected skill package",
+    "no skill package",
+    "no skill.md evidence",
+    "not a codex skill package",
 )
 CONCRETE_SKILL_WORKFLOW_TERMS = (
     "agent skill",
@@ -2374,6 +2386,12 @@ def build_current_pass3_skill_route_replay_lane(
             digest_id=digest_id,
             ready=ready,
         ),
+        "current_window_validation_route_packet": build_current_pass3_validation_route_packet(
+            skill_rows=skill_rows,
+            adjacent_rows=adjacent_rows,
+            digest_id=digest_id,
+            ready=ready,
+        ),
         "skill_route_candidate_count": len(skill_rows),
         "agent_harness_eval_required_count": len(adjacent_rows),
         "skill_route_ready": skill_ready,
@@ -2420,6 +2438,168 @@ def build_current_pass3_skill_route_replay_lane(
         "raw_evidence_url_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
+
+
+def build_current_pass3_validation_route_packet(
+    *,
+    skill_rows: list[dict[str, Any]],
+    adjacent_rows: list[dict[str, Any]],
+    digest_id: str,
+    ready: bool,
+) -> dict[str, Any]:
+    """Expose the active proposal window as item-id-only validation routes."""
+
+    rows: list[dict[str, Any]] = []
+    activation_blockers: list[str] = []
+    for row in skill_rows:
+        item_id = str(row.get("item_id") or "")
+        allowed_lanes = [
+            str(lane)
+            for lane in row.get("allowed_local_lanes", [])
+            if str(lane) in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+        ]
+        selected_lane = str(row.get("selected_local_lane") or "")
+        route_profiles = [
+            str(profile)
+            for profile in row.get("route_profiles", [])
+            if str(profile).strip()
+        ]
+        route_ready = (
+            bool(item_id)
+            and selected_lane in ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+            and set(allowed_lanes).issubset(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+            and row.get("implementation_lanes_enabled") is True
+            and str(row.get("runtime_action") or "") == "none"
+        )
+        if not route_ready:
+            activation_blockers.append(f"{item_id}:skill_route_validation_route_not_ready")
+        rows.append(
+            {
+                "proposal_id": _current_pass3_skill_route_proposal_id(item_id),
+                "proposal_kind": selected_lane if selected_lane in ALLOWED_PROPOSAL_KINDS else "test",
+                "item_id": item_id,
+                "evidence_refs": [item_id] if item_id else [],
+                "route_class": "skill_workflow",
+                "primary_route": "skill_route_discovery",
+                "evaluation_lane": (
+                    "skill_route_discovery_first"
+                    if "codex_workflow_gate" in route_profiles
+                    or "reverse-flow-skill" in item_id.lower()
+                    else "skill_route_discovery"
+                ),
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_lanes,
+                "route_profiles": route_profiles,
+                "lane_limit": "documentation_config_test_code_patch_only",
+                "local_validation_task": (
+                    "classify_skill_route_discovery_candidate_before_activation"
+                ),
+                "implementation_lanes_enabled": row.get("implementation_lanes_enabled") is True,
+                "agent_harness_eval_required": False,
+                "direct_allowed_lanes_before_eval": allowed_lanes,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "status": "ready" if route_ready else "blocked",
+            }
+        )
+
+    for row in adjacent_rows:
+        item_id = str(row.get("item_id") or "")
+        route_ready = (
+            bool(item_id)
+            and row.get("implementation_lanes_enabled") is False
+            and row.get("direct_allowed_lanes_before_eval", []) == []
+            and row.get("skill_route_discovery_inherited") is False
+            and str(row.get("runtime_action") or "") == "none"
+        )
+        if not route_ready:
+            activation_blockers.append(f"{item_id}:agent_harness_gate_not_ready")
+        rows.append(
+            {
+                "proposal_id": _current_pass3_general_agent_proposal_id(item_id),
+                "proposal_kind": "test",
+                "item_id": item_id,
+                "evidence_refs": [item_id] if item_id else [],
+                "route_class": "general_agent_project",
+                "primary_route": "agent_harness_eval_required",
+                "evaluation_lane": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval",
+                "allowed_local_lanes_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "direct_allowed_lanes_before_eval": [],
+                "selected_implementation_lanes": [],
+                "skill_route_discovery_inherited": False,
+                "local_validation_task": "run_agent_harness_eval_before_any_implementation_lane",
+                "blocked_until": "local_agent_harness_evaluation_result",
+                "implementation_lanes_enabled": False,
+                "agent_harness_eval_required": True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "status": "blocked_until_harness_eval" if route_ready else "blocked",
+            }
+        )
+
+    skill_count = sum(1 for row in rows if row["primary_route"] == "skill_route_discovery")
+    general_count = sum(1 for row in rows if row["primary_route"] == "agent_harness_eval_required")
+    replay_commands = [
+        "python -m pytest tests/test_proposal_eval.py -q -k current_pass3_validation_route_packet",
+        "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+    ]
+    return {
+        "controller_surface": "current_pass3_validation_route_packet",
+        "status": "ready" if ready and not activation_blockers else "blocked",
+        "decision": (
+            "validate_skill_route_candidates_and_keep_general_agents_harness_gated"
+            if ready and not activation_blockers
+            else "repair_validation_routes_before_activation"
+        ),
+        "source_digest": digest_id,
+        "capability_pass": "3_of_4",
+        "evidence_ref_scope": "selected_item_ids_only",
+        "item_id_only_evidence_refs": True,
+        "row_count": len(rows),
+        "skill_route_candidate_count": skill_count,
+        "agent_harness_eval_required_count": general_count,
+        "activation_blockers": activation_blockers,
+        "rows": rows,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "allowed_general_agent_lanes_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "general_agent_direct_allowed_lanes_before_eval": [],
+        "replay_command_hashes": [stable_hash({"command": command}) for command in replay_commands],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_replay_command_export_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def _current_pass3_skill_route_proposal_id(item_id: str) -> str:
+    if "reverse-flow-skill" in item_id.lower():
+        return "proposal_skill_route_discovery_reverse_flow_skill"
+    return "proposal_skill_route_discovery_candidate"
+
+
+def _current_pass3_general_agent_proposal_id(item_id: str) -> str:
+    lower_item_id = item_id.lower()
+    if any(
+        marker in lower_item_id
+        for marker in (
+            "agents-a1",
+            "qwen-agentworld",
+            "fundamental-ava",
+            "shepherd-agents/shepherd",
+        )
+    ):
+        return "proposal_agent_harness_eval_general_trends"
+    return "proposal_agent_harness_eval_required"
 
 
 def build_current_pass3_active_window_proposal_manifest(
@@ -3334,6 +3514,8 @@ def _route_hints_from_text(text: str) -> list[str]:
 
 
 def _has_skill_workflow_route_signal(text: str) -> bool:
+    if any(term in text for term in STRONG_NEGATED_SKILL_WORKFLOW_TERMS):
+        return False
     if any(term in text for term in NEGATED_SKILL_WORKFLOW_TERMS) and not any(
         term in text for term in CONCRETE_SKILL_WORKFLOW_TERMS
     ):

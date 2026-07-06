@@ -575,6 +575,32 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "github-growth-20260706T221555.480207Z",
+        "`current_pass3_validation_route_packet`",
+        "`lingbol088-spec/reverse-flow-skill` is the only skill-route row",
+        "bounded local validation candidate in the test lane",
+        "`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,\n"
+        "`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd`",
+        "no selected skill package, no `SKILL.md`\nevidence, or no explicit skill workflow route signal",
+        "`agent_harness_eval_required`",
+        "inherit no `skill_route_discovery` route",
+        "no direct implementation lanes before local harness evaluation",
+        "each row's `evidence_refs` contains only its\nselected digest `item_id`",
+        "never repository URLs or added external evidence",
+        "Replay commands are exported only as hashes",
+        "runtime action, upstream skill\nactivation, upstream agent activation, external harness execution",
+        "python -m pytest tests/test_proposal_eval.py -q -k current_pass3_validation_route_packet",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_ci_security_waiver_doc_records_label_only_rerun_contract():
     doc = (REPO_ROOT / "docs" / "ci-security-waiver.md").read_text(encoding="utf-8")
 

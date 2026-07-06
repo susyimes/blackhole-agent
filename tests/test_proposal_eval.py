@@ -1593,6 +1593,163 @@ def test_current_pass3_active_window_manifest_binds_exact_proposals_to_bounded_l
     assert "python -m pytest" not in serialized
 
 
+def test_current_pass3_validation_route_packet_keeps_current_window_bounded():
+    digest = {
+        "digest_id": "github-growth-20260706T221555.480207Z",
+        "generated_at": "2026-07-06T22:15:55.480207Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is a Codex and AI Agent workflow skill repository with "
+                    "skills/reverse-flow/SKILL.md, references, scripts, local sandbox defaults, "
+                    "CTF and crackme framing, and install or run examples that must remain "
+                    "diagnostic."
+                ),
+                "relevance_reason": (
+                    "Codex skill workflow evidence must route through skill_route_discovery_first "
+                    "before bounded local validation."
+                ),
+            },
+            {
+                "item_id": "trend:InternScience/Agents-A1-1",
+                "source_url": "https://github.com/InternScience/Agents-A1",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Agents-A1 is a general agent project with long-horizon task and evaluation "
+                    "claims, no selected skill package, no SKILL.md evidence, and no explicit "
+                    "skill workflow route signal."
+                ),
+                "relevance_reason": (
+                    "General agent project trend requires local agent harness evaluation before "
+                    "implementation lanes."
+                ),
+            },
+            {
+                "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+                "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Qwen-AgentWorld is a general agent benchmark and environment project with "
+                    "no selected skill package, no SKILL.md evidence, and no explicit skill "
+                    "workflow route signal."
+                ),
+                "relevance_reason": (
+                    "General agent project trend requires local agent harness evaluation before "
+                    "implementation lanes."
+                ),
+            },
+            {
+                "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Fundamental-Ava is an autonomous collaborative general-agent project with "
+                    "no selected skill package, no SKILL.md evidence, and no explicit skill "
+                    "workflow route signal."
+                ),
+                "relevance_reason": (
+                    "General agent project trend requires local agent harness evaluation before "
+                    "implementation lanes."
+                ),
+            },
+            {
+                "item_id": "trend:shepherd-agents/shepherd-1",
+                "source_url": "https://github.com/shepherd-agents/shepherd",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "Shepherd is a general agent runtime substrate with reversible trace, fork, "
+                    "replay, rollback, and supervision claims, but no selected skill package or "
+                    "explicit skill workflow route signal."
+                ),
+                "relevance_reason": (
+                    "General agent runtime trend requires local agent harness evaluation before "
+                    "implementation lanes."
+                ),
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=5, max_item_text_chars=520)
+    replay_lane = build_route_hint_lane_map(evidence_package)["current_pass3_skill_route_replay_lane"]
+    packet = replay_lane["current_window_validation_route_packet"]
+    rows_by_item_id = {row["item_id"]: row for row in packet["rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert packet["controller_surface"] == "current_pass3_validation_route_packet"
+    assert packet["status"] == "ready"
+    assert packet["source_digest"] == "github-growth-20260706T221555.480207Z"
+    assert packet["evidence_ref_scope"] == "selected_item_ids_only"
+    assert packet["item_id_only_evidence_refs"] is True
+    assert packet["row_count"] == 5
+    assert packet["skill_route_candidate_count"] == 1
+    assert packet["agent_harness_eval_required_count"] == 4
+    assert packet["activation_blockers"] == []
+    assert packet["general_agent_direct_allowed_lanes_before_eval"] == []
+
+    reverse_flow = rows_by_item_id["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["proposal_id"] == "proposal_skill_route_discovery_reverse_flow_skill"
+    assert reverse_flow["proposal_kind"] == "test"
+    assert reverse_flow["evidence_refs"] == ["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["primary_route"] == "skill_route_discovery"
+    assert reverse_flow["evaluation_lane"] == "skill_route_discovery_first"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["implementation_lanes_enabled"] is True
+
+    for item_id in [
+        "trend:InternScience/Agents-A1-1",
+        "trend:QwenLM/Qwen-AgentWorld-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:shepherd-agents/shepherd-1",
+    ]:
+        row = rows_by_item_id[item_id]
+        assert row["proposal_id"] == "proposal_agent_harness_eval_general_trends"
+        assert row["evidence_refs"] == [item_id]
+        assert row["primary_route"] == "agent_harness_eval_required"
+        assert row["selected_local_lane"] == "agent_harness_eval"
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lanes_enabled"] is False
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["status"] == "blocked_until_harness_eval"
+
+    assert packet["runtime_action"] == "none"
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert packet["raw_replay_command_export_allowed"] is False
+    assert packet["raw_source_url_export_allowed"] is False
+    assert packet["raw_evidence_url_export_allowed"] is False
+    assert packet["upstream_body_export_allowed"] is False
+    assert all(len(command_hash) == 64 for command_hash in packet["replay_command_hashes"])
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+
+
+def test_general_agent_negated_skill_package_text_does_not_enter_skill_route():
+    classification = classify_digest_item_route(
+        {
+            "event_kind": "RepositoryTrend",
+            "summary": (
+                "General agent project with evaluation claims, no selected skill package, "
+                "no SKILL.md evidence, and no explicit skill workflow route signal."
+            ),
+            "relevance_reason": "Requires local agent harness evaluation before implementation lanes.",
+        }
+    )
+
+    assert classification["route_class"] == "general_agent_project"
+    assert classification["evaluation_lane"] == "agent_harness_eval_required"
+    assert "skill_route_discovery" not in classification["route_hints"]
+    assert classification["allowed_lanes"] == []
+
+
 def test_skill_route_profile_classifies_phaser_game_engine_evidence_as_frontend_workflow():
     classification = classify_digest_item_route(
         {
