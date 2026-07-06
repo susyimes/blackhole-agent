@@ -619,6 +619,74 @@ def test_skill_route_discovery_current_digest_pass2_prioritizes_route_hints_befo
     assert '"remote_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260706T155555_pass4_preserves_generic_pr_as_weak_signal():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260706T155555_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(fixture["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent_by_id = {row["item_id"]: row for row in handoff["adjacent_general_agent_rows"]}
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260706T155555.709646Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 5
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_keep_external_activation_denied"
+    )
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-agent-harness-eval-trending-projects",
+        "p4-route-classification-coverage",
+    ]
+
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert set(reverse_flow["route_profiles"]) == {"codex_workflow_gate", "generic_skill_workflow"}
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["runtime_action"] == "none"
+    assert reverse_flow["external_skill_activation_allowed"] is False
+
+    pr_row = adjacent_by_id["pr:shepherd-agents/shepherd-25"]
+    assert pr_row["evaluation_lane"] == "agent_harness_eval_required"
+    assert pr_row["selected_local_lane"] == "agent_harness_eval_required"
+    assert pr_row["weak_public_activity_review"] == {
+        "signal_kind": "pull_request",
+        "evidence_strength": "weak",
+        "supporting_context_only": True,
+        "proposal_lane_count_effect": "none",
+        "implementation_evidence_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_harness_execution_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_pull_request_body_exported": False,
+    }
+    assert pr_row["direct_code_patch_route_allowed"] is False
+    assert pr_row["external_harness_execution_allowed"] is False
+    assert pr_row["remote_execution_allowed"] is False
+
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_external_skill_route_discovery_rejects_enabled_or_unbounded_candidates():
     registry = build_skill_route_discovery_registry(
         [

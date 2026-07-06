@@ -2134,6 +2134,7 @@ def _skill_route_discovery_ignored_evidence_item(
     result = {
         "item_id": evidence_item.item_id,
         "item_kind": evidence_item.item_kind,
+        "discovery_event_kind": evidence_item.discovery_event_kind,
         "name": evidence_item.name or _repository_name_from_url(evidence_item.source_url),
         "source_hash": source_hash,
         "route_hints": list(evidence_item.route_hints),
@@ -2152,11 +2153,58 @@ def _skill_route_discovery_ignored_evidence_item(
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+    weak_activity_review = _skill_route_discovery_weak_public_activity_review(
+        item_kind=evidence_item.item_kind,
+        discovery_event_kind=evidence_item.discovery_event_kind,
+        title=evidence_item.title,
+        summary=evidence_item.summary,
+    )
+    if weak_activity_review:
+        result["weak_public_activity_review"] = weak_activity_review
     if route_class:
         result["route_class"] = route_class
         result["route_hint"] = "agent_harness_eval_required"
         result["required_before_implementation"] = "local_agent_harness_eval_route_established"
     return result
+
+
+def _skill_route_discovery_weak_public_activity_review(
+    *,
+    item_kind: str,
+    discovery_event_kind: str,
+    title: str,
+    summary: str,
+) -> dict[str, Any]:
+    """Preserve low-detail public movement without treating it as implementation evidence."""
+
+    kind_text = f"{item_kind} {discovery_event_kind}".casefold()
+    if not any(marker in kind_text for marker in ("pull_request", "pullrequest", "pr")):
+        return {}
+
+    detail_text = " ".join(part for part in (title, summary) if part).casefold()
+    generic = not detail_text or any(
+        marker in detail_text
+        for marker in (
+            "generic",
+            "low-detail",
+            "low detail",
+            "missing detail",
+            "untitled",
+            "public-surface baseline",
+        )
+    )
+    return {
+        "signal_kind": "pull_request",
+        "evidence_strength": "weak" if generic else "supporting",
+        "supporting_context_only": True,
+        "proposal_lane_count_effect": "none",
+        "implementation_evidence_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_harness_execution_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_pull_request_body_exported": False,
+    }
 
 
 def _skill_route_discovery_mixed_probe_metadata(
@@ -19016,6 +19064,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260706T143556.012746Z",
         "github-growth-20260706T143556Z",
     }
+    current_155555_20260706_window = source_digest in {
+        "github-growth-20260706T155555.709646Z",
+        "github-growth-20260706T155555Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -19122,6 +19174,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_101129_20260706_window
         or current_131555_20260706_window
         or current_143556_20260706_window
+        or current_155555_20260706_window
         or current_163922_20260703_window
         or current_175922_20260703_window
         or current_191923_20260703_window
@@ -19162,6 +19215,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_101129_20260706_window
             or current_131555_20260706_window
             or current_143556_20260706_window
+            or current_155555_20260706_window
         ):
             return _skill_route_discovery_current_digest_20260705T080817_pass4_completion_handoff(
                 candidate_lane_inventory,
@@ -20706,9 +20760,13 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         "github-growth-20260706T143556.012746Z",
         "github-growth-20260706T143556Z",
     }
+    current_155555_20260706_window = source_digest in {
+        "github-growth-20260706T155555.709646Z",
+        "github-growth-20260706T155555Z",
+    }
     reverse_flow_proposal_id = (
         "p1-skill-route-discovery-reverse-flow"
-        if current_143556_20260706_window
+        if current_143556_20260706_window or current_155555_20260706_window
         else
         "p1-skill-route-discovery-reverse-flow"
         if current_101129_20260706_window or current_131555_20260706_window
@@ -20737,6 +20795,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p1-skill-route-discovery-reverse-flow"
     )
     docs_proposal_id = (
+        "p4-route-classification-coverage"
+        if current_155555_20260706_window
+        else
         "p3-routing-docs-for-trend-classes"
         if current_143556_20260706_window
         else
@@ -20777,6 +20838,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p3-document-growth-route-policy"
     )
     agent_harness_proposal_id = (
+        "p2-agent-harness-eval-trending-projects"
+        if current_155555_20260706_window
+        else
         "p2-agent-harness-eval-general-projects"
         if current_143556_20260706_window
         else
@@ -20815,6 +20879,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     replay_marker = (
+        "current_digest_20260706T155555_pass4_completion"
+        if current_155555_20260706_window
+        else
         "current_digest_20260706T143556_pass4_completion"
         if current_143556_20260706_window
         else
@@ -20858,6 +20925,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         ("lingbol088-spec-reverse-flow-skill", "zhenluwang23-sys-reverse-flow-skill")
         if current_052238_20260706_window
         else
+        ("reverse-flow-skill", "lingbol088-spec-reverse-flow-skill")
+        if current_155555_20260706_window
+        else
         ("lingbol088-spec-reverse-flow-skill",)
         if (
             current_120958_window
@@ -20872,6 +20942,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             or current_101129_20260706_window
             or current_131555_20260706_window
             or current_143556_20260706_window
+            or current_155555_20260706_window
         )
         else
         (
@@ -20933,6 +21004,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             or current_101129_20260706_window
             or current_131555_20260706_window
             or current_143556_20260706_window
+            or current_155555_20260706_window
         ):
             row["downgraded_unsupported_lane_count"] = len(downgraded_lanes)
             row["downgraded_unsupported_lane_categories"] = (
@@ -20979,6 +21051,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         or current_101129_20260706_window
         or current_131555_20260706_window
         or current_143556_20260706_window
+        or current_155555_20260706_window
         else
         {
             "Agents-A1",
@@ -21186,6 +21259,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
                 or current_101129_20260706_window
                 or current_131555_20260706_window
                 or current_143556_20260706_window
+                or current_155555_20260706_window
                 else [
                     "p1-skill-route-discovery-reverse-flow",
                     "p2-agent-harness-eval-fixture",
@@ -21230,6 +21304,14 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
                     "trend:QwenLM/Qwen-AgentWorld-1",
                     "trend:TianhangZhuzth/Fundamental-Ava-1",
                     "trend:shepherd-agents/shepherd-1",
+                    *(
+                        [
+                            "p3-shepherd-pr-signal-capture",
+                            "trend:shepherd-agents/shepherd-pr-25",
+                        ]
+                        if current_155555_20260706_window
+                        else []
+                    ),
                 ]
                 if current_052238_20260706_window
                 else
@@ -30660,10 +30742,15 @@ def _skill_route_discovery_adjacent_general_agent_rows(
             "raw_target_paths_exported": False,
             "raw_upstream_body_exported": False,
         }
+        discovery_event_kind = str(item.get("discovery_event_kind") or "")
+        if discovery_event_kind and discovery_event_kind != "unknown":
+            row["discovery_event_kind"] = discovery_event_kind
         if item.get("route_class"):
             row["route_class"] = str(item.get("route_class") or "")
         if item.get("route_hint"):
             row["route_hint"] = str(item.get("route_hint") or "")
+        if isinstance(item.get("weak_public_activity_review"), Mapping):
+            row["weak_public_activity_review"] = dict(item["weak_public_activity_review"])
         rows.append(row)
     return rows
 
