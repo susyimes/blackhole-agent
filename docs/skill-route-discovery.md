@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T093129.770380Z`, pass 2 records the
+active route-discovery slice as both a pass-2 local validation lane and a
+`skill_route_discovery_validation_route_packet`. The reverse-flow-skill trend
+enters `skill_route_discovery` first because the evidence item carries an
+explicit skill/workflow route hint and local skill-package shape. Its accepted
+evidence references remain selected `item_id` values only, and its local lane
+set is bounded to documentation, config, test, or code_patch with runtime action
+disabled.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` remain adjacent
+general-agent rows. They require `agent_harness_eval_required` before any
+documentation, test, or code_patch follow-up and inherit no skill-route lane.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T093129`.
+
 For source digest `github-growth-20260706T091129.696426Z`, pass 1 starts the
 active route-discovery slice by making the adjacent general-agent lane more
 inspectable before activation. `InternScience/Agents-A1`,

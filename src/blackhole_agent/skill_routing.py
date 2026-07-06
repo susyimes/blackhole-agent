@@ -10769,14 +10769,21 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "github-growth-20260706T060238.927687Z",
         "github-growth-20260706T060238Z",
     }
+    current_20260706_093129_window = source_digest in {
+        "github-growth-20260706T093129.770380Z",
+        "github-growth-20260706T093129Z",
+    }
     current_reverse_flow_named_window = (
         current_153637_window
         or current_20260706_020239_window
         or current_20260706_032238_window
         or current_20260706_060238_window
+        or current_20260706_093129_window
     )
     agent_proposal_id = (
-        "p1-agent-harness-eval-trending-python-agents"
+        "p2_agent_harness_eval_trending_agents"
+        if current_20260706_093129_window
+        else "p1-agent-harness-eval-trending-python-agents"
         if current_20260706_060238_window
         else "p2-agent-harness-eval-fixtures"
         if current_20260706_032238_window
@@ -10798,7 +10805,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     documentation_proposal_id = (
-        "p3-document-routing-boundaries-for-trend-items"
+        "p3_document_route_policy_for_trend_items"
+        if current_20260706_093129_window
+        else "p3-document-routing-boundaries-for-trend-items"
         if current_20260706_060238_window
         else "p3-route-policy-doc-clarification"
         if current_20260706_032238_window
@@ -10820,7 +10829,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p3-route-classification-docs"
     )
     documentation_validation_target = (
-        "document_repository_trend_routes_into_agent_harness_or_skill_discovery"
+        "document_repository_trend_evidence_route_split_and_item_id_refs"
+        if current_20260706_093129_window
+        else "document_repository_trend_routes_into_agent_harness_or_skill_discovery"
         if current_20260706_060238_window
         else "document_skill_route_discovery_vs_agent_harness_eval_flow"
         if current_20260706_032238_window
@@ -10840,7 +10851,7 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
     )
     expected_agent_names = (
         {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld", "shepherd"}
-        if current_20260706_060238_window
+        if current_20260706_060238_window or current_20260706_093129_window
         else {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld"}
         if current_20260706_032238_window
         else
@@ -10913,7 +10924,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
     rows: list[dict[str, Any]] = []
     for proposal_id, proposal_kind, selected_lane, validation_target in (
         (
-            "p2_skill_route_discovery_reverse_flow"
+            "p1_skill_route_discovery_reverse_flow"
+            if current_20260706_093129_window
+            else "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
             else "p2-skill-route-discovery-reverse-flow-skill"
             if current_20260706_060238_window
@@ -11012,6 +11025,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
     for row in adjacent_rows:
         if current_20260706_032238_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
+        elif current_20260706_093129_window:
+            row["proposal_id"] = "p2_agent_harness_eval_trending_agents"
         elif current_20260706_060238_window:
             row["proposal_id"] = "p1-agent-harness-eval-trending-python-agents"
         elif current_20260706_020239_window:
@@ -11122,6 +11137,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "proposal_ids": [
             "proposal_skill_route_discovery_reverse_flow_skill"
             if current_153637_window
+            else "p1_skill_route_discovery_reverse_flow"
+            if current_20260706_093129_window
             else "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
             else "p2-skill-route-discovery-reverse-flow-skill"
@@ -11160,6 +11177,23 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                     "trend:TianhangZhuzth/Fundamental-Ava-1",
                 ]
                 if current_20260706_032238_window
+                else [
+                    "p1-agent-harness-trend-eval",
+                    "p2-skill-route-discovery-probe",
+                    "p3-routing-rubric-doc",
+                    "p4-eval-result-schema",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "p1_skill_route_discovery_reverse_flow",
+                    "p2_agent_harness_eval_trending_agents",
+                    "p3_document_route_policy_for_trend_items",
+                    "p4_configurable_route_hint_guardrails",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "trend:shepherd-agents/shepherd-1",
+                ]
+                if current_20260706_093129_window
                 else [
                     "p1_skill_route_discovery_reverse_flow_skill",
                     "p2_agent_harness_eval_qwen_agentworld",
@@ -11289,6 +11323,7 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                     or current_112958_window
                     or current_20260706_020239_window
                     or current_20260706_060238_window
+                    or current_20260706_093129_window
                 )
                 else {}
             ),
@@ -11484,6 +11519,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260706T060238.927687Z",
         "github-growth-20260706T060238Z",
     }
+    current_20260706_093129_window = source_digest in {
+        "github-growth-20260706T093129.770380Z",
+        "github-growth-20260706T093129Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -11499,6 +11538,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260706_020239_window
         or current_20260706_032238_window
         or current_20260706_060238_window
+        or current_20260706_093129_window
     ):
         return _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation_lane(
             candidate_lane_inventory,
