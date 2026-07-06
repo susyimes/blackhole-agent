@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T225555.484632Z`, pass 1 advances the
+active skill-route-discovery slice by adding `benchmark_meta_agent_probe_lane`
+inside `agent_harness_eval_lane`. `shepherd-agents/shepherd` and pull request
+30 are treated as meta-agent and benchmark-style harness evidence: reversible
+traces, replay, supervision, retained outputs, and benchmark evaluation claims
+become a local-only fixture probe with declared benchmark tasks, evaluation
+dimensions, expected measurable outcome, and explicit side-effect denial.
+
+The lane is not a runtime integration path. It denies network access,
+credential access, provider launch, external harness execution, remote
+execution, unreviewed workspace writes, raw source URL export, and upstream body
+export. Existing general-agent rows that mention benchmark or evaluation but
+lack probe detail remain incomplete inside this lane until local fixture fields
+are supplied; they do not change direct implementation eligibility. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k benchmark_meta_agent_probe`.
+
 For source digest `github-growth-20260706T223555.499005Z`, pass 4 completes
 the current route-discovery slice with `current_digest_pass4_completion_handoff`.
 `lingbol088-spec/reverse-flow-skill` maps to

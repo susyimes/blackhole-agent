@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 178
-    assert payload["pass_count"] == 177
+    assert payload["fixture_count"] == 179
+    assert payload["pass_count"] == 178
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -146,6 +146,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-agents-a1-fork-cluster"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T205555-general-agent-route-queue"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T211555-workflow-orchestration"]["passed"] is True
+    assert results["agent-harness-eval-lane-20260706T225555-benchmark-meta-agent-probe"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T090714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T091129-general-agent-projects"]["passed"] is True
@@ -2782,6 +2783,59 @@ def test_agent_harness_eval_lane_exposes_post_eval_route_queue_for_current_gener
     )
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
+
+
+def test_agent_harness_eval_lane_exposes_benchmark_meta_agent_probe():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260706T225555_benchmark_meta_agent_probe.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["benchmark_meta_agent_probe_lane"]
+    row = lane["rows"][0]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert lane["status"] == "ready"
+    assert lane["decision"] == "benchmark_meta_agent_probe_ready_for_local_fixture_replay"
+    assert lane["record_count"] == 1
+    assert lane["ready_record_count"] == 1
+    assert lane["incomplete_record_count"] == 0
+    assert lane["required_local_validation"] == ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"]
+    assert row["route_class"] == "benchmark_meta_agent_probe"
+    assert row["minimal_local_probe"]["suite"] == "local_meta_agent_benchmark_probe"
+    assert row["minimal_local_probe"]["benchmark_tasks"] == [
+        "summarize_trace_without_body_export",
+        "compare_candidate_outputs_by_score",
+    ]
+    assert row["minimal_local_probe"]["evaluation_dimensions"] == [
+        "determinism",
+        "replayability",
+        "body_free_observability",
+    ]
+    assert row["minimal_local_probe"]["expected_measurable_outcome_declared"] is True
+    assert row["pass_fail_criteria"] == [
+        "project_probe_fields_complete",
+        "benchmark_tasks_declared",
+        "evaluation_dimensions_declared",
+        "expected_measurable_outcome_declared",
+        "no_forbidden_side_effects",
+    ]
+    assert row["side_effect_controls"]["requested_forbidden_side_effects"] == []
+    assert row["runtime_action"] == "none"
+    assert row["direct_behavior_adoption_allowed"] is False
+    assert row["external_harness_execution_allowed"] is False
+    assert row["provider_runtime_launch_allowed"] is False
+    assert row["remote_execution_allowed"] is False
+    assert lane["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
 
 
 def test_agent_harness_eval_lane_groups_low_detail_activity_by_upstream_project():

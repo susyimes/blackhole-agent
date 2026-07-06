@@ -164,6 +164,24 @@ AGENT_HARNESS_WORKFLOW_FORBIDDEN_SIDE_EFFECTS = (
     "remote_execution",
     "unreviewed_workspace_write",
 )
+AGENT_HARNESS_BENCHMARK_META_MARKERS = (
+    "benchmark",
+    "eval",
+    "evaluation",
+    "meta-agent",
+    "meta agent",
+    "optimize",
+    "score",
+    "supervise",
+    "train",
+)
+AGENT_HARNESS_BENCHMARK_PROBE_REQUIRED_FIELDS = (
+    "project_probe_fields_complete",
+    "benchmark_tasks_declared",
+    "evaluation_dimensions_declared",
+    "expected_measurable_outcome_declared",
+    "no_forbidden_side_effects",
+)
 AGENT_HARNESS_EVAL_CLAIM_PATTERNS: dict[str, dict[str, Any]] = {
     "multi_agent_orchestration": {
         "markers": ("agent framework", "meta-harness", "multiple agents", "orchestrate", "sub-agents"),
@@ -216,6 +234,7 @@ AGENT_HARNESS_EVAL_EXPECTED_OUTPUT_FIELDS = (
     "project_intake_probe",
     "general_agent_route_review_queue",
     "implementation_readiness_contract",
+    "benchmark_meta_agent_probe_lane",
     "privacy",
 )
 EXTERNAL_HARNESS_ADAPTER_REQUIRED_CONFIG_FIELDS = (
@@ -1228,6 +1247,10 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         records,
         project_intake_probe=project_intake_probe,
     )
+    benchmark_meta_agent_probe_lane = build_benchmark_meta_agent_probe_lane(
+        records,
+        project_intake_probe=project_intake_probe,
+    )
 
     return {
         "schema_version": 1,
@@ -1259,6 +1282,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "implementation_readiness_contract": implementation_readiness_contract,
         "general_agent_project_route_plan": general_agent_project_route_plan,
         "workflow_orchestration_eval_lane": workflow_orchestration_eval_lane,
+        "benchmark_meta_agent_probe_lane": benchmark_meta_agent_probe_lane,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
@@ -1546,6 +1570,155 @@ def build_workflow_orchestration_eval_lane(
         "record_count": len(rows),
         "ready_record_count": sum(1 for row in rows if row["status"] == "ready"),
         "blocked_record_count": sum(1 for row in rows if row["status"] != "ready"),
+        "allowed_followup_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "required_local_validation": [validation_command],
+        "local_validation_required": bool(rows),
+        "runtime_action": "none",
+        "direct_behavior_adoption_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "body_free": True,
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+    }
+
+
+def build_benchmark_meta_agent_probe_lane(
+    records: list[dict[str, Any]],
+    *,
+    project_intake_probe: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose benchmark/meta-agent claims as deterministic local probe criteria."""
+
+    probe_rows = {
+        str(row.get("item_id") or ""): row
+        for row in project_intake_probe.get("rows", [])
+        if isinstance(row, dict)
+    }
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            continue
+        text = agent_harness_eval_record_text(record)
+        route_hints = set(string_list(record.get("route_hints")))
+        recognized = AGENT_HARNESS_EVAL_HINT in route_hints or any(
+            marker in text for marker in ("agent harness", "benchmark", "eval", "evaluation", "harness")
+        )
+        matched_signals = sorted(
+            {
+                marker.replace("-", "_").replace(" ", "_")
+                for marker in AGENT_HARNESS_BENCHMARK_META_MARKERS
+                if marker in text
+            }
+        )
+        if not recognized or not matched_signals:
+            continue
+
+        item_id = optional_string(record.get("item_id")) or f"item-{index}"
+        source_url = optional_string(record.get("source_url")) or ""
+        probe_row = probe_rows.get(item_id, {})
+        missing_probe_fields = string_list(probe_row.get("missing_fields"))
+        benchmark_tasks = string_list(record.get("benchmark_tasks") or record.get("local_benchmark_tasks"))
+        evaluation_dimensions = string_list(
+            record.get("evaluation_dimensions") or record.get("benchmark_dimensions")
+        )
+        expected_measurable_outcome = optional_string(
+            record.get("expected_measurable_outcome") or record.get("expected_outcome")
+        )
+        requested_side_effects = sorted(
+            {
+                side_effect
+                for side_effect in AGENT_HARNESS_WORKFLOW_FORBIDDEN_SIDE_EFFECTS
+                if truthy(record.get(side_effect))
+            }
+            | set(string_list(record.get("requested_side_effects")))
+            | set(string_list(record.get("observed_side_effects")))
+        )
+        known_forbidden_side_effects = [
+            side_effect
+            for side_effect in requested_side_effects
+            if side_effect in AGENT_HARNESS_WORKFLOW_FORBIDDEN_SIDE_EFFECTS
+        ]
+        row_diagnostics: list[str] = []
+        if missing_probe_fields:
+            row_diagnostics.append("missing_agent_harness_probe_fields")
+        if not benchmark_tasks:
+            row_diagnostics.append("benchmark_tasks_missing")
+        if not evaluation_dimensions:
+            row_diagnostics.append("evaluation_dimensions_missing")
+        if not expected_measurable_outcome:
+            row_diagnostics.append("expected_measurable_outcome_missing")
+        if known_forbidden_side_effects:
+            row_diagnostics.append("forbidden_side_effects_requested")
+        diagnostics.extend(f"{item_id}:{diagnostic}" for diagnostic in row_diagnostics)
+        row_status = "ready" if not row_diagnostics else "incomplete"
+        rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "benchmark_meta_agent_probe",
+                "status": row_status,
+                "matched_benchmark_signals": matched_signals,
+                "minimal_local_probe": {
+                    "behavior": "agent_harness_eval_lane",
+                    "suite": "local_meta_agent_benchmark_probe",
+                    "benchmark_tasks": benchmark_tasks,
+                    "evaluation_dimensions": evaluation_dimensions,
+                    "expected_measurable_outcome_declared": bool(expected_measurable_outcome),
+                    "required_fixture_fields": list(AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS)
+                    + [
+                        "benchmark_tasks",
+                        "evaluation_dimensions",
+                        "expected_measurable_outcome",
+                    ],
+                },
+                "pass_fail_criteria": list(AGENT_HARNESS_BENCHMARK_PROBE_REQUIRED_FIELDS),
+                "required_local_validation": [validation_command],
+                "side_effect_controls": {
+                    "network_access_allowed": False,
+                    "credential_access_allowed": False,
+                    "provider_launch_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "remote_execution_allowed": False,
+                    "unreviewed_workspace_write_allowed": False,
+                    "requested_forbidden_side_effects": known_forbidden_side_effects,
+                },
+                "probe_ready": not missing_probe_fields,
+                "missing_probe_fields": missing_probe_fields,
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "direct_behavior_adoption_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+                "source_url_hash": stable_text_hash(source_url) if source_url else None,
+            }
+        )
+
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "benchmark_meta_agent_probe_lane",
+        "status": "ready" if ready else "incomplete" if rows else "not_applicable",
+        "decision": (
+            "benchmark_meta_agent_probe_ready_for_local_fixture_replay"
+            if ready
+            else "complete_benchmark_probe_fields_before_runtime_integration"
+            if rows
+            else "no_benchmark_or_meta_agent_claims_observed"
+        ),
+        "record_count": len(rows),
+        "ready_record_count": sum(1 for row in rows if row["status"] == "ready"),
+        "incomplete_record_count": sum(1 for row in rows if row["status"] != "ready"),
         "allowed_followup_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
         "required_local_validation": [validation_command],
         "local_validation_required": bool(rows),
