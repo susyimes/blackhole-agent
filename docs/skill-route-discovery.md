@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T223555.499005Z`, pass 4 completes
+the current route-discovery slice with `current_digest_pass4_completion_handoff`.
+`lingbol088-spec/reverse-flow-skill` maps to
+`p2-skill-route-discovery-for-reverse-flow` because the evidence has an
+explicit Codex/AI Agent skill workflow shape: `skills/reverse-flow`,
+`SKILL.md`, references, scripts, local sandbox defaults, CTF/crackme framing,
+and install or run wording. That wording remains diagnostic pressure only; the
+selected local lane is test and the allowed lanes remain documentation, config,
+test, and code_patch.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` map to
+`p1-agent-harness-eval-matrix` as general-agent project evidence. They do not
+inherit `skill_route_discovery`, expose no direct local lanes before evaluation,
+and may produce only documentation, test, or code_patch follow-up after a local
+agent-harness result exists. The operator packet is body-free and record-only:
+it exports proposal IDs, selected item IDs, lane names, source hashes, and
+replay command hashes while denying raw source URLs, replay commands, upstream
+bodies, runtime action, external skill or agent activation, external harness
+execution, provider launch, and remote execution. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T223555`.
+
 For source digest `github-growth-20260706T221555.480207Z`, pass 3 exposes
 `current_pass3_validation_route_packet` inside the existing replay lane.
 `lingbol088-spec/reverse-flow-skill` is the only skill-route row because the
