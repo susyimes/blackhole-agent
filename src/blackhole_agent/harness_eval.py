@@ -2341,6 +2341,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         build_skill_route_discovery_registry,
         build_skill_route_discovery_registry_from_evidence_items,
         build_skill_route_discovery_registry_from_summaries,
+        build_skill_route_discovery_validation_route_packet,
     )
 
     task_id = optional_string(raw_input.get("task_id")) or source_path.stem
@@ -2372,6 +2373,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         registry["source_digest"] = source_digest
 
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    validation_route_packet = build_skill_route_discovery_validation_route_packet(registry)
     proposal_lanes = lane_map["proposal_lanes"]
     summary_signal_audit = skill_route_discovery_summary_signal_audit(
         source_kind=source_kind,
@@ -2801,6 +2803,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
             "local_lane_matrix": lane_map["local_lane_matrix"],
         },
         "route_hint_lane_policy": route_hint_lane_policy,
+        "validation_route_packet": validation_route_packet,
         "evidence_url_expansion_policy": evidence_url_expansion_policy,
         "evidence_strength": evidence_strength,
         "source_lineage": source_lineage,

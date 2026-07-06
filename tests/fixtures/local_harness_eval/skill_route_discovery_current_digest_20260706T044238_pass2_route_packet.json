@@ -1,0 +1,174 @@
+{
+  "name": "skill-route-discovery-current-digest-20260706T044238-pass2-route-packet",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-discovery-current-digest-20260706T044238-pass2-route-packet",
+    "source_kind": "evidence_items",
+    "source_digest": "github-growth-20260706T044238.826915Z",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260706T044238.826915Z",
+        "item_id": "p1-skill-route-discovery-reverse-flow",
+        "item_kind": "repository",
+        "name": "reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex workflow skill",
+        "summary": "Codex AI Agent skill workflow with skills/reverse-flow/SKILL.md, references, scripts, local sandbox defaults, install examples, and runtime pressure that must remain diagnostic.",
+        "topics": ["codex", "agent-skill", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "runtime_execution"],
+        "route_hints": ["skill_route_discovery"],
+        "route_classification": {
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+          "source_metadata_signals": ["local_sandbox_boundary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260706T044238.826915Z",
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "Qwen-AgentWorld",
+        "summary": "Language world model benchmark and simulator for general agents.",
+        "topics": ["general-agent", "benchmark", "world-model"],
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "route_hints": ["agent_harness_eval"]
+      },
+      {
+        "source_digest": "github-growth-20260706T044238.826915Z",
+        "item_id": "trend:InternScience/Agents-A1-1",
+        "item_kind": "repository",
+        "name": "Agents-A1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "title": "Agents-A1",
+        "summary": "General agent project trend with scaling and evaluation claims.",
+        "topics": ["agents", "evaluation"],
+        "suggested_lanes": ["documentation", "test"],
+        "route_hints": ["agent_harness_eval"]
+      },
+      {
+        "source_digest": "github-growth-20260706T044238.826915Z",
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "item_kind": "repository",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "title": "Fundamental-Ava",
+        "summary": "Autonomous collaborative digital-human agent project evidence.",
+        "topics": ["autonomous-agent", "collaboration"],
+        "suggested_lanes": ["documentation", "test", "runtime_execution"],
+        "route_hints": ["agent_harness_eval"]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "validation_route_packet.status",
+      "equals": "ready"
+    },
+    {
+      "path": "validation_route_packet.decision",
+      "equals": "mixed_skill_and_agent_evidence_ready_for_bounded_local_validation"
+    },
+    {
+      "path": "validation_route_packet.skill_workflow_count",
+      "equals": 1
+    },
+    {
+      "path": "validation_route_packet.general_agent_project_count",
+      "equals": 3
+    },
+    {
+      "path": "validation_route_packet.allowed_skill_route_lanes",
+      "equals": ["documentation", "config", "test", "code_patch"]
+    },
+    {
+      "path": "validation_route_packet.allowed_agent_lanes_after_eval",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {
+      "path": "validation_route_packet.blocked_route_ids",
+      "equals": []
+    },
+    {
+      "path": "validation_route_packet.runtime_action",
+      "equals": "none"
+    },
+    {
+      "path": "validation_route_packet.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.external_agent_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.rows.0.route_kind",
+      "equals": "skill_workflow"
+    },
+    {
+      "path": "validation_route_packet.rows.0.route_hint",
+      "equals": "skill_route_discovery"
+    },
+    {
+      "path": "validation_route_packet.rows.0.selected_local_lane",
+      "equals": "test"
+    },
+    {
+      "path": "validation_route_packet.rows.0.allowed_local_lanes",
+      "equals": ["documentation", "config", "test", "code_patch"]
+    },
+    {
+      "path": "validation_route_packet.rows.1.route_kind",
+      "equals": "general_agent_project"
+    },
+    {
+      "path": "validation_route_packet.rows.1.evaluation_lane",
+      "equals": "agent_harness_eval_required"
+    },
+    {
+      "path": "validation_route_packet.rows.1.direct_allowed_lanes_before_eval",
+      "equals": []
+    },
+    {
+      "path": "validation_route_packet.rows.1.allowed_local_lanes_after_eval",
+      "equals": ["documentation", "test", "code_patch"]
+    },
+    {
+      "path": "validation_route_packet.rows.1.implementation_lanes_enabled",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.rows.1.skill_route_discovery_inherited",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.rows.1.direct_runtime_route_allowed",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.rows.1.direct_code_patch_route_allowed",
+      "equals": false
+    },
+    {
+      "path": "validation_route_packet.rows.1.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "privacy.raw_source_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "privacy.runtime_actions_executed",
+      "equals": false
+    }
+  ]
+}
