@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T183555.452657Z`, pass 4 completes
+the current skill-route-discovery slice through
+`current_digest_pass4_completion_handoff`. The reverse-flow skill item maps to
+`p1-skill-route-discovery-reverse-flow` in the local test lane and
+`p3-route-classification-regression-doc` in the documentation lane. Both rows
+must preserve `skill_route_discovery_first`, cite selected item IDs, and remain
+bounded to documentation, config, test, or code_patch. Install, run, script,
+provider, runtime, external harness, external skill activation, and remote
+execution pressure stays diagnostic only.
+
+`p2-agent-harness-eval-general-projects` covers the adjacent general-agent
+project items in the same window. Those rows use
+`agent_harness_eval_required`, inherit no `skill_route_discovery` lane, expose
+no direct implementation lane before a local harness result, and may only
+produce documentation, test, or code_patch follow-up after that gate. The
+handoff exports proposal IDs, selected evidence item IDs, lane names, source
+hashes, and replay command hashes only; raw source URLs, raw replay commands,
+upstream bodies, provider launch, remote execution, and runtime action remain
+disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T183555`.
+
 For source digest `github-growth-20260706T181555.593867Z`, pass 3 exposes
 `current_digest_pass3_replay_packet` as the operator-visible replay surface for
 the active reverse-flow plus general-agent window. The packet turns
