@@ -1497,6 +1497,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    pass2_retained_validation_packet = _skill_route_discovery_pass2_retained_validation_packet(
+        pass2_validation_handoff,
+        current_digest_pass2_local_validation_lane,
+        source_digest=_skill_route_discovery_source_digest(registry),
+    )
     current_digest_pass3_activation_review_lane = (
         _skill_route_discovery_current_digest_pass3_activation_review_lane(
             candidate_lane_inventory,
@@ -1604,6 +1609,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_run_pass3_acceptance_lane": current_run_pass3_acceptance_lane,
         "current_digest_pass3_route_to_validation_lane": current_digest_pass3_route_to_validation_lane,
         "growth_route_summary_artifact": growth_route_summary_artifact,
+        "pass2_retained_validation_packet": pass2_retained_validation_packet,
         "pass3_route_discovery_index": pass3_route_discovery_index,
         "pass3_activation_handoff": pass3_activation_handoff,
         "pass3_preflight_queue": pass3_preflight_queue,
@@ -10877,15 +10883,22 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "github-growth-20260706T093129.770380Z",
         "github-growth-20260706T093129Z",
     }
+    current_20260706_105129_window = source_digest in {
+        "github-growth-20260706T105129.764356Z",
+        "github-growth-20260706T105129Z",
+    }
     current_reverse_flow_named_window = (
         current_153637_window
         or current_20260706_020239_window
         or current_20260706_032238_window
         or current_20260706_060238_window
         or current_20260706_093129_window
+        or current_20260706_105129_window
     )
     agent_proposal_id = (
-        "p2_agent_harness_eval_trending_agents"
+        "p2_skill_route_discovery_agent_harness_eval_queue"
+        if current_20260706_105129_window
+        else "p2_agent_harness_eval_trending_agents"
         if current_20260706_093129_window
         else "p1-agent-harness-eval-trending-python-agents"
         if current_20260706_060238_window
@@ -10909,7 +10922,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     documentation_proposal_id = (
-        "p3_document_route_policy_for_trend_items"
+        "p2_skill_workflow_documentation_lane"
+        if current_20260706_105129_window
+        else "p3_document_route_policy_for_trend_items"
         if current_20260706_093129_window
         else "p3-document-routing-boundaries-for-trend-items"
         if current_20260706_060238_window
@@ -10933,7 +10948,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p3-route-classification-docs"
     )
     documentation_validation_target = (
-        "document_repository_trend_evidence_route_split_and_item_id_refs"
+        "document_reverse_flow_phase_workflow_as_bounded_local_skill_route_lane"
+        if current_20260706_105129_window
+        else "document_repository_trend_evidence_route_split_and_item_id_refs"
         if current_20260706_093129_window
         else "document_repository_trend_routes_into_agent_harness_or_skill_discovery"
         if current_20260706_060238_window
@@ -10954,7 +10971,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "skill_workflow_and_general_agent_route_split_is_operator_visible"
     )
     expected_agent_names = (
-        {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld", "shepherd"}
+        {"Agents-A1", "Qwen-AgentWorld", "shepherd"}
+        if current_20260706_105129_window
+        else {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld", "shepherd"}
         if current_20260706_060238_window or current_20260706_093129_window
         else {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld"}
         if current_20260706_032238_window
@@ -11030,6 +11049,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         (
             "p1_skill_route_discovery_reverse_flow"
             if current_20260706_093129_window
+            else "p1_skill_route_discovery_reverse_flow"
+            if current_20260706_105129_window
             else "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
             else "p2-skill-route-discovery-reverse-flow-skill"
@@ -11127,7 +11148,17 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         )
     ]
     for row in adjacent_rows:
-        if current_20260706_032238_window:
+        if current_20260706_105129_window:
+            row["proposal_id"] = (
+                "p2_general_agent_harness_eval_qwen_agentworld"
+                if str(row.get("name") or "").casefold() == "qwen-agentworld"
+                else "p3_general_agent_harness_eval_shepherd"
+                if str(row.get("name") or "").casefold() == "shepherd"
+                else "p4_general_agent_harness_eval_agents_a1"
+                if str(row.get("name") or "").casefold() == "agents-a1"
+                else "p2_skill_route_discovery_agent_harness_eval_queue"
+            )
+        elif current_20260706_032238_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         elif current_20260706_093129_window:
             row["proposal_id"] = "p2_agent_harness_eval_trending_agents"
@@ -11242,7 +11273,7 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             "proposal_skill_route_discovery_reverse_flow_skill"
             if current_153637_window
             else "p1_skill_route_discovery_reverse_flow"
-            if current_20260706_093129_window
+            if current_20260706_093129_window or current_20260706_105129_window
             else "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
             else "p2-skill-route-discovery-reverse-flow-skill"
@@ -11251,6 +11282,13 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             if current_20260706_032238_window
             else "p1-skill-route-discovery-reverse-flow",
             *(
+                [
+                    "p2_general_agent_harness_eval_qwen_agentworld",
+                    "p3_general_agent_harness_eval_shepherd",
+                    "p4_general_agent_harness_eval_agents_a1",
+                ]
+                if current_20260706_105129_window
+                else
                 ["p2_agent_harness_eval_qwen_agentworld"]
                 if current_20260706_020239_window
                 else
@@ -11266,6 +11304,22 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "anchoring_proposal_ids": [
             *(
                 [
+                    "p1_reverse_flow_skill_route_discovery",
+                    "p2_skill_workflow_documentation_lane",
+                    "p3_agent_harness_eval_for_general_agent_trends",
+                    "p4_agent_trend_triage_config",
+                    "p5_no_direct_external_behavior_adoption",
+                    "p1_skill_route_discovery_reverse_flow",
+                    "p2_general_agent_harness_eval_qwen_agentworld",
+                    "p3_general_agent_harness_eval_shepherd",
+                    "p4_general_agent_harness_eval_agents_a1",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:shepherd-agents/shepherd-1",
+                ]
+                if current_20260706_105129_window
+                else [
                     "p1_skill_route_discovery_reverse_flow",
                     "p2_agent_harness_eval_trending_agents",
                     "p3_route_classification_docs",
@@ -11428,6 +11482,7 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                     or current_20260706_020239_window
                     or current_20260706_060238_window
                     or current_20260706_093129_window
+                    or current_20260706_105129_window
                 )
                 else {}
             ),
@@ -11627,6 +11682,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260706T093129.770380Z",
         "github-growth-20260706T093129Z",
     }
+    current_20260706_105129_window = source_digest in {
+        "github-growth-20260706T105129.764356Z",
+        "github-growth-20260706T105129Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -11643,6 +11702,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260706_032238_window
         or current_20260706_060238_window
         or current_20260706_093129_window
+        or current_20260706_105129_window
     ):
         return _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -37803,6 +37863,162 @@ def _skill_route_discovery_pass2_validation_handoff(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
         "rows": rows,
+    }
+
+
+def _skill_route_discovery_pass2_retained_validation_packet(
+    pass2_validation_handoff: Mapping[str, Any],
+    current_digest_pass2_local_validation_lane: Mapping[str, Any],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Retain pass-2 replay evidence as phase-gated metadata before activation."""
+
+    raw_handoff_rows = pass2_validation_handoff.get("rows")
+    handoff_rows = (
+        raw_handoff_rows
+        if isinstance(raw_handoff_rows, Sequence) and not isinstance(raw_handoff_rows, (str, bytes))
+        else []
+    )
+    raw_skill_rows = current_digest_pass2_local_validation_lane.get("rows")
+    skill_rows = (
+        raw_skill_rows
+        if isinstance(raw_skill_rows, Sequence) and not isinstance(raw_skill_rows, (str, bytes))
+        else []
+    )
+    raw_adjacent_rows = current_digest_pass2_local_validation_lane.get("adjacent_general_agent_rows")
+    adjacent_rows = (
+        raw_adjacent_rows
+        if isinstance(raw_adjacent_rows, Sequence) and not isinstance(raw_adjacent_rows, (str, bytes))
+        else []
+    )
+
+    retained_rows: list[dict[str, Any]] = []
+    replay_hashes: list[str] = []
+    blocked: list[str] = []
+    for raw_row in handoff_rows:
+        if not isinstance(raw_row, Mapping):
+            continue
+        candidate_name = str(raw_row.get("candidate_name") or "")
+        replay_command = str(raw_row.get("replay_command") or "")
+        replay_hash = _stable_hash(replay_command) if replay_command else ""
+        if replay_hash:
+            replay_hashes.append(replay_hash)
+        activation_ready = raw_row.get("activation_ready") is True
+        if not activation_ready and candidate_name:
+            blocked.append(candidate_name)
+        retained_rows.append(
+            {
+                "candidate_name": candidate_name,
+                "candidate_source_hash": str(raw_row.get("candidate_source_hash") or ""),
+                "route_profiles": _string_list(raw_row.get("route_profiles")),
+                "selected_local_lane": str(raw_row.get("selected_local_lane") or ""),
+                "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "validation_target": str(raw_row.get("validation_target") or ""),
+                "replay_command_hash": replay_hash,
+                "selected_evidence_item_ids": _string_list(raw_row.get("selected_evidence_item_ids")),
+                "activation_ready": activation_ready,
+                "activation_blockers": _string_list(raw_row.get("activation_blockers")),
+                "retained_output_role": "local_validation_replay_metadata",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    phase_rows = [
+        {
+            "phase": "evidence_intake",
+            "status": "ready" if skill_rows else "blocked",
+            "required_before_activation": True,
+            "operator_visible": True,
+        },
+        {
+            "phase": "skill_route_phase_gate",
+            "status": "ready" if retained_rows and not blocked else "blocked",
+            "required_before_activation": True,
+            "operator_visible": True,
+        },
+        {
+            "phase": "retained_validation_replay",
+            "status": "ready" if replay_hashes else "blocked",
+            "required_before_activation": True,
+            "operator_visible": True,
+        },
+        {
+            "phase": "adjacent_agent_harness_queue",
+            "status": "ready" if adjacent_rows else "blocked",
+            "required_before_activation": True,
+            "operator_visible": True,
+        },
+        {
+            "phase": "activation_boundary",
+            "status": "ready",
+            "required_before_activation": True,
+            "operator_visible": True,
+        },
+    ]
+    ready = (
+        pass2_validation_handoff.get("status") == "ready"
+        and current_digest_pass2_local_validation_lane.get("status") == "ready"
+        and retained_rows
+        and not blocked
+        and all(row["status"] == "ready" for row in phase_rows)
+    )
+
+    return {
+        "controller_surface": "skill_route_discovery_pass2_retained_validation_packet",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "pass2_skill_route_replay_retained_before_activation"
+            if ready
+            else "repair_pass2_retained_validation_packet_before_activation"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": 2,
+        "total_passes": 4,
+        "retained_output_contract": "hash_only_local_validation_replay_metadata",
+        "phase_order": [row["phase"] for row in phase_rows],
+        "phase_count": len(phase_rows),
+        "ready_phase_count": len([row for row in phase_rows if row["status"] == "ready"]),
+        "blocked_phase_count": len([row for row in phase_rows if row["status"] != "ready"]),
+        "candidate_count": len(retained_rows),
+        "adjacent_agent_harness_eval_required_count": len(adjacent_rows),
+        "replay_command_hashes": list(dict.fromkeys(replay_hashes)),
+        "replay_command_count": len(list(dict.fromkeys(replay_hashes))),
+        "blocked_candidate_names": blocked,
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "retained_validation_replay_hash",
+            "rollback_artifact",
+            "focused_local_validation",
+            "review_note",
+        ],
+        "activation_before_validation_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "phases": phase_rows,
+        "rows": retained_rows,
     }
 
 
