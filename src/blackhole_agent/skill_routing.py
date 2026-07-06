@@ -18587,6 +18587,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260706T064239.027225Z",
         "github-growth-20260706T064239Z",
     }
+    current_085129_20260706_window = source_digest in {
+        "github-growth-20260706T085129.999580Z",
+        "github-growth-20260706T085129Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -18688,6 +18692,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_040238_20260706_window
         or current_052238_20260706_window
         or current_064239_20260706_window
+        or current_085129_20260706_window
         or current_163922_20260703_window
         or current_175922_20260703_window
         or current_191923_20260703_window
@@ -18723,6 +18728,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_040238_20260706_window
             or current_052238_20260706_window
             or current_064239_20260706_window
+            or current_085129_20260706_window
         ):
             return _skill_route_discovery_current_digest_20260705T080817_pass4_completion_handoff(
                 candidate_lane_inventory,
@@ -20247,12 +20253,17 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         "github-growth-20260706T064239.027225Z",
         "github-growth-20260706T064239Z",
     }
+    current_085129_20260706_window = source_digest in {
+        "github-growth-20260706T085129.999580Z",
+        "github-growth-20260706T085129Z",
+    }
     reverse_flow_proposal_id = (
         "p1-skill-route-discovery-reverse-flow"
         if (
             current_024238_20260706_window
             or current_040238_20260706_window
             or current_064239_20260706_window
+            or current_085129_20260706_window
         )
         else "p1_skill_route_discovery_probe"
         if current_052238_20260706_window
@@ -20268,7 +20279,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p1-skill-route-discovery-reverse-flow"
     )
     docs_proposal_id = (
-        "p3-agent-fork-and-issue-signal-handling"
+        "p3-route-classification-documentation"
+        if current_085129_20260706_window
+        else "p3-agent-fork-and-issue-signal-handling"
         if current_064239_20260706_window
         else "p3-workflow-automation-harness-case"
         if current_040238_20260706_window
@@ -20295,7 +20308,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
     )
     agent_harness_proposal_id = (
         "p2-agent-harness-eval-fixtures"
-        if current_064239_20260706_window
+        if current_064239_20260706_window or current_085129_20260706_window
         else "p2-agent-harness-eval-trending-agent-projects"
         if current_040238_20260706_window
         else "p3_agent_harness_eval_fixtures"
@@ -20320,7 +20333,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     replay_marker = (
-        "current_digest_20260706T064239_pass4_completion"
+        "current_digest_20260706T085129_pass4_completion"
+        if current_085129_20260706_window
+        else "current_digest_20260706T064239_pass4_completion"
         if current_064239_20260706_window
         else "current_digest_20260706T040238_pass4_completion"
         if current_040238_20260706_window
@@ -20358,6 +20373,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             or current_040238_20260706_window
             or current_052238_20260706_window
             or current_064239_20260706_window
+            or current_085129_20260706_window
         )
         else
         (
@@ -20414,6 +20430,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             or current_040238_20260706_window
             or current_052238_20260706_window
             or current_064239_20260706_window
+            or current_085129_20260706_window
         ):
             row["downgraded_unsupported_lane_count"] = len(downgraded_lanes)
             row["downgraded_unsupported_lane_categories"] = (
@@ -20449,6 +20466,14 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         )
 
     expected_agent_names = (
+        {
+            "Agents-A1",
+            "Fundamental-Ava",
+            "Qwen-AgentWorld",
+            "shepherd",
+        }
+        if current_085129_20260706_window
+        else
         {
             "Agents-A1",
             "Fundamental-Ava",
@@ -20632,6 +20657,26 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             "p1-skill-route-discovery-reverse-flow",
             *(
                 [
+                    "p1-agent-harness-eval-matrix",
+                    "p2-skill-route-discovery-probe",
+                    "p3-skill-route-regression-tests",
+                    "p4-route-policy-doc-note",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "p1-agent-harness-trend-eval",
+                    "p3-route-classification-docs",
+                    "p4-controller-routing-metadata-check",
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-agent-harness-eval-fixtures",
+                    "p3-route-classification-documentation",
+                    "p4-route-policy-documentation",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "trend:shepherd-agents/shepherd-1",
+                ]
+                if current_085129_20260706_window
+                else [
                     "p1-skill-route-discovery-reverse-flow",
                     "p2-agent-harness-eval-fixture",
                     "p3-route-policy-documentation",
@@ -20822,6 +20867,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
                     current_040238_20260706_window
                     or current_052238_20260706_window
                     or current_064239_20260706_window
+                    or current_085129_20260706_window
                 )
                 else [
                     "p2-agent-harness-eval-general-agent-trends",
