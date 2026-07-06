@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T091129.696426Z`, pass 1 starts the
+active route-discovery slice by making the adjacent general-agent lane more
+inspectable before activation. `InternScience/Agents-A1`,
+`QwenLM/Qwen-AgentWorld`, `TianhangZhuzth/Fundamental-Ava`, and
+`shepherd-agents/shepherd` are general agent, benchmark, simulation, or runtime
+substrate evidence. They remain under `agent_harness_eval_lane`, not
+`skill_route_discovery`, and the local replay now exposes an
+`agent_harness_eval_result_schema` with required evidence-item inputs, expected
+body-free output sections, candidate-capability source, pass-criteria source,
+fail-criteria source, and per-project result path.
+
+The active fixture
+`agent_harness_eval_lane_20260706T091129_general_agent_projects.json` records
+candidate capabilities, required inputs, expected outputs, and pass/fail
+criteria without importing upstream code or exporting raw source URLs. The
+allowed follow-up lanes remain only documentation, test, or code_patch after
+the local harness contract passes. Runtime action, external agent activation,
+external harness execution, provider launch, remote execution, and raw upstream
+body export remain disabled. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k "agent_harness_eval_lane or 20260706T091129"`.
+
 For source digest `github-growth-20260706T085129.999580Z`, pass 4 completes
 the active route-discovery slice through `current_digest_pass4_completion_handoff`.
 `lingbol088-spec/reverse-flow-skill` is the skill/workflow evidence row because

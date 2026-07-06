@@ -176,6 +176,25 @@ AGENT_HARNESS_EVAL_PROBE_FIELDS = (
     "observable_behaviors",
 )
 AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS = tuple(AGENT_HARNESS_EVAL_PROBE_FIELDS)
+AGENT_HARNESS_EVAL_REQUIRED_EVIDENCE_ITEM_FIELDS = (
+    "route_hints",
+    "suggested_lanes",
+    *AGENT_HARNESS_EVAL_REQUIRED_PROBE_FIELDS,
+)
+AGENT_HARNESS_EVAL_EXPECTED_OUTPUT_FIELDS = (
+    "route_status",
+    "failure_mode",
+    "evidence_strength",
+    "lane_map",
+    "activation_gate",
+    "activation_lanes",
+    "activation_review",
+    "claim_evaluation",
+    "project_intake_probe",
+    "general_agent_route_review_queue",
+    "implementation_readiness_contract",
+    "privacy",
+)
 EXTERNAL_HARNESS_ADAPTER_REQUIRED_CONFIG_FIELDS = (
     "adapter_name",
     "harness_kind",
@@ -2029,6 +2048,7 @@ def build_agent_harness_eval_implementation_readiness_contract(
         fail_criteria=blockers,
         project_completion_matrix=project_completion_matrix,
     )
+    result_schema = build_agent_harness_eval_result_schema()
 
     return {
         "controller_surface": "agent_harness_eval_implementation_readiness_contract",
@@ -2066,9 +2086,45 @@ def build_agent_harness_eval_implementation_readiness_contract(
         "general_agent_route_review_queue_status": str(general_agent_route_review_queue.get("status") or "empty"),
         "project_completion_matrix": project_completion_matrix,
         "recovery_workflow": recovery_workflow,
+        "result_schema": result_schema,
         "required_validation": [validation_command],
         "documentation_test_or_code_patch_permitted_after_eval": followup_allowed,
         "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def build_agent_harness_eval_result_schema() -> dict[str, Any]:
+    """Describe the non-networked input and output contract for general agent evidence."""
+
+    return {
+        "controller_surface": "agent_harness_eval_result_schema",
+        "behavior": "agent_harness_eval_lane",
+        "required_input_fields": list(AGENT_HARNESS_EVAL_REQUIRED_EVIDENCE_ITEM_FIELDS),
+        "optional_input_fields": [
+            "item_id",
+            "source_url",
+            "summary",
+            "evidence_summary",
+            "relevance_reason",
+            "risk_flags",
+            "topics",
+        ],
+        "expected_output_fields": list(AGENT_HARNESS_EVAL_EXPECTED_OUTPUT_FIELDS),
+        "candidate_capabilities_source": "claim_evaluation.rows.local_capabilities",
+        "pass_criteria_source": "implementation_readiness_contract.pass_criteria",
+        "fail_criteria_source": "implementation_readiness_contract.fail_criteria",
+        "per_project_result_path": "implementation_readiness_contract.project_completion_matrix.rows",
+        "allowed_followup_lanes": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "local_validation_required": True,
+        "body_free_output_required": True,
         "runtime_action": "none",
         "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,

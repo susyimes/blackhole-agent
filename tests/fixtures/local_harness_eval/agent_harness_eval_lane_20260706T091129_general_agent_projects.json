@@ -1,0 +1,87 @@
+{
+  "name": "agent-harness-eval-lane-20260706T091129-general-agent-projects",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-20260706T091129-general-agent-projects",
+    "evidence_items": [
+      {
+        "item_id": "trend:InternScience/Agents-A1-1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public general agent framework evidence with benchmark evaluation, multiple agents, policy controls, and deterministic validation signals.",
+        "relevance_reason": "Evaluate framework and orchestration claims through the local harness contract before any behavior adoption.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["python_package", "benchmark_suite"],
+        "entrypoints": ["python_module", "evaluation_runner"],
+        "dependency_boundaries": ["model_provider", "workspace_fixture"],
+        "task_loop_assumptions": ["multi_agent_orchestration", "policy_gate", "benchmark_replay"],
+        "observable_behaviors": ["multi_agent_supervision", "policy_control", "structured_validation"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public agent benchmark and evaluation project with world-model tasks, replay stages, provider comparison, terminal and web agent domains, and structured validation.",
+        "relevance_reason": "Record expected local harness inputs and outputs before using benchmark claims as implementation pressure.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["model_weights", "benchmark_suite"],
+        "entrypoints": ["evaluation_runner", "technical_report"],
+        "dependency_boundaries": ["model_provider", "benchmark_data", "local_workspace"],
+        "task_loop_assumptions": ["agent_world_simulation", "replay_stage_eval", "provider_configuration"],
+        "observable_behaviors": ["benchmark_reporting", "provider_configuration", "structured_validation"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public autonomous collaborative agent project with multiple agents, session state, scheduler-style coordination, and benchmark validation signals.",
+        "relevance_reason": "Keep collaboration and scheduling claims in the non-networked harness lane until local pass/fail criteria are replayed.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["python_package", "simulation_framework"],
+        "entrypoints": ["python_module", "test_suite"],
+        "dependency_boundaries": ["simulation_runtime", "model_provider"],
+        "task_loop_assumptions": ["multi_agent_orchestration", "session_state_replay", "scheduled_simulation_steps"],
+        "observable_behaviors": ["multi_agent_supervision", "conversation_state", "workflow_validation"],
+        "risk_flags": []
+      },
+      {
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Public agent runtime substrate evidence with reversible trace, fork and replay workflow, meta-agent supervision, session state, sandboxing, and validation signals.",
+        "relevance_reason": "Treat reversible runtime claims as harness evidence only until bounded local inputs, outputs, and pass/fail criteria are satisfied.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["runtime_substrate", "local_module"],
+        "entrypoints": ["runtime_api", "replay_runner"],
+        "dependency_boundaries": ["copy_on_write_runtime", "model_provider", "workspace_snapshot"],
+        "task_loop_assumptions": ["session_supervision", "state_replay", "policy_gate"],
+        "observable_behaviors": ["session_sync", "sandboxing", "workflow_validation"],
+        "risk_flags": []
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "evidence_strength.record_count", "equals": 4},
+    {"path": "lane_map.proposal_kinds", "equals": ["code_patch", "documentation", "test"]},
+    {"path": "claim_evaluation.mapping_status", "equals": "all_mapped"},
+    {"path": "claim_evaluation.unmapped_claim_count", "equals": 0},
+    {"path": "project_intake_probe.status", "equals": "ready"},
+    {"path": "project_intake_probe.record_count", "equals": 4},
+    {"path": "implementation_readiness_contract.status", "equals": "ready"},
+    {"path": "implementation_readiness_contract.candidate_capabilities", "equals": ["agent_workflow_route", "local_memory", "native_tool_call_policy", "provider_runtime_preflight"]},
+    {"path": "implementation_readiness_contract.result_schema.behavior", "equals": "agent_harness_eval_lane"},
+    {"path": "implementation_readiness_contract.result_schema.required_input_fields", "equals": ["route_hints", "suggested_lanes", "install_shape", "entrypoints", "dependency_boundaries", "task_loop_assumptions", "observable_behaviors"]},
+    {"path": "implementation_readiness_contract.result_schema.expected_output_fields", "equals": ["route_status", "failure_mode", "evidence_strength", "lane_map", "activation_gate", "activation_lanes", "activation_review", "claim_evaluation", "project_intake_probe", "general_agent_route_review_queue", "implementation_readiness_contract", "privacy"]},
+    {"path": "implementation_readiness_contract.result_schema.body_free_output_required", "equals": true},
+    {"path": "implementation_readiness_contract.project_completion_matrix.project_count", "equals": 4},
+    {"path": "implementation_readiness_contract.project_completion_matrix.ready_project_count", "equals": 4},
+    {"path": "implementation_readiness_contract.documentation_test_or_code_patch_permitted_after_eval", "equals": true},
+    {"path": "implementation_readiness_contract.external_harness_execution_allowed", "equals": false},
+    {"path": "implementation_readiness_contract.provider_launch_allowed", "equals": false},
+    {"path": "privacy.raw_source_urls_exported", "equals": false}
+  ]
+}
