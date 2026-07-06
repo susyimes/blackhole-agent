@@ -819,13 +819,20 @@ def build_skill_route_discovery_repository_lane_probe(
     candidate_count = 0
     ignored_count = 0
     validation_error_count = 0
+    stripped_pressure_count = 0
 
     for index, summary in enumerate(summaries):
         descriptor = _coerce_external_skill_repository_summary(summary)
         source_hash = _stable_hash(_summary_lineage_key(descriptor))
         candidate = descriptor.to_candidate()
+        ignored_unsupported_pressure = [
+            lane
+            for lane in descriptor.suggested_lanes
+            if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
         if candidate is None:
             ignored_count += 1
+            stripped_pressure_count += len(ignored_unsupported_pressure)
             rows.append(
                 {
                     "index": index,
@@ -839,12 +846,10 @@ def build_skill_route_discovery_repository_lane_probe(
                     "matched_route_terms": [],
                     "source_layout_signals": list(_skill_repository_layout_signals(descriptor)),
                     "source_metadata_signals": list(_skill_repository_metadata_signals(descriptor)),
-                    "unsupported_lane_pressure": [
-                        lane
-                        for lane in descriptor.suggested_lanes
-                        if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
-                    ],
+                    "unsupported_lane_pressure": ignored_unsupported_pressure,
                     "diagnostics": ["no_skill_workflow_signal"],
+                    "activation_prerequisite_lane": "agent_harness_eval_required",
+                    "skill_route_discovery_first": False,
                     "local_validation_required": True,
                     "runtime_action": "none",
                     "external_skill_activation_allowed": False,
@@ -881,6 +886,7 @@ def build_skill_route_discovery_repository_lane_probe(
         validation_errors = list(registry_entry["validation_errors"])
         validation_error_count += len(validation_errors)
         unsupported_pressure = list(registry_entry.get("unsupported_lane_pressure") or [])
+        stripped_pressure_count += len(unsupported_pressure)
         diagnostics = [*validation_errors]
         if unsupported_pressure:
             diagnostics.append("unsupported_lane_pressure_stripped")
@@ -900,6 +906,8 @@ def build_skill_route_discovery_repository_lane_probe(
                 "source_metadata_signals": list(candidate.source_metadata_signals),
                 "unsupported_lane_pressure": unsupported_pressure,
                 "diagnostics": diagnostics,
+                "activation_prerequisite_lane": selected_lane,
+                "skill_route_discovery_first": True,
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -913,22 +921,61 @@ def build_skill_route_discovery_repository_lane_probe(
         )
 
     ready = candidate_count > 0 and validation_error_count == 0
+    route_boundary_checklist = {
+        "skill_candidates_start_disabled": all(
+            row.get("route_status") in {SKILL_ROUTE_DISCOVERY_DISABLED, SKILL_ROUTE_DISCOVERY_INVALID, "ignored"}
+            for row in rows
+        ),
+        "candidate_lanes_limited_to_allowed": all(
+            set(row.get("allowed_local_lanes") or []) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+            for row in rows
+        ),
+        "unsupported_pressure_recorded_not_activated": all(
+            not set(row.get("unsupported_lane_pressure") or [])
+            & set(row.get("allowed_local_lanes") or [])
+            for row in rows
+        ),
+        "ignored_rows_do_not_inherit_skill_route": all(
+            row.get("skill_route_discovery_first") is False
+            for row in rows
+            if row.get("route_status") == "ignored"
+        ),
+        "runtime_and_external_activation_denied": all(
+            row.get("runtime_action") == "none"
+            and row.get("external_skill_activation_allowed") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+            for row in rows
+        ),
+        "focused_local_validation_required": True,
+    }
+    route_boundary_ready = ready and all(route_boundary_checklist.values())
     return {
         "controller_surface": "skill_route_discovery_repository_lane_probe",
-        "status": "ready" if ready else "review",
+        "status": "ready" if route_boundary_ready else "review",
         "decision": "repository_skill_signals_mapped_to_bounded_local_lanes"
-        if ready
+        if route_boundary_ready
         else "review_repository_skill_signal_mapping_before_activation",
         "summary_count": len(summaries),
         "candidate_count": candidate_count,
         "ignored_summary_count": ignored_count,
         "validation_error_count": validation_error_count,
+        "stripped_unsupported_pressure_count": stripped_pressure_count,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "accepted_outputs": ["docs", "config", "tests", "code_patch"],
         "selected_local_lanes": [
             lane
             for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
             if any(row["selected_local_lane"] == lane for row in rows)
         ],
+        "activation_prerequisite_lane": "focused_local_validation_before_activation",
+        "route_boundary_checklist": route_boundary_checklist,
+        "operator_next_action": (
+            "replay_repository_lane_probe_then_choose_bounded_local_lane"
+            if route_boundary_ready
+            else "repair_repository_lane_probe_boundary_before_activation"
+        ),
         "rows": rows,
         "local_validation_required": True,
         "body_free": True,

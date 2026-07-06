@@ -5,6 +5,23 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T233555.493310Z`, pass 3 deepens the
+bounded repository lane probe for `lingbol088-spec/reverse-flow-skill`. The
+public evidence shows a `skills/reverse-flow/SKILL.md` package for AI Agent and
+Codex workflows, with references, scripts, local sandbox/CTF/crackme defaults,
+install examples, and run examples. The local mapping remains classification
+only: reverse-flow selects the test lane after focused local validation, while
+documentation, config, test, and code_patch remain the only accepted outputs.
+
+The probe now exposes an operator-visible route boundary checklist and next
+action. Unsupported install, run, execute, provider-runtime, runtime-execution,
+external-harness, and remote-execution pressure is counted as stripped
+diagnostic pressure, not a lane. Repositories that mention Codex, workflow, or
+developer skill without a skill package marker are forced to
+`agent_harness_eval_required` and do not inherit `skill_route_discovery`.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k repository_lane_probe`.
+
 For source digest `github-growth-20260706T225555.484632Z`, pass 1 advances the
 active skill-route-discovery slice by adding `benchmark_meta_agent_probe_lane`
 inside `agent_harness_eval_lane`. `shepherd-agents/shepherd` and pull request

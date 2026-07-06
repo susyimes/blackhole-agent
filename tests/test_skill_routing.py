@@ -494,8 +494,20 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
     assert probe["status"] == "ready"
     assert probe["candidate_count"] == 1
     assert probe["ignored_summary_count"] == 2
+    assert probe["stripped_unsupported_pressure_count"] == 5
     assert probe["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert probe["accepted_outputs"] == ["docs", "config", "tests", "code_patch"]
     assert probe["selected_local_lanes"] == ["test"]
+    assert probe["activation_prerequisite_lane"] == "focused_local_validation_before_activation"
+    assert probe["operator_next_action"] == "replay_repository_lane_probe_then_choose_bounded_local_lane"
+    assert probe["route_boundary_checklist"] == {
+        "skill_candidates_start_disabled": True,
+        "candidate_lanes_limited_to_allowed": True,
+        "unsupported_pressure_recorded_not_activated": True,
+        "ignored_rows_do_not_inherit_skill_route": True,
+        "runtime_and_external_activation_denied": True,
+        "focused_local_validation_required": True,
+    }
     assert probe["runtime_action"] == "none"
     assert probe["external_skill_activation_allowed"] is False
     assert probe["external_harness_execution_allowed"] is False
@@ -514,6 +526,8 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
         "provider_runtime",
     ]
     assert reverse_flow["diagnostics"] == ["unsupported_lane_pressure_stripped"]
+    assert reverse_flow["activation_prerequisite_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
     assert "skill_directory" in reverse_flow["source_layout_signals"]
     assert "skill_markdown" in reverse_flow["source_layout_signals"]
     assert "reference_directory" in reverse_flow["source_layout_signals"]
@@ -524,6 +538,8 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
     assert all(row["allowed_local_lanes"] == [] for row in ignored_rows)
     assert all(row["ignored_reason"] == "no_skill_workflow_signal" for row in ignored_rows)
     assert all(row["lane_mapping_limited_to_allowed"] is True for row in ignored_rows)
+    assert all(row["activation_prerequisite_lane"] == "agent_harness_eval_required" for row in ignored_rows)
+    assert all(row["skill_route_discovery_first"] is False for row in ignored_rows)
 
     assert "https://github.com/" not in serialized
     assert "execute" not in reverse_flow["allowed_local_lanes"]
