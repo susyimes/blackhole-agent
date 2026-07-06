@@ -10887,6 +10887,10 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "github-growth-20260706T105129.764356Z",
         "github-growth-20260706T105129Z",
     }
+    current_20260706_135555_window = source_digest in {
+        "github-growth-20260706T135555.942816Z",
+        "github-growth-20260706T135555Z",
+    }
     current_reverse_flow_named_window = (
         current_153637_window
         or current_20260706_020239_window
@@ -10894,9 +10898,12 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         or current_20260706_060238_window
         or current_20260706_093129_window
         or current_20260706_105129_window
+        or current_20260706_135555_window
     )
     agent_proposal_id = (
-        "p2_skill_route_discovery_agent_harness_eval_queue"
+        "p2_general_agent_harness_eval"
+        if current_20260706_135555_window
+        else "p2_skill_route_discovery_agent_harness_eval_queue"
         if current_20260706_105129_window
         else "p2_agent_harness_eval_trending_agents"
         if current_20260706_093129_window
@@ -10922,7 +10929,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     documentation_proposal_id = (
-        "p2_skill_workflow_documentation_lane"
+        "p4_provider_diagnostic_doc"
+        if current_20260706_135555_window
+        else "p2_skill_workflow_documentation_lane"
         if current_20260706_105129_window
         else "p3_document_route_policy_for_trend_items"
         if current_20260706_093129_window
@@ -10948,7 +10957,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p3-route-classification-docs"
     )
     documentation_validation_target = (
-        "document_reverse_flow_phase_workflow_as_bounded_local_skill_route_lane"
+        "reverse_flow_skill_patterns_map_only_to_bounded_local_lanes"
+        if current_20260706_135555_window
+        else "document_reverse_flow_phase_workflow_as_bounded_local_skill_route_lane"
         if current_20260706_105129_window
         else "document_repository_trend_evidence_route_split_and_item_id_refs"
         if current_20260706_093129_window
@@ -10971,7 +10982,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "skill_workflow_and_general_agent_route_split_is_operator_visible"
     )
     expected_agent_names = (
-        {"Agents-A1", "Qwen-AgentWorld", "shepherd"}
+        {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld", "shepherd"}
+        if current_20260706_135555_window
+        else {"Agents-A1", "Qwen-AgentWorld", "shepherd"}
         if current_20260706_105129_window
         else {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld", "shepherd"}
         if current_20260706_060238_window or current_20260706_093129_window
@@ -11051,6 +11064,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             if current_20260706_093129_window
             else "p1_skill_route_discovery_reverse_flow"
             if current_20260706_105129_window
+            else "p3_skill_route_discovery_lane"
+            if current_20260706_135555_window
             else "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
             else "p2-skill-route-discovery-reverse-flow-skill"
@@ -11147,6 +11162,13 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             proposal_id=agent_proposal_id,
         )
     ]
+    if current_20260706_135555_window:
+        adjacent_rows = [
+            row
+            for row in adjacent_rows
+            if not str(row.get("item_id") or "").startswith("issue:")
+            and "provider-cli-empty-envelope" not in str(row.get("name") or "")
+        ]
     for row in adjacent_rows:
         if current_20260706_105129_window:
             row["proposal_id"] = (
@@ -11158,6 +11180,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                 if str(row.get("name") or "").casefold() == "agents-a1"
                 else "p2_skill_route_discovery_agent_harness_eval_queue"
             )
+        elif current_20260706_135555_window:
+            row["proposal_id"] = "p2_general_agent_harness_eval"
         elif current_20260706_032238_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
         elif current_20260706_093129_window:
@@ -11255,6 +11279,11 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         and all(row["status"] == "ready" for row in rows)
         and agent_harness_eval_lane["status"] == "ready"
     )
+    provider_preflight_review = (
+        _skill_route_discovery_provider_config_preflight_review(ignored_evidence_items)
+        if current_20260706_135555_window
+        else {}
+    )
 
     return {
         "controller_surface": "skill_route_discovery_current_digest_pass2_local_validation_lane",
@@ -11272,6 +11301,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "proposal_ids": [
             "proposal_skill_route_discovery_reverse_flow_skill"
             if current_153637_window
+            else "p3_skill_route_discovery_lane"
+            if current_20260706_135555_window
             else "p1_skill_route_discovery_reverse_flow"
             if current_20260706_093129_window or current_20260706_105129_window
             else "p2_skill_route_discovery_reverse_flow"
@@ -11282,6 +11313,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             if current_20260706_032238_window
             else "p1-skill-route-discovery-reverse-flow",
             *(
+                ["p1_provider_cli_preflight_redaction"]
+                if current_20260706_135555_window
+                else
                 [
                     "p2_general_agent_harness_eval_qwen_agentworld",
                     "p3_general_agent_harness_eval_shepherd",
@@ -11319,6 +11353,23 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                     "trend:shepherd-agents/shepherd-1",
                 ]
                 if current_20260706_105129_window
+                else [
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-agent-harness-eval-shepherd-activity",
+                    "p3-general-agent-project-eval-fixtures",
+                    "p5-no-direct-adoption-from-trending-agent-repos",
+                    "p1-provider-cli-preflight-redaction",
+                    "p2-general-agent-harness-eval",
+                    "p3-skill-route-discovery-lane",
+                    "p4-provider-diagnostic-doc",
+                    "trend:QwenLM/Qwen-AgentWorld-2",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "trend:shepherd-agents/shepherd-1",
+                ]
+                if current_20260706_135555_window
                 else [
                     "p1_skill_route_discovery_reverse_flow",
                     "p2_agent_harness_eval_trending_agents",
@@ -11461,6 +11512,12 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                 ]
             ),
         ],
+        "review_only_proposal_ids": (
+            ["p1_provider_cli_preflight_redaction"]
+            if provider_preflight_review.get("status") == "review_required"
+            else []
+        ),
+        "provider_config_preflight_redaction_review": provider_preflight_review,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
         "selected_local_lanes": ["documentation", "test"],
         "candidate_count": len(reverse_flow_candidates),
@@ -11686,6 +11743,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260706T105129.764356Z",
         "github-growth-20260706T105129Z",
     }
+    current_20260706_135555_window = source_digest in {
+        "github-growth-20260706T135555.942816Z",
+        "github-growth-20260706T135555Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -11703,6 +11764,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260706_060238_window
         or current_20260706_093129_window
         or current_20260706_105129_window
+        or current_20260706_135555_window
     ):
         return _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -28041,7 +28103,19 @@ def _skill_route_discovery_provider_config_preflight_review(
                 "implementation_scope": "reviewable_proposal_only",
                 "validation_gate": "privacy-leakage-human-review",
                 "privacy_leakage_behavior_review_only": True,
+                "redaction_assertions": [
+                    "empty_envelope_diagnostics_body_free",
+                    "command_body_not_exported",
+                    "tokens_not_exported",
+                    "private_payloads_not_exported",
+                    "provider_values_not_exported",
+                ],
+                "empty_envelope_diagnostic_allowed": True,
+                "actionable_error_allowed_after_redaction_review": True,
                 "provider_runtime_launch_allowed": False,
+                "raw_command_body_exported": False,
+                "raw_token_exported": False,
+                "raw_private_payload_exported": False,
                 "raw_provider_values_exported": False,
                 "raw_source_url_exported": False,
                 "raw_upstream_body_exported": False,
@@ -28055,8 +28129,18 @@ def _skill_route_discovery_provider_config_preflight_review(
         "validation_gate": "privacy-leakage-human-review",
         "implementation_scope": "reviewable_proposal_only",
         "record_count": len(rows),
+        "redaction_checklist": [
+            "do_not_log_command_bodies",
+            "do_not_log_tokens_or_credentials",
+            "do_not_log_private_payloads",
+            "do_not_export_raw_provider_values",
+            "surface_only_body_free_empty_envelope_diagnostics",
+        ],
         "rows": rows,
         "provider_runtime_launch_allowed": False,
+        "raw_command_body_exported": False,
+        "raw_token_exported": False,
+        "raw_private_payload_exported": False,
         "raw_provider_values_exported": False,
         "raw_source_url_exported": False,
         "raw_upstream_body_exported": False,

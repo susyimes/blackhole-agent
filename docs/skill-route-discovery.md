@@ -5,6 +5,20 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T135555.942816Z`, pass 2 keeps
+`lingbol088-spec/reverse-flow-skill` in the bounded skill-route lane and routes
+the current `InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` project
+signals through `agent_harness_eval_required`. The pass also exposes
+`provider_config_preflight_redaction_review` for the Shepherd provider CLI
+empty-envelope issue. That review is body-free and review-only: it may record
+that empty-envelope diagnostics are useful, but it must not export command
+bodies, tokens, private payloads, provider values, upstream bodies, raw source
+URLs, runtime execution, provider launch, or external harness execution.
+
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T135555`.
+
 For source digest `github-growth-20260706T133555.891986Z`, pass 1 keeps
 `lingbol088-spec/reverse-flow-skill` in the bounded skill-route lane and
 routes `InternScience/Agents-A1` plus `shepherd-agents/shepherd` activity
