@@ -19885,6 +19885,91 @@ def test_skill_route_discovery_current_digest_20260629T103324_pass2_routes_activ
     )
 
 
+def test_skill_route_discovery_current_digest_20260706T083130_pass3_routes_current_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260706T083130_pass3_route_to_validation.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass3_route_to_validation_lane"]
+    operator_packet = lane["pass3_operator_validation_packet"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = lane["adjacent_general_agent_rows"]
+    provider_review = operator_packet["provider_config_preflight_review"]
+    serialized = json.dumps({"lane": lane, "operator_packet": operator_packet}, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260706T083130.126341Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-provider-config-preflight-from-agent-comment",
+        "p3-agent-harness-eval-for-trending-agent-projects",
+        "p4-route-policy-doc-note",
+    ]
+    assert operator_packet["review_only_proposal_ids"] == [
+        "p2-provider-config-preflight-from-agent-comment"
+    ]
+
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["candidate_names"] == ["reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["generic_skill_workflow", "codex_workflow_gate"]
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["runtime_action"] == "none"
+    assert reverse_flow["external_skill_activation_allowed"] is False
+
+    doc_note = rows["p4-route-policy-doc-note"]
+    assert doc_note["selected_local_lane"] == "documentation"
+    assert doc_note["local_validation_required"] is True
+
+    assert [row["name"] for row in adjacent] == [
+        "Agents-A1",
+        "Qwen-AgentWorld",
+        "Fundamental-Ava",
+        "shepherd",
+    ]
+    assert all(row["proposal_id"] == "p3-agent-harness-eval-for-trending-agent-projects" for row in adjacent)
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent)
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent)
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent)
+    assert all(row["direct_runtime_route_allowed"] is False for row in adjacent)
+    assert all(row["direct_code_patch_route_allowed"] is False for row in adjacent)
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent)
+    assert all(row["provider_runtime_launch_allowed"] is False for row in adjacent)
+
+    assert provider_review["status"] == "review_required"
+    assert provider_review["validation_gate"] == "privacy-leakage-human-review"
+    assert provider_review["implementation_scope"] == "reviewable_proposal_only"
+    assert provider_review["record_count"] == 1
+    assert provider_review["rows"][0]["name"] == "Qwen-AgentWorld"
+    assert provider_review["rows"][0]["raw_provider_values_exported"] is False
+    assert provider_review["provider_runtime_launch_allowed"] is False
+
+    for packet in (lane, operator_packet):
+        assert packet["runtime_action"] == "none"
+        assert packet["external_skill_activation_allowed"] is False
+        assert packet["external_agent_activation_allowed"] is False
+        assert packet["external_harness_execution_allowed"] is False
+        assert packet["provider_runtime_launch_allowed"] is False
+        assert packet["remote_execution_allowed"] is False
+        assert packet["raw_source_url_exported"] is False
+        assert packet["raw_evidence_urls_exported"] is False
+        assert packet["raw_target_paths_exported"] is False
+        assert packet["raw_upstream_body_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260629T153904_pass4_completes_fixture_lane():
     fixture_path = (
         Path(__file__).parent

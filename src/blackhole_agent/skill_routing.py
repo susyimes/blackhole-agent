@@ -27692,6 +27692,49 @@ def _skill_route_discovery_pass3_active_proposal_acceptance_lane(
     }
 
 
+def _skill_route_discovery_provider_config_preflight_review(
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize provider-config preflight pressure without exposing config values."""
+
+    rows: list[dict[str, Any]] = []
+    for item in ignored_evidence_items:
+        route_hints = _string_list(item.get("route_hints"))
+        if "provider_config_preflight" not in route_hints:
+            continue
+        name = str(item.get("name") or item.get("item_id") or "")
+        source_url = str(item.get("source_url") or name)
+        rows.append(
+            {
+                "item_id": str(item.get("item_id") or ""),
+                "name": name,
+                "source_hash": _stable_hash(source_url),
+                "route_hint": "provider_config_preflight",
+                "implementation_scope": "reviewable_proposal_only",
+                "validation_gate": "privacy-leakage-human-review",
+                "privacy_leakage_behavior_review_only": True,
+                "provider_runtime_launch_allowed": False,
+                "raw_provider_values_exported": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    return {
+        "status": "review_required" if rows else "not_present",
+        "proposal_id": "p2-provider-config-preflight-from-agent-comment",
+        "route_hint": "provider_config_preflight",
+        "validation_gate": "privacy-leakage-human-review",
+        "implementation_scope": "reviewable_proposal_only",
+        "record_count": len(rows),
+        "rows": rows,
+        "provider_runtime_launch_allowed": False,
+        "raw_provider_values_exported": False,
+        "raw_source_url_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
 def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -27805,6 +27848,10 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
     current_20260706_062238_window = source_digest in {
         "github-growth-20260706T062238.861950Z",
         "github-growth-20260706T062238Z",
+    }
+    current_20260706_083130_window = source_digest in {
+        "github-growth-20260706T083130.126341Z",
+        "github-growth-20260706T083130Z",
     }
     skill_proposals = (
         {
@@ -28299,6 +28346,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         or current_20260706_034238_window
         or current_20260706_050238_window
         or current_20260706_062238_window
+        or current_20260706_083130_window
     ):
         skill_proposals = (
             {
@@ -28306,7 +28354,11 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     "p1_skill_route_discovery_reverse_flow"
                     if current_20260706_034238_window
                     else "p1-skill-route-discovery-reverse-flow"
-                    if (current_20260706_050238_window or current_20260706_062238_window)
+                    if (
+                        current_20260706_050238_window
+                        or current_20260706_062238_window
+                        or current_20260706_083130_window
+                    )
                     else
                     "p1-skill-route-discovery-reverse-flow"
                     if (
@@ -28328,12 +28380,15 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         or current_20260706_034238_window
                         or current_20260706_050238_window
                         or current_20260706_062238_window
+                        or current_20260706_083130_window
                     )
                     else "documentation"
                 ),
                 "proposal_track": (
                     "reverse_flow_skill_route_discovery_validation_lane"
                     if current_20260706_034238_window
+                    else "reverse_flow_skill_route_discovery_operator_validation_lane"
+                    if current_20260706_083130_window
                     else "reverse_flow_skill_route_discovery_current_window"
                     if current_20260706_062238_window
                     else "reverse_flow_skill_route_discovery_validation"
@@ -28362,12 +28417,15 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                         or current_20260706_034238_window
                         or current_20260706_050238_window
                         or current_20260706_062238_window
+                        or current_20260706_083130_window
                     )
                     else "documentation"
                 ),
                 "validation_target": (
                     "reverse_flow_skill_workflow_maps_to_bounded_validation_lanes"
                     if current_20260706_034238_window
+                    else "reverse_flow_skill_route_discovery_hint_maps_only_to_bounded_local_lanes"
+                    if current_20260706_083130_window
                     else "reverse_flow_skill_route_hint_requires_local_discovery_before_activation"
                     if current_20260706_062238_window
                     else "reverse_flow_skill_workflow_routes_only_to_bounded_local_lanes"
@@ -28395,6 +28453,7 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     or current_20260706_034238_window
                     or current_20260706_050238_window
                     or current_20260706_062238_window
+                    or current_20260706_083130_window
                 )
                 else (
                     {
@@ -28423,6 +28482,20 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                     },
                 )
                 if current_20260706_034238_window
+                else (
+                    {
+                        "proposal_id": "p4-route-policy-doc-note",
+                        "proposal_kind": "documentation",
+                        "proposal_track": "skill_route_discovery_operator_policy_note",
+                        "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                        "candidate_name_terms": ("reverse-flow-skill",),
+                        "selected_local_lane": "documentation",
+                        "validation_target": (
+                            "document_reverse_flow_skill_route_and_general_agent_eval_boundary"
+                        ),
+                    },
+                )
+                if current_20260706_083130_window
                 else (
                     {
                         "proposal_id": "p3-routing-doc-clarification",
@@ -28667,6 +28740,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260706_050238_window
             else "p2-general-agent-harness-eval-fixtures"
             if current_20260706_062238_window
+            else "p3-agent-harness-eval-for-trending-agent-projects"
+            if current_20260706_083130_window
             else "p2-agent-harness-eval-general-agent-projects"
         ),
     ):
@@ -28695,6 +28770,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             row["proposal_id"] = "p2-agent-harness-eval-for-general-agent-trends"
         if current_20260706_062238_window:
             row["proposal_id"] = "p2-general-agent-harness-eval-fixtures"
+        if current_20260706_083130_window:
+            row["proposal_id"] = "p3-agent-harness-eval-for-trending-agent-projects"
         row["direct_allowed_lanes_before_eval"] = []
         row["accepted_outputs_before_eval"] = []
         row["accepted_outputs_after_eval"] = ["documentation", "test", "code_patch"]
@@ -28769,6 +28846,8 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260706_050238_window
             else "p2-general-agent-harness-eval-fixtures"
             if current_20260706_062238_window
+            else "p3-agent-harness-eval-for-trending-agent-projects"
+            if current_20260706_083130_window
             else "p2-agent-harness-eval-general-agent-projects"
     )
     workflow_topic_boundary = {}
@@ -28842,6 +28921,13 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
             if current_20260706_034238_window
             else [
                 "p1-skill-route-discovery-reverse-flow",
+                "p2-provider-config-preflight-from-agent-comment",
+                "p3-agent-harness-eval-for-trending-agent-projects",
+                "p4-route-policy-doc-note",
+            ]
+            if current_20260706_083130_window
+            else [
+                "p1-skill-route-discovery-reverse-flow",
                 "p2-general-agent-harness-eval-fixtures",
                 "p3-routing-doc-clarification",
             ]
@@ -28889,6 +28975,16 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "agent_harness_eval_required_count": len(adjacent_rows),
         "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
         "body_free_diagnostics_only": True,
+        "review_only_proposal_ids": (
+            ["p2-provider-config-preflight-from-agent-comment"]
+            if current_20260706_083130_window
+            else []
+        ),
+        "provider_config_preflight_review": (
+            _skill_route_discovery_provider_config_preflight_review(ignored_evidence_items)
+            if current_20260706_083130_window
+            else {}
+        ),
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,
@@ -28936,6 +29032,13 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
                 "p3_document_route_policy_for_trend_evidence",
             ]
             if current_20260706_034238_window
+            else [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-provider-config-preflight-from-agent-comment",
+                "p3-agent-harness-eval-for-trending-agent-projects",
+                "p4-route-policy-doc-note",
+            ]
+            if current_20260706_083130_window
             else [
                 "p1-skill-route-discovery-reverse-flow",
                 "p2-general-agent-harness-eval-fixtures",
