@@ -6819,16 +6819,24 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260706T201555.949510Z",
         "github-growth-20260706T201555Z",
     }
+    current_20260706_213555_window = source_digest in {
+        "github-growth-20260706T213555.505315Z",
+        "github-growth-20260706T213555Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260706_201555_window:
+    if current_20260706_201555_window or current_20260706_213555_window:
         specs = (
             {
-                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_id": (
+                    "p1-skill-route-discovery-reverse-flow"
+                    if current_20260706_213555_window
+                    else "p1_skill_route_discovery_reverse_flow"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
@@ -6842,9 +6850,17 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 ),
             },
             {
-                "proposal_id": "p2_agent_harness_eval_queue",
+                "proposal_id": (
+                    "p3-agent-eval-documentation"
+                    if current_20260706_213555_window
+                    else "p2_agent_harness_eval_queue"
+                ),
                 "proposal_kind": "documentation",
-                "proposal_track": "general_agent_project_harness_eval_intake_queue",
+                "proposal_track": (
+                    "agent_vs_skill_route_decision_rule_documentation"
+                    if current_20260706_213555_window
+                    else "general_agent_project_harness_eval_intake_queue"
+                ),
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
                 "candidate_name_terms": ("reverse-flow-skill",),
                 "selected_local_lane": "documentation",
@@ -6856,7 +6872,11 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 ),
             },
             {
-                "proposal_id": "p3_agent_harness_smoke_tests",
+                "proposal_id": (
+                    "p4-route-metadata-preflight"
+                    if current_20260706_213555_window
+                    else "p3_agent_harness_smoke_tests"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "general_agent_project_empty_route_hint_gate",
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
@@ -9993,8 +10013,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         if current_20260706_173555_window:
             row["proposal_id"] = "p1-agent-harness-eval-general-projects"
             row["implementation_lane_selected"] = False
-        if current_20260706_201555_window:
-            row["proposal_id"] = "p2_agent_harness_eval_queue"
+        if current_20260706_201555_window or current_20260706_213555_window:
+            row["proposal_id"] = (
+                "p2-agent-harness-eval-fixtures"
+                if current_20260706_213555_window
+                else "p2_agent_harness_eval_queue"
+            )
             row["implementation_lane_selected"] = False
             row["harness_task_defined"] = False
         if current_20260706_103129_window:
@@ -10063,6 +10087,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-agent-harness-eval-fixtures",
+            "p3-agent-eval-documentation",
+            "p4-route-metadata-preflight",
+            "p5-no-direct-adoption-for-trend-only-agent-projects",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260706_213555_window
+        else
         [
             "p1_skill_route_discovery_reverse_flow",
             "p2_agent_harness_eval_queue",
@@ -11030,10 +11067,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "agent_harness_eval_intake_checklist": (
             _skill_route_discovery_agent_harness_eval_intake_checklist(
                 adjacent_rows,
-                proposal_id="p2_agent_harness_eval_queue",
+                proposal_id=(
+                    "p2-agent-harness-eval-fixtures"
+                    if current_20260706_213555_window
+                    else "p2_agent_harness_eval_queue"
+                ),
                 source_digest=source_digest,
             )
-            if current_20260706_201555_window
+            if current_20260706_201555_window or current_20260706_213555_window
             else {}
         ),
         "route_interpretation_rule": {

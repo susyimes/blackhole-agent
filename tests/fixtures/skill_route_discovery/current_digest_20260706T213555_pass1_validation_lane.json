@@ -1,0 +1,58 @@
+{
+  "items": [
+    {
+      "source_digest": "github-growth-20260706T213555.505315Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "repository",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "title": "reverse-flow-skill",
+      "summary": "Codex and AI Agent workflow skill with skills/reverse-flow/SKILL.md, references, scripts, local sandbox defaults, CTF and crackme framing, staged analysis to report to reverse workflow, and install or run examples that must remain diagnostic.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["codex", "agent-skill", "workflow"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+      "route_classification": {
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["local_sandbox_boundary"],
+        "candidate_lanes": ["documentation", "config", "test", "code_patch"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260706T213555.505315Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "repository",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "title": "Agents-A1",
+      "summary": "General agent project claiming scaling horizon behavior and evaluation relevance, with no selected skill package, no SKILL.md evidence, and no explicit skill workflow route signal.",
+      "route_hints": [],
+      "topics": ["agent", "general-agent", "evaluation"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260706T213555.505315Z",
+      "item_id": "trend:QwenLM/Qwen-AgentWorld-1",
+      "item_kind": "repository",
+      "name": "Qwen-AgentWorld",
+      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+      "title": "Qwen-AgentWorld",
+      "summary": "Language world models for general agents and agent environments, with no selected skill package, no SKILL.md evidence, and no explicit skill workflow route signal.",
+      "route_hints": [],
+      "topics": ["agent", "world-model", "general-agent"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260706T213555.505315Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "title": "Fundamental-Ava",
+      "summary": "Autonomous collaborative socially intelligent general-agent project, with no selected skill package, no SKILL.md evidence, and no explicit skill workflow route signal.",
+      "route_hints": [],
+      "topics": ["agent", "autonomous-agent", "general-agent"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}
