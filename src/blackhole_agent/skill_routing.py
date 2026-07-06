@@ -10765,11 +10765,20 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         "github-growth-20260706T032238.788896Z",
         "github-growth-20260706T032238Z",
     }
+    current_20260706_060238_window = source_digest in {
+        "github-growth-20260706T060238.927687Z",
+        "github-growth-20260706T060238Z",
+    }
     current_reverse_flow_named_window = (
-        current_153637_window or current_20260706_020239_window or current_20260706_032238_window
+        current_153637_window
+        or current_20260706_020239_window
+        or current_20260706_032238_window
+        or current_20260706_060238_window
     )
     agent_proposal_id = (
-        "p2-agent-harness-eval-fixtures"
+        "p1-agent-harness-eval-trending-python-agents"
+        if current_20260706_060238_window
+        else "p2-agent-harness-eval-fixtures"
         if current_20260706_032238_window
         else
         "p3_agent_harness_eval_multi_repo_baseline"
@@ -10789,7 +10798,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     documentation_proposal_id = (
-        "p3-route-policy-doc-clarification"
+        "p3-document-routing-boundaries-for-trend-items"
+        if current_20260706_060238_window
+        else "p3-route-policy-doc-clarification"
         if current_20260706_032238_window
         else
         "p4_document_route_policy_for_trending_agent_inputs"
@@ -10809,7 +10820,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "p3-route-classification-docs"
     )
     documentation_validation_target = (
-        "document_skill_route_discovery_vs_agent_harness_eval_flow"
+        "document_repository_trend_routes_into_agent_harness_or_skill_discovery"
+        if current_20260706_060238_window
+        else "document_skill_route_discovery_vs_agent_harness_eval_flow"
         if current_20260706_032238_window
         else
         "reverse_flow_and_general_agent_trend_inputs_stay_in_bounded_local_lanes"
@@ -10826,7 +10839,9 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         else "skill_workflow_and_general_agent_route_split_is_operator_visible"
     )
     expected_agent_names = (
-        {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld"}
+        {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld", "shepherd"}
+        if current_20260706_060238_window
+        else {"Agents-A1", "Fundamental-Ava", "Qwen-AgentWorld"}
         if current_20260706_032238_window
         else
         {"Agents-A1", "Awesome-Blender-Seedance-Workflow-Usecases", "Qwen-AgentWorld"}
@@ -10900,6 +10915,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
         (
             "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
+            else "p2-skill-route-discovery-reverse-flow-skill"
+            if current_20260706_060238_window
             else "p1-skill-route-discovery"
             if current_20260706_032238_window
             else "proposal_skill_route_discovery_reverse_flow_skill"
@@ -10995,6 +11012,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
     for row in adjacent_rows:
         if current_20260706_032238_window:
             row["proposal_id"] = "p2-agent-harness-eval-fixtures"
+        elif current_20260706_060238_window:
+            row["proposal_id"] = "p1-agent-harness-eval-trending-python-agents"
         elif current_20260706_020239_window:
             row["proposal_id"] = (
                 "p2_agent_harness_eval_qwen_agentworld"
@@ -11105,6 +11124,8 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             if current_153637_window
             else "p2_skill_route_discovery_reverse_flow"
             if current_20260706_020239_window
+            else "p2-skill-route-discovery-reverse-flow-skill"
+            if current_20260706_060238_window
             else "p1-skill-route-discovery"
             if current_20260706_032238_window
             else "p1-skill-route-discovery-reverse-flow",
@@ -11155,6 +11176,23 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
                     "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
                 ]
                 if current_20260706_020239_window
+                else [
+                    "p1-agent-harness-eval-trending-python-agents",
+                    "p2-skill-route-discovery-reverse-flow-skill",
+                    "p3-document-routing-boundaries-for-trend-items",
+                    "p4-route-hint-config-guard",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "p1-skill-route-discovery-reverse-flow",
+                    "p2-agent-harness-eval-fixture",
+                    "p3-route-policy-documentation",
+                    "p4-route-hint-config-guard",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:InternScience/Agents-A1-1",
+                    "trend:QwenLM/Qwen-AgentWorld-1",
+                    "trend:TianhangZhuzth/Fundamental-Ava-1",
+                    "trend:shepherd-agents/shepherd-1",
+                ]
+                if current_20260706_060238_window
                 else [
                     *(
                         [
@@ -11246,7 +11284,12 @@ def _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation
             "general_agent_project_evaluation_lane": "agent_harness_eval_required",
             **(
                 {"workflow_topic_without_skill_route_signal_evaluation_lane": "agent_harness_eval_required"}
-                if current_100958_window or current_112958_window or current_20260706_020239_window
+                if (
+                    current_100958_window
+                    or current_112958_window
+                    or current_20260706_020239_window
+                    or current_20260706_060238_window
+                )
                 else {}
             ),
             "direct_allowed_lanes_before_agent_harness_eval": [],
@@ -11437,6 +11480,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260706T032238.788896Z",
         "github-growth-20260706T032238Z",
     }
+    current_20260706_060238_window = source_digest in {
+        "github-growth-20260706T060238.927687Z",
+        "github-growth-20260706T060238Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -11451,6 +11498,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260705_153637_window
         or current_20260706_020239_window
         or current_20260706_032238_window
+        or current_20260706_060238_window
     ):
         return _skill_route_discovery_current_digest_20260705T084958_pass2_local_validation_lane(
             candidate_lane_inventory,
