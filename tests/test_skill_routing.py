@@ -34290,6 +34290,86 @@ def test_skill_route_discovery_current_digest_20260706T052238_pass4_completes_sk
     assert '"install"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260706T054239_routes_mixed_evidence_packet():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260706T054239_pass1_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    rows = {row["route_id"]: row for row in packet["rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260706T054239.844393Z"
+    assert registry["candidate_count"] == 1
+    assert registry["ignored_evidence_item_count"] == 4
+    assert packet["controller_surface"] == "skill_route_discovery_validation_route_packet"
+    assert packet["status"] == "ready"
+    assert packet["decision"] == "mixed_skill_and_agent_evidence_ready_for_bounded_local_validation"
+    assert packet["agent_harness_eval_required"] is True
+    assert packet["agent_harness_eval_required_before_implementation"] is True
+
+    reverse_flow = rows["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["route_kind"] == "skill_workflow"
+    assert reverse_flow["candidate_name"] == "lingbol088-spec-reverse-flow-skill"
+    assert reverse_flow["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert reverse_flow["route_class"] == SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["validation_gates"] == [
+        "skill_route_discovery_first_before_workflow_gate",
+        "generic_skill_workflow_local_validation_before_activation",
+    ]
+    assert reverse_flow["local_validation_required"] is True
+    assert reverse_flow["runtime_action"] == "none"
+    assert reverse_flow["external_skill_activation_allowed"] is False
+
+    general_agent_names = {
+        rows[item_id]["name"]
+        for item_id in rows
+        if item_id != "trend:lingbol088-spec/reverse-flow-skill-1"
+    }
+    assert general_agent_names == {
+        "Agents-A1",
+        "Fundamental-Ava",
+        "Qwen-AgentWorld",
+        "shepherd",
+    }
+    for item_id, row in rows.items():
+        if item_id == "trend:lingbol088-spec/reverse-flow-skill-1":
+            continue
+        assert row["route_kind"] == "general_agent_project"
+        assert row["route_hint"] == "agent_harness_eval_required"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["selected_local_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lanes_enabled"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert packet["runtime_action"] == "none"
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"install"' not in serialized
+
+
 def test_skill_route_discovery_current_active_pass3_bounded_activation_lane_routes_current_window():
     fixture_path = (
         Path(__file__).parent
