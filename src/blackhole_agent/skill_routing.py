@@ -6815,13 +6815,62 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260706T173555.511473Z",
         "github-growth-20260706T173555Z",
     }
+    current_20260706_201555_window = source_digest in {
+        "github-growth-20260706T201555.949510Z",
+        "github-growth-20260706T201555Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260706_173555_window:
+    if current_20260706_201555_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_workflow_maps_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "locally validate that reverse-flow-skill evidence is recognized as a "
+                    "Codex and AI Agent skill workflow, enters skill_route_discovery first, "
+                    "and maps only to documentation, config, test, or code_patch lanes"
+                ),
+            },
+            {
+                "proposal_id": "p2_agent_harness_eval_queue",
+                "proposal_kind": "documentation",
+                "proposal_track": "general_agent_project_harness_eval_intake_queue",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "general_agent_projects_require_defined_local_harness_task_before_adoption",
+                "validation_task": (
+                    "queue Agents-A1, Qwen-AgentWorld, and Fundamental-Ava as "
+                    "agent_harness_eval_required rows until a local harness task, measurable "
+                    "outcome, rollback expectation, and controller approval gate are defined"
+                ),
+            },
+            {
+                "proposal_id": "p3_agent_harness_smoke_tests",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_empty_route_hint_gate",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "empty_route_hints_cannot_bypass_agent_harness_eval_required",
+                "validation_task": (
+                    "assert that general_agent_project items with empty route_hints expose no "
+                    "direct documentation, test, code_patch, runtime, provider, external "
+                    "harness, or remote execution lane before local harness evaluation exists"
+                ),
+            },
+        )
+    elif current_20260706_173555_window:
         specs = (
             {
                 "proposal_id": "p2-skill-route-discovery-reverse-flow",
@@ -9944,6 +9993,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         if current_20260706_173555_window:
             row["proposal_id"] = "p1-agent-harness-eval-general-projects"
             row["implementation_lane_selected"] = False
+        if current_20260706_201555_window:
+            row["proposal_id"] = "p2_agent_harness_eval_queue"
+            row["implementation_lane_selected"] = False
+            row["harness_task_defined"] = False
         if current_20260706_103129_window:
             row["proposal_id"] = "p3_agent_harness_eval_for_general_agent_trends"
             row["implementation_lane_selected"] = False
@@ -10010,6 +10063,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_agent_harness_eval_queue",
+            "p3_agent_harness_smoke_tests",
+            "p4_skill_discovery_docs",
+            "p5_no_direct_runtime_adoption",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+        if current_20260706_201555_window
+        else
         [
             "p1-agent-harness-eval-general-projects",
             "p2-skill-route-discovery-reverse-flow",
@@ -10961,6 +11027,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             adjacent_rows,
             source_digest=source_digest,
         ),
+        "agent_harness_eval_intake_checklist": (
+            _skill_route_discovery_agent_harness_eval_intake_checklist(
+                adjacent_rows,
+                proposal_id="p2_agent_harness_eval_queue",
+                source_digest=source_digest,
+            )
+            if current_20260706_201555_window
+            else {}
+        ),
         "route_interpretation_rule": {
             "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
             "codex_workflow_gate_requires_skill_route_discovery_first": True,
@@ -11101,6 +11176,124 @@ def _skill_route_discovery_workflow_topic_boundary(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_agent_harness_eval_intake_checklist(
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    *,
+    proposal_id: str,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Queue general-agent project evidence until a local harness task is defined."""
+
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    for row in adjacent_rows:
+        item_id = str(row.get("item_id") or "")
+        route_hints = _string_list(row.get("route_hints"))
+        harness_task_defined = bool(row.get("harness_task_defined"))
+        row_diagnostics: list[str] = []
+        if route_hints:
+            row_diagnostics.append("route_hints_not_empty")
+        if row.get("evaluation_lane") != "agent_harness_eval_required":
+            row_diagnostics.append("evaluation_lane_not_agent_harness_eval_required")
+        if row.get("skill_route_discovery_inherited") is not False:
+            row_diagnostics.append("skill_route_discovery_inherited")
+        if row.get("selected_local_lane") != "agent_harness_eval_required":
+            row_diagnostics.append("selected_local_lane_not_agent_harness_eval_required")
+        if row.get("direct_runtime_route_allowed") is not False:
+            row_diagnostics.append("direct_runtime_route_allowed")
+        if row.get("direct_code_patch_route_allowed") is not False:
+            row_diagnostics.append("direct_code_patch_route_allowed")
+        if row.get("external_harness_execution_allowed") is not False:
+            row_diagnostics.append("external_harness_execution_allowed")
+        if row.get("provider_runtime_launch_allowed") is not False:
+            row_diagnostics.append("provider_runtime_launch_allowed")
+        if row.get("remote_execution_allowed") is not False:
+            row_diagnostics.append("remote_execution_allowed")
+        if harness_task_defined:
+            row_diagnostics.append("harness_task_defined_before_intake_review")
+        diagnostics.extend(f"{item_id}:{diagnostic}" for diagnostic in row_diagnostics if item_id)
+        rows.append(
+            {
+                "item_id": item_id,
+                "name": str(row.get("name") or ""),
+                "source_hash": str(row.get("source_hash") or ""),
+                "route_class": str(row.get("route_class") or "general_agent_project"),
+                "route_hints": route_hints,
+                "route_hints_empty": not route_hints,
+                "evaluation_lane": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval_required",
+                "proposal_only_until_harness_task_defined": not harness_task_defined,
+                "harness_task_defined": harness_task_defined,
+                "required_local_criteria": [
+                    "project_claim_captured_from_evidence",
+                    "no_direct_code_or_runtime_adoption",
+                    "local_harness_task_defined",
+                    "expected_measurable_outcome_defined",
+                    "rollback_expectation_recorded",
+                    "controller_owned_approval_gate",
+                ],
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+                "skill_route_discovery_inherited": False,
+                "implementation_lane_selected": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+                "diagnostics": row_diagnostics,
+            }
+        )
+
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_agent_harness_eval_intake_checklist",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "general_agent_projects_queued_for_harness_eval_before_behavior_adoption"
+            if ready
+            else "repair_general_agent_harness_eval_intake_before_behavior_adoption"
+        ),
+        "source_digest": source_digest,
+        "proposal_id": proposal_id,
+        "route_class": "general_agent_project",
+        "evaluation_lane": "agent_harness_eval_required",
+        "item_count": len(rows),
+        "empty_route_hint_count": sum(1 for row in rows if row["route_hints_empty"]),
+        "proposal_only_count": sum(
+            1 for row in rows if row["proposal_only_until_harness_task_defined"]
+        ),
+        "diagnostics": diagnostics,
+        "required_local_criteria": [
+            "project_claim_captured_from_evidence",
+            "no_direct_code_or_runtime_adoption",
+            "local_harness_task_defined",
+            "expected_measurable_outcome_defined",
+            "rollback_expectation_recorded",
+            "controller_owned_approval_gate",
+        ],
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "skill_route_discovery_inherited": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
     }
 
 
