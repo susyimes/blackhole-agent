@@ -6422,13 +6422,91 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260706T042239.700823Z",
         "github-growth-20260706T042239Z",
     }
+    current_20260706_103129_window = source_digest in {
+        "github-growth-20260706T103129.849391Z",
+        "github-growth-20260706T103129Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260706_030239_window or current_20260706_042239_window:
+    if current_20260706_103129_window:
+        specs = (
+            {
+                "proposal_id": "p1_reverse_flow_skill_route_discovery",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_workflow_maps_only_to_bounded_local_lanes",
+                "validation_task": (
+                    "feed reverse-flow-skill-style Codex and AI Agent skill workflow metadata "
+                    "through the classifier and assert that skill_route_discovery maps only to "
+                    "documentation, config, test, or code_patch lanes with local validation required"
+                ),
+            },
+            {
+                "proposal_id": "p2_skill_workflow_documentation_lane",
+                "proposal_kind": "documentation",
+                "proposal_track": "skill_workflow_documentation_lane",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_route_discovery_as_local_validation_candidate",
+                "validation_task": (
+                    "record that skill workflow evidence is discovered locally, constrained to "
+                    "documentation, config, test, or code_patch proposals, and cited by selected "
+                    "item_id evidence rather than expanded upstream URLs"
+                ),
+            },
+            {
+                "proposal_id": "p3_agent_harness_eval_for_general_agent_trends",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_harness_eval_required",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "general_agent_projects_require_local_harness_eval_before_implementation",
+                "validation_task": (
+                    "queue Agents-A1, Qwen-AgentWorld, Fundamental-Ava, and shepherd as "
+                    "agent_harness_eval_required rows with no direct documentation, test, "
+                    "code_patch, runtime, provider, external harness, or remote execution lane "
+                    "before a bounded local harness result exists"
+                ),
+            },
+            {
+                "proposal_id": "p4_agent_trend_triage_config",
+                "proposal_kind": "config",
+                "proposal_track": "agent_trend_triage_config",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "config",
+                "validation_target": "controller_recomputes_skill_and_agent_route_triage_before_activation",
+                "validation_task": (
+                    "make the pass-1 triage inputs replayable as proposal IDs, selected item IDs, "
+                    "route profiles, bounded lane names, and denial booleans so final scope and "
+                    "gates are recomputed locally before activation"
+                ),
+            },
+            {
+                "proposal_id": "p5_no_direct_external_behavior_adoption",
+                "proposal_kind": "documentation",
+                "proposal_track": "no_direct_external_behavior_adoption",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "documentation",
+                "validation_target": "external_skill_runtime_pressure_remains_diagnostic_only",
+                "validation_task": (
+                    "record that install, run, script execution, vulnerability-analysis, runtime, "
+                    "provider, external harness, external skill activation, external agent activation, "
+                    "and remote execution pressure from public trend evidence is diagnostic only"
+                ),
+            },
+        )
+    elif current_20260706_030239_window or current_20260706_042239_window:
         specs = (
             {
                 "proposal_id": "p1_skill_route_discovery_reverse_flow",
@@ -8900,6 +8978,7 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 or current_20260703_064052_window
                 or current_20260703_141923_window
                 or current_20260704_110437_window
+                or current_20260706_103129_window
             ):
                 downgraded_lanes.extend(_string_list(candidate.get("unsupported_lane_pressure")))
             route_probe_rows.append(
@@ -8965,7 +9044,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "validation_task": str(spec["validation_task"]),
                 "route_probe_metadata": route_probe_rows,
                 "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
-                "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
+                "downgraded_unsupported_lanes": (
+                    [] if current_20260706_103129_window else sorted(dict.fromkeys(downgraded_lanes))
+                ),
+                **(
+                    {
+                        "downgraded_unsupported_lane_categories": (
+                            ["install_script_or_runtime_pressure"] if downgraded_lanes else []
+                        ),
+                    }
+                    if current_20260706_103129_window
+                    else {}
+                ),
                 "unsupported_lane_pressure_removed_count": (
                     len(
                         [
@@ -8979,8 +9069,19 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                             if lane not in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
                         ]
                     )
-                    if current_20260703_104050_window or current_20260703_141923_window
+                    if (
+                        current_20260703_104050_window
+                        or current_20260703_141923_window
+                        or current_20260706_103129_window
+                    )
                     else 0
+                ),
+                **(
+                    {
+                        "install_or_runtime_pressure_downgraded": bool(downgraded_lanes),
+                    }
+                    if current_20260706_103129_window
+                    else {}
                 ),
                 "replay_command_hash": _stable_hash(replay_command) if replay_command else "",
                 "local_validation_required": True,
@@ -9354,6 +9455,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 row["proposal_id"] = "p4-agent-harness-eval-agents-a1"
             elif "workflow" in lowered_name or "usecase" in lowered_name:
                 row["proposal_id"] = "p5-workflow-usecase-documentation-eval"
+        if current_20260706_103129_window:
+            row["proposal_id"] = "p3_agent_harness_eval_for_general_agent_trends"
+            row["implementation_lane_selected"] = False
         row["route_probe_metadata"] = {
             "route_hint": "agent_harness_eval_required",
             "evaluation_lane": "agent_harness_eval_required",

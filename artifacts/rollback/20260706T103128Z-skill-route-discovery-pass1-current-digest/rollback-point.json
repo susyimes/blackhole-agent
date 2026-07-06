@@ -1,0 +1,10 @@
+{
+  "original_head": "81d6178620d4ec6f82ce4f88a80f315e47c04db2",
+  "original_branch": "codex/blackhole-evolve/20260706T103220.499538-add-or-extend-local-tests-that-exercise-skill-ro",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260706T103220.499538-add-or-extend-local-tests-that-exercise-skill-ro",
+    "git reset --hard refs/rollback/20260706T103128Z-skill-route-discovery-pass1-current-digest"
+  ],
+  "created": "20260706T103128Z",
+  "rollback_ref": "refs/rollback/20260706T103128Z-skill-route-discovery-pass1-current-digest"
+}
