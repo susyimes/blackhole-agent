@@ -3322,6 +3322,11 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         raw_input=raw_input,
         route_family_eval_matrix=route_family_eval_matrix,
     )
+    pass2_route_probe = skill_route_discovery_pass2_route_probe(
+        raw_input=raw_input,
+        route_family_eval_matrix=route_family_eval_matrix,
+        route_family_agent_harness_intake=route_family_agent_harness_intake,
+    )
 
     registry_summary = {
         "registry_status": registry["registry_status"],
@@ -3447,6 +3452,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "automation_bug_agent_eval_checklist": automation_bug_agent_eval_checklist,
         "route_family_eval_matrix": route_family_eval_matrix,
         "route_family_agent_harness_intake": route_family_agent_harness_intake,
+        "pass2_route_probe": pass2_route_probe,
         "current_digest_pass1_validation_lane": lane_map["current_digest_pass1_validation_lane"],
         "current_digest_pass2_local_validation_lane": lane_map["current_digest_pass2_local_validation_lane"],
         "current_digest_pass3_route_to_validation_lane": lane_map[
@@ -19570,6 +19576,140 @@ def skill_route_discovery_route_family_agent_harness_intake(
         "raw_upstream_body_exported": False,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "rows": rows,
+    }
+
+
+def skill_route_discovery_pass2_route_probe(
+    *,
+    raw_input: Mapping[str, Any],
+    route_family_eval_matrix: Mapping[str, Any],
+    route_family_agent_harness_intake: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Expose pass-2 skill-route and agent-harness replay readiness."""
+
+    window = raw_input.get("capability_window") if isinstance(raw_input.get("capability_window"), Mapping) else {}
+    try:
+        current_pass = int(window.get("current_pass") or 0)
+    except (TypeError, ValueError):
+        current_pass = 0
+    source_digest = optional_string(raw_input.get("source_digest")) or optional_string(
+        window.get("source_digest")
+    ) or ""
+    skill_rows = [
+        row
+        for row in (
+            route_family_eval_matrix.get("skill_rows")
+            if isinstance(route_family_eval_matrix.get("skill_rows"), list)
+            else []
+        )
+        if isinstance(row, Mapping)
+    ]
+    agent_rows = [
+        row
+        for row in (
+            route_family_agent_harness_intake.get("rows")
+            if isinstance(route_family_agent_harness_intake.get("rows"), list)
+            else []
+        )
+        if isinstance(row, Mapping)
+    ]
+    skill_ready = (
+        route_family_eval_matrix.get("status") == "ready"
+        and bool(skill_rows)
+        and all(row.get("local_validation_required") is True for row in skill_rows)
+    )
+    agent_ready = (
+        route_family_agent_harness_intake.get("status") in {"ready", "not_present"}
+        and all(row.get("intake_status") == "ready_for_agent_harness_eval" for row in agent_rows)
+    )
+    pass_ready = current_pass == 2
+    diagnostics: list[str] = []
+    if not pass_ready:
+        diagnostics.append("capability_window_pass_is_not_2")
+    if not skill_ready:
+        diagnostics.append("skill_route_rows_not_ready")
+    if not agent_ready:
+        diagnostics.append("agent_harness_probe_fields_not_ready")
+
+    status = "ready" if not diagnostics else "blocked"
+    skill_probe_rows = [
+        {
+            "route_family": "skill_workflow",
+            "candidate_name_hash": stable_text_hash(optional_string(row.get("candidate_name")) or ""),
+            "route_gate": "skill_route_discovery_first",
+            "allowed_local_lanes": string_list(row.get("allowed_local_lanes")),
+            "required_validation": string_list(row.get("required_validation")),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        }
+        for row in skill_rows
+    ]
+    agent_probe_rows = [
+        {
+            "route_family": "general_agent_project",
+            "item_id": optional_string(row.get("item_id")) or "",
+            "evaluation_lane": "agent_harness_eval_required",
+            "intake_status": optional_string(row.get("intake_status")) or "",
+            "selected_local_lanes_after_eval": string_list(row.get("selected_local_lanes_after_eval")),
+            "missing_probe_fields": string_list(row.get("missing_probe_fields")),
+            "skill_route_discovery_inherited": False,
+            "direct_allowed_lanes_before_eval": [],
+            "implementation_patch_allowed_before_eval": False,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "required_validation": string_list(row.get("required_validation")),
+        }
+        for row in agent_rows
+    ]
+
+    return {
+        "controller_surface": "skill_route_discovery_pass2_route_probe",
+        "status": status,
+        "decision": (
+            "replay_bounded_skill_route_and_agent_harness_lanes"
+            if status == "ready"
+            else "repair_pass2_route_probe_before_activation"
+        ),
+        "source_digest": source_digest,
+        "capability_pass": current_pass,
+        "skill_workflow_count": len(skill_probe_rows),
+        "general_agent_project_count": len(agent_probe_rows),
+        "agent_harness_ready_count": sum(
+            1 for row in agent_probe_rows if row["intake_status"] == "ready_for_agent_harness_eval"
+        ),
+        "agent_harness_blocked_count": sum(
+            1 for row in agent_probe_rows if row["intake_status"] != "ready_for_agent_harness_eval"
+        ),
+        "allowed_skill_route_lanes": ["documentation", "config", "test", "code_patch"],
+        "allowed_agent_harness_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "operator_next_action": (
+            "replay_skill_route_then_agent_harness_fixtures"
+            if status == "ready"
+            else "declare_probe_fields_or_recheck_pass_window"
+        ),
+        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "skill_rows": skill_probe_rows,
+        "agent_harness_rows": agent_probe_rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

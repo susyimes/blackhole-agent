@@ -1,0 +1,191 @@
+{
+  "name": "skill-route-discovery-current-digest-20260706T215555-pass2-route-probe",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "skill-route-discovery-current-digest-20260706T215555-pass2-route-probe",
+    "source_kind": "evidence_items",
+    "source_digest": "github-growth-20260706T215555.476919Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "current_pass": 2,
+      "total_passes": 4,
+      "source_digest": "github-growth-20260706T215555.476919Z",
+      "anchoring_proposals": [
+        "p1-agent-harness-eval-general-agent-trends",
+        "p2-skill-route-discovery-reverse-flow",
+        "p3-document-agent-project-adoption-gates",
+        "trend:shepherd-agents/shepherd-1"
+      ]
+    },
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260706T215555.476919Z",
+        "item_id": "p2-skill-route-discovery-reverse-flow",
+        "item_kind": "repository",
+        "name": "reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex workflow skill",
+        "summary": "Codex and AI Agent local workflow skill with skills/reverse-flow/SKILL.md, references, scripts, local sandbox and CTF framing, and reverse-analysis workflow guidance. Install, run, execute, and runtime wording is route pressure only.",
+        "topics": ["codex", "agent-skill", "workflow", "local-sandbox"],
+        "route_hints": ["skill_route_discovery"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
+        "route_classification": {
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+          "source_metadata_signals": ["local_sandbox_boundary", "ctf_training_context"],
+          "candidate_lanes": ["documentation", "config", "test", "code_patch"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260706T215555.476919Z",
+        "item_id": "p1-agent-harness-eval-general-agent-trends:agents-a1",
+        "item_kind": "repository",
+        "name": "Agents-A1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "title": "Agents-A1 long-horizon agent project",
+        "summary": "General agent project signal with long-horizon trajectories, tool use, evaluation code, and heterogeneous agent abilities. It is not a Codex skill package.",
+        "topics": ["agent", "tool-use", "evaluation", "long-horizon"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["research_project", "model_release", "evaluation_codebase"],
+        "entrypoints": ["technical_report", "evaluation_runner", "model_collection"],
+        "dependency_boundaries": ["model_provider", "benchmark_data", "workspace_fixture"],
+        "task_loop_assumptions": ["long_horizon_agent_tasks", "tool_use_replay", "verifier_outcome_trace"],
+        "observable_behaviors": ["structured_validation", "agent_task_reporting", "tool_use_trace"]
+      },
+      {
+        "source_digest": "github-growth-20260706T215555.476919Z",
+        "item_id": "p1-agent-harness-eval-general-agent-trends:qwen-agentworld",
+        "item_kind": "repository",
+        "name": "Qwen-AgentWorld",
+        "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
+        "title": "Qwen-AgentWorld language world models for general agents",
+        "summary": "General agent benchmark and simulator-style evidence for language world models and agent evaluation. It has no explicit skill-route package signal.",
+        "topics": ["agentworld", "general-agent", "benchmark", "evaluation"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["benchmark_suite", "simulator", "prompt_template_collection"],
+        "entrypoints": ["evaluation_runner", "dataset_manifest", "domain_prompts"],
+        "dependency_boundaries": ["model_provider", "benchmark_data", "local_workspace"],
+        "task_loop_assumptions": ["agent_world_simulation", "replay_stage_eval", "provider_configuration"],
+        "observable_behaviors": ["benchmark_reporting", "provider_configuration", "structured_validation"]
+      },
+      {
+        "source_digest": "github-growth-20260706T215555.476919Z",
+        "item_id": "p1-agent-harness-eval-general-agent-trends:fundamental-ava",
+        "item_kind": "repository",
+        "name": "Fundamental-Ava",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "title": "Fundamental-Ava autonomous collaborative agents",
+        "summary": "General autonomous and collaborative agent project with social intelligence framing. It is not a skill workflow package.",
+        "topics": ["autonomous-agent", "general-agent", "collaboration"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["agent_framework", "simulation_framework"],
+        "entrypoints": ["python_module", "demo_runner"],
+        "dependency_boundaries": ["model_provider", "simulation_runtime"],
+        "task_loop_assumptions": ["multi_agent_orchestration", "session_state_replay", "scheduled_simulation_steps"],
+        "observable_behaviors": ["multi_agent_supervision", "conversation_state", "workflow_validation"]
+      },
+      {
+        "source_digest": "github-growth-20260706T215555.476919Z",
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "item_kind": "repository",
+        "name": "shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "title": "Shepherd reversible agent execution substrate",
+        "summary": "General agent runtime substrate signal with reversible trace, fork, replay, and revert claims. It suggests recovery workflow ideas but needs local agent harness evaluation before runtime adoption.",
+        "topics": ["agent-harness", "runtime", "replay", "rollback"],
+        "route_hints": ["agent_harness_eval"],
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["runtime_substrate", "local_module"],
+        "entrypoints": ["runtime_api", "replay_runner"],
+        "dependency_boundaries": ["copy_on_write_runtime", "model_provider", "workspace_snapshot"],
+        "task_loop_assumptions": ["session_supervision", "state_replay", "policy_gate"],
+        "observable_behaviors": ["session_sync", "sandboxing", "workflow_validation"]
+      }
+    ]
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "passed"
+    },
+    {
+      "path": "pass2_route_probe.controller_surface",
+      "equals": "skill_route_discovery_pass2_route_probe"
+    },
+    {
+      "path": "pass2_route_probe.status",
+      "equals": "ready"
+    },
+    {
+      "path": "pass2_route_probe.decision",
+      "equals": "replay_bounded_skill_route_and_agent_harness_lanes"
+    },
+    {
+      "path": "pass2_route_probe.capability_pass",
+      "equals": 2
+    },
+    {
+      "path": "pass2_route_probe.skill_workflow_count",
+      "equals": 1
+    },
+    {
+      "path": "pass2_route_probe.general_agent_project_count",
+      "equals": 4
+    },
+    {
+      "path": "pass2_route_probe.agent_harness_ready_count",
+      "equals": 4
+    },
+    {
+      "path": "pass2_route_probe.agent_harness_blocked_count",
+      "equals": 0
+    },
+    {
+      "path": "pass2_route_probe.operator_next_action",
+      "equals": "replay_skill_route_then_agent_harness_fixtures"
+    },
+    {
+      "path": "pass2_route_probe.diagnostics",
+      "equals": []
+    },
+    {
+      "path": "pass2_route_probe.runtime_action_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.external_skill_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.external_agent_activation_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.external_harness_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.provider_runtime_launch_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.remote_execution_allowed",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.raw_source_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.raw_evidence_urls_exported",
+      "equals": false
+    },
+    {
+      "path": "pass2_route_probe.raw_upstream_body_exported",
+      "equals": false
+    }
+  ]
+}

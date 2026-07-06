@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 177
-    assert payload["pass_count"] == 176
+    assert payload["fixture_count"] == 178
+    assert payload["pass_count"] == 177
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -17363,6 +17363,65 @@ def test_skill_route_discovery_current_pass2_batch_validation_lane_handles_adjac
     assert packet["external_agent_activation_allowed"] is False
     assert packet["external_harness_execution_allowed"] is False
     assert packet["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260706T215555_pass2_route_probe_is_replay_ready():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260706T215555_pass2_route_probe.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    probe = output["pass2_route_probe"]
+    serialized = json.dumps(probe, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert probe["controller_surface"] == "skill_route_discovery_pass2_route_probe"
+    assert probe["status"] == "ready"
+    assert probe["decision"] == "replay_bounded_skill_route_and_agent_harness_lanes"
+    assert probe["source_digest"] == "github-growth-20260706T215555.476919Z"
+    assert probe["capability_pass"] == 2
+    assert probe["skill_workflow_count"] == 1
+    assert probe["general_agent_project_count"] == 4
+    assert probe["agent_harness_ready_count"] == 4
+    assert probe["agent_harness_blocked_count"] == 0
+    assert probe["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert probe["allowed_agent_harness_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert probe["operator_next_action"] == "replay_skill_route_then_agent_harness_fixtures"
+    assert probe["required_validation"] == [
+        "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+        "pytest tests/test_harness_eval.py -q -k proposal_interpretation",
+    ]
+    assert probe["diagnostics"] == []
+    assert all(row["route_gate"] == "skill_route_discovery_first" for row in probe["skill_rows"])
+    assert all(row["runtime_action"] == "none" for row in probe["skill_rows"])
+    assert all(row["external_skill_activation_allowed"] is False for row in probe["skill_rows"])
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        for row in probe["agent_harness_rows"]
+    )
+    assert all(
+        row["skill_route_discovery_inherited"] is False
+        for row in probe["agent_harness_rows"]
+    )
+    assert all(row["missing_probe_fields"] == [] for row in probe["agent_harness_rows"])
+    assert all(row["runtime_action"] == "none" for row in probe["agent_harness_rows"])
+    assert probe["runtime_action_allowed"] is False
+    assert probe["external_skill_activation_allowed"] is False
+    assert probe["external_agent_activation_allowed"] is False
+    assert probe["external_harness_execution_allowed"] is False
+    assert probe["provider_runtime_launch_allowed"] is False
+    assert probe["remote_execution_allowed"] is False
+    assert probe["raw_source_urls_exported"] is False
+    assert probe["raw_evidence_urls_exported"] is False
+    assert probe["raw_upstream_body_exported"] is False
     assert "https://github.com/" not in serialized
 
 
