@@ -1,0 +1,10 @@
+{
+  "recovery_commands": [
+    "git reset --hard 112c251a6831fc16a97d0b7db07b3d95240ae08a",
+    "git clean -fd"
+  ],
+  "branch": "codex/blackhole-evolve/20260706T153701.883292-tune-interpretation-or-ranking-config-to-downwei",
+  "created": "2026-07-06T15:35:54Z",
+  "rollback_ref": "refs/rollback/20260706T153554Z-skill-route-discovery-pass3-shepherd-activity-weighting",
+  "head": "112c251a6831fc16a97d0b7db07b3d95240ae08a"
+}

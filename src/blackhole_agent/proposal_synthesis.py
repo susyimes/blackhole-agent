@@ -402,7 +402,7 @@ def build_proposal_evidence_package(
             "input_item_count": len(all_digest_items) if isinstance(all_digest_items, list) else 0,
             "items_truncated": len(ranked_digest_items) > max_items,
             "item_selection_strategy": (
-                "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+                "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_activity_dedup_then_original_order"
             ),
             "selected_item_ids": selected_item_ids,
             "truncated_item_ids": truncated_item_ids,
@@ -3437,7 +3437,9 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
     review_activity_by_repo = digest_review_activity_counts(items)
     skill_route_activity_by_project = digest_skill_route_activity_counts(items)
     generic_pr_cluster_counts = digest_generic_pr_cluster_counts(items)
+    generic_push_cluster_counts = digest_generic_push_cluster_counts(items)
     generic_pr_cluster_seen: dict[str, int] = {}
+    generic_push_cluster_seen: dict[str, int] = {}
     ranked: list[tuple[tuple[int, int, float, int], int, dict[str, Any]]] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
@@ -3451,6 +3453,11 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
         generic_pr_cluster_key = digest_generic_pr_cluster_key(item)
         generic_pr_cluster_seen[generic_pr_cluster_key] = generic_pr_cluster_seen.get(generic_pr_cluster_key, 0) + 1
         generic_pr_duplicate_ordinal = generic_pr_cluster_seen[generic_pr_cluster_key]
+        generic_push_cluster_key = digest_generic_push_cluster_key(item)
+        generic_push_cluster_seen[generic_push_cluster_key] = (
+            generic_push_cluster_seen.get(generic_push_cluster_key, 0) + 1
+        )
+        generic_push_duplicate_ordinal = generic_push_cluster_seen[generic_push_cluster_key]
         adjusted_confidence = confidence + digest_review_activity_confidence_bonus(
             item,
             review_activity_by_repo=review_activity_by_repo,
@@ -3461,6 +3468,10 @@ def rank_digest_item_entries_for_context_budget(items: Any) -> list[tuple[int, d
             item,
             generic_pr_cluster_counts=generic_pr_cluster_counts,
             duplicate_ordinal=generic_pr_duplicate_ordinal,
+        ) - digest_generic_push_duplicate_penalty(
+            item,
+            generic_push_cluster_counts=generic_push_cluster_counts,
+            duplicate_ordinal=generic_push_duplicate_ordinal,
         )
         ranked.append(
             (
@@ -3626,6 +3637,32 @@ def digest_generic_pr_duplicate_penalty(
     return min(0.72, cluster_penalty + ordinal_penalty)
 
 
+def digest_generic_push_cluster_counts(items: list[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        cluster_key = digest_generic_push_cluster_key(item)
+        if cluster_key:
+            counts[cluster_key] = counts.get(cluster_key, 0) + 1
+    return counts
+
+
+def digest_generic_push_duplicate_penalty(
+    item: dict[str, Any],
+    *,
+    generic_push_cluster_counts: dict[str, int],
+    duplicate_ordinal: int = 1,
+) -> float:
+    cluster_key = digest_generic_push_cluster_key(item)
+    duplicate_count = generic_push_cluster_counts.get(cluster_key, 0) if cluster_key else 0
+    if duplicate_count < 2:
+        return 0.0
+    cluster_penalty = min(0.30, 0.10 * (duplicate_count - 1))
+    ordinal_penalty = max(0, duplicate_ordinal - 1) * 0.15
+    return min(0.60, cluster_penalty + ordinal_penalty)
+
+
 def digest_item_repo(item: dict[str, Any]) -> str:
     source_url = str(item.get("source_url") or "")
     match = re.match(r"https://github\.com/([^/\s]+/[^/\s#?]+)", source_url)
@@ -3653,17 +3690,46 @@ def digest_item_direct_action_priority(
     generic_pr_cluster_counts: dict[str, int] | None = None,
 ) -> int:
     event_kind = str(item.get("event_kind") or "")
+    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
+    if event_kind in {"IssuesEvent", "IssueCommentEvent"} and digest_item_has_direct_route_detail(item):
+        return 2
     if event_kind == "PullRequestEvent":
         cluster_key = digest_generic_pr_cluster_key(item)
-        if cluster_key and (generic_pr_cluster_counts or {}).get(cluster_key, 0) > 1:
+        if cluster_key:
             return 0
         return 1
-    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
     if event_kind == "PushEvent" and any(term in text for term in ("validation", "validate", "test", "workflow")):
-        return 1
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = classify_digest_item_route(item)
+        if classification.get("route_class") == "skill_workflow" or not digest_item_has_generic_push_detail(item):
+            return 1
     if event_kind == "ReleaseEvent":
         return 1
     return 0
+
+
+def digest_item_has_direct_route_detail(item: dict[str, Any]) -> bool:
+    """Return whether an issue/comment names an actionable route failure or recovery detail."""
+
+    text = f"{item.get('summary') or ''} {item.get('relevance_reason') or ''}".lower()
+    route_terms = (
+        "agent lane",
+        "diagnostic",
+        "doctor",
+        "empty envelope",
+        "error",
+        "fail",
+        "failure",
+        "provider",
+        "providerinvocationerror",
+        "recover",
+        "recovery",
+        "repair",
+        "route",
+        "run-start",
+    )
+    return any(term in text for term in route_terms)
 
 
 def digest_generic_pr_cluster_key(item: dict[str, Any]) -> str:
@@ -3679,6 +3745,18 @@ def digest_generic_pr_cluster_key(item: dict[str, Any]) -> str:
     if action_match:
         action = action_match.group(1)
     return stable_digest_metadata_key({"repo": repo, "event_kind": str(item.get("event_kind") or ""), "action": action})
+
+
+def digest_generic_push_cluster_key(item: dict[str, Any]) -> str:
+    if not digest_item_has_generic_push_detail(item):
+        return ""
+    classification = item.get("route_classification")
+    if not isinstance(classification, dict):
+        classification = classify_digest_item_route(item)
+    if classification.get("route_class") == "skill_workflow":
+        return ""
+    repo = digest_item_repo(item)
+    return stable_digest_metadata_key({"repo": repo, "event_kind": str(item.get("event_kind") or "")})
 
 
 def stable_digest_metadata_key(payload: dict[str, Any]) -> str:

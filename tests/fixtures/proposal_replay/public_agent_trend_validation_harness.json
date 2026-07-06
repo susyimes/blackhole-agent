@@ -120,9 +120,9 @@
     "rejected_count": 1,
     "selected_item_ids": [
       "burner-privacy-risk",
-      "omnigent-generic-pr",
       "omnigent-harness-pattern",
-      "fastcontext-replay-pattern"
+      "fastcontext-replay-pattern",
+      "omnigent-generic-pr"
     ],
     "truncated_item_ids": [
       "low-confidence-overflow"
@@ -147,9 +147,9 @@
       "truncated_field_count": 7,
       "selected_item_ids": [
         "burner-privacy-risk",
-        "omnigent-generic-pr",
         "omnigent-harness-pattern",
-        "fastcontext-replay-pattern"
+        "fastcontext-replay-pattern",
+        "omnigent-generic-pr"
       ],
       "truncated_item_ids": [
         "low-confidence-overflow"

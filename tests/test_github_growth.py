@@ -1055,7 +1055,7 @@ def test_proposal_evidence_package_truncates_context_without_mutating_evidence_r
     assert first["context_budget"]["input_item_count"] == 2
     assert (
         first["context_budget"]["item_selection_strategy"]
-        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_activity_dedup_then_original_order"
     )
     assert first["context_budget"]["selected_item_ids"] == ["event-1"]
     assert first["context_budget"]["truncated_item_ids"] == ["event-2"]
@@ -1356,6 +1356,84 @@ def test_proposal_evidence_package_boosts_repeated_review_activity_without_overw
         "https://github.com/omnigent-ai/omnigent/pull/77#discussion_r1",
         "https://github.com/omnigent-ai/omnigent/pull/77#pullrequestreview-1",
     ]
+
+
+def test_proposal_evidence_package_downweights_generic_shepherd_activity_before_direct_details():
+    digest = {
+        "digest_id": "github-growth-shepherd-activity-ranking",
+        "generated_at": "2026-07-06T15:35:55Z",
+        "items": [
+            {
+                "item_id": "shepherd-generic-pr-opened",
+                "source_url": "https://github.com/shepherd-agents/shepherd/pull/25",
+                "event_kind": "PullRequestEvent",
+                "summary": "opened pull request: untitled pull request",
+                "relevance_reason": "generic PullRequestEvent item with missing PR details",
+                "risk_flags": [],
+                "confidence": 0.93,
+            },
+            {
+                "item_id": "shepherd-generic-push-1",
+                "source_url": "https://github.com/shepherd-agents/shepherd/commit/111",
+                "event_kind": "PushEvent",
+                "summary": "shepherd-agents/shepherd: pushed generic workflow polish",
+                "relevance_reason": "generic push activity without actionable route detail",
+                "risk_flags": [],
+                "confidence": 0.91,
+            },
+            {
+                "item_id": "shepherd-generic-push-2",
+                "source_url": "https://github.com/shepherd-agents/shepherd/commit/222",
+                "event_kind": "PushEvent",
+                "summary": "shepherd-agents/shepherd: pushed generic workflow polish",
+                "relevance_reason": "generic push activity without actionable route detail",
+                "risk_flags": [],
+                "confidence": 0.89,
+            },
+            {
+                "item_id": "shepherd-provider-failure-issue",
+                "source_url": "https://github.com/shepherd-agents/shepherd/issues/23",
+                "event_kind": "IssuesEvent",
+                "summary": (
+                    "claude CLI agent lane fails with ProviderInvocationError and empty envelope "
+                    "even though doctor reports green"
+                ),
+                "relevance_reason": "direct provider failure detail exposes a route diagnostic and recovery hint",
+                "risk_flags": [],
+                "confidence": 0.72,
+            },
+            {
+                "item_id": "shepherd-recovery-pr",
+                "source_url": "https://github.com/shepherd-agents/shepherd/pull/26",
+                "event_kind": "PullRequestEvent",
+                "summary": "feat(recovery): recover cleanly from interrupted runs",
+                "relevance_reason": "direct recovery work names run-start auto-recovery and manual repair",
+                "risk_flags": [],
+                "confidence": 0.7,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=2, max_item_text_chars=240)
+
+    assert [item["item_id"] for item in evidence_package["items"]] == [
+        "shepherd-provider-failure-issue",
+        "shepherd-recovery-pr",
+    ]
+    assert evidence_package["context_budget"]["truncated_item_ids"] == [
+        "shepherd-generic-pr-opened",
+        "shepherd-generic-push-1",
+        "shepherd-generic-push-2",
+    ]
+    uncertainty = evidence_package["context_budget"]["evidence_truncation_uncertainty"]
+    assert uncertainty["selected_generic_pr_count"] == 0
+    assert uncertainty["truncated_generic_pr_count"] == 1
+    assert uncertainty["selected_generic_push_count"] == 0
+    assert uncertainty["truncated_generic_push_count"] == 2
+    assert (
+        evidence_package["context_budget"]["item_selection_strategy"]
+        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_activity_dedup_then_original_order"
+    )
 
 
 def test_proposal_evidence_package_marks_skill_workflow_route_hints():
@@ -3755,7 +3833,7 @@ def test_context_budget_preflight_reports_non_truncated_local_metadata_only():
         "selected_text_chars": len("compact context") + len("fits within budget"),
         "field_truncated_text_chars": 0,
         "item_selection_strategy": (
-            "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+            "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_activity_dedup_then_original_order"
         ),
         "selected_item_ids": ["event-1"],
         "truncated_item_ids": [],
@@ -3957,7 +4035,7 @@ def test_context_budget_preflight_reports_item_truncation_and_text_pressure():
     assert preflight["field_truncated_text_chars"] == 50
     assert (
         preflight["item_selection_strategy"]
-        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_pr_dedup_then_original_order"
+        == "risk_flags_then_direct_detail_then_confidence_with_review_activity_and_generic_activity_dedup_then_original_order"
     )
     assert preflight["selected_item_ids"] == ["event-1"]
     assert preflight["truncated_item_ids"] == ["event-2"]
