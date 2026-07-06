@@ -1,0 +1,66 @@
+{
+  "name": "agent-harness-eval-lane-20260706T211555-workflow-orchestration",
+  "behavior": "agent_harness_eval_lane",
+  "input": {
+    "task_id": "fixture-agent-harness-eval-20260706T211555-workflow-orchestration",
+    "evidence_items": [
+      {
+        "item_id": "p1-agent-harness-eval-shepherd:workflow-orchestration",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "General agent runtime substrate evidence with reversible traces, fork, replay, revert, sandboxing, supervision, retained outputs, and validation signals.",
+        "relevance_reason": "Exercise comparable local workflow orchestration criteria before adopting recovery or supervision behavior.",
+        "suggested_lanes": ["documentation", "test", "code_patch"],
+        "install_shape": ["runtime_substrate", "local_module"],
+        "entrypoints": ["runtime_api", "replay_runner"],
+        "dependency_boundaries": ["copy_on_write_runtime", "model_provider", "workspace_snapshot"],
+        "task_loop_assumptions": ["session_supervision", "state_replay", "policy_gate"],
+        "observable_behaviors": ["session_sync", "sandboxing", "workflow_validation"],
+        "observed_side_effects": []
+      },
+      {
+        "item_id": "p2-skill-route-discovery-reverse-flow:route-evidence",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "route_hints": ["agent_harness_eval"],
+        "summary": "Codex skill workflow route evidence with local sandbox and staged workflow language; keep install or run pressure out of harness adoption.",
+        "relevance_reason": "Validate that workflow language can become local pass/fail criteria without upstream execution.",
+        "suggested_lanes": ["documentation", "test"],
+        "install_shape": ["skill_package"],
+        "entrypoints": ["skill_markdown", "local_report_template"],
+        "dependency_boundaries": ["local_sandbox", "operator_review"],
+        "task_loop_assumptions": ["workflow_stage_gate", "operator_choice"],
+        "observable_behaviors": ["workflow_validation", "report_artifact"],
+        "requested_side_effects": []
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "workflow_orchestration_eval_lane.controller_surface", "equals": "workflow_orchestration_eval_lane"},
+    {"path": "workflow_orchestration_eval_lane.status", "equals": "ready"},
+    {"path": "workflow_orchestration_eval_lane.record_count", "equals": 2},
+    {"path": "workflow_orchestration_eval_lane.ready_record_count", "equals": 2},
+    {"path": "workflow_orchestration_eval_lane.blocked_record_count", "equals": 0},
+    {"path": "workflow_orchestration_eval_lane.required_local_validation", "equals": ["pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"]},
+    {"path": "workflow_orchestration_eval_lane.runtime_action", "equals": "none"},
+    {"path": "workflow_orchestration_eval_lane.direct_behavior_adoption_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.provider_runtime_launch_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.remote_execution_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.raw_source_urls_exported", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.rows.0.status", "equals": "ready"},
+    {"path": "workflow_orchestration_eval_lane.rows.0.route_class", "equals": "workflow_orchestration_eval"},
+    {"path": "workflow_orchestration_eval_lane.rows.0.pass_fail_criteria", "equals": ["project_probe_fields_complete", "no_network_access", "no_credential_access", "no_provider_launch", "no_external_harness_execution", "no_remote_execution", "no_unreviewed_workspace_write", "body_free_replay_metadata_only"]},
+    {"path": "workflow_orchestration_eval_lane.rows.0.side_effect_controls.network_access_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.rows.0.side_effect_controls.credential_access_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.rows.0.side_effect_controls.provider_launch_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.rows.0.side_effect_controls.external_harness_execution_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.rows.0.side_effect_controls.remote_execution_allowed", "equals": false},
+    {"path": "workflow_orchestration_eval_lane.rows.0.side_effect_controls.requested_forbidden_side_effects", "equals": []},
+    {"path": "workflow_orchestration_eval_lane.rows.0.expected_controller_recomputation_inputs", "equals": ["item_id", "source_url_hash", "matched_orchestration_signals", "pass_fail_criteria", "probe_ready", "side_effect_controls"]},
+    {"path": "workflow_orchestration_eval_lane.diagnostics", "equals": []},
+    {"path": "privacy.raw_source_urls_exported", "equals": false},
+    {"path": "privacy.runtime_actions_executed", "equals": false}
+  ]
+}

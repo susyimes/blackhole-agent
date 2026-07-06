@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T211555.777190Z`, pass 4 completes
+the current skill-route-discovery slice by adding a local
+`workflow_orchestration_eval_lane` inside `agent_harness_eval_lane`.
+`shepherd-agents/shepherd` is used as general-agent workflow evidence only: its
+public shape suggests reversible traces, fork, replay, revert, sandboxing,
+supervision, retained outputs, and validation, but those claims now become
+body-free local pass/fail criteria rather than runtime adoption.
+
+The lane also accepts the carried `lingbol088-spec/reverse-flow-skill` route
+evidence as workflow-language pressure without activating the upstream skill.
+Each row requires complete project probe fields, records expected controller
+recomputation inputs, and denies network access, credential access, provider
+launch, external harness execution, remote execution, and unreviewed workspace
+writes. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k "agent_harness_eval_lane or local_harness_eval_runs"`.
+
 For source digest `github-growth-20260706T203555.443958Z`, pass 2 adds an
 operator-visible `agent_harness_eval_queue` inside
 `current_digest_pass2_local_validation_lane`. The reverse-flow-skill evidence

@@ -141,6 +141,29 @@ AGENT_HARNESS_EVAL_DETAIL_MARKERS = (
     "triage artifact",
     "validation",
 )
+AGENT_HARNESS_WORKFLOW_ORCHESTRATION_MARKERS = (
+    "checkpoint",
+    "copy-on-write",
+    "fork",
+    "inspect",
+    "orchestration",
+    "replay",
+    "reversible",
+    "revert",
+    "sandbox",
+    "session",
+    "supervision",
+    "trace",
+    "workflow",
+)
+AGENT_HARNESS_WORKFLOW_FORBIDDEN_SIDE_EFFECTS = (
+    "network_access",
+    "credential_access",
+    "provider_launch",
+    "external_harness_execution",
+    "remote_execution",
+    "unreviewed_workspace_write",
+)
 AGENT_HARNESS_EVAL_CLAIM_PATTERNS: dict[str, dict[str, Any]] = {
     "multi_agent_orchestration": {
         "markers": ("agent framework", "meta-harness", "multiple agents", "orchestrate", "sub-agents"),
@@ -1201,6 +1224,10 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         records,
         project_intake_probe=project_intake_probe,
     )
+    workflow_orchestration_eval_lane = build_workflow_orchestration_eval_lane(
+        records,
+        project_intake_probe=project_intake_probe,
+    )
 
     return {
         "schema_version": 1,
@@ -1231,6 +1258,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "fork_cluster_eval_queue": fork_cluster_eval_queue,
         "implementation_readiness_contract": implementation_readiness_contract,
         "general_agent_project_route_plan": general_agent_project_route_plan,
+        "workflow_orchestration_eval_lane": workflow_orchestration_eval_lane,
         "claim_evaluation": claim_evaluation,
         "claim_remediation_plan": claim_remediation_plan,
         "project_intake_probe": project_intake_probe,
@@ -1389,6 +1417,149 @@ def build_general_agent_project_route_plan(
         "remote_execution_allowed": False,
         "raw_source_urls_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def build_workflow_orchestration_eval_lane(
+    records: list[dict[str, Any]],
+    *,
+    project_intake_probe: dict[str, Any],
+) -> dict[str, Any]:
+    """Turn orchestration claims into local pass/fail criteria before adoption."""
+
+    probe_rows = {
+        str(row.get("item_id") or ""): row
+        for row in project_intake_probe.get("rows", [])
+        if isinstance(row, dict)
+    }
+    validation_command = "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            continue
+        text = agent_harness_eval_record_text(record)
+        route_hints = set(string_list(record.get("route_hints")))
+        if AGENT_HARNESS_EVAL_HINT not in route_hints and not any(
+            marker in text for marker in ("agent harness", "benchmark", "eval", "evaluation", "harness")
+        ):
+            continue
+        matched_signals = sorted(
+            {
+                marker.replace("-", "_")
+                for marker in AGENT_HARNESS_WORKFLOW_ORCHESTRATION_MARKERS
+                if marker in text
+            }
+        )
+        task_loop_assumptions = string_list(record.get("task_loop_assumptions"))
+        observable_behaviors = string_list(record.get("observable_behaviors"))
+        if any("orchestration" in value or "supervision" in value for value in task_loop_assumptions):
+            matched_signals.append("task_loop_orchestration")
+        if any("workflow" in value or "sandbox" in value or "validation" in value for value in observable_behaviors):
+            matched_signals.append("observable_workflow_validation")
+        matched_signals = sorted(dict.fromkeys(matched_signals))
+        if not matched_signals:
+            continue
+
+        item_id = optional_string(record.get("item_id")) or f"item-{index}"
+        source_url = optional_string(record.get("source_url")) or ""
+        probe_row = probe_rows.get(item_id, {})
+        missing_probe_fields = string_list(probe_row.get("missing_fields"))
+        requested_side_effects = sorted(
+            {
+                side_effect
+                for side_effect in AGENT_HARNESS_WORKFLOW_FORBIDDEN_SIDE_EFFECTS
+                if truthy(record.get(side_effect))
+            }
+            | set(string_list(record.get("requested_side_effects")))
+            | set(string_list(record.get("observed_side_effects")))
+        )
+        known_forbidden_side_effects = [
+            side_effect
+            for side_effect in requested_side_effects
+            if side_effect in AGENT_HARNESS_WORKFLOW_FORBIDDEN_SIDE_EFFECTS
+        ]
+        row_status = "ready" if not missing_probe_fields and not known_forbidden_side_effects else "blocked"
+        if missing_probe_fields:
+            diagnostics.append(f"{item_id}:missing_agent_harness_probe_fields")
+        if known_forbidden_side_effects:
+            diagnostics.append(f"{item_id}:forbidden_side_effects_requested")
+        rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "workflow_orchestration_eval",
+                "status": row_status,
+                "matched_orchestration_signals": matched_signals,
+                "pass_fail_criteria": [
+                    "project_probe_fields_complete",
+                    "no_network_access",
+                    "no_credential_access",
+                    "no_provider_launch",
+                    "no_external_harness_execution",
+                    "no_remote_execution",
+                    "no_unreviewed_workspace_write",
+                    "body_free_replay_metadata_only",
+                ],
+                "required_local_validation": [validation_command],
+                "side_effect_controls": {
+                    "network_access_allowed": False,
+                    "credential_access_allowed": False,
+                    "provider_launch_allowed": False,
+                    "external_harness_execution_allowed": False,
+                    "remote_execution_allowed": False,
+                    "unreviewed_workspace_write_allowed": False,
+                    "requested_forbidden_side_effects": known_forbidden_side_effects,
+                },
+                "expected_controller_recomputation_inputs": [
+                    "item_id",
+                    "source_url_hash",
+                    "matched_orchestration_signals",
+                    "pass_fail_criteria",
+                    "probe_ready",
+                    "side_effect_controls",
+                ],
+                "probe_ready": not missing_probe_fields,
+                "missing_probe_fields": missing_probe_fields,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "direct_behavior_adoption_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_upstream_body_exported": False,
+                "source_url_hash": stable_text_hash(source_url) if source_url else None,
+            }
+        )
+
+    ready = bool(rows) and not diagnostics
+    return {
+        "controller_surface": "workflow_orchestration_eval_lane",
+        "status": "ready" if ready else "blocked" if rows else "not_applicable",
+        "decision": "local_orchestration_pass_fail_criteria_ready"
+        if ready
+        else "repair_orchestration_probe_or_side_effect_controls_before_adoption"
+        if rows
+        else "no_workflow_orchestration_claims_observed",
+        "record_count": len(rows),
+        "ready_record_count": sum(1 for row in rows if row["status"] == "ready"),
+        "blocked_record_count": sum(1 for row in rows if row["status"] != "ready"),
+        "allowed_followup_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+        "required_local_validation": [validation_command],
+        "local_validation_required": bool(rows),
+        "runtime_action": "none",
+        "direct_behavior_adoption_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "body_free": True,
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
     }
 
 
