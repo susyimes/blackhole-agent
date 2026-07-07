@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260707T234200.022738Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 4,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-codex-workflow",
+      "p2-generic-skill-workflow-fixtures",
+      "p3-skill-route-documentation",
+      "p4-agent-harness-eval-gate",
+      "p5-route-classification-metadata-check",
+      "p1-skill-route-discovery-batch",
+      "p2-codex-workflow-gate-probe",
+      "p3-agent-harness-eval-route",
+      "p4-route-policy-doc-clarification",
+      "trend:shepherd-agents/shepherd-1",
+      "p1_skill_route_discovery_probe",
+      "p2_codex_skill_workflow_profile"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260707T234200.022738Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow/SKILL.md, local sandbox and CTF framing, staged analysis/report/reverse workflow, install examples, and diagnostic scripts.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse-flow", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run", "script_execution"],
+      "unsupported_lane_pressure": ["install", "run", "script_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary", "staged_workflow", "diagnostic_script_examples"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T234200.022738Z",
+      "item_id": "trend:Pluviobyte/rnskill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "summary": "AI Agent Skills collection with SKILL.md-oriented skill directories, plugin metadata, tools, docs, and manual install examples for Codex and other agent workflows.",
+      "topics": ["agent", "skills", "codex", "workflow", "skill-collection"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+      "unsupported_lane_pressure": ["install", "enable"],
+      "observed_paths": ["skills/", ".codex-plugin/plugin.json", "docs/", "tools/", "README.md"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "skill_manifest"],
+        "source_metadata_signals": ["skill_registry_metadata", "agent_plugin_marketplace"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T234200.022738Z",
+      "item_id": "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+      "item_kind": "RepositoryTrend",
+      "name": "bionemo-agent-toolkit",
+      "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+      "summary": "Domain-specific life-science agent toolkit described as BioNeMo skills for agents, with skill catalog and scientific tool integration pressure that requires local citation, advice, data, and provider boundaries before adoption.",
+      "topics": ["agent", "skill", "toolkit", "life-science", "bionemo", "domain-research"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution", "provider_runtime"],
+      "unsupported_lane_pressure": ["install", "runtime_execution", "provider_runtime"],
+      "observed_paths": ["README.md", "library-skills/", "nim-skills/", "open-models-skills/", "skills.sh.json"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "reference_directory"],
+        "source_metadata_signals": ["domain_specific_skill_toolkit", "source_citation_boundary", "provider_runtime_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T234200.022738Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agent model and evaluation project with long-horizon trajectory framing, but no explicit skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "evaluation", "benchmark", "agent", "long-horizon"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

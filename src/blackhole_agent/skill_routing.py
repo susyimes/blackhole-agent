@@ -2837,7 +2837,13 @@ def _skill_route_discovery_current_pass4_completion_handoff(
     current_20260707_050834 = source_digest == "github-growth-20260707T050834.384415Z"
     current_20260707_062834 = source_digest == "github-growth-20260707T062834.999092Z"
     current_20260707_222110 = source_digest == "github-growth-20260707T222110.418015Z"
-    if not (current_20260707_050834 or current_20260707_062834 or current_20260707_222110):
+    current_20260707_234200 = source_digest == "github-growth-20260707T234200.022738Z"
+    if not (
+        current_20260707_050834
+        or current_20260707_062834
+        or current_20260707_222110
+        or current_20260707_234200
+    ):
         return {}
 
     skill_rows = [
@@ -2859,6 +2865,13 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             "p3-bionemo-skill-workflow-documentation",
             "p4-general-agent-harness-eval-backlog",
         ]
+    elif current_20260707_234200:
+        proposal_ids = [
+            "p1-reverse-flow-skill-route-discovery",
+            "p2-generic-skill-workflow-fixtures",
+            "p3-skill-route-discovery-doc",
+            "p4-agent-harness-eval-gate",
+        ]
     else:
         proposal_ids = [
             "p1_skill_route_discovery_reverse_flow",
@@ -2872,7 +2885,11 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             else (
                 "pytest tests/test_skill_routing.py -q -k 20260707T222110"
                 if current_20260707_222110
-                else "pytest tests/test_skill_routing.py -q -k 20260707T062834"
+                else (
+                    "pytest tests/test_skill_routing.py -q -k 20260707T234200"
+                    if current_20260707_234200
+                    else "pytest tests/test_skill_routing.py -q -k 20260707T062834"
+                )
             )
         ),
         "pytest tests/test_docs_contracts.py -q -k current_pass4_completion",
@@ -2889,6 +2906,12 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             "artifacts/rollback/20260708T022108Z-skill-route-discovery-pass4/"
             "rollback-point.md"
         )
+    elif current_20260707_234200:
+        rollback_ref = "refs/blackhole/rollback/20260708T000000Z-skill-route-discovery-pass4-completion"
+        rollback_artifact = (
+            "artifacts/rollback/20260708T000000Z-skill-route-discovery-pass4-completion-current-window/"
+            "rollback-point.md"
+        )
     else:
         rollback_ref = "refs/blackhole-rollback/20260707T062832Z-skill-route-discovery-pass4-completion"
         rollback_artifact = (
@@ -2896,12 +2919,16 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             "rollback-point.md"
         )
     reverse_flow_proposal_id = (
-        "p2-codex-workflow-gate-reverse-flow"
+        "p1-reverse-flow-skill-route-discovery"
+        if current_20260707_234200
+        else "p2-codex-workflow-gate-reverse-flow"
         if current_20260707_222110
         else "p1_skill_route_discovery_reverse_flow"
     )
     generic_skill_proposal_id = (
-        "p1-skill-route-discovery-rnskill"
+        "p3-skill-route-discovery-doc"
+        if current_20260707_234200
+        else "p1-skill-route-discovery-rnskill"
         if current_20260707_222110
         else (
             "p2_generic_skill_workflow_discovery"
@@ -2909,9 +2936,15 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             else "p2_skill_route_discovery_rnskill"
         )
     )
-    bionemo_proposal_id = "p3-bionemo-skill-workflow-documentation"
+    bionemo_proposal_id = (
+        "p2-generic-skill-workflow-fixtures"
+        if current_20260707_234200
+        else "p3-bionemo-skill-workflow-documentation"
+    )
     agent_proposal_id = (
-        "p4-general-agent-harness-eval-backlog"
+        "p4-agent-harness-eval-gate"
+        if current_20260707_234200
+        else "p4-general-agent-harness-eval-backlog"
         if current_20260707_222110
         else (
             "p3_agent_harness_eval_gate"
@@ -2932,7 +2965,7 @@ def _skill_route_discovery_current_pass4_completion_handoff(
                     reverse_flow_proposal_id
                     if is_reverse_flow
                     else bionemo_proposal_id
-                    if is_domain_skill and current_20260707_222110
+                    if is_domain_skill and (current_20260707_222110 or current_20260707_234200)
                     else generic_skill_proposal_id
                 ),
                 "route_id": str(row.get("route_id") or ""),
@@ -2990,7 +3023,7 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         for row in skill_rows
     ):
         blockers.append("generic_skill_workflow_rnskill_missing")
-    if current_20260707_222110 and not any(
+    if (current_20260707_222110 or current_20260707_234200) and not any(
         str(row.get("candidate_name") or "") == "bionemo-agent-toolkit"
         and "source_cited_domain_research" in _string_list(row.get("route_profiles"))
         for row in skill_rows
@@ -3040,6 +3073,31 @@ def _skill_route_discovery_current_pass4_completion_handoff(
                 if lane in {str(row.get("selected_local_lane") or "") for row in skill_route_rows}
             ],
             "agent_harness_eval_required_before_implementation": bool(agent_rows),
+            **(
+                {
+                    "operator_review_checklist": {
+                        "controller_surface": "skill_route_discovery_current_pass4_operator_review_checklist",
+                        "status": "ready" if ready else "blocked",
+                        "evidence_shape": "skill_workflow_rows_plus_adjacent_general_agent_queue",
+                        "required_checks": [
+                            "reverse_flow_codex_workflow_gate_stays_test_lane",
+                            "generic_skill_workflow_rows_stay_documentation_or_test_lanes",
+                            "domain_specific_toolkit_boundaries_stay_unactivated",
+                            "agents_a1_remains_agent_harness_eval_required",
+                            "rollback_artifact_recorded_before_activation_handoff",
+                        ],
+                        "activation_authority_granted": False,
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "external_agent_activation_allowed": False,
+                        "external_harness_execution_allowed": False,
+                        "provider_runtime_launch_allowed": False,
+                        "remote_execution_allowed": False,
+                    }
+                }
+                if current_20260707_234200
+                else {}
+            ),
             "general_agent_recovery_workflow": {
                 "controller_surface": "skill_route_discovery_pass4_general_agent_recovery_workflow",
                 "status": "queued" if agent_rows else "blocked",

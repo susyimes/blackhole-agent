@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-07-08T00:00:00Z",
+  "source_digest": "github-growth-20260707T234200.022738Z",
+  "capability_slice": "skill-route-discovery",
+  "original_branch": "codex/blackhole-evolve/20260707T234237.502145-add-or-extend-a-bounded-skill-route-discovery-la",
+  "original_head": "1eec4514ed543992312445e065f6f6c9a024304d",
+  "rollback_ref": "refs/blackhole/rollback/20260708T000000Z-skill-route-discovery-pass4-completion",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T234237.502145-add-or-extend-a-bounded-skill-route-discovery-la",
+    "git reset --hard refs/blackhole/rollback/20260708T000000Z-skill-route-discovery-pass4-completion"
+  ],
+  "rollback_executed": false
+}
