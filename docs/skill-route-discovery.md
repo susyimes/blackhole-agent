@@ -5,6 +5,23 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T172109.646188Z`, pass 1 exposes the
+active Shepherd/reverse-flow/rnskill window through
+`current_run_pass1_activation_readiness`. The lane maps
+`lingbol088-spec/reverse-flow-skill` to the bounded local test lane and
+`Pluviobyte/rnskill` to the bounded documentation lane. Install, run, provider,
+external harness, and remote-execution wording remains diagnostic pressure
+only.
+
+`shepherd-agents/shepherd` is held behind
+`p1-shepherd-agent-harness-eval` as `agent_harness_eval_required`. Its reusable
+lesson is the retained, reversible workflow shape: inspectable traces,
+retained outputs, replay, rollback, and external-supervisor activation. That
+lesson is represented as a pass-1 runner control plane with intake, midflight,
+recovery, replay, and report stages; it does not activate Shepherd, install an
+upstream skill, launch a provider, or grant runtime authority. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T172109`.
+
 For source digest `github-growth-20260707T162109.466559Z`, pass 2 binds
 the active reverse-flow/rnskill proposals to the existing pass-2 operator lane
 and exposes `current_pass2_activation_recovery_workflow` inside the activation

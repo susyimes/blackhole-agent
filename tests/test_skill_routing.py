@@ -89,6 +89,134 @@ def test_at_prefixed_skill_name_counts_as_explicit_invocation():
     assert ranked[0].reasons == ("skill_name:codex-fable5", "validation:experimental")
 
 
+def test_skill_route_discovery_current_digest_20260707T172109_pass1_routes_shepherd_window():
+    source_digest = "github-growth-20260707T172109.646188Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "lingbol088-spec-reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "title": "Reverse-flow Codex skill workflow",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with SKILL.md, local sandbox "
+                "framing, staged analysis workflow, diagnostic scripts, and install examples "
+                "that must remain non-activation evidence."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["codex", "skill", "workflow", "reverse-flow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "allowed_local_lanes": [
+                    "documentation",
+                    "config",
+                    "test",
+                    "code_patch",
+                    "install",
+                    "run",
+                ],
+                "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+                "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-1",
+            "item_kind": "repository",
+            "name": "Pluviobyte-rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "title": "rnskill generic SKILL.md collection",
+            "summary": (
+                "Generic SKILL.md collection for Codex and Claude workflows with skills directory, "
+                "docs, tools, marketplace metadata, and manual install examples."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["codex", "skill", "skills", "workflow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": ["generic_skill_workflow"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                "source_layout_signals": ["skill_directory", "skill_manifest"],
+                "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:shepherd-agents/shepherd-1",
+            "item_kind": "repository",
+            "name": "shepherd",
+            "source_url": "https://github.com/shepherd-agents/shepherd",
+            "title": "Shepherd reversible agent execution trace runtime",
+            "summary": (
+                "Meta-agent runtime substrate with reversible traces, retained outputs, "
+                "copy-on-write forks, replay, and supervision signals."
+            ),
+            "topics": ["agent", "workflow", "runtime-supervision", "meta-agents"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    lane = lane_map["current_run_pass1_activation_readiness"]
+    assert lane["controller_surface"] == "skill_route_discovery_current_run_pass1_activation_readiness"
+    assert lane["status"] == "ready"
+    assert lane["source_digest"] == source_digest
+    assert lane["proposal_ids"] == [
+        "p1_skill_route_discovery_reverse_flow",
+        "p2_skill_route_discovery_rnskill",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-shepherd-agent-harness-eval",
+        "p2-skill-route-discovery-reverse-flow",
+        "p3-skill-route-discovery-rnskill",
+        "p4-generic-agent-project-triage-doc",
+        "11471748961-1",
+        "trend:shepherd-agents/shepherd-1",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["agent_harness_eval_required_count"] == 1
+    assert lane["adjacent_general_agent_policy"]["evaluation_lane"] == "agent_harness_eval_required"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    assert rows["p1_skill_route_discovery_reverse_flow"]["candidate_names"] == [
+        "lingbol088-spec-reverse-flow-skill"
+    ]
+    assert rows["p1_skill_route_discovery_reverse_flow"]["selected_local_lane"] == "test"
+    assert rows["p2_skill_route_discovery_rnskill"]["candidate_names"] == ["Pluviobyte-rnskill"]
+    assert rows["p2_skill_route_discovery_rnskill"]["selected_local_lane"] == "documentation"
+    assert lane["adjacent_general_agent_rows"][0]["proposal_id"] == "p1-shepherd-agent-harness-eval"
+    assert lane["adjacent_general_agent_rows"][0]["evaluation_lane"] == "agent_harness_eval_required"
+    assert lane["runner_harness_control_plane"]["status"] == "ready"
+    assert lane["runner_harness_control_plane"]["stage_order"] == [
+        "intake",
+        "midflight",
+        "recovery",
+        "replay",
+        "report",
+    ]
+
+    serialized = json.dumps(lane, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_topical_matches_are_ranked_by_validation_status_then_name():
     skills = [
         SkillDescriptor(name="workflow-beta", domains=("workflow",), validation_status="experimental"),

@@ -5032,6 +5032,10 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "github-growth-20260707T082834.484151Z",
         "github-growth-20260707T082834Z",
     }
+    current_20260707_172109_window = source_digest in {
+        "github-growth-20260707T172109.646188Z",
+        "github-growth-20260707T172109Z",
+    }
     current_190435_window = source_digest in {
         "github-growth-20260704T190435.517226Z",
         "github-growth-20260704T190435Z",
@@ -5059,7 +5063,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                 "validation_target": "document_rnskill_generic_skill_workflow_route_assumptions",
             },
         )
-        if current_20260707_082834_window
+        if current_20260707_082834_window or current_20260707_172109_window
         else
         (
             {
@@ -5362,7 +5366,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         ),
     }
     default_adjacent_proposal_id = (
-        "p3_agent_harness_eval_general_projects"
+        "p1-shepherd-agent-harness-eval"
+        if current_20260707_172109_window
+        else "p3_agent_harness_eval_general_projects"
         if current_20260707_082834_window
         else
         "proposal_agent_harness_eval_qwen_agentworld"
@@ -5412,6 +5418,18 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     )
     ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
     anchoring_proposal_ids = (
+        [
+            "p1-shepherd-agent-harness-eval",
+            "p2-skill-route-discovery-reverse-flow",
+            "p3-skill-route-discovery-rnskill",
+            "p4-generic-agent-project-triage-doc",
+            "11471748961-1",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-1",
+        ]
+        if current_20260707_172109_window
+        else
         [
             "p1_skill_route_discovery_reverse_flow",
             "p2_skill_route_discovery_rnskill",
