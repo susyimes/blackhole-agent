@@ -1,0 +1,11 @@
+{
+  "run": "20260707T024832Z-skill-route-discovery-pass1",
+  "original_head": "b4f47abc140b5921425c52c50d6b28ff4a27c136",
+  "rollback_ref": "refs/rollback/20260707T024832Z-skill-route-discovery-pass1",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T024921.776585-run-a-local-skill-route-discovery-validation-for",
+    "git reset --hard refs/rollback/20260707T024832Z-skill-route-discovery-pass1",
+    "git clean -fd"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260707T024921.776585-run-a-local-skill-route-discovery-validation-for"
+}

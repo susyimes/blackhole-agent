@@ -7054,13 +7054,36 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260706T213555.505315Z",
         "github-growth-20260706T213555Z",
     }
+    current_20260707_024834_window = source_digest in {
+        "github-growth-20260707T024834.700892Z",
+        "github-growth-20260707T024834Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260706_201555_window or current_20260706_213555_window:
+    if current_20260707_024834_window:
+        specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                "proposal_kind": "test",
+                "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "reverse_flow_skill_repository_maps_to_bounded_local_lane",
+                "validation_task": (
+                    "inspect reverse-flow-skill as a Codex and AI Agent skill workflow; "
+                    "route it through skill_route_discovery first and keep outputs bounded "
+                    "to documentation, config, test, or code_patch lanes while install, run, "
+                    "script execution, provider launch, external harness execution, and remote "
+                    "execution remain denied"
+                ),
+            },
+        )
+    elif current_20260706_201555_window or current_20260706_213555_window:
         specs = (
             {
                 "proposal_id": (
@@ -9888,6 +9911,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p2-agent-harness-eval-general-agent-trends"
+            if current_20260707_024834_window
+            else
             "p2-agent-harness-eval-shepherd"
             if current_20260706_145556_window
             else
@@ -10318,6 +10344,17 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         review_only_anchor_proposal_id = "security-adjacent-autocve"
 
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-agent-harness-eval-general-agent-trends",
+            "p3-workflow-usecase-agent-harness-doc-test",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-2",
+            "trend:InternScience/Agents-A1-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+        ]
+        if current_20260707_024834_window
+        else
         [
             "p1-skill-route-discovery-reverse-flow",
             "p2-agent-harness-eval-fixtures",
@@ -11237,7 +11274,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "capability_slice": "skill-route-discovery",
-        "proposal_ids": [str(spec["proposal_id"]) for spec in specs],
+        "proposal_ids": (
+            [str(spec["proposal_id"]) for spec in specs]
+            + [
+                "p2-agent-harness-eval-general-agent-trends",
+                "p3-workflow-usecase-agent-harness-doc-test",
+            ]
+            if current_20260707_024834_window
+            else [str(spec["proposal_id"]) for spec in specs]
+        ),
         "anchoring_proposal_ids": anchoring_proposal_ids,
         "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,
@@ -11264,6 +11309,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "workflow_topic_boundary": _skill_route_discovery_workflow_topic_boundary(
             adjacent_rows,
             proposal_id=(
+                "p3-workflow-usecase-agent-harness-doc-test"
+                if current_20260707_024834_window
+                else
                 "p3-workflow-usecase-eval-documentation"
                 if current_20260705_151637_window
                 else
