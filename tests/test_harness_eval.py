@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 182
-    assert payload["pass_count"] == 181
+    assert payload["fixture_count"] == 183
+    assert payload["pass_count"] == 182
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -342,6 +342,7 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["agent-workflow-route-runner-harness-control-pass4-completion"]["passed"] is True
+    assert results["agent-workflow-route-retained-output-selection"]["passed"] is True
     assert (
         results[
             "skill-route-discovery-current-digest-20260707T140109-pass3-runner-control-plane"
@@ -3246,6 +3247,81 @@ def test_agent_workflow_route_blocks_invalid_streamed_tool_boundaries_without_ex
     assert "PRIVATE_NOT_JSON_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_STREAM_CALL_DO_NOT_EXPORT" not in serialized
     assert "https://github.com/omnigent-ai/omnigent" not in serialized
+
+
+def test_agent_workflow_route_blocks_unsettled_retained_outputs_without_exporting_paths():
+    output = evaluate_harness_behavior(
+        "agent_workflow_route",
+        {
+            "task_id": "fixture-route-unsettled-retained-output",
+            "intake": {
+                "source_digest": "github-growth-20260707T142109.485817Z",
+                "proposal_ids": ["p3-agent-harness-eval-shepherd"],
+                "evidence_urls": ["https://github.com/shepherd-agents/shepherd"],
+                "capability_window": {
+                    "theme": "runner-harness-control",
+                    "current_pass": 4,
+                    "total_passes": 4,
+                },
+            },
+            "plan": {"steps": [{"id": "intake"}, {"id": "runner"}, {"id": "retained-output"}]},
+            "runner": {"invoked": True, "returncode": 0, "timed_out": False},
+            "retained_outputs": {
+                "required": True,
+                "changeset_readable": True,
+                "select_available": True,
+                "discard_available": False,
+                "activation_blocked_until_selection": False,
+                "outputs": [
+                    {
+                        "id": "PRIVATE_BAD_RETAINED_OUTPUT_ID_DO_NOT_EXPORT",
+                        "changeset_ref": "PRIVATE_BAD_CHANGESET_REF_DO_NOT_EXPORT",
+                        "retained": True,
+                        "inspectable": True,
+                        "settlement": "pending",
+                        "applied_before_selection": True,
+                    }
+                ],
+            },
+            "validation": {
+                "gate": "runner-harness-control-plane",
+                "checks": [{"name": "retained-output-selection", "returncode": 0}],
+            },
+            "rollback": {
+                "created": True,
+                "ref": "refs/rollback/fixture-route-unsettled-retained-output",
+                "artifact_path": "artifacts/rollback/fixture-route-unsettled-retained-output.txt",
+            },
+            "recovery": {
+                "required": True,
+                "operator_required": True,
+                "commands": ["git reset --hard PRIVATE_BAD_RETAINED_OUTPUT_HEAD_DO_NOT_EXPORT"],
+                "replay_command": "pytest tests/test_harness_eval.py -q -k retained_outputs",
+            },
+            "artifacts": {
+                "report_recorded": True,
+                "report_path": "artifacts/self-evolution/retained-output.md",
+                "replay_path": "tests/fixtures/local_harness_eval/agent_workflow_route_retained_output_selection.json",
+                "report_sections": ["changed_files", "validation", "rollback", "replay", "review_notes"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "agent_workflow_route_unsettled_retained_output_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "failed_recoverable"
+    assert output["failure_mode"] == "retained_output_applied_before_selection"
+    assert output["control_plane"]["retained_output_contract"]["operator_action"] == (
+        "restore_workspace_and_replay_retained_output"
+    )
+    assert output["control_plane"]["workflow_completion_packet"]["supervisor_handoff_ready"] is False
+    assert output["control_plane"]["operator_replay_checklist"]["actions"][-1]["action"] == (
+        "restore_workspace_and_replay_retained_output"
+    )
+    assert "PRIVATE_BAD_RETAINED_OUTPUT_ID_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_BAD_CHANGESET_REF_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_BAD_RETAINED_OUTPUT_HEAD_DO_NOT_EXPORT" not in serialized
+    assert "https://github.com/shepherd-agents/shepherd" not in serialized
 
 
 def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():

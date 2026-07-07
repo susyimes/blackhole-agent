@@ -1,0 +1,10 @@
+{
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T142204.842302-run-a-local-skill-route-discovery-validation-lan",
+    "git reset --hard f98433e05d20a4fdc522c5c1deacd74fa98000ca"
+  ],
+  "created": "20260707T142204Z",
+  "rollback_ref": "refs/rollback/20260707T142204Z-runner-harness-control-pass4",
+  "head": "f98433e05d20a4fdc522c5c1deacd74fa98000ca",
+  "branch": "codex/blackhole-evolve/20260707T142204.842302-run-a-local-skill-route-discovery-validation-lan"
+}

@@ -27267,6 +27267,9 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     intake = raw_input.get("intake") if isinstance(raw_input.get("intake"), dict) else {}
     recovery = raw_input.get("recovery") if isinstance(raw_input.get("recovery"), dict) else {}
     compaction = raw_input.get("compaction") if isinstance(raw_input.get("compaction"), dict) else {}
+    retained_outputs = (
+        raw_input.get("retained_outputs") if isinstance(raw_input.get("retained_outputs"), dict) else {}
+    )
     stream_boundaries = (
         raw_input.get("streamed_tool_boundaries") if isinstance(raw_input.get("streamed_tool_boundaries"), dict) else {}
     )
@@ -27302,6 +27305,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
     )
     observation_result = evaluate_agent_workflow_observations(observations)
     compaction_result = evaluate_agent_workflow_compaction(compaction)
+    retained_output_result = evaluate_agent_workflow_retained_outputs(retained_outputs)
     stream_boundary_result = evaluate_agent_workflow_stream_boundaries(stream_boundaries)
     inbox_result = evaluate_agent_workflow_orchestrator_inbox(orchestrator_inbox)
     watchdog_result = evaluate_agent_workflow_watchdog(watchdog, runner_timed_out=runner_timed_out)
@@ -27324,6 +27328,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
             observations_failure_mode=observation_result["failure_mode"],
             compaction_passed=compaction_result["passed"],
             compaction_failure_mode=compaction_result["failure_mode"],
+            retained_outputs_passed=retained_output_result["passed"],
+            retained_outputs_failure_mode=retained_output_result["failure_mode"],
             stream_boundaries_passed=stream_boundary_result["passed"],
             stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
             inbox_delivery_passed=inbox_result["passed"],
@@ -27348,6 +27354,8 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         observations_failure_mode=observation_result["failure_mode"],
         compaction_passed=compaction_result["passed"],
         compaction_failure_mode=compaction_result["failure_mode"],
+        retained_outputs_passed=retained_output_result["passed"],
+        retained_outputs_failure_mode=retained_output_result["failure_mode"],
         stream_boundaries_passed=stream_boundary_result["passed"],
         stream_boundaries_failure_mode=stream_boundary_result["failure_mode"],
         inbox_delivery_passed=inbox_result["passed"],
@@ -27382,6 +27390,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
         compaction_result=compaction_result,
+        retained_output_result=retained_output_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         watchdog_result=watchdog_result,
@@ -27426,6 +27435,7 @@ def evaluate_agent_workflow_route(raw_input: dict[str, Any], *, source_path: Pat
         "lifecycle": lifecycle_result,
         "observations": observation_result,
         "compaction": compaction_result,
+        "retained_outputs": retained_output_result,
         "streamed_tool_boundaries": stream_boundary_result,
         "orchestrator_inbox": inbox_result,
         "watchdog": watchdog_result,
@@ -27460,6 +27470,8 @@ def agent_workflow_failure_mode(
     observations_failure_mode: str = "none",
     compaction_passed: bool = True,
     compaction_failure_mode: str = "none",
+    retained_outputs_passed: bool = True,
+    retained_outputs_failure_mode: str = "none",
     stream_boundaries_passed: bool = True,
     stream_boundaries_failure_mode: str = "none",
     inbox_delivery_passed: bool = True,
@@ -27481,6 +27493,8 @@ def agent_workflow_failure_mode(
         return observations_failure_mode
     if not compaction_passed:
         return compaction_failure_mode
+    if not retained_outputs_passed:
+        return retained_outputs_failure_mode
     if not stream_boundaries_passed:
         return stream_boundaries_failure_mode
     if not inbox_delivery_passed:
@@ -28040,6 +28054,138 @@ def evaluate_agent_workflow_compaction(compaction: dict[str, Any]) -> dict[str, 
     }
 
 
+def evaluate_agent_workflow_retained_outputs(retained_outputs: dict[str, Any]) -> dict[str, Any]:
+    """Validate retained workspace outputs before activation without exporting paths."""
+
+    required = truthy(retained_outputs.get("required"))
+    raw_outputs = retained_outputs.get("outputs") if isinstance(retained_outputs.get("outputs"), list) else []
+    outputs = [
+        normalize_agent_workflow_retained_output(output, index)
+        for index, output in enumerate(raw_outputs, start=1)
+        if isinstance(output, dict)
+    ]
+    output_count = len(outputs)
+    retained_count = sum(1 for output in outputs if output["retained"])
+    inspectable_count = sum(1 for output in outputs if output["inspectable"])
+    settleable_count = sum(1 for output in outputs if output["settleable"])
+    applied_before_selection_count = sum(1 for output in outputs if output["applied_before_selection"])
+    select_available = truthy(retained_outputs.get("select_available"))
+    discard_available = truthy(retained_outputs.get("discard_available"))
+    changeset_readable = truthy(retained_outputs.get("changeset_readable"))
+    activation_blocked_until_selection = (
+        truthy(retained_outputs.get("activation_blocked_until_selection"))
+        if "activation_blocked_until_selection" in retained_outputs
+        else required
+    )
+    raw_paths_exported = truthy(retained_outputs.get("raw_paths_exported"))
+    raw_changesets_exported = truthy(retained_outputs.get("raw_changesets_exported"))
+
+    blockers: list[str] = []
+    if required and output_count < 1:
+        blockers.append("retained_output_missing")
+    if required and retained_count < output_count:
+        blockers.append("retained_output_not_retained")
+    if required and applied_before_selection_count:
+        blockers.append("retained_output_applied_before_selection")
+    if required and inspectable_count < output_count:
+        blockers.append("retained_output_not_inspectable")
+    if required and settleable_count < output_count:
+        blockers.append("retained_output_not_settleable")
+    if required and not changeset_readable:
+        blockers.append("retained_output_changeset_unreadable")
+    if required and not (select_available and discard_available):
+        blockers.append("retained_output_settlement_missing")
+    if required and not activation_blocked_until_selection:
+        blockers.append("retained_output_activation_gate_missing")
+    if raw_paths_exported:
+        blockers.append("retained_output_raw_path_export_risk")
+    if raw_changesets_exported:
+        blockers.append("retained_output_raw_changeset_export_risk")
+
+    failure_mode = blockers[0] if blockers else "none"
+    return {
+        "required": required,
+        "passed": not blockers,
+        "failure_mode": failure_mode,
+        "output_count": output_count,
+        "retained_count": retained_count,
+        "inspectable_count": inspectable_count,
+        "settleable_count": settleable_count,
+        "applied_before_selection_count": applied_before_selection_count,
+        "select_available": select_available,
+        "discard_available": discard_available,
+        "changeset_readable": changeset_readable,
+        "activation_blocked_until_selection": activation_blocked_until_selection,
+        "operator_action": agent_workflow_retained_output_operator_action(failure_mode),
+        "outputs": outputs,
+        "blockers": blockers,
+        "policy": {
+            "retained_before_activation_required": True,
+            "inspect_before_select_required": True,
+            "select_or_discard_required": True,
+            "apply_before_selection_allowed": False,
+            "raw_output_paths_exported": False,
+            "raw_changesets_exported": False,
+        },
+    }
+
+
+def normalize_agent_workflow_retained_output(output: dict[str, Any], ordinal: int) -> dict[str, Any]:
+    output_id = optional_string(output.get("id") or output.get("output_id"))
+    changeset_ref = optional_string(output.get("changeset_ref") or output.get("artifact_ref"))
+    settlement = normalize_agent_workflow_retained_output_settlement(output.get("settlement"))
+    retained = truthy(output.get("retained")) if "retained" in output else True
+    inspectable = truthy(output.get("inspectable") or output.get("changeset_readable"))
+    applied_before_selection = truthy(output.get("applied_before_selection") or output.get("applied_to_workspace"))
+    settleable = settlement in {"select", "discard", "pending"}
+    return {
+        "ordinal": ordinal,
+        "output_id_hash": stable_text_hash(output_id) if output_id else None,
+        "changeset_ref_hash": stable_text_hash(changeset_ref) if changeset_ref else None,
+        "retained": retained,
+        "inspectable": inspectable,
+        "settlement": settlement,
+        "settleable": settleable,
+        "applied_before_selection": applied_before_selection,
+        "raw_path_exported": False,
+        "raw_changeset_exported": False,
+    }
+
+
+def normalize_agent_workflow_retained_output_settlement(value: Any) -> str:
+    settlement = (optional_string(value) or "pending").strip().lower().replace("-", "_")
+    aliases = {
+        "accept": "select",
+        "accepted": "select",
+        "selected": "select",
+        "keep": "select",
+        "kept": "select",
+        "reject": "discard",
+        "rejected": "discard",
+        "discarded": "discard",
+        "unsettled": "pending",
+    }
+    settlement = aliases.get(settlement, settlement)
+    return settlement if settlement in {"select", "discard", "pending"} else "unknown"
+
+
+def agent_workflow_retained_output_operator_action(failure_mode: str) -> str:
+    actions = {
+        "none": "none",
+        "retained_output_missing": "record_retained_output_changeset",
+        "retained_output_not_retained": "rerun_with_retained_output_capture",
+        "retained_output_applied_before_selection": "restore_workspace_and_replay_retained_output",
+        "retained_output_not_inspectable": "record_inspectable_changeset_before_selection",
+        "retained_output_not_settleable": "record_select_or_discard_settlement_handle",
+        "retained_output_changeset_unreadable": "record_readable_changeset_summary",
+        "retained_output_settlement_missing": "record_select_and_discard_controls",
+        "retained_output_activation_gate_missing": "block_activation_until_output_selection",
+        "retained_output_raw_path_export_risk": "replace_raw_output_paths_with_hashes",
+        "retained_output_raw_changeset_export_risk": "replace_raw_changesets_with_hashes",
+    }
+    return actions.get(failure_mode, "inspect_retained_output_contract")
+
+
 def evaluate_agent_workflow_compaction_controller_metadata(value: Any, *, required: bool) -> dict[str, Any]:
     """Check that compaction preserved replay metadata without exporting values."""
 
@@ -28156,6 +28302,7 @@ def build_agent_workflow_control_plane(
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
     compaction_result: dict[str, Any],
+    retained_output_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     watchdog_result: dict[str, Any],
@@ -28181,6 +28328,7 @@ def build_agent_workflow_control_plane(
         and bool(stream_boundary_result["passed"])
         and bool(inbox_result["passed"])
         and bool(compaction_result["passed"])
+        and bool(retained_output_result["passed"])
         and bool(watchdog_result["passed"])
     )
     recovery_ready = rollback_available and bool(recovery_handoff.get("ready", True))
@@ -28205,6 +28353,7 @@ def build_agent_workflow_control_plane(
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
         compaction_result=compaction_result,
+        retained_output_result=retained_output_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         watchdog_result=watchdog_result,
@@ -28218,6 +28367,7 @@ def build_agent_workflow_control_plane(
         state_transition_count=len(state_transitions),
         observation_result=observation_result,
         compaction_result=compaction_result,
+        retained_output_result=retained_output_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         watchdog_result=watchdog_result,
@@ -28234,6 +28384,7 @@ def build_agent_workflow_control_plane(
         recovery_handoff=recovery_handoff,
         observation_result=observation_result,
         compaction_result=compaction_result,
+        retained_output_result=retained_output_result,
         stream_boundary_result=stream_boundary_result,
         inbox_result=inbox_result,
         watchdog_result=watchdog_result,
@@ -28253,6 +28404,8 @@ def build_agent_workflow_control_plane(
         failure_mode = str(observation_result["failure_mode"])
     elif not compaction_result["passed"]:
         failure_mode = str(compaction_result["failure_mode"])
+    elif not retained_output_result["passed"]:
+        failure_mode = str(retained_output_result["failure_mode"])
     elif not stream_boundary_result["passed"]:
         failure_mode = str(stream_boundary_result["failure_mode"])
     elif not inbox_result["passed"]:
@@ -28269,6 +28422,7 @@ def build_agent_workflow_control_plane(
             not missing_stages
             and observation_result["passed"]
             and compaction_result["passed"]
+            and retained_output_result["passed"]
             and stream_boundary_result["passed"]
             and inbox_result["passed"]
             and watchdog_result["passed"]
@@ -28333,6 +28487,22 @@ def build_agent_workflow_control_plane(
             "raw_context_exported": False,
             "raw_controller_metadata_exported": False,
         },
+        "retained_output_contract": {
+            "required": retained_output_result["required"],
+            "passed": retained_output_result["passed"],
+            "failure_mode": retained_output_result["failure_mode"],
+            "output_count": retained_output_result["output_count"],
+            "retained_count": retained_output_result["retained_count"],
+            "inspectable_count": retained_output_result["inspectable_count"],
+            "settleable_count": retained_output_result["settleable_count"],
+            "applied_before_selection_count": retained_output_result["applied_before_selection_count"],
+            "select_available": retained_output_result["select_available"],
+            "discard_available": retained_output_result["discard_available"],
+            "activation_blocked_until_selection": retained_output_result["activation_blocked_until_selection"],
+            "operator_action": retained_output_result["operator_action"],
+            "raw_output_paths_exported": False,
+            "raw_changesets_exported": False,
+        },
         "stream_boundary_contract": {
             "required": stream_boundary_result["required"],
             "passed": stream_boundary_result["passed"],
@@ -28386,6 +28556,7 @@ def build_agent_workflow_handoff(
     state_transition_count: int,
     observation_result: dict[str, Any],
     compaction_result: dict[str, Any],
+    retained_output_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     watchdog_result: dict[str, Any],
@@ -28450,6 +28621,9 @@ def build_agent_workflow_handoff(
             "failed_load_bearing_observation_count": observation_result["failed_load_bearing_count"],
             "compaction_required": compaction_result["required"],
             "compaction_blocker_count": len(compaction_result["blockers"]),
+            "retained_output_required": retained_output_result["required"],
+            "retained_output_count": retained_output_result["output_count"],
+            "retained_output_ready": retained_output_result["passed"],
             "stream_event_count": stream_boundary_result["event_count"],
             "completion_message_count": inbox_result["completion_message_count"],
             "watchdog_root_cause_attached": watchdog_result["root_cause_attached"],
@@ -28681,6 +28855,7 @@ def build_agent_workflow_operator_replay_checklist(
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
     compaction_result: dict[str, Any],
+    retained_output_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     watchdog_result: dict[str, Any],
@@ -28745,6 +28920,14 @@ def build_agent_workflow_operator_replay_checklist(
             {
                 "stage": "midflight",
                 "action": str(compaction_result.get("failure_mode") or "inspect_compaction_contract"),
+                "required_before_replay": True,
+            }
+        )
+    if not bool(retained_output_result.get("passed", True)):
+        actions.append(
+            {
+                "stage": "midflight",
+                "action": str(retained_output_result.get("operator_action") or "inspect_retained_output_contract"),
                 "required_before_replay": True,
             }
         )
@@ -29022,6 +29205,7 @@ def build_agent_workflow_stage_diagnostics(
     recovery_handoff: dict[str, Any],
     observation_result: dict[str, Any],
     compaction_result: dict[str, Any],
+    retained_output_result: dict[str, Any],
     stream_boundary_result: dict[str, Any],
     inbox_result: dict[str, Any],
     watchdog_result: dict[str, Any],
@@ -29052,6 +29236,9 @@ def build_agent_workflow_stage_diagnostics(
                 "observation_count": observation_result["count"],
                 "compaction_required": compaction_result["required"],
                 "compaction_blocker_count": len(compaction_result["blockers"]),
+                "retained_output_required": retained_output_result["required"],
+                "retained_output_count": retained_output_result["output_count"],
+                "retained_output_ready": retained_output_result["passed"],
                 "stream_event_count": stream_boundary_result["event_count"],
                 "completion_message_count": inbox_result["completion_message_count"],
                 "watchdog_transport_error_count": watchdog_result["recent_transport_error_count"],
@@ -29061,6 +29248,7 @@ def build_agent_workflow_stage_diagnostics(
                 reason = first_control_plane_failure_reason(
                     observation_result,
                     compaction_result,
+                    retained_output_result,
                     stream_boundary_result,
                     inbox_result,
                     watchdog_result,
