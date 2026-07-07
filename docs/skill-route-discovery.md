@@ -22,6 +22,29 @@ current self-model already prefers rollback-backed local validation over an
 ornamental self-model edit. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T094834`.
 
+For source digest `github-growth-20260707T104834.422978Z`, pass 4 completes
+the current `skill-route-discovery` slice through
+`skill_route_discovery_current_digest_20260707T104834_pass4_completion_handoff`.
+The handoff is the operator-visible closure surface for this window:
+`lingbol088-spec/reverse-flow-skill` maps to
+`p1_reverse_flow_skill_route_discovery` in the bounded local test lane, and
+`Pluviobyte/rnskill`/generic skill workflow evidence maps to
+`p2_generic_skill_workflow_probe` in the documentation lane. Both rows retain
+documentation, config, test, and code_patch as the only allowed local outputs;
+install, enable, run, script execution, provider runtime, external harness, and
+remote execution remain diagnostic pressure only.
+
+`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and
+`shepherd-agents/shepherd` are grouped under `p3_agent_harness_eval_suite` as
+`agent_harness_eval_required` rows. They inherit no skill-route lane, expose no
+direct local lane before harness evaluation, and may only lead to
+documentation, test, or code_patch follow-up after local agent-harness results
+exist. The handoff records the rollback ref and rollback artifact for this run
+and notes that `docs/self-model.md` was left unchanged because it already
+states the run preference for rollback-backed local validation over ornamental
+self-model edits. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T104834`.
+
 For source digest `github-growth-20260707T092834.330063Z`, pass 4 completes
 the active window through
 `skill_route_discovery_current_digest_20260707T092834_pass4_completion_handoff`.
