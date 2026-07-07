@@ -10002,3 +10002,29 @@ grants and do not authorize runtime action, external skill activation, external
 harness execution, provider launch, remote execution, promotion, or restart.
 Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T170109`.
+
+## Source Digest 20260707T182110 Pass 4 Completion
+
+The `github-growth-20260707T182110.051391Z` final pass uses the reusable
+`skill_route_discovery_active_pass4_operator_activation_packet` rather than a
+new standalone fixture. The packet now includes
+`skill_route_discovery_active_pass4_operator_review_dossier`, a body-free
+operator review surface derived from the pass-4 completion matrix.
+
+The reviewed evidence keeps `Pluviobyte/rnskill` as a generic SKILL.md
+collection, `lingbol088-spec/reverse-flow-skill` as a Codex workflow-gate skill
+route, and `shepherd-agents/shepherd` as adjacent general-agent runtime
+substrate evidence. Skill rows may complete only through documentation, config,
+test, or code_patch lanes with `local_validation_required` preserved. Adjacent
+general-agent rows remain in `agent_harness_eval_required`, inherit no
+skill-route lane, and expose no direct implementation lane before local harness
+evaluation.
+
+The dossier records selected lane summaries, selected evidence counts, hashed
+replay command counts, rollback ref/artifact requirements, adjacent
+agent-harness queue state, and explicit activation denials. It exports no raw
+source URLs, evidence URLs, replay commands, target paths, or upstream bodies,
+and grants no runtime action, external skill activation, external harness
+execution, provider launch, remote execution, promotion, or restart authority.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k active_pass4_operator_activation_packet`.

@@ -37092,6 +37092,80 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
     ready = bool(packet_rows) and matrix_ready and not blocked_proposal_ids
     adjacent_boundary = active_pass4_completion_matrix.get("adjacent_general_agent_project_boundary")
     adjacent_boundary = adjacent_boundary if isinstance(adjacent_boundary, Mapping) else {}
+    adjacent_record_count = int(adjacent_boundary.get("adjacent_record_count") or 0)
+    operator_review_dossier = {
+        "controller_surface": "skill_route_discovery_active_pass4_operator_review_dossier",
+        "status": "ready" if ready else "blocked",
+        "depends_on_controller_surface": "skill_route_discovery_active_pass4_operator_activation_packet",
+        "review_gate": "focused-evidence-review",
+        "evidence_basis": [
+            "source_digest_selected_item_ids",
+            "body_free_repository_summaries",
+            "controller_recomputed_lane_matrix",
+            "hashed_replay_commands",
+            "rollback_ref_and_artifact_required",
+        ],
+        "skill_route_rows": [
+            {
+                "proposal_id": row["proposal_id"],
+                "proposal_track": row["proposal_track"],
+                "route_profiles": row["route_profiles"],
+                "selected_local_lane": row["selected_local_lane"],
+                "selected_evidence_item_count": len(row["selected_evidence_item_ids"]),
+                "replay_command_hash_count": len(row["replay_command_hashes"]),
+                "status": row["status"],
+                "activation_blockers": row["activation_blockers"],
+                "local_validation_required": True,
+                "runtime_action": "none",
+            }
+            for row in packet_rows
+        ],
+        "adjacent_agent_harness_queue": {
+            "evaluation_lane": str(adjacent_boundary.get("evaluation_lane") or "agent_harness_eval_required"),
+            "skill_route_discovery_inherited": False,
+            "record_count": adjacent_record_count,
+            "direct_allowed_lanes_before_eval": [],
+            "allowed_local_lanes_after_eval": _string_list(
+                adjacent_boundary.get("allowed_local_lanes_after_eval")
+            ),
+            "required_before_implementation": str(
+                adjacent_boundary.get("required_before_implementation")
+                or "local_agent_harness_eval_route_established"
+            ),
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "operator_completion_conditions": [
+            "all_skill_route_rows_ready",
+            "all_selected_lanes_in_documentation_config_test_code_patch",
+            "local_validation_required_preserved",
+            "adjacent_general_agent_projects_remain_agent_harness_eval_required",
+            "rollback_ref_and_artifact_recorded",
+            "no_raw_upstream_urls_commands_paths_or_bodies_exported",
+            "no_runtime_or_external_activation_authority_granted",
+        ],
+        "activation_denials": {
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "profile_write_allowed": False,
+            "memory_write_allowed": False,
+            "remote_execution_allowed": False,
+            "promotion_allowed": False,
+            "restart_allowed": False,
+        },
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
     return {
         "controller_surface": "skill_route_discovery_active_pass4_operator_activation_packet",
@@ -37147,7 +37221,7 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
             "allowed_local_lanes_after_eval": _string_list(
                 adjacent_boundary.get("allowed_local_lanes_after_eval")
             ),
-            "adjacent_record_count": int(adjacent_boundary.get("adjacent_record_count") or 0),
+            "adjacent_record_count": adjacent_record_count,
             "required_before_implementation": str(
                 adjacent_boundary.get("required_before_implementation")
                 or "local_agent_harness_eval_route_established"
@@ -37172,6 +37246,7 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "operator_review_dossier": operator_review_dossier,
         "rows": packet_rows,
     }
 

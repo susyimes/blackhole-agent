@@ -757,6 +757,29 @@ def test_skill_route_discovery_doc_records_current_pass4_completion_handoff():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T182110_operator_review_dossier():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "github-growth-20260707T182110.051391Z",
+        "`skill_route_discovery_active_pass4_operator_activation_packet`",
+        "`skill_route_discovery_active_pass4_operator_review_dossier`",
+        "`Pluviobyte/rnskill` as a generic SKILL.md\ncollection",
+        "`lingbol088-spec/reverse-flow-skill` as a Codex workflow-gate skill\nroute",
+        "`shepherd-agents/shepherd` as adjacent general-agent runtime\nsubstrate evidence",
+        "documentation, config,\ntest, or code_patch lanes with `local_validation_required` preserved",
+        "Adjacent\ngeneral-agent rows remain in `agent_harness_eval_required`",
+        "rollback ref/artifact requirements",
+        "grants no runtime action, external skill activation, external harness\n"
+        "execution, provider launch, remote execution, promotion, or restart authority",
+        "python -m pytest tests/test_skill_routing.py -q -k active_pass4_operator_activation_packet",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T062834_completion_handoff():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

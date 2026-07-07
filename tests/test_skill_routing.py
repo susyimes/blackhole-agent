@@ -16314,6 +16314,70 @@ def test_skill_route_discovery_current_run_pass4_completion_matrix_matches_propo
         "record_review_notes_for_uncertainty_or_blockers",
         "leave_restart_or_promotion_to_configured_supervisor",
     ]
+    dossier = activation_packet["operator_review_dossier"]
+    assert dossier["controller_surface"] == (
+        "skill_route_discovery_active_pass4_operator_review_dossier"
+    )
+    assert dossier["status"] == "ready"
+    assert dossier["depends_on_controller_surface"] == (
+        "skill_route_discovery_active_pass4_operator_activation_packet"
+    )
+    assert dossier["review_gate"] == "focused-evidence-review"
+    assert dossier["evidence_basis"] == [
+        "source_digest_selected_item_ids",
+        "body_free_repository_summaries",
+        "controller_recomputed_lane_matrix",
+        "hashed_replay_commands",
+        "rollback_ref_and_artifact_required",
+    ]
+    assert len(dossier["skill_route_rows"]) == 3
+    assert {
+        row["selected_local_lane"] for row in dossier["skill_route_rows"]
+    } == {"documentation", "config", "test"}
+    assert all(row["selected_evidence_item_count"] == 1 for row in dossier["skill_route_rows"])
+    assert all(row["replay_command_hash_count"] == 1 for row in dossier["skill_route_rows"])
+    assert all(row["local_validation_required"] is True for row in dossier["skill_route_rows"])
+    assert all(row["runtime_action"] == "none" for row in dossier["skill_route_rows"])
+    assert dossier["adjacent_agent_harness_queue"] == {
+        "evaluation_lane": "agent_harness_eval_required",
+        "skill_route_discovery_inherited": False,
+        "record_count": 1,
+        "direct_allowed_lanes_before_eval": [],
+        "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "required_before_implementation": "local_agent_harness_eval_route_established",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    assert dossier["operator_completion_conditions"] == [
+        "all_skill_route_rows_ready",
+        "all_selected_lanes_in_documentation_config_test_code_patch",
+        "local_validation_required_preserved",
+        "adjacent_general_agent_projects_remain_agent_harness_eval_required",
+        "rollback_ref_and_artifact_recorded",
+        "no_raw_upstream_urls_commands_paths_or_bodies_exported",
+        "no_runtime_or_external_activation_authority_granted",
+    ]
+    assert dossier["activation_denials"] == {
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "promotion_allowed": False,
+        "restart_allowed": False,
+    }
+    assert dossier["raw_source_url_exported"] is False
+    assert dossier["raw_evidence_urls_exported"] is False
+    assert dossier["raw_replay_commands_exported"] is False
+    assert dossier["raw_target_paths_exported"] is False
+    assert dossier["raw_upstream_body_exported"] is False
     assert activation_packet["local_validation_required"] is True
     assert activation_packet["runtime_action"] == "none"
     assert activation_packet["external_skill_activation_allowed"] is False
