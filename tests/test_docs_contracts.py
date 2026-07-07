@@ -577,6 +577,34 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T232200_pass3_skill_workflow_probe():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260707T232200.034561Z`",
+        "`skill_route_discovery_current_pass3_proposal_lane`",
+        "`lingbol088-spec/reverse-flow-skill`",
+        "`Pluviobyte/rnskill`",
+        "`NVIDIA-BioNeMo/bionemo-agent-toolkit`",
+        "`p1_skill_route_discovery_probe` keeps the Codex reverse-flow repository in\n"
+        "the bounded local test lane",
+        "`p2_codex_skill_workflow_profile` checks the\n"
+        "`codex_workflow_gate` profile through the bounded config lane",
+        "`p3_generic_skill_workflow_docs` keeps generic `SKILL.md` collection evidence\n"
+        "in the documentation lane",
+        "`p4_bionemo_domain_skill_toolkit_guard` keeps the\n"
+        "domain-specific BioNeMo skill-toolkit signal in the test lane",
+        "documentation, config, test, and code_patch as the only allowed\nlocal lanes",
+        "runtime adoption,\nexternal skill activation, provider launch, external harness execution, remote\n"
+        "execution",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260707T232200`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T052834_pass1_focused_review_lane():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

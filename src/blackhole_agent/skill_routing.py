@@ -2536,13 +2536,53 @@ def _skill_route_discovery_current_pass3_proposal_lane(
 
     current_044834_window = source_digest == "github-growth-20260707T044834.430159Z"
     current_220110_window = source_digest == "github-growth-20260707T220110.405293Z"
-    if not (current_044834_window or current_220110_window):
+    current_232200_window = source_digest == "github-growth-20260707T232200.034561Z"
+    if not (current_044834_window or current_220110_window or current_232200_window):
         return {}
 
     rows_by_id = {str(row.get("route_id") or ""): row for row in route_rows}
     rows_by_candidate_name = {str(row.get("candidate_name") or ""): row for row in route_rows}
     rows_by_agent_name = {str(row.get("name") or ""): row for row in route_rows}
-    if current_220110_window:
+    if current_232200_window:
+        proposal_specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_probe",
+                "proposal_kind": "test",
+                "proposal_track": "three_skill_workflow_route_fixture",
+                "route_row": rows_by_candidate_name.get("lingbol088-spec-reverse-flow-skill"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "test",
+                "validation_target": "three_skill_workflow_trend_items_stay_bounded_before_activation",
+            },
+            {
+                "proposal_id": "p2_codex_skill_workflow_profile",
+                "proposal_kind": "config",
+                "proposal_track": "codex_workflow_gate_profile",
+                "route_row": rows_by_candidate_name.get("lingbol088-spec-reverse-flow-skill"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "config",
+                "validation_target": "codex_workflow_gate_maps_only_to_bounded_local_lanes",
+            },
+            {
+                "proposal_id": "p3_generic_skill_workflow_docs",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_discovery_path",
+                "route_row": rows_by_candidate_name.get("rnskill"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "documentation",
+                "validation_target": "document_generic_skill_workflow_validation_before_runtime_adoption",
+            },
+            {
+                "proposal_id": "p4_bionemo_domain_skill_toolkit_guard",
+                "proposal_kind": "test",
+                "proposal_track": "domain_specific_skill_toolkit_guard",
+                "route_row": rows_by_candidate_name.get("bionemo-agent-toolkit"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "test",
+                "validation_target": "domain_skill_toolkit_requires_local_citation_advice_data_provider_boundaries",
+            },
+        )
+    elif current_220110_window:
         proposal_specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-fixtures",
@@ -2647,6 +2687,7 @@ def _skill_route_discovery_current_pass3_proposal_lane(
             if expected_route_kind == "general_agent_project"
             else SKILL_ROUTE_DISCOVERY_HINT
         )
+        validation_gates = _string_list(route_row.get("validation_gates"))
         if str(route_row.get("route_hint") or "") != expected_route_hint:
             blockers.append("skill_route_discovery_hint_missing")
         if route_row.get("local_validation_required") is not True:
@@ -2695,6 +2736,7 @@ def _skill_route_discovery_current_pass3_proposal_lane(
                 "direct_runtime_route_allowed": route_row.get("direct_runtime_route_allowed") is True,
                 "direct_code_patch_route_allowed": route_row.get("direct_code_patch_route_allowed") is True,
                 "validation_gate": "focused-evidence-review",
+                "validation_gates": validation_gates,
                 "validation_target": str(spec["validation_target"]),
                 "status": "ready" if not blockers else "blocked",
                 "activation_blockers": blockers,
@@ -2735,9 +2777,39 @@ def _skill_route_discovery_current_pass3_proposal_lane(
                 if lane in {str(row["selected_local_lane"]) for row in proposal_rows}
             ],
             "operator_next_action": (
-                "run_route_classification_tests_then_continue_to_pass4"
+                "run_current_pass3_skill_workflow_probe_then_continue_to_pass4"
+                if ready and current_232200_window
+                else "run_route_classification_tests_then_continue_to_pass4"
                 if ready
                 else "repair_proposal_rows_before_pass4"
+            ),
+            **(
+                {
+                    "fixture_candidate_names": [
+                        "lingbol088-spec-reverse-flow-skill",
+                        "rnskill",
+                        "bionemo-agent-toolkit",
+                    ],
+                    "observed_route_profiles": [
+                        profile
+                        for profile in (
+                            "codex_workflow_gate",
+                            "generic_skill_workflow",
+                            "source_cited_domain_research",
+                        )
+                        if profile
+                        in {
+                            route_profile
+                            for row in proposal_rows
+                            for route_profile in _string_list(row.get("route_profiles"))
+                        }
+                    ],
+                    "codex_workflow_gate_profile_required": True,
+                    "generic_skill_workflow_profile_required": True,
+                    "runtime_adoption_after_discovery": False,
+                }
+                if current_232200_window
+                else {}
             ),
             "local_validation_required": True,
             "runtime_action": "none",

@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T232200.034561Z`, pass 3 exposes
+`skill_route_discovery_current_pass3_proposal_lane` for the current
+reverse-flow/rnskill/BioNeMo skill-workflow probe. The fixture uses only the
+selected digest items for `lingbol088-spec/reverse-flow-skill`,
+`Pluviobyte/rnskill`, and `NVIDIA-BioNeMo/bionemo-agent-toolkit`.
+
+`p1_skill_route_discovery_probe` keeps the Codex reverse-flow repository in
+the bounded local test lane, `p2_codex_skill_workflow_profile` checks the
+`codex_workflow_gate` profile through the bounded config lane, and
+`p3_generic_skill_workflow_docs` keeps generic `SKILL.md` collection evidence
+in the documentation lane. `p4_bionemo_domain_skill_toolkit_guard` keeps the
+domain-specific BioNeMo skill-toolkit signal in the test lane until local
+citation, advice, data, and provider boundaries are validated.
+
+All rows keep documentation, config, test, and code_patch as the only allowed
+local lanes, require focused local validation, and keep runtime adoption,
+external skill activation, provider launch, external harness execution, remote
+execution, raw source URL export, raw evidence URL export, raw target path
+export, and upstream body export disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T232200`.
+
 For source digest `github-growth-20260707T222110.418015Z`, pass 4 completes
 the active reverse-flow/rnskill/BioNeMo/Agents-A1 window through
 `skill_route_discovery_current_pass4_completion_handoff`. The handoff binds
