@@ -1,0 +1,7 @@
+rollback_point: 20260707T123944Z
+original_branch: codex/blackhole-evolve/20260707T124034.733231-add-focused-local-tests-for-codex-oriented-skill
+head: 087e6be6d118f6d6332ee9dcb76780b258555a59
+rollback_ref: refs/blackhole-rollback/20260707T123944Z
+recover_branch: git switch codex/blackhole-evolve/20260707T124034.733231-add-focused-local-tests-for-codex-oriented-skill
+recover_head: git reset --hard 087e6be6d118f6d6332ee9dcb76780b258555a59
+recover_ref: git reset --hard refs/blackhole-rollback/20260707T123944Z

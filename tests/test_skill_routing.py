@@ -38243,6 +38243,80 @@ def test_skill_route_discovery_current_digest_20260707T121946_pass2_validation_l
     assert '"enable"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T121946_queues_skill_profiles_for_local_validation():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T121946_pass2_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    queue = build_skill_route_discovery_proposal_lane_map(registry)[
+        "local_validation_candidate_queue"
+    ]
+    rows = {row["candidate_name"]: row for row in queue["rows"]}
+    serialized = json.dumps(queue, sort_keys=True)
+
+    assert queue["controller_surface"] == "skill_route_discovery_local_validation_candidate_queue"
+    assert queue["status"] == "ready"
+    assert queue["source_digest"] == "github-growth-20260707T121946.674633Z"
+    assert queue["candidate_count"] == 2
+    assert queue["ready_candidate_count"] == 2
+    assert queue["blocked_candidate_names"] == []
+    assert queue["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert queue["selected_local_lanes"] == ["documentation", "test"]
+    assert queue["runtime_action"] == "none"
+    assert queue["evidence_url_effect"] == "none"
+
+    reverse_flow = rows["reverse-flow-skill"]
+    assert reverse_flow["final_scope"] == "local_validation_candidate"
+    assert reverse_flow["primary_route"] == "skill_route_discovery"
+    assert reverse_flow["route_profile_kind"] == "codex_workflow_gate"
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["requires_skill_route_discovery_first"] is True
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["queued_local_lanes"] == ["documentation", "config", "code_patch"]
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["accepted_outputs_after_validation"] == list(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert reverse_flow["local_validation_required"] is True
+    assert reverse_flow["runtime_action"] == "none"
+
+    rnskill = rows["rnskill"]
+    assert rnskill["final_scope"] == "local_validation_candidate"
+    assert rnskill["primary_route"] == "skill_route_discovery"
+    assert rnskill["route_profile_kind"] == "generic_skill_workflow"
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["requires_skill_route_discovery_first"] is False
+    assert rnskill["skill_route_discovery_first"] is False
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["queued_local_lanes"] == ["config", "test", "code_patch"]
+    assert rnskill["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert rnskill["local_validation_required"] is True
+    assert rnskill["runtime_action"] == "none"
+
+    for row in queue["rows"]:
+        assert row["activation_gate"] == "controller_recompute_after_local_validation"
+        assert row["activation_blockers"] == []
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "python -m" not in serialized
+    assert '"install"' not in serialized
+    assert '"enable"' not in serialized
+    assert '"run"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260707T092834_pass4_completes_skill_route_slice():
     fixture_path = (
         Path(__file__).parent

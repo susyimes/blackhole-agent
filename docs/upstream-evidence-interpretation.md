@@ -77,6 +77,16 @@ validation targets, and hashed source or replay references; it must keep raw
 upstream URLs, raw replay commands, provider launch, remote execution, profile
 writes, memory writes, external harness execution, and skill activation denied.
 
+Generic skill workflow evidence, such as a repository shaped around
+`skills/*/SKILL.md`, docs, tools, or plugin metadata, enters the same route as
+Codex-specific skill evidence: `skill_route_discovery` first, then a local
+validation candidate. The candidate queue may carry route profiles such as
+`codex_workflow_gate` or `generic_skill_workflow`, selected item IDs, source
+hashes, and one selected local lane, but the only mapped lanes are
+documentation, config, test, and code patch. Discovery does not execute,
+install, enable, or otherwise activate upstream runtime behavior; activation
+requires controller recomputation after local validation.
+
 The current pass-2 lane handoff follows the same rule for mixed skill and
 agent-project evidence. A zhengxi-views-style `SKILL.md` repository may appear
 only as `skill_route_discovery` with documentation, config, test, or code patch

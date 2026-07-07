@@ -1661,6 +1661,10 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ignored_evidence_items,
         source_digest=_skill_route_discovery_source_digest(registry),
     )
+    local_validation_candidate_queue = _skill_route_discovery_local_validation_candidate_queue(
+        candidate_lane_inventory,
+        source_digest=_skill_route_discovery_source_digest(registry),
+    )
     current_window_pass1_discovery_intake_lane = _skill_route_discovery_current_window_pass1_discovery_intake_lane(
         candidate_lane_inventory,
         ignored_evidence_items,
@@ -1817,6 +1821,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "pass3_preflight_queue": pass3_preflight_queue,
         "pass3_local_validation_lane": pass3_local_validation_lane,
         "current_window_pass3_validation_cases": current_window_pass3_validation_cases,
+        "local_validation_candidate_queue": local_validation_candidate_queue,
         "pass3_current_wake_acceptance_packet": _skill_route_discovery_pass3_current_wake_acceptance_packet(
             candidate_lane_inventory,
             ignored_evidence_items,
@@ -30753,6 +30758,156 @@ def _skill_route_discovery_pass3_preflight_queue(
         "route_confidence_report": route_confidence_report,
         "rows": rows,
     }
+
+
+def _skill_route_discovery_local_validation_candidate_queue(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Queue discovered skill routes as bounded local validation candidates."""
+
+    rows: list[dict[str, Any]] = []
+    blocked_candidate_names: list[str] = []
+    observed_profiles: list[str] = []
+    selected_lanes: list[str] = []
+
+    for candidate in candidate_lane_inventory:
+        candidate_name = str(candidate.get("candidate_name") or "")
+        route_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+        allowed_lanes = [
+            lane
+            for lane in _string_list(candidate.get("proposal_kinds"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        handoff_metadata = candidate.get("handoff_metadata")
+        handoff_metadata = handoff_metadata if isinstance(handoff_metadata, Mapping) else {}
+        selected_lane = str(handoff_metadata.get("selected_local_lane") or "")
+        if selected_lane not in allowed_lanes:
+            selected_lane = _skill_route_discovery_profile_preferred_lane(route_profiles, allowed_lanes)
+        validation_gates = _string_list(handoff_metadata.get("validation_gates"))
+        if not validation_gates:
+            validation_gates = _skill_route_discovery_validation_gates(candidate)
+        evidence_item_ids = _string_list(candidate.get("evidence_item_ids"))
+        source_url_hash = _stable_hash(str(candidate.get("source_url") or ""))
+        unsupported_lanes = _string_list(candidate.get("downgraded_lane_names"))
+        blockers: list[str] = []
+
+        if not candidate_name:
+            blockers.append("missing_candidate_name")
+        if not allowed_lanes:
+            blockers.append("missing_bounded_local_lanes")
+        if set(allowed_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES):
+            blockers.append("local_lanes_exceed_skill_route_boundary")
+        if selected_lane not in allowed_lanes:
+            blockers.append("selected_local_lane_not_bounded")
+        if not route_profiles:
+            blockers.append("missing_route_profiles")
+        if not evidence_item_ids:
+            blockers.append("missing_selected_evidence_item_ids")
+        if unsupported_lanes:
+            blockers.append("unsupported_lanes_removed_before_queue")
+
+        status = "ready" if not blockers else "blocked"
+        if blockers:
+            blocked_candidate_names.append(candidate_name)
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_lanes.append(selected_lane)
+        observed_profiles.extend(route_profiles)
+
+        rows.append(
+            {
+                "candidate_name": candidate_name,
+                "status": status,
+                "final_scope": "local_validation_candidate" if status == "ready" else "review_before_local_change",
+                "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": route_profiles,
+                "route_profile_kind": (
+                    "codex_workflow_gate"
+                    if "codex_workflow_gate" in route_profiles
+                    else "generic_skill_workflow"
+                ),
+                "requires_skill_route_discovery_first": "codex_workflow_gate" in route_profiles,
+                "skill_route_discovery_first": "codex_workflow_gate" in route_profiles,
+                "selected_local_lane": selected_lane if selected_lane in allowed_lanes else "",
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "allowed_local_lanes": allowed_lanes,
+                "accepted_outputs_after_validation": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "selected_evidence_item_ids": evidence_item_ids,
+                "source_url_hash": source_url_hash,
+                "validation_gates": list(dict.fromkeys(validation_gates)),
+                "validation_target": _skill_route_discovery_validation_target(selected_lane, route_profiles),
+                "local_validation_task": "validate_skill_route_discovery_candidate_before_activation",
+                "activation_gate": "controller_recompute_after_local_validation",
+                "activation_blockers": blockers,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "evidence_url_effect": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = bool(rows) and not blocked_candidate_names
+    return {
+        "controller_surface": "skill_route_discovery_local_validation_candidate_queue",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "queue_skill_route_profiles_for_bounded_local_validation"
+            if ready
+            else "repair_skill_route_local_validation_candidate_queue_before_activation"
+        ),
+        "source_digest": source_digest,
+        "capability_theme": "skill-route-discovery",
+        "capability_pass": 3,
+        "total_passes": 4,
+        "candidate_count": len(rows),
+        "ready_candidate_count": len(rows) - len(blocked_candidate_names),
+        "blocked_candidate_names": [name for name in blocked_candidate_names if name],
+        "observed_route_profiles": sorted(dict.fromkeys(profile for profile in observed_profiles if profile)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "evidence_ref_scope": "selected_item_ids_only",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "evidence_url_effect": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+    }
+
+
+def _skill_route_discovery_profile_preferred_lane(
+    route_profiles: Sequence[str],
+    allowed_lanes: Sequence[str],
+) -> str:
+    for profile in route_profiles:
+        contract = SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS.get(profile, {})
+        for lane in _string_list(contract.get("preferred_lanes")):
+            if lane in allowed_lanes:
+                return lane
+    return str(allowed_lanes[0]) if allowed_lanes else ""
 
 
 def _skill_route_discovery_pass3_local_validation_lane(
