@@ -5,6 +5,33 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T005555.490893Z`, pass 3 exposes the
+active window through `current_digest_pass3_replay_packet`. The packet maps
+`lingbol088-spec/reverse-flow-skill` to
+`p1-skill-route-discovery-reverse-flow` because the public repository exposes a
+Codex/AI Agent skill workflow shape under `skills/reverse-flow/SKILL.md`, with
+references, scripts, local sandbox defaults, CTF/crackme framing, install/run
+examples, and staged workflow language. Those install, run, script, provider,
+runtime, external-harness, and remote-execution signals remain downgraded route
+pressure only; the selected local lane is test and the allowed lanes remain
+documentation, config, test, and code_patch.
+
+`InternScience/Agents-A1` and `shepherd-agents/shepherd` map to
+`p2-general-agent-harness-eval` as general-agent project evidence. They do not
+inherit `skill_route_discovery`, expose no direct implementation lane before
+local harness evaluation, and may only produce documentation, test, or
+code_patch follow-up after that gate. `Evolink-AI/Awesome-Blender-Seedance-
+Workflow-Usecases` maps separately to `p3-workflow-usecase-evaluation` because
+workflow/usecase catalog evidence is not an executable skill route without a
+skill package marker such as `SKILL.md`.
+
+The replay packet is body-free and record-only: it exports proposal IDs,
+selected item IDs, lane names, source hashes, and replay command hashes while
+denying raw source URL export, raw replay command export, upstream body export,
+runtime action, external skill or agent activation, external harness execution,
+provider launch, and remote execution. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T005555`.
+
 For source digest `github-growth-20260707T001555.490520Z`, pass 1 carries two
 connected lessons. `lingbol088-spec/reverse-flow-skill` remains a Codex/AI
 Agent skill workflow candidate: the public repository exposes

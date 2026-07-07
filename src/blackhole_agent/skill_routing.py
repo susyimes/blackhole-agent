@@ -2088,7 +2088,34 @@ def _skill_route_discovery_current_digest_pass3_replay_packet(
         "github-growth-20260706T181555.593867Z",
         "github-growth-20260706T181555Z",
     }
-    proposal_specs = (
+    active_20260707_005555_window = source_digest in {
+        "github-growth-20260707T005555.490893Z",
+        "github-growth-20260707T005555Z",
+    }
+    if active_20260707_005555_window:
+        proposal_specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                "proposal_kind": "test",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_task": "classify_reverse_flow_skill_repository_into_bounded_local_lane",
+            },
+        )
+        agent_harness_proposal_id = "p2-general-agent-harness-eval"
+        workflow_usecase_proposal_id = "p3-workflow-usecase-evaluation"
+        anchoring_proposal_ids = [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-general-agent-harness-eval",
+            "p3-workflow-usecase-evaluation",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+    else:
+        proposal_specs = (
         {
             "proposal_id": "p1-skill-route-discovery-reverse-flow",
             "proposal_kind": "test",
@@ -2105,9 +2132,24 @@ def _skill_route_discovery_current_digest_pass3_replay_packet(
             "selected_local_lane": "documentation",
             "validation_task": "document_skill_workflow_vs_general_agent_harness_boundary",
         },
-    )
-    agent_harness_proposal_id = "p2-agent-harness-eval-general-trends"
-    if not active_181555_window:
+        )
+        agent_harness_proposal_id = "p2-agent-harness-eval-general-trends"
+        workflow_usecase_proposal_id = agent_harness_proposal_id
+        anchoring_proposal_ids = [
+            "p1-agent-harness-eval-general-projects",
+            "p2-skill-route-discovery-reverse-flow",
+            "p3-agent-harness-routing-doc",
+            "p4-trend-item-ranking-fixture",
+            "trend:QwenLM/Qwen-AgentWorld-1",
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_agent_harness_eval_trending_projects",
+            "p3_document_route_policy_for_agent_vs_skill",
+            "p4_configurable_route_hint_lane_mapping_check",
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-agent-harness-eval-general-trends",
+            "p3-document-routing-policy-boundaries",
+        ]
+    if not (active_181555_window or active_20260707_005555_window):
         return {
             "controller_surface": "skill_route_discovery_current_digest_pass3_replay_packet",
             "status": "not_applicable",
@@ -2262,7 +2304,14 @@ def _skill_route_discovery_current_digest_pass3_replay_packet(
             blockers.append("remote_execution_allowed")
         if blockers:
             adjacent_blockers.append(item_id)
-        row["proposal_id"] = agent_harness_proposal_id
+        if row.get("route_class") == "workflow_usecase_repository" or _skill_route_discovery_is_workflow_only_evidence_item(row):
+            row["route_class"] = "workflow_usecase_repository"
+            row["route_hint"] = "agent_harness_eval_required"
+            row["proposal_id"] = workflow_usecase_proposal_id
+            row["workflow_usecase_collection"] = True
+            row["validation_task"] = "distinguish_workflow_usecase_collection_from_executable_skill_route"
+        else:
+            row["proposal_id"] = agent_harness_proposal_id
         row["status"] = "ready" if not blockers else "blocked"
         row["activation_blockers"] = blockers
         row["selected_local_lane"] = "agent_harness_eval_required"
@@ -2286,24 +2335,20 @@ def _skill_route_discovery_current_digest_pass3_replay_packet(
         "source_digest": source_digest,
         "capability_pass": 3,
         "total_passes": 4,
-        "proposal_ids": [str(spec["proposal_id"]) for spec in proposal_specs] + [agent_harness_proposal_id],
-        "anchoring_proposal_ids": [
-            "p1-agent-harness-eval-general-projects",
-            "p2-skill-route-discovery-reverse-flow",
-            "p3-agent-harness-routing-doc",
-            "p4-trend-item-ranking-fixture",
-            "trend:QwenLM/Qwen-AgentWorld-1",
-            "p1_skill_route_discovery_reverse_flow",
-            "p2_agent_harness_eval_trending_projects",
-            "p3_document_route_policy_for_agent_vs_skill",
-            "p4_configurable_route_hint_lane_mapping_check",
-            "p1-skill-route-discovery-reverse-flow",
-            "p2-agent-harness-eval-general-trends",
-            "p3-document-routing-policy-boundaries",
-        ],
+        "proposal_ids": list(
+            dict.fromkeys(
+                [str(spec["proposal_id"]) for spec in proposal_specs]
+                + [agent_harness_proposal_id]
+                + ([workflow_usecase_proposal_id] if workflow_usecase_proposal_id != agent_harness_proposal_id else [])
+            )
+        ),
+        "anchoring_proposal_ids": anchoring_proposal_ids,
         "review_gate": "focused-evidence-review",
         "skill_route_candidate_count": len(rows),
         "agent_harness_eval_required_count": len(adjacent_rows),
+        "workflow_usecase_eval_required_count": len(
+            [row for row in adjacent_rows if row.get("route_class") == "workflow_usecase_repository"]
+        ),
         "blocked_proposal_ids": blocked_proposal_ids,
         "blocked_adjacent_item_ids": adjacent_blockers,
         "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
