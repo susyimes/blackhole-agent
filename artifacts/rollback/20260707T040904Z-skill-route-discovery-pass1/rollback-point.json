@@ -1,0 +1,13 @@
+{
+  "run": "20260707T040904Z-skill-route-discovery-pass1",
+  "source_digest": "github-growth-20260707T040834.499584Z",
+  "original_branch": "codex/blackhole-evolve/20260707T040904.591997-add-or-run-a-bounded-skill-route-discovery-valid",
+  "original_head": "ae9b65e30d6d66af997b10560f7600055269d2d0",
+  "local_rollback_ref": "refs/blackhole-agent/rollback/20260707T040904-skill-route-discovery-pass1",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T040904.591997-add-or-run-a-bounded-skill-route-discovery-valid",
+    "git reset --hard refs/blackhole-agent/rollback/20260707T040904-skill-route-discovery-pass1"
+  ],
+  "destructive": true,
+  "operator_approval_required": true
+}
