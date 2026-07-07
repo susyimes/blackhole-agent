@@ -1,0 +1,13 @@
+{
+  "run_id": "20260707T184108Z-skill-route-discovery-pass1",
+  "original_branch": "codex/blackhole-evolve/20260707T184146.169587-run-a-bounded-skill-route-discovery-validation-f",
+  "original_head": "61da6a253d0168e7b0237c055b751f830c9f73dc",
+  "rollback_ref": "refs/blackhole/rollback/20260707T184108Z-skill-route-discovery-pass1",
+  "working_tree_before_edits": "clean",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T184146.169587-run-a-bounded-skill-route-discovery-validation-f",
+    "git reset --hard refs/blackhole/rollback/20260707T184108Z-skill-route-discovery-pass1",
+    "git clean -fd"
+  ],
+  "rollback_execution": "operator_explicit_only_destructive"
+}

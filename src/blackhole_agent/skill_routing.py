@@ -2127,7 +2127,8 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
 
     current_052834_window = source_digest == "github-growth-20260707T052834.687686Z"
     current_094834_window = source_digest == "github-growth-20260707T094834.633335Z"
-    if not (current_052834_window or current_094834_window):
+    current_184110_window = source_digest == "github-growth-20260707T184110.074943Z"
+    if not (current_052834_window or current_094834_window or current_184110_window):
         return {}
 
     skill_rows = [
@@ -2137,6 +2138,15 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         row for row in route_rows if str(row.get("route_kind") or "") == "general_agent_project"
     ]
     anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-skill-route-discovery-rnskill",
+            "p3-agent-harness-eval-general-projects",
+            "p4-route-classification-docs",
+            "trend:shepherd-agents/shepherd-1",
+        ]
+        if current_184110_window
+        else
         [
             "p1-skill-route-discovery-codex-workflow",
             "p2-generic-skill-workflow-routing",
@@ -2154,26 +2164,41 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         ]
     )
     reverse_flow_proposal_id = (
+        "p1-skill-route-discovery-reverse-flow"
+        if current_184110_window
+        else
         "p1-skill-route-discovery-codex-workflow"
         if current_094834_window
         else "p1-skill-route-discovery-reverse-flow"
     )
     generic_skill_proposal_id = (
+        "p2-skill-route-discovery-rnskill"
+        if current_184110_window
+        else
         "p2-generic-skill-workflow-routing"
         if current_094834_window
         else "p2-generic-skill-workflow-discovery"
     )
     agent_harness_proposal_id = (
+        "p3-agent-harness-eval-general-projects"
+        if current_184110_window
+        else
         "p3-agent-harness-eval-lane"
         if current_094834_window
         else "p3-agent-harness-eval-fixture"
     )
     policy_note_proposal_id = (
+        "p4-route-classification-docs"
+        if current_184110_window
+        else
         "p4-route-classification-regression-coverage"
         if current_094834_window
         else "p4-route-policy-doc-note"
     )
     metadata_check_proposal_id = (
+        "p4-route-classification-docs"
+        if current_184110_window
+        else
         "p4-route-classification-regression-coverage"
         if current_094834_window
         else "p5-route-metadata-consistency-check"
@@ -2183,11 +2208,17 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     )
     validation_commands = [
         (
+            "pytest tests/test_skill_routing.py -q -k 20260707T184110"
+            if current_184110_window
+            else
             "pytest tests/test_skill_routing.py -q -k 20260707T094834"
             if current_094834_window
             else "pytest tests/test_skill_routing.py -q -k 20260707T052834"
         ),
         (
+            "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T184110"
+            if current_184110_window
+            else
             "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T094834"
             if current_094834_window
             else "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T052834"
