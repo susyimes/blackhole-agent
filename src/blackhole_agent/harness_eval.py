@@ -19841,6 +19841,95 @@ def skill_route_discovery_pass2_route_probe(
         }
         for row in agent_rows
     ]
+    required_validation = skill_route_discovery_preactivation_validation_commands()
+    checkpoint_steps = [
+        {
+            "step": "controller_recomputes_route_families",
+            "status": "ready" if status == "ready" else "blocked",
+            "required_before_activation": True,
+            "controller_recomputation_required": True,
+            "consumes": [
+                "skill_route_discovery_route_family_eval_matrix",
+                "skill_route_discovery_route_family_agent_harness_intake",
+            ],
+            "produces": "skill_route_discovery_pass2_route_probe",
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        {
+            "step": "replay_bounded_skill_route_lanes",
+            "status": "ready" if skill_ready and pass_ready else "blocked",
+            "required_before_activation": True,
+            "route_family": "skill_workflow",
+            "candidate_count": len(skill_probe_rows),
+            "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+            "required_validation": [
+                "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+            ],
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        {
+            "step": "replay_adjacent_agent_harness_eval",
+            "status": "ready" if agent_ready and pass_ready else "blocked",
+            "required_before_activation": bool(agent_probe_rows),
+            "route_family": "general_agent_project",
+            "candidate_count": len(agent_probe_rows),
+            "evaluation_lane": "agent_harness_eval_required",
+            "direct_allowed_lanes_before_eval": [],
+            "allowed_local_lanes_after_eval": list(AGENT_HARNESS_EVAL_ALLOWED_LANES),
+            "required_validation": [
+                "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+            ],
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+    ]
+    operator_activation_checkpoint = {
+        "controller_surface": "skill_route_discovery_pass2_operator_activation_checkpoint",
+        "status": status,
+        "decision": (
+            "supervisor_may_replay_local_validation_before_activation"
+            if status == "ready"
+            else "repair_route_probe_before_supervisor_activation"
+        ),
+        "checkpoint_order": [step["step"] for step in checkpoint_steps],
+        "controller_recomputation_required": True,
+        "activation_candidate_after_checkpoint": status == "ready",
+        "skill_workflow_count": len(skill_probe_rows),
+        "general_agent_project_count": len(agent_probe_rows),
+        "agent_harness_eval_required": bool(agent_probe_rows),
+        "required_validation": required_validation,
+        "diagnostics": diagnostics,
+        "steps": checkpoint_steps,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
     return {
         "controller_surface": "skill_route_discovery_pass2_route_probe",
@@ -19867,9 +19956,10 @@ def skill_route_discovery_pass2_route_probe(
             if status == "ready"
             else "declare_probe_fields_or_recheck_pass_window"
         ),
-        "required_validation": skill_route_discovery_preactivation_validation_commands(),
+        "required_validation": required_validation,
         "skill_rows": skill_probe_rows,
         "agent_harness_rows": agent_probe_rows,
+        "operator_activation_checkpoint": operator_activation_checkpoint,
         "diagnostics": diagnostics,
         "local_validation_required": True,
         "body_free": True,

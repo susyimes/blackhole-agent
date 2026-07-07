@@ -5092,6 +5092,29 @@ ecosystems reveal reusable routing shapes, but upstream installers, scripts,
 scaffolds, profile stores, and QA helpers are evidence to inspect, not actions
 to perform during discovery.
 
+## Current Pass-2 Checkpoint
+
+For source digest `github-growth-20260707T003555.486083Z`, pass 2 treats
+`lingbol088-spec/reverse-flow-skill` as a skill-workflow route signal because
+its public shape includes a Codex/AI Agent skill directory, `SKILL.md`,
+references, scripts, local sandbox and CTF framing, and staged reverse-analysis
+workflow language. That evidence may enter only the bounded
+`skill_route_discovery_first` path with documentation, config, test, or
+code_patch lanes. Install examples, script examples, vulnerability-analysis
+language, runtime execution, provider launch, external harness execution,
+external skill activation, and remote execution remain route pressure only.
+
+Adjacent general-agent project signals such as `InternScience/Agents-A1`,
+`Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases`, and
+`shepherd-agents/shepherd` stay in `agent_harness_eval_required`. They do not
+inherit `skill_route_discovery`, have no direct pre-eval documentation, test,
+code_patch, runtime, provider, harness, or remote-execution lane, and can only
+produce implementation pressure after a local `agent_harness_eval_lane` replay.
+The pass-2 `operator_activation_checkpoint` records the ordered supervisor
+handoff: controller recomputes route families, the bounded skill-route lane is
+replayed, then adjacent agent-harness evaluation is replayed. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k "20260707_pass2_checkpoint or 20260706T215555_pass2_route_probe"`.
+
 ## Local Harness Lane
 
 `skill_route_discovery_lane` is the local harness behavior for replaying frozen

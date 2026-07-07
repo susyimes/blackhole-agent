@@ -17517,6 +17517,26 @@ def test_skill_route_discovery_current_digest_20260706T215555_pass2_route_probe_
         "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
         "pytest tests/test_harness_eval.py -q -k proposal_interpretation",
     ]
+    checkpoint = probe["operator_activation_checkpoint"]
+    assert checkpoint["controller_surface"] == "skill_route_discovery_pass2_operator_activation_checkpoint"
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["decision"] == "supervisor_may_replay_local_validation_before_activation"
+    assert checkpoint["checkpoint_order"] == [
+        "controller_recomputes_route_families",
+        "replay_bounded_skill_route_lanes",
+        "replay_adjacent_agent_harness_eval",
+    ]
+    assert checkpoint["controller_recomputation_required"] is True
+    assert checkpoint["activation_candidate_after_checkpoint"] is True
+    assert checkpoint["skill_workflow_count"] == 1
+    assert checkpoint["general_agent_project_count"] == 4
+    assert checkpoint["agent_harness_eval_required"] is True
+    assert checkpoint["required_validation"] == probe["required_validation"]
+    assert [step["status"] for step in checkpoint["steps"]] == ["ready", "ready", "ready"]
+    assert checkpoint["steps"][1]["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert checkpoint["steps"][2]["evaluation_lane"] == "agent_harness_eval_required"
+    assert checkpoint["steps"][2]["direct_allowed_lanes_before_eval"] == []
+    assert checkpoint["steps"][2]["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
     assert probe["diagnostics"] == []
     assert all(row["route_gate"] == "skill_route_discovery_first" for row in probe["skill_rows"])
     assert all(row["runtime_action"] == "none" for row in probe["skill_rows"])
@@ -17537,9 +17557,75 @@ def test_skill_route_discovery_current_digest_20260706T215555_pass2_route_probe_
     assert probe["external_harness_execution_allowed"] is False
     assert probe["provider_runtime_launch_allowed"] is False
     assert probe["remote_execution_allowed"] is False
+    assert checkpoint["runtime_action_allowed"] is False
+    assert checkpoint["external_skill_activation_allowed"] is False
+    assert checkpoint["external_agent_activation_allowed"] is False
+    assert checkpoint["external_harness_execution_allowed"] is False
+    assert checkpoint["provider_runtime_launch_allowed"] is False
+    assert checkpoint["remote_execution_allowed"] is False
     assert probe["raw_source_urls_exported"] is False
     assert probe["raw_evidence_urls_exported"] is False
     assert probe["raw_upstream_body_exported"] is False
+    assert checkpoint["raw_source_urls_exported"] is False
+    assert checkpoint["raw_evidence_urls_exported"] is False
+    assert checkpoint["raw_upstream_body_exported"] is False
+    assert "https://github.com/" not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260707_pass2_checkpoint_separates_skill_and_agent_routes():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260706T215555_pass2_route_probe.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    input_payload = copy.deepcopy(fixture["input"])
+    input_payload["task_id"] = "skill-route-discovery-current-digest-20260707T003555-pass2-route-probe"
+    input_payload["source_digest"] = "github-growth-20260707T003555.486083Z"
+    input_payload["capability_window"]["source_digest"] = "github-growth-20260707T003555.486083Z"
+    input_payload["capability_window"]["anchoring_proposals"] = [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-agent-harness-eval-general-agent-trends",
+        "p3-route-classification-documentation",
+        "trend:shepherd-agents/shepherd-1",
+    ]
+    for item in input_payload["evidence_items"]:
+        item["source_digest"] = "github-growth-20260707T003555.486083Z"
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        input_payload,
+        source_path=fixture_path,
+    )
+    probe = output["pass2_route_probe"]
+    checkpoint = probe["operator_activation_checkpoint"]
+    serialized = json.dumps(checkpoint, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert probe["source_digest"] == "github-growth-20260707T003555.486083Z"
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["controller_recomputation_required"] is True
+    assert checkpoint["checkpoint_order"] == [
+        "controller_recomputes_route_families",
+        "replay_bounded_skill_route_lanes",
+        "replay_adjacent_agent_harness_eval",
+    ]
+    assert checkpoint["steps"][1]["route_family"] == "skill_workflow"
+    assert checkpoint["steps"][1]["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert checkpoint["steps"][2]["route_family"] == "general_agent_project"
+    assert checkpoint["steps"][2]["evaluation_lane"] == "agent_harness_eval_required"
+    assert checkpoint["steps"][2]["direct_allowed_lanes_before_eval"] == []
+    assert checkpoint["steps"][2]["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert all(step["runtime_action"] == "none" for step in checkpoint["steps"])
+    assert all(step["external_harness_execution_allowed"] is False for step in checkpoint["steps"])
+    assert checkpoint["activation_candidate_after_checkpoint"] is True
+    assert checkpoint["external_skill_activation_allowed"] is False
+    assert checkpoint["external_agent_activation_allowed"] is False
+    assert checkpoint["external_harness_execution_allowed"] is False
+    assert checkpoint["provider_runtime_launch_allowed"] is False
+    assert checkpoint["remote_execution_allowed"] is False
+    assert checkpoint["raw_source_urls_exported"] is False
+    assert checkpoint["raw_evidence_urls_exported"] is False
+    assert checkpoint["raw_upstream_body_exported"] is False
     assert "https://github.com/" not in serialized
 
 
