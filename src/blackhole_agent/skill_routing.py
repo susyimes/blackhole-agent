@@ -13749,6 +13749,102 @@ def _skill_route_discovery_current_digest_20260707T054834_pass2_skill_workflow_r
     }
 
 
+def _skill_route_discovery_current_digest_20260707T060834_pass3_lane_acceptance(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Expose pass-3 route acceptance for paired skill workflows and adjacent agent projects."""
+
+    lane = dict(
+        _skill_route_discovery_current_digest_20260707T054834_pass2_skill_workflow_route_discovery(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    )
+    rows = [dict(row) for row in lane.get("rows", []) if isinstance(row, Mapping)]
+    for row in rows:
+        if row.get("proposal_id") == "p2-generic-skill-workflow-rnskill":
+            row["proposal_id"] = "p2-generic-skill-routing-rnskill"
+            row["validation_target"] = "generic_skill_workflow_detection_maps_to_bounded_docs_lane"
+
+    adjacent_rows = [
+        dict(row) for row in lane.get("adjacent_general_agent_rows", []) if isinstance(row, Mapping)
+    ]
+    for row in adjacent_rows:
+        row["proposal_id"] = "p3-agent-harness-eval-general-projects"
+        row["validation_target"] = "general_agent_project_claims_require_local_harness_eval_before_followup"
+
+    ready = (
+        lane.get("status") == "ready"
+        and all(row.get("status") == "ready" for row in rows)
+        and all(row.get("evaluation_lane") == "agent_harness_eval_required" for row in adjacent_rows)
+    )
+    lane.update(
+        {
+            "controller_surface": "skill_route_discovery_current_digest_20260707T060834_pass3_lane_acceptance",
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_digest_pass3_routes_accepted_for_bounded_local_lanes"
+                if ready
+                else "repair_current_digest_pass3_route_acceptance_before_activation"
+            ),
+            "capability_pass": 3,
+            "proposal_ids": [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-generic-skill-routing-rnskill",
+                "p3-agent-harness-eval-general-projects",
+            ],
+            "anchoring_proposal_ids": [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-generic-skill-workflow-discovery",
+                "p3-agent-harness-eval-fixture",
+                "p4-route-policy-doc-note",
+                "p5-route-metadata-consistency-check",
+                "p2-generic-skill-workflow-rnskill",
+                "p3-skill-route-fixture-coverage",
+                "p4-agent-project-harness-backlog",
+                "trend:shepherd-agents/shepherd-1",
+                "p2-generic-skill-routing-rnskill",
+                "p3-agent-harness-eval-general-projects",
+                "trend:TianhangZhuzth/Fundamental-Ava-2",
+            ],
+            "pass3_acceptance_contract": {
+                "controller_recomputes_final_scope": True,
+                "reverse_flow_codex_workflow_gate_requires_local_test": any(
+                    row.get("proposal_id") == "p1-skill-route-discovery-reverse-flow"
+                    and row.get("selected_local_lane") == "test"
+                    and row.get("skill_route_discovery_first") is True
+                    for row in rows
+                ),
+                "generic_skill_workflow_documentation_first": any(
+                    row.get("proposal_id") == "p2-generic-skill-routing-rnskill"
+                    and row.get("selected_local_lane") == "documentation"
+                    for row in rows
+                ),
+                "general_agent_projects_blocked_until_harness_eval": bool(adjacent_rows)
+                and all(
+                    row.get("evaluation_lane") == "agent_harness_eval_required"
+                    and row.get("implementation_lane_selected") is False
+                    for row in adjacent_rows
+                ),
+                "activation_before_validation_allowed": False,
+                "runtime_action": "none",
+            },
+            "operator_next_action": (
+                "replay_current_digest_pass3_lane_acceptance_then_continue_to_pass4"
+                if ready
+                else "repair_current_digest_pass3_lane_acceptance_before_pass4"
+            ),
+            "rows": rows,
+            "adjacent_general_agent_rows": adjacent_rows,
+        }
+    )
+    return lane
+
+
 def _skill_route_discovery_current_digest_pass2_local_validation_lane(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -18085,6 +18181,15 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "github-growth-20260702T204709.437283Z",
     }:
         return _skill_route_discovery_current_digest_20260702T144626_pass3_preflight_lane(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if source_digest in {
+        "github-growth-20260707T060834.141592Z",
+        "github-growth-20260707T060834Z",
+    }:
+        return _skill_route_discovery_current_digest_20260707T060834_pass3_lane_acceptance(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
