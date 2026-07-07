@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_digest": "github-growth-20260628T020729.523438Z",
+  "source_digest": "github-growth-20260707T100834.719723Z",
   "capability_window": {
     "theme": "skill-route-discovery",
     "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
@@ -9,72 +9,56 @@
   },
   "items": [
     {
-      "source_digest": "github-growth-20260628T020729.523438Z",
-      "item_id": "proposal-skill-route-discovery-zxv-001",
+      "source_digest": "github-growth-20260707T100834.719723Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
       "item_kind": "repository",
-      "name": "zhengxi-views",
-      "source_url": "https://github.com/lyra81604/zhengxi-views",
-      "title": "zhengxi-views generic Python agent skill workflow",
-      "summary": "Generic Python agent skill workflow repository with skill terms, local documentation and validation notes, and body-free route evidence for bounded lane discovery.",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "title": "Reverse-flow Codex workflow skill",
+      "summary": "Codex AI Agent skill workflow with skills/reverse-flow/SKILL.md, local sandbox and CTF defaults, script examples, install pressure, and bounded reverse workflow validation needs.",
       "route_hints": ["skill_route_discovery"],
-      "topics": ["agent-skill", "python", "workflow", "validation"],
+      "topics": ["codex", "agent-skill", "reverse-engineering", "workflow"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["local_sandbox_boundary", "ctf_or_training_boundary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T100834.719723Z",
+      "item_id": "trend:Pluviobyte/rnskill-1",
+      "item_kind": "repository",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "title": "Generic AI Agent Skills collection",
+      "summary": "AI Agent Skills collection with Python and shell project shape, generic skill workflow evidence, documentation-first assumptions, and no local activation permission.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["agent-skills", "python", "workflow"],
       "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
       "route_classification": {
         "route_hints": ["skill_route_discovery"],
         "route_class": "external_skill_route_discovery_classification",
         "route_profiles": ["generic_skill_workflow"],
         "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
-        "source_layout_signals": ["skill_markdown", "validation_script"],
-        "source_metadata_signals": ["skill_registry_metadata"]
+        "source_layout_signals": ["skill_collection", "python_project"],
+        "source_metadata_signals": ["manual_skill_collection"]
       }
     },
     {
-      "source_digest": "github-growth-20260628T020729.523438Z",
-      "item_id": "proposal-game-frontend-skill-route-001",
+      "source_digest": "github-growth-20260707T100834.719723Z",
+      "item_id": "trend:shepherd-agents/shepherd-1",
       "item_kind": "repository",
-      "name": "threejs-game-skills",
-      "source_url": "https://github.com/majidmanzarpour/threejs-game-skills",
-      "title": "Three.js game frontend skill workflow",
-      "summary": "Game frontend skill workflow evidence with Three.js, playable browser game, gameplay validation, screenshot checks, and asset boundary notes.",
-      "route_hints": ["skill_route_discovery"],
-      "topics": ["agent-skills", "threejs", "browser-game", "qa"],
-      "suggested_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"],
-      "route_classification": {
-        "route_hints": ["skill_route_discovery"],
-        "route_class": "external_skill_route_discovery_classification",
-        "route_profiles": ["game_frontend_workflow"],
-        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "runtime_execution"]
-      }
-    },
-    {
-      "source_digest": "github-growth-20260628T020729.523438Z",
-      "item_id": "proposal-skill-ecosystem-state-handoff-001",
-      "item_kind": "repository",
-      "name": "compass-skills",
-      "source_url": "https://github.com/dongshuyan/compass-skills",
-      "title": "COMPASS Skills state handoff ecosystem",
-      "summary": "Skill ecosystem state handoff evidence with collaboration profiles, local memory boundary notes, route metadata, and task workflow hints.",
-      "route_hints": ["skill_route_discovery"],
-      "topics": ["agent-skills", "handoff", "profile", "workflow"],
-      "suggested_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
-      "route_classification": {
-        "route_hints": ["skill_route_discovery"],
-        "route_class": "external_skill_route_discovery_classification",
-        "route_profiles": ["skill_ecosystem_state_handoff"],
-        "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "provider_runtime"],
-        "source_metadata_signals": ["skill_registry_metadata", "agent_metadata"]
-      }
-    },
-    {
-      "source_digest": "github-growth-20260628T020729.523438Z",
-      "item_id": "proposal-agent-harness-qwen-agentworld-001",
-      "item_kind": "repository",
-      "name": "Qwen-AgentWorld",
-      "source_url": "https://github.com/QwenLM/Qwen-AgentWorld",
-      "title": "Qwen-AgentWorld general agent evaluation project",
-      "summary": "General-agent project and benchmark-style evaluation evidence without skill workflow route hints, skill package layout, or local skill activation signal.",
-      "topics": ["general-agent", "evaluation", "world-model"],
-      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "title": "Shepherd reversible execution trace runtime substrate",
+      "summary": "General agent runtime substrate for reversible execution traces, replay, supervision, and retained workspace outputs. It has no explicit skill workflow route hint and must be evaluated through a local agent harness lane before behavior adoption.",
+      "topics": ["general-agent", "runtime", "replay", "supervision"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+      "route_hints": ["agent_harness_eval"]
     }
   ]
 }

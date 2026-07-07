@@ -25434,28 +25434,22 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
 
     skill_specs = (
         {
-            "proposal_id": "proposal-skill-route-discovery-zxv-001",
+            "proposal_id": "p1-skill-route-discovery-reverse-flow",
             "proposal_kind": "test",
-            "proposal_track": "generic_python_skill_workflow",
-            "route_profiles": ("generic_skill_workflow", "source_cited_domain_research"),
+            "proposal_track": "reverse_flow_codex_workflow_gate",
+            "route_profiles": ("codex_workflow_gate",),
+            "candidate_name_terms": ("reverse-flow-skill",),
             "selected_local_lane": "test",
-            "validation_target": "generic_skill_workflow_routes_only_to_bounded_local_lanes",
+            "validation_target": "reverse_flow_codex_workflow_maps_to_bounded_local_test_lane",
         },
         {
-            "proposal_id": "proposal-game-frontend-skill-route-001",
-            "proposal_kind": "documentation",
-            "proposal_track": "game_frontend_workflow",
-            "route_profiles": ("game_frontend_workflow",),
+            "proposal_id": "p2-skill-route-discovery-rnskill",
+            "proposal_kind": "test",
+            "proposal_track": "generic_skill_workflow_route_probe",
+            "route_profiles": ("generic_skill_workflow",),
+            "candidate_name_terms": ("rnskill",),
             "selected_local_lane": "documentation",
-            "validation_target": "game_frontend_workflow_requires_skill_route_discovery_validation",
-        },
-        {
-            "proposal_id": "proposal-skill-ecosystem-state-handoff-001",
-            "proposal_kind": "config",
-            "proposal_track": "skill_ecosystem_state_handoff",
-            "route_profiles": ("skill_ecosystem_state_handoff",),
-            "selected_local_lane": "config",
-            "validation_target": "state_handoff_profile_stays_metadata_only_before_writes",
+            "validation_target": "document_rnskill_generic_skill_workflow_route_assumptions",
         },
     )
 
@@ -25466,6 +25460,7 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
 
     for spec in skill_specs:
         required_profiles = set(_string_list(spec["route_profiles"]))
+        required_names = {term.casefold() for term in _string_list(spec.get("candidate_name_terms"))}
         candidate_names: list[str] = []
         candidate_source_hashes: list[str] = []
         evidence_item_ids: list[str] = []
@@ -25483,6 +25478,9 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
                 continue
 
             candidate_name = str(candidate.get("candidate_name") or "")
+            if required_names and candidate_name.casefold() not in required_names:
+                continue
+
             candidate_names.append(candidate_name)
             candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
             evidence_item_ids.extend(_string_list(candidate.get("evidence_item_ids")))
@@ -25531,6 +25529,11 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
                 "validation_gates": list(dict.fromkeys(validation_gates)),
                 "validation_target": spec["validation_target"],
                 "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
+                "skill_route_discovery_first": True,
+                "route_probe_decisions": [
+                    "skill_route_discovery_first",
+                    "bounded_local_lane_before_activation",
+                ],
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q "
                     "-k current_run_pass2_local_validation_lane"
@@ -25554,7 +25557,7 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
 
     adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
-        proposal_id="proposal-agent-harness-qwen-agentworld-001",
+        proposal_id="p3-agent-harness-eval-shepherd",
     )
     adjacent_rows = [
         {
@@ -25564,7 +25567,7 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
         }
         | {
             "validation_gate": "agent_harness_eval_before_implementation_route",
-            "validation_target": "general_agent_project_requires_local_agent_harness_eval",
+            "validation_target": "shepherd_runtime_substrate_requires_local_agent_harness_eval",
             "replay_command_hash": _stable_hash(str(row.get("replay_command") or "")),
             "raw_replay_command_exported": False,
         }
@@ -25587,7 +25590,7 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
     if adjacent_rows:
         rows.append(
             {
-                "proposal_id": "proposal-agent-harness-qwen-agentworld-001",
+                "proposal_id": "p3-agent-harness-eval-shepherd",
                 "proposal_kind": "test",
                 "proposal_track": "agent_harness_evaluation_lane",
                 "status": "ready" if not adjacent_blockers else "blocked",
@@ -25602,7 +25605,7 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
                 "queued_local_lanes": ["documentation", "test", "code_patch"],
                 "selected_evidence_item_ids": [str(row.get("item_id") or "") for row in adjacent_rows],
                 "validation_gates": ["agent_harness_eval_before_implementation_route"],
-                "validation_target": "general_agent_project_requires_local_agent_harness_eval",
+                "validation_target": "shepherd_runtime_substrate_requires_local_agent_harness_eval",
                 "downgraded_unsupported_lanes": [],
                 "replay_command_hash": _stable_hash(
                     "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
@@ -25644,17 +25647,17 @@ def _skill_route_discovery_current_run_pass2_local_validation_lane(
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
         "proposal_ids": [
-            "proposal-skill-route-discovery-zxv-001",
-            "proposal-agent-harness-qwen-agentworld-001",
-            "proposal-game-frontend-skill-route-001",
-            "proposal-skill-ecosystem-state-handoff-001",
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-skill-route-discovery-rnskill",
+            "p3-agent-harness-eval-shepherd",
         ],
         "anchoring_proposal_ids": [
-            "p1-skill-route-discovery-catalog",
-            "p2-skill-profile-routing-tests",
-            "p3-agent-harness-evaluation-lane",
-            "p4-game-frontend-skill-eval-fixture",
-            "p5-skill-ecosystem-handoff-note",
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-skill-route-discovery-rnskill",
+            "p3-agent-harness-eval-shepherd",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:shepherd-agents/shepherd-1",
         ],
         "ready_proposal_count": len(rows) - len(blocked_proposal_ids),
         "blocked_proposal_ids": blocked_proposal_ids,

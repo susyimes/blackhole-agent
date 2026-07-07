@@ -7195,15 +7195,15 @@ def test_skill_route_discovery_current_run_pass2_local_validation_lane_routes_cu
     lane_map = build_skill_route_discovery_proposal_lane_map(registry)
 
     assert registry["registry_status"] == "classification_only"
-    assert registry["evidence_item_count"] == 4
-    assert registry["candidate_count"] == 3
+    assert registry["evidence_item_count"] == 3
+    assert registry["candidate_count"] == 2
     assert registry["ignored_evidence_item_count"] == 1
     assert registry["enabled_candidate_count"] == 0
     assert registry["executable_skill_count"] == 0
     assert registry["invalid_candidate_count"] == 0
 
     ignored = registry["ignored_evidence_items"][0]
-    assert ignored["item_id"] == "proposal-agent-harness-qwen-agentworld-001"
+    assert ignored["item_id"] == "trend:shepherd-agents/shepherd-1"
     assert ignored["evaluation_lane"] == "agent_harness_eval_required"
     assert ignored["skill_route_discovery_inherited"] is False
     assert ignored["direct_runtime_route_allowed"] is False
@@ -7213,32 +7213,32 @@ def test_skill_route_discovery_current_run_pass2_local_validation_lane_routes_cu
     assert lane["controller_surface"] == "skill_route_discovery_current_run_pass2_local_validation_lane"
     assert lane["status"] == "ready"
     assert lane["decision"] == "current_run_pass2_skill_and_agent_routes_ready_for_local_validation"
-    assert lane["source_digest"] == "github-growth-20260628T020729.523438Z"
+    assert lane["source_digest"] == "github-growth-20260707T100834.719723Z"
     assert lane["capability_pass"] == 2
     assert lane["review_gate"] == "focused-evidence-review"
     assert lane["proposal_ids"] == [
-        "proposal-skill-route-discovery-zxv-001",
-        "proposal-agent-harness-qwen-agentworld-001",
-        "proposal-game-frontend-skill-route-001",
-        "proposal-skill-ecosystem-state-handoff-001",
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
     ]
     assert lane["anchoring_proposal_ids"] == [
-        "p1-skill-route-discovery-catalog",
-        "p2-skill-profile-routing-tests",
-        "p3-agent-harness-evaluation-lane",
-        "p4-game-frontend-skill-eval-fixture",
-        "p5-skill-ecosystem-handoff-note",
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:shepherd-agents/shepherd-1",
     ]
-    assert lane["ready_proposal_count"] == 4
+    assert lane["ready_proposal_count"] == 3
     assert lane["blocked_proposal_ids"] == []
-    assert lane["skill_route_candidate_count"] == 3
+    assert lane["skill_route_candidate_count"] == 2
     assert lane["adjacent_general_agent_count"] == 1
-    assert lane["observed_route_profiles"] == [
-        "game_frontend_workflow",
-        "generic_skill_workflow",
-        "skill_ecosystem_state_handoff",
+    assert lane["observed_route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert lane["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
     ]
-    assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
     assert lane["adjacent_evaluation_lane"] == "agent_harness_eval_required"
     assert lane["agent_harness_eval_required"] is True
     assert lane["agent_harness_eval_required_before_implementation"] is True
@@ -7258,42 +7258,50 @@ def test_skill_route_discovery_current_run_pass2_local_validation_lane_routes_cu
     contract = lane["route_activation_contract"]
     assert contract["controller_surface"] == "skill_route_discovery_pass2_route_activation_contract"
     assert contract["status"] == "ready"
-    assert contract["skill_route_candidate_count"] == 3
-    assert contract["codex_workflow_gate_count"] == 0
+    assert contract["skill_route_candidate_count"] == 2
+    assert contract["codex_workflow_gate_count"] == 1
     assert contract["adjacent_agent_harness_eval_count"] == 1
     assert contract["skill_lanes_bounded"] is True
     assert contract["adjacent_harness_holdback"] is True
     assert contract["side_effects_denied"] is True
 
     rows = {row["proposal_id"]: row for row in lane["rows"]}
-    assert rows["proposal-skill-route-discovery-zxv-001"]["candidate_names"] == ["zhengxi-views"]
-    assert rows["proposal-skill-route-discovery-zxv-001"]["route_profiles"] == ["generic_skill_workflow"]
-    assert rows["proposal-skill-route-discovery-zxv-001"]["selected_local_lane"] == "test"
-    assert rows["proposal-skill-route-discovery-zxv-001"]["allowed_local_lanes"] == list(
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["candidate_names"] == ["reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+    assert reverse_flow["allowed_local_lanes"] == list(
         SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
     )
-    assert "install" not in rows["proposal-skill-route-discovery-zxv-001"]["allowed_local_lanes"]
+    assert reverse_flow["validation_target"] == (
+        "reverse_flow_codex_workflow_maps_to_bounded_local_test_lane"
+    )
+    assert "install" not in reverse_flow["allowed_local_lanes"]
+    assert "runtime_execution" not in reverse_flow["allowed_local_lanes"]
 
-    assert rows["proposal-game-frontend-skill-route-001"]["candidate_names"] == ["threejs-game-skills"]
-    assert rows["proposal-game-frontend-skill-route-001"]["route_profiles"] == ["game_frontend_workflow"]
-    assert rows["proposal-game-frontend-skill-route-001"]["selected_local_lane"] == "documentation"
-    assert "runtime_execution" not in rows["proposal-game-frontend-skill-route-001"]["allowed_local_lanes"]
+    rnskill = rows["p2-skill-route-discovery-rnskill"]
+    assert rnskill["candidate_names"] == ["rnskill"]
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["selected_evidence_item_ids"] == ["trend:Pluviobyte/rnskill-1"]
+    assert rnskill["validation_target"] == "document_rnskill_generic_skill_workflow_route_assumptions"
+    assert "install" not in rnskill["allowed_local_lanes"]
 
-    assert rows["proposal-skill-ecosystem-state-handoff-001"]["candidate_names"] == ["compass-skills"]
-    assert rows["proposal-skill-ecosystem-state-handoff-001"]["route_profiles"] == [
-        "skill_ecosystem_state_handoff"
-    ]
-    assert rows["proposal-skill-ecosystem-state-handoff-001"]["selected_local_lane"] == "config"
-    assert rows["proposal-skill-ecosystem-state-handoff-001"]["profile_write_allowed"] is False
-    assert rows["proposal-skill-ecosystem-state-handoff-001"]["memory_write_allowed"] is False
-
-    agent_row = rows["proposal-agent-harness-qwen-agentworld-001"]
+    agent_row = rows["p3-agent-harness-eval-shepherd"]
     assert agent_row["proposal_track"] == "agent_harness_evaluation_lane"
     assert agent_row["route_hint"] == "agent_harness_eval_required"
     assert agent_row["route_class"] == "adjacent_general_agent_project"
+    assert agent_row["candidate_names"] == ["shepherd"]
+    assert agent_row["selected_evidence_item_ids"] == ["trend:shepherd-agents/shepherd-1"]
     assert agent_row["allowed_local_lanes"] == ["documentation", "test", "code_patch"]
     assert agent_row["selected_local_lane"] == "agent_harness_eval_required"
     assert agent_row["validation_gates"] == ["agent_harness_eval_before_implementation_route"]
+    assert agent_row["validation_target"] == (
+        "shepherd_runtime_substrate_requires_local_agent_harness_eval"
+    )
     assert agent_row["external_agent_activation_allowed"] is False
 
     for row in rows.values():
@@ -7314,11 +7322,15 @@ def test_skill_route_discovery_current_run_pass2_local_validation_lane_routes_cu
         assert all(source_hash.startswith("sha256:") for source_hash in row["candidate_source_hashes"])
 
     adjacent = lane["adjacent_general_agent_rows"][0]
-    assert adjacent["proposal_id"] == "proposal-agent-harness-qwen-agentworld-001"
+    assert adjacent["proposal_id"] == "p3-agent-harness-eval-shepherd"
+    assert adjacent["item_id"] == "trend:shepherd-agents/shepherd-1"
     assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
     assert adjacent["skill_route_discovery_inherited"] is False
     assert adjacent["direct_runtime_route_allowed"] is False
     assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["validation_target"] == (
+        "shepherd_runtime_substrate_requires_local_agent_harness_eval"
+    )
     assert adjacent["raw_replay_command_exported"] is False
 
     serialized = json.dumps(lane, sort_keys=True)
