@@ -5,6 +5,31 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T212110.239635Z`, pass 1 exposes the
+active reverse-flow/rnskill/BioNeMo/Agents-A1/Shepherd window through
+`skill_route_discovery_current_pass1_focused_review_lane`. The lane maps
+`lingbol088-spec/reverse-flow-skill` to the bounded local test lane because the
+public repository is a Codex/AI Agent workflow skill with `skills/reverse-flow`,
+`SKILL.md`, local sandbox framing, staged analysis, and diagnostic scripts. It
+maps `Pluviobyte/rnskill` to the documentation lane as a generic multi-skill
+collection.
+
+`NVIDIA-BioNeMo/bionemo-agent-toolkit` stays in the same skill-route discovery
+surface as a domain-specific skill toolkit guard: it may produce only
+documentation, config, test, or code_patch candidates until local validation
+proves a concrete citation, data, advice, and provider boundary. Install,
+runtime execution, provider launch, upstream dataset import, and external skill
+activation remain denied. `InternScience/Agents-A1` and
+`shepherd-agents/shepherd` remain adjacent `agent_harness_eval_required` rows
+and inherit no skill-route lane before local harness evaluation. The pass-1
+lane records rollback ref
+`refs/blackhole/rollback/20260707T212110Z-skill-route-discovery-pass1`, leaves
+`docs/self-model.md` unchanged because the existing preference already supports
+rollback-backed local behavior changes, and exports no raw source URLs, replay
+commands, upstream bodies, provider launches, remote execution, promotion,
+restart, or activation authority. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T212110`.
+
 For source digest `github-growth-20260707T200110.283498Z`, pass 1 exposes the
 current skill-route-discovery window through
 `skill_route_discovery_current_pass1_focused_review_lane`. The lane maps

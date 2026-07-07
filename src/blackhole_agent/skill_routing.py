@@ -2129,11 +2129,13 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     current_094834_window = source_digest == "github-growth-20260707T094834.633335Z"
     current_184110_window = source_digest == "github-growth-20260707T184110.074943Z"
     current_200110_window = source_digest == "github-growth-20260707T200110.283498Z"
+    current_212110_window = source_digest == "github-growth-20260707T212110.239635Z"
     if not (
         current_052834_window
         or current_094834_window
         or current_184110_window
         or current_200110_window
+        or current_212110_window
     ):
         return {}
 
@@ -2145,6 +2147,14 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     ]
     anchoring_proposal_ids = (
         [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-skill-route-discovery-rnskill",
+            "p3-bionemo-skill-routing-domain-guard",
+            "p4-general-agent-harness-eval-backlog",
+            "trend:shepherd-agents/shepherd-1",
+        ]
+        if current_212110_window
+        else [
             "p1-skill-route-discovery-reverse-flow",
             "p2-generic-skill-workflow-discovery-rnskill",
             "p3-agent-harness-eval-general-projects",
@@ -2179,7 +2189,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     )
     reverse_flow_proposal_id = (
         "p1-skill-route-discovery-reverse-flow"
-        if current_184110_window or current_200110_window
+        if current_184110_window or current_200110_window or current_212110_window
         else
         "p1-skill-route-discovery-codex-workflow"
         if current_094834_window
@@ -2190,13 +2200,16 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         if current_200110_window
         else
         "p2-skill-route-discovery-rnskill"
-        if current_184110_window
+        if current_184110_window or current_212110_window
         else
         "p2-generic-skill-workflow-routing"
         if current_094834_window
         else "p2-generic-skill-workflow-discovery"
     )
     agent_harness_proposal_id = (
+        "p4-general-agent-harness-eval-backlog"
+        if current_212110_window
+        else
         "p3-agent-harness-eval-general-projects"
         if current_184110_window or current_200110_window
         else
@@ -2205,6 +2218,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         else "p3-agent-harness-eval-fixture"
     )
     policy_note_proposal_id = (
+        "p3-bionemo-skill-routing-domain-guard"
+        if current_212110_window
+        else
         "p4-route-classification-docs"
         if current_184110_window or current_200110_window
         else
@@ -2213,6 +2229,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         else "p4-route-policy-doc-note"
     )
     metadata_check_proposal_id = (
+        "p3-bionemo-skill-routing-domain-guard"
+        if current_212110_window
+        else
         "p5-combined-local-route-fixture-set"
         if current_200110_window
         else
@@ -2228,6 +2247,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     )
     validation_commands = [
         (
+            "pytest tests/test_skill_routing.py -q -k 20260707T212110"
+            if current_212110_window
+            else
             "pytest tests/test_skill_routing.py -q -k 20260707T200110"
             if current_200110_window
             else
@@ -2239,6 +2261,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             else "pytest tests/test_skill_routing.py -q -k 20260707T052834"
         ),
         (
+            "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T212110"
+            if current_212110_window
+            else
             "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T200110"
             if current_200110_window
             else
@@ -2255,6 +2280,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     for row in skill_rows:
         route_profiles = _string_list(row.get("route_profiles"))
         is_reverse_flow = "codex_workflow_gate" in route_profiles
+        is_domain_specific = "source_cited_domain_research" in route_profiles
         selected_lane = "test" if is_reverse_flow else "documentation"
         allowed_lanes = _string_list(row.get("allowed_local_lanes"))
         skill_route_rows.append(
@@ -2262,6 +2288,8 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
                 "proposal_id": (
                     reverse_flow_proposal_id
                     if is_reverse_flow
+                    else "p3-bionemo-skill-routing-domain-guard"
+                    if current_212110_window and is_domain_specific
                     else generic_skill_proposal_id
                 ),
                 "route_id": str(row.get("route_id") or ""),
@@ -2273,6 +2301,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
                 "allowed_local_lanes": allowed_lanes,
                 "bounded_to_skill_route_lanes": set(allowed_lanes)
                 <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "domain_specific_skill_toolkit_guard": bool(
+                    current_212110_window and is_domain_specific
+                ),
                 "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
                 "validation_gates": _string_list(row.get("validation_gates")),
                 "local_validation_required": True,
@@ -2325,7 +2356,13 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         for row in skill_rows
     ):
         blockers.append("generic_skill_workflow_rnskill_missing")
-    minimum_agent_rows = 2 if current_200110_window else 3
+    if current_212110_window and not any(
+        "source_cited_domain_research" in _string_list(row.get("route_profiles"))
+        and str(row.get("candidate_name") or "") == "bionemo-agent-toolkit"
+        for row in skill_rows
+    ):
+        blockers.append("domain_specific_bionemo_skill_guard_missing")
+    minimum_agent_rows = 2 if current_200110_window or current_212110_window else 3
     if len(agent_rows) < minimum_agent_rows:
         blockers.append("agent_harness_eval_fixture_rows_missing")
     if any(
@@ -2373,6 +2410,35 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             metadata_check["local_validation_required_preserved"],
         ]
     )
+    run_artifact_contract: dict[str, Any] = {}
+    if current_212110_window:
+        run_artifact_contract = {
+            "rollback_ref": "refs/blackhole/rollback/20260707T212110Z-skill-route-discovery-pass1",
+            "rollback_artifact": (
+                "artifacts/rollback/20260707T212110Z-skill-route-discovery-pass1/rollback-point.md"
+            ),
+            "evolution_artifact": (
+                "artifacts/evolution-20260707T212110Z-skill-route-discovery-pass1-domain-guard.md"
+            ),
+            "material_actions_logged": True,
+            "external_evidence_reviewed": True,
+            "promotion_or_push_performed": False,
+            "restart_performed": False,
+        }
+    elif current_200110_window:
+        run_artifact_contract = {
+            "rollback_ref": "refs/blackhole/rollback/20260707T200110-skill-route-discovery-pass1",
+            "rollback_artifact": (
+                "artifacts/rollback/20260707T200110-skill-route-discovery-pass1/rollback-point.md"
+            ),
+            "evolution_artifact": (
+                "artifacts/evolution-20260707T200110Z-skill-route-discovery-pass1-focused-review.md"
+            ),
+            "material_actions_logged": True,
+            "external_evidence_reviewed": True,
+            "promotion_or_push_performed": False,
+            "restart_performed": False,
+        }
     return {
         "current_pass1_focused_review_lane": {
             "controller_surface": "skill_route_discovery_current_pass1_focused_review_lane",
@@ -2415,27 +2481,8 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             },
             "route_metadata_consistency_check": metadata_check,
             **(
-                {
-                    "run_artifact_contract": {
-                        "rollback_ref": (
-                            "refs/blackhole/rollback/"
-                            "20260707T200110-skill-route-discovery-pass1"
-                        ),
-                        "rollback_artifact": (
-                            "artifacts/rollback/"
-                            "20260707T200110-skill-route-discovery-pass1/rollback-point.md"
-                        ),
-                        "evolution_artifact": (
-                            "artifacts/evolution-20260707T200110Z-"
-                            "skill-route-discovery-pass1-focused-review.md"
-                        ),
-                        "material_actions_logged": True,
-                        "external_evidence_reviewed": True,
-                        "promotion_or_push_performed": False,
-                        "restart_performed": False,
-                    }
-                }
-                if current_200110_window
+                {"run_artifact_contract": run_artifact_contract}
+                if run_artifact_contract
                 else {}
             ),
             **(

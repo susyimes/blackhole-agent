@@ -733,6 +733,31 @@ def test_skill_route_discovery_doc_records_20260707T194110_pass4_completion_hand
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T212110_pass1_domain_guard():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260707T212110.239635Z`",
+        "`skill_route_discovery_current_pass1_focused_review_lane`",
+        "`lingbol088-spec/reverse-flow-skill` to the bounded local test lane",
+        "`Pluviobyte/rnskill` to the documentation lane",
+        "`NVIDIA-BioNeMo/bionemo-agent-toolkit` stays in the same skill-route discovery\nsurface",
+        "documentation, config, test, or code_patch candidates",
+        "citation, data, advice, and provider boundary",
+        "Install,\nruntime execution, provider launch, upstream dataset import, and external skill\nactivation remain denied",
+        "`InternScience/Agents-A1` and\n`shepherd-agents/shepherd` remain adjacent `agent_harness_eval_required` rows",
+        "inherit no skill-route lane before local harness evaluation",
+        "`refs/blackhole/rollback/20260707T212110Z-skill-route-discovery-pass1`",
+        "`docs/self-model.md` unchanged",
+        "exports no raw source URLs, replay\ncommands, upstream bodies, provider launches, remote execution, promotion,\nrestart, or activation authority",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260707T212110`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
