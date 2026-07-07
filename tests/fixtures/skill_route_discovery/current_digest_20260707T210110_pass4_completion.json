@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260707T210110.348256Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 4,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-generic-skill-workflow-discovery-rnskill",
+      "p3-agent-harness-eval-general-projects",
+      "p4-route-classification-docs",
+      "p5-combined-local-route-fixture-set",
+      "p2-generic-skill-workflow-rnskill",
+      "p3-agent-harness-eval-queue",
+      "p4-route-classification-regression-fixture",
+      "p5-self-model-route-note",
+      "p1-shepherd-vcscore-cache-regression-eval",
+      "p2-shepherd-vcscore-cache-fix-candidate",
+      "p3-skill-route-discovery-reverse-flow"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260707T210110.348256Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow/SKILL.md, references, scripts, local sandbox and CTF framing, staged analysis/report/reverse workflow, install examples, and diagnostic script pressure.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution", "script_execution"],
+      "unsupported_lane_pressure": ["install", "runtime_execution", "script_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["codex_workflow_signal", "local_sandbox_boundary", "body_free_workflow_summary"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T210110.348256Z",
+      "item_id": "trend:Pluviobyte/rnskill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "summary": "AI Agent Skills collection with SKILL.md-oriented skills directory, plugin metadata, universal install examples, and manual project-level copy instructions for Codex, Claude Code, and other Agent workflows.",
+      "topics": ["agent", "skills", "codex", "workflow", "skill-collection"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+      "unsupported_lane_pressure": ["install", "enable"],
+      "observed_paths": [
+        "skills/",
+        ".claude-plugin/",
+        "docs/",
+        "tools/",
+        "README.md"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "skill_manifest"],
+        "source_metadata_signals": ["skill_registry_metadata", "agent_plugin_marketplace"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T210110.348256Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agent model project with long-horizon agent trajectory, evaluation code, and benchmark framing, but no explicit skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "evaluation", "benchmark", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260707T210110.348256Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous and socially intelligent agent simulation project with memory, collaboration, benchmarks, and tests, but no explicit skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "agent", "workflow", "benchmark"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}
