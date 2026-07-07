@@ -5,6 +5,22 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T044834.430159Z`, pass 3 adds an
+operator-visible `current_pass3_proposal_lane` to
+`skill_route_discovery_validation_route_packet`. The lane binds the active
+controller proposals `p1_skill_route_discovery_probe`,
+`p2_skill_route_discovery_docs`, and `p3_skill_routing_config_fixture` to
+bounded local outputs before pass-4 activation review.
+
+`lingbol088-spec/reverse-flow-skill` remains the Codex workflow-gate skill
+route row and selects the local test lane. `Pluviobyte/rnskill` remains the
+generic skill workflow row and supports documentation and config proposal
+bindings. Install, run, script execution, provider runtime, external harness,
+and remote-execution pressure is preserved only as stripped diagnostic pressure.
+Adjacent general-agent projects remain `agent_harness_eval_required` and do
+not inherit `skill_route_discovery`. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T044834`.
+
 For source digest `github-growth-20260707T042834.998931Z`, pass 2 advances the
 active skill-route-discovery window through
 `skill_route_discovery_validation_route_packet`. `lingbol088-spec/reverse-flow-skill`

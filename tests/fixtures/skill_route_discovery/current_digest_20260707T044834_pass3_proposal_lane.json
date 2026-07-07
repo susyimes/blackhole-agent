@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260707T044834.430159Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 3,
+    "total_passes": 4,
+    "source_digest": "github-growth-20260707T044834.430159Z",
+    "anchoring_proposals": [
+      "p1_skill_route_discovery_reverse_flow",
+      "p2_generic_skill_workflow_fixture_rnskill",
+      "p3_agent_harness_eval_general_projects",
+      "p4_route_policy_documentation",
+      "trend:shepherd-agents/shepherd-1",
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-generic-skill-workflow-rnskill",
+      "p3-agent-harness-eval-shepherd",
+      "p4-agent-project-comparison-fixture",
+      "11440035602-1",
+      "p1_skill_route_discovery_probe",
+      "p2_skill_route_discovery_docs",
+      "p3_skill_routing_config_fixture"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260707T044834.430159Z",
+      "item_id": "p1_skill_route_discovery_probe",
+      "item_kind": "repository",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "title": "Reverse-flow Codex workflow skill",
+      "summary": "Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow/SKILL.md, references, scripts, local sandbox and CTF framing, install examples, run examples, and workflow gates. Install, run, script execution, provider runtime, external harness execution, and remote execution remain route pressure only before local validation.",
+      "topics": ["codex", "agent-skill", "workflow", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "run",
+        "runtime_execution",
+        "script_execution",
+        "provider_runtime",
+        "external_harness_execution"
+      ],
+      "unsupported_lane_pressure": [
+        "install",
+        "run",
+        "runtime_execution",
+        "script_execution",
+        "provider_runtime",
+        "external_harness_execution"
+      ],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "reference_directory",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "codex_workflow_signal",
+          "local_sandbox_boundary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T044834.430159Z",
+      "item_id": "p2_generic_skill_workflow_fixture_rnskill",
+      "item_kind": "repository",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "title": "rnskill generic skill workflow",
+      "summary": "Generic AI Agent Skills collection for Codex, Claude Code, and Agent workflows that support SKILL.md, with skills, docs, tools, plugin metadata, and workflow-oriented installation signals. The route is useful as bounded local skill workflow evidence, not as an install or runtime activation request.",
+      "topics": ["agent", "skill", "skills", "workflow"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+      "unsupported_lane_pressure": ["install"],
+      "observed_paths": [
+        "skills/",
+        ".claude-plugin/",
+        "docs/",
+        "tools/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["generic_skill_workflow"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_manifest",
+          "agent_plugin_marketplace"
+        ],
+        "source_metadata_signals": ["skill_workflow_metadata"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T044834.430159Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "repository",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agent project with evaluation and benchmark claims but no explicit local skill workflow package signal.",
+      "topics": ["general-agent", "evaluation", "benchmark", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260707T044834.430159Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous collaborative agent project with memory, scheduling, workflow, and simulation claims but no explicit local skill workflow package signal.",
+      "topics": ["general-agent", "autonomous-agent", "workflow"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260707T044834.430159Z",
+      "item_id": "trend:shepherd-agents/shepherd-1",
+      "item_kind": "repository",
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "summary": "General agent runtime substrate with reversible traces, fork, replay, rollback, retained outputs, and supervision claims; requires local harness evaluation before adoption.",
+      "topics": ["agent", "runtime", "workflow", "replay", "rollback"],
+      "route_hints": [],
+      "suggested_lanes": [
+        "documentation",
+        "test",
+        "code_patch",
+        "runtime_execution",
+        "external_harness_execution"
+      ]
+    }
+  ]
+}

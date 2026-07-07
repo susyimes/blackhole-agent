@@ -910,6 +910,119 @@ def test_skill_route_discovery_current_digest_20260707T042834_pass2_validates_cu
     assert '"remote_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T044834_pass3_binds_current_proposals():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T044834_pass3_proposal_lane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in fixture["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(fixture["items"])
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    route_rows_by_id = {row["route_id"]: row for row in packet["rows"]}
+    proposal_lane = packet["current_pass3_proposal_lane"]
+    proposal_rows = {row["proposal_id"]: row for row in proposal_lane["rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260707T044834.430159Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert packet["status"] == "ready"
+    assert packet["skill_workflow_count"] == 2
+    assert packet["general_agent_project_count"] == 3
+    assert packet["route_validation_queue_status"] == "ready"
+    assert [entry["validation_priority"] for entry in packet["route_validation_queue"]] == [
+        0,
+        0,
+        10,
+        10,
+        10,
+    ]
+
+    assert proposal_lane["controller_surface"] == "skill_route_discovery_current_pass3_proposal_lane"
+    assert proposal_lane["status"] == "ready"
+    assert proposal_lane["decision"] == "current_pass3_skill_route_proposals_bound_to_bounded_local_lanes"
+    assert proposal_lane["source_digest"] == "github-growth-20260707T044834.430159Z"
+    assert proposal_lane["capability_pass"] == 3
+    assert proposal_lane["total_passes"] == 4
+    assert proposal_lane["proposal_ids"] == [
+        "p1_skill_route_discovery_probe",
+        "p2_skill_route_discovery_docs",
+        "p3_skill_routing_config_fixture",
+    ]
+    assert proposal_lane["blocked_proposal_ids"] == []
+    assert proposal_lane["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert proposal_lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert proposal_lane["operator_next_action"] == "run_route_classification_tests_then_continue_to_pass4"
+    assert proposal_lane["runtime_action"] == "none"
+    assert proposal_lane["external_skill_activation_allowed"] is False
+    assert proposal_lane["external_harness_execution_allowed"] is False
+    assert proposal_lane["provider_runtime_launch_allowed"] is False
+    assert proposal_lane["remote_execution_allowed"] is False
+
+    reverse_flow = route_rows_by_id["p1_skill_route_discovery_probe"]
+    assert reverse_flow["route_kind"] == "skill_workflow"
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["selected_evidence_item_ids"] == ["p1_skill_route_discovery_probe"]
+    assert set(reverse_flow["selected_evidence_item_ids"]) <= selected_item_ids
+
+    rnskill = route_rows_by_id["p2_generic_skill_workflow_fixture_rnskill"]
+    assert rnskill["route_kind"] == "skill_workflow"
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert rnskill["selected_evidence_item_ids"] == ["p2_generic_skill_workflow_fixture_rnskill"]
+    assert set(rnskill["selected_evidence_item_ids"]) <= selected_item_ids
+
+    probe = proposal_rows["p1_skill_route_discovery_probe"]
+    assert probe["proposal_kind"] == "test"
+    assert probe["candidate_name"] == "reverse-flow-skill"
+    assert probe["route_id"] == "p1_skill_route_discovery_probe"
+    assert probe["selected_local_lane"] == "test"
+    assert probe["activation_blockers"] == []
+
+    docs = proposal_rows["p2_skill_route_discovery_docs"]
+    assert docs["proposal_kind"] == "documentation"
+    assert docs["candidate_name"] == "rnskill"
+    assert docs["route_id"] == "p2_generic_skill_workflow_fixture_rnskill"
+    assert docs["selected_local_lane"] == "documentation"
+    assert docs["activation_blockers"] == []
+
+    config = proposal_rows["p3_skill_routing_config_fixture"]
+    assert config["proposal_kind"] == "config"
+    assert config["candidate_name"] == "rnskill"
+    assert config["route_id"] == "p2_generic_skill_workflow_fixture_rnskill"
+    assert config["selected_local_lane"] == "config"
+    assert config["activation_blockers"] == []
+
+    for item_id in (
+        "trend:InternScience/Agents-A1-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:shepherd-agents/shepherd-1",
+    ):
+        row = route_rows_by_id[item_id]
+        assert row["route_kind"] == "general_agent_project"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert "script_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260706T163555_pass2_validates_current_route_priority_queue():
     fixture_path = (
         Path(__file__).parent
