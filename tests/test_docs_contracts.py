@@ -654,6 +654,31 @@ def test_skill_route_discovery_doc_records_20260707T154109_pass4_completion_hand
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T164109_pass3_validation_lane():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260707T164109.440819Z`",
+        "`skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane`",
+        "`skill_route_discovery_current_digest_20260707T164109_pass3_activation_review_packet`",
+        "`lingbol088-spec/reverse-flow-skill` maps to the bounded local test lane",
+        "`Pluviobyte/rnskill` maps to the bounded\ndocumentation lane",
+        "documentation, config, test, and code_patch as local outputs",
+        "ignored and recomputed by controller code as `local_validation_candidate`",
+        "`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and\n"
+        "`shepherd-agents/shepherd` remain adjacent `agent_harness_eval_required` rows",
+        "They inherit no skill-route lane",
+        "no direct pre-eval implementation\nlane",
+        "denying raw\nsource URLs, raw evidence URLs, replay commands, upstream bodies",
+        "provider launch, memory\nwrites, remote execution, and runtime action",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260707T164109`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
