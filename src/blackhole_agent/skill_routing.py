@@ -20239,6 +20239,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260707T005555.490893Z",
         "github-growth-20260707T005555Z",
     }
+    current_034835_20260707_window = source_digest in {
+        "github-growth-20260707T034835.249830Z",
+        "github-growth-20260707T034835Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -20351,6 +20355,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         or current_223555_20260706_window
         or current_235555_20260706_window
         or current_005555_20260707_window
+        or current_034835_20260707_window
         or current_163922_20260703_window
         or current_175922_20260703_window
         or current_191923_20260703_window
@@ -20397,6 +20402,7 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
             or current_223555_20260706_window
             or current_235555_20260706_window
             or current_005555_20260707_window
+            or current_034835_20260707_window
         ):
             return _skill_route_discovery_current_digest_20260705T080817_pass4_completion_handoff(
                 candidate_lane_inventory,
@@ -21965,9 +21971,13 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         "github-growth-20260707T005555.490893Z",
         "github-growth-20260707T005555Z",
     }
+    current_034835_20260707_window = source_digest in {
+        "github-growth-20260707T034835.249830Z",
+        "github-growth-20260707T034835Z",
+    }
     reverse_flow_proposal_id = (
         "p1-skill-route-discovery-reverse-flow"
-        if current_005555_20260707_window
+        if current_005555_20260707_window or current_034835_20260707_window
         else
         "p1_skill_route_discovery_reverse_flow_skill"
         if current_235555_20260706_window
@@ -22012,7 +22022,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
     )
     docs_proposal_id = (
         "p3-route-classification-docs"
-        if current_005555_20260707_window
+        if current_005555_20260707_window or current_034835_20260707_window
         else
         "p3_document_route_policy_for_trending_agent_sources"
         if current_235555_20260706_window
@@ -22069,6 +22079,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p3-document-growth-route-policy"
     )
     agent_harness_proposal_id = (
+        "p2-agent-harness-eval-general-agent-trends"
+        if current_034835_20260707_window
+        else
         "p2-general-agent-harness-eval"
         if current_005555_20260707_window
         else
@@ -22125,6 +22138,9 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         else "p2-agent-harness-eval-trending-agent-projects"
     )
     replay_marker = (
+        "current_digest_20260707T034835_pass4_completion"
+        if current_034835_20260707_window
+        else
         "current_digest_20260707T005555_pass4_completion"
         if current_005555_20260707_window
         else
@@ -22185,6 +22201,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
     reverse_flow_candidate_terms = (
         ("reverse-flow-skill", "lingbol088-spec-reverse-flow-skill")
         if current_005555_20260707_window
+        or current_034835_20260707_window
         or current_171555_20260706_window
         or current_183555_20260706_window
         or current_223555_20260706_window
@@ -22278,6 +22295,7 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
             or current_223555_20260706_window
             or current_235555_20260706_window
             or current_005555_20260707_window
+            or current_034835_20260707_window
         ):
             row["downgraded_unsupported_lane_count"] = len(downgraded_lanes)
             row["downgraded_unsupported_lane_categories"] = (
@@ -22313,6 +22331,14 @@ def _skill_route_discovery_current_digest_20260705T080817_pass4_completion_hando
         )
 
     expected_agent_names = (
+        {
+            "Agents-A1",
+            "Awesome-Blender-Seedance-Workflow-Usecases",
+            "Fundamental-Ava",
+            "shepherd",
+        }
+        if current_034835_20260707_window
+        else
         {
             "Agents-A1",
             "Awesome-Blender-Seedance-Workflow-Usecases",

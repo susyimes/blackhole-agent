@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260707T034835.249830Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 4,
+    "total_passes": 4,
+    "source_digest": "github-growth-20260707T034835.249830Z",
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-agent-harness-eval-general-agent-trends",
+      "p3-workflow-usecase-agent-harness-doc-test",
+      "trend:shepherd-agents/shepherd-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-2",
+      "p1-agent-harness-trend-eval",
+      "p2-skill-route-discovery-lane",
+      "p3-route-classification-docs",
+      "p4-growth-route-regression-fixtures",
+      "11428002521-1",
+      "trend:shepherd-agents/shepherd-2",
+      "trend:TianhangZhuzth/Fundamental-Ava-3"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260707T034835.249830Z",
+      "item_id": "p1-skill-route-discovery-reverse-flow",
+      "item_kind": "repository",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "title": "Reverse-flow Codex workflow skill",
+      "summary": "Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow/SKILL.md, README, references, scripts, local sandbox and CTF framing, install examples, run examples, and reverse-analysis workflow guidance. Install, run, script execution, provider runtime, external harness execution, and remote execution are route pressure only before local validation.",
+      "topics": ["codex", "agent-skill", "workflow", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "run",
+        "runtime_execution",
+        "script_execution",
+        "provider_runtime",
+        "external_harness_execution"
+      ],
+      "unsupported_lane_pressure": [
+        "install",
+        "run",
+        "runtime_execution",
+        "script_execution",
+        "provider_runtime",
+        "external_harness_execution"
+      ],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "reference_directory",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "codex_workflow_signal",
+          "local_sandbox_boundary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260707T034835.249830Z",
+      "item_id": "trend:InternScience/Agents-A1-1",
+      "item_kind": "repository",
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agent project with long-horizon trajectories, evaluation, benchmark, model, and tool-use claims, but no explicit local skill workflow route hint or local harness evaluation result.",
+      "topics": ["general-agent", "evaluation", "benchmark", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260707T034835.249830Z",
+      "item_id": "trend:TianhangZhuzth/Fundamental-Ava-3",
+      "item_kind": "repository",
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General autonomous collaborative and socially intelligent agent project with memory, scheduling, workflow, simulation, and benchmark claims, but no explicit local skill workflow package signal.",
+      "topics": ["general-agent", "autonomous-agent", "collaboration", "workflow"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260707T034835.249830Z",
+      "item_id": "trend:shepherd-agents/shepherd-2",
+      "item_kind": "repository",
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "summary": "General agent runtime substrate with reversible execution traces, fork, replay, revert, copy-on-write environment claims, and meta-agent supervision. It suggests recovery workflow ideas but needs local agent harness evaluation before any runtime adoption.",
+      "topics": ["agent", "runtime", "workflow", "replay", "rollback"],
+      "route_hints": [],
+      "suggested_lanes": [
+        "documentation",
+        "test",
+        "code_patch",
+        "runtime_execution",
+        "external_harness_execution"
+      ]
+    },
+    {
+      "source_digest": "github-growth-20260707T034835.249830Z",
+      "item_id": "p3-workflow-usecase-agent-harness-doc-test",
+      "item_kind": "repository",
+      "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+      "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+      "summary": "Workflow usecase catalog with workflow-topic evidence but no SKILL.md, no skill directory, and no explicit local skill workflow route hint.",
+      "topics": ["workflow", "usecases"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

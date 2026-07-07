@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T034835.249830Z`, pass 4 completes
+the current skill-route-discovery window through
+`current_digest_pass4_completion_handoff`. The handoff maps
+`lingbol088-spec/reverse-flow-skill` to
+`p1-skill-route-discovery-reverse-flow` because it carries explicit Codex/AI
+Agent skill workflow markers: `skills/reverse-flow/SKILL.md`, references,
+scripts, local sandbox framing, and install/run language. Those install, run,
+script, provider, external-harness, and runtime signals remain diagnostic
+pressure only; the selected local outputs are documentation and test, and the
+allowed skill-route lanes remain documentation, config, test, and code_patch.
+
+`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`,
+`shepherd-agents/shepherd`, and the workflow-usecase item remain adjacent
+`agent_harness_eval_required` rows, even when their `route_hints` are empty.
+They do not inherit `skill_route_discovery`, expose no direct documentation,
+test, code_patch, runtime, provider, external-harness, or remote-execution lane
+before local harness evaluation, and may only produce documentation, test, or
+code_patch follow-up after that bounded eval passes. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T034835`.
+
 For source digest `github-growth-20260707T005555.490893Z`, pass 4 completes
 the current skill-route-discovery window through
 `current_digest_pass4_completion_handoff`. The handoff keeps
