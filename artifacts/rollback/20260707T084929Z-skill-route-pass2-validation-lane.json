@@ -1,0 +1,10 @@
+{
+  "recovery_commands": [
+    "git reset --hard cc026afa6aa620d3c645387cfa538e4f42485d00 git clean -fd"
+  ],
+  "source_digest": "github-growth-20260707T084834.433829Z",
+  "timestamp": "20260707T084929Z",
+  "original_head": "cc026afa6aa620d3c645387cfa538e4f42485d00",
+  "original_branch": "codex/blackhole-evolve/20260707T084929.672394-add-or-exercise-a-local-skill-route-discovery-va",
+  "rollback_ref": "refs/blackhole-rollback/20260707T084929Z-skill-route-pass2-validation-lane"
+}
