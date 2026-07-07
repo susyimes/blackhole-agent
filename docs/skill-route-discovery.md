@@ -5320,6 +5320,19 @@ handoff: controller recomputes route families, the bounded skill-route lane is
 replayed, then adjacent agent-harness evaluation is replayed. Replay with:
 `python -m pytest tests/test_harness_eval.py -q -k "20260707_pass2_checkpoint or 20260706T215555_pass2_route_probe"`.
 
+For source digest `github-growth-20260707T070834.246450Z`, the proposal route
+map also emits `current_pass2_activation_checkpoint` directly from the frozen
+evidence package. `lingbol088-spec/reverse-flow-skill` remains a Codex-oriented
+skill route and selects the local test lane; `Pluviobyte/rnskill` remains a
+generic skill-workflow route and selects the documentation lane. Both are
+bounded to documentation, config, test, or code_patch and require local replay
+before activation. `shepherd-agents/shepherd`, `Fundamental-Ava`, and
+`Agents-A1` remain adjacent general-agent rows with no direct implementation
+lanes before `agent_harness_eval_required`. The checkpoint is body-free: raw
+source URLs, evidence URLs, replay commands, target paths, upstream bodies,
+external skill activation, external harness execution, provider launch, remote
+execution, promotion, push, and kernel restart are all disabled.
+
 ## Local Harness Lane
 
 `skill_route_discovery_lane` is the local harness behavior for replaying frozen

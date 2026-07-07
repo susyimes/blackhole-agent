@@ -660,6 +660,11 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             context_budget=evidence_package.get("context_budget"),
             digest_id=str(evidence_package.get("digest_id") or ""),
         ),
+        "current_pass2_activation_checkpoint": build_current_pass2_activation_checkpoint(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+            digest_id=str(evidence_package.get("digest_id") or ""),
+        ),
         "current_pass2_skill_route_operator_lane": build_current_pass2_skill_route_operator_lane(
             package_items,
             context_budget=evidence_package.get("context_budget"),
@@ -1356,6 +1361,147 @@ def build_current_pass2_lane_handoff(
         "profile_write_allowed": False,
         "memory_write_allowed": False,
         "raw_evidence_exported": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
+        "raw_replay_command_export_allowed": False,
+        "raw_target_path_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass2_activation_checkpoint(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+    digest_id: str = "",
+) -> dict[str, Any]:
+    """Sequence pass-2 skill-route replay before any adjacent harness evaluation."""
+
+    handoff = build_current_pass2_lane_handoff(
+        items,
+        context_budget=context_budget,
+        digest_id=digest_id,
+    )
+    route_source = handoff.get("route_evidence_lane_source")
+    route_source = route_source if isinstance(route_source, dict) else {}
+    skill_rows: list[dict[str, Any]] = []
+    general_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+
+    for row in handoff.get("skill_route_rows", []):
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("item_id") or "")
+        allowed_lanes = [str(lane) for lane in row.get("allowed_local_lanes", [])]
+        selected_lane = str(row.get("selected_local_lane") or "")
+        route_ready = (
+            bool(item_id)
+            and bool(row.get("lane_bounded"))
+            and selected_lane in allowed_lanes
+            and set(allowed_lanes).issubset(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"])
+        )
+        if not route_ready:
+            blockers.append(f"{item_id}:skill_route_replay_not_bounded")
+        skill_rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "skill_workflow",
+                "primary_route": "skill_route_discovery",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_lanes,
+                "route_profiles": [str(profile) for profile in row.get("route_profiles", [])],
+                "replay_ready": route_ready,
+                "activation_before_replay_allowed": False,
+                "implementation_lanes_after_replay": allowed_lanes if route_ready else [],
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        )
+
+    for row in handoff.get("general_agent_rows", []):
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("item_id") or "")
+        if row.get("skill_route_discovery_inherited") is not False:
+            blockers.append(f"{item_id}:general_agent_inherited_skill_route")
+        if row.get("implementation_lanes_enabled") is not False:
+            blockers.append(f"{item_id}:general_agent_implementation_enabled_before_eval")
+        general_rows.append(
+            {
+                "item_id": item_id,
+                "route_class": "general_agent_project",
+                "primary_route": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval_required",
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+                "fixture_gate_status": str(row.get("fixture_gate_status") or ""),
+                "implementation_lanes_enabled_before_eval": False,
+                "blocked_until": "local_agent_harness_evaluation_result",
+                "skill_route_discovery_inherited": False,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+        )
+
+    skill_replay_ready = bool(skill_rows) and all(row["replay_ready"] for row in skill_rows)
+    general_gate_ready = all(
+        row["direct_allowed_lanes_before_eval"] == []
+        and row["implementation_lanes_enabled_before_eval"] is False
+        and row["skill_route_discovery_inherited"] is False
+        for row in general_rows
+    )
+    status = "ready" if skill_replay_ready and general_gate_ready and not blockers else "blocked"
+    replay_commands = sorted(
+        dict.fromkeys(SKILL_ROUTE_LOCAL_LANE_COMMANDS + GENERAL_AGENT_PROJECT_EVAL_COMMANDS)
+    )
+    return {
+        "controller_surface": "current_pass2_activation_checkpoint",
+        "status": status,
+        "decision": (
+            "recompute_routes_then_replay_bounded_skill_lane_then_harness_eval_adjacent_agents"
+            if status == "ready"
+            else "repair_pass2_route_checkpoint_before_activation"
+        ),
+        "capability_theme": "skill-route-discovery",
+        "capability_pass": "2_of_4",
+        "source_digest": digest_id,
+        "operator_sequence": [
+            "controller_recompute_route_classification",
+            "replay_bounded_skill_route_discovery_lane",
+            "replay_adjacent_agent_harness_eval_lane",
+            "keep_external_activation_denied_until_local_validation_passes",
+        ],
+        "selected_item_ids": [
+            str(item_id)
+            for item_id in handoff.get("selected_item_ids", [])
+            if str(item_id).strip()
+        ],
+        "route_evidence_lane_source_status": str(route_source.get("status") or ""),
+        "skill_route_replay_ready": skill_replay_ready,
+        "adjacent_agent_harness_eval_required": bool(general_rows),
+        "skill_route_rows": skill_rows,
+        "adjacent_general_agent_rows": general_rows,
+        "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
+        "allowed_general_agent_lanes_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
+        "activation_blockers": sorted(dict.fromkeys(blockers)),
+        "replay_command_hashes": [stable_hash(command) for command in replay_commands],
+        "local_validation_required": True,
+        "operator_visible": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "kernel_restart_allowed": False,
+        "promotion_or_push_performed": False,
         "raw_source_url_export_allowed": False,
         "raw_evidence_url_export_allowed": False,
         "raw_replay_command_export_allowed": False,

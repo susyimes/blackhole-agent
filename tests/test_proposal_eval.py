@@ -279,6 +279,135 @@ def test_pass2_route_evidence_lane_source_uses_route_hints_and_classification():
     assert all(row["runtime_action"] == "none" for row in skill_source["rows"])
 
 
+def test_current_pass2_activation_checkpoint_sequences_skill_routes_before_agent_harness():
+    digest = {
+        "digest_id": "github-growth-20260707T070834.246450Z",
+        "generated_at": "2026-07-07T07:08:34.246450Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Codex and AI Agent workflow skill repository with skills/reverse-flow/SKILL.md, "
+                    "references, scripts, local sandbox and CTF framing, install examples, tests, "
+                    "and reverse-flow route pressure that must remain local validation only."
+                ),
+                "relevance_reason": (
+                    "Skill route discovery should map Codex-skill terminology to bounded local "
+                    "documentation, config, test, or code_patch lanes before runtime use."
+                ),
+            },
+            {
+                "item_id": "trend:Pluviobyte/rnskill-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/Pluviobyte/rnskill",
+                "summary": (
+                    "Generic AI Agent Skills collection with project-level skill layout, SKILL.md, "
+                    "and Claude Code or other Agent workflow support without Codex-specific workflow gate."
+                ),
+                "relevance_reason": (
+                    "Generic skill_workflow evidence should enter skill_route_discovery first and "
+                    "must not be treated as installable or executable from trend evidence alone."
+                ),
+            },
+            {
+                "item_id": "trend:shepherd-agents/shepherd-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/shepherd-agents/shepherd",
+                "summary": (
+                    "General agent runtime substrate for reversible execution traces, replay, fork, "
+                    "supervision, and meta-agent optimization with no selected skill package."
+                ),
+                "relevance_reason": (
+                    "General agent project evidence requires local agent_harness_eval before "
+                    "implementation, provider, runtime, or tool-routing changes."
+                ),
+            },
+            {
+                "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+                "summary": (
+                    "General agent project with benchmark and environment material, no explicit "
+                    "skill workflow route signal, and no SKILL.md evidence."
+                ),
+                "relevance_reason": "Requires local agent harness evaluation before implementation lanes.",
+            },
+            {
+                "item_id": "trend:InternScience/Agents-A1-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/InternScience/Agents-A1",
+                "summary": (
+                    "General agent project trend with multi-agent runtime claims and no selected "
+                    "skill package or explicit skill workflow route signal."
+                ),
+                "relevance_reason": "Requires local agent harness evaluation before implementation lanes.",
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=5, max_item_text_chars=600)
+    checkpoint = build_route_hint_lane_map(evidence_package)["current_pass2_activation_checkpoint"]
+    skill_rows_by_id = {row["item_id"]: row for row in checkpoint["skill_route_rows"]}
+    adjacent_rows_by_id = {row["item_id"]: row for row in checkpoint["adjacent_general_agent_rows"]}
+    serialized = json.dumps(checkpoint, sort_keys=True)
+
+    assert checkpoint["controller_surface"] == "current_pass2_activation_checkpoint"
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["operator_sequence"] == [
+        "controller_recompute_route_classification",
+        "replay_bounded_skill_route_discovery_lane",
+        "replay_adjacent_agent_harness_eval_lane",
+        "keep_external_activation_denied_until_local_validation_passes",
+    ]
+    assert checkpoint["route_evidence_lane_source_status"] == "ready"
+    assert checkpoint["skill_route_replay_ready"] is True
+    assert checkpoint["adjacent_agent_harness_eval_required"] is True
+    assert checkpoint["activation_blockers"] == []
+
+    reverse_flow = skill_rows_by_id["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["primary_route"] == "skill_route_discovery"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert reverse_flow["replay_ready"] is True
+    assert reverse_flow["activation_before_replay_allowed"] is False
+    assert "codex_workflow_gate" in reverse_flow["route_profiles"]
+
+    rnskill = skill_rows_by_id["trend:Pluviobyte/rnskill-1"]
+    assert rnskill["primary_route"] == "skill_route_discovery"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["replay_ready"] is True
+
+    assert set(adjacent_rows_by_id) == {
+        "trend:InternScience/Agents-A1-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:shepherd-agents/shepherd-1",
+    }
+    for row in adjacent_rows_by_id.values():
+        assert row["primary_route"] == "agent_harness_eval_required"
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lanes_enabled_before_eval"] is False
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert checkpoint["runtime_action"] == "none"
+    assert checkpoint["external_skill_activation_allowed"] is False
+    assert checkpoint["external_agent_activation_allowed"] is False
+    assert checkpoint["external_harness_execution_allowed"] is False
+    assert checkpoint["provider_runtime_launch_allowed"] is False
+    assert checkpoint["remote_execution_allowed"] is False
+    assert checkpoint["kernel_restart_allowed"] is False
+    assert all(len(command_hash) == 64 for command_hash in checkpoint["replay_command_hashes"])
+    assert "https://github.com/" not in serialized
+    assert "pytest tests/" not in serialized
+    assert "runtime_execution" not in serialized
+
+
 def test_proposal_replay_manifest_detects_evidence_source_drift(tmp_path):
     manifest = load_proposal_replay_case(MANIFEST_PATH)
     manifest["cases"][0]["evidence_urls"] = ["https://github.com/example/not-in-fixture"]
