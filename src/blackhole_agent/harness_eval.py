@@ -7123,6 +7123,10 @@ def skill_route_discovery_pass2_handoff_packet(
     secondary_checklist_status = optional_string(secondary_harness_checklist.get("status")) or ""
     if secondary_checklist_status not in {"ready", "not_present", "not_applicable"}:
         diagnostics.append("secondary_harness_checklist_not_ready")
+    secondary_fixture_acceptance_summary = secondary_harness_checklist.get("fixture_acceptance_summary")
+    secondary_fixture_acceptance_summary = (
+        secondary_fixture_acceptance_summary if isinstance(secondary_fixture_acceptance_summary, dict) else {}
+    )
 
     mixed_status = optional_string(mixed_local_lane_probe.get("status")) or ""
     mixed_primary_route = optional_string(mixed_local_lane_probe.get("primary_route")) or "skill_route_discovery"
@@ -7538,6 +7542,7 @@ def skill_route_discovery_pass2_handoff_packet(
         "secondary_lane": secondary_lane,
         "secondary_lane_status": secondary_lane_status,
         "secondary_harness_checklist": secondary_harness_checklist,
+        "secondary_harness_fixture_acceptance_summary": secondary_fixture_acceptance_summary,
         "secondary_harness_eval_allowed": False,
         "secondary_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
         "profile_lane_acceptance_contract": profile_lane_acceptance_contract,
@@ -7567,6 +7572,7 @@ def skill_route_discovery_pass2_handoff_packet(
             "secondary_lane": secondary_lane,
             "secondary_lane_status": secondary_lane_status,
             "secondary_harness_checklist_status": secondary_checklist_status,
+            "secondary_harness_fixture_acceptance_summary": secondary_fixture_acceptance_summary,
             "secondary_harness_eval_allowed": False,
             "rows": profile_summary_rows,
             "diagnostics": sorted(dict.fromkeys(diagnostics)),
@@ -7793,6 +7799,7 @@ def skill_route_discovery_pass2_handoff_packet(
             "secondary_lane": secondary_lane,
             "secondary_lane_status": secondary_lane_status,
             "secondary_harness_checklist_status": secondary_checklist_status,
+            "secondary_harness_fixture_acceptance_summary": secondary_fixture_acceptance_summary,
             "secondary_harness_eval_allowed": False,
             "rows": acceptance_rows,
             "diagnostics": sorted(dict.fromkeys(diagnostics)),
@@ -7852,6 +7859,22 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
     records = records if isinstance(records, list) else []
     rows: list[dict[str, Any]] = []
     diagnostics: list[str] = []
+    required_fixture_fields = [
+        "fixture_path",
+        "expected_behavior",
+        "expected_output",
+        "pass_fail_signal",
+        "rollback_artifact",
+        "non_secret_config",
+    ]
+    fixture_field_gate_keys = {
+        "fixture_path": "local_fixture_declared",
+        "expected_behavior": "expected_behavior_declared",
+        "expected_output": "expected_output_declared",
+        "pass_fail_signal": "pass_fail_signal_declared",
+        "rollback_artifact": "rollback_path_declared",
+        "non_secret_config": "non_secret_config_declared",
+    }
 
     for index, raw_record in enumerate(records, start=1):
         record = raw_record if isinstance(raw_record, dict) else {}
@@ -7911,14 +7934,7 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
                 "skill_route_discovery_inherited": False,
                 "minimal_fixture": {
                     "behavior": "agent_harness_eval_lane",
-                    "required_fixture_fields": [
-                        "fixture_path",
-                        "expected_behavior",
-                        "expected_output",
-                        "pass_fail_signal",
-                        "rollback_artifact",
-                        "non_secret_config",
-                    ],
+                    "required_fixture_fields": required_fixture_fields,
                     "runnable_scenario_required": True,
                     "expected_output_required": True,
                     "pass_fail_signal_required": True,
@@ -7941,14 +7957,7 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
                     "next_local_action": "run_declared_agent_harness_fixture"
                     if local_fixture_ready
                     else "declare_agent_harness_eval_fixture",
-                    "required_fixture_fields": [
-                        "fixture_path",
-                        "expected_behavior",
-                        "expected_output",
-                        "pass_fail_signal",
-                        "rollback_artifact",
-                        "non_secret_config",
-                    ],
+                    "required_fixture_fields": required_fixture_fields,
                     "missing_fixture_fields": list(row_diagnostics),
                     "route_reason_codes": sorted(topic_codes),
                     "source_ref_mode": "source_url_hash_only",
@@ -8019,6 +8028,24 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
         }
         for row in rows
     ]
+    fixture_field_gates = []
+    for field in required_fixture_fields:
+        gate_key = fixture_field_gate_keys[field]
+        declared_count = sum(
+            1
+            for row in rows
+            if isinstance(row.get("acceptance_gates"), dict)
+            and row["acceptance_gates"].get(gate_key) is True
+        )
+        fixture_field_gates.append(
+            {
+                "field": field,
+                "declared_count": declared_count,
+                "missing_count": len(rows) - declared_count,
+                "all_declared": present and declared_count == len(rows),
+            }
+        )
+    all_fixture_fields_declared = present and all(gate["all_declared"] for gate in fixture_field_gates)
     return {
         "controller_surface": "skill_route_discovery_pass2_secondary_harness_checklist",
         "status": "ready" if current_pass == 2 and present else "not_present" if not present else "not_applicable",
@@ -8045,6 +8072,45 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
             "rollback_path",
             "non_secret_config",
         ],
+        "fixture_acceptance_summary": {
+            "controller_surface": "skill_route_discovery_pass2_fixture_acceptance_summary",
+            "status": "ready" if current_pass == 2 and present else "not_present" if not present else "not_applicable",
+            "decision": "adjacent_agent_projects_blocked_until_fixture_acceptance"
+            if present and not all_fixture_fields_declared
+            else "adjacent_agent_projects_have_minimal_local_fixture_acceptance"
+            if present
+            else "no_adjacent_agent_fixture_acceptance_required",
+            "queue_scope": "adjacent_general_agent_projects_only",
+            "route_family": "general_agent_project",
+            "work_item_count": len(rows),
+            "ready_fixture_count": sum(
+                1 for row in rows if row["activation_status"] == "local_harness_fixture_ready"
+            ),
+            "blocked_fixture_count": sum(
+                1
+                for row in rows
+                if row["activation_status"] == "blocked_until_local_agent_harness_fixture"
+            ),
+            "all_fixture_fields_declared": all_fixture_fields_declared,
+            "required_fixture_fields": required_fixture_fields,
+            "field_gates": fixture_field_gates,
+            "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
+            "local_corroboration_required": present,
+            "local_validation_required": present,
+            "body_free": True,
+            "runtime_action": "none",
+            "runtime_action_allowed": False,
+            "implementation_patch_allowed": False,
+            "local_eval_activation_allowed": False,
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        },
         "local_harness_fixture_intake_queue": {
             "controller_surface": "skill_route_discovery_pass2_local_harness_fixture_intake_queue",
             "status": "ready" if current_pass == 2 and present else "not_present" if not present else "not_applicable",
@@ -8064,14 +8130,7 @@ def skill_route_discovery_pass2_secondary_harness_checklist(
                 if row["activation_status"] == "blocked_until_local_agent_harness_fixture"
             ),
             "blocked_before_implementation_patch_count": len(fixture_intake_rows),
-            "required_fixture_fields": [
-                "fixture_path",
-                "expected_behavior",
-                "expected_output",
-                "pass_fail_signal",
-                "rollback_artifact",
-                "non_secret_config",
-            ],
+            "required_fixture_fields": required_fixture_fields,
             "required_validation": [SKILL_ROUTE_DISCOVERY_PREACTIVATION_HARNESS_COMMAND] if present else [],
             "rows": fixture_intake_rows,
             "local_corroboration_required": present,
@@ -9104,6 +9163,18 @@ def skill_route_discovery_pass3_adjacent_general_agent_records(raw_input: dict[s
         ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
         source_url = optional_string(raw_record.get("source_url")) or ""
         item_id = optional_string(raw_record.get("item_id")) or optional_string(raw_record.get("name")) or f"record-{index}"
+        raw_local_fixture = raw_record.get("local_harness_fixture")
+        raw_local_fixture = raw_local_fixture if isinstance(raw_local_fixture, dict) else {}
+        local_fixture = {
+            "fixture_path": "declared" if optional_string(raw_local_fixture.get("fixture_path")) else "",
+            "behavior": "agent_harness_eval_lane"
+            if optional_string(raw_local_fixture.get("behavior")) == "agent_harness_eval_lane"
+            else "",
+            "expected_output": "declared" if optional_string(raw_local_fixture.get("expected_output")) else "",
+            "pass_fail_signal": "declared" if optional_string(raw_local_fixture.get("pass_fail_signal")) else "",
+            "rollback_artifact": "declared" if optional_string(raw_local_fixture.get("rollback_artifact")) else "",
+            "non_secret_config": raw_local_fixture.get("non_secret_config") is True,
+        }
         rows.append(
             {
                 "item_id": item_id,
@@ -9114,6 +9185,7 @@ def skill_route_discovery_pass3_adjacent_general_agent_records(raw_input: dict[s
                 "skill_route_discovery_inherited": False,
                 "allowed_local_lanes": allowed_lanes,
                 "blocked_skill_route_lanes": ["documentation", "config", "test", "code_patch"],
+                "local_harness_fixture": local_fixture,
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "runtime_action_allowed": False,

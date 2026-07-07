@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 183
-    assert payload["pass_count"] == 182
+    assert payload["fixture_count"] == 184
+    assert payload["pass_count"] == 183
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -152,6 +152,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "agent-harness-eval-lane-20260707T030834-general-agent-promotion-gate"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260707T230110-pass2-fixture-acceptance"
         ]["passed"]
         is True
     )
@@ -22419,6 +22425,67 @@ def test_skill_route_discovery_current_digest_20260704T122435_pass1_validation_b
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260707T230110_pass2_fixture_acceptance_summary():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260707T230110_pass2_fixture_acceptance.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    checklist = output["pass2_secondary_harness_checklist"]
+    summary = output["pass2_handoff_packet"]["secondary_harness_fixture_acceptance_summary"]
+    intake = checklist["local_harness_fixture_intake_queue"]
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert output["registry"]["candidate_count"] == 3
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert output["lane_map"]["lanes_bounded"] is True
+    assert output["lane_map"]["local_validation_required"] is True
+
+    assert output["pass2_handoff_packet"]["status"] == "blocked"
+    assert "pass_validation_replay_queue_not_ready" in output["pass2_handoff_packet"]["diagnostics"]
+    assert checklist["status"] == "ready"
+    assert checklist["record_count"] == 2
+    assert checklist["ready_fixture_count"] == 1
+    assert checklist["blocked_fixture_count"] == 1
+    assert checklist["local_eval_activation_allowed"] is False
+
+    assert summary["controller_surface"] == "skill_route_discovery_pass2_fixture_acceptance_summary"
+    assert summary["status"] == "ready"
+    assert summary["work_item_count"] == 2
+    assert summary["ready_fixture_count"] == 1
+    assert summary["blocked_fixture_count"] == 1
+    assert summary["all_fixture_fields_declared"] is False
+    assert summary["implementation_patch_allowed"] is False
+    assert summary["external_harness_execution_allowed"] is False
+    assert summary["provider_runtime_launch_allowed"] is False
+    assert summary["remote_execution_allowed"] is False
+
+    field_gates = {row["field"]: row for row in summary["field_gates"]}
+    assert set(field_gates) == {
+        "fixture_path",
+        "expected_behavior",
+        "expected_output",
+        "pass_fail_signal",
+        "rollback_artifact",
+        "non_secret_config",
+    }
+    assert all(row["declared_count"] == 1 for row in field_gates.values())
+    assert all(row["missing_count"] == 1 for row in field_gates.values())
+    assert intake["ready_fixture_count"] == 1
+    assert intake["blocked_fixture_count"] == 1
+    assert "https://github.com/" not in serialized
+    assert "tests/fixtures/local_harness_eval/agent_harness_eval_lane_current_window_general_agent_projects.json" not in serialized
+    assert "artifacts/rollback/20260707T230108Z-skill-route-discovery-pass2.md" not in serialized
 
 
 def test_skill_route_discovery_current_digest_20260703T155923_pass2_validation_lane():

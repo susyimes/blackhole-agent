@@ -1,0 +1,155 @@
+{
+  "name": "skill-route-discovery-current-digest-20260707T230110-pass2-fixture-acceptance",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260707T230110-pass2-fixture-acceptance",
+    "source_digest": "github-growth-20260707T230110.418986Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 2,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-fixtures",
+        "p3-skill-route-documentation",
+        "p4-agent-harness-eval-gate",
+        "p5-route-classification-metadata-check",
+        "p1-skill-route-discovery-batch",
+        "p2-codex-workflow-gate-probe",
+        "p3-agent-harness-eval-route",
+        "p4-route-policy-doc-clarification",
+        "trend:shepherd-agents/shepherd-1"
+      ],
+      "evidence_urls": [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+        "https://github.com/Pluviobyte/rnskill",
+        "https://github.com/InternScience/Agents-A1"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260707T230110.418986Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "repository",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "summary": "Codex and AI Agent reverse-flow skill repository with skills/reverse-flow/SKILL.md, local sandbox workflow framing, scripts, references, install examples, and reverse-flow route pressure that must remain local validation only.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent", "skill", "workflow", "reverse-flow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+        "observed_paths": [
+          "skills/reverse-flow/SKILL.md",
+          "skills/reverse-flow/README.md",
+          "skills/reverse-flow/agents/openai.yaml",
+          "skills/reverse-flow/references/",
+          "skills/reverse-flow/scripts/tool_audit.py"
+        ],
+        "metadata_files": ["skills/reverse-flow/agents/openai.yaml"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+          "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+          "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260707T230110.418986Z",
+        "item_id": "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+        "item_kind": "repository",
+        "name": "NVIDIA-BioNeMo-bionemo-agent-toolkit",
+        "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+        "summary": "Life-science agent skill toolkit with structured instructions, scripts, references, workflows, and skill documentation for coding or scientific agents.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["agent-skills", "workflow", "life-science", "tools"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch"],
+        "observed_paths": ["skills/", "workflows/", "README.md", "NOTICE"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow", "source_cited_domain_research"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_directory", "reference_directory"],
+          "source_metadata_signals": ["license_boundary", "third_party_data_terms"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260707T230110.418986Z",
+        "item_id": "trend:Pluviobyte/rnskill-1",
+        "item_kind": "repository",
+        "name": "Pluviobyte-rnskill",
+        "source_url": "https://github.com/Pluviobyte/rnskill",
+        "summary": "Generic AI Agent Skills collection for Codex, Claude Code, and SKILL.md-compatible workflows, with skills directory, docs, tools, marketplace metadata, and manual install examples.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "skill", "skills", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "observed_paths": ["skills/", "docs/", "tools/", ".claude-plugin"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "skill_manifest"],
+          "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260707T230110.418986Z",
+        "item_id": "trend:InternScience/Agents-A1-1",
+        "item_kind": "repository",
+        "name": "Agents-A1",
+        "source_url": "https://github.com/InternScience/Agents-A1",
+        "summary": "General agentic model project with evaluation code, long-horizon agent benchmark claims, tool-use serving examples, and no skill workflow route hint.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "benchmark", "evaluation", "tool-use"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        "local_harness_fixture": {
+          "fixture_path": "tests/fixtures/local_harness_eval/agent_harness_eval_lane_current_window_general_agent_projects.json",
+          "behavior": "agent_harness_eval_lane",
+          "expected_output": "general_agent_project_route_plan",
+          "pass_fail_signal": "route_status passed with no direct runtime action",
+          "rollback_artifact": "artifacts/rollback/20260707T230108Z-skill-route-discovery-pass2.md",
+          "non_secret_config": true
+        }
+      },
+      {
+        "source_digest": "github-growth-20260707T230110.418986Z",
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "item_kind": "repository",
+        "name": "shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "summary": "General-agent runtime substrate evidence with reversible execution trace, replay, supervision, and workflow orchestration claims that require local harness evaluation first.",
+        "route_hints": ["agent_harness_eval"],
+        "topics": ["general-agent", "runtime-supervision", "workflow", "replay"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 3},
+    {"path": "registry.ignored_evidence_item_count", "equals": 2},
+    {"path": "lane_map.lanes_bounded", "equals": true},
+    {"path": "lane_map.local_validation_required", "equals": true},
+    {"path": "pass2_handoff_packet.status", "equals": "blocked"},
+    {"path": "pass2_handoff_packet.runtime_action_allowed", "equals": false},
+    {"path": "pass2_handoff_packet.external_skill_activation_allowed", "equals": false},
+    {"path": "pass2_handoff_packet.external_harness_execution_allowed", "equals": false},
+    {"path": "pass2_handoff_packet.raw_evidence_urls_exported", "equals": false},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.status", "equals": "ready"},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.work_item_count", "equals": 2},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.ready_fixture_count", "equals": 1},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.blocked_fixture_count", "equals": 1},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.all_fixture_fields_declared", "equals": false},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.implementation_patch_allowed", "equals": false},
+    {"path": "pass2_handoff_packet.secondary_harness_fixture_acceptance_summary.external_harness_execution_allowed", "equals": false},
+    {"path": "pass2_secondary_harness_checklist.local_harness_fixture_intake_queue.work_item_count", "equals": 2},
+    {"path": "pass2_secondary_harness_checklist.local_harness_fixture_intake_queue.ready_fixture_count", "equals": 1},
+    {"path": "pass2_secondary_harness_checklist.local_harness_fixture_intake_queue.blocked_fixture_count", "equals": 1}
+  ]
+}
