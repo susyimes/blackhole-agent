@@ -9919,3 +9919,31 @@ source URLs, raw evidence URLs, replay commands, upstream bodies, external
 skill or agent activation, external harness execution, provider launch, memory
 writes, remote execution, and runtime action. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T164109`.
+
+## Source Digest 20260707T170109 Pass 4
+
+The `github-growth-20260707T170109.447884Z` pass-4 handoff exposes
+`skill_route_discovery_current_digest_20260707T170109_pass4_completion_handoff`
+as the completion surface for the skill-route policy lane. It binds
+`p1-skill-route-discovery-fixture`,
+`p2-agent-harness-eval-shepherd`, and
+`p4-route-hint-policy-regression` to local validation metadata only.
+
+`hdz717/reverse-flow-skill` and `lingbol088-spec/reverse-flow-skill` map to
+bounded local test rows under `skill_route_discovery`; `Pluviobyte/rnskill`
+maps to the bounded documentation row. All skill rows allow only
+documentation, config, test, or code_patch lanes and keep `runtime_action` as
+`none`.
+
+`InternScience/Agents-A1`, `shepherd-agents/shepherd`, and
+`shepherd-agents/shepherd` PR #33 remain `agent_harness_eval_required` rows.
+They have no direct local lanes before bounded harness evaluation and may only
+produce documentation, test, or code_patch follow-up after evaluation.
+
+The route-hint policy regression records that `skill_route_discovery` maps only
+to documentation, config, test, or code_patch and `agent_harness_eval` maps
+only to documentation, test, or code_patch. Route hints are not permission
+grants and do not authorize runtime action, external skill activation, external
+harness execution, provider launch, remote execution, promotion, or restart.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T170109`.

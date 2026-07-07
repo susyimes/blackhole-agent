@@ -679,6 +679,35 @@ def test_skill_route_discovery_doc_records_20260707T164109_pass3_validation_lane
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T170109_pass4_policy_completion():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260707T170109.447884Z`",
+        "`skill_route_discovery_current_digest_20260707T170109_pass4_completion_handoff`",
+        "`p1-skill-route-discovery-fixture`",
+        "`p2-agent-harness-eval-shepherd`",
+        "`p4-route-hint-policy-regression`",
+        "`hdz717/reverse-flow-skill` and `lingbol088-spec/reverse-flow-skill` map to\n"
+        "bounded local test rows",
+        "`Pluviobyte/rnskill`\nmaps to the bounded documentation row",
+        "documentation, config, test, or code_patch lanes",
+        "`InternScience/Agents-A1`, `shepherd-agents/shepherd`, and\n"
+        "`shepherd-agents/shepherd` PR #33 remain `agent_harness_eval_required` rows",
+        "no direct local lanes before bounded harness evaluation",
+        "`skill_route_discovery` maps only\nto documentation, config, test, or code_patch",
+        "`agent_harness_eval` maps\nonly to documentation, test, or code_patch",
+        "Route hints are not permission\ngrants",
+        "runtime action, external skill activation, external\n"
+        "harness execution, provider launch, remote execution, promotion, or restart",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260707T170109`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
