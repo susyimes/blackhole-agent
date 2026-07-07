@@ -13977,6 +13977,190 @@ def _skill_route_discovery_current_digest_20260707T084834_pass2_validation_lane(
     return lane
 
 
+def _skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Bind the active pass-3 reverse-flow and rnskill proposals to local validation lanes."""
+
+    specs = (
+        {
+            "proposal_id": "p1-skill-route-discovery-probe",
+            "proposal_kind": "test",
+            "proposal_track": "reverse_flow_skill_route_discovery_validation_probe",
+            "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+            "selected_local_lane": "test",
+            "candidate_name_terms": ("reverse-flow-skill",),
+            "validation_target": "reverse_flow_style_skill_evidence_maps_only_to_bounded_local_lanes",
+        },
+        {
+            "proposal_id": "p2-skill-route-discovery-doc",
+            "proposal_kind": "documentation",
+            "proposal_track": "skill_route_discovery_decision_path_documentation",
+            "route_profiles": ("generic_skill_workflow",),
+            "selected_local_lane": "documentation",
+            "validation_target": "document_skill_route_discovery_allowed_outputs_after_local_validation",
+        },
+        {
+            "proposal_id": "p3-generic-skill-workflow-routing-config",
+            "proposal_kind": "config",
+            "proposal_track": "generic_skill_workflow_route_metadata",
+            "route_profiles": ("generic_skill_workflow",),
+            "selected_local_lane": "config",
+            "candidate_name_terms": ("rnskill",),
+            "validation_target": "generic_skill_workflow_profiles_resolve_to_conservative_validation_gates",
+        },
+    )
+    rows, blocked_proposal_ids, selected_lanes, selected_item_ids, observed_profiles = (
+        _skill_route_discovery_current_digest_20260702T070714_skill_rows(
+            candidate_lane_inventory,
+            specs,
+            replay_marker="20260707T090834",
+        )
+    )
+    rows = [_without_downgraded_unsupported_lanes(row) for row in rows]
+    adjacent_rows = _skill_route_discovery_adjacent_general_agent_rows(
+        ignored_evidence_items,
+        proposal_id="p4-agent-harness-eval-for-general-agent-trends",
+    )
+    adjacent_rows = [_without_raw_replay_command(row) for row in adjacent_rows]
+    for row in adjacent_rows:
+        row["validation_target"] = (
+            "general_agent_project_requires_local_agent_harness_eval_before_followup_lanes"
+        )
+        row["allowed_local_lanes"] = []
+        row["direct_allowed_lanes_before_eval"] = []
+        row["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
+        row["implementation_lane_selected"] = False
+
+    skill_rows_ready = bool(rows) and all(
+        row.get("status") == "ready"
+        and row.get("local_validation_required") is True
+        and set(_string_list(row.get("allowed_local_lanes"))) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        and str(row.get("selected_local_lane") or "") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        and row.get("runtime_action") == "none"
+        and row.get("external_skill_activation_allowed") is False
+        for row in rows
+    )
+    adjacent_rows_ready = bool(adjacent_rows) and all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("implementation_lane_selected") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        and row.get("remote_execution_allowed") is False
+        for row in adjacent_rows
+    )
+    ready = skill_rows_ready and adjacent_rows_ready and not blocked_proposal_ids
+
+    return {
+        "controller_surface": (
+            "skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe"
+        ),
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_pass3_skill_route_proposals_ready_for_bounded_local_validation"
+            if ready
+            else "repair_current_pass3_skill_route_proposals_before_activation_review"
+        ),
+        "source_digest": source_digest,
+        "capability_theme": "skill-route-discovery",
+        "capability_slice": (
+            "Convert skill and route evidence into bounded local lanes that can be validated before activation."
+        ),
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [
+            "p1-skill-route-discovery-probe",
+            "p2-skill-route-discovery-doc",
+            "p3-generic-skill-workflow-routing-config",
+            "p4-agent-harness-eval-for-general-agent-trends",
+        ],
+        "anchoring_proposal_ids": [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_general_projects",
+            "p4_routing_policy_alignment",
+            "trend:shepherd-agents/shepherd-1",
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-discovery-rnskill",
+            "p3-agent-harness-eval-for-general-agent-trends",
+            "p4-route-policy-coverage-for-empty-allowed-lanes",
+            "p5-skill-route-discovery-regression-suite",
+            "p1-skill-route-discovery-probe",
+            "p2-skill-route-discovery-doc",
+        ],
+        "ready_skill_route_proposal_count": len(rows) - len(blocked_proposal_ids),
+        "blocked_proposal_ids": blocked_proposal_ids,
+        "skill_route_candidate_count": len(candidate_lane_inventory),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "observed_route_profiles": _ordered_route_profiles(observed_profiles),
+        "selected_evidence_item_ids": list(dict.fromkeys(selected_item_ids)),
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "route_decision_contract": {
+            "reverse_flow_style_skill_evidence_primary_trigger": True,
+            "generic_skill_workflow_grouped_under_skill_route_discovery": True,
+            "accepted_outputs": ["documentation", "config", "test", "code_patch"],
+            "local_validation_required": True,
+            "activation_before_validation_allowed": False,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "run_artifact_contract": {
+            "rollback_artifact": (
+                "artifacts/rollback/20260707T170956Z-skill-route-discovery-pass3-reverse-flow-probe/"
+                "rollback-point.md"
+            ),
+            "rollback_ref": "refs/rollback/20260707T170956Z-skill-route-discovery-pass3-reverse-flow-probe",
+            "evidence_review": "focused-evidence-review",
+            "validation_command_count": 1,
+            "validation_command_hash": _stable_hash(
+                "python -m pytest tests/test_skill_routing.py -q -k 20260707T090834"
+            ),
+            "runtime_action": "none",
+            "raw_validation_command_exported": False,
+        },
+        "operator_next_action": (
+            "replay_current_pass3_reverse_flow_probe_then_continue_to_pass4"
+            if ready
+            else "repair_current_pass3_reverse_flow_probe_before_pass4"
+        ),
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "focused_local_validation",
+            "rollback_artifact",
+            "review_note",
+        ],
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
 def _skill_route_discovery_current_digest_20260707T060834_pass3_lane_acceptance(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -18791,6 +18975,15 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "github-growth-20260707T072834Z",
     }:
         return _skill_route_discovery_current_digest_20260707T072834_pass3_proposal_replay_plan(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if source_digest in {
+        "github-growth-20260707T090834.684862Z",
+        "github-growth-20260707T090834Z",
+    }:
+        return _skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,

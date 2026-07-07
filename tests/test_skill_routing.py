@@ -37775,6 +37775,125 @@ def test_skill_route_discovery_current_digest_20260707T084834_pass2_validation_l
     assert '"enable"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe_bounds_lanes():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T090834_pass3_reverse_flow_probe.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in payload["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane = build_skill_route_discovery_proposal_lane_map(registry)[
+        "current_digest_pass3_activation_review_lane"
+    ]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260707T090834.684862Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe"
+    )
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 3
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-probe",
+        "p2-skill-route-discovery-doc",
+        "p3-generic-skill-workflow-routing-config",
+        "p4-agent-harness-eval-for-general-agent-trends",
+    ]
+    assert lane["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert lane["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert lane["route_decision_contract"] == {
+        "reverse_flow_style_skill_evidence_primary_trigger": True,
+        "generic_skill_workflow_grouped_under_skill_route_discovery": True,
+        "accepted_outputs": ["documentation", "config", "test", "code_patch"],
+        "local_validation_required": True,
+        "activation_before_validation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+    }
+    assert lane["run_artifact_contract"]["rollback_ref"] == (
+        "refs/rollback/20260707T170956Z-skill-route-discovery-pass3-reverse-flow-probe"
+    )
+    assert lane["run_artifact_contract"]["validation_command_hash"].startswith("sha256:")
+
+    reverse_flow = rows["p1-skill-route-discovery-probe"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["candidate_names"] == ["reverse-flow-skill"]
+    assert set(reverse_flow["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+    assert set(reverse_flow["selected_evidence_item_ids"]) <= selected_item_ids
+
+    doc = rows["p2-skill-route-discovery-doc"]
+    assert doc["selected_local_lane"] == "documentation"
+    assert set(doc["candidate_names"]) == {"reverse-flow-skill", "rnskill"}
+    assert set(doc["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert set(doc["selected_evidence_item_ids"]) <= selected_item_ids
+
+    config = rows["p3-generic-skill-workflow-routing-config"]
+    assert config["selected_local_lane"] == "config"
+    assert config["candidate_names"] == ["rnskill"]
+    assert config["route_profiles"] == ["generic_skill_workflow"]
+    assert config["selected_evidence_item_ids"] == ["trend:Pluviobyte/rnskill-1"]
+
+    for row in lane["rows"]:
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+        assert row["raw_source_url_exported"] is False
+        assert row["raw_evidence_urls_exported"] is False
+        assert row["raw_upstream_body_exported"] is False
+
+    assert set(adjacent) == {
+        "trend:InternScience/Agents-A1-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:shepherd-agents/shepherd-1",
+    }
+    for item_id, row in adjacent.items():
+        assert item_id in selected_item_ids
+        assert row["proposal_id"] == "p4-agent-harness-eval-for-general-agent-trends"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == []
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lane_selected"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert lane["raw_source_url_exported"] is False
+    assert lane["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"install"' not in serialized
+    assert '"enable"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260707T060834_pass3_accepts_bounded_lanes():
     fixture_path = (
         Path(__file__).parent

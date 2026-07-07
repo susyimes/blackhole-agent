@@ -5,6 +5,21 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T090834.684862Z`, pass 3 exposes the
+active window through
+`skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe`.
+The lane turns reverse-flow-style skill evidence into a local test probe, keeps
+generic skill workflow evidence grouped under `skill_route_discovery`, and binds
+documentation and config follow-up to local validation before activation.
+
+The accepted outputs remain documentation, config, test, and code_patch only.
+Install, enable, run, script, provider-runtime, external-harness, and
+remote-execution wording is diagnostic pressure, not an activation lane.
+Adjacent general-agent projects remain `agent_harness_eval_required`; they do
+not inherit skill-route lanes and expose no direct follow-up lanes until local
+harness evaluation passes. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T090834`.
+
 For source digest `github-growth-20260707T084834.433829Z`, pass 2 exposes the
 active window through
 `skill_route_discovery_current_digest_20260707T084834_pass2_validation_lane`.
