@@ -1717,6 +1717,118 @@ def test_skill_route_discovery_current_digest_20260707T062834_pass4_handoff_queu
     assert '"remote_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T222110_pass4_completes_skill_route_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T222110_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in fixture["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(fixture["items"])
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    handoff = packet["current_pass4_completion_handoff"]
+    skill_rows = {row["proposal_id"]: row for row in handoff["skill_route_rows"]}
+    agent_rows = {row["route_id"]: row for row in handoff["agent_harness_eval_rows"]}
+    recovery = handoff["general_agent_recovery_workflow"]
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260707T222110.418015Z"
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 1
+    assert packet["status"] == "ready"
+    assert packet["skill_workflow_count"] == 3
+    assert packet["general_agent_project_count"] == 1
+    assert handoff["controller_surface"] == "skill_route_discovery_current_pass4_completion_handoff"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "current_skill_route_slice_complete_for_supervisor_handoff"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-rnskill",
+        "p2-codex-workflow-gate-reverse-flow",
+        "p3-bionemo-skill-workflow-documentation",
+        "p4-general-agent-harness-eval-backlog",
+    ]
+    assert handoff["blocked_proposal_ids"] == []
+    assert handoff["activation_blockers"] == []
+    assert handoff["allowed_skill_route_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert handoff["selected_skill_local_lanes"] == ["documentation", "test"]
+    assert handoff["rollback_ref"] == (
+        "refs/rollback/blackhole-agent/20260708T022108Z-skill-route-discovery-pass4"
+    )
+    assert handoff["rollback_artifact"] == (
+        "artifacts/rollback/20260708T022108Z-skill-route-discovery-pass4/"
+        "rollback-point.md"
+    )
+
+    reverse_flow = skill_rows["p2-codex-workflow-gate-reverse-flow"]
+    assert reverse_flow["candidate_name"] == "lingbol088-spec-reverse-flow-skill"
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["bounded_to_skill_route_lanes"] is True
+    assert set(reverse_flow["selected_evidence_item_ids"]) <= selected_item_ids
+
+    rnskill = skill_rows["p1-skill-route-discovery-rnskill"]
+    assert rnskill["candidate_name"] == "rnskill"
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert rnskill["bounded_to_skill_route_lanes"] is True
+    assert set(rnskill["selected_evidence_item_ids"]) <= selected_item_ids
+
+    bionemo = skill_rows["p3-bionemo-skill-workflow-documentation"]
+    assert bionemo["candidate_name"] == "bionemo-agent-toolkit"
+    assert bionemo["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert bionemo["selected_local_lane"] == "test"
+    assert bionemo["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert bionemo["bounded_to_skill_route_lanes"] is True
+    assert set(bionemo["selected_evidence_item_ids"]) <= selected_item_ids
+
+    assert set(agent_rows) == {"trend:InternScience/Agents-A1-1"}
+    agents_a1 = agent_rows["trend:InternScience/Agents-A1-1"]
+    assert agents_a1["proposal_id"] == "p4-general-agent-harness-eval-backlog"
+    assert agents_a1["evaluation_lane"] == "agent_harness_eval_required"
+    assert agents_a1["direct_allowed_lanes_before_eval"] == []
+    assert agents_a1["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert agents_a1["implementation_lanes_enabled"] is False
+    assert agents_a1["skill_route_discovery_inherited"] is False
+    assert agents_a1["direct_runtime_route_allowed"] is False
+    assert agents_a1["direct_code_patch_route_allowed"] is False
+
+    assert recovery["status"] == "queued"
+    assert recovery["item_ids"] == ["trend:InternScience/Agents-A1-1"]
+    assert recovery["evaluation_lane"] == "agent_harness_eval_required"
+    assert recovery["direct_allowed_lanes_before_eval"] == []
+    assert recovery["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert recovery["external_harness_execution_allowed"] is False
+    assert recovery["provider_runtime_launch_allowed"] is False
+
+    assert handoff["focused_validation_commands_exported"] is False
+    assert all(value.startswith("sha256:") for value in handoff["focused_validation_command_hashes"])
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["kernel_restart_allowed"] is False
+    assert handoff["promotion_or_push_performed"] is False
+    assert "https://github.com/" not in serialized
+    assert "pytest " not in serialized
+    assert "runtime_execution" not in serialized
+    assert "script_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260706T163555_pass2_validates_current_route_priority_queue():
     fixture_path = (
         Path(__file__).parent

@@ -850,6 +850,32 @@ def test_skill_route_discovery_doc_records_20260707T062834_completion_handoff():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T222110_completion_handoff():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "source digest `github-growth-20260707T222110.418015Z`",
+        "`skill_route_discovery_current_pass4_completion_handoff`",
+        "`Pluviobyte/rnskill` to the bounded documentation lane",
+        "`lingbol088-spec/reverse-flow-skill` to the bounded test lane",
+        "`NVIDIA-BioNeMo/bionemo-agent-toolkit` in the bounded test lane",
+        "domain-specific skill toolkit guard before any provider, data, citation, or\n"
+        "advice boundary is activated",
+        "`InternScience/Agents-A1` remains queued in `general_agent_recovery_workflow`",
+        "`agent_harness_eval_required`",
+        "inherits no `skill_route_discovery`\nlane",
+        "no direct implementation lane before local harness evaluation",
+        "refs/rollback/blackhole-agent/20260708T022108Z-skill-route-discovery-pass4",
+        "docs/self-model.md` stayed unchanged",
+        "exports no raw source URLs, replay commands,\ntarget paths, upstream bodies",
+        "python -m pytest tests/test_skill_routing.py -q -k 20260707T222110",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_ci_security_waiver_doc_records_label_only_rerun_contract():
     doc = (REPO_ROOT / "docs" / "ci-security-waiver.md").read_text(encoding="utf-8")
 

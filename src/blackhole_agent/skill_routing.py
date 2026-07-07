@@ -2758,7 +2758,8 @@ def _skill_route_discovery_current_pass4_completion_handoff(
 
     current_20260707_050834 = source_digest == "github-growth-20260707T050834.384415Z"
     current_20260707_062834 = source_digest == "github-growth-20260707T062834.999092Z"
-    if not (current_20260707_050834 or current_20260707_062834):
+    current_20260707_222110 = source_digest == "github-growth-20260707T222110.418015Z"
+    if not (current_20260707_050834 or current_20260707_062834 or current_20260707_222110):
         return {}
 
     skill_rows = [
@@ -2767,65 +2768,93 @@ def _skill_route_discovery_current_pass4_completion_handoff(
     agent_rows = [
         row for row in route_rows if str(row.get("route_kind") or "") == "general_agent_project"
     ]
-    proposal_ids = (
-        [
+    if current_20260707_050834:
+        proposal_ids = [
             "p1_skill_route_discovery_reverse_flow",
             "p2_generic_skill_workflow_discovery",
             "p3_agent_harness_eval_gate",
         ]
-        if current_20260707_050834
-        else [
+    elif current_20260707_222110:
+        proposal_ids = [
+            "p1-skill-route-discovery-rnskill",
+            "p2-codex-workflow-gate-reverse-flow",
+            "p3-bionemo-skill-workflow-documentation",
+            "p4-general-agent-harness-eval-backlog",
+        ]
+    else:
+        proposal_ids = [
             "p1_skill_route_discovery_reverse_flow",
             "p2_skill_route_discovery_rnskill",
             "p3_general_agent_harness_eval",
         ]
-    )
     validation_commands = [
         (
             "pytest tests/test_skill_routing.py -q -k 20260707T050834"
             if current_20260707_050834
-            else "pytest tests/test_skill_routing.py -q -k 20260707T062834"
+            else (
+                "pytest tests/test_skill_routing.py -q -k 20260707T222110"
+                if current_20260707_222110
+                else "pytest tests/test_skill_routing.py -q -k 20260707T062834"
+            )
         ),
         "pytest tests/test_docs_contracts.py -q -k current_pass4_completion",
     ]
-    rollback_ref = (
-        "refs/rollback/20260707T050834Z-skill-route-discovery-pass4-completion"
-        if current_20260707_050834
-        else "refs/blackhole-rollback/20260707T062832Z-skill-route-discovery-pass4-completion"
-    )
-    rollback_artifact = (
-        (
+    if current_20260707_050834:
+        rollback_ref = "refs/rollback/20260707T050834Z-skill-route-discovery-pass4-completion"
+        rollback_artifact = (
             "artifacts/rollback/20260707T050834Z-skill-route-discovery-pass4-completion/"
             "rollback-point.md"
         )
-        if current_20260707_050834
-        else (
+    elif current_20260707_222110:
+        rollback_ref = "refs/rollback/blackhole-agent/20260708T022108Z-skill-route-discovery-pass4"
+        rollback_artifact = (
+            "artifacts/rollback/20260708T022108Z-skill-route-discovery-pass4/"
+            "rollback-point.md"
+        )
+    else:
+        rollback_ref = "refs/blackhole-rollback/20260707T062832Z-skill-route-discovery-pass4-completion"
+        rollback_artifact = (
             "artifacts/rollback/20260707T062832Z-skill-route-discovery-pass4-completion/"
             "rollback-point.md"
         )
+    reverse_flow_proposal_id = (
+        "p2-codex-workflow-gate-reverse-flow"
+        if current_20260707_222110
+        else "p1_skill_route_discovery_reverse_flow"
     )
-    reverse_flow_proposal_id = "p1_skill_route_discovery_reverse_flow"
     generic_skill_proposal_id = (
-        "p2_generic_skill_workflow_discovery"
-        if current_20260707_050834
-        else "p2_skill_route_discovery_rnskill"
+        "p1-skill-route-discovery-rnskill"
+        if current_20260707_222110
+        else (
+            "p2_generic_skill_workflow_discovery"
+            if current_20260707_050834
+            else "p2_skill_route_discovery_rnskill"
+        )
     )
+    bionemo_proposal_id = "p3-bionemo-skill-workflow-documentation"
     agent_proposal_id = (
-        "p3_agent_harness_eval_gate"
-        if current_20260707_050834
-        else "p3_general_agent_harness_eval"
+        "p4-general-agent-harness-eval-backlog"
+        if current_20260707_222110
+        else (
+            "p3_agent_harness_eval_gate"
+            if current_20260707_050834
+            else "p3_general_agent_harness_eval"
+        )
     )
     skill_route_rows: list[dict[str, Any]] = []
     for row in skill_rows:
         route_profiles = _string_list(row.get("route_profiles"))
         is_reverse_flow = "codex_workflow_gate" in route_profiles
-        selected_lane = "test" if is_reverse_flow else "documentation"
+        is_domain_skill = "source_cited_domain_research" in route_profiles
+        selected_lane = "test" if is_reverse_flow or is_domain_skill else "documentation"
         allowed_lanes = _string_list(row.get("allowed_local_lanes"))
         skill_route_rows.append(
             {
                 "proposal_id": (
                     reverse_flow_proposal_id
                     if is_reverse_flow
+                    else bionemo_proposal_id
+                    if is_domain_skill and current_20260707_222110
                     else generic_skill_proposal_id
                 ),
                 "route_id": str(row.get("route_id") or ""),
@@ -2883,6 +2912,12 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         for row in skill_rows
     ):
         blockers.append("generic_skill_workflow_rnskill_missing")
+    if current_20260707_222110 and not any(
+        str(row.get("candidate_name") or "") == "bionemo-agent-toolkit"
+        and "source_cited_domain_research" in _string_list(row.get("route_profiles"))
+        for row in skill_rows
+    ):
+        blockers.append("domain_specific_skill_toolkit_guard_missing")
     if not agent_rows:
         blockers.append("agent_harness_eval_rows_missing")
     if any(

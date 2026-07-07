@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T222110.418015Z`, pass 4 completes
+the active reverse-flow/rnskill/BioNeMo/Agents-A1 window through
+`skill_route_discovery_current_pass4_completion_handoff`. The handoff binds
+`Pluviobyte/rnskill` to the bounded documentation lane as a generic SKILL.md
+collection, binds `lingbol088-spec/reverse-flow-skill` to the bounded test lane
+as a Codex workflow-gate skill route, and keeps
+`NVIDIA-BioNeMo/bionemo-agent-toolkit` in the bounded test lane as a
+domain-specific skill toolkit guard before any provider, data, citation, or
+advice boundary is activated.
+
+`InternScience/Agents-A1` remains queued in `general_agent_recovery_workflow`
+under `agent_harness_eval_required`. It inherits no `skill_route_discovery`
+lane, opens no direct implementation lane before local harness evaluation, and
+may only produce documentation, test, or code_patch follow-up after that gate.
+The handoff records rollback ref
+`refs/rollback/blackhole-agent/20260708T022108Z-skill-route-discovery-pass4`,
+records that `docs/self-model.md` stayed unchanged because this run had a
+concrete behavior path, and exports no raw source URLs, replay commands,
+target paths, upstream bodies, provider launches, memory or profile writes,
+promotion, restart, remote execution, or activation authority. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T222110`.
+
 For source digest `github-growth-20260707T220110.405293Z`, pass 3 exposes the
 active reverse-flow/rnskill/BioNeMo/Agents-A1 window through
 `skill_route_discovery_current_pass3_proposal_lane`. The lane binds
