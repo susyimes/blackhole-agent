@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 181
-    assert payload["pass_count"] == 180
+    assert payload["fixture_count"] == 182
+    assert payload["pass_count"] == 181
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -342,6 +342,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-workflow-route-recoverable-failure"]["passed"] is True
     assert results["agent-workflow-route-lifecycle-trace"]["passed"] is True
     assert results["agent-workflow-route-runner-harness-control-pass4-completion"]["passed"] is True
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260707T140109-pass3-runner-control-plane"
+        ]["passed"]
+        is True
+    )
     assert results["agent-workflow-route-harness-owned-compaction"]["passed"] is True
     assert results["headless-tool-roundtrip-function-call"]["passed"] is True
     assert results["known-failure-metadata-preflight-removed"]["passed"] is True
@@ -766,6 +772,54 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
         "passed": False,
         "failure_mode": "equals_mismatch",
     }
+
+
+def test_skill_route_discovery_current_digest_20260707T140109_pass3_runner_control_plane():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260707T140109_pass3_runner_control_plane.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    handoff = output["pass3_handoff_packet"]
+    control_plane = handoff["runner_harness_control_plane"]
+    workflow = control_plane["workflow_handoff"]
+    proposal_contract = handoff["proposal_lane_activation_contract"]
+    serialized = json.dumps({"handoff": handoff, "control_plane": control_plane}, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert handoff["status"] == "ready"
+    assert control_plane["status"] == "ready"
+    assert workflow["status"] == "ready"
+    assert workflow["stage_order"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert workflow["stage_order_verified"] is True
+    assert [row["artifact_kind"] for row in workflow["artifact_manifest"]] == [
+        "source_digest_and_evidence",
+        "state_transition_trace",
+        "rollback_and_operator_recovery",
+        "local_replay_fixture",
+        "operator_report",
+    ]
+    assert proposal_contract["active_skill_proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+    ]
+    assert proposal_contract["blocked_adjacent_proposal_ids"] == [
+        "p3-agent-harness-eval-general-projects",
+        "trend:shepherd-agents/shepherd-1",
+    ]
+    assert handoff["adjacent_general_agent_project_eval"]["agent_harness_eval_required"] is True
+    assert handoff["adjacent_general_agent_project_eval"]["skill_route_discovery_inherited"] is False
+    assert control_plane["external_harness_execution_allowed"] is False
+    assert workflow["raw_replay_commands_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
 
 
 def test_agent_harness_policy_eval_blocks_when_policy_does_not_precede_action():

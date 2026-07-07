@@ -8580,6 +8580,7 @@ def skill_route_discovery_pass3_proposal_lane_activation_contract(
         and "agentworld" not in proposal_id.lower()
         and "qwen" not in proposal_id.lower()
         and "looper" not in proposal_id.lower()
+        and not _skill_route_discovery_is_general_agent_ref(proposal_id)
     ]
     adjacent_proposals = [
         proposal_id
@@ -9004,9 +9005,12 @@ def _skill_route_discovery_is_general_agent_ref(value: str) -> bool:
             "agent_harness",
             "general-agent",
             "general_agent",
+            "agents-a1",
+            "fundamental-ava",
             "omnigent-ai/omnigent",
             "qwen-agentworld",
             "qwenlm/qwen-agentworld",
+            "shepherd-agents/shepherd",
         )
     )
 
@@ -9334,6 +9338,7 @@ def skill_route_discovery_pass3_control_plane(
             "intake",
             pass_validation_replay_queue.get("status") == "ready" and bool(queue_rows),
             "pass_validation_replay_queue",
+            "source_digest_and_evidence",
         ),
         (
             "midflight",
@@ -9341,21 +9346,25 @@ def skill_route_discovery_pass3_control_plane(
             and operator_checkpoint_list.get("status") == "ready"
             and bool(checkpoint_rows),
             "current_action_and_operator_checkpoints",
+            "state_transition_trace",
         ),
         (
             "recovery",
             profile_validation_proof.get("status") == "ready" and bool(proof_rows),
             "profile_validation_proof",
+            "rollback_and_operator_recovery",
         ),
         (
             "replay",
             promotion_runbook.get("status") == "ready" and bool(runbook_rows),
             "promotion_runbook",
+            "local_replay_fixture",
         ),
         (
             "report",
             activation_proof_summary.get("status") == "ready",
             "activation_proof_summary",
+            "operator_report",
         ),
     ]
     stages = [
@@ -9363,12 +9372,13 @@ def skill_route_discovery_pass3_control_plane(
             "stage": stage,
             "status": "ready" if stage_ready else "blocked",
             "artifact": artifact,
+            "artifact_kind": artifact_kind,
             "artifact_hash": stable_text_hash(artifact),
             "operator_visible": True,
             "body_free": True,
             "raw_artifact_paths_exported": False,
         }
-        for stage, stage_ready, artifact in stage_specs
+        for stage, stage_ready, artifact, artifact_kind in stage_specs
     ]
     missing_stages = [stage["stage"] for stage in stages if stage["status"] != "ready"]
     replay_command_hashes = sorted(
@@ -9404,6 +9414,44 @@ def skill_route_discovery_pass3_control_plane(
         }
     )
     control_ready = ready and not missing_stages and not diagnostics
+    workflow_handoff = {
+        "controller_surface": "skill_route_discovery_pass3_workflow_handoff",
+        "status": "ready" if control_ready else "blocked",
+        "stage_order": [stage["stage"] for stage in stages],
+        "stage_order_verified": [stage["stage"] for stage in stages]
+        == ["intake", "midflight", "recovery", "replay", "report"],
+        "stage_count": len(stages),
+        "ready_stage_count": len(stages) - len(missing_stages),
+        "blocked_stage_count": len(missing_stages),
+        "blocked_stage_reasons": sorted(dict.fromkeys(diagnostics)),
+        "artifact_manifest": [
+            {
+                "stage": stage["stage"],
+                "artifact_kind": stage["artifact_kind"],
+                "recorded": True,
+                "ready": stage["status"] == "ready",
+                "artifact_hash_present": bool(stage["artifact_hash"]),
+                "raw_artifact_paths_exported": False,
+            }
+            for stage in stages
+        ],
+        "replay_command_count": len(replay_command_hashes),
+        "provider_runtime_replay_command_count": len(provider_replay_command_hashes),
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_upstream_body_exported": False,
+        "raw_artifact_paths_exported": False,
+        "raw_replay_commands_exported": False,
+    }
     return {
         "controller_surface": "skill_route_discovery_pass3_runner_harness_control_plane",
         "status": "ready" if control_ready else "blocked",
@@ -9416,6 +9464,8 @@ def skill_route_discovery_pass3_control_plane(
         "blocked_stage_count": len(missing_stages),
         "missing_stages": missing_stages,
         "stages": stages,
+        "workflow_handoff": workflow_handoff,
+        "artifact_manifest": workflow_handoff["artifact_manifest"],
         "workflow_fingerprint": workflow_fingerprint,
         "queue_count": int(pass_validation_replay_queue.get("queue_count") or len(queue_rows)),
         "checkpoint_count": int(operator_checkpoint_list.get("checkpoint_count") or len(checkpoint_rows)),
