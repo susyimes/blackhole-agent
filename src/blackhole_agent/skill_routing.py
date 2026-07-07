@@ -15365,8 +15365,20 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
         "github-growth-20260707T180109.989440Z",
         "github-growth-20260707T180109Z",
     }
+    current_20260707_190110_window = source_digest in {
+        "github-growth-20260707T190110.064980Z",
+        "github-growth-20260707T190110Z",
+    }
+    current_reverse_flow_rnskill_shepherd_window = (
+        current_20260707_180109_window or current_20260707_190110_window
+    )
+    carried_source = (
+        _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane
+        if current_20260707_190110_window
+        else _skill_route_discovery_current_digest_20260707T160109_pass1_validation_lane
+    )
     carried = dict(
-        _skill_route_discovery_current_digest_20260707T160109_pass1_validation_lane(
+        carried_source(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
@@ -15378,10 +15390,13 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
             continue
         mapped = dict(row)
         proposal_id = str(mapped.get("proposal_id") or "")
-        if proposal_id == "p1_skill_route_discovery_probe":
+        if proposal_id in {
+            "p1_skill_route_discovery_probe",
+            "p1_skill_route_discovery_reverse_flow",
+        }:
             mapped["proposal_id"] = (
                 "p1_skill_route_discovery_reverse_flow"
-                if current_20260707_180109_window
+                if current_reverse_flow_rnskill_shepherd_window
                 else "p1-skill-route-discovery-lane"
             )
             mapped["proposal_kind"] = "test"
@@ -15389,15 +15404,18 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
             mapped["validation_gate"] = "focused-evidence-review"
             mapped["validation_target"] = (
                 "reverse_flow_style_skill_workflow_maps_to_bounded_local_test_lane"
-                if current_20260707_180109_window
+                if current_reverse_flow_rnskill_shepherd_window
                 else "skill_workflow_repositories_emit_only_documentation_config_test_or_code_patch"
             )
             mapped["controller_recomputed_scope"] = "local_validation_candidate"
             rows.append(mapped)
-        elif proposal_id == "p2_skill_route_docs":
+        elif proposal_id in {
+            "p2_skill_route_docs",
+            "p2_skill_route_discovery_rnskill",
+        }:
             mapped["proposal_id"] = (
                 "p2_skill_route_discovery_rnskill"
-                if current_20260707_180109_window
+                if current_reverse_flow_rnskill_shepherd_window
                 else "p3-skill-route-docs"
             )
             mapped["proposal_kind"] = "documentation"
@@ -15405,7 +15423,7 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
             mapped["validation_gate"] = "focused-evidence-review"
             mapped["validation_target"] = (
                 "document_rnskill_style_skill_collections_as_bounded_local_lanes"
-                if current_20260707_180109_window
+                if current_reverse_flow_rnskill_shepherd_window
                 else "document_skill_route_evidence_as_bounded_candidate_input_only"
             )
             mapped["controller_recomputed_scope"] = "local_validation_candidate"
@@ -15419,11 +15437,16 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
         item_id = str(mapped.get("item_id") or "")
         name = str(mapped.get("name") or "").casefold()
         mapped["proposal_id"] = (
-            "p3_agent_harness_eval_shepherd_cluster"
+            "p3_agent_harness_eval_shepherd"
+            if current_20260707_190110_window
+            and ("shepherd" in name or "shepherd-agents/shepherd" in item_id)
+            else "p3_agent_harness_eval_shepherd_cluster"
             if current_20260707_180109_window
             and ("shepherd" in name or "shepherd-agents/shepherd" in item_id)
+            else "p4_agent_harness_eval_comparative_agent_projects"
+            if current_20260707_190110_window
             else "p4_general_agent_project_eval_matrix"
-            if current_20260707_180109_window
+            if current_reverse_flow_rnskill_shepherd_window
             else "p2-agent-harness-eval-fixtures"
         )
         mapped["proposal_kind"] = "test"
@@ -15431,7 +15454,7 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
         mapped["validation_gate"] = "agent_harness_eval"
         mapped["validation_target"] = (
             "shepherd_cluster_requires_local_agent_harness_eval_before_runtime_followup"
-            if current_20260707_180109_window
+            if current_reverse_flow_rnskill_shepherd_window
             and ("shepherd" in name or "shepherd-agents/shepherd" in item_id)
             else "general_agent_projects_need_local_agent_harness_eval_before_followup_lanes"
         )
@@ -15471,6 +15494,15 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
         [
             "p1_skill_route_discovery_reverse_flow",
             "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_shepherd",
+            "p4_agent_harness_eval_comparative_agent_projects",
+            "p5_controller_route_policy_fixture",
+        ]
+        if current_20260707_190110_window
+        else
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
             "p3_agent_harness_eval_shepherd_cluster",
             "p4_general_agent_project_eval_matrix",
         ]
@@ -15488,6 +15520,9 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
     ]
     activation_review_packet = {
         "controller_surface": (
+            "skill_route_discovery_current_digest_20260707T190110_pass3_activation_review_packet"
+            if current_20260707_190110_window
+            else
             "skill_route_discovery_current_digest_20260707T180109_pass3_activation_review_packet"
             if current_20260707_180109_window
             else "skill_route_discovery_current_digest_20260707T164109_pass3_activation_review_packet"
@@ -15521,6 +15556,9 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
     carried.update(
         {
             "controller_surface": (
+                "skill_route_discovery_current_digest_20260707T190110_pass3_validation_lane"
+                if current_20260707_190110_window
+                else
                 "skill_route_discovery_current_digest_20260707T180109_pass3_validation_lane"
                 if current_20260707_180109_window
                 else "skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane"
@@ -15556,6 +15594,24 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
                         "trend:shepherd-agents/shepherd-pr-35",
                     ]
                     if current_20260707_180109_window
+                    else [
+                        "p1-skill-route-discovery-reverse-flow",
+                        "p2-skill-route-discovery-rnskill",
+                        "p3-agent-harness-eval-general-projects",
+                        "p4-route-classification-docs",
+                        "trend:shepherd-agents/shepherd-1",
+                        "p1_skill_route_discovery_reverse_flow",
+                        "p2_skill_route_discovery_rnskill",
+                        "p3_agent_harness_eval_shepherd",
+                        "p4_agent_harness_eval_comparative_agent_projects",
+                        "p5_controller_route_policy_fixture",
+                        "trend:lingbol088-spec/reverse-flow-skill-1",
+                        "trend:Pluviobyte/rnskill-1",
+                        "trend:InternScience/Agents-A1-1",
+                        "trend:TianhangZhuzth/Fundamental-Ava-1",
+                        "trend:shepherd-agents/shepherd-pr-18",
+                    ]
+                    if current_20260707_190110_window
                     else [
                         "p1_skill_route_discovery_probe",
                         "p2_skill_route_docs",
@@ -15597,6 +15653,12 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
                     )
                     if current_20260707_180109_window
                     else (
+                        "artifacts/rollback/"
+                        "20260708T000000Z-skill-route-discovery-pass3-current-digest/"
+                        "rollback-point.md"
+                    )
+                    if current_20260707_190110_window
+                    else (
                         "artifacts/blackhole-runs/20260707T164109Z-skill-route-pass3/"
                         "rollback-point.md"
                     )
@@ -15605,6 +15667,11 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
                     "refs/rollback/blackhole-agent/"
                     "20260707T180108Z-skill-route-discovery-pass3-current-window"
                     if current_20260707_180109_window
+                    else (
+                        "refs/rollback/"
+                        "20260708T000000Z-skill-route-discovery-pass3-current-digest"
+                    )
+                    if current_20260707_190110_window
                     else "refs/blackhole-rollback/20260707T164109-skill-route-pass3"
                 ),
                 "evidence_review": "focused-evidence-review",
@@ -15612,6 +15679,8 @@ def _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
                 "validation_command_hash": _stable_hash(
                     "python -m pytest tests/test_skill_routing.py -q -k 20260707T180109"
                     if current_20260707_180109_window
+                    else "python -m pytest tests/test_skill_routing.py -q -k 20260707T190110"
+                    if current_20260707_190110_window
                     else "python -m pytest tests/test_skill_routing.py -q -k 20260707T164109"
                 ),
                 "runtime_action": "none",
@@ -34314,7 +34383,15 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260707T180109.989440Z",
         "github-growth-20260707T180109Z",
     }
-    if current_20260707_164109_window or current_20260707_180109_window:
+    current_20260707_190110_window = source_digest in {
+        "github-growth-20260707T190110.064980Z",
+        "github-growth-20260707T190110Z",
+    }
+    if (
+        current_20260707_164109_window
+        or current_20260707_180109_window
+        or current_20260707_190110_window
+    ):
         return _skill_route_discovery_current_digest_20260707T164109_pass3_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,

@@ -39141,6 +39141,126 @@ def test_skill_route_discovery_current_digest_20260707T190110_pass2_validation_l
     assert '"enable"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T190110_pass3_activation_review_is_operator_visible():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T190110_pass2_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in payload["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane = build_skill_route_discovery_proposal_lane_map(registry)[
+        "current_digest_pass3_route_to_validation_lane"
+    ]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    packet = lane["activation_review_packet"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260707T190110.064980Z"
+    assert lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260707T190110_pass3_validation_lane"
+    )
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 3
+    assert lane["proposal_ids"] == [
+        "p1_skill_route_discovery_reverse_flow",
+        "p2_skill_route_discovery_rnskill",
+        "p3_agent_harness_eval_shepherd",
+        "p4_agent_harness_eval_comparative_agent_projects",
+        "p5_controller_route_policy_fixture",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["operator_next_action"] == (
+        "replay_current_pass3_validation_lane_then_continue_to_final_pass"
+    )
+
+    reverse_flow = rows["p1_skill_route_discovery_reverse_flow"]
+    assert reverse_flow["proposal_kind"] == "test"
+    assert reverse_flow["validation_gate"] == "focused-evidence-review"
+    assert reverse_flow["controller_recomputed_scope"] == "local_validation_candidate"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert set(reverse_flow["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert set(reverse_flow["selected_evidence_item_ids"]) <= selected_item_ids
+
+    rnskill = rows["p2_skill_route_discovery_rnskill"]
+    assert rnskill["proposal_kind"] == "documentation"
+    assert rnskill["validation_gate"] == "focused-evidence-review"
+    assert rnskill["controller_recomputed_scope"] == "local_validation_candidate"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert set(rnskill["candidate_names"]) == {"reverse-flow-skill", "rnskill"}
+
+    assert set(adjacent) == {
+        "trend:InternScience/Agents-A1-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:shepherd-agents/shepherd-1",
+        "trend:shepherd-agents/shepherd-pr-18",
+    }
+    assert adjacent["trend:shepherd-agents/shepherd-1"]["proposal_id"] == (
+        "p3_agent_harness_eval_shepherd"
+    )
+    assert adjacent["trend:shepherd-agents/shepherd-pr-18"]["proposal_id"] == (
+        "p3_agent_harness_eval_shepherd"
+    )
+    assert adjacent["trend:InternScience/Agents-A1-1"]["proposal_id"] == (
+        "p4_agent_harness_eval_comparative_agent_projects"
+    )
+    assert adjacent["trend:TianhangZhuzth/Fundamental-Ava-1"]["proposal_id"] == (
+        "p4_agent_harness_eval_comparative_agent_projects"
+    )
+    for item_id, row in adjacent.items():
+        assert item_id in selected_item_ids
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["validation_gate"] == "agent_harness_eval"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == []
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["accepted_outputs_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lane_selected"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert packet["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260707T190110_pass3_activation_review_packet"
+    )
+    assert packet["controller_recomputed_scope"] == "local_validation_candidate"
+    assert packet["controller_recomputed_gates"] == [
+        "focused-evidence-review",
+        "agent_harness_eval",
+    ]
+    assert packet["general_agent_direct_lanes_before_eval"] == []
+    assert packet["activation_before_validation_allowed"] is False
+    assert packet["runtime_action"] == "none"
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_agent_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+
+    assert lane["run_artifact_contract"]["rollback_ref"] == (
+        "refs/rollback/20260708T000000Z-skill-route-discovery-pass3-current-digest"
+    )
+    assert lane["run_artifact_contract"]["rollback_artifact"] == (
+        "artifacts/rollback/"
+        "20260708T000000Z-skill-route-discovery-pass3-current-digest/"
+        "rollback-point.md"
+    )
+    assert lane["run_artifact_contract"]["validation_command_hash"].startswith("sha256:")
+    assert lane["self_model_decision"]["changed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"install"' not in serialized
+    assert '"enable"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260707T150109_keeps_skill_queue_separate_from_agent_harness():
     fixture_path = (
         Path(__file__).parent

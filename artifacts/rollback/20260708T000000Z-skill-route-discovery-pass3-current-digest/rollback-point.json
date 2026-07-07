@@ -1,0 +1,10 @@
+{
+  "original_head": "92e73856035de1def297ab07f7adac116049d463",
+  "rollback_ref": "refs/rollback/20260708T000000Z-skill-route-discovery-pass3-current-digest",
+  "created": "2026-07-08T00:00:00Z",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T192209.112990-add-a-bounded-skill-route-discovery-validation-f",
+    "git reset --hard refs/rollback/20260708T000000Z-skill-route-discovery-pass3-current-digest"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260707T192209.112990-add-a-bounded-skill-route-discovery-validation-f"
+}
