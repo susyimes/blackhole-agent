@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 179
-    assert payload["pass_count"] == 178
+    assert payload["fixture_count"] == 180
+    assert payload["pass_count"] == 179
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -125,6 +125,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert "PRIVATE_LOCAL_FIXTURE_ACTION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_HARNESS_COMMAND_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_PROVIDER_TOKEN_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_CLI_STDERR_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EMPTY_ENVELOPE_BODY_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_DENY_POLICY_ID_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_EXTERNAL_HARNESS_ACTION_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_EXTERNAL_HARNESS_COMMAND_DO_NOT_EXPORT" not in serialized
@@ -12946,6 +12948,68 @@ def test_provider_runtime_preflight_blocks_usage_limit_429_without_credential_or
     assert "PRIVATE_5H_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_WEEKLY_RESET_DO_NOT_EXPORT" not in serialized
     assert "PRIVATE_RETRY_AFTER_DO_NOT_EXPORT" not in serialized
+
+
+def test_provider_runtime_preflight_blocks_cli_empty_envelope_refusal_without_body_export():
+    fixture_path = LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_cli_empty_envelope_refused.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["failure_mode"] == "provider_cli_empty_envelope_refused"
+    assert output["runtime"]["runner_invoked"] is False
+    assert output["preflight"]["blocked_before_launch"] is True
+    assert output["turn_outcome"]["cli_exit_code"] == 1
+    assert output["turn_outcome"]["cli_nonzero_exit"] is True
+    assert output["turn_outcome"]["result_envelope_empty"] is True
+    assert output["turn_outcome"]["refused_body"] is True
+    assert output["turn_outcome"]["raw_stderr_exported"] is False
+    assert output["turn_outcome"]["raw_result_envelope_exported"] is False
+    assert output["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["claude-cli"],
+            "value_recorded": False,
+            "code": "provider_cli_empty_envelope_refused",
+            "scope": "provider_turn_outcome",
+            "severity": "blocker",
+            "action": (
+                "surface provider CLI refusal or terminal turn errors before reporting an empty successful "
+                "completion"
+            ),
+            "terminal_event_completed": True,
+            "assistant_output_present": False,
+            "output_empty": True,
+            "error_item_present": False,
+            "error_item_count": 0,
+            "error_status_class": "unknown",
+            "cli_exit_code": 1,
+            "cli_nonzero_exit": True,
+            "auth_failure_detected": False,
+            "refused_body": True,
+            "result_envelope_empty": True,
+            "empty_success_guardrail_triggered": True,
+            "raw_error_body_exported": False,
+            "raw_stderr_exported": False,
+            "raw_result_envelope_exported": False,
+            "raw_output_exported": False,
+            "credential_values_exported": False,
+        }
+    ]
+    assert output["operator_recovery_plan"]["decision"] == "blocked_recovery_required"
+    assert output["operator_recovery_plan"]["recovery_hint_codes"] == [
+        "provider_cli_empty_envelope_refused"
+    ]
+    assert output["supervisor_replay"]["decision"] == "blocked_before_provider_launch"
+    assert output["supervisor_replay"]["provider_runtime_launch_allowed"] is False
+    assert "PRIVATE_CLI_STDERR_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_EMPTY_ENVELOPE_BODY_DO_NOT_EXPORT" not in serialized
 
 
 def test_provider_runtime_preflight_blocks_ambiguous_omnigent_auth_header_without_name_or_value_export():

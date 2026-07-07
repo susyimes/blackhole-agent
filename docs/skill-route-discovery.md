@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T001555.490520Z`, pass 1 carries two
+connected lessons. `lingbol088-spec/reverse-flow-skill` remains a Codex/AI
+Agent skill workflow candidate: the public repository exposes
+`skills/reverse-flow/SKILL.md`, references, scripts, local sandbox and CTF or
+crackme framing, install examples, and run examples. Those signals map only to
+documentation, config, test, or code_patch lanes through
+`skill_route_discovery`; install, run, provider, runtime, external-harness, and
+remote-execution pressure is diagnostic only.
+
+The companion `shepherd-agents/shepherd` issue reports a CLI-backed provider
+lane failing with `rc=1`, no model iterations, empty usage, and an empty result
+envelope while the doctor command was green. The local preflight expectation is
+now explicit: a CLI provider that returns a non-zero exit with an empty result
+envelope is classified as `provider_cli_empty_envelope_refused` before any
+agent lane runs. The diagnostic keeps only bounded metadata such as exit code,
+empty-envelope/refusal booleans, recovery hint code, and launch denial; raw
+stderr, provider bodies, envelope bodies, credentials, upstream bodies, and raw
+source evidence stay unexported. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k cli_empty_envelope_refusal`.
+
 For source digest `github-growth-20260706T235555.501156Z`, pass 4 completes
 the skill-route-discovery slice through
 `current_digest_pass4_completion_handoff` using the current proposal IDs.

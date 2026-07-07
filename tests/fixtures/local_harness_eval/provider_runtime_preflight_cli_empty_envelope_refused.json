@@ -1,0 +1,85 @@
+{
+  "name": "provider-runtime-preflight-cli-empty-envelope-refused",
+  "behavior": "provider_runtime_preflight",
+  "input": {
+    "task_id": "fixture-provider-runtime-preflight-cli-empty-envelope-refused",
+    "provider": {
+      "name": "claude-cli",
+      "harness": "claude-cli"
+    },
+    "runtime": {
+      "platform": "darwin",
+      "launch_transport": "subprocess",
+      "cli_resolved_in_runner": true
+    },
+    "runner_env": {
+      "parent_env_keys": [
+        "PATH"
+      ],
+      "allowlist": [
+        "PATH"
+      ]
+    },
+    "turn_outcome": {
+      "terminal_event": "completed",
+      "assistant_output_present": false,
+      "output_empty": true,
+      "cli_exit_code": 1,
+      "result_envelope_empty": true,
+      "refused_body": true,
+      "error_class": "confined_body_refused",
+      "raw_stderr": "PRIVATE_CLI_STDERR_DO_NOT_EXPORT",
+      "raw_result_envelope": "PRIVATE_EMPTY_ENVELOPE_BODY_DO_NOT_EXPORT"
+    }
+  },
+  "assertions": [
+    {
+      "path": "route_status",
+      "equals": "blocked"
+    },
+    {
+      "path": "failure_mode",
+      "equals": "provider_cli_empty_envelope_refused"
+    },
+    {
+      "path": "runtime.runner_invoked",
+      "equals": false
+    },
+    {
+      "path": "turn_outcome.cli_exit_code",
+      "equals": 1
+    },
+    {
+      "path": "turn_outcome.cli_nonzero_exit",
+      "equals": true
+    },
+    {
+      "path": "turn_outcome.result_envelope_empty",
+      "equals": true
+    },
+    {
+      "path": "turn_outcome.refused_body",
+      "equals": true
+    },
+    {
+      "path": "turn_outcome.raw_stderr_exported",
+      "equals": false
+    },
+    {
+      "path": "turn_outcome.raw_result_envelope_exported",
+      "equals": false
+    },
+    {
+      "path": "recovery_hints.0.code",
+      "equals": "provider_cli_empty_envelope_refused"
+    },
+    {
+      "path": "operator_recovery_plan.recovery_hint_codes.0",
+      "equals": "provider_cli_empty_envelope_refused"
+    },
+    {
+      "path": "supervisor_replay.provider_runtime_launch_allowed",
+      "equals": false
+    }
+  ]
+}

@@ -23122,12 +23122,36 @@ def evaluate_provider_turn_outcome_preflight(
     item_types = string_list(turn_outcome.get("item_types"))
     error_item_present = error_item_count > 0 or "error" in {item_type.lower() for item_type in item_types}
     status_code = optional_int(turn_outcome.get("status_code") or turn_outcome.get("http_status"))
+    cli_exit_code = optional_int(
+        turn_outcome.get("cli_exit_code")
+        or turn_outcome.get("exit_code")
+        or turn_outcome.get("rc")
+    )
     status_class = f"{status_code // 100}xx" if status_code is not None and status_code >= 100 else "unknown"
     error_class = (optional_string(turn_outcome.get("error_class")) or "").lower()
     auth_failure_detected = bool(
         status_code in {401, 403}
         or error_class in {"auth", "authentication", "credential", "unauthorized"}
         or truthy(turn_outcome.get("auth_failure"))
+    )
+    envelope_empty = truthy(turn_outcome.get("envelope_empty")) or (
+        truthy(turn_outcome.get("envelope_present")) is False
+        and (
+            "envelope_present" in turn_outcome
+            or "result_envelope_present" in turn_outcome
+        )
+    )
+    result_envelope_empty = truthy(turn_outcome.get("result_envelope_empty")) or envelope_empty
+    refused_body = truthy(turn_outcome.get("refused_body")) or error_class in {
+        "confined_body_refused",
+        "body_refused",
+        "refused",
+    }
+    cli_empty_envelope_refusal = bool(
+        cli_exit_code is not None
+        and cli_exit_code != 0
+        and output_empty
+        and result_envelope_empty
     )
     require_nonempty_output = turn_outcome.get("require_nonempty_output") is not False
     empty_success_guardrail = bool(
@@ -23137,7 +23161,10 @@ def evaluate_provider_turn_outcome_preflight(
 
     diagnostics: list[str] = []
     failure_mode = "none"
-    if auth_failure_detected and empty_success_guardrail:
+    if cli_empty_envelope_refusal:
+        failure_mode = "provider_cli_empty_envelope_refused"
+        diagnostics.append("provider CLI returned a non-zero exit with an empty result envelope")
+    elif auth_failure_detected and empty_success_guardrail:
         failure_mode = "provider_turn_auth_failed"
         diagnostics.append("provider terminal turn carried auth failure metadata and empty output")
     elif empty_success_guardrail:
@@ -23160,9 +23187,15 @@ def evaluate_provider_turn_outcome_preflight(
         "error_item_count": error_item_count,
         "item_type_count": len(item_types),
         "error_status_class": status_class,
+        "cli_exit_code": cli_exit_code,
+        "cli_nonzero_exit": cli_exit_code is not None and cli_exit_code != 0,
         "auth_failure_detected": auth_failure_detected,
+        "refused_body": refused_body,
+        "result_envelope_empty": result_envelope_empty,
         "empty_success_guardrail_triggered": empty_success_guardrail or suspect_empty_completion,
         "raw_error_body_exported": False,
+        "raw_stderr_exported": False,
+        "raw_result_envelope_exported": False,
         "raw_output_exported": False,
         "credential_values_exported": False,
     }
@@ -26382,6 +26415,7 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
             }
         )
     elif failure_mode in {
+        "provider_cli_empty_envelope_refused",
         "provider_turn_auth_failed",
         "provider_turn_empty_success_suspect",
         "provider_turn_error_item_reported",
@@ -26392,16 +26426,25 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "code": failure_mode,
                 "scope": "provider_turn_outcome",
                 "severity": "blocker",
-                "action": "surface provider terminal turn errors before reporting an empty successful completion",
+                "action": (
+                    "surface provider CLI refusal or terminal turn errors before reporting an empty successful "
+                    "completion"
+                ),
                 "terminal_event_completed": bool(turn_outcome.get("terminal_event_completed")),
                 "assistant_output_present": bool(turn_outcome.get("assistant_output_present")),
                 "output_empty": bool(turn_outcome.get("output_empty")),
                 "error_item_present": bool(turn_outcome.get("error_item_present")),
                 "error_item_count": int(turn_outcome.get("error_item_count") or 0),
                 "error_status_class": optional_string(turn_outcome.get("error_status_class")) or "unknown",
+                "cli_exit_code": turn_outcome.get("cli_exit_code"),
+                "cli_nonzero_exit": bool(turn_outcome.get("cli_nonzero_exit")),
                 "auth_failure_detected": bool(turn_outcome.get("auth_failure_detected")),
+                "refused_body": bool(turn_outcome.get("refused_body")),
+                "result_envelope_empty": bool(turn_outcome.get("result_envelope_empty")),
                 "empty_success_guardrail_triggered": bool(turn_outcome.get("empty_success_guardrail_triggered")),
                 "raw_error_body_exported": False,
+                "raw_stderr_exported": False,
+                "raw_result_envelope_exported": False,
                 "raw_output_exported": False,
                 "credential_values_exported": False,
             }

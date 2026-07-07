@@ -1,0 +1,12 @@
+{
+  "created_at": "2026-07-07T00:15:54Z",
+  "original_branch": "codex/blackhole-evolve/20260707T001645.475452-add-or-strengthen-local-tests-for-provider-confi",
+  "head": "4781c1d31a8972bd5d0d4fc90b25caf449c8a728",
+  "rollback_ref": "refs/rollback/20260707T001554Z-provider-cli-empty-envelope-preflight",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T001645.475452-add-or-strengthen-local-tests-for-provider-confi",
+    "git reset --hard 4781c1d31a8972bd5d0d4fc90b25caf449c8a728",
+    "git clean -fd"
+  ],
+  "status_before": null
+}
