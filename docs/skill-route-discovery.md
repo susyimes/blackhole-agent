@@ -23,6 +23,28 @@ not a memory or profile write route; it requires a local harness result before
 documentation, test, or code_patch follow-up can be promoted. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T150109`.
 
+For source digest `github-growth-20260707T154109.440320Z`, pass 4 completes
+the same skill-route-discovery slice through
+`skill_route_discovery_current_digest_20260707T154109_pass4_completion_handoff`.
+The handoff makes the operator-visible final path explicit: the Codex workflow
+proposal `p1-skill-route-discovery-codex-workflow` maps
+`lingbol088-spec/reverse-flow-skill` to the bounded local test lane, while
+`p2-generic-skill-workflow-discovery` keeps `Pluviobyte/rnskill` in the
+documentation lane. Both rows accept only documentation, config, test, or
+code_patch outputs before activation.
+
+`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and
+`shepherd-agents/shepherd` remain `agent_harness_eval_required` rows under
+`p3-agent-harness-eval-fixture`. They do not inherit `skill_route_discovery`,
+have no direct local lanes before bounded harness evaluation, and may only
+produce documentation, test, or code_patch follow-up after that evaluation
+passes. The final handoff records the rollback ref and artifact for the current
+kernel run, exports validation commands only as hashes, and leaves activation,
+restart, promotion, provider launch, external harness execution, remote
+execution, memory writes, and runtime action disabled for the supervisor.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T154109`.
+
 For source digest `github-growth-20260707T152109.445461Z`, pass 3 deepens the
 reusable `skill_route_discovery_repository_lane_probe` rather than adding an
 activation path. Reverse-flow-style repositories must now expose a

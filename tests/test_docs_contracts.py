@@ -627,6 +627,33 @@ def test_skill_route_discovery_doc_records_20260707T110834_proposal_replay_rule(
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T154109_pass4_completion_handoff():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260707T154109.440320Z`",
+        "`skill_route_discovery_current_digest_20260707T154109_pass4_completion_handoff`",
+        "`p1-skill-route-discovery-codex-workflow` maps\n"
+        "`lingbol088-spec/reverse-flow-skill` to the bounded local test lane",
+        "`p2-generic-skill-workflow-discovery` keeps `Pluviobyte/rnskill` in the\n"
+        "documentation lane",
+        "documentation, config, test, or\ncode_patch outputs before activation",
+        "`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and\n"
+        "`shepherd-agents/shepherd` remain `agent_harness_eval_required` rows",
+        "They do not inherit `skill_route_discovery`",
+        "no direct local lanes before bounded harness evaluation",
+        "records the rollback ref and artifact for the current\nkernel run",
+        "exports validation commands only as hashes",
+        "activation,\nrestart, promotion, provider launch, external harness execution, remote\n"
+        "execution, memory writes, and runtime action disabled",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260707T154109`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

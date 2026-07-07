@@ -38955,6 +38955,152 @@ def test_skill_route_discovery_current_digest_20260707T130110_pass4_completes_va
     assert '"run"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T154109_pass4_completes_skill_route_slice():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T154109_pass4_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in payload["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    handoff = build_skill_route_discovery_proposal_lane_map(registry)[
+        "current_digest_pass4_completion_handoff"
+    ]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["item_id"]: row for row in handoff["adjacent_general_agent_rows"]}
+    final_handoff = handoff["final_operator_handoff"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260707T154109.440320Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260707T154109_pass4_completion_handoff"
+    )
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-codex-workflow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-fixture",
+    ]
+    assert handoff["blocked_proposal_ids"] == []
+    assert handoff["completion_rule"] == (
+        "operator_visible_behavior_preferred_over_standalone_fixture"
+    )
+    assert handoff["operator_next_action"] == (
+        "record_current_digest_pass4_completion_and_hand_off_to_supervisor"
+    )
+    assert handoff["self_model_decision"] == {
+        "path": "docs/self-model.md",
+        "changed": False,
+        "reason": "current_self_model_already_prefers_rollback_backed_local_validation",
+    }
+
+    codex = rows["p1-skill-route-discovery-codex-workflow"]
+    assert codex["proposal_kind"] == "test"
+    assert codex["candidate_names"] == ["reverse-flow-skill"]
+    assert codex["selected_local_lane"] == "test"
+    assert codex["skill_route_discovery_first"] is True
+    assert codex["operator_lane_acceptance"] == (
+        "bounded_local_test_lane_before_any_runtime_action"
+    )
+    assert set(codex["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert set(codex["selected_evidence_item_ids"]) <= selected_item_ids
+    assert codex["runtime_action"] == "none"
+    assert codex["external_skill_activation_allowed"] is False
+
+    generic = rows["p2-generic-skill-workflow-discovery"]
+    assert generic["proposal_kind"] == "documentation"
+    assert generic["selected_local_lane"] == "documentation"
+    assert set(generic["candidate_names"]) == {"reverse-flow-skill", "rnskill"}
+    assert generic["operator_lane_acceptance"] == (
+        "bounded_local_documentation_lane_before_any_runtime_action"
+    )
+    assert set(generic["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert set(generic["selected_evidence_item_ids"]) <= selected_item_ids
+    assert generic["runtime_action"] == "none"
+
+    assert set(adjacent) == {
+        "trend:InternScience/Agents-A1-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "trend:shepherd-agents/shepherd-1",
+    }
+    for item_id, row in adjacent.items():
+        assert item_id in selected_item_ids
+        assert row["proposal_id"] == "p3-agent-harness-eval-fixture"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["allowed_local_lanes"] == []
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["accepted_outputs_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lane_selected"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    contract = handoff["route_decision_contract"]
+    assert contract["codex_skill_workflow_enters_skill_route_discovery_first"] is True
+    assert contract["generic_skill_workflow_maps_to_documentation_lane"] is True
+    assert contract["general_agent_projects_require_agent_harness_eval_first"] is True
+    assert contract["accepted_skill_route_outputs"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert contract["general_agent_direct_lanes_before_eval"] == []
+    assert contract["activation_before_validation_allowed"] is False
+    assert contract["runtime_action"] == "none"
+
+    assert final_handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260707T154109_final_handoff"
+    )
+    assert final_handoff["operator_visible_behavior"] == (
+        "complete_skill_route_discovery_window_with_bounded_local_lanes"
+    )
+    assert final_handoff["rollback_ref"] == (
+        "refs/rollback/blackhole-agent/20260707T154107Z-skill-route-discovery-pass4"
+    )
+    assert final_handoff["rollback_artifact"] == (
+        "artifacts/rollback/20260707T154107Z-skill-route-discovery-pass4.md"
+    )
+    assert final_handoff["activation_authority"] == "external_supervisor_only"
+    assert final_handoff["external_supervisor_restart_required"] is False
+    assert final_handoff["runtime_action"] == "none"
+    assert final_handoff["external_skill_activation_allowed"] is False
+    assert final_handoff["external_harness_execution_allowed"] is False
+    assert final_handoff["provider_runtime_launch_allowed"] is False
+    assert final_handoff["remote_execution_allowed"] is False
+
+    assert handoff["run_artifact_contract"]["rollback_ref"] == (
+        "refs/rollback/blackhole-agent/20260707T154107Z-skill-route-discovery-pass4"
+    )
+    assert handoff["run_artifact_contract"]["validation_command_hash"].startswith("sha256:")
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["raw_source_url_exported"] is False
+    assert handoff["raw_evidence_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"memory_write"' not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+    assert '"install"' not in serialized
+    assert '"enable"' not in serialized
+    assert '"run"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260707T144109_pass1_routes_skill_and_agent_lanes():
     fixture_path = (
         Path(__file__).parent
