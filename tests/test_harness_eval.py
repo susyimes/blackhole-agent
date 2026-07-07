@@ -8075,8 +8075,9 @@ def test_skill_route_discovery_active_pass1_proposal_replay_lane_uses_current_pr
         source_path=fixture_path,
     )
     active_lane = output["active_pass1_proposal_replay_lane"]
+    activation_gate = output["active_pass1_activation_gate"]
     rows_by_id = {row["proposal_id"]: row for row in active_lane["rows"]}
-    serialized = json.dumps(active_lane, sort_keys=True)
+    serialized = json.dumps({"active_lane": active_lane, "activation_gate": activation_gate}, sort_keys=True)
 
     assert output["route_status"] == "passed"
     assert active_lane["controller_surface"] == "skill_route_discovery_active_pass1_proposal_replay_lane"
@@ -8098,6 +8099,47 @@ def test_skill_route_discovery_active_pass1_proposal_replay_lane_uses_current_pr
     assert active_lane["external_skill_activation_allowed"] is False
     assert active_lane["external_harness_execution_allowed"] is False
     assert active_lane["provider_runtime_launch_allowed"] is False
+
+    assert activation_gate["controller_surface"] == "skill_route_discovery_active_pass1_activation_gate"
+    assert activation_gate["status"] == "ready"
+    assert activation_gate["decision"] == "active_pass1_skill_routes_ready_for_supervisor_activation_review"
+    assert activation_gate["source_surfaces"] == [
+        "skill_route_discovery_active_pass1_proposal_replay_lane",
+        "skill_route_discovery_current_digest_pass1_validation_lane",
+    ]
+    assert activation_gate["capability_pass"] == 1
+    assert activation_gate["total_passes"] == 4
+    assert activation_gate["review_gate"] == "focused-evidence-review"
+    assert activation_gate["proposal_ids"] == active_lane["proposal_ids"]
+    assert activation_gate["allowed_skill_route_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert activation_gate["allowed_adjacent_agent_lanes_after_eval"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert activation_gate["selected_local_lanes"] == ["documentation", "config", "test"]
+    assert activation_gate["activation_gate_failure_count"] == 0
+    assert activation_gate["activation_gate_failures"] == []
+    assert activation_gate["ready_row_count"] == 3
+    assert activation_gate["blocked_row_count"] == 0
+    assert activation_gate["operator_next_action"] == (
+        "review_active_pass1_activation_gate_after_local_validation"
+    )
+    assert activation_gate["activation_authority"] == "external_supervisor_after_validation"
+    assert activation_gate["runtime_action"] == "none"
+    assert activation_gate["external_skill_activation_allowed"] is False
+    assert activation_gate["external_agent_activation_allowed"] is False
+    assert activation_gate["external_harness_execution_allowed"] is False
+    assert activation_gate["provider_runtime_launch_allowed"] is False
+    assert activation_gate["remote_execution_allowed"] is False
+    assert activation_gate["raw_source_url_exported"] is False
+    assert activation_gate["raw_upstream_body_exported"] is False
+    assert all(row["activation_gate_status"] == "ready" for row in activation_gate["rows"])
 
     docs_row = rows_by_id["p1-skill-route-discovery-docs-and-probe"]
     assert docs_row["selected_local_lane"] == "documentation"

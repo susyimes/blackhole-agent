@@ -7893,6 +7893,17 @@ runtime action, external skill or agent activation, external harness execution,
 provider launch, profile writes, memory writes, remote execution, raw source
 URLs, evidence URLs, target paths, or upstream bodies.
 
+The same harness output now emits `active_pass1_activation_gate`, a compact
+supervisor review packet derived from `active_pass1_proposal_replay_lane` and
+`current_digest_pass1_validation_lane`. The gate is ready only when every
+pass-1 skill-route row selects one of documentation, config, test, or
+code_patch; adjacent general-agent rows remain behind `agent_harness_eval_required`;
+and runtime action, provider launch, external skill or agent activation,
+external harness execution, remote execution, raw source URLs, evidence URLs,
+target paths, and upstream bodies remain disabled. The gate does not activate
+anything itself; it records `external_supervisor_after_validation` as the
+activation authority.
+
 ## Current Run Pass 2 Local Validation Lane
 
 Source digest `github-growth-20260707T100834.719723Z` advances pass 2 with
