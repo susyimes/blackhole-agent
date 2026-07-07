@@ -1,0 +1,11 @@
+{
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T194144.089274-run-a-bounded-skill-route-discovery-lane-for-rev",
+    "git reset --hard refs/rollback/20260708T000000Z-skill-route-discovery-pass4-current-digest-194110"
+  ],
+  "original_head": "d51ba0c99ea84b752176133020442bc6f0608981",
+  "created_at": "2026-07-08T00:00:00Z",
+  "original_branch": "codex/blackhole-evolve/20260707T194144.089274-run-a-bounded-skill-route-discovery-lane-for-rev",
+  "rollback_ref": "refs/rollback/20260708T000000Z-skill-route-discovery-pass4-current-digest-194110",
+  "source_digest": "github-growth-20260707T194110.112744Z"
+}

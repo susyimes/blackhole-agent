@@ -16704,6 +16704,217 @@ def _skill_route_discovery_current_digest_20260707T170109_pass4_completion_hando
     return handoff
 
 
+def _skill_route_discovery_current_digest_20260707T194110_pass4_completion_handoff(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Complete the current reverse-flow/rnskill lane with supervisor handoff metadata."""
+
+    handoff = dict(
+        _skill_route_discovery_current_digest_20260707T170109_pass4_completion_handoff(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    )
+    proposal_ids = [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
+        "p4-agent-harness-eval-comparative-agent-projects",
+        "p5-controller-route-policy-fixture",
+    ]
+
+    rows: list[dict[str, Any]] = []
+    for row in handoff.get("rows", []):
+        if not isinstance(row, Mapping):
+            continue
+        mapped = dict(row)
+        route_profiles = _string_list(mapped.get("route_profiles"))
+        candidate_names = _string_list(mapped.get("candidate_names"))
+        candidate_text = " ".join(candidate_names).casefold()
+        is_reverse_flow = "codex_workflow_gate" in route_profiles or "reverse-flow" in candidate_text
+        mapped.update(
+            {
+                "proposal_id": (
+                    "p1-skill-route-discovery-reverse-flow"
+                    if is_reverse_flow
+                    else "p2-skill-route-discovery-rnskill"
+                ),
+                "proposal_kind": "test" if is_reverse_flow else "documentation",
+                "selected_local_lane": "test" if is_reverse_flow else "documentation",
+                "validation_gate": "focused-evidence-review",
+                "controller_recomputed_scope": "local_validation_candidate",
+                "validation_target": (
+                    "reverse_flow_workflow_gate_maps_to_bounded_test_lane"
+                    if is_reverse_flow
+                    else "generic_skill_collection_maps_to_bounded_documentation_lane"
+                ),
+                "evidence_review_result": (
+                    "codex_skill_workflow_evidence_only"
+                    if is_reverse_flow
+                    else "generic_skill_repository_evidence_only"
+                ),
+            }
+        )
+        rows.append(mapped)
+
+    adjacent_rows: list[dict[str, Any]] = []
+    for row in handoff.get("adjacent_general_agent_rows", []):
+        if not isinstance(row, Mapping):
+            continue
+        mapped = dict(row)
+        item_id = str(mapped.get("item_id") or "")
+        name = str(mapped.get("name") or "")
+        is_shepherd = "shepherd" in f"{item_id} {name}".casefold()
+        mapped.update(
+            {
+                "proposal_id": (
+                    "p3-agent-harness-eval-shepherd"
+                    if is_shepherd
+                    else "p4-agent-harness-eval-comparative-agent-projects"
+                ),
+                "evaluation_lane": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval_required",
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes": [],
+                "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+                "accepted_outputs_before_eval": [],
+                "implementation_lane_selected": False,
+                "validation_gate": "agent_harness_eval",
+                "validation_target": (
+                    "shepherd_requires_local_agent_harness_eval_before_followup"
+                    if is_shepherd
+                    else "comparative_agent_projects_require_local_harness_eval_before_followup"
+                ),
+            }
+        )
+        adjacent_rows.append(mapped)
+
+    ready = (
+        bool(rows)
+        and all(
+            row.get("status") == "ready"
+            and row.get("selected_local_lane") in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and set(_string_list(row.get("allowed_local_lanes"))).issubset(
+                SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            )
+            and row.get("runtime_action") == "none"
+            for row in rows
+        )
+        and bool(adjacent_rows)
+        and all(
+            row.get("evaluation_lane") == "agent_harness_eval_required"
+            and row.get("direct_allowed_lanes_before_eval") == []
+            and row.get("allowed_local_lanes_after_eval") == ["documentation", "test", "code_patch"]
+            and row.get("implementation_lane_selected") is False
+            and row.get("runtime_action") == "none"
+            and row.get("skill_route_discovery_inherited") is False
+            for row in adjacent_rows
+        )
+    )
+
+    final_handoff = dict(handoff.get("final_operator_handoff") or {})
+    final_handoff.update(
+        {
+            "controller_surface": (
+                "skill_route_discovery_current_digest_20260707T194110_final_handoff"
+            ),
+            "status": "ready" if ready else "blocked",
+            "proposal_ids": proposal_ids,
+            "operator_visible_behavior": (
+                "complete_current_skill_route_discovery_lane_for_supervisor_review"
+            ),
+            "activation_authority": "external_supervisor_only",
+        }
+    )
+
+    handoff.update(
+        {
+            "controller_surface": (
+                "skill_route_discovery_current_digest_20260707T194110_pass4_completion_handoff"
+            ),
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_digest_pass4_skill_route_discovery_lanes_ready_for_supervisor_handoff"
+                if ready
+                else "repair_current_digest_pass4_skill_route_discovery_lanes_before_completion"
+            ),
+            "source_digest": source_digest,
+            "capability_pass": 4,
+            "total_passes": 4,
+            "capability_slice_complete": ready,
+            "proposal_ids": proposal_ids,
+            "anchoring_proposal_ids": [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-skill-route-discovery-rnskill",
+                "p3-agent-harness-eval-general-projects",
+                "p4-route-classification-docs",
+                "trend:shepherd-agents/shepherd-1",
+                "p1_skill_route_discovery_reverse_flow",
+                "p2_skill_route_discovery_rnskill",
+                "p3_agent_harness_eval_shepherd",
+                "p4_agent_harness_eval_comparative_agent_projects",
+                "p5_controller_route_policy_fixture",
+                "p1",
+                "p2",
+            ],
+            "blocked_proposal_ids": [] if ready else proposal_ids,
+            "completion_rule": "operator_visible_behavior_preferred_over_standalone_fixture",
+            "run_artifact_contract": {
+                "rollback_ref": (
+                    "refs/rollback/"
+                    "20260708T000000Z-skill-route-discovery-pass4-current-digest-194110"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260708T000000Z-skill-route-discovery-pass4-current-digest-194110/"
+                    "rollback-point.md"
+                ),
+                "validation_command_hash": _stable_hash(
+                    "python -m pytest tests/test_skill_routing.py -q -k 20260707T194110"
+                ),
+                "material_actions_logged": True,
+                "promotion_or_push_performed": False,
+                "restart_performed": False,
+            },
+            "self_model_decision": {
+                "path": "docs/self-model.md",
+                "changed": False,
+                "reason": (
+                    "current self-model already prefers rollback-backed local validation "
+                    "over ornamental self-description edits"
+                ),
+            },
+            "route_decision_contract": {
+                **dict(handoff.get("route_decision_contract") or {}),
+                "reverse_flow_skill_route_discovery_first": True,
+                "rnskill_generic_skill_workflow_documented": True,
+                "general_agent_direct_lanes_before_eval": [],
+                "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "agent_harness_eval_allowed_lanes_after_eval": [
+                    "documentation",
+                    "test",
+                    "code_patch",
+                ],
+                "route_hints_grant_permissions": False,
+                "runtime_action": "none",
+            },
+            "final_operator_handoff": final_handoff,
+            "operator_next_action": (
+                "record_current_digest_pass4_completion_and_hand_off_to_supervisor"
+                if ready
+                else "repair_current_digest_pass4_completion_before_supervisor_handoff"
+            ),
+            "rows": rows,
+            "adjacent_general_agent_rows": adjacent_rows,
+        }
+    )
+    return handoff
+
+
 def _skill_route_discovery_current_digest_20260707T060834_pass3_lane_acceptance(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -24601,6 +24812,10 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         "github-growth-20260707T170109.447884Z",
         "github-growth-20260707T170109Z",
     }
+    current_194110_20260707_window = source_digest in {
+        "github-growth-20260707T194110.112744Z",
+        "github-growth-20260707T194110Z",
+    }
     if current_070714_window:
         return _skill_route_discovery_current_digest_070714_pass4_completion_handoff(
             candidate_lane_inventory,
@@ -24645,6 +24860,12 @@ def _skill_route_discovery_current_digest_pass4_completion_handoff(
         )
     if current_170109_20260707_window:
         return _skill_route_discovery_current_digest_20260707T170109_pass4_completion_handoff(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if current_194110_20260707_window:
+        return _skill_route_discovery_current_digest_20260707T194110_pass4_completion_handoff(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
