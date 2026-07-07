@@ -18197,6 +18197,7 @@ def test_skill_route_discovery_current_run_pass1_activation_readiness_is_operato
         source_path=fixture_path,
     )
     panel = output["current_run_pass1_activation_readiness"]
+    control_plane = panel["runner_harness_control_plane"]
     rows = {row["proposal_id"]: row for row in panel["rows"]}
     serialized = json.dumps(panel, sort_keys=True)
 
@@ -18206,6 +18207,18 @@ def test_skill_route_discovery_current_run_pass1_activation_readiness_is_operato
     assert panel["status"] == "ready"
     assert panel["selected_local_lanes"] == ["documentation", "config", "test"]
     assert panel["blocked_proposal_ids"] == []
+    assert control_plane["controller_surface"] == "skill_route_discovery_pass1_runner_harness_control_plane"
+    assert control_plane["status"] == "ready"
+    assert control_plane["stage_order"] == ["intake", "midflight", "recovery", "replay", "report"]
+    assert control_plane["ready_stage_count"] == 5
+    assert control_plane["source_intake"]["skill_route_row_count"] == 3
+    assert control_plane["midflight_state"]["ready_skill_route_row_count"] == 3
+    assert control_plane["recovery"]["rollback_point_required"] is True
+    assert control_plane["recovery"]["external_supervisor_required"] is True
+    assert control_plane["replay"]["local_fixture_replay_required"] is True
+    assert len(control_plane["replay"]["replay_command_hashes"]) == 2
+    assert control_plane["raw_replay_commands_exported"] is False
+    assert control_plane["raw_recovery_commands_exported"] is False
     assert rows["proposal-skill-route-discovery-generic-001"]["selected_local_lane"] == "test"
     assert rows["proposal-game-skill-route-profile-002"]["selected_local_lane"] == "documentation"
     assert rows["proposal-skill-ecosystem-handoff-003"]["selected_local_lane"] == "config"
@@ -18226,7 +18239,13 @@ def test_skill_route_discovery_current_run_pass1_activation_readiness_is_operato
     assert panel["external_harness_execution_allowed"] is False
     assert panel["provider_runtime_launch_allowed"] is False
     assert panel["raw_evidence_urls_exported"] is False
+    assert control_plane["external_skill_activation_allowed"] is False
+    assert control_plane["external_agent_activation_allowed"] is False
+    assert control_plane["external_harness_execution_allowed"] is False
+    assert control_plane["provider_runtime_launch_allowed"] is False
+    assert control_plane["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
 
 
 def test_skill_route_discovery_current_digest_20260704T190435_pass1_current_window():

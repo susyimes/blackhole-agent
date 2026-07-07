@@ -5407,6 +5407,15 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         ]
     )
 
+    runner_harness_control_plane = _skill_route_discovery_pass1_runner_harness_control_plane(
+        ready=ready,
+        source_digest=source_digest or "github-growth-20260628T070730.472651Z",
+        rows=rows,
+        adjacent_rows=adjacent_rows,
+        selected_lanes=[lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)],
+        blocked_proposal_ids=blocked_proposal_ids,
+    )
+
     return {
         "controller_surface": "skill_route_discovery_current_run_pass1_activation_readiness",
         "status": "ready" if ready else "blocked",
@@ -5480,8 +5489,163 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "raw_evidence_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+        "runner_harness_control_plane": runner_harness_control_plane,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_pass1_runner_harness_control_plane(
+    *,
+    ready: bool,
+    source_digest: str,
+    rows: Sequence[Mapping[str, Any]],
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    selected_lanes: Sequence[str],
+    blocked_proposal_ids: Sequence[str],
+) -> dict[str, Any]:
+    """Expose pass-1 readiness as a five-stage runner workflow handoff."""
+
+    row_count = len(rows)
+    ready_row_count = sum(1 for row in rows if row.get("status") == "ready")
+    adjacent_count = len(adjacent_rows)
+    adjacent_ready_count = sum(
+        1
+        for row in adjacent_rows
+        if row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+    )
+    selected_evidence_item_count = sum(
+        len(_string_list(row.get("selected_evidence_item_ids"))) for row in rows
+    )
+    lane_hashes = [_stable_hash(lane) for lane in selected_lanes]
+    replay_command_hashes = [
+        _stable_hash("pytest tests/test_harness_eval.py -q -k skill_route_discovery_current_run_pass1_activation_readiness"),
+        _stable_hash("pytest tests/test_skill_routing.py -q -k current_run_pass1_activation_readiness"),
+    ]
+    diagnostics = list(dict.fromkeys(str(proposal_id) for proposal_id in blocked_proposal_ids))
+    stage_specs = [
+        (
+            "intake",
+            row_count > 0 and selected_evidence_item_count > 0,
+            "source_digest_and_hashed_evidence_intake",
+        ),
+        (
+            "midflight",
+            row_count > 0 and ready_row_count == row_count and bool(selected_lanes),
+            "bounded_lane_state_and_adjacent_harness_queue",
+        ),
+        (
+            "recovery",
+            True,
+            "rollback_point_and_external_supervisor_recovery",
+        ),
+        (
+            "replay",
+            bool(replay_command_hashes) and ready_row_count == row_count,
+            "local_fixture_replay_command_hashes",
+        ),
+        (
+            "report",
+            ready and adjacent_ready_count == adjacent_count,
+            "operator_activation_readiness_report",
+        ),
+    ]
+    stages = [
+        {
+            "stage": stage,
+            "status": "ready" if stage_ready else "blocked",
+            "artifact_kind": artifact_kind,
+            "artifact_hash": _stable_hash(artifact_kind),
+            "operator_visible": True,
+            "body_free": True,
+            "raw_artifact_paths_exported": False,
+        }
+        for stage, stage_ready, artifact_kind in stage_specs
+    ]
+    blocked_stages = [stage["stage"] for stage in stages if stage["status"] != "ready"]
+    if blocked_stages:
+        diagnostics.extend(f"{stage}_stage_not_ready" for stage in blocked_stages)
+    diagnostics = sorted(dict.fromkeys(diagnostics))
+    control_ready = ready and not blocked_stages and not diagnostics
+
+    return {
+        "controller_surface": "skill_route_discovery_pass1_runner_harness_control_plane",
+        "status": "ready" if control_ready else "blocked",
+        "decision": (
+            "pass1_runner_workflow_ready_for_local_replay"
+            if control_ready
+            else "repair_pass1_runner_workflow_before_activation"
+        ),
+        "source_digest_hash": _stable_hash(source_digest),
+        "stage_order": [stage["stage"] for stage in stages],
+        "stage_count": len(stages),
+        "ready_stage_count": len(stages) - len(blocked_stages),
+        "blocked_stage_count": len(blocked_stages),
+        "blocked_stages": blocked_stages,
+        "stages": stages,
+        "source_intake": {
+            "status": "ready" if row_count and selected_evidence_item_count else "blocked",
+            "skill_route_row_count": row_count,
+            "selected_evidence_item_count": selected_evidence_item_count,
+            "source_digest_hash_present": bool(source_digest),
+            "raw_source_digest_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_evidence_urls_exported": False,
+        },
+        "midflight_state": {
+            "status": "ready" if ready_row_count == row_count and row_count else "blocked",
+            "ready_skill_route_row_count": ready_row_count,
+            "blocked_skill_route_row_count": row_count - ready_row_count,
+            "selected_local_lane_hashes": lane_hashes,
+            "selected_local_lane_count": len(selected_lanes),
+            "adjacent_agent_harness_queue_count": adjacent_count,
+            "adjacent_agent_harness_ready_count": adjacent_ready_count,
+            "raw_lane_names_exported": False,
+        },
+        "recovery": {
+            "status": "ready",
+            "rollback_point_required": True,
+            "external_supervisor_required": True,
+            "kernel_restart_allowed": False,
+            "operator_reset_required_before_destructive_recovery": True,
+            "raw_recovery_commands_exported": False,
+        },
+        "replay": {
+            "status": "ready" if ready_row_count == row_count and row_count else "blocked",
+            "local_fixture_replay_required": True,
+            "replay_command_hashes": replay_command_hashes,
+            "raw_replay_commands_exported": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+        },
+        "report": {
+            "status": "ready" if ready else "blocked",
+            "operator_report_required": True,
+            "activation_authority": "external_supervisor_after_validation",
+            "blocked_proposal_hashes": [_stable_hash(str(proposal_id)) for proposal_id in blocked_proposal_ids],
+            "raw_report_bodies_exported": False,
+        },
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_digest_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_recovery_commands_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 
