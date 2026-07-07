@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T162109.466559Z`, pass 2 binds
+the active reverse-flow/rnskill proposals to the existing pass-2 operator lane
+and exposes `current_pass2_activation_recovery_workflow` inside the activation
+checkpoint. `lingbol088-spec/reverse-flow-skill` remains the Codex workflow
+gate skill-route row in the local test lane, while `Pluviobyte/rnskill`
+remains a generic `SKILL.md` collection in the documentation lane. Both rows
+accept only documentation, config, test, or code_patch outputs before
+activation.
+
+The recovery workflow makes the supervisor handoff explicit: confirm the
+rollback point, recompute controller routes, replay bounded skill-route lanes,
+hold adjacent agent projects for local harness evaluation, and keep external
+activation disabled until validation and supervisor promotion complete.
+`InternScience/Agents-A1` and `shepherd-agents/shepherd` remain
+`agent_harness_eval_required` rows with no direct implementation lanes before
+evaluation. The workflow exports hashes, item IDs, phase names, and booleans
+only; raw upstream URLs, raw replay commands, provider launch, remote
+execution, memory/profile writes, restart, push, and rollback execution remain
+disabled. Replay with:
+`python -m pytest tests/test_proposal_eval.py -q -k 20260707T162109`.
+
 For source digest `github-growth-20260707T160109.409581Z`, pass 1 opens the
 current skill-route-discovery window through
 `skill_route_discovery_current_digest_20260707T160109_pass1_validation_lane`.

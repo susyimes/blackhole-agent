@@ -118,6 +118,19 @@ CURRENT_PASS2_SKILL_ROUTE_20260705T124958_DIGEST_IDS = {
     "github-growth-20260705T124958.128997Z",
     "github-growth-20260705T124958Z",
 }
+CURRENT_PASS2_SKILL_ROUTE_20260707T162109_DIGEST_IDS = {
+    "github-growth-20260707T162109.466559Z",
+    "github-growth-20260707T162109Z",
+}
+CURRENT_PASS2_SKILL_ROUTE_20260707T162109_PROPOSAL_IDS = [
+    "p1-skill-route-discovery-reverse-flow",
+    "p2-skill-route-discovery-rnskill",
+    "p3-agent-harness-eval-general-projects",
+    "trend:lingbol088-spec/reverse-flow-skill-1",
+    "trend:Pluviobyte/rnskill-1",
+    "trend:InternScience/Agents-A1-1",
+    "trend:shepherd-agents/shepherd-1",
+]
 PASS2_AGENT_HARNESS_FIXTURE_FIELDS = [
     "fixture_path",
     "expected_behavior",
@@ -1460,6 +1473,14 @@ def build_current_pass2_activation_checkpoint(
     replay_commands = sorted(
         dict.fromkeys(SKILL_ROUTE_LOCAL_LANE_COMMANDS + GENERAL_AGENT_PROJECT_EVAL_COMMANDS)
     )
+    recovery_workflow = build_current_pass2_activation_recovery_workflow(
+        skill_rows=skill_rows,
+        general_rows=general_rows,
+        blockers=blockers,
+        digest_id=digest_id,
+        route_evidence_lane_source_status=str(route_source.get("status") or ""),
+        replay_commands=replay_commands,
+    )
     return {
         "controller_surface": "current_pass2_activation_checkpoint",
         "status": status,
@@ -1490,6 +1511,7 @@ def build_current_pass2_activation_checkpoint(
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
         "allowed_general_agent_lanes_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
         "activation_blockers": sorted(dict.fromkeys(blockers)),
+        "activation_recovery_workflow": recovery_workflow,
         "replay_command_hashes": [stable_hash(command) for command in replay_commands],
         "local_validation_required": True,
         "operator_visible": True,
@@ -1502,6 +1524,106 @@ def build_current_pass2_activation_checkpoint(
         "remote_execution_allowed": False,
         "kernel_restart_allowed": False,
         "promotion_or_push_performed": False,
+        "raw_source_url_export_allowed": False,
+        "raw_evidence_url_export_allowed": False,
+        "raw_replay_command_export_allowed": False,
+        "raw_target_path_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass2_activation_recovery_workflow(
+    *,
+    skill_rows: list[dict[str, Any]],
+    general_rows: list[dict[str, Any]],
+    blockers: list[str],
+    digest_id: str,
+    route_evidence_lane_source_status: str,
+    replay_commands: list[str],
+) -> dict[str, Any]:
+    """Expose a body-free pass-2 recovery sequence before activation."""
+
+    skill_ready = bool(skill_rows) and all(row.get("replay_ready") is True for row in skill_rows)
+    adjacent_gated = all(
+        row.get("direct_allowed_lanes_before_eval") == []
+        and row.get("implementation_lanes_enabled_before_eval") is False
+        and row.get("skill_route_discovery_inherited") is False
+        for row in general_rows
+    )
+    ready = (
+        skill_ready
+        and adjacent_gated
+        and not blockers
+        and route_evidence_lane_source_status == "ready"
+    )
+    phase_rows = [
+        {
+            "phase": "rollback_point_check",
+            "required_before_activation": True,
+            "recovery_action": "use_recorded_rollback_ref_if_activation_fails",
+            "operator_action_required": True,
+            "destructive_action_executed": False,
+        },
+        {
+            "phase": "controller_route_recompute",
+            "required_before_activation": True,
+            "recovery_action": "repair_route_classification_before_replay",
+            "ready": route_evidence_lane_source_status == "ready",
+        },
+        {
+            "phase": "bounded_skill_route_replay",
+            "required_before_activation": True,
+            "recovery_action": "keep_skill_repositories_as_documentation_config_test_or_code_patch_candidates",
+            "ready": skill_ready,
+            "skill_route_candidate_count": len(skill_rows),
+        },
+        {
+            "phase": "adjacent_agent_harness_gate",
+            "required_before_activation": True,
+            "recovery_action": "hold_general_agent_projects_until_local_harness_eval_passes",
+            "ready": adjacent_gated,
+            "agent_harness_eval_required_count": len(general_rows),
+        },
+        {
+            "phase": "external_activation_boundary",
+            "required_before_activation": True,
+            "recovery_action": "leave_external_activation_disabled_until_supervisor_promotes_validated_diff",
+            "ready": True,
+        },
+    ]
+    return {
+        "controller_surface": "current_pass2_activation_recovery_workflow",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "replay_checkpoint_then_activate_only_after_local_validation_and_supervisor_handoff"
+            if ready
+            else "repair_pass2_checkpoint_or_replay_failures_before_activation"
+        ),
+        "source_digest": digest_id,
+        "capability_pass": "2_of_4",
+        "route_evidence_lane_source_status": route_evidence_lane_source_status,
+        "phase_order": [str(row["phase"]) for row in phase_rows],
+        "phase_rows": phase_rows,
+        "skill_route_replay_ready": skill_ready,
+        "adjacent_agent_harness_eval_required": bool(general_rows),
+        "adjacent_agent_harness_gate_ready": adjacent_gated,
+        "activation_blockers": sorted(dict.fromkeys(str(blocker) for blocker in blockers)),
+        "replay_command_hashes": [stable_hash(command) for command in replay_commands],
+        "rollback_execution_requires_operator": True,
+        "rollback_execution_performed": False,
+        "kernel_restart_allowed": False,
+        "promotion_or_push_performed": False,
+        "local_validation_required": True,
+        "operator_visible": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
         "raw_source_url_export_allowed": False,
         "raw_evidence_url_export_allowed": False,
         "raw_replay_command_export_allowed": False,
@@ -1640,8 +1762,10 @@ def build_current_pass2_skill_route_operator_lane(
         for blocker in pass2_handoff.get("blocked_general_agent_item_ids", [])
         if str(blocker).strip()
     ]
-    active_proposal_ids = (
-        [
+    if digest_id in CURRENT_PASS2_SKILL_ROUTE_20260707T162109_DIGEST_IDS:
+        active_proposal_ids = list(CURRENT_PASS2_SKILL_ROUTE_20260707T162109_PROPOSAL_IDS)
+    elif digest_id in CURRENT_PASS2_SKILL_ROUTE_20260705T124958_DIGEST_IDS:
+        active_proposal_ids = [
             "p1-skill-route-discovery-reverse-flow",
             "p2-agent-harness-eval-qwen-agentworld",
             "p3-agent-harness-eval-fundamental-ava",
@@ -1653,8 +1777,8 @@ def build_current_pass2_skill_route_operator_lane(
             "trend:QwenLM/Qwen-AgentWorld-1",
             "trend:TianhangZhuzth/Fundamental-Ava-1",
         ]
-        if digest_id in CURRENT_PASS2_SKILL_ROUTE_20260705T124958_DIGEST_IDS
-        else [
+    else:
+        active_proposal_ids = [
             "p1_reverse_flow_skill_route_discovery",
             "p2_bionemo_skill_workflow_discovery",
             "p3_skill_route_discovery_regression_pair",
@@ -1666,7 +1790,6 @@ def build_current_pass2_skill_route_operator_lane(
             "trend:QwenLM/Qwen-AgentWorld-1",
             "trend:TianhangZhuzth/Fundamental-Ava-2",
         ]
-    )
     return {
         "controller_surface": "current_pass2_skill_route_operator_lane",
         "status": status,

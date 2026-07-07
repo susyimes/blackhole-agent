@@ -437,6 +437,107 @@ def test_current_pass2_activation_checkpoint_sequences_skill_routes_before_agent
     assert "runtime_execution" not in serialized
 
 
+def test_current_pass2_operator_lane_binds_20260707T162109_digest_to_recovery_workflow():
+    digest = {
+        "digest_id": "github-growth-20260707T162109.466559Z",
+        "generated_at": "2026-07-07T16:21:09.466559Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Public Codex and AI Agent reverse-flow skill workflow with "
+                    "skills/reverse-flow/SKILL.md, references, scripts, local sandbox defaults, "
+                    "CTF and crackme framing, install examples, run examples, and staged workflow."
+                ),
+                "relevance_reason": "Reverse-flow should stay in skill_route_discovery first.",
+            },
+            {
+                "item_id": "trend:Pluviobyte/rnskill-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/Pluviobyte/rnskill",
+                "summary": (
+                    "Public AI Agent Skills collection for Codex, Claude Code, and other "
+                    "SKILL.md-compatible workflows with skills, docs, tools, marketplace "
+                    "metadata, manual install examples, and multiple skill packages."
+                ),
+                "relevance_reason": "Generic skill collection evidence maps to documentation first.",
+            },
+            {
+                "item_id": "trend:InternScience/Agents-A1-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/InternScience/Agents-A1",
+                "summary": (
+                    "General agent project with long-horizon, model, evaluation, benchmark, "
+                    "and tool-use claims, but no explicit skill workflow route signal, "
+                    "no selected skill package, and no SKILL.md evidence."
+                ),
+                "relevance_reason": "Requires local agent harness evaluation before implementation lanes.",
+            },
+            {
+                "item_id": "trend:shepherd-agents/shepherd-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/shepherd-agents/shepherd",
+                "summary": (
+                    "General agent runtime substrate with reversible traces, replay, revert, "
+                    "supervision, retained outputs, validation, permissions, and controller "
+                    "workflow claims, but no selected skill package."
+                ),
+                "relevance_reason": "Requires local agent harness evaluation before implementation lanes.",
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=650)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    operator_lane = lane_map["current_pass2_skill_route_operator_lane"]
+    checkpoint = lane_map["current_pass2_activation_checkpoint"]
+    recovery = checkpoint["activation_recovery_workflow"]
+    recovery_serialized = json.dumps(recovery, sort_keys=True)
+
+    assert operator_lane["source_digest"] == "github-growth-20260707T162109.466559Z"
+    assert operator_lane["active_proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-general-projects",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:InternScience/Agents-A1-1",
+        "trend:shepherd-agents/shepherd-1",
+    ]
+    assert operator_lane["status"] == "ready_with_adjacent_agent_eval_gated"
+    assert {row["item_id"] for row in operator_lane["skill_route_rows"]} == {
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+    }
+    assert {row["item_id"] for row in operator_lane["adjacent_general_agent_rows"]} == {
+        "trend:InternScience/Agents-A1-1",
+        "trend:shepherd-agents/shepherd-1",
+    }
+
+    assert recovery["controller_surface"] == "current_pass2_activation_recovery_workflow"
+    assert recovery["status"] == "ready"
+    assert recovery["phase_order"] == [
+        "rollback_point_check",
+        "controller_route_recompute",
+        "bounded_skill_route_replay",
+        "adjacent_agent_harness_gate",
+        "external_activation_boundary",
+    ]
+    assert recovery["rollback_execution_requires_operator"] is True
+    assert recovery["rollback_execution_performed"] is False
+    assert recovery["runtime_action"] == "none"
+    assert recovery["external_skill_activation_allowed"] is False
+    assert recovery["external_agent_activation_allowed"] is False
+    assert recovery["external_harness_execution_allowed"] is False
+    assert recovery["provider_runtime_launch_allowed"] is False
+    assert recovery["remote_execution_allowed"] is False
+    assert all(len(command_hash) == 64 for command_hash in recovery["replay_command_hashes"])
+    assert "https://github.com/" not in recovery_serialized
+    assert "pytest tests/" not in recovery_serialized
+    assert "runtime_execution" not in recovery_serialized
+
+
 def test_proposal_replay_manifest_detects_evidence_source_drift(tmp_path):
     manifest = load_proposal_replay_case(MANIFEST_PATH)
     manifest["cases"][0]["evidence_urls"] = ["https://github.com/example/not-in-fixture"]
