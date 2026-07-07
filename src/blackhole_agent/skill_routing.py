@@ -2105,7 +2105,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
 ) -> dict[str, Any]:
     """Expose this pass-1 route review before any activation surface exists."""
 
-    if source_digest != "github-growth-20260707T052834.687686Z":
+    current_052834_window = source_digest == "github-growth-20260707T052834.687686Z"
+    current_094834_window = source_digest == "github-growth-20260707T094834.633335Z"
+    if not (current_052834_window or current_094834_window):
         return {}
 
     skill_rows = [
@@ -2114,16 +2116,62 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     agent_rows = [
         row for row in route_rows if str(row.get("route_kind") or "") == "general_agent_project"
     ]
-    anchoring_proposal_ids = [
-        "p1-skill-route-discovery-reverse-flow",
-        "p2-generic-skill-workflow-discovery",
-        "p3-agent-harness-eval-fixture",
-        "p4-route-policy-doc-note",
-        "p5-route-metadata-consistency-check",
-    ]
+    anchoring_proposal_ids = (
+        [
+            "p1-skill-route-discovery-codex-workflow",
+            "p2-generic-skill-workflow-routing",
+            "p3-agent-harness-eval-lane",
+            "p4-route-classification-regression-coverage",
+            "p5-self-model-alignment-note",
+        ]
+        if current_094834_window
+        else [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-discovery",
+            "p3-agent-harness-eval-fixture",
+            "p4-route-policy-doc-note",
+            "p5-route-metadata-consistency-check",
+        ]
+    )
+    reverse_flow_proposal_id = (
+        "p1-skill-route-discovery-codex-workflow"
+        if current_094834_window
+        else "p1-skill-route-discovery-reverse-flow"
+    )
+    generic_skill_proposal_id = (
+        "p2-generic-skill-workflow-routing"
+        if current_094834_window
+        else "p2-generic-skill-workflow-discovery"
+    )
+    agent_harness_proposal_id = (
+        "p3-agent-harness-eval-lane"
+        if current_094834_window
+        else "p3-agent-harness-eval-fixture"
+    )
+    policy_note_proposal_id = (
+        "p4-route-classification-regression-coverage"
+        if current_094834_window
+        else "p4-route-policy-doc-note"
+    )
+    metadata_check_proposal_id = (
+        "p4-route-classification-regression-coverage"
+        if current_094834_window
+        else "p5-route-metadata-consistency-check"
+    )
+    self_model_note_proposal_id = (
+        "p5-self-model-alignment-note" if current_094834_window else ""
+    )
     validation_commands = [
-        "pytest tests/test_skill_routing.py -q -k 20260707T052834",
-        "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T052834",
+        (
+            "pytest tests/test_skill_routing.py -q -k 20260707T094834"
+            if current_094834_window
+            else "pytest tests/test_skill_routing.py -q -k 20260707T052834"
+        ),
+        (
+            "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T094834"
+            if current_094834_window
+            else "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T052834"
+        ),
     ]
 
     skill_route_rows: list[dict[str, Any]] = []
@@ -2135,9 +2183,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         skill_route_rows.append(
             {
                 "proposal_id": (
-                    "p1-skill-route-discovery-reverse-flow"
+                    reverse_flow_proposal_id
                     if is_reverse_flow
-                    else "p2-generic-skill-workflow-discovery"
+                    else generic_skill_proposal_id
                 ),
                 "route_id": str(row.get("route_id") or ""),
                 "candidate_name": str(row.get("candidate_name") or ""),
@@ -2164,7 +2212,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
 
     agent_harness_rows = [
         {
-            "proposal_id": "p3-agent-harness-eval-fixture",
+            "proposal_id": agent_harness_proposal_id,
             "route_id": str(row.get("route_id") or ""),
             "name": str(row.get("name") or ""),
             "source_hash": str(row.get("source_hash") or ""),
@@ -2220,7 +2268,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
 
     metadata_check = {
         "controller_surface": "skill_route_discovery_pass1_route_metadata_consistency_check",
-        "proposal_id": "p5-route-metadata-consistency-check",
+        "proposal_id": metadata_check_proposal_id,
         "status": "ready" if not blockers else "blocked",
         "source_digest_recorded": bool(source_digest),
         "row_count_matches": len(route_rows) == len(skill_rows) + len(agent_rows),
@@ -2279,7 +2327,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
                 else "repair_focused_route_rows_before_pass2"
             ),
             "route_policy_doc_note": {
-                "proposal_id": "p4-route-policy-doc-note",
+                "proposal_id": policy_note_proposal_id,
                 "status": "ready" if ready else "blocked",
                 "policy": "skill_route_discovery_is_a_local_validation_lane_not_activation_authority",
                 "skill_rows_validate_before_agent_rows": True,
@@ -2288,6 +2336,20 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
                 "runtime_action": "none",
             },
             "route_metadata_consistency_check": metadata_check,
+            **(
+                {
+                    "self_model_alignment_note": {
+                        "proposal_id": self_model_note_proposal_id,
+                        "status": "ready" if ready else "blocked",
+                        "self_model_changed": False,
+                        "decision": "existing_self_model_already_prefers_rollback_backed_local_validation",
+                        "evidence": "current_run_selected_behavior_path_over_ornamental_self_model_edit",
+                        "runtime_action": "none",
+                    }
+                }
+                if self_model_note_proposal_id
+                else {}
+            ),
             "focused_validation_commands_exported": False,
             "focused_validation_command_hashes": [_stable_hash(command) for command in validation_commands],
             "local_validation_required": True,
