@@ -4874,11 +4874,39 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     current_101324_window = source_digest == "github-growth-20260629T101324.100619Z"
     current_171904_window = source_digest == "github-growth-20260629T171904.272271Z"
     current_183904_window = source_digest == "github-growth-20260629T183904.255941Z"
+    current_20260707_082834_window = source_digest in {
+        "github-growth-20260707T082834.484151Z",
+        "github-growth-20260707T082834Z",
+    }
     current_190435_window = source_digest in {
         "github-growth-20260704T190435.517226Z",
         "github-growth-20260704T190435Z",
     }
     proposal_specs = (
+        (
+            {
+                "proposal_id": "p1_skill_route_discovery_reverse_flow",
+                "proposal_kind": "test",
+                "proposal_track": "codex_reverse_flow_skill_route_discovery_validation",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_gate": "focused-evidence-review",
+                "validation_target": "reverse_flow_codex_workflow_maps_to_existing_local_gate",
+            },
+            {
+                "proposal_id": "p2_skill_route_discovery_rnskill",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_routing_assumptions",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("rnskill",),
+                "selected_local_lane": "documentation",
+                "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                "validation_target": "document_rnskill_generic_skill_workflow_route_assumptions",
+            },
+        )
+        if current_20260707_082834_window
+        else
         (
             {
                 "proposal_id": "proposal_skill_route_discovery_codex_reverse_flow",
@@ -5055,6 +5083,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     observed_profiles: list[str] = []
     for spec in proposal_specs:
         required_profiles = set(_string_list(spec["route_profiles"]))
+        candidate_name_terms = tuple(term.casefold() for term in _string_list(spec.get("candidate_name_terms")))
         candidate_names: list[str] = []
         candidate_source_hashes: list[str] = []
         selected_evidence_item_ids: list[str] = []
@@ -5070,6 +5099,8 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             if not required_profiles.intersection(candidate_profiles):
                 continue
             candidate_name = str(candidate.get("candidate_name") or "")
+            if candidate_name_terms and not any(term in candidate_name.casefold() for term in candidate_name_terms):
+                continue
             if candidate_name:
                 candidate_names.append(candidate_name)
             candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
@@ -5177,6 +5208,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         ),
     }
     default_adjacent_proposal_id = (
+        "p3_agent_harness_eval_general_projects"
+        if current_20260707_082834_window
+        else
         "proposal_agent_harness_eval_qwen_agentworld"
         if current_190435_window
         else
@@ -5224,6 +5258,19 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     )
     ready = bool(rows) and not blocked_proposal_ids and adjacent_ready
     anchoring_proposal_ids = (
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_general_projects",
+            "p4_routing_policy_alignment",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:InternScience/Agents-A1-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+            "trend:shepherd-agents/shepherd-1",
+        ]
+        if current_20260707_082834_window
+        else
         [
             "proposal_skill_route_discovery_codex_reverse_flow",
             "proposal_skill_route_discovery_zhengxi_views",
