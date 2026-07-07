@@ -601,6 +601,29 @@ def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_current_pass4_completion_handoff():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "github-growth-20260707T050834.384415Z",
+        "`skill_route_discovery_current_pass4_completion_handoff`",
+        "rollback ref, a rollback artifact path",
+        "validation command hashes",
+        "`lingbol088-spec/reverse-flow-skill` remains the Codex workflow-gate row",
+        "`Pluviobyte/rnskill` remains the generic skill workflow row",
+        "Install, run, script execution, provider runtime,\nexternal harness execution, and remote execution pressure stays diagnostic",
+        "`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and\n"
+        "`shepherd-agents/shepherd`",
+        "do\nnot inherit `skill_route_discovery`",
+        "no direct implementation lane before\nlocal harness evaluation",
+        "python -m pytest tests/test_skill_routing.py -q -k 20260707T050834",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_ci_security_waiver_doc_records_label_only_rerun_contract():
     doc = (REPO_ROOT / "docs" / "ci-security-waiver.md").read_text(encoding="utf-8")
 
