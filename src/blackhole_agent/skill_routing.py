@@ -2455,7 +2455,9 @@ def _skill_route_discovery_current_pass4_completion_handoff(
 ) -> dict[str, Any]:
     """Close this wake's skill-route slice with supervisor-visible replay metadata."""
 
-    if source_digest != "github-growth-20260707T050834.384415Z":
+    current_20260707_050834 = source_digest == "github-growth-20260707T050834.384415Z"
+    current_20260707_062834 = source_digest == "github-growth-20260707T062834.999092Z"
+    if not (current_20260707_050834 or current_20260707_062834):
         return {}
 
     skill_rows = [
@@ -2464,15 +2466,54 @@ def _skill_route_discovery_current_pass4_completion_handoff(
     agent_rows = [
         row for row in route_rows if str(row.get("route_kind") or "") == "general_agent_project"
     ]
-    proposal_ids = [
-        "p1_skill_route_discovery_reverse_flow",
-        "p2_generic_skill_workflow_discovery",
-        "p3_agent_harness_eval_gate",
-    ]
+    proposal_ids = (
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_generic_skill_workflow_discovery",
+            "p3_agent_harness_eval_gate",
+        ]
+        if current_20260707_050834
+        else [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
+            "p3_general_agent_harness_eval",
+        ]
+    )
     validation_commands = [
-        "pytest tests/test_skill_routing.py -q -k 20260707T050834",
+        (
+            "pytest tests/test_skill_routing.py -q -k 20260707T050834"
+            if current_20260707_050834
+            else "pytest tests/test_skill_routing.py -q -k 20260707T062834"
+        ),
         "pytest tests/test_docs_contracts.py -q -k current_pass4_completion",
     ]
+    rollback_ref = (
+        "refs/rollback/20260707T050834Z-skill-route-discovery-pass4-completion"
+        if current_20260707_050834
+        else "refs/blackhole-rollback/20260707T062832Z-skill-route-discovery-pass4-completion"
+    )
+    rollback_artifact = (
+        (
+            "artifacts/rollback/20260707T050834Z-skill-route-discovery-pass4-completion/"
+            "rollback-point.md"
+        )
+        if current_20260707_050834
+        else (
+            "artifacts/rollback/20260707T062832Z-skill-route-discovery-pass4-completion/"
+            "rollback-point.md"
+        )
+    )
+    reverse_flow_proposal_id = "p1_skill_route_discovery_reverse_flow"
+    generic_skill_proposal_id = (
+        "p2_generic_skill_workflow_discovery"
+        if current_20260707_050834
+        else "p2_skill_route_discovery_rnskill"
+    )
+    agent_proposal_id = (
+        "p3_agent_harness_eval_gate"
+        if current_20260707_050834
+        else "p3_general_agent_harness_eval"
+    )
     skill_route_rows: list[dict[str, Any]] = []
     for row in skill_rows:
         route_profiles = _string_list(row.get("route_profiles"))
@@ -2482,9 +2523,9 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         skill_route_rows.append(
             {
                 "proposal_id": (
-                    "p1_skill_route_discovery_reverse_flow"
+                    reverse_flow_proposal_id
                     if is_reverse_flow
-                    else "p2_generic_skill_workflow_discovery"
+                    else generic_skill_proposal_id
                 ),
                 "route_id": str(row.get("route_id") or ""),
                 "candidate_name": str(row.get("candidate_name") or ""),
@@ -2507,7 +2548,7 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         )
     agent_gate_rows = [
         {
-            "proposal_id": "p3_agent_harness_eval_gate",
+            "proposal_id": agent_proposal_id,
             "route_id": str(row.get("route_id") or ""),
             "name": str(row.get("name") or ""),
             "source_hash": str(row.get("source_hash") or ""),
@@ -2585,17 +2626,60 @@ def _skill_route_discovery_current_pass4_completion_handoff(
                 if lane in {str(row.get("selected_local_lane") or "") for row in skill_route_rows}
             ],
             "agent_harness_eval_required_before_implementation": bool(agent_rows),
+            "general_agent_recovery_workflow": {
+                "controller_surface": "skill_route_discovery_pass4_general_agent_recovery_workflow",
+                "status": "queued" if agent_rows else "blocked",
+                "decision": (
+                    "run_local_agent_harness_eval_before_any_general_agent_followup"
+                    if agent_rows
+                    else "collect_general_agent_project_fixture_before_followup"
+                ),
+                "evaluation_lane": "agent_harness_eval_required",
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+                "blocked_before_eval": [
+                    "direct_code_or_config_proposal",
+                    "runtime_action",
+                    "external_harness_execution",
+                    "provider_runtime_launch",
+                    "remote_execution",
+                ],
+                "required_local_fixture_fields": [
+                    "runnable_scenario",
+                    "expected_output",
+                    "pass_fail_signal",
+                    "rollback_artifact",
+                    "non_secret_configuration",
+                ],
+                "item_ids": [
+                    (
+                        _string_list(row.get("selected_evidence_item_ids"))[0]
+                        if _string_list(row.get("selected_evidence_item_ids"))
+                        else str(row.get("route_id") or "")
+                    )
+                    for row in agent_rows
+                ],
+                "source_hashes": [str(row.get("source_hash") or "") for row in agent_rows],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            },
             "operator_sequence": [
                 "confirm_rollback_ref_and_artifact_exist",
                 "review_body_free_route_rows_and_source_hashes",
+                "queue_general_agent_recovery_workflow_for_local_harness_eval",
                 "run_focused_local_validation",
                 "hand_off_to_supervisor_without_kernel_restart_or_external_activation",
             ],
-            "rollback_ref": "refs/rollback/20260707T050834Z-skill-route-discovery-pass4-completion",
-            "rollback_artifact": (
-                "artifacts/rollback/20260707T050834Z-skill-route-discovery-pass4-completion/"
-                "rollback-point.md"
-            ),
+            "rollback_ref": rollback_ref,
+            "rollback_artifact": rollback_artifact,
             "focused_validation_commands_exported": False,
             "focused_validation_command_hashes": [_stable_hash(command) for command in validation_commands],
             "local_validation_required": True,

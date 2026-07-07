@@ -651,6 +651,26 @@ def test_skill_route_discovery_doc_records_current_pass4_completion_handoff():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T062834_completion_handoff():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "source digest `github-growth-20260707T062834.999092Z`",
+        "`skill_route_discovery_current_pass4_completion_handoff`",
+        "`lingbol088-spec/reverse-flow-skill`",
+        "`Pluviobyte/rnskill`",
+        "documentation, config,\ntest, and code_patch as the only bounded local lanes",
+        "`general_agent_recovery_workflow`",
+        "`agent_harness_eval_required` fixture with runnable\nscenario, expected output, pass/fail signal, rollback artifact, and non-secret\nconfiguration fields",
+        "direct code/config\nproposal, runtime action, external harness execution, provider launch, and\nremote execution remain blocked",
+        "python -m pytest tests/test_skill_routing.py -q -k 20260707T062834",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_ci_security_waiver_doc_records_label_only_rerun_contract():
     doc = (REPO_ROOT / "docs" / "ci-security-waiver.md").read_text(encoding="utf-8")
 
