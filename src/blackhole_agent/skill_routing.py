@@ -14223,6 +14223,139 @@ def _skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_pro
     }
 
 
+def _skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Expose the active pass-3 skill-route and adjacent-agent validation queue."""
+
+    lane = dict(
+        _skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    )
+    rows = [dict(row) for row in lane.get("rows", []) if isinstance(row, Mapping)]
+    for row in rows:
+        proposal_id = str(row.get("proposal_id") or "")
+        if proposal_id == "p1-skill-route-discovery-probe":
+            row["proposal_id"] = "p1-skill-route-discovery-reverse-flow"
+            row["proposal_track"] = "codex_workflow_skill_route_discovery_validation"
+            row["validation_target"] = (
+                "reverse_flow_codex_workflow_skill_maps_to_existing_local_gate"
+            )
+            route_profiles = set(_string_list(row.get("route_profiles")))
+            validation_gates = set(_string_list(row.get("validation_gates")))
+            row["required_first_route_decision"] = "skill_route_discovery_first"
+            row["skill_route_discovery_first"] = (
+                row.get("skill_route_discovery_first") is True
+                or "codex_workflow_gate" in route_profiles
+                or "skill_route_discovery_first_before_workflow_gate" in validation_gates
+            )
+            row["first_route_confirmed"] = row.get("skill_route_discovery_first") is True
+        elif proposal_id == "p2-skill-route-discovery-doc":
+            row["proposal_id"] = "p2-generic-skill-workflow-rnskill"
+            row["proposal_track"] = "generic_skill_workflow_route_discovery_documentation"
+            row["validation_target"] = (
+                "rnskill_generic_skill_workflow_maps_to_bounded_documentation_lane"
+            )
+        elif proposal_id == "p3-generic-skill-workflow-routing-config":
+            row["proposal_id"] = "p4-route-classification-regression-coverage"
+            row["proposal_track"] = "skill_route_profile_regression_coverage"
+            row["validation_target"] = (
+                "generic_skill_route_profile_metadata_remains_bounded_before_activation"
+            )
+
+    adjacent_rows = [
+        dict(row) for row in lane.get("adjacent_general_agent_rows", []) if isinstance(row, Mapping)
+    ]
+    for row in adjacent_rows:
+        row["proposal_id"] = "p3-agent-harness-eval-general-projects"
+        row["validation_target"] = (
+            "general_agent_project_requires_agent_harness_eval_before_any_followup_lane"
+        )
+        row["allowed_local_lanes"] = []
+        row["direct_allowed_lanes_before_eval"] = []
+        row["accepted_outputs_before_eval"] = []
+        row["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
+        row["implementation_lane_selected"] = False
+
+    ready = (
+        lane.get("status") == "ready"
+        and all(row.get("status") == "ready" for row in rows)
+        and all(
+            row.get("evaluation_lane") == "agent_harness_eval_required"
+            and row.get("skill_route_discovery_inherited") is False
+            and row.get("implementation_lane_selected") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+            for row in adjacent_rows
+        )
+    )
+    proposal_ids = [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-rnskill",
+        "p3-agent-harness-eval-general-projects",
+        "p4-route-classification-regression-coverage",
+        "p5-self-model-alignment-note",
+    ]
+    lane.update(
+        {
+            "controller_surface": (
+                "skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane"
+            ),
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_pass3_skill_route_and_agent_harness_lanes_ready_for_replay"
+                if ready
+                else "repair_current_pass3_skill_route_and_agent_harness_lanes"
+            ),
+            "source_digest": source_digest,
+            "proposal_ids": proposal_ids,
+            "anchoring_proposal_ids": [
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-routing",
+                "p3-agent-harness-eval-lane",
+                "p4-route-classification-regression-coverage",
+                "p5-self-model-alignment-note",
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-skill-route-discovery-rnskill",
+                "p3-agent-harness-eval-shepherd",
+                "p4-agent-harness-eval-python-agent-set",
+                "trend:shepherd-agents/shepherd-1",
+                "p2-generic-skill-workflow-rnskill",
+                "p3-agent-harness-eval-general-projects",
+            ],
+            "ready_skill_route_proposal_count": sum(
+                1 for row in rows if row.get("status") == "ready"
+            ),
+            "operator_next_action": (
+                "replay_current_pass3_skill_route_validation_lane_then_continue_to_pass4"
+                if ready
+                else "repair_current_pass3_skill_route_validation_lane_before_pass4"
+            ),
+            "run_artifact_contract": {
+                "rollback_artifact": "artifacts/blackhole-runs/20260707T102832Z/rollback-point.md",
+                "rollback_ref": "refs/rollback/blackhole-agent/20260707T102832Z-skill-route-discovery-pass3",
+                "evidence_review": "focused-evidence-review",
+                "validation_command_count": 1,
+                "validation_command_hash": _stable_hash(
+                    "python -m pytest tests/test_skill_routing.py -q -k 20260707T102834"
+                ),
+                "runtime_action": "none",
+                "raw_validation_command_exported": False,
+            },
+            "rows": rows,
+            "adjacent_general_agent_rows": adjacent_rows,
+        }
+    )
+    return lane
+
+
 def _skill_route_discovery_current_digest_20260707T092834_pass4_completion_handoff(
     candidate_lane_inventory: Sequence[Mapping[str, Any]],
     ignored_evidence_items: Sequence[Mapping[str, Any]],
@@ -19233,6 +19366,15 @@ def _skill_route_discovery_current_digest_pass3_activation_review_lane(
         "github-growth-20260707T090834Z",
     }:
         return _skill_route_discovery_current_digest_20260707T090834_pass3_reverse_flow_probe(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    if source_digest in {
+        "github-growth-20260707T102834.622372Z",
+        "github-growth-20260707T102834Z",
+    }:
+        return _skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,

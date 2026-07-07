@@ -9669,3 +9669,30 @@ open no direct implementation lane before bounded harness evaluation, and may
 only produce documentation, test, or code_patch follow-up after local harness
 evidence exists. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T054834`.
+
+## Source Digest 20260707T102834 Pass 3
+
+The `github-growth-20260707T102834.622372Z` pass-3 lane exposes
+`skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane`
+for the active reverse-flow, rnskill, and general-agent project window.
+
+`lingbol088-spec/reverse-flow-skill` remains the Codex workflow-gate skill row.
+It selects the local test lane, preserves `skill_route_discovery_first`, and
+keeps install, run, script, provider, runtime, and external harness wording as
+diagnostic pressure only. `Pluviobyte/rnskill` remains the generic
+`SKILL.md`-style workflow collection and is replayed through bounded
+documentation/config validation metadata before any activation path.
+
+`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and
+`shepherd-agents/shepherd` remain adjacent `agent_harness_eval_required` rows.
+They do not inherit skill-route lanes, expose no direct implementation lane
+before local harness evaluation, and may only produce documentation, test, or
+code_patch follow-up after bounded agent-harness evidence exists.
+
+The lane is body-free and operator-visible. It exports proposal IDs, selected
+item IDs, lane names, route profiles, source hashes, and validation command
+hashes while denying raw source URL export, raw evidence URL export, replay
+command export, upstream body export, external skill or agent activation,
+external harness execution, provider launch, remote execution, profile writes,
+memory writes, and runtime action. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T102834`.
