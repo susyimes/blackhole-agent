@@ -7972,13 +7972,48 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260707T024834.700892Z",
         "github-growth-20260707T024834Z",
     }
+    current_20260707_144109_window = source_digest in {
+        "github-growth-20260707T144109.514783Z",
+        "github-growth-20260707T144109Z",
+    }
     if current_20260702_183119_window:
         return _skill_route_discovery_current_digest_20260702T183119_pass1_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260707_024834_window:
+    if current_20260707_144109_window:
+        specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_probe",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_route_discovery_validation_lane",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "selected_local_lane": "test",
+                "validation_target": "skill_term_and_mixed_skill_workflow_probe_stay_bounded",
+                "validation_task": (
+                    "feed rnskill and reverse-flow-skill route evidence through the skill "
+                    "router and verify that only documentation, config, test, or code_patch "
+                    "lanes are emitted while install, enable, run, runtime, provider, and "
+                    "external harness pressure remains diagnostic"
+                ),
+            },
+            {
+                "proposal_id": "p2_codex_skill_workflow_gate",
+                "proposal_kind": "test",
+                "proposal_track": "codex_workflow_gate_profile_handling",
+                "route_profiles": ("codex_workflow_gate",),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_target": "codex_workflow_gate_profile_survives_generic_skill_routing",
+                "validation_task": (
+                    "prove reverse-flow-skill preserves the codex_workflow_gate profile in "
+                    "addition to generic skill workflow routing before any code patch is "
+                    "considered"
+                ),
+            },
+        )
+    elif current_20260707_024834_window:
         specs = (
             {
                 "proposal_id": "p1-skill-route-discovery-reverse-flow",
@@ -10825,6 +10860,9 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
     for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
         ignored_evidence_items,
         proposal_id=(
+            "p3_agent_harness_eval_lane"
+            if current_20260707_144109_window
+            else
             "p2-agent-harness-eval-general-agent-trends"
             if current_20260707_024834_window
             else
@@ -11990,6 +12028,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "trend:shepherd-agents/shepherd-1",
             "trend:InternScience/Agents-A1-1",
             "trend:QwenLM/Qwen-AgentWorld-1",
+            "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+    elif current_20260707_144109_window:
+        anchoring_proposal_ids = [
+            "p1_skill_route_discovery_probe",
+            "p2_codex_skill_workflow_gate",
+            "p3_agent_harness_eval_lane",
+            "p4_fork_trend_dedup",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:InternScience/Agents-A1-1",
             "trend:TianhangZhuzth/Fundamental-Ava-1",
         ]
     elif current_20260706_042239_window:
