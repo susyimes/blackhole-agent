@@ -2737,6 +2737,33 @@ def build_agent_harness_eval_implementation_readiness_contract(
         project_completion_matrix=project_completion_matrix,
     )
     result_schema = build_agent_harness_eval_result_schema()
+    promotion_gate = {
+        "controller_surface": "agent_harness_eval_promotion_gate",
+        "status": "ready" if followup_allowed else "blocked",
+        "decision": (
+            "promote_only_documentation_test_or_code_patch_after_eval"
+            if followup_allowed
+            else "block_general_agent_trend_promotion_until_pass_fail_criteria_pass"
+        ),
+        "promotion_allowed": followup_allowed,
+        "allowed_followup_lanes": allowed_followup_lanes,
+        "pass_criteria_source": "implementation_readiness_contract.pass_criteria",
+        "fail_criteria_source": "implementation_readiness_contract.fail_criteria",
+        "per_project_result_path": "implementation_readiness_contract.project_completion_matrix.rows",
+        "ready_project_count": int(project_completion_matrix.get("ready_project_count") or 0),
+        "blocked_project_count": int(project_completion_matrix.get("blocked_project_count") or 0),
+        "required_validation": [validation_command],
+        "direct_behavior_adoption_allowed": False,
+        "implementation_patch_allowed_before_eval": False,
+        "runtime_action": "none",
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_bodies_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
     return {
         "controller_surface": "agent_harness_eval_implementation_readiness_contract",
@@ -2773,6 +2800,7 @@ def build_agent_harness_eval_implementation_readiness_contract(
         "project_intake_probe_status": str(project_intake_probe.get("status") or "incomplete"),
         "general_agent_route_review_queue_status": str(general_agent_route_review_queue.get("status") or "empty"),
         "project_completion_matrix": project_completion_matrix,
+        "promotion_gate": promotion_gate,
         "recovery_workflow": recovery_workflow,
         "result_schema": result_schema,
         "required_validation": [validation_command],

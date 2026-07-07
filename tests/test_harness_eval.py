@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 180
-    assert payload["pass_count"] == 179
+    assert payload["fixture_count"] == 181
+    assert payload["pass_count"] == 180
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -149,6 +149,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert results["agent-harness-eval-lane-20260706T205555-general-agent-route-queue"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T211555-workflow-orchestration"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T225555-benchmark-meta-agent-probe"]["passed"] is True
+    assert (
+        results[
+            "agent-harness-eval-lane-20260707T030834-general-agent-promotion-gate"
+        ]["passed"]
+        is True
+    )
     assert results["agent-harness-eval-lane-20260702T090714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260702T102714-general-agent-projects"]["passed"] is True
     assert results["agent-harness-eval-lane-20260706T091129-general-agent-projects"]["passed"] is True

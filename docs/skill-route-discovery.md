@@ -9332,3 +9332,23 @@ runtime action, external skill activation, external harness execution, provider
 runtime launch, remote execution, raw source URL export, evidence URL export,
 and upstream body export. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k repository_lane_probe`.
+
+## Source Digest 20260707T030834 Pass 2
+
+The `github-growth-20260707T030834.667753Z` pass-2 window keeps
+`lingbol088-spec/reverse-flow-skill` in `skill_route_discovery` and routes the
+adjacent general-agent and workflow-topic repositories through
+`agent_harness_eval_lane`. The harness lane now exposes an explicit
+`implementation_readiness_contract.promotion_gate` for the general-agent side
+of the split.
+
+`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`,
+`shepherd-agents/shepherd`, and
+`Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases` must show complete
+project-shape probes, mapped local claims, bounded follow-up lanes, and passing
+per-project result rows before documentation, test, or code_patch follow-up is
+promoted. The gate is still local and body-free: direct behavior adoption,
+pre-eval implementation patches, runtime action, external harness execution,
+provider launch, remote execution, raw source URLs, and upstream bodies remain
+disabled. Replay with:
+`python -m pytest tests/test_harness_eval.py -q -k "agent_harness_eval_lane or 20260707T030834"`.
