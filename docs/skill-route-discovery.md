@@ -5,6 +5,29 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260706T235555.501156Z`, pass 4 completes
+the skill-route-discovery slice through
+`current_digest_pass4_completion_handoff` using the current proposal IDs.
+`lingbol088-spec/reverse-flow-skill` maps to
+`p1_skill_route_discovery_reverse_flow_skill` because the public repository is
+a Codex/AI Agent skill workflow package with `skills/reverse-flow`, `SKILL.md`,
+references, scripts, local sandbox and CTF/crackme framing, and install/run
+examples. Those install, run, script, provider, runtime, and external-harness
+signals remain diagnostic pressure only; the selected local lane is test, and
+documentation, config, test, and code_patch are the only allowed lanes.
+
+`InternScience/Agents-A1`, `QwenLM/Qwen-AgentWorld`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` map to
+`p2_agent_harness_eval_for_general_agent_trends`. They remain
+`agent_harness_eval_required`, inherit no `skill_route_discovery` route, expose
+no direct local lanes before evaluation, and may produce only documentation,
+test, or code_patch follow-up after local agent-harness validation. The handoff
+is record-only and body-free: it exports proposal IDs, selected item IDs, lane
+names, source hashes, and replay command hashes while denying raw URLs, raw
+commands, upstream bodies, runtime action, external skill or agent activation,
+external harness execution, provider launch, and remote execution. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260706T235555`.
+
 For source digest `github-growth-20260706T233555.493310Z`, pass 3 deepens the
 bounded repository lane probe for `lingbol088-spec/reverse-flow-skill`. The
 public evidence shows a `skills/reverse-flow/SKILL.md` package for AI Agent and
