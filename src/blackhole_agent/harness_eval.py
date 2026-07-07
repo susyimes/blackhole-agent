@@ -3259,6 +3259,10 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         activation_lanes,
         preactivation_trust_boundary=preactivation_trust_boundary,
     )
+    retained_output_selection_gate = skill_route_discovery_retained_output_selection_gate(
+        activation_lanes,
+        implementation_intake_preflight=implementation_intake_preflight,
+    )
     operator_handoff = skill_route_discovery_operator_handoff(
         activation_lanes=activation_lanes,
         implementation_intake_preflight=implementation_intake_preflight,
@@ -3612,6 +3616,7 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "preactivation_trust_boundary": preactivation_trust_boundary,
         "validation_lane_gate": validation_lane_gate,
         "implementation_intake_preflight": implementation_intake_preflight,
+        "retained_output_selection_gate": retained_output_selection_gate,
         "local_lane_intake": local_lane_intake,
         "summary_signal_audit": summary_signal_audit,
         "candidate_lane_intake": candidate_lane_intake,
@@ -5062,6 +5067,106 @@ def skill_route_discovery_implementation_intake_preflight(
         "raw_upstream_body_allowed": False,
         "raw_target_paths_exported": False,
         "diagnostics": diagnostics,
+    }
+
+
+def skill_route_discovery_retained_output_selection_gate(
+    activation_lanes: list[dict[str, Any]],
+    *,
+    implementation_intake_preflight: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose whether retained local artifacts are reviewable before selection."""
+
+    diagnostics: list[str] = []
+    rows: list[dict[str, Any]] = []
+    for index, lane in enumerate(activation_lanes):
+        prefix = f"activation_lanes[{index}]"
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        artifact_proof = lane.get("local_artifact_proof")
+        artifact_proof = artifact_proof if isinstance(artifact_proof, dict) else {}
+        artifact_contract = lane.get("local_artifact_contract")
+        artifact_contract = artifact_contract if isinstance(artifact_contract, dict) else {}
+        target_paths = artifact_contract.get("target_paths")
+        target_paths = target_paths if isinstance(target_paths, list) else []
+        proof_ready = artifact_proof.get("ready") is True
+        row_diagnostics: list[str] = []
+        if not proof_ready:
+            row_diagnostics.append("retained_local_artifact_not_ready")
+        if lane.get("activation_ready") is not True:
+            row_diagnostics.append("activation_lane_not_ready")
+        if str(lane.get("runtime_action") or "none") != "none":
+            row_diagnostics.append("runtime_action_must_be_none")
+        if lane.get("external_skill_activation_allowed") is not False:
+            row_diagnostics.append("external_skill_activation_must_be_false")
+        if artifact_contract.get("local_only") is not True:
+            row_diagnostics.append("artifact_contract_must_be_local_only")
+        if artifact_contract.get("external_skill_code_allowed") is not False:
+            row_diagnostics.append("external_skill_code_must_be_false")
+        if artifact_contract.get("raw_upstream_body_allowed") is not False:
+            row_diagnostics.append("raw_upstream_body_must_be_false")
+        if artifact_proof.get("raw_changed_files_exported") is not False:
+            row_diagnostics.append("raw_changed_files_must_be_false")
+        if artifact_proof.get("raw_rollback_artifact_exported") is not False:
+            row_diagnostics.append("raw_rollback_artifact_must_be_false")
+
+        diagnostics.extend(f"{prefix}.{diagnostic}" for diagnostic in row_diagnostics)
+        rows.append(
+            {
+                "proposal_kind": proposal_kind,
+                "selection_ready": not row_diagnostics,
+                "retained_local_artifact_ready": proof_ready,
+                "changed_file_count": int(artifact_proof.get("changed_file_count") or 0),
+                "changed_file_hashes": string_list(artifact_proof.get("changed_file_hashes")),
+                "target_path_hashes": [
+                    stable_text_hash(str(path)) for path in sorted({str(path) for path in target_paths})
+                ],
+                "rollback_artifact_hash": optional_string(artifact_proof.get("rollback_artifact_hash")),
+                "review_note_recorded": artifact_proof.get("review_note_recorded") is True,
+                "required_validation": skill_route_discovery_preactivation_validation_commands(),
+                "diagnostics": row_diagnostics,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_skill_code_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_changed_files_exported": False,
+                "raw_rollback_artifact_exported": False,
+                "raw_source_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    implementation_ready = implementation_intake_preflight.get("implementation_allowed") is True
+    ready = bool(rows) and implementation_ready and not diagnostics
+    return {
+        "controller_surface": "skill_route_discovery_retained_output_selection_gate",
+        "status": "ready" if ready else "blocked",
+        "decision": "retained_local_artifacts_ready_for_operator_selection"
+        if ready
+        else "retain_or_repair_local_artifact_outputs_before_selection",
+        "lane_count": len(rows),
+        "ready_lane_count": sum(1 for row in rows if row["selection_ready"]),
+        "blocked_lane_count": sum(1 for row in rows if not row["selection_ready"]),
+        "implementation_intake_status": str(implementation_intake_preflight.get("status") or ""),
+        "implementation_allowed": implementation_ready,
+        "rows": rows,
+        "diagnostics": diagnostics,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_changed_files_exported": False,
+        "raw_rollback_artifact_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

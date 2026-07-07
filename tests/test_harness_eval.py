@@ -11681,6 +11681,92 @@ def test_skill_route_discovery_lane_requires_review_for_downgraded_lanes():
     assert output["supervisor_readiness"]["external_harness_execution_allowed"] is False
 
 
+def test_skill_route_discovery_retained_output_selection_gate_requires_local_artifact_proof():
+    validation_commands = skill_route_discovery_preactivation_validation_commands()
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "fixture-skill-route-retained-output-selection",
+            "source_kind": "candidates",
+            "candidates": [
+                {
+                    "name": "bionemo-agent-toolkit",
+                    "source_url": "https://github.com/NVIDIA-BioNeMo/bionemo-agent-toolkit",
+                    "discovery_event_kind": "pull_request",
+                    "evidence_summary": (
+                        "BioNeMo exposes agent plugin metadata, skill catalogs, and workflow directories; "
+                        "use the route evidence only for a bounded local code patch."
+                    ),
+                    "candidate_lanes": ["code_patch"],
+                    "route_profiles": ["generic_skill_workflow"],
+                    "source_layout_signals": ["skill_directory", "skill_manifest", "agent_plugin_marketplace"],
+                    "evidence_item_ids": ["11428002521-1"],
+                }
+            ],
+            "local_artifact_proofs": [
+                {
+                    "proposal_kind": "code_patch",
+                    "changed_files": ["src/blackhole_agent/harness_eval.py"],
+                    "validation_commands": validation_commands,
+                    "rollback_artifact": (
+                        "artifacts/rollback/20260707T033435Z-skill-route-discovery-pass3-"
+                        "route-activation-lanes/rollback-point.md"
+                    ),
+                    "review_note": "Retain local artifact proof before operator selection.",
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "skill_route_retained_output_selection_inline.json",
+    )
+
+    gate = output["retained_output_selection_gate"]
+    serialized_gate = json.dumps(gate, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["implementation_intake_preflight"]["implementation_allowed"] is True
+    assert gate["status"] == "ready"
+    assert gate["decision"] == "retained_local_artifacts_ready_for_operator_selection"
+    assert gate["implementation_allowed"] is True
+    assert gate["ready_lane_count"] == 1
+    assert gate["blocked_lane_count"] == 0
+    assert gate["diagnostics"] == []
+    assert gate["rows"] == [
+        {
+            "proposal_kind": "code_patch",
+            "selection_ready": True,
+            "retained_local_artifact_ready": True,
+            "changed_file_count": 1,
+            "changed_file_hashes": [stable_text_hash("src/blackhole_agent/harness_eval.py")],
+            "target_path_hashes": [
+                stable_text_hash("src/blackhole_agent/harness_eval.py"),
+                stable_text_hash("src/blackhole_agent/skill_routing.py"),
+            ],
+            "rollback_artifact_hash": stable_text_hash(
+                "artifacts/rollback/20260707T033435Z-skill-route-discovery-pass3-"
+                "route-activation-lanes/rollback-point.md"
+            ),
+            "review_note_recorded": True,
+            "required_validation": validation_commands,
+            "diagnostics": [],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_skill_code_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_changed_files_exported": False,
+            "raw_rollback_artifact_exported": False,
+            "raw_source_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    ]
+    assert "https://github.com/" not in serialized_gate
+    assert "src/blackhole_agent/harness_eval.py" not in serialized_gate
+    assert "rollback-point.md" not in serialized_gate
+
+
 def test_rendered_html_artifact_validation_blocks_when_scripts_do_not_execute():
     raw_input = {
         "task_id": "fixture-rendered-html-script-disabled",
