@@ -11,6 +11,28 @@ selected digest `item_id` values in `evidence_refs`; repository URLs, truncated
 items, and newly discovered external evidence are rejected or kept as
 uncertainty, never as activation evidence.
 
+For source digest `github-growth-20260707T121946.674633Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane`.
+The lane keeps `lingbol088-spec/reverse-flow-skill` in the local test lane
+because its public package shape includes a Codex/AI Agent skill directory,
+`SKILL.md`, local sandbox framing, scripts, and staged reverse-analysis
+workflow language. Its install, run, script, runtime, provider, and external
+harness wording remains diagnostic pressure only.
+
+`Pluviobyte/rnskill` maps to the generic skill workflow documentation lane
+because it is a multi-skill `SKILL.md`-compatible collection with `skills/`,
+docs, tools, marketplace metadata, and manual install examples. The same pass
+keeps a route-classification coverage row for rnskill metadata so unsupported
+install/enable/run/provider/external-harness pressure cannot become a local
+lane.
+
+`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and
+`shepherd-agents/shepherd` remain `agent_harness_eval_required`. They inherit
+no `skill_route_discovery` lane, expose no direct implementation lane before
+local harness evaluation, and may only produce documentation, test, or
+code_patch follow-up after a bounded harness result exists. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T121946`.
+
 For source digest `github-growth-20260707T110834.493888Z`, pass 1 records a
 proposal replay fixture for the active anchors
 `p1_reverse_flow_skill_route_discovery`,
