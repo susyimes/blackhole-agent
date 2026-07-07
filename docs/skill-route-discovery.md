@@ -5,6 +5,24 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T150109.515302Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260707T150109_pass2_validation_lane`.
+The lane compares the active reverse-flow and rnskill proposals before any
+activation path: `lingbol088-spec/reverse-flow-skill` remains a Codex
+workflow-gate candidate in the local test lane, and `Pluviobyte/rnskill`
+remains a generic `SKILL.md` collection in the documentation lane. Both keep
+documentation, config, test, and code_patch as the only accepted local outputs.
+Install, enable, run, script execution, provider runtime, external harness,
+memory write, and remote execution pressure is retained only as stripped
+diagnostic evidence.
+
+The same lane keeps `shepherd-agents/shepherd`,
+`InternScience/Agents-A1`, and `TianhangZhuzth/Fundamental-Ava` in
+`agent_harness_eval_required`. Shepherd's advisory memory-context signal is
+not a memory or profile write route; it requires a local harness result before
+documentation, test, or code_patch follow-up can be promoted. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T150109`.
+
 For source digest `github-growth-20260707T140109.483291Z`, pass 3 exposes
 `skill_route_discovery_current_digest_20260707T140109_pass3_runner_control_plane`.
 The pass-3 runner control plane makes the current route workflow legible as

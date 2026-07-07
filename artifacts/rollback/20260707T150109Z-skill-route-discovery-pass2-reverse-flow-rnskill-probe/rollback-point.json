@@ -1,0 +1,10 @@
+{
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T150210.934821-run-a-local-skill-route-discovery-probe-for-reve",
+    "git reset --hard refs/rollback/20260707T150109Z-skill-route-discovery-pass2-reverse-flow-rnskill-probe"
+  ],
+  "original_branch": "codex/blackhole-evolve/20260707T150210.934821-run-a-local-skill-route-discovery-probe-for-reve",
+  "run": "20260707T150109Z-skill-route-discovery-pass2-reverse-flow-rnskill-probe",
+  "rollback_ref": "refs/rollback/20260707T150109Z-skill-route-discovery-pass2-reverse-flow-rnskill-probe",
+  "original_head": "218020c9c4d1d53075e458b27d6d70085c840cbb"
+}
