@@ -41895,6 +41895,112 @@ def test_skill_route_discovery_current_digest_20260707T212110_pass1_keeps_domain
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260707T220110_pass3_routes_current_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T220110_pass3_current_window.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    lane = packet["current_pass3_proposal_lane"]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    queue = {row["route_id"]: row for row in packet["route_validation_queue"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert packet["source_digest"] == "github-growth-20260707T220110.405293Z"
+    assert packet["status"] == "ready"
+    assert packet["skill_workflow_count"] == 3
+    assert packet["general_agent_project_count"] == 1
+    assert packet["selected_skill_local_lanes"] == ["test"]
+    assert packet["agent_harness_eval_required_before_implementation"] is True
+
+    assert lane["controller_surface"] == "skill_route_discovery_current_pass3_proposal_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 3
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-fixtures",
+        "p2-skill-route-discovery-doc",
+        "p3-bionemo-skill-routing-domain-guard",
+        "p3-agent-harness-eval-gate",
+    ]
+    assert lane["selected_local_lanes"] == [
+        "documentation",
+        "test",
+        "agent_harness_eval_required",
+    ]
+
+    reverse_flow = rows["p1-skill-route-discovery-fixtures"]
+    assert reverse_flow["candidate_name"] == "lingbol088-spec-reverse-flow-skill"
+    assert reverse_flow["route_hint"] == SKILL_ROUTE_DISCOVERY_HINT
+    assert reverse_flow["route_kind"] == "skill_workflow"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+
+    rnskill = rows["p2-skill-route-discovery-doc"]
+    assert rnskill["candidate_name"] == "rnskill"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert rnskill["selected_evidence_item_ids"] == ["trend:Pluviobyte/rnskill-1"]
+
+    bionemo = rows["p3-bionemo-skill-routing-domain-guard"]
+    assert bionemo["candidate_name"] == "bionemo-agent-toolkit"
+    assert bionemo["route_profiles"] == [
+        "generic_skill_workflow",
+        "source_cited_domain_research",
+    ]
+    assert bionemo["selected_local_lane"] == "test"
+    assert bionemo["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert bionemo["selected_evidence_item_ids"] == [
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1"
+    ]
+
+    agents_a1 = rows["p3-agent-harness-eval-gate"]
+    assert agents_a1["name"] == "Agents-A1"
+    assert agents_a1["route_kind"] == "general_agent_project"
+    assert agents_a1["route_hint"] == "agent_harness_eval_required"
+    assert agents_a1["selected_local_lane"] == "agent_harness_eval_required"
+    assert agents_a1["direct_allowed_lanes_before_eval"] == []
+    assert agents_a1["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert agents_a1["implementation_lanes_enabled"] is False
+    assert agents_a1["skill_route_discovery_inherited"] is False
+    assert agents_a1["direct_runtime_route_allowed"] is False
+    assert agents_a1["direct_code_patch_route_allowed"] is False
+
+    assert list(queue) == [
+        "trend:NVIDIA-BioNeMo/bionemo-agent-toolkit-1",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:InternScience/Agents-A1-1",
+    ]
+    assert queue["trend:InternScience/Agents-A1-1"]["route_hint"] == "agent_harness_eval_required"
+    assert queue["trend:InternScience/Agents-A1-1"]["selected_local_lane"] == (
+        "agent_harness_eval_required"
+    )
+
+    for row in lane["rows"]:
+        assert row["status"] == "ready"
+        assert row["activation_blockers"] == []
+        assert row["local_validation_required"] is True
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_agent_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "pytest tests/" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260705T084958_pass2_routes_skill_and_agent_lanes():
     fixture_path = (
         Path(__file__).parent

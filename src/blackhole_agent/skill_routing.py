@@ -2528,38 +2528,85 @@ def _skill_route_discovery_current_pass3_proposal_lane(
 ) -> dict[str, Any]:
     """Expose this wake's pass-3 proposal bindings without expanding lanes."""
 
-    if source_digest != "github-growth-20260707T044834.430159Z":
+    current_044834_window = source_digest == "github-growth-20260707T044834.430159Z"
+    current_220110_window = source_digest == "github-growth-20260707T220110.405293Z"
+    if not (current_044834_window or current_220110_window):
         return {}
 
     rows_by_id = {str(row.get("route_id") or ""): row for row in route_rows}
-    reverse_flow = rows_by_id.get("p1_skill_route_discovery_probe")
-    rnskill = rows_by_id.get("p2_generic_skill_workflow_fixture_rnskill")
-    proposal_specs = (
-        {
-            "proposal_id": "p1_skill_route_discovery_probe",
-            "proposal_kind": "test",
-            "proposal_track": "skill_route_discovery_reverse_flow_and_rnskill_probe",
-            "route_row": reverse_flow,
-            "selected_local_lane": "test",
-            "validation_target": "skill_term_and_mixed_skill_workflow_probe_inputs_stay_bounded",
-        },
-        {
-            "proposal_id": "p2_skill_route_discovery_docs",
-            "proposal_kind": "documentation",
-            "proposal_track": "external_skill_repository_interpretation_rule",
-            "route_row": rnskill,
-            "selected_local_lane": "documentation",
-            "validation_target": "document_skill_route_discovery_lane_interpretation",
-        },
-        {
-            "proposal_id": "p3_skill_routing_config_fixture",
-            "proposal_kind": "config",
-            "proposal_track": "generic_skill_workflow_route_profile_fixture",
-            "route_row": rnskill,
-            "selected_local_lane": "config",
-            "validation_target": "generic_skill_workflow_profile_records_bounded_config_lane",
-        },
-    )
+    rows_by_candidate_name = {str(row.get("candidate_name") or ""): row for row in route_rows}
+    rows_by_agent_name = {str(row.get("name") or ""): row for row in route_rows}
+    if current_220110_window:
+        proposal_specs = (
+            {
+                "proposal_id": "p1-skill-route-discovery-fixtures",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_fixture_coverage",
+                "route_row": rows_by_candidate_name.get("lingbol088-spec-reverse-flow-skill"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "test",
+                "validation_target": "skill_term_and_mixed_skill_workflow_probe_inputs_stay_bounded",
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-doc",
+                "proposal_kind": "documentation",
+                "proposal_track": "bounded_skill_route_interpretation",
+                "route_row": rows_by_candidate_name.get("rnskill"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_route_discovery_allowed_validation_lanes",
+            },
+            {
+                "proposal_id": "p3-bionemo-skill-routing-domain-guard",
+                "proposal_kind": "test",
+                "proposal_track": "domain_specific_skill_toolkit_guard",
+                "route_row": rows_by_candidate_name.get("bionemo-agent-toolkit"),
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "test",
+                "validation_target": "domain_skill_toolkit_stays_bounded_before_provider_or_data_activation",
+            },
+            {
+                "proposal_id": "p3-agent-harness-eval-gate",
+                "proposal_kind": "test",
+                "proposal_track": "general_agent_project_harness_eval_gate",
+                "route_row": rows_by_agent_name.get("Agents-A1"),
+                "expected_route_kind": "general_agent_project",
+                "selected_local_lane": "agent_harness_eval_required",
+                "validation_target": "general_agent_projects_without_skill_workflow_stay_agent_harness_eval_required",
+            },
+        )
+    else:
+        reverse_flow = rows_by_id.get("p1_skill_route_discovery_probe")
+        rnskill = rows_by_id.get("p2_generic_skill_workflow_fixture_rnskill")
+        proposal_specs = (
+            {
+                "proposal_id": "p1_skill_route_discovery_probe",
+                "proposal_kind": "test",
+                "proposal_track": "skill_route_discovery_reverse_flow_and_rnskill_probe",
+                "route_row": reverse_flow,
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "test",
+                "validation_target": "skill_term_and_mixed_skill_workflow_probe_inputs_stay_bounded",
+            },
+            {
+                "proposal_id": "p2_skill_route_discovery_docs",
+                "proposal_kind": "documentation",
+                "proposal_track": "external_skill_repository_interpretation_rule",
+                "route_row": rnskill,
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "documentation",
+                "validation_target": "document_skill_route_discovery_lane_interpretation",
+            },
+            {
+                "proposal_id": "p3_skill_routing_config_fixture",
+                "proposal_kind": "config",
+                "proposal_track": "generic_skill_workflow_route_profile_fixture",
+                "route_row": rnskill,
+                "expected_route_kind": "skill_workflow",
+                "selected_local_lane": "config",
+                "validation_target": "generic_skill_workflow_profile_records_bounded_config_lane",
+            },
+        )
 
     proposal_rows: list[dict[str, Any]] = []
     blocked_proposal_ids: list[str] = []
@@ -2567,16 +2614,34 @@ def _skill_route_discovery_current_pass3_proposal_lane(
         route_row = spec["route_row"]
         proposal_id = str(spec["proposal_id"])
         selected_lane = str(spec["selected_local_lane"])
+        expected_route_kind = str(spec["expected_route_kind"])
         blockers: list[str] = []
         if not isinstance(route_row, Mapping):
             blockers.append("route_row_missing")
             route_row = {}
         allowed_lanes = _string_list(route_row.get("allowed_local_lanes"))
-        if selected_lane not in allowed_lanes:
+        if expected_route_kind == "general_agent_project":
+            allowed_lanes = _string_list(route_row.get("allowed_local_lanes_after_eval"))
+            if selected_lane != "agent_harness_eval_required":
+                blockers.append("selected_local_lane_not_agent_harness_eval_required")
+            if route_row.get("implementation_lanes_enabled") is not False:
+                blockers.append("implementation_lanes_enabled_before_eval")
+            if route_row.get("skill_route_discovery_inherited") is not False:
+                blockers.append("skill_route_discovery_inherited")
+            if route_row.get("direct_runtime_route_allowed") is not False:
+                blockers.append("direct_runtime_route_allowed")
+            if route_row.get("direct_code_patch_route_allowed") is not False:
+                blockers.append("direct_code_patch_route_allowed")
+        elif selected_lane not in allowed_lanes:
             blockers.append("selected_local_lane_not_allowed")
-        if str(route_row.get("route_kind") or "") != "skill_workflow":
-            blockers.append("skill_workflow_route_missing")
-        if str(route_row.get("route_hint") or "") != SKILL_ROUTE_DISCOVERY_HINT:
+        if str(route_row.get("route_kind") or "") != expected_route_kind:
+            blockers.append(f"{expected_route_kind}_route_missing")
+        expected_route_hint = (
+            "agent_harness_eval_required"
+            if expected_route_kind == "general_agent_project"
+            else SKILL_ROUTE_DISCOVERY_HINT
+        )
+        if str(route_row.get("route_hint") or "") != expected_route_hint:
             blockers.append("skill_route_discovery_hint_missing")
         if route_row.get("local_validation_required") is not True:
             blockers.append("local_validation_not_required")
@@ -2599,15 +2664,30 @@ def _skill_route_discovery_current_pass3_proposal_lane(
                 "proposal_kind": str(spec["proposal_kind"]),
                 "proposal_track": str(spec["proposal_track"]),
                 "candidate_name": str(route_row.get("candidate_name") or ""),
+                "name": str(route_row.get("name") or ""),
                 "candidate_source_hash": str(route_row.get("candidate_source_hash") or ""),
                 "route_id": str(route_row.get("route_id") or ""),
-                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
-                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_kind": expected_route_kind,
+                "route_hint": expected_route_hint,
+                "route_class": str(
+                    route_row.get("route_class")
+                    or (
+                        "general_agent_project"
+                        if expected_route_kind == "general_agent_project"
+                        else SKILL_ROUTE_DISCOVERY_ROUTE_CLASS
+                    )
+                ),
                 "route_profiles": _string_list(route_row.get("route_profiles")),
                 "allowed_local_lanes": allowed_lanes,
                 "selected_local_lane": selected_lane,
                 "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
                 "selected_evidence_item_ids": _string_list(route_row.get("selected_evidence_item_ids")),
+                "allowed_local_lanes_after_eval": _string_list(route_row.get("allowed_local_lanes_after_eval")),
+                "direct_allowed_lanes_before_eval": _string_list(route_row.get("direct_allowed_lanes_before_eval")),
+                "implementation_lanes_enabled": route_row.get("implementation_lanes_enabled") is True,
+                "skill_route_discovery_inherited": route_row.get("skill_route_discovery_inherited") is True,
+                "direct_runtime_route_allowed": route_row.get("direct_runtime_route_allowed") is True,
+                "direct_code_patch_route_allowed": route_row.get("direct_code_patch_route_allowed") is True,
                 "validation_gate": "focused-evidence-review",
                 "validation_target": str(spec["validation_target"]),
                 "status": "ready" if not blockers else "blocked",
@@ -2645,7 +2725,7 @@ def _skill_route_discovery_current_pass3_proposal_lane(
             "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
             "selected_local_lanes": [
                 lane
-                for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                for lane in (*SKILL_ROUTE_DISCOVERY_ALLOWED_LANES, "agent_harness_eval_required")
                 if lane in {str(row["selected_local_lane"]) for row in proposal_rows}
             ],
             "operator_next_action": (
