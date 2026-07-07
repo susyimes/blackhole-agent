@@ -1,0 +1,12 @@
+{
+  "run_id": "20260707T072832Z-skill-route-discovery-pass3-proposal-replay-plan",
+  "original_branch": "codex/blackhole-evolve/20260707T072924.739091-add-a-local-skill-route-discovery-validation-lan",
+  "original_head": "313586591e53cb116058fe03061870d1f57c39c1",
+  "rollback_ref": "refs/rollback/blackhole-agent/20260707T072832Z-skill-route-discovery-pass3",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T072924.739091-add-a-local-skill-route-discovery-validation-lan",
+    "git reset --hard refs/rollback/blackhole-agent/20260707T072832Z-skill-route-discovery-pass3"
+  ],
+  "destructive": true,
+  "created_before_edits": true
+}

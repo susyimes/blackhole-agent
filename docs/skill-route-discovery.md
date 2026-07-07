@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T072834.240470Z`, pass 3 exposes the
+active proposal queue through
+`skill_route_discovery_current_digest_20260707T072834_pass3_proposal_replay_plan`.
+The plan binds `p1_skill_route_discovery_codex_workflow_gate` to the
+reverse-flow Codex workflow-gate test lane and
+`p2_generic_skill_workflow_discovery` to the rnskill generic skill workflow
+documentation lane. Both rows keep documentation, config, test, and code_patch
+as the only bounded local lanes and record `local_validation_required` before
+activation.
+
+The same plan routes `InternScience/Agents-A1`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` through
+`p3_agent_harness_eval_queue` with no direct implementation lanes before local
+agent-harness evaluation. `p4_no_external_url_expansion_guard` records that the
+operator-visible packet exports hashes, item IDs, lane names, booleans, and
+body-free summaries only; raw source URLs, raw evidence URLs, upstream bodies,
+runtime action, external skill activation, external harness execution, provider
+launch, and remote execution remain denied. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T072834`.
+
 For source digest `github-growth-20260707T062834.999092Z`, pass 4 completes the
 current `skill-route-discovery` slice through
 `skill_route_discovery_current_pass4_completion_handoff`. The handoff binds
