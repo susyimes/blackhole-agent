@@ -22,6 +22,24 @@ recovery, replay, and report stages; it does not activate Shepherd, install an
 upstream skill, launch a provider, or grant runtime authority. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T172109`.
 
+For source digest `github-growth-20260707T174109.873436Z`, pass 2 exposes the
+active skill-route-discovery window through
+`skill_route_discovery_current_digest_20260707T174109_pass2_validation_lane`.
+`lingbol088-spec/reverse-flow-skill` remains a Codex workflow-gate row in the
+bounded local test lane, while `Pluviobyte/rnskill` remains a generic
+`SKILL.md` collection in the documentation lane. Both rows accept only
+documentation, config, test, or code_patch outputs before activation.
+
+`shepherd-agents/shepherd`, `InternScience/Agents-A1`, and
+`TianhangZhuzth/Fundamental-Ava` remain adjacent
+`agent_harness_eval_required` rows. Shepherd's reversible runtime signal is
+usable harness-evaluation evidence, not a direct runtime route; no adjacent
+general-agent project receives a local implementation lane before bounded
+harness evaluation. The lane records the rollback artifact for this run and
+leaves the self-model unchanged because it already prefers rollback-backed
+local validation over ornamental edits. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T174109`.
+
 For source digest `github-growth-20260707T162109.466559Z`, pass 2 binds
 the active reverse-flow/rnskill proposals to the existing pass-2 operator lane
 and exposes `current_pass2_activation_recovery_workflow` inside the activation
