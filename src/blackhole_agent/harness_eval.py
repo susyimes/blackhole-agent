@@ -8487,6 +8487,17 @@ def skill_route_discovery_pass3_handoff_packet(
     adjacent_general_agent_project_eval = (
         skill_route_discovery_pass3_adjacent_general_agent_project_eval(raw_input=raw_input)
     )
+    supervisor_activation_gate = skill_route_discovery_pass3_supervisor_activation_gate(
+        ready=ready,
+        current_action=current_action,
+        pass_validation_replay_queue=pass_validation_replay_queue,
+        proposal_lane_activation_contract=proposal_lane_activation_contract,
+        local_validation_probe=local_validation_probe,
+        promotion_runbook=promotion_runbook,
+        runner_harness_control_plane=runner_harness_control_plane,
+        adjacent_general_agent_project_eval=adjacent_general_agent_project_eval,
+        diagnostics=diagnostics,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_pass3_handoff_packet",
@@ -8538,6 +8549,7 @@ def skill_route_discovery_pass3_handoff_packet(
         "local_validation_probe": local_validation_probe,
         "runner_harness_control_plane": runner_harness_control_plane,
         "adjacent_general_agent_project_eval": adjacent_general_agent_project_eval,
+        "supervisor_activation_gate": supervisor_activation_gate,
         "rows": rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
         "required_validation": string_list(current_action.get("required_validation")),
@@ -8557,6 +8569,127 @@ def skill_route_discovery_pass3_handoff_packet(
         "raw_source_urls_exported": False,
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def skill_route_discovery_pass3_supervisor_activation_gate(
+    *,
+    ready: bool,
+    current_action: dict[str, Any],
+    pass_validation_replay_queue: dict[str, Any],
+    proposal_lane_activation_contract: dict[str, Any],
+    local_validation_probe: dict[str, Any],
+    promotion_runbook: dict[str, Any],
+    runner_harness_control_plane: dict[str, Any],
+    adjacent_general_agent_project_eval: dict[str, Any],
+    diagnostics: list[str],
+) -> dict[str, Any]:
+    """Collapse pass-3 replay surfaces into one supervisor-visible activation gate."""
+
+    nested_surfaces = [
+        ("pass_validation_replay_queue", pass_validation_replay_queue),
+        ("proposal_lane_activation_contract", proposal_lane_activation_contract),
+        ("local_validation_probe", local_validation_probe),
+        ("promotion_runbook", promotion_runbook),
+        ("runner_harness_control_plane", runner_harness_control_plane),
+    ]
+    surface_statuses = {
+        name: optional_string(surface.get("status")) or ""
+        for name, surface in nested_surfaces
+    }
+    blocked_surfaces = [
+        name
+        for name, status in surface_statuses.items()
+        if status != "ready"
+    ]
+    adjacent_status = optional_string(adjacent_general_agent_project_eval.get("status")) or ""
+    adjacent_holdback_ready = adjacent_status in {"gated", "not_present"} and (
+        adjacent_general_agent_project_eval.get("skill_route_discovery_inherited") is False
+    )
+    if not adjacent_holdback_ready:
+        blocked_surfaces.append("adjacent_general_agent_project_eval")
+
+    required_validation = sorted(dict.fromkeys(string_list(current_action.get("required_validation"))))
+    provider_runtime_replay_commands = sorted(
+        dict.fromkeys(string_list(current_action.get("provider_runtime_replay_commands")))
+    )
+    queue_fingerprints = string_list(pass_validation_replay_queue.get("queue_fingerprints"))
+    queue_rows = pass_validation_replay_queue.get("rows")
+    queue_rows = queue_rows if isinstance(queue_rows, list) else []
+    selected_local_lanes = sorted(
+        {
+            optional_string(row.get("selected_local_lane")) or ""
+            for row in queue_rows
+            if isinstance(row, dict) and row.get("queue_role") == "selected_current_pass_lane"
+        }
+        - {""}
+    )
+    queued_local_lanes = sorted(
+        {
+            optional_string(row.get("selected_local_lane")) or ""
+            for row in queue_rows
+            if isinstance(row, dict) and row.get("queue_role") == "queued_bounded_lane"
+        }
+        - {""}
+    )
+    gate_ready = ready and not blocked_surfaces and not diagnostics
+
+    return {
+        "controller_surface": "skill_route_discovery_pass3_supervisor_activation_gate",
+        "status": "ready" if gate_ready else "blocked",
+        "decision": "supervisor_can_replay_pass3_gate_without_activation"
+        if gate_ready
+        else "repair_pass3_gate_before_supervisor_replay",
+        "current_pass": int(current_action.get("current_pass") or 0),
+        "next_pass": int(current_action.get("next_pass") or 0),
+        "total_passes": int(current_action.get("total_passes") or 0),
+        "selected_local_lane": optional_string(current_action.get("selected_local_lane")) or "",
+        "selected_local_lanes": selected_local_lanes,
+        "queued_local_lanes": queued_local_lanes,
+        "queue_count": int(pass_validation_replay_queue.get("queue_count") or 0),
+        "queue_fingerprints": queue_fingerprints,
+        "queue_fingerprint_count": len(queue_fingerprints),
+        "proposal_lane_contract_status": surface_statuses["proposal_lane_activation_contract"],
+        "local_validation_probe_status": surface_statuses["local_validation_probe"],
+        "promotion_runbook_status": surface_statuses["promotion_runbook"],
+        "runner_harness_control_plane_status": surface_statuses["runner_harness_control_plane"],
+        "adjacent_general_agent_status": adjacent_status,
+        "adjacent_general_agent_holdback_ready": adjacent_holdback_ready,
+        "blocked_surfaces": sorted(dict.fromkeys(blocked_surfaces)),
+        "required_validation_command_hashes": sorted(stable_text_hash(command) for command in required_validation),
+        "provider_runtime_replay_command_hashes": sorted(
+            stable_text_hash(command) for command in provider_runtime_replay_commands
+        ),
+        "operator_sequence": [
+            "confirm_rollback_artifact",
+            "review_pass3_body_free_gate",
+            "run_focused_local_validation",
+            "handoff_to_external_supervisor_for_final_pass",
+        ],
+        "supervisor_action": "replay_pass3_gate_then_continue_to_pass4"
+        if gate_ready
+        else "repair_blocked_pass3_gate_before_replay",
+        "activation_before_validation_allowed": False,
+        "activation_performed": False,
+        "promotion_or_push_performed": False,
+        "kernel_restart_allowed": False,
+        "local_validation_required": True,
+        "body_free": True,
+        "runtime_action": "none",
+        "runtime_action_allowed": False,
+        "external_skill_activation_allowed": False,
+        "external_skill_code_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_evidence_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_source_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
     }
 
 

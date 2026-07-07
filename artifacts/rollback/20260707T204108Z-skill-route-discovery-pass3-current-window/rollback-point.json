@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-07-07T20:41:08Z",
+  "original_branch": "codex/blackhole-evolve/20260707T204157.899906-create-a-local-regression-validation-lane-for-re",
+  "head": "7f4748514ad31712136ec4cfc3f5eb2b043de505",
+  "rollback_ref": "refs/rollback/20260707T204108Z-skill-route-discovery-pass3-current-window",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260707T204157.899906-create-a-local-regression-validation-lane-for-re",
+    "git reset --hard refs/rollback/20260707T204108Z-skill-route-discovery-pass3-current-window"
+  ],
+  "source_digest": "github-growth-20260707T204110.181515Z",
+  "capability_slice": "skill-route-discovery",
+  "capability_pass": 3
+}

@@ -8865,6 +8865,56 @@ def test_skill_route_discovery_pass3_selects_bounded_lane_per_profile():
     assert adjacent_general_agent_eval["external_agent_activation_allowed"] is False
     assert adjacent_general_agent_eval["external_harness_execution_allowed"] is False
     assert adjacent_general_agent_eval["raw_source_urls_exported"] is False
+    supervisor_gate = pass3_handoff["supervisor_activation_gate"]
+    assert supervisor_gate["controller_surface"] == "skill_route_discovery_pass3_supervisor_activation_gate"
+    assert supervisor_gate["status"] == "ready"
+    assert supervisor_gate["decision"] == "supervisor_can_replay_pass3_gate_without_activation"
+    assert supervisor_gate["current_pass"] == 3
+    assert supervisor_gate["next_pass"] == 4
+    assert supervisor_gate["selected_local_lane"] == "test"
+    assert supervisor_gate["selected_local_lanes"] == ["test"]
+    assert supervisor_gate["queued_local_lanes"] == ["config"]
+    assert supervisor_gate["queue_count"] == 2
+    assert supervisor_gate["queue_fingerprints"] == expected_queue_fingerprints
+    assert supervisor_gate["queue_fingerprint_count"] == 2
+    assert supervisor_gate["proposal_lane_contract_status"] == "ready"
+    assert supervisor_gate["local_validation_probe_status"] == "ready"
+    assert supervisor_gate["promotion_runbook_status"] == "ready"
+    assert supervisor_gate["runner_harness_control_plane_status"] == "ready"
+    assert supervisor_gate["adjacent_general_agent_status"] == "gated"
+    assert supervisor_gate["adjacent_general_agent_holdback_ready"] is True
+    assert supervisor_gate["blocked_surfaces"] == []
+    assert supervisor_gate["required_validation_command_hashes"] == sorted(
+        stable_text_hash(command) for command in skill_route_discovery_preactivation_validation_commands()
+    )
+    assert supervisor_gate["provider_runtime_replay_command_hashes"] == sorted(
+        stable_text_hash(command)
+        for command in [
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+            "pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+        ]
+    )
+    assert supervisor_gate["operator_sequence"] == [
+        "confirm_rollback_artifact",
+        "review_pass3_body_free_gate",
+        "run_focused_local_validation",
+        "handoff_to_external_supervisor_for_final_pass",
+    ]
+    assert supervisor_gate["supervisor_action"] == "replay_pass3_gate_then_continue_to_pass4"
+    assert supervisor_gate["activation_before_validation_allowed"] is False
+    assert supervisor_gate["activation_performed"] is False
+    assert supervisor_gate["promotion_or_push_performed"] is False
+    assert supervisor_gate["kernel_restart_allowed"] is False
+    assert supervisor_gate["runtime_action_allowed"] is False
+    assert supervisor_gate["external_skill_activation_allowed"] is False
+    assert supervisor_gate["external_agent_activation_allowed"] is False
+    assert supervisor_gate["external_harness_execution_allowed"] is False
+    assert supervisor_gate["provider_runtime_launch_allowed"] is False
+    assert supervisor_gate["remote_execution_allowed"] is False
+    assert supervisor_gate["raw_evidence_urls_exported"] is False
+    assert supervisor_gate["raw_source_urls_exported"] is False
+    assert supervisor_gate["raw_replay_commands_exported"] is False
+    assert supervisor_gate["raw_upstream_body_exported"] is False
     checklist = pass3_handoff["final_pass_replay_checklist"]
     assert checklist["controller_surface"] == "skill_route_discovery_pass3_final_pass_replay_checklist"
     assert checklist["status"] == "ready"
@@ -9521,6 +9571,30 @@ def test_skill_route_discovery_pass3_blocks_when_profile_contract_is_not_ready()
     assert control_plane["provider_runtime_launch_allowed"] is False
     assert control_plane["raw_evidence_urls_exported"] is False
     assert control_plane["raw_artifact_paths_exported"] is False
+    supervisor_gate = pass3_handoff["supervisor_activation_gate"]
+    assert supervisor_gate["status"] == "blocked"
+    assert supervisor_gate["decision"] == "repair_pass3_gate_before_supervisor_replay"
+    assert supervisor_gate["proposal_lane_contract_status"] == "blocked"
+    assert supervisor_gate["local_validation_probe_status"] == "blocked"
+    assert supervisor_gate["promotion_runbook_status"] == "blocked"
+    assert supervisor_gate["runner_harness_control_plane_status"] == "blocked"
+    assert supervisor_gate["adjacent_general_agent_status"] == "gated"
+    assert supervisor_gate["adjacent_general_agent_holdback_ready"] is True
+    assert supervisor_gate["blocked_surfaces"] == [
+        "local_validation_probe",
+        "pass_validation_replay_queue",
+        "promotion_runbook",
+        "proposal_lane_activation_contract",
+        "runner_harness_control_plane",
+    ]
+    assert "profile_lane_acceptance_contract_not_ready" in supervisor_gate["diagnostics"]
+    assert supervisor_gate["supervisor_action"] == "repair_blocked_pass3_gate_before_replay"
+    assert supervisor_gate["activation_before_validation_allowed"] is False
+    assert supervisor_gate["activation_performed"] is False
+    assert supervisor_gate["runtime_action_allowed"] is False
+    assert supervisor_gate["external_skill_activation_allowed"] is False
+    assert supervisor_gate["provider_runtime_launch_allowed"] is False
+    assert supervisor_gate["raw_replay_commands_exported"] is False
     assert proof_rows["skill_ecosystem_state_handoff"]["status"] == "blocked"
     assert "profile_acceptance_contract_not_ready" in proof_rows["skill_ecosystem_state_handoff"]["blockers"]
     assert proof_rows["skill_ecosystem_state_handoff"]["runtime_action_allowed"] is False
