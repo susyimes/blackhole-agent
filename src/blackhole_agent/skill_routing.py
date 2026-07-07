@@ -1701,7 +1701,17 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         )
     )
     current_digest_pass4_completion_handoff = (
-        _skill_route_discovery_current_digest_pass4_completion_handoff(
+        _skill_route_discovery_current_digest_20260707T074834_pass4_local_route_discovery(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+        )
+        if _skill_route_discovery_source_digest(registry)
+        in {
+            "github-growth-20260707T074834.250116Z",
+            "github-growth-20260707T074834Z",
+        }
+        else _skill_route_discovery_current_digest_pass4_completion_handoff(
             candidate_lane_inventory,
             ignored_evidence_items,
             source_digest=_skill_route_discovery_source_digest(registry),
@@ -14099,6 +14109,183 @@ def _skill_route_discovery_current_digest_20260707T072834_pass3_proposal_replay_
                 if ready
                 else "repair_current_digest_pass3_proposal_replay_plan_before_pass4"
             ),
+            "rows": rows,
+            "adjacent_general_agent_rows": adjacent_rows,
+        }
+    )
+    return lane
+
+
+def _skill_route_discovery_current_digest_20260707T074834_pass4_local_route_discovery(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+    *,
+    source_digest: str,
+) -> dict[str, Any]:
+    """Complete the current skill-route slice with bounded local lane replay metadata."""
+
+    lane = dict(
+        _skill_route_discovery_current_digest_20260707T072834_pass3_proposal_replay_plan(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=source_digest,
+        )
+    )
+    rows = [dict(row) for row in lane.get("rows", []) if isinstance(row, Mapping)]
+    adjacent_rows = [
+        dict(row) for row in lane.get("adjacent_general_agent_rows", []) if isinstance(row, Mapping)
+    ]
+    row_by_proposal = {str(row.get("proposal_id") or ""): row for row in rows}
+    reverse_flow = row_by_proposal.get("p1_skill_route_discovery_codex_workflow_gate", {})
+    generic_skill = row_by_proposal.get("p2_generic_skill_workflow_discovery", {})
+
+    skill_rows_ready = bool(reverse_flow) and bool(generic_skill) and all(
+        row.get("status") == "ready"
+        and row.get("local_validation_required") is True
+        and row.get("runtime_action") == "none"
+        and row.get("external_skill_activation_allowed") is False
+        and set(_string_list(row.get("allowed_local_lanes"))) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        for row in (reverse_flow, generic_skill)
+    )
+    adjacent_rows_ready = bool(adjacent_rows) and all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("implementation_lane_selected") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        and row.get("remote_execution_allowed") is False
+        for row in adjacent_rows
+    )
+    body_free_ready = (
+        lane.get("raw_source_url_exported") is False
+        and lane.get("raw_evidence_urls_exported") is False
+        and lane.get("raw_upstream_body_exported") is False
+        and all(row.get("raw_source_url_exported") is False for row in [*rows, *adjacent_rows])
+    )
+    ready = skill_rows_ready and adjacent_rows_ready and body_free_ready
+
+    replay_hash = _stable_hash("python -m pytest tests/test_skill_routing.py -q -k 20260707T074834")
+    harness_replay_hash = _stable_hash(
+        "python -m pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane"
+    )
+    local_skill_route_validation = {
+        "controller_surface": (
+            "skill_route_discovery_current_digest_20260707T074834_pass4_local_route_discovery"
+        ),
+        "status": "ready" if ready else "blocked",
+        "source_digest": source_digest,
+        "capability_pass": 4,
+        "total_passes": 4,
+        "capability_slice_complete": ready,
+        "proposal_ids": [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-skill-route-discovery-rnskill",
+            "p3-agent-harness-eval-general-projects",
+        ],
+        "skill_route_rows": [
+            {
+                "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                "route_profile": "codex_workflow_gate",
+                "selected_local_lane": "test",
+                "expected_entrypoint_markers": [
+                    "skills/reverse-flow/SKILL.md",
+                    "activation_phrase_documented",
+                    "local_sandbox_or_ctf_boundary",
+                    "script_examples_are_route_pressure_only",
+                ],
+                "source_item_ids": _string_list(reverse_flow.get("selected_evidence_item_ids")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-rnskill",
+                "route_profile": "generic_skill_workflow",
+                "selected_local_lane": "documentation",
+                "expected_entrypoint_markers": [
+                    "skills/*/SKILL.md",
+                    "manual_project_skill_install_shape",
+                    "plugin_or_tooling_metadata_is_route_pressure_only",
+                    "per_skill_invocation_constraints_documented_before_activation",
+                ],
+                "source_item_ids": _string_list(generic_skill.get("selected_evidence_item_ids")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+            },
+        ],
+        "adjacent_agent_harness_queue": [
+            {
+                "item_id": str(row.get("item_id") or ""),
+                "proposal_id": "p3-agent-harness-eval-general-projects",
+                "evaluation_lane": "agent_harness_eval_required",
+                "required_probe_fields": [
+                    "runnable_entrypoint",
+                    "dependency_isolation",
+                    "permission_boundary",
+                    "reproducible_task",
+                    "measurable_behavior",
+                    "rollback_artifact",
+                ],
+                "allowed_local_lanes_before_eval": [],
+                "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+                "runtime_action": "none",
+            }
+            for row in adjacent_rows
+        ],
+        "supervisor_replay_requirements": [
+            "confirm_rollback_point_exists",
+            "replay_bounded_skill_route_fixture",
+            "queue_adjacent_general_agent_projects_for_agent_harness_eval",
+            "keep_activation_external_to_the_kernel",
+        ],
+        "replay_command_hashes": [replay_hash, harness_replay_hash],
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+    lane.update(
+        {
+            "controller_surface": (
+                "skill_route_discovery_current_digest_20260707T074834_pass4_local_route_discovery"
+            ),
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_digest_pass4_local_skill_route_discovery_ready_for_supervisor_replay"
+                if ready
+                else "repair_current_digest_pass4_local_skill_route_discovery_before_handoff"
+            ),
+            "capability_pass": 4,
+            "total_passes": 4,
+            "capability_slice_complete": ready,
+            "proposal_ids": local_skill_route_validation["proposal_ids"],
+            "selected_local_lanes": ["documentation", "test"],
+            "agent_harness_eval_required_count": len(adjacent_rows),
+            "local_skill_route_validation": local_skill_route_validation,
+            "operator_next_action": (
+                "replay_current_digest_pass4_local_route_discovery_then_mark_slice_complete"
+                if ready
+                else "repair_current_digest_pass4_local_route_discovery_before_completion"
+            ),
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_replay_commands_exported": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
             "rows": rows,
             "adjacent_general_agent_rows": adjacent_rows,
         }

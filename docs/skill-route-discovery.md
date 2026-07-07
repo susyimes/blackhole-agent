@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T074834.250116Z`, pass 4 completes
+the active `skill-route-discovery` slice through
+`skill_route_discovery_current_digest_20260707T074834_pass4_local_route_discovery`.
+The packet turns the current evidence into a supervisor-visible replay surface:
+`lingbol088-spec/reverse-flow-skill` maps to the Codex workflow-gate test lane
+with expected entrypoint markers such as `skills/reverse-flow/SKILL.md`, an
+activation phrase, local sandbox or CTF boundary, and script examples treated
+as diagnostic pressure only. `Pluviobyte/rnskill` maps to the generic skill
+workflow documentation lane with expected markers for `skills/*/SKILL.md`,
+manual project skill install shape, plugin or tooling metadata, and per-skill
+invocation constraints before activation.
+
+Adjacent general-agent projects, including Shepherd-style reversible runtime
+evidence, are queued for `agent_harness_eval_required` rather than direct local
+implementation. Their required probe fields are runnable entrypoint, dependency
+isolation, permission boundary, reproducible task, measurable behavior, and
+rollback artifact. The packet exports item IDs, lane names, hashes, booleans,
+and body-free summaries only; raw source URLs, replay commands, target paths,
+upstream bodies, runtime action, external skill activation, external harness
+execution, provider launch, and remote execution remain denied. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T074834`.
+
 For source digest `github-growth-20260707T072834.240470Z`, pass 3 exposes the
 active proposal queue through
 `skill_route_discovery_current_digest_20260707T072834_pass3_proposal_replay_plan`.
