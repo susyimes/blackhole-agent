@@ -35,6 +35,7 @@ def test_proposal_replay_suite_accepts_frozen_harness_cases():
     assert {result.name for result in results} == {
         "agent-codex-workflow-local-validation",
         "benign-agent-harness",
+        "current-skill-route-discovery-20260707T110834",
         "current-wake-agent-harness-validation",
         "fastcontext-budget-memory-pressure",
         "omnigent-policy-boundary-current-wake",
@@ -53,11 +54,11 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
     report = run_proposal_benchmark_suite(CASE_PATHS)
 
     assert report.passed is True
-    assert report.case_count == 13
-    assert report.passed_count == 13
+    assert report.case_count == 14
+    assert report.passed_count == 14
     assert report.failed_count == 0
-    assert report.accepted_count == 24
-    assert report.rejected_count == 14
+    assert report.accepted_count == 27
+    assert report.rejected_count == 16
     assert report.failure_counts == {
         "schema_validity": 0,
         "evidence_ref_constraints": 0,
@@ -122,6 +123,30 @@ def test_proposal_benchmark_suite_summarizes_frozen_harness_cases():
         "reverse-flow-skill-fork-tallasd",
     ]
     assert reverse_flow.proposal_controls["p1-reverse-flow-skill-route-probe"]["kind"] == "test"
+    current_skill = results_by_name["current-skill-route-discovery-20260707T110834"]
+    assert current_skill.selected_item_ids == [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:shepherd-agents/shepherd-1",
+        "trend:TianhangZhuzth/Fundamental-Ava-1",
+    ]
+    assert set(current_skill.proposal_controls) == {
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_rnskill_generic_skill_route_discovery",
+        "p3_skill_route_discovery_docs",
+    }
+    assert all(
+        controls["kind"] in {"documentation", "test"}
+        for controls in current_skill.proposal_controls.values()
+    )
+    assert all(
+        preflight["status"] == "ready"
+        for preflight in current_skill.proposal_validation_preflights.values()
+    )
+    assert any(
+        "https://github.com/Pluviobyte/rnskill" in error
+        for error in current_skill.rejected_errors
+    )
     assert report.to_dict()["suite_name"] == "proposal-replay-benchmark"
 
 
@@ -129,7 +154,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
     report = validate_proposal_replay_manifest(MANIFEST_PATH)
 
     assert report.passed is True
-    assert report.case_count == 13
+    assert report.case_count == 14
     assert report.fixture_names == [
         "benign-agent-harness",
         "security-adjacent-context-pressure",
@@ -142,6 +167,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "agent-codex-workflow-local-validation",
         "skill-workflow-route-discovery",
         "reverse-flow-skill-route-probe",
+        "current-skill-route-discovery-20260707T110834",
         "skill-route-discovery-four-item-lanes",
         "skill-route-discovery-current-window-game-frontend-lanes",
     ]
@@ -149,6 +175,8 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/ApodexAI/AgentHarness",
         "https://github.com/LeanEntropy/threejs-phaser-game-skills",
         "https://github.com/NotPBShaw/burner-agents",
+        "https://github.com/Pluviobyte/rnskill",
+        "https://github.com/TianhangZhuzth/Fundamental-Ava",
         "https://github.com/baskduf/FableCodex",
         "https://github.com/dongshuyan/compass-skills",
         "https://github.com/lingbol088-spec/reverse-flow-skill",
@@ -159,6 +187,7 @@ def test_proposal_replay_manifest_validates_fixture_sources_and_cases():
         "https://github.com/omnigent-ai/omnigent/pull/740",
         "https://github.com/omnigent-ai/omnigent/pull/779",
         "https://github.com/samarailly51-pixel/opencode-harness",
+        "https://github.com/shepherd-agents/shepherd",
         "https://github.com/visa/visa-vulnerability-agentic-harness",
         "https://github.com/xiaoguomeiyitian/threejs-game-skills",
     ]

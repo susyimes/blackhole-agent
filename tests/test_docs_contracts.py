@@ -602,6 +602,31 @@ def test_skill_route_discovery_doc_records_20260707T052834_pass1_focused_review_
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T110834_proposal_replay_rule():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "Proposal interpretation for `skill_route_discovery` must accept only\n"
+        "documentation, config, test, or code_patch work",
+        "Accepted proposals cite only\nselected digest `item_id` values in `evidence_refs`",
+        "repository URLs, truncated\nitems, and newly discovered external evidence are rejected",
+        "`github-growth-20260707T110834.493888Z`",
+        "`p1_reverse_flow_skill_route_discovery`",
+        "`p2_rnskill_generic_skill_route_discovery`",
+        "`p3_skill_route_discovery_docs`",
+        "`trend:lingbol088-spec/reverse-flow-skill-1`",
+        "`trend:Pluviobyte/rnskill-1`",
+        "rejects\n`https://github.com/Pluviobyte/rnskill` as a proposal citation",
+        "runtime action, upstream skill activation, external harness execution, provider\n"
+        "launch, and remote execution disabled",
+        "`python -m pytest tests/test_proposal_eval.py -q -k current_skill_route_discovery`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

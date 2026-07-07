@@ -1,0 +1,204 @@
+{
+  "name": "current-skill-route-discovery-20260707T110834",
+  "mode": "hybrid",
+  "options": {
+    "max_items": 4,
+    "max_item_text_chars": 520
+  },
+  "digest": {
+    "digest_id": "github-growth-20260707T110834.493888Z",
+    "generated_at": "2026-07-07T11:08:34.493888Z",
+    "items": [
+      {
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "event_kind": "RepositoryTrend",
+        "summary": "Codex and AI Agent workflow skill repository with skills/reverse-flow/SKILL.md, references, scripts, local sandbox and CTF framing, install examples, tests, and reverse-flow route pressure that must remain local validation only.",
+        "relevance_reason": "Skill route discovery should map Codex-skill terminology to bounded local documentation, config, test, or code_patch lanes before runtime use.",
+        "risk_flags": [],
+        "confidence": 0.91
+      },
+      {
+        "item_id": "trend:Pluviobyte/rnskill-1",
+        "source_url": "https://github.com/Pluviobyte/rnskill",
+        "event_kind": "RepositoryTrend",
+        "summary": "Generic AI Agent Skills collection for Codex, Claude Code, and other Agent workflows that support SKILL.md, with skills directory, plugin metadata, universal install examples, and manual project-level skill copy instructions.",
+        "relevance_reason": "Generic skill workflow evidence should enter skill_route_discovery first and must not be treated as installable or executable from trend evidence alone.",
+        "risk_flags": [],
+        "confidence": 0.87
+      },
+      {
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "event_kind": "RepositoryTrend",
+        "summary": "General agent runtime substrate for reversible execution traces, replay, fork, supervision, and meta-agent optimization with no selected skill package.",
+        "relevance_reason": "General agent project evidence requires local agent_harness_eval before implementation, provider, runtime, or tool-routing changes.",
+        "risk_flags": [],
+        "confidence": 0.76
+      },
+      {
+        "item_id": "trend:TianhangZhuzth/Fundamental-Ava-1",
+        "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+        "event_kind": "RepositoryTrend",
+        "summary": "General agent project with benchmark and environment material, no explicit skill workflow route signal, and no SKILL.md evidence.",
+        "relevance_reason": "Requires local agent harness evaluation before implementation lanes.",
+        "risk_flags": [],
+        "confidence": 0.72
+      }
+    ]
+  },
+  "raw_response": {
+    "schema_version": 1,
+    "input_digest_id": "github-growth-20260707T110834.493888Z",
+    "run_interpretation": "The current skill-route discovery pass should treat reverse-flow and rnskill as bounded local route evidence while keeping adjacent general-agent projects behind harness evaluation.",
+    "self_model_reading": {
+      "status": "left_unchanged",
+      "reason": "The current self-model already supports rollback-backed local validation and does not authorize runtime activation."
+    },
+    "proposals": [
+      {
+        "proposal_id": "p1_reverse_flow_skill_route_discovery",
+        "kind": "test",
+        "summary": "Classify a Codex-oriented skill workflow repository into bounded local skill-route lanes before adoption.",
+        "evidence_refs": [
+          "trend:lingbol088-spec/reverse-flow-skill-1"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Create a focused local test fixture for reverse-flow skill route discovery and assert runtime_action remains none.",
+        "rationale": "Reverse-flow exposes Codex, AI Agent, skill, workflow, SKILL.md, scripts, and install pressure, so the reusable lesson is a local route classification test rather than runtime activation.",
+        "uncertainty": "Repository-level evidence is enough for route classification but not enough to claim safe upstream behavior or execute its scripts.",
+        "self_effect": "Improves future trend interpretation by forcing Codex skill workflow evidence through bounded local validation first.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p2_rnskill_generic_skill_route_discovery",
+        "kind": "test",
+        "summary": "Add a generic skill workflow routing regression for repositories matching agent, skill, and skills terms.",
+        "evidence_refs": [
+          "trend:Pluviobyte/rnskill-1"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Create a local fixture based on the rnskill trend summary and assert skill_route_discovery remains bounded with runtime_action none.",
+        "rationale": "rnskill is a skills collection with SKILL.md-oriented project layout and install examples, which should be route evidence only until local validation passes.",
+        "uncertainty": "The digest carries repository summary evidence, not an audited package implementation.",
+        "self_effect": "Improves generic skill workflow routing without enabling upstream skill installation.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p3_skill_route_discovery_docs",
+        "kind": "documentation",
+        "summary": "Document that skill_route_discovery proposals may map only to documentation, config, test, or code_patch work and cite item IDs only.",
+        "evidence_refs": [
+          "trend:lingbol088-spec/reverse-flow-skill-1",
+          "trend:Pluviobyte/rnskill-1"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Update local routing documentation and run the docs contract unit test confirming examples cite item_id values only.",
+        "rationale": "Both skill repositories show useful route evidence and install pressure; the local rule must keep citations replayable and activation disabled.",
+        "uncertainty": "Documentation captures the interpretation rule, not upstream implementation quality.",
+        "self_effect": "Makes future proposal interpretation more auditable for skill-route discovery passes.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p4_external_url_evidence_escape",
+        "kind": "documentation",
+        "summary": "Incorrectly cite external repository URLs instead of selected digest item IDs.",
+        "evidence_refs": [
+          "https://github.com/Pluviobyte/rnskill"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving URL evidence refs are rejected.",
+        "rationale": "Malformed candidate to preserve item-id-only replayability.",
+        "uncertainty": "Malformed candidate; URL references are not selected item IDs.",
+        "self_effect": "Would weaken replayability if accepted.",
+        "action_lane": "local_validation_candidate"
+      },
+      {
+        "proposal_id": "p5_skill_route_follow_up_escape",
+        "kind": "follow_up_issue",
+        "summary": "Incorrectly route skill discovery outside bounded local lanes.",
+        "evidence_refs": [
+          "trend:Pluviobyte/rnskill-1"
+        ],
+        "added_risk_flags": [],
+        "validation_task": "Negative fixture proving skill_route_discovery rejects lanes outside documentation, config, test, or code_patch.",
+        "rationale": "Malformed candidate to exercise deterministic route lane rejection.",
+        "uncertainty": "Malformed candidate; follow-up routing is outside the allowed lane envelope.",
+        "self_effect": "Would weaken bounded skill-route interpretation if accepted.",
+        "action_lane": "local_validation_candidate"
+      }
+    ],
+    "rejected_items": []
+  },
+  "expected": {
+    "status": "accepted",
+    "accepted_count": 3,
+    "rejected_count": 2,
+    "selected_item_ids": [
+      "trend:lingbol088-spec/reverse-flow-skill-1",
+      "trend:Pluviobyte/rnskill-1",
+      "trend:shepherd-agents/shepherd-1",
+      "trend:TianhangZhuzth/Fundamental-Ava-1"
+    ],
+    "truncated_item_ids": [],
+    "accepted_evidence_refs": {
+      "p1_reverse_flow_skill_route_discovery": [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+      ],
+      "p2_rnskill_generic_skill_route_discovery": [
+        "trend:Pluviobyte/rnskill-1"
+      ],
+      "p3_skill_route_discovery_docs": [
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1"
+      ]
+    },
+    "rejected_error_substrings": [
+      "evidence_refs contain unknown item ids: https://github.com/Pluviobyte/rnskill",
+      "skill_route_discovery proposals must use one of: documentation, config, test, code_patch"
+    ],
+    "proposal_controls": {
+      "p1_reverse_flow_skill_route_discovery": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p2_rnskill_generic_skill_route_discovery": {
+        "kind": "test",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      },
+      "p3_skill_route_discovery_docs": {
+        "kind": "documentation",
+        "risk_flags": [],
+        "implementation_scope": "local_validation_candidate",
+        "validation_gate": "focused-evidence-review"
+      }
+    },
+    "proposal_validation_preflights": {
+      "p1_reverse_flow_skill_route_discovery": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p2_rnskill_generic_skill_route_discovery": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      },
+      "p3_skill_route_discovery_docs": {
+        "status": "ready",
+        "requires_unit_test_or_coverage": true,
+        "has_unit_test_signal": true,
+        "safety_block": false,
+        "blocks_autonomous_apply": false
+      }
+    }
+  }
+}

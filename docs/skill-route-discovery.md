@@ -5,6 +5,24 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+Proposal interpretation for `skill_route_discovery` must accept only
+documentation, config, test, or code_patch work. Accepted proposals cite only
+selected digest `item_id` values in `evidence_refs`; repository URLs, truncated
+items, and newly discovered external evidence are rejected or kept as
+uncertainty, never as activation evidence.
+
+For source digest `github-growth-20260707T110834.493888Z`, pass 1 records a
+proposal replay fixture for the active anchors
+`p1_reverse_flow_skill_route_discovery`,
+`p2_rnskill_generic_skill_route_discovery`, and
+`p3_skill_route_discovery_docs`. The fixture maps
+`trend:lingbol088-spec/reverse-flow-skill-1` and
+`trend:Pluviobyte/rnskill-1` only through selected item IDs, rejects
+`https://github.com/Pluviobyte/rnskill` as a proposal citation, and keeps
+runtime action, upstream skill activation, external harness execution, provider
+launch, and remote execution disabled. Replay with:
+`python -m pytest tests/test_proposal_eval.py -q -k current_skill_route_discovery`.
+
 For source digest `github-growth-20260707T094834.633335Z`, pass 1 exposes the
 active window through `skill_route_discovery_current_pass1_focused_review_lane`.
 The lane binds `p1-skill-route-discovery-codex-workflow` to the

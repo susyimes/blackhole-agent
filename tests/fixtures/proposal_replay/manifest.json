@@ -4,6 +4,8 @@
   "evidence_urls": [
     "https://github.com/ApodexAI/AgentHarness",
     "https://github.com/NotPBShaw/burner-agents",
+    "https://github.com/Pluviobyte/rnskill",
+    "https://github.com/TianhangZhuzth/Fundamental-Ava",
     "https://github.com/baskduf/FableCodex",
     "https://github.com/dongshuyan/compass-skills",
     "https://github.com/lingbol088-spec/reverse-flow-skill",
@@ -15,6 +17,7 @@
     "https://github.com/omnigent-ai/omnigent/pull/740",
     "https://github.com/omnigent-ai/omnigent/pull/779",
     "https://github.com/samarailly51-pixel/opencode-harness",
+    "https://github.com/shepherd-agents/shepherd",
     "https://github.com/visa/visa-vulnerability-agentic-harness",
     "https://github.com/xiaoguomeiyitian/threejs-game-skills"
   ],
@@ -116,6 +119,17 @@
       "file": "reverse_flow_skill_route_probe.json",
       "evidence_urls": [
         "https://github.com/lingbol088-spec/reverse-flow-skill"
+      ],
+      "expected_review_status": "accepted"
+    },
+    {
+      "name": "current-skill-route-discovery-20260707T110834",
+      "file": "current_skill_route_discovery_20260707T110834.json",
+      "evidence_urls": [
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/Pluviobyte/rnskill",
+        "https://github.com/shepherd-agents/shepherd",
+        "https://github.com/TianhangZhuzth/Fundamental-Ava"
       ],
       "expected_review_status": "accepted"
     },
