@@ -2077,10 +2077,226 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
             source_digest=source_digest,
             route_rows=ordered_rows,
         ),
+        **_skill_route_discovery_current_pass1_focused_review_lane(
+            source_digest=source_digest,
+            route_rows=ordered_rows,
+        ),
         **_skill_route_discovery_current_pass4_completion_handoff(
             source_digest=source_digest,
             route_rows=ordered_rows,
         ),
+    }
+
+
+def _skill_route_discovery_current_pass1_focused_review_lane(
+    *,
+    source_digest: str,
+    route_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose this pass-1 route review before any activation surface exists."""
+
+    if source_digest != "github-growth-20260707T052834.687686Z":
+        return {}
+
+    skill_rows = [
+        row for row in route_rows if str(row.get("route_kind") or "") == "skill_workflow"
+    ]
+    agent_rows = [
+        row for row in route_rows if str(row.get("route_kind") or "") == "general_agent_project"
+    ]
+    anchoring_proposal_ids = [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-fixture",
+        "p4-route-policy-doc-note",
+        "p5-route-metadata-consistency-check",
+    ]
+    validation_commands = [
+        "pytest tests/test_skill_routing.py -q -k 20260707T052834",
+        "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T052834",
+    ]
+
+    skill_route_rows: list[dict[str, Any]] = []
+    for row in skill_rows:
+        route_profiles = _string_list(row.get("route_profiles"))
+        is_reverse_flow = "codex_workflow_gate" in route_profiles
+        selected_lane = "test" if is_reverse_flow else "documentation"
+        allowed_lanes = _string_list(row.get("allowed_local_lanes"))
+        skill_route_rows.append(
+            {
+                "proposal_id": (
+                    "p1-skill-route-discovery-reverse-flow"
+                    if is_reverse_flow
+                    else "p2-generic-skill-workflow-discovery"
+                ),
+                "route_id": str(row.get("route_id") or ""),
+                "candidate_name": str(row.get("candidate_name") or ""),
+                "candidate_source_hash": str(row.get("candidate_source_hash") or ""),
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "allowed_local_lanes": allowed_lanes,
+                "bounded_to_skill_route_lanes": set(allowed_lanes)
+                <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
+                "validation_gates": _string_list(row.get("validation_gates")),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+            }
+        )
+
+    agent_harness_rows = [
+        {
+            "proposal_id": "p3-agent-harness-eval-fixture",
+            "route_id": str(row.get("route_id") or ""),
+            "name": str(row.get("name") or ""),
+            "source_hash": str(row.get("source_hash") or ""),
+            "evaluation_lane": "agent_harness_eval_required",
+            "selected_local_lane": "agent_harness_eval_required",
+            "direct_allowed_lanes_before_eval": [],
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "implementation_lanes_enabled": False,
+            "skill_route_discovery_inherited": False,
+            "direct_runtime_route_allowed": False,
+            "direct_code_patch_route_allowed": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+        }
+        for row in agent_rows
+    ]
+
+    blockers: list[str] = []
+    if len(skill_rows) < 2:
+        blockers.append("skill_workflow_rows_missing")
+    if not any("codex_workflow_gate" in _string_list(row.get("route_profiles")) for row in skill_rows):
+        blockers.append("reverse_flow_codex_workflow_gate_missing")
+    if not any(
+        str(row.get("candidate_name") or "") == "rnskill"
+        and "generic_skill_workflow" in _string_list(row.get("route_profiles"))
+        for row in skill_rows
+    ):
+        blockers.append("generic_skill_workflow_rnskill_missing")
+    if len(agent_rows) < 3:
+        blockers.append("agent_harness_eval_fixture_rows_missing")
+    if any(
+        set(_string_list(row.get("allowed_local_lanes"))) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        for row in skill_rows
+    ):
+        blockers.append("unbounded_skill_route_lane")
+    if any(row.get("local_validation_required") is not True for row in route_rows):
+        blockers.append("local_validation_not_preserved")
+    if any(str(row.get("runtime_action") or "none") != "none" for row in route_rows):
+        blockers.append("runtime_action_requested")
+    if any(row.get("external_harness_execution_allowed") is not False for row in route_rows):
+        blockers.append("external_harness_execution_not_denied")
+    if any(row.get("provider_runtime_launch_allowed") is not False for row in route_rows):
+        blockers.append("provider_runtime_launch_not_denied")
+    if any(row.get("remote_execution_allowed") is not False for row in route_rows):
+        blockers.append("remote_execution_not_denied")
+
+    metadata_check = {
+        "controller_surface": "skill_route_discovery_pass1_route_metadata_consistency_check",
+        "proposal_id": "p5-route-metadata-consistency-check",
+        "status": "ready" if not blockers else "blocked",
+        "source_digest_recorded": bool(source_digest),
+        "row_count_matches": len(route_rows) == len(skill_rows) + len(agent_rows),
+        "bounded_skill_rows": all(
+            set(_string_list(row.get("allowed_local_lanes")))
+            <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+            for row in skill_rows
+        ),
+        "agent_rows_no_skill_route_inheritance": all(
+            row.get("skill_route_discovery_inherited") is False for row in agent_rows
+        ),
+        "local_validation_required_preserved": all(
+            row.get("local_validation_required") is True for row in route_rows
+        ),
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+    }
+    ready = not blockers and all(
+        [
+            metadata_check["source_digest_recorded"],
+            metadata_check["row_count_matches"],
+            metadata_check["bounded_skill_rows"],
+            metadata_check["agent_rows_no_skill_route_inheritance"],
+            metadata_check["local_validation_required_preserved"],
+        ]
+    )
+    return {
+        "current_pass1_focused_review_lane": {
+            "controller_surface": "skill_route_discovery_current_pass1_focused_review_lane",
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_pass1_skill_and_agent_routes_ready_for_bounded_local_validation"
+                if ready
+                else "repair_current_pass1_skill_and_agent_route_review"
+            ),
+            "source_digest": source_digest,
+            "capability_pass": 1,
+            "total_passes": 4,
+            "review_gate": "focused-evidence-review",
+            "anchoring_proposal_ids": anchoring_proposal_ids,
+            "proposal_ids": anchoring_proposal_ids[:3],
+            "blocked_proposal_ids": anchoring_proposal_ids if blockers else [],
+            "activation_blockers": blockers,
+            "skill_workflow_count": len(skill_rows),
+            "agent_harness_eval_required_count": len(agent_rows),
+            "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "allowed_agent_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "selected_skill_local_lanes": [
+                lane
+                for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+                if lane in {str(row.get("selected_local_lane") or "") for row in skill_route_rows}
+            ],
+            "operator_next_action": (
+                "run_focused_route_validation_then_continue_to_pass2"
+                if ready
+                else "repair_focused_route_rows_before_pass2"
+            ),
+            "route_policy_doc_note": {
+                "proposal_id": "p4-route-policy-doc-note",
+                "status": "ready" if ready else "blocked",
+                "policy": "skill_route_discovery_is_a_local_validation_lane_not_activation_authority",
+                "skill_rows_validate_before_agent_rows": True,
+                "agent_projects_require_agent_harness_eval": True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            },
+            "route_metadata_consistency_check": metadata_check,
+            "focused_validation_commands_exported": False,
+            "focused_validation_command_hashes": [_stable_hash(command) for command in validation_commands],
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "kernel_restart_allowed": False,
+            "promotion_or_push_performed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_replay_commands_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+            "skill_route_rows": skill_route_rows,
+            "agent_harness_eval_rows": agent_harness_rows,
+        }
     }
 
 

@@ -575,6 +575,33 @@ def test_skill_route_discovery_doc_records_route_discovery_catalog():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260707T052834_pass1_focused_review_lane():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260707T052834.687686Z`",
+        "`skill_route_discovery_current_pass1_focused_review_lane`",
+        "`p1-skill-route-discovery-reverse-flow`",
+        "`p2-generic-skill-workflow-discovery`",
+        "`p3-agent-harness-eval-fixture`",
+        "`p4-route-policy-doc-note`",
+        "`p5-route-metadata-consistency-check`",
+        "`lingbol088-spec/reverse-flow-skill` remains the Codex workflow-gate row",
+        "`Pluviobyte/rnskill` remains the generic skill\nworkflow row",
+        "install,\nrun, script execution, provider runtime, external harness execution, and remote\n"
+        "execution are diagnostic pressure only",
+        "`InternScience/Agents-A1`, `TianhangZhuzth/Fundamental-Ava`, and\n"
+        "`shepherd-agents/shepherd` remain `agent_harness_eval_required` rows",
+        "do not inherit `skill_route_discovery`",
+        "only produce documentation, test, or code_patch follow-up after that gate",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260707T052834`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_current_pass3_validation_route_packet():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
