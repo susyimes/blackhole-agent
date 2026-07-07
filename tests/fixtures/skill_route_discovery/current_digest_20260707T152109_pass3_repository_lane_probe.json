@@ -1,0 +1,73 @@
+{
+  "source_digest": "github-growth-20260707T152109.445461Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "pass": 3,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1_skill_route_discovery_probe",
+      "p2_codex_skill_workflow_gate",
+      "p3_agent_harness_eval_lane",
+      "p4_fork_trend_dedup",
+      "trend:shepherd-agents/shepherd-1",
+      "p1_skill_route_discovery_reverse_flow",
+      "p2_skill_route_discovery_rnskill",
+      "p3_agent_harness_shepherd_memory_context",
+      "p4_general_agent_harness_benchmark",
+      "p5_skill_vs_agent_route_tests",
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-generic-skill-route-discovery-rnskill"
+    ]
+  },
+  "repository_summaries": [
+    {
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "AI Agent and Codex skill package with skills/reverse-flow/SKILL.md, references, scripts, activation phrase, local sandbox, CTF/crackme framing, staged workflow, install examples, run examples, and diagnostic reverse-flow tooling.",
+      "topics": ["codex", "agent-skill", "workflow"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution", "provider_runtime"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/README.md",
+        "skills/reverse-flow/agents/openai.yaml",
+        "skills/reverse-flow/references/README.md",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ]
+    },
+    {
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "summary": "Generic AI Agent Skills collection with multiple skills, SKILL.md-compatible packages, docs, tools, marketplace metadata, and manual install examples.",
+      "topics": ["agent-skills", "skill-collection"],
+      "suggested_lanes": ["documentation", "config", "install", "enable"],
+      "observed_paths": [
+        "skills/example/SKILL.md",
+        "docs/README.md",
+        ".agents/plugins/marketplace.json"
+      ],
+      "metadata_files": [".agents/plugins/marketplace.json"]
+    },
+    {
+      "name": "Agents-A1",
+      "source_url": "https://github.com/InternScience/Agents-A1",
+      "summary": "General agent project and evaluation workbench with no skill package, no SKILL.md evidence, and no skill route activation signal.",
+      "topics": ["agent", "benchmark"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "name": "Fundamental-Ava",
+      "source_url": "https://github.com/TianhangZhuzth/Fundamental-Ava",
+      "summary": "General AI agent project with no skill package, no SKILL.md evidence, and no skill route activation signal.",
+      "topics": ["agent", "multi-agent"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "summary": "General agent runtime and memory-context substrate with no skill package, no SKILL.md evidence, and no skill route activation signal.",
+      "topics": ["agent", "runtime", "memory"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime"]
+    }
+  ]
+}

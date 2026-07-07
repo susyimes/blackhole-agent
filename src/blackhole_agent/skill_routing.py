@@ -220,6 +220,12 @@ SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS: Mapping[str, Mapping[s
         "blocked_activation_reason": "generic_skill_evidence_requires_local_corroboration",
     },
 }
+SKILL_ROUTE_DISCOVERY_WORKFLOW_GATE_MARKERS = (
+    "activation_phrase",
+    "local_sandbox_boundary",
+    "staged_workflow",
+    "diagnostic_script_examples",
+)
 SKILL_ROUTE_DISCOVERY_PROPOSAL_INTAKE_HINTS: Mapping[str, Mapping[str, str]] = {
     "generic_skill_workflow": {
         "proposal_id": "p1-skill-route-discovery-generic",
@@ -908,6 +914,10 @@ def build_skill_route_discovery_repository_lane_probe(
                 "diagnostics": diagnostics,
                 "activation_prerequisite_lane": selected_lane,
                 "skill_route_discovery_first": True,
+                **_skill_route_discovery_workflow_gate_contract(
+                    candidate,
+                    selected_lane=selected_lane,
+                ),
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -950,7 +960,11 @@ def build_skill_route_discovery_repository_lane_probe(
         ),
         "focused_local_validation_required": True,
     }
-    route_boundary_ready = ready and all(route_boundary_checklist.values())
+    workflow_gate_contract_ready = all(
+        row.get("workflow_gate_validation_contract", {}).get("status") in {None, "ready"}
+        for row in rows
+    )
+    route_boundary_ready = ready and all(route_boundary_checklist.values()) and workflow_gate_contract_ready
     return {
         "controller_surface": "skill_route_discovery_repository_lane_probe",
         "status": "ready" if route_boundary_ready else "review",
@@ -971,6 +985,7 @@ def build_skill_route_discovery_repository_lane_probe(
         ],
         "activation_prerequisite_lane": "focused_local_validation_before_activation",
         "route_boundary_checklist": route_boundary_checklist,
+        "workflow_gate_contract_ready": workflow_gate_contract_ready,
         "operator_next_action": (
             "replay_repository_lane_probe_then_choose_bounded_local_lane"
             if route_boundary_ready
@@ -3305,7 +3320,79 @@ def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate
         for profile, keywords in SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_KEYWORDS.items()
         if any(keyword in text for keyword in keywords)
     ]
+    if "codex_workflow_gate" in profiles and not any(
+        marker in text
+        for marker in (
+            "codex",
+            "evidence gate",
+            "fablecodex",
+            "review ledger",
+            "verification habit",
+            "workflow gate",
+        )
+    ):
+        profiles = [profile for profile in profiles if profile != "codex_workflow_gate"]
     return tuple(dict.fromkeys(profiles or ["generic_skill_workflow"]))
+
+
+def _skill_route_discovery_workflow_gate_contract(
+    candidate: ExternalSkillRouteCandidate,
+    *,
+    selected_lane: str,
+) -> dict[str, Any]:
+    """Return Codex workflow-gate metadata without exposing upstream bodies."""
+
+    route_profiles = _skill_route_discovery_route_profiles(candidate)
+    if "codex_workflow_gate" not in route_profiles:
+        return {}
+
+    text = " ".join(
+        part
+        for part in (
+            candidate.name,
+            candidate.evidence_summary,
+            " ".join(candidate.source_layout_signals),
+            " ".join(candidate.source_metadata_signals),
+            " ".join(candidate.requested_actions),
+            " ".join(candidate.unsupported_lane_pressure),
+        )
+        if part
+    ).casefold()
+    markers = []
+    if any(marker in text for marker in ("activation phrase", "trigger phrase", "startup phrase", "enter mode")):
+        markers.append("activation_phrase")
+    if any(marker in text for marker in ("sandbox", "ctf", "crackme", "wargame", "training range")):
+        markers.append("local_sandbox_boundary")
+    if any(marker in text for marker in ("staged workflow", "analysis", "report", "reverse", "workflow gate")):
+        markers.append("staged_workflow")
+    if "validation_script" in candidate.source_layout_signals or any(
+        marker in text for marker in ("script", "scripts", "tool audit", "triage")
+    ):
+        markers.append("diagnostic_script_examples")
+    markers = list(dict.fromkeys(markers))
+    required = list(SKILL_ROUTE_DISCOVERY_WORKFLOW_GATE_MARKERS)
+    missing = [marker for marker in required if marker not in markers]
+    return {
+        "workflow_gate_validation_contract": {
+            "profile": "codex_workflow_gate",
+            "status": "ready" if not missing and selected_lane == "test" else "blocked",
+            "validation_gate": SKILL_ROUTE_DISCOVERY_ROUTE_PROFILE_VALIDATION_CONTRACTS["codex_workflow_gate"][
+                "validation_gate"
+            ],
+            "required_markers": required,
+            "observed_markers": markers,
+            "missing_markers": missing,
+            "selected_local_lane": selected_lane,
+            "activation_prerequisite_lane": "test",
+            "secondary_workflow_gate_allowed_before_local_validation": False,
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_activation_phrase_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    }
 
 
 def _skill_route_discovery_ignored_evidence_item(

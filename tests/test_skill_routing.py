@@ -445,8 +445,9 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
                 "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
                 "summary": (
                     "Codex and AI Agent workflow skill package with skills/reverse-flow/SKILL.md, "
-                    "references, scripts, local sandbox defaults, CTF/crackme framing, install "
-                    "examples, run examples, and validation guidance."
+                    "references, scripts, activation phrase, local sandbox defaults, CTF/crackme "
+                    "framing, staged workflow, install examples, run examples, and validation "
+                    "guidance."
                 ),
                 "topics": ["codex", "agent-skill", "workflow"],
                 "suggested_lanes": [
@@ -499,6 +500,7 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
     assert probe["accepted_outputs"] == ["docs", "config", "tests", "code_patch"]
     assert probe["selected_local_lanes"] == ["test"]
     assert probe["activation_prerequisite_lane"] == "focused_local_validation_before_activation"
+    assert probe["workflow_gate_contract_ready"] is True
     assert probe["operator_next_action"] == "replay_repository_lane_probe_then_choose_bounded_local_lane"
     assert probe["route_boundary_checklist"] == {
         "skill_candidates_start_disabled": True,
@@ -528,6 +530,33 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
     assert reverse_flow["diagnostics"] == ["unsupported_lane_pressure_stripped"]
     assert reverse_flow["activation_prerequisite_lane"] == "test"
     assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["workflow_gate_validation_contract"] == {
+        "profile": "codex_workflow_gate",
+        "status": "ready",
+        "validation_gate": "skill_route_discovery_first_before_workflow_gate",
+        "required_markers": [
+            "activation_phrase",
+            "local_sandbox_boundary",
+            "staged_workflow",
+            "diagnostic_script_examples",
+        ],
+        "observed_markers": [
+            "activation_phrase",
+            "local_sandbox_boundary",
+            "staged_workflow",
+            "diagnostic_script_examples",
+        ],
+        "missing_markers": [],
+        "selected_local_lane": "test",
+        "activation_prerequisite_lane": "test",
+        "secondary_workflow_gate_allowed_before_local_validation": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_activation_phrase_exported": False,
+        "raw_upstream_body_exported": False,
+    }
     assert "skill_directory" in reverse_flow["source_layout_signals"]
     assert "skill_markdown" in reverse_flow["source_layout_signals"]
     assert "reference_directory" in reverse_flow["source_layout_signals"]
@@ -653,6 +682,74 @@ def test_skill_route_discovery_validation_route_packet_splits_skill_and_agent_pr
 
     assert "https://github.com/" not in serialized
     assert "runtime_execution" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260707T152109_pass3_repository_probe_contract():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260707T152109_pass3_repository_lane_probe.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    probe = build_skill_route_discovery_repository_lane_probe(payload["repository_summaries"])
+    rows = {row["name"]: row for row in probe["rows"]}
+    serialized = json.dumps(probe, sort_keys=True)
+
+    assert probe["controller_surface"] == "skill_route_discovery_repository_lane_probe"
+    assert probe["status"] == "ready"
+    assert probe["candidate_count"] == 2
+    assert probe["ignored_summary_count"] == 3
+    assert probe["selected_local_lanes"] == ["documentation", "test"]
+    assert probe["workflow_gate_contract_ready"] is True
+    assert probe["runtime_action"] == "none"
+    assert probe["external_skill_activation_allowed"] is False
+    assert probe["external_harness_execution_allowed"] is False
+    assert probe["provider_runtime_launch_allowed"] is False
+    assert probe["remote_execution_allowed"] is False
+
+    reverse_flow = rows["reverse-flow-skill"]
+    assert reverse_flow["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["workflow_gate_validation_contract"]["status"] == "ready"
+    assert reverse_flow["workflow_gate_validation_contract"]["validation_gate"] == (
+        "skill_route_discovery_first_before_workflow_gate"
+    )
+    assert reverse_flow["workflow_gate_validation_contract"]["observed_markers"] == [
+        "activation_phrase",
+        "local_sandbox_boundary",
+        "staged_workflow",
+        "diagnostic_script_examples",
+    ]
+    assert reverse_flow["workflow_gate_validation_contract"][
+        "secondary_workflow_gate_allowed_before_local_validation"
+    ] is False
+    assert reverse_flow["unsupported_lane_pressure"] == [
+        "install",
+        "runtime_execution",
+        "provider_runtime",
+    ]
+
+    rnskill = rows["rnskill"]
+    assert rnskill["route_status"] == SKILL_ROUTE_DISCOVERY_DISABLED
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert "workflow_gate_validation_contract" not in rnskill
+    assert rnskill["unsupported_lane_pressure"] == ["install", "enable"]
+
+    for name in ("Agents-A1", "Fundamental-Ava", "shepherd"):
+        row = rows[name]
+        assert row["route_status"] == "ignored"
+        assert row["activation_prerequisite_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_first"] is False
+        assert row["allowed_local_lanes"] == []
+
+    assert "https://github.com/" not in serialized
+    assert "runtime_execution" not in reverse_flow["allowed_local_lanes"]
     assert '"provider_runtime_launch_allowed": true' not in serialized
 
 

@@ -23,6 +23,24 @@ not a memory or profile write route; it requires a local harness result before
 documentation, test, or code_patch follow-up can be promoted. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260707T150109`.
 
+For source digest `github-growth-20260707T152109.445461Z`, pass 3 deepens the
+reusable `skill_route_discovery_repository_lane_probe` rather than adding an
+activation path. Reverse-flow-style repositories must now expose a
+body-free `workflow_gate_validation_contract` before a Codex workflow gate is
+considered locally valid: the probe requires an activation-phrase marker, a
+local sandbox or CTF boundary, staged workflow evidence, and diagnostic script
+examples, while exporting none of the raw upstream body or activation phrase.
+The contract selects the local test lane and keeps secondary workflow routing,
+external skill activation, external harness execution, provider launch, and
+remote execution denied until focused local validation passes.
+
+The same fixture keeps `Pluviobyte/rnskill` as a generic skill workflow
+documentation candidate and keeps `InternScience/Agents-A1`,
+`TianhangZhuzth/Fundamental-Ava`, and `shepherd-agents/shepherd` ignored by the
+skill route probe with `agent_harness_eval_required` as the prerequisite lane.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T152109`.
+
 For source digest `github-growth-20260707T140109.483291Z`, pass 3 exposes
 `skill_route_discovery_current_digest_20260707T140109_pass3_runner_control_plane`.
 The pass-3 runner control plane makes the current route workflow legible as
