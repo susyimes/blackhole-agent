@@ -9470,3 +9470,23 @@ pre-eval implementation patches, runtime action, external harness execution,
 provider launch, remote execution, raw source URLs, and upstream bodies remain
 disabled. Replay with:
 `python -m pytest tests/test_harness_eval.py -q -k "agent_harness_eval_lane or 20260707T030834"`.
+
+## Source Digest 20260707T054834 Pass 2
+
+The `github-growth-20260707T054834.215350Z` pass-2 lane exposes
+`skill_route_discovery_current_digest_pass2_skill_workflow_route_discovery` for
+paired skill workflow evidence. `lingbol088-spec/reverse-flow-skill` remains a
+Codex workflow-gate row and must preserve both `codex_workflow_gate` and
+`generic_skill_workflow` profiles before selecting the local test lane.
+`Pluviobyte/rnskill` remains a generic skill workflow row and selects the
+documentation lane. Both rows may expose only documentation, config, test, or
+code_patch lanes; install, enable, run, plugin marketplace, provider, runtime,
+external skill activation, and remote-execution wording is diagnostic pressure
+only.
+
+Agents-A1, Fundamental-Ava, and Shepherd remain adjacent
+`agent_harness_eval_required` rows. They do not inherit `skill_route_discovery`,
+open no direct implementation lane before bounded harness evaluation, and may
+only produce documentation, test, or code_patch follow-up after local harness
+evidence exists. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T054834`.
