@@ -5,6 +5,29 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260707T190110.064980Z`, pass 2 exposes the
+active reverse-flow/rnskill/Shepherd window through
+`skill_route_discovery_current_digest_20260707T190110_pass2_validation_lane`.
+The lane maps `lingbol088-spec/reverse-flow-skill` to the bounded local test
+lane as Codex workflow-gate evidence, because the public repository presents a
+`skills/reverse-flow` package shape, `SKILL.md` workflow framing, local
+sandbox/CTF boundaries, and diagnostic script examples. Its install, run,
+script, provider, external harness, and runtime wording remains diagnostic
+pressure only.
+
+`Pluviobyte/rnskill` remains a generic `SKILL.md` collection and maps to the
+bounded documentation lane. Its marketplace, `npx`, manual install, enable,
+plugin, and run examples are route evidence for documentation/config/test/code
+patch follow-up only, not activation authority.
+
+`shepherd-agents/shepherd` and the carried PR #18 activity remain
+`agent_harness_eval_required` under `p3_agent_harness_eval_shepherd`; they are
+harness-evaluation evidence for reversible traces, replay, and repository
+maintenance activity, not a skill-route lane or runtime path. Agents-A1 and
+Fundamental-Ava remain adjacent comparative agent-harness rows under
+`p4_agent_harness_eval_comparative_agent_projects`. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260707T190110`.
+
 For source digest `github-growth-20260707T180109.989440Z`, pass 3 exposes the
 active reverse-flow/rnskill/Shepherd window through
 `skill_route_discovery_current_digest_20260707T180109_pass3_validation_lane`.
