@@ -1,0 +1,184 @@
+{
+  "name": "skill-route-discovery-current-digest-20260708T185850-pass4-completion-handoff",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260708T185850-pass4-completion-handoff",
+    "source_digest": "github-growth-20260708T185850.414401Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 4,
+      "total_passes": 4,
+      "required_route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
+        "p4-agent-harness-eval-hy3",
+        "p5-agent-workflow-harness-blender-seedance"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260708T185850.414401Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "repository",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex local workflow skill",
+        "summary": "Codex and AI Agent reverse-flow workflow skill with a skills/reverse-flow package, SKILL.md evidence, local sandbox and CTF framing, staged analysis workflow, diagnostic scripts, install examples, and run pressure that must remain route evidence until a local bounded lane validates it.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent", "skill", "skills", "workflow", "reverse-flow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+          "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary", "body_free_workflow_summary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T185850.414401Z",
+        "item_id": "trend:Pluviobyte/rnskill-1",
+        "item_kind": "repository",
+        "name": "Pluviobyte-rnskill",
+        "source_url": "https://github.com/Pluviobyte/rnskill",
+        "title": "Generic AI Agent SKILL.md collection",
+        "summary": "AI Agent Skills collection for Codex, Claude Code, and other SKILL.md-compatible agent workflows. It exposes skills, docs, tools, plugin marketplace metadata, and manual install examples, but discovery alone is not activation authority and repository internals have not been locally inspected.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent-skills", "skill", "skills", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "skill_manifest", "tooling_directory"],
+          "source_metadata_signals": ["skill_collection", "skill_registry_metadata", "agent_plugin_marketplace"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T185850.414401Z",
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "item_kind": "repository",
+        "name": "shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "title": "Reversible agent execution trace runtime",
+        "summary": "General agent runtime substrate with reversible execution traces, retained outputs, fork, replay, supervision, sandbox permissions, and credential/runtime setup pressure. It has no selected skill package or completed local harness evaluation in this pass.",
+        "topics": ["agent", "runtime", "workflow", "replay", "rollback", "validation"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution", "external_harness_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260708T185850.414401Z",
+        "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+        "item_kind": "repository",
+        "name": "Hy3",
+        "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+        "title": "Hy3 reasoning and agent model project",
+        "summary": "Reasoning and agent model project with API, deployment, model serving, provider, MCP, and tool-call pressure. It is model/provider evidence, not a skill workflow activation lane.",
+        "topics": ["agent", "model", "reasoning", "mcp", "api"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260708T185850.414401Z",
+        "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "item_kind": "repository",
+        "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+        "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+        "title": "Blender Seedance workflow use cases",
+        "summary": "Workflow-usecase collection with media generation and orchestration examples. It is adjacent workflow evidence, not a local skill package or executable harness lane before agent-harness evaluation.",
+        "topics": ["workflow", "agent", "blender", "seedance"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution", "external_harness_execution"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "documentation",
+        "changed_files": ["docs/skill-route-discovery.md"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260708T185850Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass 4 documents the reverse-flow/rnskill completion handoff and the adjacent agent-harness holdback."
+      },
+      {
+        "proposal_kind": "config",
+        "changed_files": ["src/blackhole_agent/proposal_synthesis.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260708T185850Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass 4 records bounded fixture metadata only; it does not activate external skills or providers."
+      },
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260708T185850_pass4_completion_handoff.json",
+          "tests/test_skill_routing.py",
+          "tests/test_harness_eval.py"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260708T185850Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass 4 validates the current digest handoff through focused routing and harness assertions."
+      },
+      {
+        "proposal_kind": "code_patch",
+        "changed_files": ["src/blackhole_agent/skill_routing.py"],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k skill_route_discovery_lane",
+          "pytest tests/test_harness_eval.py -q -k agent_harness_eval_lane",
+          "pytest tests/test_harness_eval.py -q -k proposal_interpretation"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260708T185850Z-skill-route-discovery-pass4.md",
+        "review_note": "Pass 4 adds only a local body-free handoff route for this digest; runtime, provider launch, remote execution, promotion, and restart remain denied."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 2},
+    {"path": "registry.ignored_evidence_item_count", "equals": 3},
+    {"path": "current_digest_pass4_completion_handoff.controller_surface", "equals": "skill_route_discovery_current_digest_20260708T185850_pass4_completion_handoff"},
+    {"path": "current_digest_pass4_completion_handoff.status", "equals": "ready"},
+    {"path": "current_digest_pass4_completion_handoff.capability_slice_complete", "equals": true},
+    {"path": "current_digest_pass4_completion_handoff.skill_workflow_count", "equals": 2},
+    {"path": "current_digest_pass4_completion_handoff.agent_harness_eval_required_count", "equals": 3},
+    {"path": "current_digest_pass4_completion_handoff.selected_skill_local_lanes", "equals": ["documentation", "test"]},
+    {"path": "current_digest_pass4_completion_handoff.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass4_completion_handoff.rows.1.selected_local_lane", "equals": "documentation"},
+    {"path": "current_digest_pass4_completion_handoff.adjacent_general_agent_rows.0.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass4_completion_handoff.adjacent_general_agent_rows.1.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass4_completion_handoff.adjacent_general_agent_rows.2.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass4_completion_handoff.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass4_completion_handoff.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass4_completion_handoff.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_pass4_completion_handoff.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass4_completion_handoff.raw_evidence_urls_exported", "equals": false},
+    {"path": "capability_window_completion.status", "equals": "ready"},
+    {"path": "capability_window_completion.planned_window_complete", "equals": true},
+    {"path": "capability_window_completion.completion_report.status", "equals": "blocked"},
+    {"path": "capability_window_completion.local_kernel_handoff.status", "equals": "blocked"},
+    {"path": "capability_window_completion.local_kernel_handoff.proposal_completion_summary.skill_route_row_count", "equals": 2},
+    {"path": "capability_window_completion.local_kernel_handoff.proposal_completion_summary.agent_harness_eval_row_count", "equals": 2},
+    {"path": "automation_bug_agent_eval_checklist.status", "equals": "review_required"},
+    {"path": "automation_bug_agent_eval_checklist.row_count", "equals": 1},
+    {"path": "capability_window_completion.runtime_action_allowed", "equals": false},
+    {"path": "capability_window_completion.external_skill_activation_allowed", "equals": false},
+    {"path": "capability_window_completion.external_harness_execution_allowed", "equals": false}
+  ]
+}

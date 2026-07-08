@@ -887,6 +887,26 @@ def test_skill_route_discovery_doc_records_current_pass4_completion_handoff():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260708T185850_pass4_completion_handoff():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260708T185850.414401Z`",
+        "`skill_route_discovery_current_digest_20260708T185850_pass4_completion_handoff`",
+        "`lingbol088-spec/reverse-flow-skill` maps to the\nlocal test lane",
+        "`Pluviobyte/rnskill`\nmaps to the documentation lane",
+        "`shepherd-agents/shepherd`, `Tencent-Hunyuan/Hy3`, and the Blender/Seedance\nworkflow-usecase repository",
+        "`agent_harness_eval_required`",
+        "inherit no `skill_route_discovery` lane",
+        "nested local-kernel replay remains\nblocked by the review-only automation/bug checklist",
+        "PYTHONPATH=src python -m pytest tests/test_harness_eval.py tests/test_skill_routing.py -q -k 20260708T185850",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T182110_operator_review_dossier():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

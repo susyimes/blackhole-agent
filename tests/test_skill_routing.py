@@ -426,6 +426,71 @@ def test_skill_route_discovery_current_digest_20260708T183850_pass3_activation_p
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T185850_pass4_completion_handoff():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "local_harness_eval"
+        / "skill_route_discovery_current_digest_20260708T185850_pass4_completion_handoff.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))["input"]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["evidence_items"])
+    registry["source_digest"] = payload["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["name"]: row for row in handoff["adjacent_general_agent_rows"]}
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260708T185850.414401Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T185850_pass4_completion_handoff"
+    )
+    assert handoff["status"] == "ready"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
+        "p4-agent-harness-eval-hy3",
+        "p5-agent-workflow-harness-blender-seedance",
+    ]
+    assert handoff["selected_skill_local_lanes"] == ["documentation", "test"]
+    assert rows["p1-skill-route-discovery-reverse-flow"]["selected_local_lane"] == "test"
+    assert rows["p2-generic-skill-route-discovery-rnskill"]["selected_local_lane"] == "documentation"
+    assert rows["p1-skill-route-discovery-reverse-flow"]["allowed_local_lanes"] == list(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert rows["p2-generic-skill-route-discovery-rnskill"]["allowed_local_lanes"] == list(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert set(adjacent) == {
+        "shepherd",
+        "Hy3",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+    }
+    assert adjacent["shepherd"]["proposal_id"] == "p3-agent-harness-eval-shepherd"
+    assert adjacent["Hy3"]["proposal_id"] == "p4-agent-harness-eval-hy3"
+    assert adjacent["Awesome-Blender-Seedance-Workflow-Usecases"]["proposal_id"] == (
+        "p5-agent-workflow-harness-blender-seedance"
+    )
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["external_harness_execution_allowed"] is False for row in adjacent.values())
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff():
     fixture_path = (
         Path(__file__).parent
