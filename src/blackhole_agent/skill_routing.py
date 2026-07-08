@@ -5861,6 +5861,10 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "github-growth-20260708T163850.664161Z",
         "github-growth-20260708T163850Z",
     }
+    current_20260708_175850_window = source_digest in {
+        "github-growth-20260708T175850.390217Z",
+        "github-growth-20260708T175850Z",
+    }
     current_190435_window = source_digest in {
         "github-growth-20260704T190435.517226Z",
         "github-growth-20260704T190435Z",
@@ -5868,7 +5872,11 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
     proposal_specs = (
         (
             {
-                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_id": (
+                    "p1-skill-route-discovery-reverse-flow"
+                    if current_20260708_175850_window
+                    else "p1-skill-route-discovery-codex-workflow-gate"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "codex_workflow_gate_route_probe",
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
@@ -5878,8 +5886,12 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                 "validation_target": "reverse_flow_codex_workflow_gate_routes_to_bounded_local_lanes",
             },
             {
-                "proposal_id": "p2-generic-skill-route-discovery-config",
-                "proposal_kind": "config",
+                "proposal_id": (
+                    "p2-generic-skill-route-discovery-rnskill"
+                    if current_20260708_175850_window
+                    else "p2-generic-skill-route-discovery-config"
+                ),
+                "proposal_kind": "documentation" if current_20260708_175850_window else "config",
                 "proposal_track": "generic_skill_workflow_route_profile",
                 "route_profiles": ("generic_skill_workflow",),
                 "candidate_name_terms": ("rnskill",),
@@ -5888,7 +5900,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                 "validation_target": "rnskill_generic_skill_workflow_routes_to_bounded_local_lanes",
             },
         )
-        if current_20260708_163850_window
+        if current_20260708_163850_window or current_20260708_175850_window
         else
         (
             {
@@ -6381,6 +6393,12 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                     row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-trends"
             if current_20260708_123852_window:
                 row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-repositories"
+            if current_20260708_175850_window:
+                lowered_name = str(row.get("name") or "").casefold()
+                if lowered_name == "shepherd":
+                    row["proposal_id"] = "p3-agent-harness-eval-shepherd"
+                elif lowered_name == "hy3":
+                    row["proposal_id"] = "p4-agent-harness-eval-hy3"
             row.pop("replay_command", None)
             row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
             row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -9288,6 +9306,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260708T163850.664161Z",
         "github-growth-20260708T163850Z",
     }
+    current_20260708_175850_window = source_digest in {
+        "github-growth-20260708T175850.390217Z",
+        "github-growth-20260708T175850Z",
+    }
     current_20260707_160109_window = source_digest in {
         "github-growth-20260707T160109.409581Z",
         "github-growth-20260707T160109Z",
@@ -9304,10 +9326,14 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260708_163850_window:
+    if current_20260708_163850_window or current_20260708_175850_window:
         specs = (
             {
-                "proposal_id": "p1-skill-route-discovery-codex-workflow-gate",
+                "proposal_id": (
+                    "p1-skill-route-discovery-reverse-flow"
+                    if current_20260708_175850_window
+                    else "p1-skill-route-discovery-codex-workflow-gate"
+                ),
                 "proposal_kind": "test",
                 "proposal_track": "codex_workflow_gate_route_probe",
                 "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
@@ -9322,8 +9348,12 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 ),
             },
             {
-                "proposal_id": "p2-generic-skill-route-discovery-config",
-                "proposal_kind": "config",
+                "proposal_id": (
+                    "p2-generic-skill-route-discovery-rnskill"
+                    if current_20260708_175850_window
+                    else "p2-generic-skill-route-discovery-config"
+                ),
+                "proposal_kind": "documentation" if current_20260708_175850_window else "config",
                 "proposal_track": "generic_skill_workflow_route_profile",
                 "route_profiles": ("generic_skill_workflow",),
                 "candidate_name_terms": ("rnskill",),
@@ -12757,6 +12787,13 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-trends"
         if current_20260708_123852_window:
             row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-repositories"
+            row["implementation_lane_selected"] = False
+        if current_20260708_175850_window:
+            lowered_name = str(row.get("name") or "").casefold()
+            if lowered_name == "shepherd":
+                row["proposal_id"] = "p3-agent-harness-eval-shepherd"
+            elif lowered_name == "hy3":
+                row["proposal_id"] = "p4-agent-harness-eval-hy3"
             row["implementation_lane_selected"] = False
         row["route_probe_metadata"] = {
             "route_hint": "agent_harness_eval_required",

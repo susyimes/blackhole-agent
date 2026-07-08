@@ -1,0 +1,191 @@
+{
+  "name": "skill-route-discovery-current-digest-20260708T175850-pass1-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260708T175850-pass1-validation-lane",
+    "source_digest": "github-growth-20260708T175850.390217Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
+        "p4-agent-harness-eval-hy3",
+        "p5-agent-workflow-harness-blender-seedance"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260708T175850.390217Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "repository",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex local workflow skill",
+        "summary": "Codex and AI Agent reverse-flow workflow skill with a skills/reverse-flow package, SKILL.md evidence, local sandbox and CTF framing, staged analysis workflow, diagnostic scripts, install examples, and run pressure that must remain route evidence until a local bounded lane validates it.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent", "skill", "skills", "workflow", "reverse-flow"],
+        "suggested_lanes": [
+          "documentation",
+          "config",
+          "test",
+          "code_patch",
+          "install",
+          "run",
+          "runtime_execution",
+          "external_harness_execution"
+        ],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": [
+            "skill_directory",
+            "skill_markdown",
+            "reference_directory",
+            "validation_script"
+          ],
+          "source_metadata_signals": [
+            "activation_phrase",
+            "local_sandbox_boundary",
+            "body_free_workflow_summary"
+          ]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T175850.390217Z",
+        "item_id": "trend:Pluviobyte/rnskill-1",
+        "item_kind": "repository",
+        "name": "Pluviobyte-rnskill",
+        "source_url": "https://github.com/Pluviobyte/rnskill",
+        "title": "Generic AI Agent SKILL.md collection",
+        "summary": "AI Agent Skills collection for Codex, Claude Code, and other SKILL.md-compatible agent workflows. It exposes skills, docs, tools, plugin marketplace metadata, and manual install examples, but discovery alone is not activation authority.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent-skills", "skill", "skills", "workflow"],
+        "suggested_lanes": [
+          "documentation",
+          "config",
+          "test",
+          "code_patch",
+          "install",
+          "enable",
+          "external_skill_activation"
+        ],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": [
+            "skill_directory",
+            "skill_markdown",
+            "skill_manifest",
+            "tooling_directory"
+          ],
+          "source_metadata_signals": [
+            "skill_collection",
+            "skill_registry_metadata",
+            "agent_plugin_marketplace"
+          ]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T175850.390217Z",
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "item_kind": "repository",
+        "name": "shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "title": "Reversible agent execution trace runtime",
+        "summary": "General agent runtime substrate with reversible execution traces, retained outputs, fork, replay, supervision, sandbox permissions, and credential/runtime setup pressure. It has no selected skill package or completed local harness evaluation in this pass.",
+        "topics": ["agent", "runtime", "workflow", "replay", "rollback", "validation"],
+        "route_hints": [],
+        "suggested_lanes": [
+          "documentation",
+          "test",
+          "code_patch",
+          "runtime_execution",
+          "external_harness_execution",
+          "provider_runtime"
+        ]
+      },
+      {
+        "source_digest": "github-growth-20260708T175850.390217Z",
+        "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+        "item_kind": "repository",
+        "name": "Hy3",
+        "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+        "title": "Hy3 reasoning and agent model project",
+        "summary": "Reasoning and agent model project with API, deployment, model serving, provider, MCP, and tool-call pressure. It is model/provider evidence, not a skill workflow activation lane.",
+        "topics": ["agent", "model", "reasoning", "mcp", "api"],
+        "route_hints": [],
+        "suggested_lanes": [
+          "documentation",
+          "test",
+          "code_patch",
+          "provider_runtime",
+          "runtime_execution"
+        ]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "src/blackhole_agent/skill_routing.py",
+          "tests/test_harness_eval.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260708T175850_pass1_validation_lane.json",
+          "docs/skill-route-discovery.md"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k 20260708T175850",
+          "pytest tests/test_harness_eval.py -q -k local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260709T020000Z-skill-route-discovery-pass1-local-validation-lane/rollback-point.md",
+        "review_note": "Pass 1 binds the current reverse-flow and rnskill proposals to bounded local lanes while Shepherd and Hy3 remain agent_harness_eval_required with no direct runtime or permission lane."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 2},
+    {"path": "registry.ignored_evidence_item_count", "equals": 2},
+    {"path": "current_digest_pass1_validation_lane.status", "equals": "ready"},
+    {
+      "path": "current_digest_pass1_validation_lane.proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-route-discovery-rnskill"
+      ]
+    },
+    {"path": "current_digest_pass1_validation_lane.selected_local_lanes", "equals": ["documentation", "test"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass1_validation_lane.rows.0.route_profiles", "equals": ["codex_workflow_gate", "generic_skill_workflow"]},
+    {"path": "current_digest_pass1_validation_lane.rows.1.selected_local_lane", "equals": "documentation"},
+    {"path": "current_digest_pass1_validation_lane.rows.1.route_profiles", "equals": ["generic_skill_workflow"]},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_count", "equals": 2},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.proposal_id", "equals": "p3-agent-harness-eval-shepherd"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.proposal_id", "equals": "p4-agent-harness-eval-hy3"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_agent_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_evidence_urls_exported", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.status", "equals": "ready"},
+    {"path": "current_run_pass1_activation_readiness.agent_harness_eval_required_count", "equals": 2},
+    {"path": "current_run_pass1_activation_readiness.adjacent_general_agent_policy.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "current_run_pass1_activation_readiness.external_skill_activation_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.external_harness_execution_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.remote_execution_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.raw_evidence_urls_exported", "equals": false}
+  ]
+}
