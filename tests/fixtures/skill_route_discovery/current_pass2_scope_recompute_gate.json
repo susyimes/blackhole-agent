@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260708T002159.945917Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260708T002159.945917Z",
+      "item_id": "p1-skill-route-discovery-reverse-flow",
+      "item_kind": "repository",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "title": "Reverse-flow Codex skill workflow gate",
+      "summary": "Codex and AI Agent skill workflow gate evidence with skills/reverse-flow, SKILL.md, local sandbox and CTF framing, staged analysis workflow, diagnostic scripts, and install/run wording that must remain diagnostic until local scope is recomputed.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["codex", "agent-skill", "workflow", "reverse-flow"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "runtime_execution"],
+      "observed_paths": ["skills/reverse-flow/SKILL.md", "skills/reverse-flow/scripts/tool_audit.py"],
+      "metadata_files": ["skills/reverse-flow/agents/openai.yaml"]
+    },
+    {
+      "source_digest": "github-growth-20260708T002159.945917Z",
+      "item_id": "p2-generic-skill-workflow-discovery-rnskill",
+      "item_kind": "repository",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "title": "Generic SKILL.md collection",
+      "summary": "Generic SKILL.md skill collection for Codex, Claude Code, and other agent workflows with skills directory, docs, tools, marketplace metadata, manual install examples, and no current local activation proof.",
+      "route_hints": ["skill_route_discovery"],
+      "topics": ["codex", "skills", "workflow", "skill-collection"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+      "observed_paths": ["skills/rn-renhua/SKILL.md", "docs/rn-renhua.md"],
+      "metadata_files": [".claude-plugin/plugin.json"]
+    },
+    {
+      "source_digest": "github-growth-20260708T002159.945917Z",
+      "item_id": "trend:shepherd-agents/shepherd-1",
+      "item_kind": "repository",
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "title": "Shepherd reversible agent execution trace runtime",
+      "summary": "General agent runtime substrate with reversible traces, replay, fork, revert, supervision, and active alpha runtime claims that require local agent harness evaluation before implementation.",
+      "route_hints": [],
+      "topics": ["agents", "meta-agents", "runtime", "replay"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

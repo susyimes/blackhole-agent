@@ -28,6 +28,23 @@ provider config export, API-key hardcoding, and raw secret value export remain
 denied. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260708T000200`.
 
+For source digest `github-growth-20260708T002159.945917Z`, pass 2 exposes
+`skill_route_discovery_current_pass2_scope_recompute_gate`. The gate binds
+`lingbol088-spec/reverse-flow-skill` to the bounded local test lane as
+`codex_workflow_gate` evidence and binds `Pluviobyte/rnskill` to the
+documentation lane as generic `SKILL.md` collection evidence. Both rows record
+`controller_recomputed_scope: local_validation_candidate`,
+`focused-evidence-review`, and `code_patch_requires_controller_recompute`
+before any code patch can proceed from the route evidence.
+
+`shepherd-agents/shepherd` remains adjacent
+`agent_harness_eval_required` evidence. It inherits no skill-route lane, has no
+direct runtime or code-patch route before local harness evaluation, and keeps
+`runtime_action: none`. The gate exports no raw source URLs, replay commands,
+target paths, upstream bodies, provider launches, external harness execution,
+remote execution, restart, promotion, or activation authority. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k current_pass2_scope_recompute_gate`.
+
 For source digest `github-growth-20260707T234200.022738Z`, pass 4 now exposes
 `skill_route_discovery_current_pass4_completion_handoff` for the current
 reverse-flow/rnskill/BioNeMo/Agents-A1 window. The handoff binds

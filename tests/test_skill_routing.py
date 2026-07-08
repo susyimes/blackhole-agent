@@ -8282,6 +8282,95 @@ def test_skill_route_discovery_current_active_pass2_activation_contract_is_profi
     assert "python -m pytest" not in serialized
 
 
+def test_skill_route_discovery_current_pass2_scope_recompute_gate_maps_active_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_pass2_scope_recompute_gate.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260708T002159.945917Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+
+    gate = lane_map["current_pass2_scope_recompute_gate"]
+    assert gate["controller_surface"] == "skill_route_discovery_current_pass2_scope_recompute_gate"
+    assert gate["status"] == "ready"
+    assert gate["decision"] == "current_pass2_routes_require_controller_recompute_before_any_code_patch"
+    assert gate["source_digest"] == "github-growth-20260708T002159.945917Z"
+    assert gate["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-discovery-rnskill",
+        "p3-agent-harness-eval-general-projects",
+    ]
+    assert gate["blocked_proposal_ids"] == []
+    assert gate["blocked_adjacent_item_ids"] == []
+    assert gate["skill_route_candidate_count"] == 2
+    assert gate["adjacent_general_agent_count"] == 1
+    assert gate["controller_recompute_required_before_code_patch"] is True
+    assert gate["implementation_scope_recomputed_by_controller"] is True
+    assert gate["validation_gate_recomputed_by_controller"] is True
+    assert gate["agent_harness_eval_required_before_general_agent_implementation"] is True
+    assert gate["selected_local_lanes"] == ["documentation", "test"]
+    assert gate["operator_next_action"] == "replay_current_pass2_scope_recompute_gate_then_continue_to_pass3"
+    assert gate["runtime_action"] == "none"
+    assert gate["external_skill_activation_allowed"] is False
+    assert gate["external_agent_activation_allowed"] is False
+    assert gate["external_harness_execution_allowed"] is False
+    assert gate["provider_runtime_launch_allowed"] is False
+    assert gate["remote_execution_allowed"] is False
+
+    rows = {row["proposal_id"]: row for row in gate["rows"]}
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["candidate_names"] == ["reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["selected_evidence_item_ids"] == ["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["controller_recomputed_scope"] == "local_validation_candidate"
+    assert reverse_flow["controller_recomputed_validation_gate"] == "focused-evidence-review"
+    assert reverse_flow["controller_recomputed_implementation_scope_before_patch"] is True
+    assert reverse_flow["code_patch_requires_controller_recompute"] is True
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["runtime_action"] == "none"
+
+    rnskill = rows["p2-generic-skill-workflow-discovery-rnskill"]
+    assert rnskill["candidate_names"] == ["rnskill"]
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["selected_evidence_item_ids"] == ["p2-generic-skill-workflow-discovery-rnskill"]
+    assert rnskill["controller_recomputed_scope"] == "local_validation_candidate"
+    assert rnskill["code_patch_requires_controller_recompute"] is True
+    assert rnskill["runtime_action"] == "none"
+
+    adjacent = gate["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p3-agent-harness-eval-general-projects"
+    assert adjacent["name"] == "shepherd"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["selected_local_lane"] == "agent_harness_eval_required"
+    assert adjacent["direct_allowed_lanes_before_eval"] == []
+    assert adjacent["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert adjacent["controller_recomputed_scope"] == "agent_harness_eval_required"
+    assert adjacent["runtime_action_before_harness_eval"] == "none"
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["remote_execution_allowed"] is False
+
+    serialized = json.dumps(gate, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_active_pass3_local_activation_proof_lane_is_bounded():
     fixture_path = (
         Path(__file__).parent
