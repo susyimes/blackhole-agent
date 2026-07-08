@@ -8371,6 +8371,90 @@ def test_skill_route_discovery_current_pass2_scope_recompute_gate_maps_active_wi
     assert '"external_harness_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T004159_pass3_operator_handoff.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260708T004159.978474Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+
+    handoff = lane_map["current_digest_20260708T004159_pass3_operator_handoff"]
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff"
+    )
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "current_digest_pass3_operator_can_replay_bounded_skill_routes_before_pass4"
+    assert handoff["source_surface"] == "skill_route_discovery_current_pass2_scope_recompute_gate"
+    assert handoff["source_status"] == "ready"
+    assert handoff["source_digest"] == "github-growth-20260708T004159.978474Z"
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-general-projects",
+    ]
+    assert handoff["blocked_proposal_ids"] == []
+    assert handoff["selected_skill_route_lanes"] == ["documentation", "test"]
+    assert handoff["operator_next_action"] == (
+        "replay_current_digest_pass3_operator_handoff_then_continue_to_pass4"
+    )
+    assert handoff["rollback_ref"] == (
+        "refs/blackhole/rollback/20260708T004349Z-skill-route-discovery-pass3-current-window"
+    )
+    assert handoff["self_model_changed"] is False
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["kernel_restart_allowed"] is False
+    assert handoff["promotion_or_push_performed"] is False
+
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["candidate_names"] == ["reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["code_patch_requires_controller_recompute"] is True
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["runtime_action"] == "none"
+
+    rnskill = rows["p2-skill-route-discovery-rnskill"]
+    assert rnskill["candidate_names"] == ["rnskill"]
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["code_patch_requires_controller_recompute"] is True
+    assert rnskill["runtime_action"] == "none"
+
+    adjacent = handoff["adjacent_general_agent_rows"][0]
+    assert adjacent["proposal_id"] == "p3-agent-harness-eval-general-projects"
+    assert adjacent["name"] == "shepherd"
+    assert adjacent["evaluation_lane"] == "agent_harness_eval_required"
+    assert adjacent["direct_allowed_lanes_before_eval"] == []
+    assert adjacent["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert adjacent["skill_route_discovery_inherited"] is False
+    assert adjacent["direct_runtime_route_allowed"] is False
+    assert adjacent["direct_code_patch_route_allowed"] is False
+    assert adjacent["external_harness_execution_allowed"] is False
+    assert adjacent["provider_runtime_launch_allowed"] is False
+    assert adjacent["remote_execution_allowed"] is False
+
+    serialized = json.dumps(handoff, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_active_pass3_local_activation_proof_lane_is_bounded():
     fixture_path = (
         Path(__file__).parent

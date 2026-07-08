@@ -45,6 +45,29 @@ target paths, upstream bodies, provider launches, external harness execution,
 remote execution, restart, promotion, or activation authority. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k current_pass2_scope_recompute_gate`.
 
+For source digest `github-growth-20260708T004159.978474Z`, pass 3 exposes
+`skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff`.
+The handoff is derived from the pass-2 scope recompute gate rather than from
+fresh upstream parsing. It keeps `lingbol088-spec/reverse-flow-skill` in the
+local test lane as `codex_workflow_gate` evidence, keeps `Pluviobyte/rnskill`
+in the documentation lane as generic `SKILL.md` workflow evidence, and records
+that any code_patch follow-up still requires the controller-recomputed local
+validation scope.
+
+`shepherd-agents/shepherd` remains an adjacent
+`agent_harness_eval_required` row with no direct local lanes before harness
+evaluation. It may only produce documentation, test, or code_patch follow-up
+after bounded local agent-harness evidence exists. The handoff records rollback
+ref
+`refs/blackhole/rollback/20260708T004349Z-skill-route-discovery-pass3-current-window`,
+records that `docs/self-model.md` stayed unchanged because the current
+self-model already supports rollback-backed local validation, and keeps Hy3
+provider/MCP pressure as disabled follow-up only. It exports no raw source
+URLs, replay commands, upstream bodies, provider launches, external harness
+execution, remote execution, promotion, restart, or activation authority. Replay
+with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T004159`.
+
 For source digest `github-growth-20260707T234200.022738Z`, pass 4 now exposes
 `skill_route_discovery_current_pass4_completion_handoff` for the current
 reverse-flow/rnskill/BioNeMo/Agents-A1 window. The handoff binds

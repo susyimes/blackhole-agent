@@ -1577,6 +1577,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ignored_evidence_items,
         source_digest=_skill_route_discovery_source_digest(registry),
     )
+    current_digest_20260708T004159_pass3_operator_handoff = (
+        _skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff(
+            current_pass2_scope_recompute_gate
+        )
+    )
     current_active_pass3_local_activation_proof_lane = (
         _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
             candidate_lane_inventory,
@@ -1823,6 +1828,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_active_pass2_proposal_lane": current_active_pass2_proposal_lane,
         "current_active_pass2_activation_contract": current_active_pass2_activation_contract,
         "current_pass2_scope_recompute_gate": current_pass2_scope_recompute_gate,
+        "current_digest_20260708T004159_pass3_operator_handoff": (
+            current_digest_20260708T004159_pass3_operator_handoff
+        ),
         "current_active_pass3_local_activation_proof_lane": (
             current_active_pass3_local_activation_proof_lane
         ),
@@ -29978,6 +29986,289 @@ def _skill_route_discovery_current_pass2_scope_recompute_gate(
         "profile_write_allowed": False,
         "memory_write_allowed": False,
         "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff(
+    current_pass2_scope_recompute_gate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Promote the active pass-2 recompute gate into a pass-3 operator handoff.
+
+    This surface is intentionally derived from the prior gate. It advances the
+    current reverse-flow/rnskill/Shepherd slice without reclassifying evidence
+    or turning upstream repositories into local activation authority.
+    """
+
+    source_digest = str(current_pass2_scope_recompute_gate.get("source_digest") or "")
+    if source_digest != "github-growth-20260708T004159.978474Z":
+        return {}
+
+    source_rows = _mapping_list(current_pass2_scope_recompute_gate.get("rows"))
+    source_adjacent_rows = _mapping_list(current_pass2_scope_recompute_gate.get("adjacent_general_agent_rows"))
+    proposal_ids = [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-general-projects",
+    ]
+    rows: list[dict[str, Any]] = []
+    blocked_proposal_ids: list[str] = []
+    selected_lanes: list[str] = []
+    selected_item_ids: list[str] = []
+    observed_profiles: list[str] = []
+    downgraded_lanes: list[str] = []
+
+    source_rows_by_proposal = {str(row.get("proposal_id") or ""): row for row in source_rows}
+    source_row_specs = (
+        {
+            "source_proposal_id": "p1-skill-route-discovery-reverse-flow",
+            "proposal_id": "p1-skill-route-discovery-reverse-flow",
+            "proposal_kind": "test",
+            "proposal_track": "reverse_flow_codex_workflow_gate_validation",
+            "expected_lane": "test",
+            "pass3_acceptance_target": "codex_workflow_gate_routes_only_to_bounded_local_lanes",
+        },
+        {
+            "source_proposal_id": "p2-generic-skill-workflow-discovery-rnskill",
+            "proposal_id": "p2-skill-route-discovery-rnskill",
+            "proposal_kind": "documentation",
+            "proposal_track": "generic_skill_workflow_route_documentation",
+            "expected_lane": "documentation",
+            "pass3_acceptance_target": "generic_skill_workflow_evidence_has_local_validation_gate_before_followup",
+        },
+    )
+
+    for spec in source_row_specs:
+        source_row = source_rows_by_proposal.get(str(spec["source_proposal_id"]), {})
+        allowed_lanes = _string_list(source_row.get("allowed_local_lanes"))
+        selected_lane = str(source_row.get("selected_local_lane") or "")
+        route_profiles = _string_list(source_row.get("route_profiles"))
+        evidence_item_ids = _string_list(source_row.get("selected_evidence_item_ids"))
+        validation_gates = _string_list(source_row.get("validation_gates"))
+        blockers: list[str] = []
+        if str(source_row.get("status") or "") != "ready":
+            blockers.append("source_scope_recompute_row_not_ready")
+        if selected_lane != str(spec["expected_lane"]):
+            blockers.append("selected_local_lane_changed_after_recompute")
+        if selected_lane not in allowed_lanes:
+            blockers.append("selected_local_lane_not_allowed")
+        if set(allowed_lanes) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES):
+            blockers.append("unbounded_lane_exposed")
+        if not evidence_item_ids:
+            blockers.append("selected_evidence_item_ids_missing")
+        if not validation_gates:
+            blockers.append("validation_gates_missing")
+        if source_row.get("code_patch_requires_controller_recompute") is not True:
+            blockers.append("code_patch_recompute_gate_missing")
+        if source_row.get("local_validation_required") is not True:
+            blockers.append("local_validation_not_required")
+        if str(source_row.get("runtime_action") or "none") != "none":
+            blockers.append("runtime_action_requested")
+        if source_row.get("external_skill_activation_allowed") is not False:
+            blockers.append("external_skill_activation_not_denied")
+        if source_row.get("external_agent_activation_allowed") is not False:
+            blockers.append("external_agent_activation_not_denied")
+        if source_row.get("external_harness_execution_allowed") is not False:
+            blockers.append("external_harness_execution_not_denied")
+        if source_row.get("provider_runtime_launch_allowed") is not False:
+            blockers.append("provider_runtime_launch_not_denied")
+        if source_row.get("remote_execution_allowed") is not False:
+            blockers.append("remote_execution_not_denied")
+        if blockers:
+            blocked_proposal_ids.append(str(spec["proposal_id"]))
+        if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES:
+            selected_lanes.append(selected_lane)
+        selected_item_ids.extend(evidence_item_ids)
+        observed_profiles.extend(route_profiles)
+        downgraded_lanes.extend(_string_list(source_row.get("downgraded_unsupported_lanes")))
+
+        rows.append(
+            {
+                "proposal_id": str(spec["proposal_id"]),
+                "proposal_kind": str(spec["proposal_kind"]),
+                "proposal_track": str(spec["proposal_track"]),
+                "status": "ready" if not blockers else "blocked",
+                "activation_blockers": blockers,
+                "source_surface": "skill_route_discovery_current_pass2_scope_recompute_gate",
+                "source_proposal_id": str(spec["source_proposal_id"]),
+                "candidate_names": _string_list(source_row.get("candidate_names")),
+                "candidate_source_hashes": _string_list(source_row.get("candidate_source_hashes")),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": route_profiles,
+                "allowed_local_lanes": allowed_lanes,
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": evidence_item_ids,
+                "validation_gates": validation_gates,
+                "pass3_acceptance_target": str(spec["pass3_acceptance_target"]),
+                "controller_recomputed_scope": str(source_row.get("controller_recomputed_scope") or ""),
+                "controller_recomputed_validation_gate": str(
+                    source_row.get("controller_recomputed_validation_gate") or ""
+                ),
+                "code_patch_requires_controller_recompute": True,
+                "skill_route_discovery_first": source_row.get("skill_route_discovery_first") is True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    adjacent_rows: list[dict[str, Any]] = []
+    for source_row in source_adjacent_rows:
+        blockers: list[str] = []
+        if str(source_row.get("evaluation_lane") or "") != "agent_harness_eval_required":
+            blockers.append("evaluation_lane_not_agent_harness_eval_required")
+        if _string_list(source_row.get("direct_allowed_lanes_before_eval")):
+            blockers.append("direct_allowed_lanes_before_eval_not_empty")
+        if source_row.get("skill_route_discovery_inherited") is not False:
+            blockers.append("skill_route_discovery_inherited")
+        if source_row.get("direct_runtime_route_allowed") is not False:
+            blockers.append("direct_runtime_route_allowed")
+        if source_row.get("direct_code_patch_route_allowed") is not False:
+            blockers.append("direct_code_patch_route_allowed")
+        if str(source_row.get("runtime_action") or "none") != "none":
+            blockers.append("runtime_action_requested")
+        if source_row.get("external_harness_execution_allowed") is not False:
+            blockers.append("external_harness_execution_not_denied")
+        if source_row.get("provider_runtime_launch_allowed") is not False:
+            blockers.append("provider_runtime_launch_not_denied")
+        if source_row.get("remote_execution_allowed") is not False:
+            blockers.append("remote_execution_not_denied")
+        if blockers:
+            blocked_proposal_ids.append(str(source_row.get("proposal_id") or "p3-agent-harness-eval-general-projects"))
+
+        adjacent_rows.append(
+            {
+                "proposal_id": "p3-agent-harness-eval-general-projects",
+                "status": "ready" if not blockers else "blocked",
+                "activation_blockers": blockers,
+                "name": str(source_row.get("name") or ""),
+                "item_id": str(source_row.get("item_id") or ""),
+                "source_hash": str(source_row.get("source_hash") or ""),
+                "evaluation_lane": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval_required",
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+                "accepted_outputs_after_eval": ["documentation", "test", "code_patch"],
+                "controller_recomputed_scope": "agent_harness_eval_required",
+                "controller_recomputed_validation_gate": "agent_harness_eval_before_implementation_route",
+                "skill_route_discovery_inherited": False,
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    ready = (
+        str(current_pass2_scope_recompute_gate.get("status") or "") == "ready"
+        and len(rows) == len(source_row_specs)
+        and bool(adjacent_rows)
+        and not blocked_proposal_ids
+    )
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_digest_pass3_operator_can_replay_bounded_skill_routes_before_pass4"
+            if ready
+            else "repair_current_digest_pass3_operator_handoff_before_pass4"
+        ),
+        "source_surface": "skill_route_discovery_current_pass2_scope_recompute_gate",
+        "source_status": str(current_pass2_scope_recompute_gate.get("status") or ""),
+        "source_digest": source_digest,
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": proposal_ids,
+        "anchoring_proposal_ids": [
+            "p2-skill-route-docs",
+            "p4-hy3-provider-mcp-preflight",
+            "11473712336-1",
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-discovery-rnskill",
+            "p3-agent-harness-eval-general-projects",
+            "trend:shepherd-agents/shepherd-1",
+        ],
+        "blocked_proposal_ids": sorted(dict.fromkeys(blocked_proposal_ids)),
+        "skill_route_candidate_count": len(rows),
+        "adjacent_general_agent_count": len(adjacent_rows),
+        "observed_route_profiles": sorted(dict.fromkeys(profile for profile in observed_profiles if profile)),
+        "selected_evidence_item_ids": list(dict.fromkeys(selected_item_ids)),
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_skill_route_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "downgraded_unsupported_lanes": sorted(dict.fromkeys(downgraded_lanes)),
+        "operator_review_checklist": [
+            "confirm_rollback_artifact_recorded",
+            "replay_current_digest_pass3_operator_handoff",
+            "verify_codex_workflow_gate_stays_skill_route_discovery_first",
+            "verify_generic_skill_workflow_has_local_validation_gate",
+            "keep_general_agent_projects_in_agent_harness_eval_required",
+            "keep_provider_mcp_preflight_as_disabled_followup_only",
+        ],
+        "required_evidence": [
+            "selected_digest_item_ids_or_frozen_fixture",
+            "body_free_repository_summary",
+            "route_profile_validation_gate",
+            "controller_recomputed_scope",
+            "focused_local_validation",
+            "rollback_artifact",
+            "changed_file_review",
+        ],
+        "operator_next_action": (
+            "replay_current_digest_pass3_operator_handoff_then_continue_to_pass4"
+            if ready
+            else "repair_blocked_rows_then_rebuild_current_digest_pass3_operator_handoff"
+        ),
+        "rollback_ref": "refs/blackhole/rollback/20260708T004349Z-skill-route-discovery-pass3-current-window",
+        "rollback_artifact": (
+            "artifacts/rollback/20260708T004349Z-skill-route-discovery-pass3-current-window/"
+            "rollback-point.md"
+        ),
+        "self_model_changed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "kernel_restart_allowed": False,
+        "promotion_or_push_performed": False,
         "raw_replay_commands_exported": False,
         "raw_source_url_exported": False,
         "raw_evidence_urls_exported": False,

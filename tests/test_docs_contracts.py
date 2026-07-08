@@ -631,6 +631,30 @@ def test_skill_route_discovery_doc_records_20260708T000200_pass1_hy3_preflight_l
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260708T004159_pass3_operator_handoff():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260708T004159.978474Z`",
+        "`skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff`",
+        "derived from the pass-2 scope recompute gate",
+        "`lingbol088-spec/reverse-flow-skill` in the\nlocal test lane",
+        "`Pluviobyte/rnskill`\nin the documentation lane",
+        "code_patch follow-up still requires the controller-recomputed local\nvalidation scope",
+        "`shepherd-agents/shepherd` remains an adjacent\n`agent_harness_eval_required` row",
+        "no direct local lanes before harness\nevaluation",
+        "`refs/blackhole/rollback/20260708T004349Z-skill-route-discovery-pass3-current-window`",
+        "`docs/self-model.md` stayed unchanged",
+        "Hy3\nprovider/MCP pressure as disabled follow-up only",
+        "exports no raw source\nURLs, replay commands, upstream bodies, provider launches",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260708T004159`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T052834_pass1_focused_review_lane():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
