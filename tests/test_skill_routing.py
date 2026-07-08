@@ -40425,6 +40425,91 @@ def test_skill_route_discovery_current_digest_20260708T090635_pass2_validation_l
     assert '"enable"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T092635_pass3_proposal_replay_lane():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T092635_pass3_proposal_replay_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane = build_skill_route_discovery_proposal_lane_map(registry)[
+        "current_digest_pass3_activation_review_lane"
+    ]
+    plan = lane["proposal_replay_plan"]
+    plan_rows = {row["proposal_id"]: row for row in plan["rows"]}
+    adjacent = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps({"lane": lane, "plan": plan}, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260708T092635.428641Z"
+    assert lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T092635_pass3_proposal_replay_lane"
+    )
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 3
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-catalog",
+        "p2-skill-route-discovery-tests",
+        "p3-agent-harness-eval-probe",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["operator_next_action"] == (
+        "replay_current_digest_pass3_proposal_plan_then_continue_to_pass4"
+    )
+
+    assert plan["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T092635_pass3_proposal_replay_plan"
+    )
+    assert plan["status"] == "ready"
+    assert plan["proposal_ids"] == lane["proposal_ids"]
+    assert plan["selected_local_lanes"] == ["documentation", "test"]
+    assert plan_rows["p1-skill-route-discovery-catalog"]["selected_local_lane"] == "documentation"
+    assert plan_rows["p2-skill-route-discovery-tests"]["selected_local_lane"] == "test"
+    assert set(plan_rows["p1-skill-route-discovery-catalog"]["allowed_local_lanes"]) == set(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert set(plan_rows["p2-skill-route-discovery-tests"]["allowed_local_lanes"]) == set(
+        SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+    )
+    assert plan_rows["p3-agent-harness-eval-probe"]["selected_local_lane"] == (
+        "agent_harness_eval_required"
+    )
+    assert plan_rows["p3-agent-harness-eval-probe"]["direct_allowed_lanes_before_eval"] == []
+    assert plan_rows["p3-agent-harness-eval-probe"]["allowed_local_lanes_after_eval"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert set(adjacent) == {
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+        "trend:shepherd-agents/shepherd-1",
+    }
+    for row in adjacent.values():
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["implementation_lane_selected"] is False
+        assert row["runtime_action"] == "none"
+
+    assert lane["run_artifact_contract"]["rollback_ref"] == (
+        "refs/rollback/blackhole-agent/20260708T092633Z-skill-route-discovery-pass3"
+    )
+    assert lane["self_model_decision"]["changed"] is False
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"install"' not in serialized
+    assert '"enable"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260707T190110_pass3_activation_review_is_operator_visible():
     fixture_path = (
         Path(__file__).parent

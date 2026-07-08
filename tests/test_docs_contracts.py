@@ -930,6 +930,24 @@ def test_skill_route_discovery_doc_records_20260707T062834_completion_handoff():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260708T092635_pass3_proposal_replay_lane():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260708T092635.428641Z`",
+        "`skill_route_discovery_current_digest_20260708T092635_pass3_proposal_replay_lane`",
+        "`p1-skill-route-discovery-catalog` selects the documentation lane",
+        "`p2-skill-route-discovery-tests` selects the test lane",
+        "`p3-agent-harness-eval-probe` remains `agent_harness_eval_required`",
+        "Runtime action, external skill or\nagent activation, external harness execution",
+        "python -m pytest tests/test_skill_routing.py -q -k 20260708T092635",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T222110_completion_handoff():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

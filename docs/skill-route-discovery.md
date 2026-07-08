@@ -16,6 +16,23 @@ target paths, or upstream bodies. Generic Codex-compatible skill catalogs such
 as `rnskill` stay in the documentation/config-oriented pre-activation lane
 unless body-free workflow-gate markers are present.
 
+For source digest `github-growth-20260708T092635.428641Z`, pass 3 exposes
+`skill_route_discovery_current_digest_20260708T092635_pass3_proposal_replay_lane`.
+The lane converts the current proposals into one bounded replay plan:
+`p1-skill-route-discovery-catalog` selects the documentation lane,
+`p2-skill-route-discovery-tests` selects the test lane, and
+`p3-agent-harness-eval-probe` remains `agent_harness_eval_required` before any
+general-agent follow-up.
+
+The plan is derived from carried reverse-flow, rnskill, Shepherd, Hy3, and
+workflow-usecase evidence only. It exports item ids, lane names, proposal ids,
+hashes, and validation labels, not raw source URLs, raw evidence URLs, replay
+commands, target paths, or upstream bodies. Runtime action, external skill or
+agent activation, external harness execution, provider launch, profile writes,
+memory writes, remote execution, push, promotion, restart, and activation remain
+disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T092635`.
+
 For source digest `github-growth-20260708T050637.590875Z`, pass 4 exposes
 `skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff`.
 The handoff closes the current reverse-flow/rnskill/Shepherd/Hy3/workflow-usecase
