@@ -8607,6 +8607,109 @@ def test_skill_route_discovery_current_digest_20260708T032637_pass3_provider_run
     assert "api_key" not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T034637_pass4_provider_runtime_completion():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T034637_pass4_provider_runtime_completion.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in payload["items"]}
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["item_id"]: row for row in handoff["adjacent_general_agent_rows"]}
+    provider_packet = handoff["provider_runtime_completion_packet"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260708T034637.626718Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T034637_provider_runtime_pass4_completion_handoff"
+    )
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "provider_runtime_control_slice_ready_for_supervisor_replay_handoff"
+    assert handoff["capability_theme"] == "provider-runtime-control"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["selected_local_lanes"] == ["documentation", "test"]
+    assert handoff["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert handoff["agent_harness_eval_required_count"] == 1
+    assert handoff["provider_runtime_preflight_sample_count"] == 1
+    assert handoff["operator_next_action"] == (
+        "replay_provider_runtime_preflight_and_skill_route_completion_then_hand_off_to_supervisor"
+    )
+
+    reverse_flow = rows["p1_skill_route_discovery_codex_reverse_flow"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+    assert set(reverse_flow["selected_evidence_item_ids"]) <= selected_item_ids
+    assert reverse_flow["downgraded_unsupported_lanes"] == [
+        "install",
+        "provider_runtime",
+        "runtime_execution",
+    ]
+
+    generic = rows["p2_generic_skill_workflow_discovery"]
+    assert generic["route_profiles"] == ["generic_skill_workflow"]
+    assert generic["selected_local_lane"] == "documentation"
+    assert generic["selected_evidence_item_ids"] == ["trend:Pluviobyte/rnskill-1"]
+    assert set(generic["selected_evidence_item_ids"]) <= selected_item_ids
+    assert generic["downgraded_unsupported_lanes"] == ["enable", "install"]
+
+    assert set(adjacent) == {"trend:shepherd-agents/shepherd-1"}
+    shepherd = adjacent["trend:shepherd-agents/shepherd-1"]
+    assert shepherd["proposal_id"] == "p3_agent_harness_eval_for_general_agent_projects"
+    assert shepherd["evaluation_lane"] == "agent_harness_eval_required"
+    assert shepherd["selected_local_lane"] == "agent_harness_eval_required"
+    assert shepherd["allowed_local_lanes"] == []
+    assert shepherd["direct_allowed_lanes_before_eval"] == []
+    assert shepherd["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+    assert shepherd["direct_runtime_route_allowed"] is False
+    assert shepherd["direct_code_patch_route_allowed"] is False
+    assert shepherd["external_harness_execution_allowed"] is False
+    assert shepherd["provider_runtime_launch_allowed"] is False
+    assert shepherd["remote_execution_allowed"] is False
+
+    assert provider_packet["status"] == "ready"
+    assert provider_packet["provider_runtime_replay_ready"] is True
+    assert provider_packet["provider_runtime_launch_allowed"] is False
+    assert provider_packet["success_claim_allowed"] is False
+    assert all(value.startswith("sha256:") for value in provider_packet["validation_command_hashes"])
+    assert provider_packet["raw_replay_commands_exported"] is False
+    assert provider_packet["raw_provider_config_exported"] is False
+    assert provider_packet["raw_provider_diagnostics_exported"] is False
+
+    sample = handoff["provider_runtime_preflight_rows"][0]
+    assert sample["sample_kind"] == "provider_runtime_preflight"
+    assert sample["local_replay_only"] is True
+    assert sample["body_free_diagnostics_only"] is True
+    assert sample["success_claim_allowed"] is False
+    assert sample["provider_runtime_launch_allowed"] is False
+    assert sample["local_replay_target_hash"].startswith("sha256:")
+
+    assert handoff["self_model_decision"]["changed"] is False
+    assert handoff["runtime_action"] == "none"
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert handoff["kernel_restart_allowed"] is False
+    assert handoff["promotion_or_push_performed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff():
     fixture_path = (
         Path(__file__).parent
