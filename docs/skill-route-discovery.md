@@ -5,6 +5,30 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T205851.045193Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane`.
+The lane converts the active reverse-flow/rnskill/Shepherd/Hy3 window into a
+bounded local validation surface before pass 3. `lingbol088-spec/reverse-flow-skill`
+maps to `p1-skill-route-discovery-reverse-flow` in the local test lane with
+`skill_route_discovery_first` preserved for Codex workflow-gate evidence.
+`Pluviobyte/rnskill` maps to `p2-generic-skill-route-discovery` in the
+documentation lane as generic SKILL.md-compatible workflow evidence. Both rows
+may lead only to documentation, config, test, or code_patch work after local
+validation.
+
+`shepherd-agents/shepherd` and `Tencent-Hunyuan/Hy3` remain adjacent
+`p3-agent-harness-eval-shepherd` and `p4-agent-harness-eval-hy3` rows. They
+inherit no `skill_route_discovery` lane, expose no direct implementation lane
+before local agent-harness evaluation, and may only produce documentation,
+test, or code_patch follow-up after that gate. The
+`p5-agent-workflow-usecase-eval` anchor remains queued without a selected
+workflow-usecase item. The lane exports acceptance checks, selected item IDs,
+lane names, hashes, rollback metadata, and activation denials only; raw source
+URLs, evidence URLs, replay commands, target paths, upstream bodies, install,
+enable, run, provider launch, external harness execution, remote execution,
+profile writes, memory writes, promotion, and restart remain disabled. Replay
+with: `python -m pytest tests/test_skill_routing.py -q -k 20260708T205851`.
+
 For source digest `github-growth-20260708T203850.668356Z`, pass 1 exposes
 `skill_route_discovery_current_digest_20260708T203850_pass1_validation_lane`.
 The lane turns the active reverse-flow/rnskill/Shepherd/Hy3 window into a
