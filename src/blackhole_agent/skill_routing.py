@@ -30024,6 +30024,13 @@ def _skill_route_discovery_current_pass2_scope_recompute_gate(
         or row.get("runtime_action") != "none"
     ]
     ready = len(rows) == len(specs) and not skill_blockers and bool(adjacent_rows) and not adjacent_blockers
+    provider_runtime_control = _skill_route_discovery_current_pass2_provider_runtime_control(
+        source_digest=source_digest,
+        ready=ready,
+        rows=rows,
+        adjacent_rows=adjacent_rows,
+        downgraded_lanes=downgraded_lanes,
+    )
 
     return {
         "controller_surface": "skill_route_discovery_current_pass2_scope_recompute_gate",
@@ -30059,12 +30066,18 @@ def _skill_route_discovery_current_pass2_scope_recompute_gate(
         "implementation_scope_recomputed_by_controller": True,
         "validation_gate_recomputed_by_controller": True,
         "agent_harness_eval_required_before_general_agent_implementation": True,
+        "provider_runtime_control": provider_runtime_control,
+        "provider_runtime_recovery_hint_codes": provider_runtime_control["recovery_hint_codes"],
+        "provider_runtime_preflight_required_before_runtime_followup": (
+            provider_runtime_control["provider_runtime_preflight_required"]
+        ),
         "required_evidence": [
             "selected_digest_item_ids_or_frozen_fixture",
             "body_free_repository_summary",
             "route_profile_validation_gate",
             "controller_recomputed_scope",
             "focused_local_validation",
+            "provider_runtime_body_free_preflight_when_runtime_pressure_present",
             "rollback_artifact",
             "changed_file_review",
         ],
@@ -30089,6 +30102,69 @@ def _skill_route_discovery_current_pass2_scope_recompute_gate(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_current_pass2_provider_runtime_control(
+    *,
+    source_digest: str,
+    ready: bool,
+    rows: Sequence[Mapping[str, Any]],
+    adjacent_rows: Sequence[Mapping[str, Any]],
+    downgraded_lanes: Sequence[str],
+) -> dict[str, Any]:
+    """Expose provider/runtime replay requirements without promoting runtime lanes."""
+
+    runtime_pressure = any(
+        lane in {"provider_runtime", "runtime_execution", "external_harness_execution", "remote_execution"}
+        for lane in downgraded_lanes
+    )
+    runtime_pressure = runtime_pressure or bool(adjacent_rows)
+    status = "replay_required" if ready and runtime_pressure else "not_applicable"
+    decision = (
+        "provider_runtime_preflight_sample_required_before_runtime_or_provider_followup"
+        if status == "replay_required"
+        else "provider_runtime_preflight_not_required_for_current_scope"
+    )
+    recovery_hint_codes = ["provider_runtime_preflight_sample_missing"] if status == "replay_required" else []
+    validation_commands = (
+        "python -m pytest tests/test_harness_eval.py -q -k provider_runtime_preflight",
+        "python -m pytest tests/test_harness_eval.py -q -k provider_runtime_recovery_summary",
+    )
+    return {
+        "controller_surface": "skill_route_discovery_current_pass2_provider_runtime_control",
+        "status": status,
+        "decision": decision,
+        "source_digest_hash": _stable_hash(source_digest or "unknown"),
+        "skill_route_row_count": len(rows),
+        "adjacent_general_agent_row_count": len(adjacent_rows),
+        "runtime_pressure_detected": runtime_pressure,
+        "provider_runtime_preflight_required": status == "replay_required",
+        "provider_runtime_preflight_sample_provided": False,
+        "provider_runtime_sample_ready_for_local_replay": False,
+        "provider_runtime_sample_ready_for_supervisor_promotion": False,
+        "success_claim_allowed": False,
+        "recovery_hint_codes": recovery_hint_codes,
+        "recovery_hint_hashes": [_stable_hash(code) for code in recovery_hint_codes],
+        "replay_command_hashes": [_stable_hash(command) for command in validation_commands],
+        "next_action": (
+            "add_body_free_provider_runtime_preflight_sample_then_replay"
+            if status == "replay_required"
+            else "continue_with_bounded_skill_route_validation"
+        ),
+        "accepted_followup_lanes_after_preflight": ["documentation", "config", "test"],
+        "local_replay_only": True,
+        "body_free_diagnostics_only": True,
+        "runtime_action": "none",
+        "provider_runtime_launch_allowed": False,
+        "external_harness_execution_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_provider_config_exported": False,
+        "raw_provider_diagnostics_exported": False,
+        "raw_upstream_body_exported": False,
     }
 
 

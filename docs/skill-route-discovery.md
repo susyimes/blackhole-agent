@@ -5,6 +5,25 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T024637.613270Z`, pass 2 keeps the
+reverse-flow/rnskill/Shepherd window on
+`skill_route_discovery_current_pass2_scope_recompute_gate` and adds a
+`skill_route_discovery_current_pass2_provider_runtime_control` diagnostic panel.
+`lingbol088-spec/reverse-flow-skill` remains a bounded local test lane as
+Codex workflow-gate evidence, and `Pluviobyte/rnskill` remains a bounded
+documentation lane as generic `SKILL.md` collection evidence. Provider/runtime
+wording from install, runtime, or Shepherd-style execution claims is treated as
+diagnostic pressure only.
+
+The provider-runtime panel reports that a body-free
+`provider_runtime_preflight` sample is required before runtime or provider
+follow-up can be promoted. It exports recovery hint codes and replay command
+hashes, not raw replay commands, provider config, diagnostics, source URLs,
+evidence URLs, or upstream bodies. Provider launch, external harness execution,
+remote execution, profile writes, memory writes, promotion, restart, and
+external activation remain denied. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T024637`.
+
 For source digest `github-growth-20260708T000200.125943Z`, pass 1 exposes
 `skill_route_discovery_current_pass1_focused_review_lane` for the
 rnskill/reverse-flow/Shepherd/Hy3 window. `Pluviobyte/rnskill` is kept as

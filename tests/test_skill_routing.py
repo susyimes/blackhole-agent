@@ -8462,6 +8462,67 @@ def test_skill_route_discovery_current_pass2_scope_recompute_gate_maps_active_wi
     assert '"external_harness_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T024637_pass2_provider_runtime_control():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T024637_pass2_provider_runtime_control.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260708T024637.613270Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 1
+
+    gate = lane_map["current_pass2_scope_recompute_gate"]
+    assert gate["status"] == "ready"
+    assert gate["source_digest"] == "github-growth-20260708T024637.613270Z"
+    assert gate["selected_local_lanes"] == ["documentation", "test"]
+    assert gate["provider_runtime_preflight_required_before_runtime_followup"] is True
+    assert gate["provider_runtime_recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+
+    provider_control = gate["provider_runtime_control"]
+    assert provider_control["controller_surface"] == (
+        "skill_route_discovery_current_pass2_provider_runtime_control"
+    )
+    assert provider_control["status"] == "replay_required"
+    assert provider_control["decision"] == (
+        "provider_runtime_preflight_sample_required_before_runtime_or_provider_followup"
+    )
+    assert provider_control["runtime_pressure_detected"] is True
+    assert provider_control["provider_runtime_preflight_required"] is True
+    assert provider_control["provider_runtime_preflight_sample_provided"] is False
+    assert provider_control["provider_runtime_sample_ready_for_local_replay"] is False
+    assert provider_control["provider_runtime_sample_ready_for_supervisor_promotion"] is False
+    assert provider_control["success_claim_allowed"] is False
+    assert provider_control["next_action"] == "add_body_free_provider_runtime_preflight_sample_then_replay"
+    assert provider_control["accepted_followup_lanes_after_preflight"] == ["documentation", "config", "test"]
+    assert provider_control["local_replay_only"] is True
+    assert provider_control["body_free_diagnostics_only"] is True
+    assert provider_control["runtime_action"] == "none"
+    assert provider_control["provider_runtime_launch_allowed"] is False
+    assert provider_control["external_harness_execution_allowed"] is False
+    assert provider_control["remote_execution_allowed"] is False
+    assert provider_control["raw_replay_commands_exported"] is False
+    assert provider_control["raw_source_url_exported"] is False
+    assert provider_control["raw_evidence_urls_exported"] is False
+    assert provider_control["raw_provider_config_exported"] is False
+    assert provider_control["raw_provider_diagnostics_exported"] is False
+    assert provider_control["raw_upstream_body_exported"] is False
+    assert all(value.startswith("sha256:") for value in provider_control["replay_command_hashes"])
+
+    serialized = json.dumps(gate, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff():
     fixture_path = (
         Path(__file__).parent
