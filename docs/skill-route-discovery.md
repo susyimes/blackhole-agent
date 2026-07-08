@@ -5,6 +5,17 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+The repository lane probe collapses fork-lineage summaries before activation
+readiness is reported. A repeated fork of the same upstream skill repository is
+supporting evidence, not a second proposal row, unless it carries additional
+bounded local validation signals. The probe now reports
+`duplicate_candidate_summary_count`, `fork_lineage_collapsed`,
+`supporting_summary_count`, supporting candidate names, and supporting source
+hashes while still exporting no raw source URLs, evidence URLs, replay commands,
+target paths, or upstream bodies. Generic Codex-compatible skill catalogs such
+as `rnskill` stay in the documentation/config-oriented pre-activation lane
+unless body-free workflow-gate markers are present.
+
 For source digest `github-growth-20260708T050637.590875Z`, pass 4 exposes
 `skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff`.
 The handoff closes the current reverse-flow/rnskill/Shepherd/Hy3/workflow-usecase

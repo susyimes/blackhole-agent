@@ -821,15 +821,15 @@ def build_skill_route_discovery_repository_lane_probe(
     diagnostic pressure, never as an executable lane.
     """
 
-    rows: list[dict[str, Any]] = []
-    candidate_count = 0
+    ignored_rows: list[dict[str, Any]] = []
+    candidate_buckets: dict[str, dict[str, Any]] = {}
     ignored_count = 0
-    validation_error_count = 0
-    stripped_pressure_count = 0
+    duplicate_candidate_summary_count = 0
 
     for index, summary in enumerate(summaries):
         descriptor = _coerce_external_skill_repository_summary(summary)
         source_hash = _stable_hash(_summary_lineage_key(descriptor))
+        summary_source_hash = _stable_hash(descriptor.source_url)
         candidate = descriptor.to_candidate()
         ignored_unsupported_pressure = [
             lane
@@ -838,8 +838,7 @@ def build_skill_route_discovery_repository_lane_probe(
         ]
         if candidate is None:
             ignored_count += 1
-            stripped_pressure_count += len(ignored_unsupported_pressure)
-            rows.append(
+            ignored_rows.append(
                 {
                     "index": index,
                     "name": descriptor.name,
@@ -869,14 +868,41 @@ def build_skill_route_discovery_repository_lane_probe(
             )
             continue
 
-        candidate_count += 1
+        lineage_key = _summary_lineage_key(descriptor)
+        bucket = candidate_buckets.get(lineage_key)
+        if bucket is None:
+            candidate_buckets[lineage_key] = {
+                "first_index": index,
+                "candidate": candidate,
+                "names": [candidate.name],
+                "source_hash": source_hash,
+                "supporting_summary_count": 1,
+                "supporting_source_hashes": [summary_source_hash],
+            }
+            continue
+        duplicate_candidate_summary_count += 1
+        bucket["candidate"] = _merge_external_skill_route_candidates(bucket["candidate"], candidate)
+        bucket["names"].append(candidate.name)
+        bucket["supporting_summary_count"] += 1
+        bucket["supporting_source_hashes"].append(summary_source_hash)
+
+    rows: list[dict[str, Any]] = []
+    candidate_count = len(candidate_buckets)
+    validation_error_count = 0
+    stripped_pressure_count = sum(
+        len(row.get("unsupported_lane_pressure") or []) for row in ignored_rows
+    )
+    fork_lineage_collapsed = duplicate_candidate_summary_count > 0
+
+    for bucket in sorted(candidate_buckets.values(), key=lambda item: int(item["first_index"])):
+        candidate = bucket["candidate"]
         registry_entry = candidate.to_registry_entry()
         allowed_lanes = [
             lane
             for lane in registry_entry["candidate_lanes"]
             if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
         ]
-        route_profiles = _skill_route_discovery_route_profiles(candidate)
+        route_profiles = _skill_route_discovery_repository_lane_probe_profiles(candidate)
         preferred_lanes = tuple(
             dict.fromkeys(
                 lane
@@ -899,9 +925,12 @@ def build_skill_route_discovery_repository_lane_probe(
 
         rows.append(
             {
-                "index": index,
+                "index": bucket["first_index"],
                 "name": candidate.name,
-                "source_hash": source_hash,
+                "source_hash": bucket["source_hash"],
+                "supporting_summary_count": bucket["supporting_summary_count"],
+                "supporting_candidate_names": list(dict.fromkeys(bucket["names"])),
+                "supporting_source_hashes": list(dict.fromkeys(bucket["supporting_source_hashes"])),
                 "route_status": registry_entry["route_status"],
                 "route_profiles": list(route_profiles),
                 "allowed_local_lanes": allowed_lanes,
@@ -912,11 +941,16 @@ def build_skill_route_discovery_repository_lane_probe(
                 "source_metadata_signals": list(candidate.source_metadata_signals),
                 "unsupported_lane_pressure": unsupported_pressure,
                 "diagnostics": diagnostics,
+                "uncertainty_reasons": list(registry_entry["uncertainty_reasons"]),
                 "activation_prerequisite_lane": selected_lane,
                 "skill_route_discovery_first": True,
-                **_skill_route_discovery_workflow_gate_contract(
-                    candidate,
-                    selected_lane=selected_lane,
+                **(
+                    _skill_route_discovery_workflow_gate_contract(
+                        candidate,
+                        selected_lane=selected_lane,
+                    )
+                    if "codex_workflow_gate" in route_profiles
+                    else {}
                 ),
                 "local_validation_required": True,
                 "runtime_action": "none",
@@ -930,6 +964,7 @@ def build_skill_route_discovery_repository_lane_probe(
             }
         )
 
+    rows.extend(ignored_rows)
     ready = candidate_count > 0 and validation_error_count == 0
     route_boundary_checklist = {
         "skill_candidates_start_disabled": all(
@@ -959,6 +994,7 @@ def build_skill_route_discovery_repository_lane_probe(
             for row in rows
         ),
         "focused_local_validation_required": True,
+        "fork_lineage_collapsed_before_activation": True,
     }
     workflow_gate_contract_ready = all(
         row.get("workflow_gate_validation_contract", {}).get("status") in {None, "ready"}
@@ -974,6 +1010,8 @@ def build_skill_route_discovery_repository_lane_probe(
         "summary_count": len(summaries),
         "candidate_count": candidate_count,
         "ignored_summary_count": ignored_count,
+        "duplicate_candidate_summary_count": duplicate_candidate_summary_count,
+        "fork_lineage_collapsed": fork_lineage_collapsed,
         "validation_error_count": validation_error_count,
         "stripped_unsupported_pressure_count": stripped_pressure_count,
         "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
@@ -3931,14 +3969,65 @@ def _skill_route_discovery_route_profiles(candidate: ExternalSkillRouteCandidate
     if "codex_workflow_gate" in profiles and not any(
         marker in text
         for marker in (
+            "activation phrase",
             "codex",
+            "crackme",
             "evidence gate",
             "fablecodex",
+            "local sandbox",
             "review ledger",
+            "reverse-flow",
+            "staged workflow",
             "verification habit",
+            "wargame",
             "workflow gate",
         )
     ):
+        profiles = [profile for profile in profiles if profile != "codex_workflow_gate"]
+    return tuple(dict.fromkeys(profiles or ["generic_skill_workflow"]))
+
+
+def _skill_route_discovery_repository_lane_probe_profiles(
+    candidate: ExternalSkillRouteCandidate,
+) -> tuple[str, ...]:
+    """Select route profiles for the pre-activation repository probe.
+
+    Registry classification keeps broad Codex-compatible catalog evidence under
+    existing route profiles. The lane probe is stricter: marketplace/catalog
+    collections should not open the Codex workflow-gate test lane unless they
+    also expose body-free gate markers.
+    """
+
+    profiles = list(_skill_route_discovery_route_profiles(candidate))
+    if "codex_workflow_gate" not in profiles:
+        return tuple(profiles)
+    text = " ".join(
+        part
+        for part in (
+            candidate.name,
+            candidate.evidence_summary,
+            " ".join(candidate.source_layout_signals),
+            " ".join(candidate.source_metadata_signals),
+        )
+        if part
+    ).casefold()
+    gate_markers_present = any(
+        marker in text
+        for marker in (
+            "activation phrase",
+            "crackme",
+            "evidence gate",
+            "local sandbox",
+            "reverse-flow",
+            "staged workflow",
+            "wargame",
+            "workflow gate",
+        )
+    )
+    catalog_markers_present = bool(
+        {"agent_plugin_marketplace", "skill_registry_metadata"} & set(candidate.source_metadata_signals)
+    )
+    if catalog_markers_present and not gate_markers_present:
         profiles = [profile for profile in profiles if profile != "codex_workflow_gate"]
     return tuple(dict.fromkeys(profiles or ["generic_skill_workflow"]))
 

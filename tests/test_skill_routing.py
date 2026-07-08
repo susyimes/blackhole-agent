@@ -878,6 +878,7 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
         "ignored_rows_do_not_inherit_skill_route": True,
         "runtime_and_external_activation_denied": True,
         "focused_local_validation_required": True,
+        "fork_lineage_collapsed_before_activation": True,
     }
     assert probe["runtime_action"] == "none"
     assert probe["external_skill_activation_allowed"] is False
@@ -944,6 +945,123 @@ def test_skill_route_discovery_repository_lane_probe_bounds_skill_codex_workflow
     assert "install" not in reverse_flow["allowed_local_lanes"]
     assert "runtime_execution" not in reverse_flow["allowed_local_lanes"]
     assert "provider_runtime" not in reverse_flow["allowed_local_lanes"]
+
+
+def test_skill_route_discovery_repository_lane_probe_collapses_current_reverse_flow_and_rnskill_forks():
+    probe = build_skill_route_discovery_repository_lane_probe(
+        [
+            {
+                "name": "lingbol088-spec-reverse-flow-skill",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Codex and AI Agent reverse-flow skill package with skills/reverse-flow/SKILL.md, "
+                    "local sandbox defaults, CTF/crackme framing, staged workflow, scripts, "
+                    "activation phrase, install examples, and run examples."
+                ),
+                "topics": ["codex", "skill", "workflow", "reverse-flow"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+                "observed_paths": [
+                    "skills/reverse-flow/SKILL.md",
+                    "skills/reverse-flow/references/reverse-flow.md",
+                    "skills/reverse-flow/scripts/tool_audit.py",
+                    "skills/reverse-flow/agents/openai.yaml",
+                ],
+            },
+            {
+                "name": "520meat-netizen-reverse-flow-skill",
+                "source_url": "https://github.com/520meat-netizen/reverse-flow-skill",
+                "forked_from_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Fork signal for the same reverse-flow Codex skill package with SKILL.md "
+                    "and install pressure but no additional local validation evidence."
+                ),
+                "topics": ["codex", "skill", "workflow"],
+                "suggested_lanes": ["documentation", "test", "install"],
+                "observed_paths": ["skills/reverse-flow/SKILL.md"],
+            },
+            {
+                "name": "Pluviobyte-rnskill",
+                "source_url": "https://github.com/Pluviobyte/rnskill",
+                "summary": (
+                    "AI Agent Skills collection for Codex, Claude Code, and other Agent workflows "
+                    "that support SKILL.md, with skills directory, docs, tools, marketplace "
+                    "metadata, manual install examples, and plugin install examples."
+                ),
+                "topics": ["codex", "skill", "skills", "workflow"],
+                "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                "observed_paths": [
+                    "skills/rn-renhua/SKILL.md",
+                    "docs/rn-renhua.md",
+                    "tools/build.py",
+                    ".claude-plugin/marketplace.json",
+                ],
+                "metadata_files": [".claude-plugin/marketplace.json"],
+            },
+            {
+                "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+                "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+                "summary": "Workflow use cases and examples without skill package or SKILL.md.",
+                "topics": ["workflow", "seedance"],
+                "suggested_lanes": ["documentation", "runtime_execution"],
+            },
+        ]
+    )
+
+    serialized = json.dumps(probe, sort_keys=True)
+    rows_by_name = {row["name"]: row for row in probe["rows"]}
+    reverse_flow = rows_by_name["lingbol088-spec-reverse-flow-skill"]
+    rnskill = rows_by_name["Pluviobyte-rnskill"]
+    ignored = rows_by_name["Awesome-Blender-Seedance-Workflow-Usecases"]
+
+    assert probe["status"] == "ready"
+    assert probe["summary_count"] == 4
+    assert probe["candidate_count"] == 2
+    assert probe["duplicate_candidate_summary_count"] == 1
+    assert probe["ignored_summary_count"] == 1
+    assert probe["fork_lineage_collapsed"] is True
+    assert probe["selected_local_lanes"] == ["documentation", "test"]
+    assert probe["route_boundary_checklist"]["fork_lineage_collapsed_before_activation"] is True
+
+    assert reverse_flow["supporting_summary_count"] == 2
+    assert reverse_flow["supporting_candidate_names"] == [
+        "lingbol088-spec-reverse-flow-skill",
+        "520meat-netizen-reverse-flow-skill",
+    ]
+    assert len(reverse_flow["supporting_source_hashes"]) == 2
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert set(reverse_flow["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["unsupported_lane_pressure"] == ["install", "run"]
+    assert "skill_markdown" in reverse_flow["source_layout_signals"]
+    assert "skill_directory" in reverse_flow["source_layout_signals"]
+    assert "reference_directory" in reverse_flow["source_layout_signals"]
+    assert "validation_script" in reverse_flow["source_layout_signals"]
+    assert "agent_metadata" in reverse_flow["source_layout_signals"]
+    assert "fork_or_mirror_lineage_collapsed" in reverse_flow["uncertainty_reasons"]
+
+    assert rnskill["supporting_summary_count"] == 1
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert set(rnskill["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert rnskill["unsupported_lane_pressure"] == ["install"]
+    assert "skill_markdown" in rnskill["source_layout_signals"]
+    assert "skill_directory" in rnskill["source_layout_signals"]
+    assert "agent_plugin_marketplace" in rnskill["source_metadata_signals"]
+
+    assert ignored["route_status"] == "ignored"
+    assert ignored["activation_prerequisite_lane"] == "agent_harness_eval_required"
+    assert ignored["allowed_local_lanes"] == []
+    assert ignored["skill_route_discovery_first"] is False
+
+    for row in probe["rows"]:
+        assert set(row["allowed_local_lanes"]) <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert all("runtime_execution" not in row["allowed_local_lanes"] for row in probe["rows"])
+    assert '"provider_runtime_launch_allowed": true' not in serialized
 
 
 def test_skill_route_discovery_validation_route_packet_splits_skill_and_agent_projects():
