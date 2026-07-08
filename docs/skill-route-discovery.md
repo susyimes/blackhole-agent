@@ -5,6 +5,32 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T221850.808872Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260708T221850_pass2_validation_lane`.
+The lane advances the active reverse-flow/rnskill/Shepherd/Hy3 window as a
+bounded local validation surface. `trend:lingbol088-spec/reverse-flow-skill-1`
+maps to `p1-skill-route-discovery-reverse-flow` in the local test lane because
+the selected evidence contains a Codex/AI Agent skill workflow shape:
+`skills/reverse-flow`, `SKILL.md`, local sandbox framing, staged workflow
+language, and diagnostic script pressure. `trend:Pluviobyte/rnskill-1` maps to
+`p2-generic-skill-route-discovery` in the documentation lane as generic
+SKILL.md-compatible workflow collection evidence.
+
+`trend:shepherd-agents/shepherd-1` and `trend:Tencent-Hunyuan/Hy3-1` remain
+adjacent `agent_harness_eval_required` rows under
+`p3-agent-harness-eval-shepherd` and `p4-agent-harness-eval-hy3`. They inherit
+no `skill_route_discovery` lane, expose no direct local implementation lane
+before local agent-harness evaluation, and may only produce documentation,
+test, or code_patch follow-up after that gate. The
+`p5-workflow-harness-eval-blender-seedance` anchor stays queued because the
+digest selected no workflow-usecase item. The packet exports selected item IDs,
+proposal IDs, lane names, hashes, rollback metadata, and activation denials
+only; raw source URLs, evidence URLs, replay commands, target paths, upstream
+bodies, install, enable, run, provider launch, external harness execution,
+remote execution, promotion, restart, profile writes, and memory writes remain
+disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T221850`.
+
 For source digest `github-growth-20260708T215850.675323Z`, pass 1 exposes
 `skill_route_discovery_current_digest_20260708T215850_pass1_validation_lane`.
 The lane replays the active reverse-flow/rnskill/Shepherd/Hy3 window as a

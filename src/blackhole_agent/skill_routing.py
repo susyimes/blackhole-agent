@@ -1790,6 +1790,52 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_digest_20260708T221850_pass2_validation_lane = (
+        _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
+            current_run_pass2_local_validation_lane,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T221850.808872Z",
+                "github-growth-20260708T221850Z",
+            ),
+            source_digest_fallback="github-growth-20260708T221850.808872Z",
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T221850_pass2_validation_lane"
+            ),
+            repair_token="221850",
+            p5_anchor_proposal_id="p5-workflow-harness-eval-blender-seedance",
+            p5_anchor_reason=(
+                "active_window_carried_the_blender_seedance_anchor_but_this_digest_selected_no_"
+                "workflow_usecase_item"
+            ),
+            anchoring_proposal_ids=(
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-generic-skill-workflow-rnskill",
+                "p3-agent-harness-eval-shepherd",
+                "p4-agent-harness-eval-hy3",
+                "p5-workflow-harness-eval-blender-seedance",
+                "p1-skill-route-discovery-fixtures",
+                "p2-skill-workflow-route-doc",
+                "p3-agent-harness-eval-gate",
+                "p4-self-model-routing-note",
+                "trend:shepherd-agents/shepherd-1",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:Pluviobyte/rnskill-1",
+                "trend:Tencent-Hunyuan/Hy3-1",
+            ),
+            rollback_ref=(
+                "refs/blackhole-rollback/20260709T062006Z-skill-route-discovery-pass2"
+            ),
+            rollback_artifact=(
+                "artifacts/rollback/20260709T062006Z-skill-route-discovery-pass2/"
+                "rollback-point.md"
+            ),
+            run_note_artifact=(
+                "artifacts/blackhole-runs/20260709T062006Z-skill-route-discovery-pass2.md"
+            ),
+            validation_selector="20260708T221850",
+        )
+    )
     current_active_pass2_skill_route_validation_matrix = (
         _skill_route_discovery_current_active_pass2_skill_route_validation_matrix(
             candidate_lane_inventory,
@@ -2174,6 +2220,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_run_pass2_local_validation_lane": current_run_pass2_local_validation_lane,
         "current_digest_20260708T205851_pass2_validation_lane": (
             current_digest_20260708T205851_pass2_validation_lane
+        ),
+        "current_digest_20260708T221850_pass2_validation_lane": (
+            current_digest_20260708T221850_pass2_validation_lane
         ),
         "current_active_pass2_skill_route_validation_matrix": (
             current_active_pass2_skill_route_validation_matrix
@@ -14580,14 +14629,49 @@ def _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
     current_run_pass2_local_validation_lane: Mapping[str, Any],
     *,
     source_digest: str,
+    selected_source_digests: Sequence[str] = (
+        "github-growth-20260708T205851.045193Z",
+        "github-growth-20260708T205851Z",
+    ),
+    source_digest_fallback: str = "github-growth-20260708T205851.045193Z",
+    controller_surface: str = (
+        "skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane"
+    ),
+    repair_token: str = "205851",
+    p5_anchor_proposal_id: str = "p5-agent-workflow-usecase-eval",
+    p5_anchor_reason: str = (
+        "active_window_carried_the_anchor_but_this_digest_selected_no_workflow_usecase_item"
+    ),
+    anchoring_proposal_ids: Sequence[str] = (
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-skill-route-discovery-rnskill",
+        "p3-agent-harness-eval-shepherd",
+        "p4-agent-harness-eval-hy3",
+        "p5-agent-workflow-usecase-eval",
+        "p2-generic-skill-route-discovery",
+        "p3-skill-workflow-config-preflight",
+        "p4-agent-harness-eval-fixtures",
+        "p5-route-summary-metadata",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:shepherd-agents/shepherd-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    ),
+    rollback_ref: str = (
+        "refs/rollback/blackhole-agent/20260709T014500Z-skill-route-discovery-pass2"
+    ),
+    rollback_artifact: str = (
+        "artifacts/rollback/20260709T014500Z-skill-route-discovery-pass2/rollback-point.md"
+    ),
+    run_note_artifact: str = (
+        "artifacts/evolution-20260709T014500Z-skill-route-discovery-pass2-current-window.md"
+    ),
+    validation_selector: str = "20260708T205851",
 ) -> dict[str, Any]:
     """Expose the active pass-2 skill-route lane for the current digest window."""
 
     lane = dict(current_run_pass2_local_validation_lane)
-    selected_source_digest = source_digest in {
-        "github-growth-20260708T205851.045193Z",
-        "github-growth-20260708T205851Z",
-    }
+    selected_source_digest = source_digest in set(selected_source_digests)
     rows = [dict(row) for row in _mapping_list(lane.get("rows"))]
     for row in rows:
         if row.get("proposal_id") == "p2-skill-route-discovery-rnskill":
@@ -14672,10 +14756,10 @@ def _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
         for proposal_id, expected_trigger in expected_adjacent_proposals.items()
     }
     p5_anchor_note = {
-        "proposal_id": "p5-agent-workflow-usecase-eval",
+        "proposal_id": p5_anchor_proposal_id,
         "status": "queued_without_selected_item",
         "expected_trigger": "workflow_usecase_agent_project",
-        "reason": "active_window_carried_the_anchor_but_this_digest_selected_no_workflow_usecase_item",
+        "reason": p5_anchor_reason,
         "evaluation_lane": "agent_harness_eval_required",
         "direct_allowed_lanes_before_eval": [],
         "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
@@ -14696,38 +14780,22 @@ def _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
 
     lane.update(
         {
-            "controller_surface": (
-                "skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane"
-            ),
+            "controller_surface": controller_surface,
             "status": "ready" if ready else "blocked",
             "decision": (
                 "current_digest_pass2_skill_routes_ready_for_bounded_local_validation"
                 if ready
-                else "repair_current_digest_205851_pass2_validation_lane"
+                else f"repair_current_digest_{repair_token}_pass2_validation_lane"
             ),
-            "source_digest": source_digest or "github-growth-20260708T205851.045193Z",
+            "source_digest": source_digest or source_digest_fallback,
             "proposal_ids": [
                 "p1-skill-route-discovery-reverse-flow",
                 "p2-generic-skill-route-discovery",
                 "p3-agent-harness-eval-shepherd",
                 "p4-agent-harness-eval-hy3",
-                "p5-agent-workflow-usecase-eval",
+                p5_anchor_proposal_id,
             ],
-            "anchoring_proposal_ids": [
-                "p1-skill-route-discovery-reverse-flow",
-                "p2-skill-route-discovery-rnskill",
-                "p3-agent-harness-eval-shepherd",
-                "p4-agent-harness-eval-hy3",
-                "p5-agent-workflow-usecase-eval",
-                "p2-generic-skill-route-discovery",
-                "p3-skill-workflow-config-preflight",
-                "p4-agent-harness-eval-fixtures",
-                "p5-route-summary-metadata",
-                "trend:lingbol088-spec/reverse-flow-skill-1",
-                "trend:Pluviobyte/rnskill-1",
-                "trend:shepherd-agents/shepherd-1",
-                "trend:Tencent-Hunyuan/Hy3-1",
-            ],
+            "anchoring_proposal_ids": list(anchoring_proposal_ids),
             "blocked_proposal_ids": list(
                 dict.fromkeys(
                     [failure.split(":", 1)[0] for failure in failed_checks]
@@ -14745,28 +14813,20 @@ def _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
             },
             "run_artifact_contract": {
                 "rollback_ref": (
-                    "refs/rollback/blackhole-agent/"
-                    "20260709T014500Z-skill-route-discovery-pass2"
+                    rollback_ref
                 ),
-                "rollback_artifact": (
-                    "artifacts/rollback/"
-                    "20260709T014500Z-skill-route-discovery-pass2/"
-                    "rollback-point.md"
-                ),
-                "run_note_artifact": (
-                    "artifacts/evolution-20260709T014500Z-"
-                    "skill-route-discovery-pass2-current-window.md"
-                ),
+                "rollback_artifact": rollback_artifact,
+                "run_note_artifact": run_note_artifact,
                 "validation_command_hash": _stable_hash(
-                    "python -m pytest tests/test_skill_routing.py -q -k 20260708T205851"
+                    f"python -m pytest tests/test_skill_routing.py -q -k {validation_selector}"
                 ),
                 "rollback_execution": "explicit_destructive_operator_action_only",
                 "raw_validation_command_exported": False,
             },
             "operator_next_action": (
-                "replay_current_digest_205851_pass2_validation_lane_then_continue_to_pass3"
+                f"replay_current_digest_{repair_token}_pass2_validation_lane_then_continue_to_pass3"
                 if ready
-                else "repair_current_digest_205851_pass2_validation_lane_before_pass3"
+                else f"repair_current_digest_{repair_token}_pass2_validation_lane_before_pass3"
             ),
             "self_model_decision": {
                 "path": "docs/self-model.md",

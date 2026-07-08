@@ -1,0 +1,12 @@
+{
+  "created_at": "2026-07-09T06:20:06Z",
+  "original_branch": "codex/blackhole-evolve/20260708T221940.849262-add-local-fixtures-or-tests-for-skill-workflow-r",
+  "original_head": "edd4cfaed5d7bc26757646f23f31a6deb83a9954",
+  "rollback_ref": "refs/blackhole-rollback/20260709T062006Z-skill-route-discovery-pass2",
+  "source_digest": "github-growth-20260708T221850.808872Z",
+  "recovery_commands": [
+    "git fetch . refs/blackhole-rollback/20260709T062006Z-skill-route-discovery-pass2",
+    "git reset --hard refs/blackhole-rollback/20260709T062006Z-skill-route-discovery-pass2"
+  ],
+  "rollback_execution": "explicit_destructive_operator_action_only"
+}
