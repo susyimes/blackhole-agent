@@ -40928,6 +40928,171 @@ def test_skill_route_discovery_current_digest_20260708T141851_pass2_routes_activ
     assert '"enable"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T153850_pass2_routes_active_window():
+    source_digest = "github-growth-20260708T153850.626636Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with skills directory, "
+                "SKILL.md, local sandbox and CTF framing, staged workflow language, "
+                "diagnostic scripts, and install examples."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["codex", "skill", "workflow", "reverse-flow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                "source_metadata_signals": ["local_sandbox_boundary", "activation_phrase"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-1",
+            "item_kind": "repository",
+            "name": "rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "summary": (
+                "Generic AI Agent Skills collection for Codex, Claude Code, and other "
+                "Agent workflows with skills directory, SKILL.md-compatible project "
+                "layout, docs, tools, and marketplace metadata."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["codex", "skill", "skills", "workflow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_hints": ["skill_route_discovery"],
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": ["generic_skill_workflow"],
+                "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+                "source_layout_signals": ["skill_directory", "skill_manifest"],
+                "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:shepherd-agents/shepherd-1",
+            "item_kind": "repository",
+            "name": "shepherd",
+            "source_url": "https://github.com/shepherd-agents/shepherd",
+            "summary": (
+                "General agent runtime substrate for reversible execution traces, "
+                "forking, replay, supervision, and meta-agent optimization with no "
+                "skill workflow, no skill package, and no SKILL.md evidence."
+            ),
+            "topics": ["agent", "runtime", "supervision", "meta-agents"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "item_kind": "repository",
+            "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+            "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+            "summary": (
+                "Media workflow usecase collection for Blender and Seedance examples, "
+                "with no agent skill workflow, no skill package, no SKILL.md evidence, "
+                "and no selected local runtime behavior."
+            ),
+            "topics": ["workflow", "media", "blender", "seedance"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane = build_skill_route_discovery_proposal_lane_map(registry)[
+        "current_digest_pass2_local_validation_lane"
+    ]
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    adjacent = {row["item_id"]: row for row in lane["adjacent_general_agent_rows"]}
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert registry["source_digest"] == source_digest
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T153850_pass2_validation_lane"
+    )
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1_skill_route_discovery_probe",
+        "p2_skill_route_documentation",
+        "p3_agent_harness_eval_shepherd",
+        "p4_agent_harness_eval_media_workflows",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+    assert lane["run_artifact_contract"]["rollback_ref"] == (
+        "refs/blackhole/rollback/"
+        "20260708T153956Z-skill-route-discovery-pass2-bounded-local-lanes"
+    )
+    assert lane["run_artifact_contract"]["rollback_artifact"] == (
+        "artifacts/rollback/"
+        "20260708T153956Z-skill-route-discovery-pass2-bounded-local-lanes/"
+        "rollback-point.md"
+    )
+
+    reverse_flow = rows["p1_skill_route_discovery_probe"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert set(reverse_flow["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_evidence_item_ids"] == [
+        "trend:lingbol088-spec/reverse-flow-skill-1"
+    ]
+
+    rnskill = rows["p2_skill_route_documentation"]
+    assert rnskill["proposal_kind"] == "documentation"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_evidence_item_ids"] == ["trend:Pluviobyte/rnskill-1"]
+
+    assert adjacent["trend:shepherd-agents/shepherd-1"]["proposal_id"] == (
+        "p3_agent_harness_eval_shepherd"
+    )
+    assert adjacent[
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1"
+    ]["proposal_id"] == "p4_agent_harness_eval_media_workflows"
+    for row in adjacent.values():
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lane_selected"] is False
+        assert row["runtime_action"] == "none"
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert lane["route_decision_contract"] == {
+        "reverse_flow_skill_route_discovery_first": True,
+        "rnskill_generic_skill_workflow_documented": True,
+        "classification_coverage_lane_present": False,
+        "general_agent_trio_requires_harness_eval_first": True,
+        "accepted_skill_route_outputs": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "general_agent_direct_lanes_before_eval": [],
+        "shepherd_memory_or_profile_write_allowed": False,
+        "runtime_action": "none",
+    }
+    assert lane["runtime_action"] == "none"
+    assert lane["external_skill_activation_allowed"] is False
+    assert lane["external_agent_activation_allowed"] is False
+    assert lane["external_harness_execution_allowed"] is False
+    assert lane["provider_runtime_launch_allowed"] is False
+    assert lane["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"runtime_execution"' not in serialized
+    assert '"install"' not in serialized
+    assert '"run"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane():
     fixture_path = (
         Path(__file__).parent

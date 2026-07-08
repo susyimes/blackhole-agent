@@ -5,6 +5,27 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T153850.626636Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260708T153850_pass2_validation_lane`.
+The lane converts the active reverse-flow/rnskill evidence into bounded local
+validation before activation: `lingbol088-spec/reverse-flow-skill` maps to
+`p1_skill_route_discovery_probe` in the local test lane, while
+`Pluviobyte/rnskill` maps to `p2_skill_route_documentation` in the
+documentation lane. Both rows keep only documentation, config, test, or
+code_patch as local lanes, cite selected digest item IDs, require local
+validation, and keep runtime action disabled.
+
+`shepherd-agents/shepherd` and the Blender/Seedance workflow-usecase evidence
+remain adjacent `agent_harness_eval_required` rows. They inherit no
+`skill_route_discovery` lane, open no direct local lanes before harness
+evaluation, and may only produce documentation, test, or code_patch follow-up
+after local validation. The lane exports selected item IDs, proposal IDs, lane
+names, hashes, rollback metadata, and activation denials only; raw source URLs,
+evidence URLs, replay commands, target paths, upstream bodies, install,
+provider launch, external harness execution, remote execution, promotion,
+restart, and push remain disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T153850`.
+
 For source digest `github-growth-20260708T145852.089110Z`, pass 4 exposes
 `skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff`.
 The handoff completes the current reverse-flow/rnskill skill-route window by
