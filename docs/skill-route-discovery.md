@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T032637.752122Z`, pass 3 advances the
+provider-runtime-control slice with
+`skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow`.
+The workflow is derived from the pass-2 scope recompute gate: reverse-flow stays
+in the bounded local test lane as Codex workflow-gate evidence, rnskill stays in
+the documentation lane as generic `SKILL.md` workflow evidence, and Shepherd
+remains adjacent `agent_harness_eval_required` runtime pressure.
+
+The pass-3 workflow accepts only a body-free `provider_runtime_preflight` sample
+before pass-4 handoff. The sample records item IDs, source hashes, diagnostic
+field names, recovery hint codes, and replay target hashes; it does not export
+raw replay commands, source URLs, evidence URLs, provider config, provider
+diagnostics, target paths, or upstream bodies. It resolves the prior
+`provider_runtime_preflight_sample_missing` hint for local replay readiness
+only. Runtime action, provider launch, external skill activation, external
+agent activation, external harness execution, remote execution, profile writes,
+memory writes, promotion, push, restart, and success claims remain denied.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T032637`.
+
 For source digest `github-growth-20260708T024637.613270Z`, pass 2 keeps the
 reverse-flow/rnskill/Shepherd window on
 `skill_route_discovery_current_pass2_scope_recompute_gate` and adds a

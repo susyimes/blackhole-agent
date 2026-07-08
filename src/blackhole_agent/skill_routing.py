@@ -1582,6 +1582,12 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             current_pass2_scope_recompute_gate
         )
     )
+    current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow = (
+        _skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow(
+            current_pass2_scope_recompute_gate,
+            ignored_evidence_items,
+        )
+    )
     current_active_pass3_local_activation_proof_lane = (
         _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
             candidate_lane_inventory,
@@ -1830,6 +1836,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "current_pass2_scope_recompute_gate": current_pass2_scope_recompute_gate,
         "current_digest_20260708T004159_pass3_operator_handoff": (
             current_digest_20260708T004159_pass3_operator_handoff
+        ),
+        "current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow": (
+            current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow
         ),
         "current_active_pass3_local_activation_proof_lane": (
             current_active_pass3_local_activation_proof_lane
@@ -30165,6 +30174,179 @@ def _skill_route_discovery_current_pass2_provider_runtime_control(
         "raw_provider_config_exported": False,
         "raw_provider_diagnostics_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow(
+    current_pass2_scope_recompute_gate: Mapping[str, Any],
+    ignored_evidence_items: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Accept a body-free provider preflight sample before pass-4 handoff."""
+
+    source_digest = str(current_pass2_scope_recompute_gate.get("source_digest") or "")
+    if source_digest != "github-growth-20260708T032637.752122Z":
+        return {}
+
+    provider_control = current_pass2_scope_recompute_gate.get("provider_runtime_control")
+    provider_control = provider_control if isinstance(provider_control, Mapping) else {}
+    source_rows = _mapping_list(current_pass2_scope_recompute_gate.get("rows"))
+    adjacent_rows = _mapping_list(current_pass2_scope_recompute_gate.get("adjacent_general_agent_rows"))
+    preflight_samples = [
+        item
+        for item in _mapping_list(ignored_evidence_items)
+        if str(item.get("item_kind") or "") == "provider_runtime_preflight"
+        or str(item.get("name") or "").casefold() == "provider-runtime-preflight-sample"
+    ]
+    sample_rows: list[dict[str, Any]] = []
+    blocked_samples: list[str] = []
+    for sample in preflight_samples:
+        item_id = str(sample.get("item_id") or sample.get("name") or "")
+        blockers: list[str] = []
+        if not item_id:
+            blockers.append("preflight_sample_id_missing")
+        if str(sample.get("runtime_action") or "none") != "none":
+            blockers.append("runtime_action_requested")
+        if sample.get("external_harness_execution_allowed") is not False:
+            blockers.append("external_harness_execution_not_denied")
+        if sample.get("provider_runtime_launch_allowed") is not False:
+            blockers.append("provider_runtime_launch_not_denied")
+        if sample.get("remote_execution_allowed") is not False:
+            blockers.append("remote_execution_not_denied")
+        if blockers:
+            blocked_samples.append(item_id or "provider_runtime_preflight_sample")
+        sample_rows.append(
+            {
+                "item_id": item_id,
+                "status": "ready" if not blockers else "blocked",
+                "activation_blockers": blockers,
+                "sample_kind": "provider_runtime_preflight",
+                "sample_scope": "body_free_diagnostics",
+                "diagnostic_fields": [
+                    "provider_kind",
+                    "runtime_surface",
+                    "status_code_family",
+                    "recovery_hint_code",
+                    "local_replay_target_hash",
+                ],
+                "source_hash": str(sample.get("source_hash") or ""),
+                "recovery_hint_codes": [
+                    "provider_runtime_preflight_sample_present",
+                    "run_body_free_provider_runtime_replay",
+                    "inspect_provider_runtime_recovery_summary",
+                ],
+                "local_replay_target_hash": _stable_hash(
+                    "python -m pytest tests/test_harness_eval.py -q -k provider_runtime_preflight"
+                ),
+                "local_replay_only": True,
+                "body_free_diagnostics_only": True,
+                "runtime_action": "none",
+                "provider_runtime_launch_allowed": False,
+                "external_harness_execution_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_replay_command_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_provider_config_exported": False,
+                "raw_provider_diagnostics_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    route_blockers: list[str] = []
+    if str(current_pass2_scope_recompute_gate.get("status") or "") != "ready":
+        route_blockers.append("source_scope_recompute_gate_not_ready")
+    if provider_control.get("provider_runtime_preflight_required") is not True:
+        route_blockers.append("provider_runtime_preflight_not_required_by_source_gate")
+    if not preflight_samples:
+        route_blockers.append("provider_runtime_preflight_sample_missing")
+    if blocked_samples:
+        route_blockers.append("provider_runtime_preflight_sample_blocked")
+    if any(str(row.get("runtime_action") or "none") != "none" for row in source_rows):
+        route_blockers.append("source_skill_row_runtime_action_requested")
+    if any(row.get("provider_runtime_launch_allowed") is not False for row in source_rows):
+        route_blockers.append("source_skill_row_provider_runtime_launch_not_denied")
+    if any(row.get("external_harness_execution_allowed") is not False for row in adjacent_rows):
+        route_blockers.append("adjacent_external_harness_execution_not_denied")
+    if any(row.get("provider_runtime_launch_allowed") is not False for row in adjacent_rows):
+        route_blockers.append("adjacent_provider_runtime_launch_not_denied")
+
+    ready = not route_blockers
+    return {
+        "controller_surface": (
+            "skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow"
+        ),
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "provider_runtime_preflight_sample_ready_for_local_replay_without_activation"
+            if ready
+            else "resolve_provider_runtime_preflight_sample_before_pass4_handoff"
+        ),
+        "source_surface": "skill_route_discovery_current_pass2_scope_recompute_gate",
+        "source_status": str(current_pass2_scope_recompute_gate.get("status") or ""),
+        "source_digest": source_digest,
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-discovery",
+            "p3-skill-route-fixture-coverage",
+            "p3-agent-harness-eval-shepherd",
+        ],
+        "blocked_proposal_ids": [] if ready else ["p3-provider-runtime-preflight-recovery"],
+        "activation_blockers": route_blockers,
+        "source_provider_runtime_status": str(provider_control.get("status") or ""),
+        "source_recovery_hint_codes": _string_list(provider_control.get("recovery_hint_codes")),
+        "resolved_recovery_hint_codes": (
+            ["provider_runtime_preflight_sample_missing"] if sample_rows else []
+        ),
+        "next_recovery_hint_codes": [
+            "run_body_free_provider_runtime_replay",
+            "inspect_provider_runtime_recovery_summary",
+            "continue_to_pass4_only_after_local_validation",
+        ],
+        "skill_route_row_count": len(source_rows),
+        "adjacent_general_agent_row_count": len(adjacent_rows),
+        "provider_runtime_preflight_sample_count": len(sample_rows),
+        "blocked_provider_runtime_preflight_sample_ids": blocked_samples,
+        "selected_evidence_item_ids": list(
+            dict.fromkeys(
+                item_id
+                for row in source_rows
+                for item_id in _string_list(row.get("selected_evidence_item_ids"))
+            )
+        ),
+        "provider_runtime_preflight_sample_ids": [
+            row["item_id"] for row in sample_rows if row["item_id"]
+        ],
+        "allowed_followup_lanes_after_preflight": ["documentation", "config", "test"],
+        "operator_next_action": (
+            "replay_provider_runtime_preflight_then_continue_to_pass4"
+            if ready
+            else "add_or_repair_body_free_provider_runtime_preflight_sample_then_replay"
+        ),
+        "local_validation_required": True,
+        "local_replay_only": True,
+        "body_free_diagnostics_only": True,
+        "success_claim_allowed": False,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "kernel_restart_allowed": False,
+        "promotion_or_push_performed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_provider_config_exported": False,
+        "raw_provider_diagnostics_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "provider_runtime_preflight_rows": sample_rows,
     }
 
 

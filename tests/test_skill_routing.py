@@ -8523,6 +8523,90 @@ def test_skill_route_discovery_current_digest_20260708T024637_pass2_provider_run
     assert '"remote_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260708T032637.752122Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+
+    gate = lane_map["current_pass2_scope_recompute_gate"]
+    assert gate["status"] == "ready"
+    assert gate["provider_runtime_preflight_required_before_runtime_followup"] is True
+    assert gate["provider_runtime_recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+
+    workflow = lane_map["current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow"]
+    assert workflow["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow"
+    )
+    assert workflow["status"] == "ready"
+    assert workflow["decision"] == (
+        "provider_runtime_preflight_sample_ready_for_local_replay_without_activation"
+    )
+    assert workflow["source_surface"] == "skill_route_discovery_current_pass2_scope_recompute_gate"
+    assert workflow["source_status"] == "ready"
+    assert workflow["source_digest"] == "github-growth-20260708T032637.752122Z"
+    assert workflow["source_provider_runtime_status"] == "replay_required"
+    assert workflow["source_recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+    assert workflow["resolved_recovery_hint_codes"] == ["provider_runtime_preflight_sample_missing"]
+    assert workflow["next_recovery_hint_codes"] == [
+        "run_body_free_provider_runtime_replay",
+        "inspect_provider_runtime_recovery_summary",
+        "continue_to_pass4_only_after_local_validation",
+    ]
+    assert workflow["provider_runtime_preflight_sample_count"] == 1
+    assert workflow["provider_runtime_preflight_sample_ids"] == [
+        "local:provider-runtime-preflight-sample-1"
+    ]
+    assert workflow["allowed_followup_lanes_after_preflight"] == ["documentation", "config", "test"]
+    assert workflow["operator_next_action"] == "replay_provider_runtime_preflight_then_continue_to_pass4"
+    assert workflow["success_claim_allowed"] is False
+    assert workflow["runtime_action"] == "none"
+    assert workflow["provider_runtime_launch_allowed"] is False
+    assert workflow["external_harness_execution_allowed"] is False
+    assert workflow["remote_execution_allowed"] is False
+    assert workflow["kernel_restart_allowed"] is False
+    assert workflow["promotion_or_push_performed"] is False
+
+    sample = workflow["provider_runtime_preflight_rows"][0]
+    assert sample["status"] == "ready"
+    assert sample["sample_kind"] == "provider_runtime_preflight"
+    assert sample["sample_scope"] == "body_free_diagnostics"
+    assert sample["diagnostic_fields"] == [
+        "provider_kind",
+        "runtime_surface",
+        "status_code_family",
+        "recovery_hint_code",
+        "local_replay_target_hash",
+    ]
+    assert sample["local_replay_target_hash"].startswith("sha256:")
+    assert sample["local_replay_only"] is True
+    assert sample["body_free_diagnostics_only"] is True
+    assert sample["provider_runtime_launch_allowed"] is False
+    assert sample["raw_replay_command_exported"] is False
+    assert sample["raw_source_url_exported"] is False
+    assert sample["raw_evidence_urls_exported"] is False
+    assert sample["raw_provider_config_exported"] is False
+    assert sample["raw_provider_diagnostics_exported"] is False
+
+    serialized = json.dumps(workflow, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+    assert "api_key" not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T004159_pass3_operator_handoff():
     fixture_path = (
         Path(__file__).parent
