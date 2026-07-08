@@ -19589,6 +19589,54 @@ def test_skill_route_discovery_current_digest_20260702T092714_pass3_routes_curre
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "local_harness_eval"
+        / "skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))["input"]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["evidence_items"])
+    registry["source_digest"] = payload["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    packet = lane_map["current_digest_20260708T195850_pass3_validation_packet"]
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert packet["status"] == "ready"
+    assert packet["capability_pass"] == 3
+    assert packet["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-general-projects",
+    ]
+    assert packet["selected_skill_local_lanes"] == ["test"]
+    assert rows["p1-skill-route-discovery-reverse-flow"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert rows["p2-generic-skill-workflow-discovery"]["selected_local_lane"] == "test"
+    assert packet["agent_harness_eval_required_count"] == 3
+    assert all(
+        row["selected_local_lane"] == "agent_harness_eval_required"
+        and row["direct_allowed_lanes_before_eval"] == []
+        and row["skill_route_discovery_inherited"] is False
+        for row in packet["adjacent_general_agent_rows"]
+    )
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260702T104714_pass3_routes_current_window():
     fixture_path = (
         Path(__file__).parent

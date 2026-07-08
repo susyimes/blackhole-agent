@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 193
-    assert payload["pass_count"] == 192
+    assert payload["fixture_count"] == 194
+    assert payload["pass_count"] == 193
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -206,6 +206,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260708T183850-pass3-activation-packet"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260708T195850-pass3-validation-packet"
         ]["passed"]
         is True
     )
@@ -1278,6 +1284,62 @@ def test_skill_route_discovery_current_digest_20260708T183850_pass3_activation_p
         for row in adjacent.values()
     )
     assert packet["agent_harness_eval_policy"]["implementation_lane_selected"] is False
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    packet = output["current_digest_20260708T195850_pass3_validation_packet"]
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    adjacent = {row["item_id"]: row for row in packet["adjacent_general_agent_rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert packet["source_digest"] == "github-growth-20260708T195850.396172Z"
+    assert packet["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet"
+    )
+    assert packet["status"] == "ready"
+    assert packet["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-general-projects",
+    ]
+    assert packet["blocked_proposal_ids"] == []
+    assert packet["selected_skill_local_lanes"] == ["test"]
+    assert rows["p1-skill-route-discovery-reverse-flow"]["selected_local_lane"] == "test"
+    assert rows["p2-generic-skill-workflow-discovery"]["selected_local_lane"] == "test"
+    assert rows["p2-generic-skill-workflow-discovery"]["uncertainty_reasons"] == [
+        "unvalidated_external_skill_evidence",
+        "single_repository_level_source",
+        "missing_detail_risk",
+    ]
+    assert packet["agent_harness_eval_required_count"] == 3
+    assert set(adjacent) == {
+        "trend:shepherd-agents/shepherd-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+    }
+    assert all(row["selected_local_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
     assert packet["external_skill_activation_allowed"] is False
     assert packet["external_harness_execution_allowed"] is False
     assert packet["provider_runtime_launch_allowed"] is False

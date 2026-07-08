@@ -1917,6 +1917,74 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_digest_20260708T195850_pass3_validation_packet = (
+        _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T195850.396172Z",
+                "github-growth-20260708T195850Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet"
+            ),
+            source_digest_fallback="github-growth-20260708T195850.396172Z",
+            proposal_specs=(
+                {
+                    "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                    "proposal_kind": "test",
+                    "proposal_track": "reverse_flow_skill_route_discovery_validation",
+                    "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                    "candidate_name_terms": ("reverse-flow-skill",),
+                    "selected_local_lane": "test",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": "reverse_flow_workflow_maps_to_bounded_local_validation_lanes",
+                    "require_uncertainty_reasons": False,
+                },
+                {
+                    "proposal_id": "p2-generic-skill-workflow-discovery",
+                    "proposal_kind": "test",
+                    "proposal_track": "generic_skill_workflow_discovery_fixture",
+                    "route_profiles": ("generic_skill_workflow",),
+                    "candidate_name_terms": ("rnskill",),
+                    "selected_local_lane": "test",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": "rnskill_skill_workflow_fixture_remains_local_validation_only",
+                    "require_uncertainty_reasons": True,
+                },
+            ),
+            proposal_ids=(
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-generic-skill-workflow-discovery",
+                "p3-agent-harness-eval-general-projects",
+            ),
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/blackhole/rollback/"
+                    "20260708T195850Z-skill-route-discovery-pass3-current-digest"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260708T195850Z-skill-route-discovery-pass3-current-digest/"
+                    "rollback-point.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/evolution-20260708T195850Z-"
+                    "skill-route-discovery-pass3-current-digest.md"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+            },
+            ready_decision=(
+                "current_digest_pass3_skill_routes_ready_for_bounded_local_validation_review"
+            ),
+            blocked_decision="repair_current_digest_195850_pass3_validation_packet",
+            ready_next_action=(
+                "replay_current_digest_195850_pass3_validation_packet_then_continue_to_pass4"
+            ),
+            blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_195850_packet",
+        )
+    )
 
     return {
         "schema_version": 1,
@@ -2043,6 +2111,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T183850_pass3_activation_packet": (
             current_digest_20260708T183850_pass3_activation_packet
+        ),
+        "current_digest_20260708T195850_pass3_validation_packet": (
+            current_digest_20260708T195850_pass3_validation_packet
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
@@ -41167,14 +41238,33 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
     ignored_evidence_items: Sequence[Mapping[str, Any]] = (),
     *,
     source_digest: str = "",
+    selected_source_digests: Sequence[str] = (
+        "github-growth-20260708T183850.458999Z",
+        "github-growth-20260708T183850Z",
+    ),
+    controller_surface: str = (
+        "skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet"
+    ),
+    source_digest_fallback: str = "github-growth-20260708T183850.458999Z",
+    proposal_specs: Sequence[Mapping[str, Any]] | None = None,
+    proposal_ids: Sequence[str] = (
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-routing",
+        "p3-agent-harness-eval-general-projects",
+    ),
+    adjacent_proposal_id: str = "p3-agent-harness-eval-general-projects",
+    run_artifact_contract: Mapping[str, str] | None = None,
+    ready_decision: str = (
+        "current_digest_pass3_skill_routes_ready_for_operator_visible_activation_review"
+    ),
+    blocked_decision: str = "repair_current_digest_pass3_activation_packet_before_supervisor_handoff",
+    ready_next_action: str = "replay_current_digest_pass3_activation_packet_then_continue_to_pass4",
+    blocked_next_action: str = "repair_blocked_rows_then_rebuild_current_digest_pass3_activation_packet",
 ) -> dict[str, Any]:
     """Expose the active pass-3 skill-route packet before supervisor activation."""
 
-    selected_source_digest = source_digest in {
-        "github-growth-20260708T183850.458999Z",
-        "github-growth-20260708T183850Z",
-    }
-    proposal_specs = (
+    selected_source_digest = source_digest in set(selected_source_digests)
+    default_proposal_specs: Sequence[Mapping[str, Any]] = (
         {
             "proposal_id": "p1-skill-route-discovery-reverse-flow",
             "proposal_kind": "test",
@@ -41184,6 +41274,7 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
             "selected_local_lane": "test",
             "validation_gate": "focused-evidence-review",
             "validation_target": "reverse_flow_codex_workflow_routes_to_bounded_local_lanes",
+            "require_uncertainty_reasons": False,
         },
         {
             "proposal_id": "p2-generic-skill-workflow-routing",
@@ -41194,13 +41285,28 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
             "selected_local_lane": "code_patch",
             "validation_gate": "generic_skill_workflow_local_validation_before_activation",
             "validation_target": "rnskill_generic_skill_workflow_preserves_uncertainty_before_implementation",
+            "require_uncertainty_reasons": True,
         },
+    )
+    selected_proposal_specs = tuple(proposal_specs or default_proposal_specs)
+    selected_run_artifact_contract = dict(
+        run_artifact_contract
+        or {
+            "rollback_ref": "refs/blackhole/rollback/20260709T024029Z-skill-route-discovery-pass3",
+            "rollback_artifact": (
+                "artifacts/rollback/20260709T024029Z-skill-route-discovery-pass3/rollback-point.md"
+            ),
+            "run_note_artifact": (
+                "artifacts/blackhole-runs/20260709T024029Z-skill-route-discovery-pass3.md"
+            ),
+            "rollback_execution": "explicit_destructive_operator_action_only",
+        }
     )
 
     rows: list[dict[str, Any]] = []
     selected_lanes: list[str] = []
     blocked_proposal_ids: list[str] = []
-    for spec in proposal_specs:
+    for spec in selected_proposal_specs:
         required_profiles = set(_string_list(spec["route_profiles"]))
         candidate_name_terms = tuple(term.casefold() for term in _string_list(spec["candidate_name_terms"]))
         candidate_names: list[str] = []
@@ -41243,7 +41349,7 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
             blockers.append("selected_lane_not_bounded")
         if not selected_evidence_item_ids:
             blockers.append("missing_selected_evidence_item_ids")
-        if str(spec["proposal_id"]) == "p2-generic-skill-workflow-routing" and not uncertainty_reasons:
+        if bool(spec.get("require_uncertainty_reasons")) and not uncertainty_reasons:
             blockers.append("generic_skill_workflow_uncertainty_not_preserved")
 
         if blockers:
@@ -41290,7 +41396,7 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
     for ignored_item in ignored_evidence_items:
         for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
             [ignored_item],
-            proposal_id="p3-agent-harness-eval-general-projects",
+            proposal_id=adjacent_proposal_id,
         ):
             adjacent_row["selected_local_lane"] = "agent_harness_eval_required"
             adjacent_row["direct_allowed_lanes_before_eval"] = []
@@ -41322,23 +41428,15 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
 
     ready = bool(rows) and not blocked_proposal_ids
     return {
-        "controller_surface": "skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet",
+        "controller_surface": controller_surface,
         "status": "ready" if ready else "blocked",
-        "decision": (
-            "current_digest_pass3_skill_routes_ready_for_operator_visible_activation_review"
-            if ready
-            else "repair_current_digest_pass3_activation_packet_before_supervisor_handoff"
-        ),
-        "source_digest": source_digest or "github-growth-20260708T183850.458999Z",
+        "decision": ready_decision if ready else blocked_decision,
+        "source_digest": source_digest or source_digest_fallback,
         "capability_theme": "skill-route-discovery",
         "capability_pass": 3,
         "total_passes": 4,
         "review_gate": "focused-evidence-review",
-        "proposal_ids": [
-            "p1-skill-route-discovery-reverse-flow",
-            "p2-generic-skill-workflow-routing",
-            "p3-agent-harness-eval-general-projects",
-        ],
+        "proposal_ids": list(proposal_ids),
         "blocked_proposal_ids": list(dict.fromkeys(blocked_proposal_ids)),
         "selected_skill_local_lanes": [
             lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
@@ -41353,21 +41451,8 @@ def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packe
             "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
             "implementation_lane_selected": False,
         },
-        "operator_next_action": (
-            "replay_current_digest_pass3_activation_packet_then_continue_to_pass4"
-            if ready
-            else "repair_blocked_rows_then_rebuild_current_digest_pass3_activation_packet"
-        ),
-        "run_artifact_contract": {
-            "rollback_ref": "refs/blackhole/rollback/20260709T024029Z-skill-route-discovery-pass3",
-            "rollback_artifact": (
-                "artifacts/rollback/20260709T024029Z-skill-route-discovery-pass3/rollback-point.md"
-            ),
-            "run_note_artifact": (
-                "artifacts/blackhole-runs/20260709T024029Z-skill-route-discovery-pass3.md"
-            ),
-            "rollback_execution": "explicit_destructive_operator_action_only",
-        },
+        "operator_next_action": ready_next_action if ready else blocked_next_action,
+        "run_artifact_contract": selected_run_artifact_contract,
         "local_validation_required": True,
         "runtime_action": "none",
         "external_skill_activation_allowed": False,

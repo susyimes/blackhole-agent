@@ -1,0 +1,154 @@
+{
+  "name": "skill-route-discovery-current-digest-20260708T195850-pass3-validation-packet",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260708T195850-pass3-validation-packet",
+    "source_digest": "github-growth-20260708T195850.396172Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 3,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-general-projects",
+        "trend:shepherd-agents/shepherd-1",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260708T195850.396172Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "repository",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex local workflow skill",
+        "summary": "Codex and AI Agent reverse-flow workflow skill with a skills/reverse-flow package, SKILL.md evidence, local sandbox framing, staged analysis workflow, diagnostic scripts, install examples, and run pressure that must remain route evidence until local bounded validation passes.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent", "skill", "skills", "workflow", "reverse-flow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+          "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary", "body_free_workflow_summary"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T195850.396172Z",
+        "item_id": "trend:Pluviobyte/rnskill-1",
+        "item_kind": "repository",
+        "name": "Pluviobyte-rnskill",
+        "source_url": "https://github.com/Pluviobyte/rnskill",
+        "title": "Generic AI Agent SKILL.md collection",
+        "summary": "AI Agent Skills collection for Codex, Claude Code, and other SKILL.md-compatible agent workflows. It exposes skills, docs, tools, plugin marketplace metadata, and manual install examples, but discovery alone is not activation authority and repository internals have not been locally inspected.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "agent-skills", "skill", "skills", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+          "source_layout_signals": ["skill_directory", "skill_markdown", "skill_manifest", "tooling_directory"],
+          "source_metadata_signals": ["skill_collection", "skill_registry_metadata", "agent_plugin_marketplace"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T195850.396172Z",
+        "item_id": "trend:shepherd-agents/shepherd-1",
+        "item_kind": "repository",
+        "name": "shepherd",
+        "source_url": "https://github.com/shepherd-agents/shepherd",
+        "title": "Reversible agent execution trace runtime",
+        "summary": "General agent runtime substrate with reversible execution traces, retained outputs, fork, replay, supervision, sandbox permissions, and credential/runtime setup pressure. It has no selected skill package or completed local harness evaluation in this pass.",
+        "topics": ["agent", "runtime", "workflow", "replay", "rollback", "validation"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution", "external_harness_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260708T195850.396172Z",
+        "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+        "item_kind": "repository",
+        "name": "Hy3",
+        "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+        "title": "Hy3 reasoning and agent model project",
+        "summary": "Reasoning and agent model project with API, deployment, model serving, provider, MCP, and tool-call pressure. It is model/provider evidence, not a skill workflow activation lane.",
+        "topics": ["agent", "model", "reasoning", "mcp", "api"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260708T195850.396172Z",
+        "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "item_kind": "repository",
+        "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+        "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+        "title": "Blender and Seedance workflow use cases",
+        "summary": "Workflow use-case collection with media generation and agent workflow pressure. It is adjacent workflow evidence, not a skill package, and needs agent-harness evaluation before any local follow-up lane opens.",
+        "topics": ["agent", "workflow", "blender", "seedance", "media"],
+        "route_hints": [],
+        "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime", "runtime_execution"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "src/blackhole_agent/skill_routing.py",
+          "src/blackhole_agent/harness_eval.py",
+          "tests/test_harness_eval.py",
+          "tests/test_skill_routing.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet.json",
+          "docs/skill-route-discovery.md"
+        ],
+        "validation_commands": [
+          "pytest tests/test_harness_eval.py -q -k 20260708T195850",
+          "pytest tests/test_skill_routing.py -q -k 20260708T195850"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260708T195850Z-skill-route-discovery-pass3-current-digest/rollback-point.md",
+        "review_note": "Pass 3 exposes a reusable current-digest validation packet for reverse-flow and rnskill while Shepherd, Hy3, and Blender/Seedance stay agent_harness_eval_required."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 2},
+    {"path": "registry.ignored_evidence_item_count", "equals": 3},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.controller_surface", "equals": "skill_route_discovery_current_digest_20260708T195850_pass3_validation_packet"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.status", "equals": "ready"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.capability_pass", "equals": 3},
+    {
+      "path": "current_digest_20260708T195850_pass3_validation_packet.proposal_ids",
+      "equals": [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-discovery",
+        "p3-agent-harness-eval-general-projects"
+      ]
+    },
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.blocked_proposal_ids", "equals": []},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.selected_skill_local_lanes", "equals": ["test"]},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.rows.0.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.rows.1.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.rows.1.uncertainty_reasons", "equals": ["unvalidated_external_skill_evidence", "single_repository_level_source", "missing_detail_risk"]},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.agent_harness_eval_required_count", "equals": 3},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.agent_harness_eval_policy.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.adjacent_general_agent_rows.0.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.adjacent_general_agent_rows.1.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.adjacent_general_agent_rows.2.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.provider_runtime_launch_allowed", "equals": false},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_20260708T195850_pass3_validation_packet.raw_evidence_urls_exported", "equals": false}
+  ]
+}
