@@ -16,6 +16,26 @@ target paths, or upstream bodies. Generic Codex-compatible skill catalogs such
 as `rnskill` stay in the documentation/config-oriented pre-activation lane
 unless body-free workflow-gate markers are present.
 
+For source digest `github-growth-20260708T121852.458842Z`, pass 4 exposes
+`skill_route_discovery_current_digest_20260708T121852_pass4_completion_packet`.
+The packet completes the current reverse-flow/rnskill route window as a local
+validation handoff only. Reverse-flow-style skill repositories, including the
+direct `lingbol088-spec` signal and the `ouoxiu` fork-style signal, map to the
+bounded local test lane with `skill_route_discovery` first. `Pluviobyte/rnskill`
+maps to the documentation lane as generic skill workflow evidence, and the
+config guard records that trend evidence cannot expand `skill_route_discovery`
+beyond documentation, config, test, or code_patch.
+
+The packet also records a citation guard: proposal evidence may cite selected
+digest item IDs only, while raw URLs, unknown item IDs, and upstream body
+references are rejected as evidence citations. Shepherd, Hy3, and the
+Blender/Seedance workflow-usecase repository remain adjacent
+`agent_harness_eval_required` rows with no direct lanes before local harness
+evaluation. Runtime action, network fetch, install, external skill activation,
+provider launch, external harness execution, remote execution, promotion, and
+restart remain disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T121852`.
+
 For source digest `github-growth-20260708T104635.460026Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260708T104635_pass2_validation_lane`.
 The lane keeps `lingbol088-spec/reverse-flow-skill` in the bounded local test
