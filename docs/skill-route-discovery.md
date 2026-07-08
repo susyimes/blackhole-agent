@@ -16,6 +16,24 @@ target paths, or upstream bodies. Generic Codex-compatible skill catalogs such
 as `rnskill` stay in the documentation/config-oriented pre-activation lane
 unless body-free workflow-gate markers are present.
 
+For source digest `github-growth-20260708T104635.460026Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260708T104635_pass2_validation_lane`.
+The lane keeps `lingbol088-spec/reverse-flow-skill` in the bounded local test
+lane as Codex workflow-gate evidence and keeps `Pluviobyte/rnskill` in the
+bounded documentation lane as generic SKILL.md workflow evidence.
+
+The lane now includes `operator_validation_checklist` for each skill-route row.
+The checklist names the selected evidence item ids, selected lane, required
+pre-activation checks, uncertainty reasons, and explicit activation denials.
+For reverse-flow-style evidence, it requires local workflow-gate validation and
+downgrades install/run/external-harness pressure. For rnskill-like generic
+skill collections, it records that upstream body content has not been locally
+inspected and keeps the route documentation-first. `shepherd-agents/shepherd`,
+Hy3, and the Blender/Seedance workflow-usecase repository remain adjacent
+`agent_harness_eval_required` rows with no direct lanes before local harness
+evaluation. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T104635`.
+
 For source digest `github-growth-20260708T100635.467596Z`, pass 1 exposes the
 current reverse-flow/rnskill/Hy3/workflow-usecase window through
 `current_digest_pass1_validation_lane` and

@@ -15895,8 +15895,14 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
         "github-growth-20260708T092635.428641Z",
         "github-growth-20260708T092635Z",
     }
+    current_20260708_104635_window = source_digest in {
+        "github-growth-20260708T104635.460026Z",
+        "github-growth-20260708T104635Z",
+    }
     current_20260708_reverse_flow_rnskill_window = (
-        current_20260708_090635_window or current_20260708_092635_window
+        current_20260708_090635_window
+        or current_20260708_092635_window
+        or current_20260708_104635_window
     )
     lane = dict(
         _skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane(
@@ -16121,9 +16127,58 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
         for lane_name in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
         if lane_name in {str(row.get("selected_local_lane") or "") for row in rows}
     ]
+    operator_validation_checklist = [
+        {
+            "proposal_id": str(row.get("proposal_id") or ""),
+            "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
+            "selected_local_lane": str(row.get("selected_local_lane") or ""),
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "required_pre_activation_checks": [
+                "selected_evidence_item_ids_are_frozen",
+                "allowed_local_lanes_are_bounded",
+                "local_validation_required_is_true",
+                "runtime_action_remains_none",
+                "external_activation_denied",
+                *(
+                    [
+                        "reverse_flow_codex_workflow_gate_validated_before_runtime_action",
+                        "install_run_and_external_harness_pressure_is_downgraded",
+                    ]
+                    if "codex_workflow_gate" in _string_list(row.get("route_profiles"))
+                    else [
+                        "generic_skill_workflow_stays_documentation_first",
+                        "upstream_body_not_locally_inspected_uncertainty_recorded",
+                    ]
+                ),
+            ],
+            "uncertainty_reasons": (
+                [
+                    "reverse_engineering_domain_requires_focused_local_validation",
+                    "upstream_body_not_locally_inspected",
+                ]
+                if "codex_workflow_gate" in _string_list(row.get("route_profiles"))
+                else ["upstream_body_not_locally_inspected"]
+            ),
+            "bounded_local_lanes_confirmed": set(_string_list(row.get("allowed_local_lanes")))
+            == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "controller_approval_required_before_activation": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+        for row in rows
+    ]
     lane.update(
         {
             "controller_surface": (
+                "skill_route_discovery_current_digest_20260708T104635_pass2_validation_lane"
+                if current_20260708_104635_window
+                else
                 "skill_route_discovery_current_digest_20260708T092635_pass2_validation_lane"
                 if current_20260708_092635_window
                 else "skill_route_discovery_current_digest_20260708T090635_pass2_validation_lane"
@@ -16292,6 +16347,12 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             "run_artifact_contract": {
                 "rollback_artifact": (
                     (
+                        "artifacts/rollback/"
+                        "20260708T104633Z-skill-route-discovery-pass2-bounded-local-lanes/"
+                        "rollback-point.md"
+                    )
+                    if current_20260708_104635_window
+                    else (
                         "artifacts/rollback-20260708T092633Z-skill-route-discovery-pass3.md"
                     )
                     if current_20260708_092635_window
@@ -16324,6 +16385,11 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 ),
                 "rollback_ref": (
                     (
+                        "refs/blackhole/rollback/"
+                        "20260708T104633Z-skill-route-discovery-pass2-bounded-local-lanes"
+                    )
+                    if current_20260708_104635_window
+                    else (
                         "refs/rollback/blackhole-agent/20260708T092633Z-skill-route-discovery-pass3"
                     )
                     if current_20260708_092635_window
@@ -16357,6 +16423,8 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                     (
                         "python -m pytest tests/test_skill_routing.py -q -k 20260707T150109"
                         if current_20260707_150109_window
+                        else "python -m pytest tests/test_skill_routing.py -q -k 20260708T104635"
+                        if current_20260708_104635_window
                         else "python -m pytest tests/test_skill_routing.py -q -k 20260708T092635"
                         if current_20260708_092635_window
                         else "python -m pytest tests/test_skill_routing.py -q -k 20260708T090635"
@@ -16371,6 +16439,7 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 "runtime_action": "none",
                 "raw_validation_command_exported": False,
             },
+            "operator_validation_checklist": operator_validation_checklist,
             "rows": rows,
             "adjacent_general_agent_rows": adjacent_rows,
             "local_validation_required": True,
@@ -19222,6 +19291,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260708T092635.428641Z",
         "github-growth-20260708T092635Z",
     }
+    current_20260708_104635_window = source_digest in {
+        "github-growth-20260708T104635.460026Z",
+        "github-growth-20260708T104635Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -19271,6 +19344,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260707_190110_window
         or current_20260708_090635_window
         or current_20260708_092635_window
+        or current_20260708_104635_window
     ):
         return _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             candidate_lane_inventory,

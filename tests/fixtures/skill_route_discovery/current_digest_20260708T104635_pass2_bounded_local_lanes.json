@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260708T104635.460026Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 2,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1-skill-route-discovery-codex-workflow-gate",
+      "p2-generic-skill-workflow-route-probe",
+      "p3-agent-harness-eval-for-general-agent-trends",
+      "p4-skill-route-documentation",
+      "p5-route-classification-regression-coverage",
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-generic-skill-workflow-discovery",
+      "p3-agent-harness-eval-shepherd",
+      "p4-agent-workflow-harness-eval",
+      "trend:shepherd-agents/shepherd-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260708T104635.460026Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Public Codex and AI Agent skill package for a local sandbox reverse-flow workflow. The reviewed repository shape includes a skills directory, SKILL.md-style metadata, staged analysis workflow language, local CTF or training context, scripts, install examples, and run examples. Install, run, script, runtime, and external harness wording is route pressure only.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse-flow"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "run",
+        "runtime_execution",
+        "external_harness_execution"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "reference_directory",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "activation_phrase",
+          "local_sandbox_boundary",
+          "body_free_workflow_summary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260708T104635.460026Z",
+      "item_id": "trend:Pluviobyte/rnskill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "summary": "Public AI Agent Skills collection with SKILL.md-compatible workflow evidence, skills, docs, tooling metadata, marketplace-style metadata, and manual install examples. The repository body has not been locally inspected beyond focused public metadata, so the route remains a generic skill workflow validation candidate.",
+      "topics": ["agent", "agent-skills", "codex", "skill", "skills", "workflow"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "enable",
+        "run",
+        "external_skill_activation"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "skill_manifest",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "skill_registry_metadata",
+          "agent_plugin_marketplace",
+          "body_free_repository_summary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260708T104635.460026Z",
+      "item_id": "trend:shepherd-agents/shepherd-1",
+      "item_kind": "RepositoryTrend",
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "summary": "General agent runtime substrate with reversible traces, replay, retained outputs, supervision, validation, and controller workflow claims. It has no explicit local skill workflow route hint or completed local harness evaluation result.",
+      "topics": ["agent", "runtime", "workflow", "replay", "rollback", "validation"],
+      "route_hints": [],
+      "suggested_lanes": [
+        "documentation",
+        "test",
+        "code_patch",
+        "runtime_execution",
+        "external_harness_execution"
+      ]
+    },
+    {
+      "source_digest": "github-growth-20260708T104635.460026Z",
+      "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+      "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+      "summary": "Workflow use-case collection for Blender, Seedance, AI filmmaking, camera control, and agent-guided scenarios. It has workflow-topic pressure but no local skill-route activation lane.",
+      "topics": ["workflow", "usecases", "blender", "seedance"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260708T104635.460026Z",
+      "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Hy3",
+      "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+      "summary": "Model project with reasoning, agent, API, MCP, provider, and workflow pressure. It is general agent and provider/tooling evidence, not a skill workflow activation lane.",
+      "topics": ["agent", "model", "reasoning", "mcp", "api"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime", "runtime_execution"]
+    }
+  ]
+}
