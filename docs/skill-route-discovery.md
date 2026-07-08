@@ -10403,3 +10403,21 @@ and grants no runtime action, external skill activation, external harness
 execution, provider launch, remote execution, promotion, or restart authority.
 Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k active_pass4_operator_activation_packet`.
+
+## 20260708T090635 Pass-2 Lane
+
+The `github-growth-20260708T090635.452817Z` skill-route-discovery pass-2
+window reuses the reverse-flow/rnskill pass-2 lane family and emits
+`skill_route_discovery_current_digest_20260708T090635_pass2_validation_lane`.
+The lane keeps `lingbol088-spec/reverse-flow-skill` as
+`skill_route_discovery_first` in the local `test` lane, maps
+`Pluviobyte/rnskill` to the `generic_skill_workflow` documentation lane, and
+queues Shepherd, Hy3, and the Blender/Seedance workflow-usecase repository only
+as `agent_harness_eval_required`.
+
+The lane exports selected item ids, route profiles, lane names, hashes, and
+operator decisions only. It does not export upstream bodies, source URLs,
+target paths, raw replay commands, or activation authority, and it keeps
+external skill activation, external harness execution, provider launch, memory
+writes, and remote execution denied. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T090635`.

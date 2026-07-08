@@ -15785,6 +15785,10 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
         "github-growth-20260707T190110.064980Z",
         "github-growth-20260707T190110Z",
     }
+    current_20260708_090635_window = source_digest in {
+        "github-growth-20260708T090635.452817Z",
+        "github-growth-20260708T090635Z",
+    }
     lane = dict(
         _skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane(
             candidate_lane_inventory,
@@ -15795,10 +15799,17 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
     rows = [dict(row) for row in lane.get("rows", []) if isinstance(row, Mapping)]
     for row in rows:
         proposal_id = str(row.get("proposal_id") or "")
-        if proposal_id == "p1-skill-route-discovery-reverse-flow":
+        if proposal_id in {
+            "p1-skill-route-discovery-reverse-flow",
+            "p1_reverse_flow_skill_route_discovery",
+        }:
             row["proposal_id"] = (
                 "p1_skill_route_discovery_reverse_flow"
-                if current_20260707_174109_window or current_20260707_190110_window
+                if (
+                    current_20260707_174109_window
+                    or current_20260707_190110_window
+                    or current_20260708_090635_window
+                )
                 else
                 "p1_skill_route_discovery_reverse_flow"
                 if current_20260707_150109_window
@@ -15810,10 +15821,17 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 "reverse_flow_skill_route_discovery_first_before_workflow_activation"
             )
             row["operator_lane_acceptance"] = "bounded_local_test_lane_before_activation"
-        elif proposal_id == "p2-generic-skill-workflow-rnskill":
+        elif proposal_id in {
+            "p2-generic-skill-workflow-rnskill",
+            "p2_rnskill_generic_skill_route_discovery",
+        }:
             row["proposal_id"] = (
                 "p2_skill_route_discovery_rnskill"
-                if current_20260707_174109_window or current_20260707_190110_window
+                if (
+                    current_20260707_174109_window
+                    or current_20260707_190110_window
+                    or current_20260708_090635_window
+                )
                 else
                 "p2_skill_route_discovery_rnskill"
                 if current_20260707_150109_window
@@ -15833,6 +15851,16 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 "route_classifier_keeps_install_run_provider_and_external_harness_pressure_out_of_lanes"
             )
             row["operator_lane_acceptance"] = "route_classification_regression_coverage"
+    if current_20260708_090635_window:
+        rows = [
+            row
+            for row in rows
+            if row.get("proposal_id")
+            in {
+                "p1_skill_route_discovery_reverse_flow",
+                "p2_skill_route_discovery_rnskill",
+            }
+        ]
 
     adjacent_rows = [
         dict(row) for row in lane.get("adjacent_general_agent_rows", []) if isinstance(row, Mapping)
@@ -15840,6 +15868,20 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
     for row in adjacent_rows:
         row["proposal_id"] = (
             "p3_agent_harness_eval_shepherd"
+            if current_20260708_090635_window
+            and "shepherd" in str(row.get("name") or "").casefold()
+            else "p4_workflow_usecase_agent_harness_eval"
+            if current_20260708_090635_window
+            and (
+                "workflow" in str(row.get("name") or "").casefold()
+                or "seedance" in str(row.get("name") or "").casefold()
+            )
+            else "p5_hy3_agent_harness_eval"
+            if current_20260708_090635_window
+            and str(row.get("name") or "").casefold() == "hy3"
+            else "p3_agent_harness_eval_general_projects"
+            if current_20260708_090635_window
+            else "p3_agent_harness_eval_shepherd"
             if current_20260707_190110_window
             and "shepherd" in str(row.get("name") or "").casefold()
             else "p4_agent_harness_eval_comparative_agent_projects"
@@ -15860,6 +15902,20 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
         )
         row["validation_target"] = (
             "shepherd_runtime_and_pr_activity_requires_local_harness_eval_before_followup"
+            if current_20260708_090635_window
+            and "shepherd" in str(row.get("name") or "").casefold()
+            else "workflow_usecase_collection_requires_agent_harness_eval_before_followup"
+            if current_20260708_090635_window
+            and (
+                "workflow" in str(row.get("name") or "").casefold()
+                or "seedance" in str(row.get("name") or "").casefold()
+            )
+            else "hy3_agent_model_project_requires_agent_harness_eval_before_followup"
+            if current_20260708_090635_window
+            and str(row.get("name") or "").casefold() == "hy3"
+            else "general_agent_project_requires_local_agent_harness_eval_before_followup"
+            if current_20260708_090635_window
+            else "shepherd_runtime_and_pr_activity_requires_local_harness_eval_before_followup"
             if current_20260707_190110_window
             and "shepherd" in str(row.get("name") or "").casefold()
             else "comparative_general_agent_projects_require_local_harness_eval_before_followup"
@@ -15913,6 +15969,15 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             "p1_skill_route_discovery_reverse_flow",
             "p2_skill_route_discovery_rnskill",
             "p3_agent_harness_eval_shepherd",
+            "p4_workflow_usecase_agent_harness_eval",
+            "p5_hy3_agent_harness_eval",
+        ]
+        if current_20260708_090635_window
+        else
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_shepherd",
             "p4_agent_harness_eval_comparative_agent_projects",
             "p5_controller_route_policy_fixture",
         ]
@@ -15950,7 +16015,9 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
     lane.update(
         {
             "controller_surface": (
-                "skill_route_discovery_current_digest_20260707T150109_pass2_validation_lane"
+                "skill_route_discovery_current_digest_20260708T090635_pass2_validation_lane"
+                if current_20260708_090635_window
+                else "skill_route_discovery_current_digest_20260707T150109_pass2_validation_lane"
                 if current_20260707_150109_window
                 else "skill_route_discovery_current_digest_20260707T190110_pass2_validation_lane"
                 if current_20260707_190110_window
@@ -15971,6 +16038,24 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             "anchoring_proposal_ids": [
                 *(
                     [
+                        "p1-skill-route-discovery-reverse-flow",
+                        "p2-generic-skill-workflow-discovery",
+                        "p3-agent-harness-eval-generic-projects",
+                        "p4-workflow-usecase-documentation-lane",
+                        "p5-route-hint-coverage-matrix",
+                        "p1_skill_route_discovery_reverse_flow",
+                        "p2_skill_route_discovery_rnskill",
+                        "p3_agent_harness_eval_queue",
+                        "p4_route_policy_documentation",
+                        "p5_route_metadata_fixture",
+                        "trend:lingbol088-spec/reverse-flow-skill-1",
+                        "trend:Pluviobyte/rnskill-1",
+                        "trend:Tencent-Hunyuan/Hy3-1",
+                        "trend:shepherd-agents/shepherd-1",
+                        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                    ]
+                    if current_20260708_090635_window
+                    else [
                         "p1_skill_route_discovery_probe",
                         "p2_codex_skill_workflow_gate",
                         "p3_agent_harness_eval_lane",
@@ -16054,6 +16139,7 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                             current_20260707_150109_window
                             or current_20260707_174109_window
                             or current_20260707_190110_window
+                            or current_20260708_090635_window
                         )
                         else "p1_reverse_flow_skill_route_discovery"
                     )
@@ -16069,6 +16155,7 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                             current_20260707_150109_window
                             or current_20260707_174109_window
                             or current_20260707_190110_window
+                            or current_20260708_090635_window
                         )
                         else "p2_rnskill_generic_skill_route_discovery"
                     )
@@ -16094,6 +16181,10 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             "run_artifact_contract": {
                 "rollback_artifact": (
                     (
+                        "artifacts/rollback/20260708T090633Z-rollback.md"
+                    )
+                    if current_20260708_090635_window
+                    else (
                         "artifacts/rollback/"
                         "20260707T150109Z-skill-route-discovery-pass2-reverse-flow-rnskill-probe/"
                         "rollback-point.md"
@@ -16118,6 +16209,10 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 ),
                 "rollback_ref": (
                     (
+                        "refs/blackhole-rollback/20260708T090633Z"
+                    )
+                    if current_20260708_090635_window
+                    else (
                         "refs/rollback/"
                         "20260707T150109Z-skill-route-discovery-pass2-reverse-flow-rnskill-probe"
                     )
@@ -16143,6 +16238,8 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                     (
                         "python -m pytest tests/test_skill_routing.py -q -k 20260707T150109"
                         if current_20260707_150109_window
+                        else "python -m pytest tests/test_skill_routing.py -q -k 20260708T090635"
+                        if current_20260708_090635_window
                         else "python -m pytest tests/test_skill_routing.py -q -k 20260707T190110"
                         if current_20260707_190110_window
                         else "python -m pytest tests/test_skill_routing.py -q -k 20260707T174109"
@@ -18851,6 +18948,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260707T190110.064980Z",
         "github-growth-20260707T190110Z",
     }
+    current_20260708_090635_window = source_digest in {
+        "github-growth-20260708T090635.452817Z",
+        "github-growth-20260708T090635Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -18898,6 +18999,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260707_150109_window
         or current_20260707_174109_window
         or current_20260707_190110_window
+        or current_20260708_090635_window
     ):
         return _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             candidate_lane_inventory,
