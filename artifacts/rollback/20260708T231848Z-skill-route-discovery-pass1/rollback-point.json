@@ -1,0 +1,10 @@
+{
+  "rollback_ref": "refs/blackhole-rollback/20260708T231848Z-skill-route-discovery-pass1",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260708T231951.398296-add-local-route-discovery-fixtures-for-skill-ori",
+    "git reset --hard refs/blackhole-rollback/20260708T231848Z-skill-route-discovery-pass1"
+  ],
+  "run": "20260708T231848Z-skill-route-discovery-pass1",
+  "original_head": "bed38fc0b2b190a909e1dd8f1e6d4574cec87946",
+  "original_branch": "codex/blackhole-evolve/20260708T231951.398296-add-local-route-discovery-fixtures-for-skill-ori"
+}
