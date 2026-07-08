@@ -1,0 +1,10 @@
+{
+  "run": "20260708T213848Z-skill-route-discovery-pass4-local-validation-lanes",
+  "rollback_ref": "refs/rollback/20260708T213848Z-skill-route-discovery-pass4-local-validation-lanes",
+  "recovery_commands": [
+    "git reset --hard 92734f00df2ebba141f5e5504e7790f63a45830c",
+    "git clean -fd"
+  ],
+  "head": "92734f00df2ebba141f5e5504e7790f63a45830c",
+  "original_branch": "codex/blackhole-evolve/20260708T213940.882777-add-a-local-skill-route-discovery-validation-lan"
+}

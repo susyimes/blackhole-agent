@@ -1676,6 +1676,56 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             },
         )
     )
+    current_digest_20260708T213850_pass4_completion_checkpoint = (
+        _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff(
+            pass4_completion_handoff,
+            pass4_operator_replay_manifest,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T213850.601257Z",
+                "github-growth-20260708T213850Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T213850_pass4_completion_checkpoint"
+            ),
+            proposal_ids=(
+                "p1-rnskill-skill-route-discovery",
+                "p2-reverse-flow-codex-workflow-gate",
+                "p3-general-agent-harness-eval",
+            ),
+            skill_row_proposal_ids={
+                "reverse_flow": "p2-reverse-flow-codex-workflow-gate",
+                "rnskill": "p1-rnskill-skill-route-discovery",
+                "fallback": "p1-rnskill-skill-route-discovery",
+            },
+            adjacent_row_proposal_ids={
+                "shepherd": "p3-general-agent-harness-eval",
+                "hy3": "p3-general-agent-harness-eval",
+                "fallback": "p3-general-agent-harness-eval",
+            },
+            required_adjacent_row_count=2,
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/rollback/"
+                    "20260708T213848Z-skill-route-discovery-pass4-local-validation-lanes"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260708T213848Z-skill-route-discovery-pass4-local-validation-lanes/"
+                    "rollback-point.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/evolution-20260708T213848Z-"
+                    "skill-route-discovery-pass4-completion.md"
+                ),
+                "validation_command_hash": _stable_hash(
+                    "python -m pytest tests/test_skill_routing.py -q -k 20260708T213850"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+                "raw_validation_command_exported": False,
+            },
+        )
+    )
     active_pass4_completion_matrix = _skill_route_discovery_active_pass4_completion_matrix(
         pass4_completion_handoff,
         pass4_operator_replay_manifest,
@@ -2174,6 +2224,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T201850_pass4_operator_handoff": (
             current_digest_20260708T201850_pass4_operator_handoff
+        ),
+        "current_digest_20260708T213850_pass4_completion_checkpoint": (
+            current_digest_20260708T213850_pass4_completion_checkpoint
         ),
         "current_digest_20260708T183850_pass3_activation_packet": (
             current_digest_20260708T183850_pass3_activation_packet
