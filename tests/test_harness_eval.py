@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 186
-    assert payload["pass_count"] == 185
+    assert payload["fixture_count"] == 187
+    assert payload["pass_count"] == 186
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -170,6 +170,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260708T044637-pass3-route-probe"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260708T050637-pass4-completion-handoff"
         ]["passed"]
         is True
     )
@@ -864,6 +870,52 @@ def test_skill_route_discovery_current_digest_20260708T044637_pass3_harness_fixt
     assert readiness["external_skill_activation_allowed"] is False
     assert readiness["external_harness_execution_allowed"] is False
     assert readiness["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260708T050637_pass4_harness_fixture():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    handoff = output["current_digest_pass4_completion_handoff"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["skill_workflow_count"] == 2
+    assert handoff["agent_harness_eval_required_count"] == 3
+    assert handoff["general_agent_project_policy"]["route_hints"] == []
+    assert handoff["general_agent_project_policy"]["allowed_lanes"] == []
+    assert [row["name"] for row in handoff["adjacent_general_agent_rows"]] == [
+        "shepherd",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Hy3",
+    ]
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["route_hints"] == []
+        and row["allowed_lanes"] == []
+        and row["skill_route_discovery_inherited"] is False
+        for row in handoff["adjacent_general_agent_rows"]
+    )
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized

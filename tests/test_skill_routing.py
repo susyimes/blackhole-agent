@@ -377,6 +377,87 @@ def test_skill_route_discovery_current_digest_20260708T044637_pass3_routes_skill
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "local_harness_eval"
+        / "skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["input"]["evidence_items"])
+    registry["source_digest"] = payload["input"]["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_pass4_completion_handoff"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260708T050637.590875Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert [item["name"] for item in registry["ignored_evidence_items"]] == [
+        "shepherd",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Hy3",
+    ]
+
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff"
+    )
+    assert handoff["status"] == "ready"
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-routing-fixture",
+        "p3-agent-harness-eval-for-general-agent-trends",
+    ]
+    assert handoff["skill_workflow_count"] == 2
+    assert handoff["agent_harness_eval_required_count"] == 3
+    assert handoff["selected_skill_local_lanes"] == ["documentation", "test"]
+
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["runtime_action"] == "none"
+    rnskill = rows["p2-generic-skill-workflow-routing-fixture"]
+    assert rnskill["candidate_names"] == ["Pluviobyte-rnskill"]
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+
+    adjacent = handoff["adjacent_general_agent_rows"]
+    assert [row["name"] for row in adjacent] == [
+        "shepherd",
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Hy3",
+    ]
+    for row in adjacent:
+        assert row["proposal_id"] == "p3-agent-harness-eval-for-general-agent-trends"
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["route_hints"] == []
+        assert row["allowed_lanes"] == []
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["selected_local_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_runtime_route_allowed"] is False
+        assert row["direct_code_patch_route_allowed"] is False
+        assert row["runtime_action"] == "none"
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_topical_matches_are_ranked_by_validation_status_then_name():
     skills = [
         SkillDescriptor(name="workflow-beta", domains=("workflow",), validation_status="experimental"),

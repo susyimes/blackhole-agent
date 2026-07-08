@@ -5,6 +5,23 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T050637.590875Z`, pass 4 exposes
+`skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff`.
+The handoff closes the current reverse-flow/rnskill/Shepherd/Hy3/workflow-usecase
+slice by keeping `lingbol088-spec/reverse-flow-skill` in the bounded local test
+lane as Codex workflow-gate evidence and keeping `Pluviobyte/rnskill` in the
+bounded documentation lane as generic `SKILL.md` workflow evidence.
+
+`shepherd-agents/shepherd`, `Tencent-Hunyuan/Hy3`, and the Blender/Seedance
+workflow-usecase collection remain grouped under
+`agent_harness_eval_required` before any implementation follow-up. They inherit
+no `skill_route_discovery` route hints, have no direct lanes before local
+harness evaluation, and keep runtime action, provider launch, external harness
+execution, remote execution, promotion, restart, and external activation
+disabled. The handoff exports source hashes and validation-command hashes only,
+not raw source URLs, replay commands, target paths, or upstream bodies. Replay
+with: `python -m pytest tests/test_skill_routing.py tests/test_harness_eval.py -q -k 20260708T050637`.
+
 For source digest `github-growth-20260708T042637.744153Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint`.
 The checkpoint turns the active reverse-flow/rnskill/Shepherd/Hy3/workflow-usecase
