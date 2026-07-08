@@ -1910,6 +1910,13 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_digest_20260708T183850_pass3_activation_packet = (
+        _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+        )
+    )
 
     return {
         "schema_version": 1,
@@ -2033,6 +2040,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T173850_pass4_operator_handoff": (
             current_digest_20260708T173850_pass4_operator_handoff
+        ),
+        "current_digest_20260708T183850_pass3_activation_packet": (
+            current_digest_20260708T183850_pass3_activation_packet
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
@@ -41068,6 +41078,232 @@ def _skill_route_discovery_pass4_local_lane_validation(
         "raw_upstream_body_exported": False,
         "rows": rows,
         "adjacent_general_agent_rows": adjacent_rows,
+    }
+
+
+def _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]] = (),
+    *,
+    source_digest: str = "",
+) -> dict[str, Any]:
+    """Expose the active pass-3 skill-route packet before supervisor activation."""
+
+    selected_source_digest = source_digest in {
+        "github-growth-20260708T183850.458999Z",
+        "github-growth-20260708T183850Z",
+    }
+    proposal_specs = (
+        {
+            "proposal_id": "p1-skill-route-discovery-reverse-flow",
+            "proposal_kind": "test",
+            "proposal_track": "codex_reverse_flow_skill_route_discovery_validation",
+            "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+            "candidate_name_terms": ("reverse-flow-skill",),
+            "selected_local_lane": "test",
+            "validation_gate": "focused-evidence-review",
+            "validation_target": "reverse_flow_codex_workflow_routes_to_bounded_local_lanes",
+        },
+        {
+            "proposal_id": "p2-generic-skill-workflow-routing",
+            "proposal_kind": "code_patch",
+            "proposal_track": "generic_skill_workflow_explicit_discovery_gate",
+            "route_profiles": ("generic_skill_workflow",),
+            "candidate_name_terms": ("rnskill",),
+            "selected_local_lane": "code_patch",
+            "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+            "validation_target": "rnskill_generic_skill_workflow_preserves_uncertainty_before_implementation",
+        },
+    )
+
+    rows: list[dict[str, Any]] = []
+    selected_lanes: list[str] = []
+    blocked_proposal_ids: list[str] = []
+    for spec in proposal_specs:
+        required_profiles = set(_string_list(spec["route_profiles"]))
+        candidate_name_terms = tuple(term.casefold() for term in _string_list(spec["candidate_name_terms"]))
+        candidate_names: list[str] = []
+        candidate_source_hashes: list[str] = []
+        selected_evidence_item_ids: list[str] = []
+        allowed_lanes: list[str] = []
+        matched_profiles: list[str] = []
+        uncertainty_reasons: list[str] = []
+
+        for candidate in sorted(
+            candidate_lane_inventory,
+            key=lambda value: str(value.get("candidate_name") or "").casefold(),
+        ):
+            candidate_profiles = _string_list(candidate.get("route_profiles")) or ["generic_skill_workflow"]
+            if not required_profiles.intersection(candidate_profiles):
+                continue
+            candidate_name = str(candidate.get("candidate_name") or "")
+            if candidate_name_terms and not any(term in candidate_name.casefold() for term in candidate_name_terms):
+                continue
+            if candidate_name:
+                candidate_names.append(candidate_name)
+            candidate_source_hashes.append(_stable_hash(str(candidate.get("source_url") or candidate_name)))
+            selected_evidence_item_ids.extend(_string_list(candidate.get("evidence_item_ids")))
+            allowed_lanes.extend(
+                lane
+                for lane in _string_list(candidate.get("proposal_kinds"))
+                if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            )
+            matched_profiles.extend(profile for profile in candidate_profiles if profile in required_profiles)
+            uncertainty_reasons.extend(_string_list(candidate.get("uncertainty_reasons")))
+
+        bounded_lanes = [lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(allowed_lanes)]
+        selected_lane = str(spec["selected_local_lane"])
+        blockers: list[str] = []
+        if not selected_source_digest:
+            blockers.append("source_digest_not_active_pass3_window")
+        if not candidate_names:
+            blockers.append("missing_skill_route_candidate")
+        if selected_lane not in bounded_lanes:
+            blockers.append("selected_lane_not_bounded")
+        if not selected_evidence_item_ids:
+            blockers.append("missing_selected_evidence_item_ids")
+        if str(spec["proposal_id"]) == "p2-generic-skill-workflow-routing" and not uncertainty_reasons:
+            blockers.append("generic_skill_workflow_uncertainty_not_preserved")
+
+        if blockers:
+            blocked_proposal_ids.append(str(spec["proposal_id"]))
+        else:
+            selected_lanes.append(selected_lane)
+
+        rows.append(
+            {
+                "proposal_id": spec["proposal_id"],
+                "proposal_kind": spec["proposal_kind"],
+                "proposal_track": spec["proposal_track"],
+                "status": "ready" if not blockers else "blocked",
+                "activation_blockers": blockers,
+                "candidate_names": list(dict.fromkeys(candidate_names)),
+                "candidate_source_hashes": list(dict.fromkeys(candidate_source_hashes)),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": list(dict.fromkeys(matched_profiles)),
+                "allowed_local_lanes": bounded_lanes,
+                "selected_local_lane": selected_lane if selected_lane in bounded_lanes else "",
+                "queued_local_lanes": [lane for lane in bounded_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": list(dict.fromkeys(selected_evidence_item_ids)),
+                "validation_gate": spec["validation_gate"],
+                "validation_target": spec["validation_target"],
+                "uncertainty_reasons": list(dict.fromkeys(uncertainty_reasons)),
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "profile_write_allowed": False,
+                "memory_write_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    adjacent_rows: list[dict[str, Any]] = []
+    for ignored_item in ignored_evidence_items:
+        for adjacent_row in _skill_route_discovery_adjacent_general_agent_rows(
+            [ignored_item],
+            proposal_id="p3-agent-harness-eval-general-projects",
+        ):
+            adjacent_row["selected_local_lane"] = "agent_harness_eval_required"
+            adjacent_row["direct_allowed_lanes_before_eval"] = []
+            adjacent_row["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
+            adjacent_row["implementation_lane_selected"] = False
+            replay_command = str(adjacent_row.pop("replay_command", "") or "")
+            if replay_command:
+                adjacent_row["replay_command_hash"] = _stable_hash(replay_command)
+                adjacent_row["raw_replay_command_exported"] = False
+            adjacent_rows.append(adjacent_row)
+
+    adjacent_blockers: list[str] = []
+    for adjacent in adjacent_rows:
+        item_id = str(adjacent.get("item_id") or "")
+        if adjacent.get("evaluation_lane") != "agent_harness_eval_required":
+            adjacent_blockers.append(f"{item_id}:evaluation_lane_not_agent_harness_eval_required")
+        if adjacent.get("skill_route_discovery_inherited") is not False:
+            adjacent_blockers.append(f"{item_id}:skill_route_discovery_inherited")
+        if adjacent.get("direct_allowed_lanes_before_eval") != []:
+            adjacent_blockers.append(f"{item_id}:direct_allowed_lanes_before_eval_not_empty")
+        if adjacent.get("external_harness_execution_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:external_harness_execution_allowed")
+        if adjacent.get("provider_runtime_launch_allowed") is not False:
+            adjacent_blockers.append(f"{item_id}:provider_runtime_launch_allowed")
+    if not adjacent_rows:
+        adjacent_blockers.append("missing_adjacent_general_agent_eval_rows")
+    if adjacent_blockers:
+        blocked_proposal_ids.append("p3-agent-harness-eval-general-projects")
+
+    ready = bool(rows) and not blocked_proposal_ids
+    return {
+        "controller_surface": "skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_digest_pass3_skill_routes_ready_for_operator_visible_activation_review"
+            if ready
+            else "repair_current_digest_pass3_activation_packet_before_supervisor_handoff"
+        ),
+        "source_digest": source_digest or "github-growth-20260708T183850.458999Z",
+        "capability_theme": "skill-route-discovery",
+        "capability_pass": 3,
+        "total_passes": 4,
+        "review_gate": "focused-evidence-review",
+        "proposal_ids": [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-routing",
+            "p3-agent-harness-eval-general-projects",
+        ],
+        "blocked_proposal_ids": list(dict.fromkeys(blocked_proposal_ids)),
+        "selected_skill_local_lanes": [
+            lane for lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES if lane in set(selected_lanes)
+        ],
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "skill_route_candidate_count": len(rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "agent_harness_eval_policy": {
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "direct_allowed_lanes_before_eval": [],
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "implementation_lane_selected": False,
+        },
+        "operator_next_action": (
+            "replay_current_digest_pass3_activation_packet_then_continue_to_pass4"
+            if ready
+            else "repair_blocked_rows_then_rebuild_current_digest_pass3_activation_packet"
+        ),
+        "run_artifact_contract": {
+            "rollback_ref": "refs/blackhole/rollback/20260709T024029Z-skill-route-discovery-pass3",
+            "rollback_artifact": (
+                "artifacts/rollback/20260709T024029Z-skill-route-discovery-pass3/rollback-point.md"
+            ),
+            "run_note_artifact": (
+                "artifacts/blackhole-runs/20260709T024029Z-skill-route-discovery-pass3.md"
+            ),
+            "rollback_execution": "explicit_destructive_operator_action_only",
+        },
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": rows,
+        "adjacent_general_agent_rows": adjacent_rows,
+        "adjacent_general_agent_blockers": adjacent_blockers,
     }
 
 

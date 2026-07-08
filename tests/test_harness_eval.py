@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 190
-    assert payload["pass_count"] == 189
+    assert payload["fixture_count"] == 191
+    assert payload["pass_count"] == 190
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -194,6 +194,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260708T175850-pass1-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260708T183850-pass3-activation-packet"
         ]["passed"]
         is True
     )
@@ -1109,6 +1115,71 @@ def test_skill_route_discovery_current_digest_20260708T175850_pass1_harness_fixt
     assert readiness["external_harness_execution_allowed"] is False
     assert readiness["provider_runtime_launch_allowed"] is False
     assert readiness["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    packet = output["current_digest_20260708T183850_pass3_activation_packet"]
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    adjacent = {row["item_id"]: row for row in packet["adjacent_general_agent_rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert packet["source_digest"] == "github-growth-20260708T183850.458999Z"
+    assert packet["status"] == "ready"
+    assert packet["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-routing",
+        "p3-agent-harness-eval-general-projects",
+    ]
+    assert packet["blocked_proposal_ids"] == []
+    assert packet["selected_skill_local_lanes"] == ["test", "code_patch"]
+    assert rows["p1-skill-route-discovery-reverse-flow"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-reverse-flow"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    generic = rows["p2-generic-skill-workflow-routing"]
+    assert generic["selected_local_lane"] == "code_patch"
+    assert generic["uncertainty_reasons"] == [
+        "unvalidated_external_skill_evidence",
+        "single_repository_level_source",
+        "missing_detail_risk",
+    ]
+    assert packet["agent_harness_eval_required_count"] == 2
+    assert set(adjacent) == {
+        "trend:shepherd-agents/shepherd-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    }
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["selected_local_lane"] == "agent_harness_eval_required"
+        and row["direct_allowed_lanes_before_eval"] == []
+        and row["skill_route_discovery_inherited"] is False
+        for row in adjacent.values()
+    )
+    assert packet["agent_harness_eval_policy"]["implementation_lane_selected"] is False
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
