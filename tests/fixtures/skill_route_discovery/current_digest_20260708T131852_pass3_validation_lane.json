@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260708T131852.174738Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 3,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p1",
+      "p2",
+      "p3",
+      "p4",
+      "p5",
+      "p1-skill-route-discovery-reverse-flow",
+      "p2-generic-skill-workflow-discovery",
+      "p3-agent-harness-eval-shepherd",
+      "p4-agent-harness-eval-hy3",
+      "p5-agent-harness-eval-blender-seedance-workflows"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260708T131852.174738Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Public Codex and AI Agent skill workflow repository with a skills/reverse-flow layout, SKILL.md evidence, local sandbox and CTF framing, staged reverse-engineering workflow language, install examples, and diagnostic script examples. Install, run, script, reverse-flow, runtime, and external harness wording is route pressure only.",
+      "topics": ["codex", "agent", "skill", "skills", "workflow", "reverse-flow"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "run",
+        "runtime_execution",
+        "external_harness_execution"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "reference_directory",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "activation_phrase",
+          "local_sandbox_boundary",
+          "body_free_workflow_summary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260708T131852.174738Z",
+      "item_id": "trend:Pluviobyte/rnskill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "summary": "Public AI Agent Skills collection for Codex, Claude Code, and other SKILL.md-compatible agent workflows. The focused review observed skills, docs, tools, plugin-style metadata, manual install examples, and marketplace-style install pressure. This remains generic skill workflow evidence, not activation authority.",
+      "topics": ["agent", "agent-skills", "codex", "skill", "skills", "workflow"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+        "install",
+        "enable",
+        "run",
+        "external_skill_activation"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": [
+          "skill_directory",
+          "skill_markdown",
+          "skill_manifest",
+          "validation_script"
+        ],
+        "source_metadata_signals": [
+          "skill_registry_metadata",
+          "agent_plugin_marketplace",
+          "body_free_repository_summary"
+        ]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260708T131852.174738Z",
+      "item_id": "trend:shepherd-agents/shepherd-1",
+      "item_kind": "RepositoryTrend",
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "summary": "General agent runtime substrate with reversible traces, replay, fork, retained outputs, supervision, and controller workflow claims. It has no explicit selected skill package or completed local harness evaluation result.",
+      "topics": ["agent", "runtime", "workflow", "replay", "rollback", "validation"],
+      "route_hints": [],
+      "suggested_lanes": [
+        "documentation",
+        "test",
+        "code_patch",
+        "runtime_execution",
+        "external_harness_execution"
+      ]
+    },
+    {
+      "source_digest": "github-growth-20260708T131852.174738Z",
+      "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Hy3",
+      "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+      "summary": "Model project with reasoning, agent capability, API, MCP, provider, quickstart, deployment, and workflow pressure. It is general agent and provider/tooling evidence, not a skill workflow activation lane.",
+      "topics": ["agent", "model", "reasoning", "mcp", "api"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260708T131852.174738Z",
+      "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+      "item_kind": "RepositoryTrend",
+      "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+      "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+      "summary": "Workflow use-case collection for Blender, Seedance, AI filmmaking, camera control, Blender MCP, source-cited public cases, and agent-guided scenarios. It has workflow-topic pressure but no local skill-route activation lane.",
+      "topics": ["workflow", "usecases", "blender", "seedance", "mcp", "agent"],
+      "route_hints": [],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    }
+  ]
+}

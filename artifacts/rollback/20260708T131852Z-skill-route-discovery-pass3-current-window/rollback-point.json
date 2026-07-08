@@ -1,0 +1,10 @@
+{
+  "created_at": "2026-07-08T13:18:52Z",
+  "original_branch": "codex/blackhole-evolve/20260708T131954.392307-add-or-extend-a-local-skill-route-discovery-vali",
+  "original_head": "97ab1995177f5520c3cac8f71726f2cc10ebb187",
+  "rollback_ref": "refs/blackhole/rollback/20260708T131852Z-skill-route-discovery-pass3-current-window",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260708T131954.392307-add-or-extend-a-local-skill-route-discovery-vali",
+    "git reset --hard refs/blackhole/rollback/20260708T131852Z-skill-route-discovery-pass3-current-window"
+  ]
+}
