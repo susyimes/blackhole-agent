@@ -42342,6 +42342,129 @@ def test_skill_route_discovery_current_digest_20260707T232200_pass3_validates_sk
     assert '"runtime_execution"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T000200_pass1_routes_hy3_preflight_lane():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T000200_pass1_skill_route_hy3_preflight.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    lane = packet["current_pass1_focused_review_lane"]
+    rows = {row["candidate_name"]: row for row in lane["skill_route_rows"]}
+    adjacent = {row["name"]: row for row in lane["agent_harness_eval_rows"]}
+    hy3_preflight = lane["hy3_provider_mcp_preflight_lane"]
+    serialized = json.dumps(lane, sort_keys=True)
+
+    assert packet["source_digest"] == "github-growth-20260708T000200.125943Z"
+    assert packet["status"] == "ready"
+    assert packet["skill_workflow_count"] == 2
+    assert packet["general_agent_project_count"] == 3
+    assert packet["selected_skill_local_lanes"] == ["test"]
+    assert packet["agent_harness_eval_required"] is True
+
+    assert lane["controller_surface"] == "skill_route_discovery_current_pass1_focused_review_lane"
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 1
+    assert lane["proposal_ids"] == [
+        "p2-skill-route-docs",
+        "p4-hy3-provider-mcp-preflight",
+        "11473712336-1",
+    ]
+    assert lane["anchoring_proposal_ids"] == [
+        "p2-skill-route-docs",
+        "p4-hy3-provider-mcp-preflight",
+        "11473712336-1",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:shepherd-agents/shepherd-1",
+        "issue:Tencent-Hunyuan/Hy3-1",
+        "issue:Tencent-Hunyuan/Hy3-3",
+    ]
+    assert lane["selected_skill_local_lanes"] == ["documentation", "test"]
+    assert lane["run_artifact_contract"]["rollback_ref"] == (
+        "refs/blackhole/rollback/20260708T000158Z-skill-route-discovery-pass1"
+    )
+
+    assert rows["lingbol088-spec-reverse-flow-skill"]["selected_local_lane"] == "test"
+    assert rows["lingbol088-spec-reverse-flow-skill"]["proposal_id"] == "p2-skill-route-docs"
+    assert rows["lingbol088-spec-reverse-flow-skill"]["route_profiles"] == [
+        "codex_workflow_gate",
+        "generic_skill_workflow",
+    ]
+    assert rows["rnskill"]["selected_local_lane"] == "documentation"
+    assert rows["rnskill"]["proposal_id"] == "p2-skill-route-docs"
+    assert rows["rnskill"]["route_profiles"] == ["generic_skill_workflow"]
+
+    assert set(adjacent) == {
+        "Hy3 API quickstart examples",
+        "Hy3 MCP server",
+        "shepherd",
+    }
+    assert adjacent["shepherd"]["evaluation_lane"] == "agent_harness_eval_required"
+    for adjacent_row in adjacent.values():
+        assert adjacent_row["evaluation_lane"] == "agent_harness_eval_required"
+        assert adjacent_row["skill_route_discovery_inherited"] is False
+        assert adjacent_row["direct_allowed_lanes_before_eval"] == []
+        assert adjacent_row["allowed_local_lanes_after_eval"] == [
+            "documentation",
+            "test",
+            "code_patch",
+        ]
+        assert adjacent_row["direct_runtime_route_allowed"] is False
+        assert adjacent_row["provider_runtime_launch_allowed"] is False
+        assert adjacent_row["external_harness_execution_allowed"] is False
+        assert adjacent_row["remote_execution_allowed"] is False
+
+    assert hy3_preflight == {
+        "controller_surface": "skill_route_discovery_hy3_provider_mcp_preflight_lane",
+        "proposal_id": "p4-hy3-provider-mcp-preflight",
+        "status": "ready",
+        "decision": "hy3_provider_and_mcp_signal_ready_for_disabled_local_preflight",
+        "evidence_item_ids": [
+            "issue:Tencent-Hunyuan/Hy3-1",
+            "issue:Tencent-Hunyuan/Hy3-3",
+        ],
+        "preflight_scope": [
+            "configuration_detection",
+            "endpoint_shape_validation",
+            "required_env_key_presence",
+            "mcp_stdio_metadata",
+            "disabled_by_default",
+        ],
+        "required_local_checks": [
+            "missing_api_key_blocks_without_printing_key_name_or_value",
+            "invalid_base_url_shape_blocks_without_network_call",
+            "mcp_tool_metadata_is_documented_before_client_activation",
+            "provider_runtime_launch_remains_denied",
+        ],
+        "allowed_followup_lanes": ["documentation", "config", "test"],
+        "excluded_lanes": ["provider_runtime", "external_harness_execution", "remote_execution"],
+        "provider_runtime_launch_allowed": False,
+        "external_harness_execution_allowed": False,
+        "remote_execution_allowed": False,
+        "network_call_allowed": False,
+        "api_key_hardcoding_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_provider_config_exported": False,
+        "raw_secret_values_exported": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+    }
+
+    assert "https://github.com/" not in serialized
+    assert "pytest tests/" not in serialized
+    assert "api key" not in serialized.casefold()
+    assert "provider_runtime_launch_allowed\": true" not in serialized
+    assert "external_harness_execution_allowed\": true" not in serialized
+    assert '"install"' not in serialized
+    assert '"run"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260705T084958_pass2_routes_skill_and_agent_lanes():
     fixture_path = (
         Path(__file__).parent

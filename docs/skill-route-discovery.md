@@ -5,6 +5,29 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T000200.125943Z`, pass 1 exposes
+`skill_route_discovery_current_pass1_focused_review_lane` for the
+rnskill/reverse-flow/Shepherd/Hy3 window. `Pluviobyte/rnskill` is kept as
+generic `SKILL.md` collection evidence in the bounded documentation lane.
+`lingbol088-spec/reverse-flow-skill` is kept as Codex workflow-gate evidence
+in the bounded test lane because its public shape includes `skills/reverse-flow`,
+`SKILL.md`, local sandbox and CTF framing, staged workflow language, and
+diagnostic scripts. `shepherd-agents/shepherd` remains adjacent
+`agent_harness_eval_required` evidence for reversible runtime traces; it
+inherits no `skill_route_discovery` lane and opens no direct implementation
+lane before local harness evaluation.
+
+The same pass records `skill_route_discovery_hy3_provider_mcp_preflight_lane`
+for `p4-hy3-provider-mcp-preflight`. Hy3 API and MCP issues are provider/tooling
+integration pressure, not activation authority: the lane allows only
+documentation, config, or test follow-up for configuration detection, endpoint
+shape validation, required environment-key presence, MCP stdio metadata, and
+disabled-by-default behavior. Provider runtime launch, external harness
+execution, network calls, remote execution, raw evidence URL export, raw
+provider config export, API-key hardcoding, and raw secret value export remain
+denied. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T000200`.
+
 For source digest `github-growth-20260707T234200.022738Z`, pass 4 now exposes
 `skill_route_discovery_current_pass4_completion_handoff` for the current
 reverse-flow/rnskill/BioNeMo/Agents-A1 window. The handoff binds

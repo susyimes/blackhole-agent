@@ -605,6 +605,32 @@ def test_skill_route_discovery_doc_records_20260707T232200_pass3_skill_workflow_
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260708T000200_pass1_hy3_preflight_lane():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260708T000200.125943Z`",
+        "`skill_route_discovery_current_pass1_focused_review_lane`",
+        "`Pluviobyte/rnskill` is kept as\ngeneric `SKILL.md` collection evidence",
+        "`lingbol088-spec/reverse-flow-skill` is kept as Codex workflow-gate evidence",
+        "`skills/reverse-flow`,\n`SKILL.md`, local sandbox and CTF framing",
+        "`shepherd-agents/shepherd` remains adjacent\n`agent_harness_eval_required` evidence",
+        "inherits no `skill_route_discovery` lane",
+        "`skill_route_discovery_hy3_provider_mcp_preflight_lane`",
+        "`p4-hy3-provider-mcp-preflight`",
+        "Hy3 API and MCP issues are provider/tooling\nintegration pressure, not activation authority",
+        "documentation, config, or test follow-up",
+        "configuration detection, endpoint\nshape validation, required environment-key presence, MCP stdio metadata",
+        "Provider runtime launch, external harness\nexecution, network calls, remote execution",
+        "raw\nprovider config export, API-key hardcoding, and raw secret value export remain\ndenied",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260708T000200`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T052834_pass1_focused_review_lane():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

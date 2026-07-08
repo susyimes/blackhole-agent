@@ -2136,12 +2136,14 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     current_184110_window = source_digest == "github-growth-20260707T184110.074943Z"
     current_200110_window = source_digest == "github-growth-20260707T200110.283498Z"
     current_212110_window = source_digest == "github-growth-20260707T212110.239635Z"
+    current_20260708_000200_window = source_digest == "github-growth-20260708T000200.125943Z"
     if not (
         current_052834_window
         or current_094834_window
         or current_184110_window
         or current_200110_window
         or current_212110_window
+        or current_20260708_000200_window
     ):
         return {}
 
@@ -2153,6 +2155,17 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     ]
     anchoring_proposal_ids = (
         [
+            "p2-skill-route-docs",
+            "p4-hy3-provider-mcp-preflight",
+            "11473712336-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:shepherd-agents/shepherd-1",
+            "issue:Tencent-Hunyuan/Hy3-1",
+            "issue:Tencent-Hunyuan/Hy3-3",
+        ]
+        if current_20260708_000200_window
+        else [
             "p1-skill-route-discovery-reverse-flow",
             "p2-skill-route-discovery-rnskill",
             "p3-bionemo-skill-routing-domain-guard",
@@ -2194,6 +2207,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         ]
     )
     reverse_flow_proposal_id = (
+        "p2-skill-route-docs"
+        if current_20260708_000200_window
+        else
         "p1-skill-route-discovery-reverse-flow"
         if current_184110_window or current_200110_window or current_212110_window
         else
@@ -2202,6 +2218,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         else "p1-skill-route-discovery-reverse-flow"
     )
     generic_skill_proposal_id = (
+        "p2-skill-route-docs"
+        if current_20260708_000200_window
+        else
         "p2-generic-skill-workflow-discovery-rnskill"
         if current_200110_window
         else
@@ -2213,6 +2232,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         else "p2-generic-skill-workflow-discovery"
     )
     agent_harness_proposal_id = (
+        "p4-agent-harness-eval-shepherd"
+        if current_20260708_000200_window
+        else
         "p4-general-agent-harness-eval-backlog"
         if current_212110_window
         else
@@ -2224,6 +2246,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         else "p3-agent-harness-eval-fixture"
     )
     policy_note_proposal_id = (
+        "p4-hy3-provider-mcp-preflight"
+        if current_20260708_000200_window
+        else
         "p3-bionemo-skill-routing-domain-guard"
         if current_212110_window
         else
@@ -2235,6 +2260,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         else "p4-route-policy-doc-note"
     )
     metadata_check_proposal_id = (
+        "11473712336-1"
+        if current_20260708_000200_window
+        else
         "p3-bionemo-skill-routing-domain-guard"
         if current_212110_window
         else
@@ -2256,6 +2284,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             "pytest tests/test_skill_routing.py -q -k 20260707T212110"
             if current_212110_window
             else
+            "pytest tests/test_skill_routing.py -q -k 20260708T000200"
+            if current_20260708_000200_window
+            else
             "pytest tests/test_skill_routing.py -q -k 20260707T200110"
             if current_200110_window
             else
@@ -2269,6 +2300,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         (
             "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T212110"
             if current_212110_window
+            else
+            "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260708T000200"
+            if current_20260708_000200_window
             else
             "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T200110"
             if current_200110_window
@@ -2368,7 +2402,13 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         for row in skill_rows
     ):
         blockers.append("domain_specific_bionemo_skill_guard_missing")
-    minimum_agent_rows = 2 if current_200110_window or current_212110_window else 3
+    minimum_agent_rows = (
+        1
+        if current_20260708_000200_window
+        else 2
+        if current_200110_window or current_212110_window
+        else 3
+    )
     if len(agent_rows) < minimum_agent_rows:
         blockers.append("agent_harness_eval_fixture_rows_missing")
     if any(
@@ -2445,6 +2485,62 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             "promotion_or_push_performed": False,
             "restart_performed": False,
         }
+    elif current_20260708_000200_window:
+        run_artifact_contract = {
+            "rollback_ref": "refs/blackhole/rollback/20260708T000158Z-skill-route-discovery-pass1",
+            "rollback_artifact": (
+                "artifacts/rollback/20260708T000158Z-skill-route-discovery-pass1/rollback-point.md"
+            ),
+            "evolution_artifact": (
+                "artifacts/evolution-20260708T000158Z-skill-route-discovery-pass1-hy3-preflight.md"
+            ),
+            "material_actions_logged": True,
+            "external_evidence_reviewed": True,
+            "promotion_or_push_performed": False,
+            "restart_performed": False,
+        }
+    hy3_provider_mcp_preflight: dict[str, Any] = {}
+    if current_20260708_000200_window:
+        hy3_provider_mcp_preflight = {
+            "controller_surface": "skill_route_discovery_hy3_provider_mcp_preflight_lane",
+            "proposal_id": "p4-hy3-provider-mcp-preflight",
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "hy3_provider_and_mcp_signal_ready_for_disabled_local_preflight"
+                if ready
+                else "repair_skill_route_rows_before_hy3_preflight_review"
+            ),
+            "evidence_item_ids": [
+                "issue:Tencent-Hunyuan/Hy3-1",
+                "issue:Tencent-Hunyuan/Hy3-3",
+            ],
+            "preflight_scope": [
+                "configuration_detection",
+                "endpoint_shape_validation",
+                "required_env_key_presence",
+                "mcp_stdio_metadata",
+                "disabled_by_default",
+            ],
+            "required_local_checks": [
+                "missing_api_key_blocks_without_printing_key_name_or_value",
+                "invalid_base_url_shape_blocks_without_network_call",
+                "mcp_tool_metadata_is_documented_before_client_activation",
+                "provider_runtime_launch_remains_denied",
+            ],
+            "allowed_followup_lanes": ["documentation", "config", "test"],
+            "excluded_lanes": ["provider_runtime", "external_harness_execution", "remote_execution"],
+            "provider_runtime_launch_allowed": False,
+            "external_harness_execution_allowed": False,
+            "remote_execution_allowed": False,
+            "network_call_allowed": False,
+            "api_key_hardcoding_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_provider_config_exported": False,
+            "raw_secret_values_exported": False,
+            "local_validation_required": True,
+            "runtime_action": "none",
+        }
     return {
         "current_pass1_focused_review_lane": {
             "controller_surface": "skill_route_discovery_current_pass1_focused_review_lane",
@@ -2486,6 +2582,11 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
                 "runtime_action": "none",
             },
             "route_metadata_consistency_check": metadata_check,
+            **(
+                {"hy3_provider_mcp_preflight_lane": hy3_provider_mcp_preflight}
+                if hy3_provider_mcp_preflight
+                else {}
+            ),
             **(
                 {"run_artifact_contract": run_artifact_contract}
                 if run_artifact_contract
