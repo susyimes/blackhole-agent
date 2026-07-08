@@ -547,6 +547,95 @@ def test_skill_route_discovery_current_digest_20260708T100635_pass1_validation_l
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T123852_pass1_validation_lane():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "local_harness_eval"
+        / "skill_route_discovery_current_digest_20260708T123852_pass1_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["input"]["evidence_items"])
+    registry["source_digest"] = payload["input"]["source_digest"]
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    lane = lane_map["current_digest_pass1_validation_lane"]
+    readiness = lane_map["current_run_pass1_activation_readiness"]
+    serialized = json.dumps({"lane": lane, "readiness": readiness}, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260708T123852.626885Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert [item["name"] for item in registry["ignored_evidence_items"]] == [
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Hy3",
+    ]
+
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-local-skill-route-discovery-validation-fixture",
+        "p2-growth-routing-skill-workflow-distinction",
+    ]
+    assert lane["selected_local_lanes"] == ["documentation", "test"]
+
+    rows = {row["proposal_id"]: row for row in lane["rows"]}
+    rnskill = rows["p1-local-skill-route-discovery-validation-fixture"]
+    assert rnskill["candidate_names"] == ["Pluviobyte-rnskill"]
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert rnskill["selected_local_lane"] == "documentation"
+
+    reverse_flow = rows["p2-growth-routing-skill-workflow-distinction"]
+    assert reverse_flow["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["local_validation_required"] is True
+
+    adjacent = lane["adjacent_general_agent_rows"]
+    assert [row["name"] for row in adjacent] == [
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Hy3",
+    ]
+    assert all(
+        row["proposal_id"] == "p3-agent-harness-eval-for-general-agent-repositories"
+        and row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["skill_route_discovery_inherited"] is False
+        and row["direct_allowed_lanes_before_eval"] == []
+        and row["selected_local_lane"] == "agent_harness_eval_required"
+        and row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        and row["implementation_lane_selected"] is False
+        and row["external_harness_execution_allowed"] is False
+        and row["provider_runtime_launch_allowed"] is False
+        and row["remote_execution_allowed"] is False
+        for row in adjacent
+    )
+
+    assert readiness["status"] == "ready"
+    assert readiness["agent_harness_eval_required_count"] == 2
+    assert readiness["anchoring_proposal_ids"] == [
+        "p1-local-skill-route-discovery-validation-fixture",
+        "p2-growth-routing-skill-workflow-distinction",
+        "p3-agent-harness-eval-for-general-agent-repositories",
+        "p4-workflow-usecase-agent-harness-holdback",
+        "p5-hy3-agent-harness-holdback",
+        "trend:Pluviobyte/rnskill-1",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    ]
+    assert readiness["adjacent_general_agent_policy"]["direct_allowed_lanes_before_eval"] == []
+    assert readiness["external_skill_activation_allowed"] is False
+    assert readiness["external_harness_execution_allowed"] is False
+    assert readiness["remote_execution_allowed"] is False
+
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_topical_matches_are_ranked_by_validation_status_then_name():
     skills = [
         SkillDescriptor(name="workflow-beta", domains=("workflow",), validation_status="experimental"),

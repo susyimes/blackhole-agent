@@ -1,0 +1,137 @@
+{
+  "name": "skill-route-discovery-current-digest-20260708T123852-pass1-validation-lane",
+  "behavior": "skill_route_discovery_lane",
+  "input": {
+    "task_id": "fixture-skill-route-current-digest-20260708T123852-pass1-validation-lane",
+    "source_digest": "github-growth-20260708T123852.626885Z",
+    "capability_window": {
+      "theme": "skill-route-discovery",
+      "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+      "current_pass": 1,
+      "total_passes": 4,
+      "anchoring_proposals": [
+        "p1-local-skill-route-discovery-validation-fixture",
+        "p2-growth-routing-skill-workflow-distinction",
+        "p3-agent-harness-eval-for-general-agent-repositories",
+        "p4-workflow-usecase-agent-harness-holdback",
+        "p5-hy3-agent-harness-holdback"
+      ]
+    },
+    "source_kind": "evidence_items",
+    "evidence_items": [
+      {
+        "source_digest": "github-growth-20260708T123852.626885Z",
+        "item_id": "trend:Pluviobyte/rnskill-1",
+        "item_kind": "repository",
+        "name": "Pluviobyte-rnskill",
+        "source_url": "https://github.com/Pluviobyte/rnskill",
+        "title": "AI Agent SKILL.md collection",
+        "summary": "AI Agent Skills collection for Codex, Claude Code, and other project-level SKILL.md workflows. It provides skill directories, docs, tools, and marketplace metadata but is not an activation request.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "skill", "skills", "workflow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install"],
+          "source_layout_signals": ["skill_directory", "skill_manifest", "tooling_directory"],
+          "source_metadata_signals": ["skill_collection", "skill_registry_metadata"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T123852.626885Z",
+        "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+        "item_kind": "repository",
+        "name": "lingbol088-spec-reverse-flow-skill",
+        "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "title": "Reverse-flow Codex local workflow skill",
+        "summary": "Codex and AI Agent workflow skill with SKILL.md signals, local sandbox framing, staged analysis workflow, and scripts that must remain route evidence unless local validation creates a bounded artifact.",
+        "route_hints": ["skill_route_discovery"],
+        "topics": ["codex", "skill", "workflow", "reverse-flow"],
+        "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+        "route_classification": {
+          "route_hints": ["skill_route_discovery"],
+          "route_class": "external_skill_route_discovery_classification",
+          "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+          "allowed_local_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+          "source_layout_signals": ["skill_markdown", "reference_directory", "validation_script"],
+          "source_metadata_signals": ["codex_skill_workflow", "local_sandbox_boundary", "activation_phrase"]
+        }
+      },
+      {
+        "source_digest": "github-growth-20260708T123852.626885Z",
+        "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "item_kind": "repository",
+        "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+        "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+        "title": "Blender and Seedance workflow use-case collection",
+        "summary": "Curated Blender and Seedance workflows for AI filmmaking, camera control, Blender MCP, reference video, and agent-guided use cases. It has workflow-topic pressure but no local skill-route activation evidence.",
+        "topics": ["workflow", "usecases", "blender", "seedance", "mcp"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+      },
+      {
+        "source_digest": "github-growth-20260708T123852.626885Z",
+        "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+        "item_kind": "repository",
+        "name": "Hy3",
+        "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+        "title": "Hy3 reasoning and agent model project",
+        "summary": "Reasoning and agent model project with API, MCP, and provider/tooling pressure. It is general agent and provider evidence, not a skill workflow activation lane.",
+        "topics": ["agent", "model", "reasoning", "mcp", "api"],
+        "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime", "runtime_execution"]
+      }
+    ],
+    "local_artifact_proofs": [
+      {
+        "proposal_kind": "test",
+        "changed_files": [
+          "tests/test_skill_routing.py",
+          "tests/test_harness_eval.py",
+          "tests/fixtures/local_harness_eval/skill_route_discovery_current_digest_20260708T123852_pass1_validation_lane.json"
+        ],
+        "validation_commands": [
+          "pytest tests/test_skill_routing.py -q -k 20260708T123852",
+          "pytest tests/test_harness_eval.py -q -k 20260708T123852"
+        ],
+        "rollback_artifact": "artifacts/rollback/20260708T123849Z-skill-route-discovery-pass1/rollback-point.md",
+        "review_note": "Pass 1 maps rnskill and reverse-flow skill evidence into bounded local lanes while workflow-usecase and Hy3 evidence remain agent_harness_eval_required."
+      }
+    ]
+  },
+  "assertions": [
+    {"path": "route_status", "equals": "passed"},
+    {"path": "failure_mode", "equals": "none"},
+    {"path": "registry.candidate_count", "equals": 2},
+    {"path": "registry.ignored_evidence_item_count", "equals": 2},
+    {"path": "current_digest_pass1_validation_lane.status", "equals": "ready"},
+    {
+      "path": "current_digest_pass1_validation_lane.proposal_ids",
+      "equals": [
+        "p1-local-skill-route-discovery-validation-fixture",
+        "p2-growth-routing-skill-workflow-distinction"
+      ]
+    },
+    {"path": "current_digest_pass1_validation_lane.selected_local_lanes", "equals": ["documentation", "test"]},
+    {"path": "current_digest_pass1_validation_lane.rows.0.selected_local_lane", "equals": "documentation"},
+    {"path": "current_digest_pass1_validation_lane.rows.0.route_profiles", "equals": ["generic_skill_workflow"]},
+    {"path": "current_digest_pass1_validation_lane.rows.1.selected_local_lane", "equals": "test"},
+    {"path": "current_digest_pass1_validation_lane.rows.1.route_profiles", "equals": ["codex_workflow_gate", "generic_skill_workflow"]},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_count", "equals": 2},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.proposal_id", "equals": "p3-agent-harness-eval-for-general-agent-repositories"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.proposal_id", "equals": "p3-agent-harness-eval-for-general-agent-repositories"},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.0.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "current_digest_pass1_validation_lane.adjacent_general_agent_rows.1.selected_local_lane", "equals": "agent_harness_eval_required"},
+    {"path": "current_digest_pass1_validation_lane.external_skill_activation_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.external_harness_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.remote_execution_allowed", "equals": false},
+    {"path": "current_digest_pass1_validation_lane.raw_evidence_urls_exported", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.status", "equals": "ready"},
+    {"path": "current_run_pass1_activation_readiness.agent_harness_eval_required_count", "equals": 2},
+    {"path": "current_run_pass1_activation_readiness.adjacent_general_agent_policy.direct_allowed_lanes_before_eval", "equals": []},
+    {"path": "current_run_pass1_activation_readiness.external_skill_activation_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.external_harness_execution_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.remote_execution_allowed", "equals": false},
+    {"path": "current_run_pass1_activation_readiness.raw_evidence_urls_exported", "equals": false}
+  ]
+}
