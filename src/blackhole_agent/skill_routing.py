@@ -39974,6 +39974,7 @@ def _skill_route_discovery_pass4_operator_replay_manifest(
         for row in rows
         if isinstance(row, Mapping)
     ]
+    source_evidence_checklist = _skill_route_discovery_source_evidence_checklist(candidate_rows)
     ready = (
         pass4_completion_handoff.get("status") == "ready"
         and bool(candidate_rows)
@@ -40002,6 +40003,7 @@ def _skill_route_discovery_pass4_operator_replay_manifest(
             pass4_completion_handoff.get("profile_validation_checklist")
         ),
         "candidate_rows": candidate_rows,
+        "source_evidence_checklist": source_evidence_checklist,
         "operator_replay_requirements": [
             "confirm_rollback_ref_and_artifact",
             "run_selected_lane_replay_commands_from_pass4_local_lane_validation",
@@ -40345,6 +40347,7 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
     adjacent_boundary = active_pass4_completion_matrix.get("adjacent_general_agent_project_boundary")
     adjacent_boundary = adjacent_boundary if isinstance(adjacent_boundary, Mapping) else {}
     adjacent_record_count = int(adjacent_boundary.get("adjacent_record_count") or 0)
+    source_evidence_checklist = _skill_route_discovery_source_evidence_checklist(packet_rows)
     operator_review_dossier = {
         "controller_surface": "skill_route_discovery_active_pass4_operator_review_dossier",
         "status": "ready" if ready else "blocked",
@@ -40372,6 +40375,7 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
             }
             for row in packet_rows
         ],
+        "source_evidence_checklist": source_evidence_checklist,
         "adjacent_agent_harness_queue": {
             "evaluation_lane": str(adjacent_boundary.get("evaluation_lane") or "agent_harness_eval_required"),
             "skill_route_discovery_inherited": False,
@@ -40450,6 +40454,7 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
             if profile in set(route_profiles)
         ],
         "replay_command_hashes": list(dict.fromkeys(replay_command_hashes)),
+        "source_evidence_checklist": source_evidence_checklist,
         "operator_next_action": (
             "run_hashed_replay_commands_then_record_supervisor_completion"
             if ready
@@ -40500,6 +40505,87 @@ def _skill_route_discovery_active_pass4_operator_activation_packet(
         "raw_upstream_body_exported": False,
         "operator_review_dossier": operator_review_dossier,
         "rows": packet_rows,
+    }
+
+
+def _skill_route_discovery_source_evidence_checklist(
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Build body-free source evaluation criteria for pass-4 route evidence."""
+
+    checklist_items = (
+        "manifest_shape",
+        "invocation_model",
+        "permissions_assumptions",
+        "testability",
+        "rollback_path",
+        "runtime_behavior_required",
+    )
+    checklist_rows: list[dict[str, Any]] = []
+    for row in rows:
+        route_profiles = _string_list(row.get("route_profiles"))
+        selected_lane = str(row.get("selected_local_lane") or "")
+        candidate_name = str(row.get("candidate_name") or row.get("proposal_id") or "")
+        selected_evidence_item_ids = _string_list(row.get("selected_evidence_item_ids"))
+        replay_command_hashes = _string_list(row.get("replay_command_hashes"))
+        replay_command_hash = str(row.get("replay_command_hash") or "")
+        if replay_command_hash:
+            replay_command_hashes.append(replay_command_hash)
+        row_ready = (
+            bool(candidate_name)
+            and selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and bool(route_profiles)
+            and bool(replay_command_hashes)
+            and row.get("local_validation_required", True) is True
+            and str(row.get("runtime_action") or "none") == "none"
+        )
+        checklist_rows.append(
+            {
+                "candidate_ref_hash": _stable_hash(candidate_name) if candidate_name else "",
+                "route_profiles": route_profiles,
+                "selected_local_lane": selected_lane if selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES else "",
+                "checklist_items": list(checklist_items),
+                "manifest_shape": "skill_metadata_or_repository_layout_evidence_only",
+                "invocation_model": "trigger_or_skill_name_recorded_as_evidence_only",
+                "permissions_assumptions": "no_authority_from_upstream_repository_presence",
+                "testability": "focused_local_validation_replay_required",
+                "rollback_path": "rollback_ref_and_artifact_required_before_handoff",
+                "runtime_behavior_required": False,
+                "selected_evidence_item_count": len(selected_evidence_item_ids),
+                "replay_command_hash_count": len(dict.fromkeys(replay_command_hashes)),
+                "status": "ready" if row_ready else "blocked",
+                "raw_candidate_name_exported": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_replay_commands_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    blocked_rows = [row for row in checklist_rows if row["status"] != "ready"]
+    return {
+        "controller_surface": "skill_route_discovery_source_evidence_checklist",
+        "status": "ready" if checklist_rows and not blocked_rows else "blocked",
+        "decision": (
+            "source_evidence_ready_for_bounded_local_lane_replay"
+            if checklist_rows and not blocked_rows
+            else "repair_source_evidence_checklist_before_handoff"
+        ),
+        "checklist_items": list(checklist_items),
+        "row_count": len(checklist_rows),
+        "ready_row_count": len(checklist_rows) - len(blocked_rows),
+        "blocked_row_count": len(blocked_rows),
+        "runtime_behavior_required": False,
+        "external_skill_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_candidate_names_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": checklist_rows,
     }
 
 

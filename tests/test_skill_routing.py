@@ -16958,6 +16958,28 @@ def test_skill_route_discovery_pass4_local_lane_validation_closes_current_skill_
         "zhengxi-views",
     ]
     assert all(row["profile_validation_checklist"] for row in replay_manifest["candidate_rows"])
+    checklist = replay_manifest["source_evidence_checklist"]
+    assert checklist["controller_surface"] == "skill_route_discovery_source_evidence_checklist"
+    assert checklist["status"] == "ready"
+    assert checklist["row_count"] == 3
+    assert checklist["ready_row_count"] == 3
+    assert checklist["checklist_items"] == [
+        "manifest_shape",
+        "invocation_model",
+        "permissions_assumptions",
+        "testability",
+        "rollback_path",
+        "runtime_behavior_required",
+    ]
+    assert checklist["runtime_behavior_required"] is False
+    assert all(row["status"] == "ready" for row in checklist["rows"])
+    assert all(row["candidate_ref_hash"].startswith("sha256:") for row in checklist["rows"])
+    assert all(row["runtime_behavior_required"] is False for row in checklist["rows"])
+    assert all(row["raw_candidate_name_exported"] is False for row in checklist["rows"])
+    assert checklist["raw_source_url_exported"] is False
+    assert checklist["raw_evidence_urls_exported"] is False
+    assert checklist["raw_replay_commands_exported"] is False
+    assert checklist["raw_upstream_body_exported"] is False
     assert replay_manifest["operator_replay_requirements"] == [
         "confirm_rollback_ref_and_artifact",
         "run_selected_lane_replay_commands_from_pass4_local_lane_validation",
@@ -17494,6 +17516,20 @@ def test_skill_route_discovery_current_run_pass4_completion_matrix_matches_propo
         "record_review_notes_for_uncertainty_or_blockers",
         "leave_restart_or_promotion_to_configured_supervisor",
     ]
+    packet_checklist = activation_packet["source_evidence_checklist"]
+    assert packet_checklist["controller_surface"] == "skill_route_discovery_source_evidence_checklist"
+    assert packet_checklist["status"] == "ready"
+    assert packet_checklist["row_count"] == 3
+    assert packet_checklist["ready_row_count"] == 3
+    assert packet_checklist["runtime_behavior_required"] is False
+    assert all(row["selected_local_lane"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES for row in packet_checklist["rows"])
+    assert all(row["candidate_ref_hash"].startswith("sha256:") for row in packet_checklist["rows"])
+    assert all(row["runtime_behavior_required"] is False for row in packet_checklist["rows"])
+    assert packet_checklist["raw_candidate_names_exported"] is False
+    assert packet_checklist["raw_source_url_exported"] is False
+    assert packet_checklist["raw_evidence_urls_exported"] is False
+    assert packet_checklist["raw_replay_commands_exported"] is False
+    assert packet_checklist["raw_upstream_body_exported"] is False
     dossier = activation_packet["operator_review_dossier"]
     assert dossier["controller_surface"] == (
         "skill_route_discovery_active_pass4_operator_review_dossier"
@@ -17518,6 +17554,7 @@ def test_skill_route_discovery_current_run_pass4_completion_matrix_matches_propo
     assert all(row["replay_command_hash_count"] == 1 for row in dossier["skill_route_rows"])
     assert all(row["local_validation_required"] is True for row in dossier["skill_route_rows"])
     assert all(row["runtime_action"] == "none" for row in dossier["skill_route_rows"])
+    assert dossier["source_evidence_checklist"] == packet_checklist
     assert dossier["adjacent_agent_harness_queue"] == {
         "evaluation_lane": "agent_harness_eval_required",
         "skill_route_discovery_inherited": False,

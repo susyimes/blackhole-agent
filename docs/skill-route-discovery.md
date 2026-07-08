@@ -33,6 +33,22 @@ memory writes, remote execution, push, promotion, restart, and activation remain
 disabled. Replay with:
 `python -m pytest tests/test_skill_routing.py -q -k 20260708T092635`.
 
+For source digest `github-growth-20260708T094635.494091Z`, pass 4 adds a
+reusable `skill_route_discovery_source_evidence_checklist` to the pass-4
+operator replay path. The checklist converts external skill evidence into the
+same bounded questions for every candidate: manifest shape, invocation model,
+permission assumptions, testability, rollback path, and whether runtime
+behavior is required.
+
+The checklist is exposed on both `pass4_operator_replay_manifest` and
+`active_pass4_operator_activation_packet`, then mirrored in the operator review
+dossier. It uses candidate hashes and counts only; raw candidate names, source
+URLs, evidence URLs, replay commands, target paths, and upstream bodies remain
+withheld. The checklist does not grant runtime behavior, external skill
+activation, external harness execution, provider launch, or remote execution.
+Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k "pass4_completion_handoff_queues_adjacent_general_agent_evidence or current_run_pass4_completion_matrix_matches_proposals"`.
+
 For source digest `github-growth-20260708T050637.590875Z`, pass 4 exposes
 `skill_route_discovery_current_digest_20260708T050637_pass4_completion_handoff`.
 The handoff closes the current reverse-flow/rnskill/Shepherd/Hy3/workflow-usecase
