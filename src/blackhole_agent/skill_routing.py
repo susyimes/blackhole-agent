@@ -16007,10 +16007,15 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
         "github-growth-20260708T104635.460026Z",
         "github-growth-20260708T104635Z",
     }
+    current_20260708_125853_window = source_digest in {
+        "github-growth-20260708T125853.703350Z",
+        "github-growth-20260708T125853Z",
+    }
     current_20260708_reverse_flow_rnskill_window = (
         current_20260708_090635_window
         or current_20260708_092635_window
         or current_20260708_104635_window
+        or current_20260708_125853_window
     )
     lane = dict(
         _skill_route_discovery_current_digest_20260707T102834_pass3_validation_lane(
@@ -16091,8 +16096,20 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
     for row in adjacent_rows:
         row["proposal_id"] = (
             "p3_agent_harness_eval_shepherd"
-            if current_20260708_reverse_flow_rnskill_window
+            if (
+                current_20260708_125853_window
+                or current_20260708_reverse_flow_rnskill_window
+            )
             and "shepherd" in str(row.get("name") or "").casefold()
+            else "p5_agent_harness_eval_blender_seedance_workflows"
+            if current_20260708_125853_window
+            and (
+                "workflow" in str(row.get("name") or "").casefold()
+                or "seedance" in str(row.get("name") or "").casefold()
+            )
+            else "p4_agent_harness_eval_hy3"
+            if current_20260708_125853_window
+            and str(row.get("name") or "").casefold() == "hy3"
             else "p4_workflow_usecase_agent_harness_eval"
             if current_20260708_reverse_flow_rnskill_window
             and (
@@ -16189,6 +16206,15 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
     )
     proposal_ids = (
         [
+            "p1_skill_route_discovery_reverse_flow_skill",
+            "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_shepherd",
+            "p4_agent_harness_eval_hy3",
+            "p5_agent_harness_eval_blender_seedance_workflows",
+        ]
+        if current_20260708_125853_window
+        else
+        [
             "p1_skill_route_discovery_reverse_flow",
             "p2_skill_route_discovery_rnskill",
             "p3_agent_harness_eval_shepherd",
@@ -16284,6 +16310,9 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
     lane.update(
         {
             "controller_surface": (
+                "skill_route_discovery_current_digest_20260708T125853_pass2_validation_lane"
+                if current_20260708_125853_window
+                else
                 "skill_route_discovery_current_digest_20260708T104635_pass2_validation_lane"
                 if current_20260708_104635_window
                 else
@@ -16312,6 +16341,22 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             "anchoring_proposal_ids": [
                 *(
                     [
+                        *(
+                            [
+                                "p1",
+                                "p2",
+                                "p3",
+                                "p4",
+                                "p5",
+                                "p1_skill_route_discovery_reverse_flow_skill",
+                                "p2_skill_route_discovery_rnskill",
+                                "p3_agent_harness_eval_shepherd",
+                                "p4_agent_harness_eval_hy3",
+                                "p5_agent_harness_eval_blender_seedance_workflows",
+                            ]
+                            if current_20260708_125853_window
+                            else []
+                        ),
                         "p1-skill-route-discovery-reverse-flow",
                         "p2-generic-skill-workflow-discovery",
                         "p3-agent-harness-eval-generic-projects",
@@ -16456,6 +16501,12 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 "rollback_artifact": (
                     (
                         "artifacts/rollback/"
+                        "20260708T130001Z-skill-route-discovery-pass2-reverse-flow-lane/"
+                        "rollback-point.md"
+                    )
+                    if current_20260708_125853_window
+                    else (
+                        "artifacts/rollback/"
                         "20260708T104633Z-skill-route-discovery-pass2-bounded-local-lanes/"
                         "rollback-point.md"
                     )
@@ -16494,6 +16545,11 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                 "rollback_ref": (
                     (
                         "refs/blackhole/rollback/"
+                        "20260708T130001Z-skill-route-discovery-pass2-reverse-flow-lane"
+                    )
+                    if current_20260708_125853_window
+                    else (
+                        "refs/blackhole/rollback/"
                         "20260708T104633Z-skill-route-discovery-pass2-bounded-local-lanes"
                     )
                     if current_20260708_104635_window
@@ -16531,6 +16587,8 @@ def _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
                     (
                         "python -m pytest tests/test_skill_routing.py -q -k 20260707T150109"
                         if current_20260707_150109_window
+                        else "python -m pytest tests/test_skill_routing.py -q -k 20260708T125853"
+                        if current_20260708_125853_window
                         else "python -m pytest tests/test_skill_routing.py -q -k 20260708T104635"
                         if current_20260708_104635_window
                         else "python -m pytest tests/test_skill_routing.py -q -k 20260708T092635"
@@ -19403,6 +19461,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260708T104635.460026Z",
         "github-growth-20260708T104635Z",
     }
+    current_20260708_125853_window = source_digest in {
+        "github-growth-20260708T125853.703350Z",
+        "github-growth-20260708T125853Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -19453,6 +19515,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260708_090635_window
         or current_20260708_092635_window
         or current_20260708_104635_window
+        or current_20260708_125853_window
     ):
         return _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             candidate_lane_inventory,
