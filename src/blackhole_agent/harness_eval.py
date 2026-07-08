@@ -3680,6 +3680,9 @@ def evaluate_skill_route_discovery_lane(raw_input: dict[str, Any], *, source_pat
         "current_digest_20260708T195850_pass3_validation_packet": lane_map[
             "current_digest_20260708T195850_pass3_validation_packet"
         ],
+        "current_digest_20260708T223850_pass3_local_route_eval_gate": lane_map[
+            "current_digest_20260708T223850_pass3_local_route_eval_gate"
+        ],
         "current_digest_20260708T201850_pass4_operator_handoff": lane_map[
             "current_digest_20260708T201850_pass4_operator_handoff"
         ],

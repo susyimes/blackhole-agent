@@ -1,0 +1,10 @@
+{
+  "run": "20260709T000000Z-skill-route-discovery-pass3-bounded-local-route-eval",
+  "original_branch": "codex/blackhole-evolve/20260708T223945.935545-run-a-bounded-local-skill-route-discovery-evalua",
+  "head": "2ceb9cb9b248e0270a052d8ae2891091e6f64415",
+  "rollback_ref": "refs/blackhole-rollback/20260709T000000Z-skill-route-discovery-pass3-bounded-local-route-eval",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260708T223945.935545-run-a-bounded-local-skill-route-discovery-evalua",
+    "git reset --hard refs/blackhole-rollback/20260709T000000Z-skill-route-discovery-pass3-bounded-local-route-eval"
+  ]
+}

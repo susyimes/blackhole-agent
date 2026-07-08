@@ -2155,6 +2155,79 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_195850_packet",
         )
     )
+    current_digest_20260708T223850_pass3_local_route_eval_gate = (
+        _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T223850.754420Z",
+                "github-growth-20260708T223850Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T223850_pass3_local_route_eval_gate"
+            ),
+            source_digest_fallback="github-growth-20260708T223850.754420Z",
+            proposal_specs=(
+                {
+                    "proposal_id": "p1-skill-route-discovery-reverse-flow",
+                    "proposal_kind": "test",
+                    "proposal_track": "reverse_flow_staged_workflow_route_eval",
+                    "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                    "candidate_name_terms": ("reverse-flow-skill",),
+                    "selected_local_lane": "test",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": (
+                        "reverse_flow_staged_workflow_and_user_choice_boundary_stay_local"
+                    ),
+                    "require_uncertainty_reasons": False,
+                },
+                {
+                    "proposal_id": "p2-skill-route-discovery-rnskill",
+                    "proposal_kind": "documentation",
+                    "proposal_track": "generic_skill_collection_route_checklist",
+                    "route_profiles": ("generic_skill_workflow",),
+                    "candidate_name_terms": ("rnskill",),
+                    "selected_local_lane": "documentation",
+                    "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                    "validation_target": (
+                        "rnskill_collection_shape_maps_to_documented_bounded_lane"
+                    ),
+                    "require_uncertainty_reasons": True,
+                },
+            ),
+            proposal_ids=(
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-skill-route-discovery-rnskill",
+                "p3-agent-harness-eval-shepherd",
+            ),
+            adjacent_proposal_id="p3-agent-harness-eval-shepherd",
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/blackhole-rollback/"
+                    "20260709T000000Z-skill-route-discovery-pass3-bounded-local-route-eval"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260709T000000Z-skill-route-discovery-pass3-bounded-local-route-eval/"
+                    "rollback-point.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/blackhole-runs/"
+                    "20260709T000000Z-skill-route-discovery-pass3-bounded-local-route-eval.md"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+            },
+            ready_decision=(
+                "current_digest_pass3_routes_ready_for_bounded_local_skill_route_eval"
+            ),
+            blocked_decision="repair_current_digest_223850_pass3_route_eval_gate",
+            ready_next_action=(
+                "replay_current_digest_223850_pass3_route_eval_gate_then_continue_to_pass4"
+            ),
+            blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_223850_gate",
+        )
+    )
 
     return {
         "schema_version": 1,
@@ -2302,6 +2375,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T195850_pass3_validation_packet": (
             current_digest_20260708T195850_pass3_validation_packet
+        ),
+        "current_digest_20260708T223850_pass3_local_route_eval_gate": (
+            current_digest_20260708T223850_pass3_local_route_eval_gate
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
