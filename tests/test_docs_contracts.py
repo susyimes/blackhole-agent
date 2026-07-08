@@ -907,6 +907,27 @@ def test_skill_route_discovery_doc_records_20260708T185850_pass4_completion_hand
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260708T203850_pass1_validation_lane():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260708T203850.668356Z`",
+        "`skill_route_discovery_current_digest_20260708T203850_pass1_validation_lane`",
+        "`lingbol088-spec/reverse-flow-skill`\nmaps to `p1-skill-route-discovery-reverse-flow`",
+        "`Pluviobyte/rnskill` maps to\n`p2-skill-route-discovery-rnskill`",
+        "`shepherd-agents/shepherd` and `Tencent-Hunyuan/Hy3` remain adjacent\n"
+        "`p3-agent-harness-eval-shepherd` and `p4-agent-harness-eval-hy3` rows",
+        "`p5-agent-workflow-usecase-eval` anchor stays queued without a selected item",
+        "expected triggers, bounded local lanes, minimal\nacceptance checks",
+        "raw source URLs, evidence URLs, replay commands, target paths,\nupstream bodies",
+        "python -m pytest tests/test_skill_routing.py -q -k 20260708T203850",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_20260707T182110_operator_review_dossier():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 
