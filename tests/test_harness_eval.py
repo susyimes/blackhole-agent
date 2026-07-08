@@ -89,8 +89,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 185
-    assert payload["pass_count"] == 184
+    assert payload["fixture_count"] == 186
+    assert payload["pass_count"] == 185
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -164,6 +164,12 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     assert (
         results[
             "skill-route-discovery-current-digest-20260708T040637-pass1-validation-lane"
+        ]["passed"]
+        is True
+    )
+    assert (
+        results[
+            "skill-route-discovery-current-digest-20260708T044637-pass3-route-probe"
         ]["passed"]
         is True
     )
@@ -820,6 +826,46 @@ def test_skill_route_discovery_current_digest_20260708T040637_pass1_harness_fixt
     assert "https://github.com/" not in serialized
     assert "python -m pytest" not in serialized
     assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
+def test_skill_route_discovery_current_digest_20260708T044637_pass3_harness_fixture():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260708T044637_pass3_route_probe.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    lane = output["current_digest_pass1_validation_lane"]
+    readiness = output["current_run_pass1_activation_readiness"]
+    serialized = json.dumps({"lane": lane, "readiness": readiness}, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert lane["status"] == "ready"
+    assert lane["proposal_ids"] == [
+        "p1-skill-route-discovery-probe",
+        "p2-codex-workflow-gate-documentation",
+        "p2-generic-skill-route-discovery-rnskill",
+    ]
+    assert [row["proposal_id"] for row in lane["adjacent_general_agent_rows"]] == [
+        "p3-agent-harness-eval-shepherd",
+        "p4-agent-harness-eval-workflow-usecases",
+    ]
+    assert readiness["status"] == "ready"
+    assert readiness["agent_harness_eval_required_count"] == 2
+    assert readiness["adjacent_general_agent_policy"]["direct_allowed_lanes_before_eval"] == []
+    assert readiness["external_skill_activation_allowed"] is False
+    assert readiness["external_harness_execution_allowed"] is False
+    assert readiness["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
     assert "runtime_execution" not in serialized
     assert '"provider_runtime"' not in serialized
 
