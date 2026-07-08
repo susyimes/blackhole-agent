@@ -5,6 +5,33 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T181850.408978Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260708T181850_pass2_validation_lane`.
+The lane binds the active anchors
+`p1-skill-route-discovery-reverse-flow`,
+`p2-generic-skill-route-discovery-rnskill`,
+`p3-agent-harness-eval-shepherd`, `p4-agent-harness-eval-hy3`, and
+`p5-agent-workflow-harness-blender-seedance` into one bounded validation
+surface. `lingbol088-spec/reverse-flow-skill` maps to the local test lane as
+Codex workflow-gate skill evidence with `skill_route_discovery_first`
+preserved, while `Pluviobyte/rnskill` maps to the documentation lane as a
+generic SKILL.md workflow collection. Both rows expose only documentation,
+config, test, or code_patch as accepted local outputs and keep
+`local_validation_required` true.
+
+`shepherd-agents/shepherd` and `Tencent-Hunyuan/Hy3` remain adjacent
+`agent_harness_eval_required` rows under their active proposal IDs. They
+inherit no `skill_route_discovery` lane, have no direct implementation lane
+before local harness evaluation, and may only produce documentation, test, or
+code_patch follow-up after that gate. The Blender/Seedance proposal stays an
+operator-visible anchor only because this digest carried no selected
+Blender/Seedance item ID. The packet exports selected item IDs, proposal IDs,
+lane names, hashes, rollback metadata, and activation denials only; raw source
+URLs, evidence URLs, replay commands, target paths, upstream bodies, install,
+provider launch, external harness execution, remote execution, promotion,
+restart, profile writes, and memory writes remain disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T181850`.
+
 For source digest `github-growth-20260708T175850.390217Z`, pass 1 exposes the
 current reverse-flow/rnskill/Shepherd/Hy3 window through
 `skill_route_discovery_current_digest_pass1_validation_lane` and

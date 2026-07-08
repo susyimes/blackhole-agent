@@ -974,6 +974,31 @@ def test_skill_route_discovery_doc_records_20260707T222110_completion_handoff():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260708T181850_pass2_validation_lane():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260708T181850.408978Z`",
+        "`skill_route_discovery_current_digest_20260708T181850_pass2_validation_lane`",
+        "`p1-skill-route-discovery-reverse-flow`",
+        "`p2-generic-skill-route-discovery-rnskill`",
+        "`p3-agent-harness-eval-shepherd`, `p4-agent-harness-eval-hy3`, and\n"
+        "`p5-agent-workflow-harness-blender-seedance`",
+        "`lingbol088-spec/reverse-flow-skill` maps to the local test lane",
+        "`Pluviobyte/rnskill` maps to the documentation lane",
+        "`local_validation_required` true",
+        "`shepherd-agents/shepherd` and `Tencent-Hunyuan/Hy3` remain adjacent\n"
+        "`agent_harness_eval_required` rows",
+        "The Blender/Seedance proposal stays an\noperator-visible anchor only",
+        "raw source\nURLs, evidence URLs, replay commands, target paths, upstream bodies",
+        "python -m pytest tests/test_skill_routing.py -q -k 20260708T181850",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_ci_security_waiver_doc_records_label_only_rerun_contract():
     doc = (REPO_ROOT / "docs" / "ci-security-waiver.md").read_text(encoding="utf-8")
 
