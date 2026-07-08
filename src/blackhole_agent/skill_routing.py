@@ -1549,6 +1549,42 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_digest_20260708T161850_pass4_operator_handoff = (
+        _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff(
+            pass4_completion_handoff,
+            pass4_operator_replay_manifest,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T161850.608560Z",
+                "github-growth-20260708T161850Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T161850_pass4_operator_handoff"
+            ),
+            proposal_ids=(
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-discovery-docs",
+                "p3-agent-harness-eval-fixture",
+                "p4-agent-harness-eval-media-workflows",
+                "p5-current-window-route-boundary-review",
+            ),
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/rollback/20260708T161848Z-skill-route-discovery-pass4-current-window"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260708T161848Z-skill-route-discovery-pass4-current-window/"
+                    "rollback-point.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/blackhole-runs/"
+                    "20260708T161848Z-skill-route-discovery-pass4-current-window.md"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+            },
+        )
+    )
     active_pass4_completion_matrix = _skill_route_discovery_active_pass4_completion_matrix(
         pass4_completion_handoff,
         pass4_operator_replay_manifest,
@@ -1945,6 +1981,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         "pass4_operator_replay_manifest": pass4_operator_replay_manifest,
         "current_digest_20260708T145852_pass4_operator_handoff": (
             current_digest_20260708T145852_pass4_operator_handoff
+        ),
+        "current_digest_20260708T161850_pass4_operator_handoff": (
+            current_digest_20260708T161850_pass4_operator_handoff
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
@@ -41158,13 +41197,46 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
     pass4_operator_replay_manifest: Mapping[str, Any],
     *,
     source_digest: str,
+    selected_source_digests: Sequence[str] | None = None,
+    controller_surface: str = (
+        "skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff"
+    ),
+    proposal_ids: Sequence[str] | None = None,
+    run_artifact_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Bind the current pass-4 reverse-flow/rnskill window to replayable lanes."""
 
-    current_window = source_digest in {
-        "github-growth-20260708T145852.089110Z",
-        "github-growth-20260708T145852Z",
-    }
+    selected_digests = set(
+        selected_source_digests
+        or (
+            "github-growth-20260708T145852.089110Z",
+            "github-growth-20260708T145852Z",
+        )
+    )
+    selected_proposal_ids = list(
+        proposal_ids
+        or (
+            "p1-skill-route-discovery-probe",
+            "p2-skill-route-discovery-documentation",
+            "p3-agent-harness-eval-tests",
+            "p4-agent-harness-eval-hy3-mcp-probe",
+            "p5-general-agent-project-triage-policy",
+        )
+    )
+    artifact_contract = dict(
+        run_artifact_contract
+        or {
+            "rollback_ref": "refs/blackhole/rollback/20260708T150001Z-skill-route-discovery-pass4",
+            "rollback_artifact": (
+                "artifacts/rollback/20260708T150001Z-skill-route-discovery-pass4/rollback-point.md"
+            ),
+            "run_note_artifact": (
+                "artifacts/blackhole-runs/20260708T150001Z-skill-route-discovery-pass4.md"
+            ),
+            "rollback_execution": "explicit_destructive_operator_action_only",
+        }
+    )
+    current_window = source_digest in selected_digests
     raw_rows = pass4_completion_handoff.get("rows")
     pass4_rows = raw_rows if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes)) else []
     raw_adjacent_rows = pass4_completion_handoff.get("adjacent_general_agent_rows")
@@ -41281,7 +41353,7 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
     )
 
     return {
-        "controller_surface": "skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff",
+        "controller_surface": controller_surface,
         "status": "ready" if ready else "not_applicable" if not current_window else "blocked",
         "decision": (
             "complete_current_skill_route_window_with_operator_replay_handoff"
@@ -41294,13 +41366,7 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
         "capability_pass": 4,
         "capability_total_passes": 4,
         "capability_slice_complete": ready,
-        "proposal_ids": [
-            "p1-skill-route-discovery-probe",
-            "p2-skill-route-discovery-documentation",
-            "p3-agent-harness-eval-tests",
-            "p4-agent-harness-eval-hy3-mcp-probe",
-            "p5-general-agent-project-triage-policy",
-        ],
+        "proposal_ids": selected_proposal_ids,
         "depends_on_controller_surfaces": [
             "skill_route_discovery_pass4_completion_handoff",
             "skill_route_discovery_pass4_operator_replay_manifest",
@@ -41313,16 +41379,7 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
         "operator_replay_requirements": _string_list(
             pass4_operator_replay_manifest.get("operator_replay_requirements")
         ),
-        "run_artifact_contract": {
-            "rollback_ref": "refs/blackhole/rollback/20260708T150001Z-skill-route-discovery-pass4",
-            "rollback_artifact": (
-                "artifacts/rollback/20260708T150001Z-skill-route-discovery-pass4/rollback-point.md"
-            ),
-            "run_note_artifact": (
-                "artifacts/blackhole-runs/20260708T150001Z-skill-route-discovery-pass4.md"
-            ),
-            "rollback_execution": "explicit_destructive_operator_action_only",
-        },
+        "run_artifact_contract": artifact_contract,
         "self_model_decision": {
             "path": "docs/self-model.md",
             "changed": False,

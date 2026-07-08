@@ -1,0 +1,14 @@
+{
+  "run": "github-growth-20260708T161850.608560Z",
+  "theme": "skill-route-discovery",
+  "original_branch": "codex/blackhole-evolve/20260708T161941.673308-add-or-extend-a-local-skill-route-discovery-test",
+  "original_head": "a8466ae68f71f27e6d5bb713c4f92ae5dffed04e",
+  "local_rollback_ref": "refs/rollback/20260708T161848Z-skill-route-discovery-pass4-current-window",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260708T161941.673308-add-or-extend-a-local-skill-route-discovery-test",
+    "git reset --hard a8466ae68f71f27e6d5bb713c4f92ae5dffed04e",
+    "git clean -fd"
+  ],
+  "destructive": true,
+  "operator_approval_required": true
+}
