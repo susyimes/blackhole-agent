@@ -1836,6 +1836,50 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             validation_selector="20260708T221850",
         )
     )
+    current_digest_20260708T233850_pass2_validation_lane = (
+        _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
+            current_run_pass2_local_validation_lane,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T233850.660413Z",
+                "github-growth-20260708T233850Z",
+            ),
+            source_digest_fallback="github-growth-20260708T233850.660413Z",
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T233850_pass2_validation_lane"
+            ),
+            repair_token="233850",
+            p5_anchor_proposal_id="p5-agent-harness-eval-workflow-usecases",
+            p5_anchor_reason=(
+                "active_window_selected_the_blender_seedance_workflow_usecase_item_but_it_"
+                "remains_adjacent_agent_harness_eval_required_before_followup"
+            ),
+            anchoring_proposal_ids=(
+                "p1-skill-route-discovery-fixtures",
+                "p2-agent-harness-eval-gate",
+                "p3-route-policy-documentation",
+                "p4-skill-route-config-preflight",
+                "trend:shepherd-agents/shepherd-1",
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-skill-route-discovery-rnskill",
+                "p3-agent-harness-eval-shepherd",
+                "p4-agent-harness-eval-hy3",
+                "p5-agent-harness-eval-workflow-usecases",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:Pluviobyte/rnskill-1",
+                "trend:Tencent-Hunyuan/Hy3-1",
+                "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            ),
+            rollback_ref=(
+                "refs/rollback/blackhole-agent/20260708T233848Z-pass2-skill-route-discovery"
+            ),
+            rollback_artifact="artifacts/rollback/20260708T233848Z-pass2-skill-route-discovery.md",
+            run_note_artifact=(
+                "artifacts/blackhole-runs/20260708T233848Z-pass2-skill-route-discovery.md"
+            ),
+            validation_selector="20260708T233850",
+        )
+    )
     current_active_pass2_skill_route_validation_matrix = (
         _skill_route_discovery_current_active_pass2_skill_route_validation_matrix(
             candidate_lane_inventory,
@@ -2323,6 +2367,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T221850_pass2_validation_lane": (
             current_digest_20260708T221850_pass2_validation_lane
+        ),
+        "current_digest_20260708T233850_pass2_validation_lane": (
+            current_digest_20260708T233850_pass2_validation_lane
         ),
         "current_active_pass2_skill_route_validation_matrix": (
             current_active_pass2_skill_route_validation_matrix
@@ -14946,6 +14993,59 @@ def _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
     if not selected_source_digest:
         failed_checks.append("source_digest:current_digest_205851_not_selected")
     ready = selected_source_digest and lane.get("status") == "ready" and not failed_checks
+    local_route_eval_gate = {
+        "controller_surface": "skill_route_discovery_pass2_local_route_eval_gate",
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "local_route_evidence_validated_before_activation"
+            if ready
+            else f"repair_current_digest_{repair_token}_route_eval_gate_before_activation"
+        ),
+        "source_digest_hash": _stable_hash(source_digest or source_digest_fallback),
+        "source_digest_selected": selected_source_digest,
+        "review_gate": "focused-evidence-review",
+        "skill_route_proposal_ids": list(expected_skill_proposals),
+        "agent_harness_eval_proposal_ids": list(expected_adjacent_proposals),
+        "p5_anchor_proposal_id": p5_anchor_proposal_id,
+        "skill_route_candidate_count": len(rows),
+        "agent_harness_eval_required_count": len(adjacent_rows),
+        "selected_skill_route_lanes": [
+            lane_name
+            for lane_name in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            if lane_name
+            in {
+                str(row.get("selected_local_lane") or "")
+                for row in rows
+                if isinstance(row, Mapping)
+            }
+        ],
+        "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "general_agent_direct_lanes_before_eval": [],
+        "general_agent_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "acceptance_check_failures": list(failed_checks),
+        "activation_candidate_after_gate": ready,
+        "activation_allowed": False,
+        "no_runtime_behavior_changes_without_passing_local_gate": ready,
+        "required_before_activation": [
+            "selected_source_digest_matches_current_window",
+            "skill_route_rows_pass_bounded_lane_checks",
+            "adjacent_agent_rows_stay_agent_harness_eval_required",
+            "rollback_artifact_recorded",
+            "focused_local_validation_passes",
+        ],
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_replay_commands_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+    }
 
     lane.update(
         {
@@ -14980,6 +15080,7 @@ def _skill_route_discovery_current_digest_20260708T205851_pass2_validation_lane(
                 "general_agent_lanes_after_eval": ["documentation", "test", "code_patch"],
                 "runtime_action": "none",
             },
+            "local_route_eval_gate": local_route_eval_gate,
             "run_artifact_contract": {
                 "rollback_ref": (
                     rollback_ref
@@ -21635,6 +21736,10 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         "github-growth-20260708T181850.408978Z",
         "github-growth-20260708T181850Z",
     }
+    current_20260708_233850_window = source_digest in {
+        "github-growth-20260708T233850.660413Z",
+        "github-growth-20260708T233850Z",
+    }
     if current_20260705_072819_window:
         return _skill_route_discovery_current_digest_20260705T072819_pass2_local_validation_lane(
             candidate_lane_inventory,
@@ -21690,6 +21795,7 @@ def _skill_route_discovery_current_digest_pass2_local_validation_lane(
         or current_20260708_153850_window
         or current_20260708_165850_window
         or current_20260708_181850_window
+        or current_20260708_233850_window
     ):
         return _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             candidate_lane_inventory,
