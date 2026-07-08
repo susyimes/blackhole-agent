@@ -1599,6 +1599,97 @@ def test_skill_route_discovery_current_digest_20260707T050834_pass4_completes_cu
     assert '"remote_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T010200_pass4_completes_skill_route_window():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T010200_pass4_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    selected_item_ids = {item["item_id"] for item in fixture["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(fixture["items"])
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    handoff = packet["current_pass4_completion_handoff"]
+    skill_rows = {row["proposal_id"]: row for row in handoff["skill_route_rows"]}
+    agent_rows = {row["route_id"]: row for row in handoff["agent_harness_eval_rows"]}
+    preflight = handoff["provider_mcp_preflight_followup"]
+    recovery = handoff["general_agent_recovery_workflow"]
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert registry["source_digest"] == "github-growth-20260708T010200.023332Z"
+    assert packet["status"] == "ready"
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == "current_skill_route_slice_complete_for_supervisor_handoff"
+    assert handoff["capability_pass"] == 4
+    assert handoff["total_passes"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["proposal_ids"] == [
+        "p1-skill-route-discovery-reverse-flow",
+        "p2-generic-skill-workflow-route-fixture",
+        "p3-skill-route-discovery-docs",
+        "p4-hy3-provider-mcp-preflight",
+        "p5-agent-harness-eval-shepherd",
+    ]
+    assert handoff["blocked_proposal_ids"] == []
+    assert handoff["activation_blockers"] == []
+    assert handoff["selected_skill_local_lanes"] == ["documentation", "test"]
+    assert handoff["provider_mcp_preflight_count"] == 2
+    assert handoff["rollback_ref"] == (
+        "refs/rollback/blackhole-agent/20260708T010158Z-skill-route-discovery-pass4"
+    )
+    assert handoff["rollback_artifact"] == (
+        "artifacts/rollback/20260708T010158Z-skill-route-discovery-pass4.md"
+    )
+
+    reverse_flow = skill_rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["candidate_name"] == "lingbol088-spec-reverse-flow-skill"
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate", "generic_skill_workflow"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert set(reverse_flow["selected_evidence_item_ids"]) <= selected_item_ids
+
+    rnskill = skill_rows["p2-generic-skill-workflow-route-fixture"]
+    assert rnskill["candidate_name"] == "rnskill"
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert set(rnskill["selected_evidence_item_ids"]) <= selected_item_ids
+
+    assert recovery["status"] == "queued"
+    assert recovery["item_ids"] == ["trend:shepherd-agents/shepherd-1"]
+    shepherd = agent_rows["trend:shepherd-agents/shepherd-1"]
+    assert shepherd["proposal_id"] == "p5-agent-harness-eval-shepherd"
+    assert shepherd["evaluation_lane"] == "agent_harness_eval_required"
+    assert shepherd["skill_route_discovery_inherited"] is False
+    assert shepherd["direct_allowed_lanes_before_eval"] == []
+
+    assert preflight["controller_surface"] == "skill_route_discovery_pass4_provider_mcp_preflight_followup"
+    assert preflight["status"] == "ready"
+    assert preflight["evidence_item_ids"] == [
+        "issue:Tencent-Hunyuan/Hy3-1",
+        "issue:Tencent-Hunyuan/Hy3-3",
+    ]
+    assert preflight["allowed_followup_lanes"] == ["documentation", "config", "test"]
+    assert preflight["network_call_allowed"] is False
+    assert preflight["api_key_hardcoding_allowed"] is False
+    assert preflight["provider_runtime_launch_allowed"] is False
+    assert preflight["external_harness_execution_allowed"] is False
+    assert preflight["remote_execution_allowed"] is False
+
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_agent_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "pytest " not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260707T062834_pass4_handoff_queues_agent_recovery():
     fixture_path = (
         Path(__file__).parent

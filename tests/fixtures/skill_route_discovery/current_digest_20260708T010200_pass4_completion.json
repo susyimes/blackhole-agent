@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "source_digest": "github-growth-20260708T010200.023332Z",
+  "capability_window": {
+    "theme": "skill-route-discovery",
+    "capability_slice": "Convert skill and route evidence into bounded local lanes that can be validated before activation.",
+    "current_pass": 1,
+    "total_passes": 4,
+    "anchoring_proposals": [
+      "p2-skill-route-docs",
+      "p4-hy3-provider-mcp-preflight",
+      "11473712336-1"
+    ]
+  },
+  "items": [
+    {
+      "source_digest": "github-growth-20260708T010200.023332Z",
+      "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "lingbol088-spec-reverse-flow-skill",
+      "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+      "summary": "Codex and AI Agent reverse-flow skill workflow with skills/reverse-flow, SKILL.md, local sandbox and CTF framing, staged reverse engineering workflow, install examples, and diagnostic scripts.",
+      "topics": ["codex", "agent", "skill", "workflow", "reverse-flow", "local-sandbox"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run", "script_execution"],
+      "unsupported_lane_pressure": ["install", "run", "script_execution"],
+      "observed_paths": [
+        "skills/reverse-flow/SKILL.md",
+        "skills/reverse-flow/references/",
+        "skills/reverse-flow/scripts/tool_audit.py"
+      ],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "reference_directory", "validation_script"],
+        "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary", "staged_workflow", "diagnostic_script_examples"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260708T010200.023332Z",
+      "item_id": "trend:Pluviobyte/rnskill-1",
+      "item_kind": "RepositoryTrend",
+      "name": "rnskill",
+      "source_url": "https://github.com/Pluviobyte/rnskill",
+      "summary": "AI Agent Skills collection with SKILL.md-oriented skill directories, plugin metadata, tools, docs, and manual install examples for Codex, Claude Code, and other agent workflows.",
+      "topics": ["agent", "skills", "codex", "workflow", "skill-collection"],
+      "route_hints": ["skill_route_discovery"],
+      "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+      "unsupported_lane_pressure": ["install", "enable"],
+      "observed_paths": ["skills/", ".claude-plugin/", "docs/", "tools/", "README.md"],
+      "route_classification": {
+        "route_hints": ["skill_route_discovery"],
+        "route_class": "external_skill_route_discovery_classification",
+        "route_profiles": ["generic_skill_workflow"],
+        "allowed_local_lanes": ["documentation", "config", "test", "code_patch"],
+        "source_layout_signals": ["skill_directory", "skill_markdown", "skill_manifest"],
+        "source_metadata_signals": ["skill_registry_metadata", "agent_plugin_marketplace"]
+      }
+    },
+    {
+      "source_digest": "github-growth-20260708T010200.023332Z",
+      "item_id": "trend:shepherd-agents/shepherd-1",
+      "item_kind": "RepositoryTrend",
+      "name": "shepherd",
+      "source_url": "https://github.com/shepherd-agents/shepherd",
+      "summary": "General agent runtime substrate with reversible execution traces, retained workspace outputs, replay, supervision, and active alpha caveats.",
+      "topics": ["agent", "workflow", "runtime-supervision", "meta-agents"],
+      "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"]
+    },
+    {
+      "source_digest": "github-growth-20260708T010200.023332Z",
+      "item_id": "issue:Tencent-Hunyuan/Hy3-1",
+      "item_kind": "Issue",
+      "name": "Hy3 API quickstart examples",
+      "source_url": "https://github.com/Tencent-Hunyuan/Hy3/issues/1",
+      "summary": "Hy3 issue requests quickstart documentation with base URL, API key, model name, OpenAI SDK examples, streaming, tool calling, reasoning mode, retry, and error handling.",
+      "topics": ["hy3", "api", "openai-sdk", "quickstart", "provider"],
+      "suggested_lanes": ["documentation", "config", "test", "provider_runtime"]
+    },
+    {
+      "source_digest": "github-growth-20260708T010200.023332Z",
+      "item_id": "issue:Tencent-Hunyuan/Hy3-3",
+      "item_kind": "Issue",
+      "name": "Hy3 MCP server",
+      "source_url": "https://github.com/Tencent-Hunyuan/Hy3/issues/3",
+      "summary": "Hy3 issue requests an MCP server using Python or TypeScript SDK, at least three tools, stdio mode, env-var API key handling, client config examples, and no hardcoded API key.",
+      "topics": ["hy3", "mcp", "server", "provider", "tools"],
+      "suggested_lanes": ["documentation", "config", "test", "provider_runtime", "external_harness_execution"]
+    }
+  ]
+}

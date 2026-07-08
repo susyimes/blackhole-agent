@@ -2953,11 +2953,13 @@ def _skill_route_discovery_current_pass4_completion_handoff(
     current_20260707_062834 = source_digest == "github-growth-20260707T062834.999092Z"
     current_20260707_222110 = source_digest == "github-growth-20260707T222110.418015Z"
     current_20260707_234200 = source_digest == "github-growth-20260707T234200.022738Z"
+    current_20260708_010200 = source_digest == "github-growth-20260708T010200.023332Z"
     if not (
         current_20260707_050834
         or current_20260707_062834
         or current_20260707_222110
         or current_20260707_234200
+        or current_20260708_010200
     ):
         return {}
 
@@ -2967,7 +2969,15 @@ def _skill_route_discovery_current_pass4_completion_handoff(
     agent_rows = [
         row for row in route_rows if str(row.get("route_kind") or "") == "general_agent_project"
     ]
-    if current_20260707_050834:
+    if current_20260708_010200:
+        proposal_ids = [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-workflow-route-fixture",
+            "p3-skill-route-discovery-docs",
+            "p4-hy3-provider-mcp-preflight",
+            "p5-agent-harness-eval-shepherd",
+        ]
+    elif current_20260707_050834:
         proposal_ids = [
             "p1_skill_route_discovery_reverse_flow",
             "p2_generic_skill_workflow_discovery",
@@ -2998,7 +3008,9 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             "pytest tests/test_skill_routing.py -q -k 20260707T050834"
             if current_20260707_050834
             else (
-                "pytest tests/test_skill_routing.py -q -k 20260707T222110"
+                "pytest tests/test_skill_routing.py -q -k 20260708T010200"
+                if current_20260708_010200
+                else "pytest tests/test_skill_routing.py -q -k 20260707T222110"
                 if current_20260707_222110
                 else (
                     "pytest tests/test_skill_routing.py -q -k 20260707T234200"
@@ -3009,7 +3021,10 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         ),
         "pytest tests/test_docs_contracts.py -q -k current_pass4_completion",
     ]
-    if current_20260707_050834:
+    if current_20260708_010200:
+        rollback_ref = "refs/rollback/blackhole-agent/20260708T010158Z-skill-route-discovery-pass4"
+        rollback_artifact = "artifacts/rollback/20260708T010158Z-skill-route-discovery-pass4.md"
+    elif current_20260707_050834:
         rollback_ref = "refs/rollback/20260707T050834Z-skill-route-discovery-pass4-completion"
         rollback_artifact = (
             "artifacts/rollback/20260707T050834Z-skill-route-discovery-pass4-completion/"
@@ -3034,14 +3049,18 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             "rollback-point.md"
         )
     reverse_flow_proposal_id = (
-        "p1-reverse-flow-skill-route-discovery"
+        "p1-skill-route-discovery-reverse-flow"
+        if current_20260708_010200
+        else "p1-reverse-flow-skill-route-discovery"
         if current_20260707_234200
         else "p2-codex-workflow-gate-reverse-flow"
         if current_20260707_222110
         else "p1_skill_route_discovery_reverse_flow"
     )
     generic_skill_proposal_id = (
-        "p3-skill-route-discovery-doc"
+        "p2-generic-skill-workflow-route-fixture"
+        if current_20260708_010200
+        else "p3-skill-route-discovery-doc"
         if current_20260707_234200
         else "p1-skill-route-discovery-rnskill"
         if current_20260707_222110
@@ -3057,7 +3076,9 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         else "p3-bionemo-skill-workflow-documentation"
     )
     agent_proposal_id = (
-        "p4-agent-harness-eval-gate"
+        "p5-agent-harness-eval-shepherd"
+        if current_20260708_010200
+        else "p4-agent-harness-eval-gate"
         if current_20260707_234200
         else "p4-general-agent-harness-eval-backlog"
         if current_20260707_222110
@@ -3104,12 +3125,24 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         )
     agent_gate_rows = [
         {
-            "proposal_id": agent_proposal_id,
+            "proposal_id": (
+                "p4-hy3-provider-mcp-preflight"
+                if "hy3" in f"{row.get('name') or ''} {row.get('route_id') or ''}".casefold()
+                else agent_proposal_id
+            ),
             "route_id": str(row.get("route_id") or ""),
             "name": str(row.get("name") or ""),
             "source_hash": str(row.get("source_hash") or ""),
-            "evaluation_lane": "agent_harness_eval_required",
-            "selected_local_lane": "agent_harness_eval_required",
+            "evaluation_lane": (
+                "provider_mcp_preflight_required"
+                if "hy3" in f"{row.get('name') or ''} {row.get('route_id') or ''}".casefold()
+                else "agent_harness_eval_required"
+            ),
+            "selected_local_lane": (
+                "provider_mcp_preflight_required"
+                if "hy3" in f"{row.get('name') or ''} {row.get('route_id') or ''}".casefold()
+                else "agent_harness_eval_required"
+            ),
             "direct_allowed_lanes_before_eval": [],
             "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
             "implementation_lanes_enabled": False,
@@ -3144,8 +3177,21 @@ def _skill_route_discovery_current_pass4_completion_handoff(
         for row in skill_rows
     ):
         blockers.append("domain_specific_skill_toolkit_guard_missing")
+    hy3_rows = [
+        row
+        for row in agent_rows
+        if "hy3" in f"{row.get('name') or ''} {row.get('route_id') or ''}".casefold()
+    ]
+    non_provider_agent_rows = [row for row in agent_rows if row not in hy3_rows]
     if not agent_rows:
         blockers.append("agent_harness_eval_rows_missing")
+    if current_20260708_010200 and not any(
+        "shepherd" in f"{row.get('name') or ''} {row.get('route_id') or ''}".casefold()
+        for row in non_provider_agent_rows
+    ):
+        blockers.append("shepherd_agent_harness_eval_row_missing")
+    if current_20260708_010200 and len(hy3_rows) < 2:
+        blockers.append("hy3_provider_mcp_preflight_rows_missing")
     if any(
         set(_string_list(row.get("allowed_local_lanes"))) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
         for row in skill_rows
@@ -3180,6 +3226,7 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             "activation_blockers": blockers,
             "skill_workflow_count": len(skill_rows),
             "general_agent_project_count": len(agent_rows),
+            "provider_mcp_preflight_count": len(hy3_rows),
             "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
             "allowed_agent_lanes_after_eval": ["documentation", "test", "code_patch"],
             "selected_skill_local_lanes": [
@@ -3215,10 +3262,10 @@ def _skill_route_discovery_current_pass4_completion_handoff(
             ),
             "general_agent_recovery_workflow": {
                 "controller_surface": "skill_route_discovery_pass4_general_agent_recovery_workflow",
-                "status": "queued" if agent_rows else "blocked",
+                "status": "queued" if non_provider_agent_rows else "blocked",
                 "decision": (
                     "run_local_agent_harness_eval_before_any_general_agent_followup"
-                    if agent_rows
+                    if non_provider_agent_rows
                     else "collect_general_agent_project_fixture_before_followup"
                 ),
                 "evaluation_lane": "agent_harness_eval_required",
@@ -3244,9 +3291,9 @@ def _skill_route_discovery_current_pass4_completion_handoff(
                         if _string_list(row.get("selected_evidence_item_ids"))
                         else str(row.get("route_id") or "")
                     )
-                    for row in agent_rows
+                    for row in non_provider_agent_rows
                 ],
-                "source_hashes": [str(row.get("source_hash") or "") for row in agent_rows],
+                "source_hashes": [str(row.get("source_hash") or "") for row in non_provider_agent_rows],
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -3258,6 +3305,55 @@ def _skill_route_discovery_current_pass4_completion_handoff(
                 "raw_evidence_urls_exported": False,
                 "raw_upstream_body_exported": False,
             },
+            **(
+                {
+                    "provider_mcp_preflight_followup": {
+                        "controller_surface": "skill_route_discovery_pass4_provider_mcp_preflight_followup",
+                        "proposal_id": "p4-hy3-provider-mcp-preflight",
+                        "status": "ready" if hy3_rows and ready else "blocked",
+                        "decision": (
+                            "hy3_provider_mcp_evidence_ready_for_disabled_local_preflight"
+                            if hy3_rows and ready
+                            else "repair_hy3_provider_mcp_preflight_rows_before_followup"
+                        ),
+                        "evidence_item_ids": [
+                            (
+                                _string_list(row.get("selected_evidence_item_ids"))[0]
+                                if _string_list(row.get("selected_evidence_item_ids"))
+                                else str(row.get("route_id") or "")
+                            )
+                            for row in hy3_rows
+                        ],
+                        "allowed_followup_lanes": ["documentation", "config", "test"],
+                        "excluded_lanes": [
+                            "provider_runtime",
+                            "external_harness_execution",
+                            "remote_execution",
+                        ],
+                        "required_local_checks": [
+                            "configuration_detection_without_secret_value_export",
+                            "endpoint_shape_validation_without_network_call",
+                            "mcp_stdio_metadata_documented_before_client_activation",
+                            "provider_runtime_launch_remains_denied",
+                        ],
+                        "network_call_allowed": False,
+                        "api_key_hardcoding_allowed": False,
+                        "local_validation_required": True,
+                        "runtime_action": "none",
+                        "external_skill_activation_allowed": False,
+                        "external_agent_activation_allowed": False,
+                        "external_harness_execution_allowed": False,
+                        "provider_runtime_launch_allowed": False,
+                        "remote_execution_allowed": False,
+                        "raw_source_url_exported": False,
+                        "raw_evidence_urls_exported": False,
+                        "raw_provider_config_exported": False,
+                        "raw_secret_values_exported": False,
+                    }
+                }
+                if current_20260708_010200
+                else {}
+            ),
             "operator_sequence": [
                 "confirm_rollback_ref_and_artifact_exist",
                 "review_body_free_route_rows_and_source_hashes",
