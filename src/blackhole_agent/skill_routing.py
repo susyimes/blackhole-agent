@@ -17314,13 +17314,29 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
         "github-growth-20260708T143852.130540Z",
         "github-growth-20260708T143852Z",
     }
-    surface_digest = "20260708T143852" if current_20260708_143852_window else "20260708T131852"
+    current_20260708_155850_window = source_digest in {
+        "github-growth-20260708T155850.641176Z",
+        "github-growth-20260708T155850Z",
+    }
+    surface_digest = (
+        "20260708T155850"
+        if current_20260708_155850_window
+        else "20260708T143852"
+        if current_20260708_143852_window
+        else "20260708T131852"
+    )
     rollback_stamp = (
+        "20260708T155848Z-skill-route-discovery-pass3"
+        if current_20260708_155850_window
+        else
         "20260708T143849Z-skill-route-discovery-pass3"
         if current_20260708_143852_window
         else "20260708T131852Z-skill-route-discovery-pass3-current-window"
     )
     rollback_ref = (
+        "refs/rollback/blackhole-agent/20260708T155848Z-skill-route-discovery-pass3"
+        if current_20260708_155850_window
+        else
         "refs/rollback/blackhole-evolve/20260708T143849Z-skill-route-discovery-pass3"
         if current_20260708_143852_window
         else "refs/blackhole/rollback/20260708T131852Z-skill-route-discovery-pass3-current-window"
@@ -17414,6 +17430,7 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
         row["remote_execution_allowed"] = False
         adjacent_rows.append(row)
 
+    required_adjacent_count = 2 if current_20260708_155850_window else 3
     ready = (
         len(rows) == 2
         and all(
@@ -17427,7 +17444,7 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
             and row.get("remote_execution_allowed") is False
             for row in rows
         )
-        and len(adjacent_rows) == 3
+        and len(adjacent_rows) == required_adjacent_count
         and all(
             row.get("evaluation_lane") == "agent_harness_eval_required"
             and row.get("skill_route_discovery_inherited") is False
@@ -17442,6 +17459,15 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
     )
     proposal_ids = [
         *(
+            [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-generic-skill-workflow-route-fixture",
+                "p3-shepherd-agent-harness-eval",
+                "p4-agent-harness-eval-media-workflows",
+                "p5-no-external-url-citation-gate",
+            ]
+            if current_20260708_155850_window
+            else
             [
                 "p1-skill-route-discovery-probe",
                 "p2-shepherd-task-syntax-harness",
@@ -17498,6 +17524,41 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
         "raw_target_paths_exported": False,
         "raw_upstream_body_exported": False,
     }
+    if current_20260708_155850_window:
+        pass3_operator_validation_packet["shepherd_release_activity_gate"] = {
+            "controller_surface": (
+                "skill_route_discovery_current_digest_20260708T155850_shepherd_eval_gate"
+            ),
+            "status": "ready",
+            "decision": "shepherd_release_and_pr_activity_is_evaluation_only_before_local_tests",
+            "evidence_refs": [
+                "trend:shepherd-agents/shepherd-1",
+                "proposal:p3-shepherd-agent-harness-eval",
+            ],
+            "route_class": "general_agent_project",
+            "evaluation_lane": "agent_harness_eval_required",
+            "required_before_followup": [
+                "project_shape_probe",
+                "release_metadata_probe",
+                "branch_creation_observation",
+                "push_activity_observation",
+                "local_agent_harness_eval_result",
+            ],
+            "direct_allowed_lanes_before_eval": [],
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "recommendation_mode_before_tests": "evaluation_only",
+            "branch_creation_recommendation_allowed": False,
+            "push_recommendation_allowed": False,
+            "release_metadata_recommendation_allowed": False,
+            "runtime_action": "none",
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
     base_lane.update(
         {
             "controller_surface": (
@@ -17577,6 +17638,38 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
             "raw_upstream_body_exported": False,
         }
     )
+    if current_20260708_155850_window:
+        base_lane["operator_recovery_workflow"] = {
+            "controller_surface": (
+                "skill_route_discovery_current_digest_20260708T155850_pass3_recovery_workflow"
+            ),
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "validate_skill_routes_then_queue_shepherd_eval_before_activation"
+                if ready
+                else "repair_skill_route_or_agent_harness_rows_before_activation"
+            ),
+            "ordered_steps": [
+                "recompute_current_digest_route_lane",
+                "validate_reverse_flow_test_lane",
+                "validate_rnskill_documentation_lane",
+                "hold_shepherd_release_activity_in_agent_harness_eval",
+                "continue_to_pass4_only_after_local_validation",
+            ],
+            "rollback_ref": rollback_ref,
+            "rollback_artifact": f"artifacts/rollback/{rollback_stamp}/rollback-point.md",
+            "validation_command_hash": _stable_hash(
+                "python -m pytest tests/test_skill_routing.py -q -k 20260708T155850"
+            ),
+            "runtime_action": "none",
+            "promotion_allowed": False,
+            "restart_allowed": False,
+            "push_allowed": False,
+            "raw_replay_commands_exported": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
     return base_lane
 
 
@@ -38458,7 +38551,15 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260708T143852.130540Z",
         "github-growth-20260708T143852Z",
     }
-    if current_20260708_131852_window or current_20260708_143852_window:
+    current_20260708_155850_window = source_digest in {
+        "github-growth-20260708T155850.641176Z",
+        "github-growth-20260708T155850Z",
+    }
+    if (
+        current_20260708_131852_window
+        or current_20260708_143852_window
+        or current_20260708_155850_window
+    ):
         return _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,

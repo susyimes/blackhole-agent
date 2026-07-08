@@ -1,0 +1,7 @@
+{
+  "theme": "skill-route-discovery",
+  "original_head": "4ceeea588da75ce8ad8b8089b3e4616f4b2bafcc",
+  "rollback_ref": "refs/rollback/blackhole-agent/20260708T155848Z-skill-route-discovery-pass3",
+  "created": "2026-07-08T15:58:48Z",
+  "original_branch": "codex/blackhole-evolve/20260708T155952.077732-add-a-bounded-local-skill-route-discovery-valida"
+}
