@@ -5875,6 +5875,10 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
         "github-growth-20260708T175850.390217Z",
         "github-growth-20260708T175850Z",
     }
+    current_20260708_191850_window = source_digest in {
+        "github-growth-20260708T191850.475615Z",
+        "github-growth-20260708T191850Z",
+    }
     current_190435_window = source_digest in {
         "github-growth-20260704T190435.517226Z",
         "github-growth-20260704T190435Z",
@@ -5884,7 +5888,7 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             {
                 "proposal_id": (
                     "p1-skill-route-discovery-reverse-flow"
-                    if current_20260708_175850_window
+                    if current_20260708_175850_window or current_20260708_191850_window
                     else "p1-skill-route-discovery-codex-workflow-gate"
                 ),
                 "proposal_kind": "test",
@@ -5898,10 +5902,14 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             {
                 "proposal_id": (
                     "p2-generic-skill-route-discovery-rnskill"
-                    if current_20260708_175850_window
+                    if current_20260708_175850_window or current_20260708_191850_window
                     else "p2-generic-skill-route-discovery-config"
                 ),
-                "proposal_kind": "documentation" if current_20260708_175850_window else "config",
+                "proposal_kind": (
+                    "documentation"
+                    if current_20260708_175850_window or current_20260708_191850_window
+                    else "config"
+                ),
                 "proposal_track": "generic_skill_workflow_route_profile",
                 "route_profiles": ("generic_skill_workflow",),
                 "candidate_name_terms": ("rnskill",),
@@ -5910,7 +5918,9 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                 "validation_target": "rnskill_generic_skill_workflow_routes_to_bounded_local_lanes",
             },
         )
-        if current_20260708_163850_window or current_20260708_175850_window
+        if current_20260708_163850_window
+        or current_20260708_175850_window
+        or current_20260708_191850_window
         else
         (
             {
@@ -6403,12 +6413,22 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
                     row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-trends"
             if current_20260708_123852_window:
                 row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-repositories"
-            if current_20260708_175850_window:
+            if current_20260708_175850_window or current_20260708_191850_window:
                 lowered_name = str(row.get("name") or "").casefold()
                 if lowered_name == "shepherd":
-                    row["proposal_id"] = "p3-agent-harness-eval-shepherd"
+                    row["proposal_id"] = (
+                        "p3_agent_harness_eval_general_projects"
+                        if current_20260708_191850_window
+                        else "p3-agent-harness-eval-shepherd"
+                    )
                 elif lowered_name == "hy3":
-                    row["proposal_id"] = "p4-agent-harness-eval-hy3"
+                    row["proposal_id"] = (
+                        "p3_agent_harness_eval_general_projects"
+                        if current_20260708_191850_window
+                        else "p4-agent-harness-eval-hy3"
+                    )
+                elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
+                    row["proposal_id"] = "p3_agent_harness_eval_general_projects"
             row.pop("replay_command", None)
             row["replay_command_hash"] = _stable_hash(replay_command) if replay_command else ""
             row["accepted_outputs_after_eval"] = ["docs", "tests", "code_patch"]
@@ -6438,6 +6458,19 @@ def _skill_route_discovery_current_run_pass1_activation_readiness(
             "trend:shepherd-agents/shepherd-1",
         ]
         if current_20260708_163850_window
+        else
+        [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_general_projects",
+            "p4_route_metadata_documentation",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:Tencent-Hunyuan/Hy3-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        ]
+        if current_20260708_191850_window
         else
         [
             "p1-skill-route-discovery-reverse-flow",
@@ -9320,6 +9353,10 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         "github-growth-20260708T175850.390217Z",
         "github-growth-20260708T175850Z",
     }
+    current_20260708_191850_window = source_digest in {
+        "github-growth-20260708T191850.475615Z",
+        "github-growth-20260708T191850Z",
+    }
     current_20260707_160109_window = source_digest in {
         "github-growth-20260707T160109.409581Z",
         "github-growth-20260707T160109Z",
@@ -9336,12 +9373,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             ignored_evidence_items,
             source_digest=source_digest,
         )
-    if current_20260708_163850_window or current_20260708_175850_window:
+    if (
+        current_20260708_163850_window
+        or current_20260708_175850_window
+        or current_20260708_191850_window
+    ):
         specs = (
             {
                 "proposal_id": (
                     "p1-skill-route-discovery-reverse-flow"
                     if current_20260708_175850_window
+                    else "p1_skill_route_discovery_reverse_flow"
+                    if current_20260708_191850_window
                     else "p1-skill-route-discovery-codex-workflow-gate"
                 ),
                 "proposal_kind": "test",
@@ -9361,9 +9404,15 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
                 "proposal_id": (
                     "p2-generic-skill-route-discovery-rnskill"
                     if current_20260708_175850_window
+                    else "p2_skill_route_discovery_rnskill"
+                    if current_20260708_191850_window
                     else "p2-generic-skill-route-discovery-config"
                 ),
-                "proposal_kind": "documentation" if current_20260708_175850_window else "config",
+                "proposal_kind": (
+                    "documentation"
+                    if current_20260708_175850_window or current_20260708_191850_window
+                    else "config"
+                ),
                 "proposal_track": "generic_skill_workflow_route_profile",
                 "route_profiles": ("generic_skill_workflow",),
                 "candidate_name_terms": ("rnskill",),
@@ -12798,12 +12847,22 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
         if current_20260708_123852_window:
             row["proposal_id"] = "p3-agent-harness-eval-for-general-agent-repositories"
             row["implementation_lane_selected"] = False
-        if current_20260708_175850_window:
+        if current_20260708_175850_window or current_20260708_191850_window:
             lowered_name = str(row.get("name") or "").casefold()
             if lowered_name == "shepherd":
-                row["proposal_id"] = "p3-agent-harness-eval-shepherd"
+                row["proposal_id"] = (
+                    "p3_agent_harness_eval_general_projects"
+                    if current_20260708_191850_window
+                    else "p3-agent-harness-eval-shepherd"
+                )
             elif lowered_name == "hy3":
-                row["proposal_id"] = "p4-agent-harness-eval-hy3"
+                row["proposal_id"] = (
+                    "p3_agent_harness_eval_general_projects"
+                    if current_20260708_191850_window
+                    else "p4-agent-harness-eval-hy3"
+                )
+            elif "workflow" in lowered_name or "usecase" in lowered_name or "seedance" in lowered_name:
+                row["proposal_id"] = "p3_agent_harness_eval_general_projects"
             row["implementation_lane_selected"] = False
         row["route_probe_metadata"] = {
             "route_hint": "agent_harness_eval_required",
@@ -13862,6 +13921,18 @@ def _skill_route_discovery_current_digest_pass1_validation_lane(
             "trend:Forsy-AI/agent-apprenticeship-1",
             "trend:QwenLM/Qwen-AgentWorld-1",
             "trend:TianhangZhuzth/Fundamental-Ava-1",
+        ]
+    elif current_20260708_191850_window:
+        anchoring_proposal_ids = [
+            "p1_skill_route_discovery_reverse_flow",
+            "p2_skill_route_discovery_rnskill",
+            "p3_agent_harness_eval_general_projects",
+            "p4_route_metadata_documentation",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:shepherd-agents/shepherd-1",
+            "trend:Tencent-Hunyuan/Hy3-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
         ]
 
     return {
