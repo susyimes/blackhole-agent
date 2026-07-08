@@ -17030,6 +17030,21 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
 ) -> dict[str, Any]:
     """Expose the active pass-3 route packet for reverse-flow/rnskill evidence."""
 
+    current_20260708_143852_window = source_digest in {
+        "github-growth-20260708T143852.130540Z",
+        "github-growth-20260708T143852Z",
+    }
+    surface_digest = "20260708T143852" if current_20260708_143852_window else "20260708T131852"
+    rollback_stamp = (
+        "20260708T143849Z-skill-route-discovery-pass3"
+        if current_20260708_143852_window
+        else "20260708T131852Z-skill-route-discovery-pass3-current-window"
+    )
+    rollback_ref = (
+        "refs/rollback/blackhole-evolve/20260708T143849Z-skill-route-discovery-pass3"
+        if current_20260708_143852_window
+        else "refs/blackhole/rollback/20260708T131852Z-skill-route-discovery-pass3-current-window"
+    )
     base_lane = dict(
         _skill_route_discovery_current_digest_20260707T121946_pass2_validation_lane(
             candidate_lane_inventory,
@@ -17146,11 +17161,23 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
         )
     )
     proposal_ids = [
-        "p1-skill-route-discovery-reverse-flow",
-        "p2-generic-skill-workflow-discovery",
-        "p3-agent-harness-eval-shepherd",
-        "p4-agent-harness-eval-hy3",
-        "p5-agent-harness-eval-blender-seedance-workflows",
+        *(
+            [
+                "p1-skill-route-discovery-probe",
+                "p2-shepherd-task-syntax-harness",
+                "p3-vcs-driver-schema-regression",
+                "p4-agent-harness-eval-hy3",
+                "p5-agent-harness-eval-blender-seedance-workflows",
+            ]
+            if current_20260708_143852_window
+            else [
+                "p1-skill-route-discovery-reverse-flow",
+                "p2-generic-skill-workflow-discovery",
+                "p3-agent-harness-eval-shepherd",
+                "p4-agent-harness-eval-hy3",
+                "p5-agent-harness-eval-blender-seedance-workflows",
+            ]
+        )
     ]
     selected_item_ids = [
         item_id
@@ -17164,7 +17191,7 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
     ]
     pass3_operator_validation_packet = {
         "controller_surface": (
-            "skill_route_discovery_current_digest_20260708T131852_pass3_operator_validation_packet"
+            f"skill_route_discovery_current_digest_{surface_digest}_pass3_operator_validation_packet"
         ),
         "status": "ready" if ready else "blocked",
         "source_digest": source_digest,
@@ -17194,7 +17221,7 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
     base_lane.update(
         {
             "controller_surface": (
-                "skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane"
+                f"skill_route_discovery_current_digest_{surface_digest}_pass3_validation_lane"
             ),
             "status": "ready" if ready else "blocked",
             "decision": (
@@ -17234,18 +17261,13 @@ def _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
             ),
             "run_artifact_contract": {
                 "rollback_artifact": (
-                    "artifacts/rollback/"
-                    "20260708T131852Z-skill-route-discovery-pass3-current-window/"
-                    "rollback-point.md"
+                    f"artifacts/rollback/{rollback_stamp}/rollback-point.md"
                 ),
-                "rollback_ref": (
-                    "refs/blackhole/rollback/"
-                    "20260708T131852Z-skill-route-discovery-pass3-current-window"
-                ),
+                "rollback_ref": rollback_ref,
                 "evidence_review": "focused-evidence-review",
                 "validation_command_count": 1,
                 "validation_command_hash": _stable_hash(
-                    "python -m pytest tests/test_skill_routing.py -q -k 20260708T131852"
+                    f"python -m pytest tests/test_skill_routing.py -q -k {surface_digest}"
                 ),
                 "runtime_action": "none",
                 "raw_validation_command_exported": False,
@@ -38147,7 +38169,11 @@ def _skill_route_discovery_current_digest_pass3_route_to_validation_lane(
         "github-growth-20260708T131852.174738Z",
         "github-growth-20260708T131852Z",
     }
-    if current_20260708_131852_window:
+    current_20260708_143852_window = source_digest in {
+        "github-growth-20260708T143852.130540Z",
+        "github-growth-20260708T143852Z",
+    }
+    if current_20260708_131852_window or current_20260708_143852_window:
         return _skill_route_discovery_current_digest_20260708T131852_pass3_validation_lane(
             candidate_lane_inventory,
             ignored_evidence_items,
