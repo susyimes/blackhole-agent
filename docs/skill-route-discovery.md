@@ -16,6 +16,28 @@ target paths, or upstream bodies. Generic Codex-compatible skill catalogs such
 as `rnskill` stay in the documentation/config-oriented pre-activation lane
 unless body-free workflow-gate markers are present.
 
+For source digest `github-growth-20260708T100635.467596Z`, pass 1 exposes the
+current reverse-flow/rnskill/Hy3/workflow-usecase window through
+`current_digest_pass1_validation_lane` and
+`skill_route_discovery_current_run_pass1_activation_readiness`.
+`lingbol088-spec/reverse-flow-skill` maps to
+`p1-skill-route-discovery-codex-workflow-gate` in the bounded local test lane
+as Codex workflow-gate evidence. `Pluviobyte/rnskill` maps to
+`p2-generic-skill-workflow-route-probe` in the bounded documentation lane as a
+generic SKILL.md workflow descriptor.
+
+`Tencent-Hunyuan/Hy3` and the Blender/Seedance workflow-usecase collection
+remain adjacent `agent_harness_eval_required` rows under
+`p3-agent-harness-eval-for-general-agent-trends`. They inherit no
+`skill_route_discovery` route, open no direct lanes before local harness
+evaluation, and may only produce documentation, test, or code_patch follow-up
+after that gate. The lane exports proposal IDs, selected item IDs, lane names,
+route profiles, source hashes, and command hashes only; raw source URLs,
+evidence URLs, replay commands, target paths, upstream bodies, provider launch,
+external harness execution, remote execution, and external activation remain
+disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py tests/test_harness_eval.py -q -k 20260708T100635`.
+
 For source digest `github-growth-20260708T092635.428641Z`, pass 3 exposes
 `skill_route_discovery_current_digest_20260708T092635_pass3_proposal_replay_lane`.
 The lane converts the current proposals into one bounded replay plan:

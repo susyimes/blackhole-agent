@@ -1,0 +1,11 @@
+{
+  "created_at": "2026-07-08T10:06:35Z",
+  "branch": "codex/blackhole-evolve/20260708T100717.751362-add-a-bounded-local-validation-lane-that-discove",
+  "head": "2db88bb089b100de1a7ddacfcc1d69c8625593d3",
+  "rollback_ref": "refs/rollback/20260708T100635Z-skill-route-discovery-pass1-current-window",
+  "source_digest": "github-growth-20260708T100635.467596Z",
+  "recovery_commands": [
+    "git reset --hard refs/rollback/20260708T100635Z-skill-route-discovery-pass1-current-window",
+    "git clean -fd"
+  ]
+}
