@@ -1588,6 +1588,11 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             ignored_evidence_items,
         )
     )
+    current_digest_20260708T042637_pass2_route_activation_checkpoint = (
+        _skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint(
+            current_pass2_scope_recompute_gate,
+        )
+    )
     current_active_pass3_local_activation_proof_lane = (
         _skill_route_discovery_current_active_pass3_local_activation_proof_lane(
             candidate_lane_inventory,
@@ -1839,6 +1844,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow": (
             current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow
+        ),
+        "current_digest_20260708T042637_pass2_route_activation_checkpoint": (
+            current_digest_20260708T042637_pass2_route_activation_checkpoint
         ),
         "current_active_pass3_local_activation_proof_lane": (
             current_active_pass3_local_activation_proof_lane
@@ -30286,6 +30294,202 @@ def _skill_route_discovery_current_pass2_provider_runtime_control(
         "raw_provider_config_exported": False,
         "raw_provider_diagnostics_exported": False,
         "raw_upstream_body_exported": False,
+    }
+
+
+def _skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint(
+    current_pass2_scope_recompute_gate: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Expose the active pass-2 skill-route lane split before any activation."""
+
+    source_digest = str(current_pass2_scope_recompute_gate.get("source_digest") or "")
+    if source_digest != "github-growth-20260708T042637.744153Z":
+        return {}
+
+    source_rows = _mapping_list(current_pass2_scope_recompute_gate.get("rows"))
+    adjacent_rows = _mapping_list(current_pass2_scope_recompute_gate.get("adjacent_general_agent_rows"))
+    rows_by_proposal = {str(row.get("proposal_id") or ""): row for row in source_rows}
+    reverse_flow = rows_by_proposal.get("p1-skill-route-discovery-reverse-flow", {})
+    rnskill = rows_by_proposal.get("p2-generic-skill-workflow-discovery-rnskill", {})
+
+    skill_rows: list[dict[str, Any]] = []
+    blocked_skill_rows: list[str] = []
+    for row in (reverse_flow, rnskill):
+        if not row:
+            continue
+        proposal_id = str(row.get("proposal_id") or "")
+        selected_lane = str(row.get("selected_local_lane") or "")
+        allowed_lanes = _string_list(row.get("allowed_local_lanes"))
+        row_ready = (
+            str(row.get("status") or "") == "ready"
+            and selected_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and set(allowed_lanes).issubset(set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES))
+            and row.get("local_validation_required") is True
+            and str(row.get("runtime_action") or "none") == "none"
+            and row.get("external_skill_activation_allowed") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+        )
+        if not row_ready and proposal_id:
+            blocked_skill_rows.append(proposal_id)
+        skill_rows.append(
+            {
+                "proposal_id": proposal_id,
+                "proposal_track": str(row.get("proposal_track") or ""),
+                "candidate_names": _string_list(row.get("candidate_names")),
+                "route_profiles": _string_list(row.get("route_profiles")),
+                "selected_local_lane": selected_lane,
+                "queued_local_lanes": _string_list(row.get("queued_local_lanes")),
+                "allowed_local_lanes": allowed_lanes,
+                "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
+                "validation_gates": _string_list(row.get("validation_gates")),
+                "controller_recomputed_scope": str(row.get("controller_recomputed_scope") or ""),
+                "skill_route_discovery_first": bool(row.get("skill_route_discovery_first")),
+                "row_status": "ready" if row_ready else "blocked",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    adjacent_checkpoint_rows: list[dict[str, Any]] = []
+    blocked_adjacent_rows: list[str] = []
+    for row in adjacent_rows:
+        item_id = str(row.get("item_id") or row.get("name") or "")
+        row_ready = (
+            str(row.get("evaluation_lane") or "") == "agent_harness_eval_required"
+            and str(row.get("selected_local_lane") or "") == "agent_harness_eval_required"
+            and row.get("skill_route_discovery_inherited") is False
+            and row.get("direct_runtime_route_allowed") is False
+            and row.get("direct_code_patch_route_allowed") is False
+            and row.get("external_harness_execution_allowed") is False
+            and row.get("provider_runtime_launch_allowed") is False
+            and row.get("remote_execution_allowed") is False
+        )
+        if not row_ready and item_id:
+            blocked_adjacent_rows.append(item_id)
+        adjacent_checkpoint_rows.append(
+            {
+                "proposal_id": str(row.get("proposal_id") or ""),
+                "item_id": str(row.get("item_id") or ""),
+                "item_kind": str(row.get("item_kind") or ""),
+                "name": str(row.get("name") or ""),
+                "source_hash": str(row.get("source_hash") or ""),
+                "evaluation_lane": "agent_harness_eval_required",
+                "selected_local_lane": "agent_harness_eval_required",
+                "direct_allowed_lanes_before_eval": [],
+                "allowed_local_lanes_after_eval": _string_list(
+                    row.get("allowed_local_lanes_after_eval") or row.get("allowed_local_lanes")
+                ),
+                "skill_route_discovery_inherited": False,
+                "direct_runtime_route_allowed": False,
+                "direct_code_patch_route_allowed": False,
+                "row_status": "ready" if row_ready else "blocked",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    reverse_flow_ready = (
+        str(reverse_flow.get("selected_local_lane") or "") == "test"
+        and reverse_flow.get("skill_route_discovery_first") is True
+    )
+    rnskill_ready = (
+        str(rnskill.get("selected_local_lane") or "") == "documentation"
+        and set(_string_list(rnskill.get("allowed_local_lanes"))).issubset(
+            set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        )
+    )
+    adjacent_ready = bool(adjacent_checkpoint_rows) and not blocked_adjacent_rows
+    ready = (
+        str(current_pass2_scope_recompute_gate.get("status") or "") == "ready"
+        and reverse_flow_ready
+        and rnskill_ready
+        and adjacent_ready
+        and not blocked_skill_rows
+    )
+
+    evidence_urls = (
+        "https://github.com/lingbol088-spec/reverse-flow-skill",
+        "https://github.com/Pluviobyte/rnskill",
+        "https://github.com/shepherd-agents/shepherd",
+        "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+    )
+    return {
+        "controller_surface": (
+            "skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint"
+        ),
+        "status": "ready" if ready else "blocked",
+        "decision": (
+            "current_pass2_skill_route_lanes_ready_for_validation_before_activation"
+            if ready
+            else "repair_current_pass2_route_activation_checkpoint_before_activation"
+        ),
+        "source_surface": "skill_route_discovery_current_pass2_scope_recompute_gate",
+        "source_status": str(current_pass2_scope_recompute_gate.get("status") or ""),
+        "source_digest_hash": _stable_hash(source_digest or "unknown"),
+        "capability_theme": "skill-route-discovery",
+        "capability_pass": 2,
+        "total_passes": 4,
+        "anchoring_proposal_ids": [
+            "p1-skill-route-discovery-reverse-flow",
+            "p2-generic-skill-route-discovery-rnskill",
+            "p3-agent-harness-eval-for-general-agent-projects",
+        ],
+        "carried_evidence_url_hashes": [_stable_hash(url) for url in evidence_urls],
+        "blocked_skill_proposal_ids": blocked_skill_rows,
+        "blocked_adjacent_item_ids": blocked_adjacent_rows,
+        "skill_route_row_count": len(skill_rows),
+        "adjacent_agent_harness_eval_required_count": len(adjacent_checkpoint_rows),
+        "accepted_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "route_decision_contract": {
+            "reverse_flow_requires_skill_route_discovery_first": reverse_flow_ready,
+            "reverse_flow_selected_test_lane": str(reverse_flow.get("selected_local_lane") or "") == "test",
+            "rnskill_generic_collection_selected_documentation_lane": rnskill_ready,
+            "rnskill_has_no_external_execution_lane": not (
+                set(_string_list(rnskill.get("allowed_local_lanes")))
+                - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+            ),
+            "general_agent_projects_require_agent_harness_eval": adjacent_ready,
+            "skill_route_discovery_inherited_by_general_agents": False,
+        },
+        "operator_next_action": (
+            "replay_current_digest_20260708T042637_route_activation_checkpoint_then_continue_to_pass3"
+            if ready
+            else "repair_current_digest_20260708T042637_route_activation_checkpoint"
+        ),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_replay_commands_exported": False,
+        "raw_source_url_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_target_paths_exported": False,
+        "raw_upstream_body_exported": False,
+        "rows": skill_rows,
+        "adjacent_general_agent_rows": adjacent_checkpoint_rows,
     }
 
 

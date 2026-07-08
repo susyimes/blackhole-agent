@@ -5,6 +5,21 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260708T042637.744153Z`, pass 2 exposes
+`skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint`.
+The checkpoint turns the active reverse-flow/rnskill/Shepherd/Hy3/workflow-usecase
+window into one validation-before-activation packet. Reverse-flow remains a
+Codex workflow-gate test lane that must prove `skill_route_discovery_first`;
+rnskill remains a generic `SKILL.md` collection in the documentation lane; and
+Shepherd, Hy3, and Blender/Seedance workflow-usecase evidence remain adjacent
+`agent_harness_eval_required` rows with no inherited skill-route lane.
+
+The packet exports hashes, counts, row status, and lane decisions only. Raw
+evidence URLs, replay commands, target paths, upstream bodies, external skill
+activation, provider launch, external harness execution, and remote execution
+remain disabled. Replay with:
+`python -m pytest tests/test_skill_routing.py -q -k 20260708T042637`.
+
 For source digest `github-growth-20260708T032637.752122Z`, pass 3 advances the
 provider-runtime-control slice with
 `skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow`.

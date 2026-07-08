@@ -8593,6 +8593,101 @@ def test_skill_route_discovery_current_digest_20260708T024637_pass2_provider_run
     assert '"remote_execution_allowed": true' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T042637_pass2_route_activation_checkpoint.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+
+    assert registry["source_digest"] == "github-growth-20260708T042637.744153Z"
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+
+    gate = lane_map["current_pass2_scope_recompute_gate"]
+    assert gate["status"] == "ready"
+    assert gate["source_digest"] == "github-growth-20260708T042637.744153Z"
+
+    checkpoint = lane_map["current_digest_20260708T042637_pass2_route_activation_checkpoint"]
+    assert checkpoint["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260708T042637_pass2_route_activation_checkpoint"
+    )
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["decision"] == (
+        "current_pass2_skill_route_lanes_ready_for_validation_before_activation"
+    )
+    assert checkpoint["source_surface"] == "skill_route_discovery_current_pass2_scope_recompute_gate"
+    assert checkpoint["source_status"] == "ready"
+    assert checkpoint["capability_theme"] == "skill-route-discovery"
+    assert checkpoint["capability_pass"] == 2
+    assert checkpoint["anchoring_proposal_ids"] == payload["capability_window"]["anchoring_proposals"]
+    assert checkpoint["skill_route_row_count"] == 2
+    assert checkpoint["adjacent_agent_harness_eval_required_count"] == 3
+    assert checkpoint["accepted_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert checkpoint["blocked_skill_proposal_ids"] == []
+    assert checkpoint["blocked_adjacent_item_ids"] == []
+    assert all(value.startswith("sha256:") for value in checkpoint["carried_evidence_url_hashes"])
+
+    contract = checkpoint["route_decision_contract"]
+    assert contract["reverse_flow_requires_skill_route_discovery_first"] is True
+    assert contract["reverse_flow_selected_test_lane"] is True
+    assert contract["rnskill_generic_collection_selected_documentation_lane"] is True
+    assert contract["rnskill_has_no_external_execution_lane"] is True
+    assert contract["general_agent_projects_require_agent_harness_eval"] is True
+    assert contract["skill_route_discovery_inherited_by_general_agents"] is False
+
+    rows = {row["proposal_id"]: row for row in checkpoint["rows"]}
+    reverse_flow = rows["p1-skill-route-discovery-reverse-flow"]
+    assert reverse_flow["candidate_names"] == ["reverse-flow-skill"]
+    assert reverse_flow["route_profiles"] == ["codex_workflow_gate"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["skill_route_discovery_first"] is True
+    assert reverse_flow["row_status"] == "ready"
+
+    rnskill = rows["p2-generic-skill-workflow-discovery-rnskill"]
+    assert rnskill["candidate_names"] == ["rnskill"]
+    assert rnskill["route_profiles"] == ["generic_skill_workflow"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert set(rnskill["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert rnskill["row_status"] == "ready"
+    assert rnskill["runtime_action"] == "none"
+    assert rnskill["external_skill_activation_allowed"] is False
+
+    adjacent_names = {row["name"] for row in checkpoint["adjacent_general_agent_rows"]}
+    assert adjacent_names == {
+        "Awesome-Blender-Seedance-Workflow-Usecases",
+        "Hy3",
+        "shepherd",
+    }
+    assert all(
+        row["selected_local_lane"] == "agent_harness_eval_required"
+        for row in checkpoint["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["skill_route_discovery_inherited"] is False
+        for row in checkpoint["adjacent_general_agent_rows"]
+    )
+    assert all(
+        row["external_harness_execution_allowed"] is False
+        for row in checkpoint["adjacent_general_agent_rows"]
+    )
+
+    serialized = json.dumps(checkpoint, sort_keys=True)
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"external_skill_activation_allowed": true' not in serialized
+    assert '"external_harness_execution_allowed": true' not in serialized
+    assert '"provider_runtime_launch_allowed": true' not in serialized
+    assert '"remote_execution_allowed": true' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T032637_pass3_provider_runtime_recovery_workflow():
     fixture_path = (
         Path(__file__).parent
