@@ -1585,6 +1585,52 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             },
         )
     )
+    current_digest_20260708T173850_pass4_operator_handoff = (
+        _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff(
+            pass4_completion_handoff,
+            pass4_operator_replay_manifest,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260708T173850.570889Z",
+                "github-growth-20260708T173850Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260708T173850_pass4_operator_handoff"
+            ),
+            proposal_ids=(
+                "p1-skill-route-discovery-codex-workflow-gate",
+                "p2-generic-skill-route-discovery-config",
+                "p3-agent-harness-eval-for-general-agent-projects",
+                "p4-workflow-usecase-documentation-lane",
+                "p5-skill-discovery-codepatch-candidate",
+            ),
+            skill_row_proposal_ids={
+                "reverse_flow": "p1-skill-route-discovery-codex-workflow-gate",
+                "rnskill": "p2-generic-skill-route-discovery-config",
+                "fallback": "p5-skill-discovery-codepatch-candidate",
+            },
+            adjacent_row_proposal_ids={
+                "shepherd": "p3-agent-harness-eval-for-general-agent-projects",
+                "hy3": "p3-agent-harness-eval-for-general-agent-projects",
+                "fallback": "p3-agent-harness-eval-for-general-agent-projects",
+            },
+            required_adjacent_row_count=2,
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/blackhole-rollback/20260709T014000Z-skill-route-discovery"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "rollback-point-20260709T014000Z-skill-route-discovery.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/blackhole-runs/"
+                    "20260709T014000Z-skill-route-discovery-pass4.md"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+            },
+        )
+    )
     active_pass4_completion_matrix = _skill_route_discovery_active_pass4_completion_matrix(
         pass4_completion_handoff,
         pass4_operator_replay_manifest,
@@ -1984,6 +2030,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T161850_pass4_operator_handoff": (
             current_digest_20260708T161850_pass4_operator_handoff
+        ),
+        "current_digest_20260708T173850_pass4_operator_handoff": (
+            current_digest_20260708T173850_pass4_operator_handoff
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
@@ -41463,6 +41512,9 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
         "skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff"
     ),
     proposal_ids: Sequence[str] | None = None,
+    skill_row_proposal_ids: Mapping[str, str] | None = None,
+    adjacent_row_proposal_ids: Mapping[str, str] | None = None,
+    required_adjacent_row_count: int = 3,
     run_artifact_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Bind the current pass-4 reverse-flow/rnskill window to replayable lanes."""
@@ -41484,6 +41536,18 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
             "p5-general-agent-project-triage-policy",
         )
     )
+    skill_proposal_ids = {
+        "reverse_flow": "p1-skill-route-discovery-probe",
+        "rnskill": "p2-skill-route-discovery-documentation",
+        "fallback": "p1-skill-route-discovery-local-lane",
+        **dict(skill_row_proposal_ids or {}),
+    }
+    adjacent_proposal_ids = {
+        "shepherd": "p3-agent-harness-eval-tests",
+        "hy3": "p4-agent-harness-eval-hy3-mcp-probe",
+        "fallback": "p5-general-agent-project-triage-policy",
+        **dict(adjacent_row_proposal_ids or {}),
+    }
     artifact_contract = dict(
         run_artifact_contract
         or {
@@ -41515,11 +41579,11 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
         candidate_name_lower = candidate_name.casefold()
         selected_lane = str(row.get("selected_local_lane") or "")
         proposal_id = (
-            "p1-skill-route-discovery-probe"
+            skill_proposal_ids["reverse_flow"]
             if "reverse-flow" in candidate_name_lower
-            else "p2-skill-route-discovery-documentation"
+            else skill_proposal_ids["rnskill"]
             if "rnskill" in candidate_name_lower
-            else "p1-skill-route-discovery-local-lane"
+            else skill_proposal_ids["fallback"]
         )
         skill_rows.append(
             {
@@ -41554,11 +41618,11 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
         name = str(row.get("name") or "")
         name_lower = name.casefold()
         proposal_id = (
-            "p3-agent-harness-eval-tests"
+            adjacent_proposal_ids["shepherd"]
             if "shepherd" in name_lower
-            else "p4-agent-harness-eval-hy3-mcp-probe"
+            else adjacent_proposal_ids["hy3"]
             if name_lower == "hy3"
-            else "p5-general-agent-project-triage-policy"
+            else adjacent_proposal_ids["fallback"]
         )
         adjacent_handoff_rows.append(
             {
@@ -41594,7 +41658,7 @@ def _skill_route_discovery_current_digest_20260708T145852_pass4_operator_handoff
         and row["external_skill_activation_allowed"] is False
         for row in skill_rows
     )
-    adjacent_rows_ready = len(adjacent_handoff_rows) == 3 and all(
+    adjacent_rows_ready = len(adjacent_handoff_rows) == required_adjacent_row_count and all(
         row["evaluation_lane"] == "agent_harness_eval_required"
         and row["skill_route_discovery_inherited"] is False
         and row["direct_allowed_lanes_before_eval"] == []
