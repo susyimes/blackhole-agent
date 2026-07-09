@@ -5,6 +5,28 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T043527.568573Z`, pass 4 exposes
+`skill_route_discovery_current_digest_20260709T043527_pass4_completion_handoff`.
+The handoff closes the current reverse-flow/rnskill skill-route slice as an
+operator-visible behavior before supervisor activation. `reverse-flow-skill`
+maps to the local test lane as Codex workflow-gate plus generic skill workflow
+evidence. `rnskill` maps to documentation as a generic SKILL.md-compatible
+skills collection. Both rows remain bounded to documentation, config, test, or
+code_patch lanes and keep runtime action set to none.
+
+Generic skill repositories are interpreted as local route evidence, not as
+packages to install, enable, or run. Any runtime execution, provider launch,
+or external harness path requires a separate validated lane. `Hy3`,
+`agent-chief`, and workflow-usecase observations remain adjacent
+`agent_harness_eval_required` rows with no direct local lane before harness
+evaluation and only documentation, test, or code_patch follow-up after that
+gate. The handoff records rollback metadata, selected item IDs, lane names,
+hashes, and activation denials only. Raw source URLs, evidence URLs, replay
+commands, target paths, upstream bodies, install, run, provider launch,
+external harness execution, promotion, restart, and remote execution remain
+disabled. Replay with `python -m pytest tests/test_skill_routing.py
+tests/test_harness_eval.py -q -k 20260709T043527`.
+
 For source digest `github-growth-20260709T041527.127710Z`, pass 3 exposes
 `skill_route_discovery_current_digest_20260709T041527_pass3_operator_handoff`.
 The handoff converts the current reverse-flow/rnskill/Hy3 window into an
