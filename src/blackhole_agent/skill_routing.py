@@ -2374,6 +2374,91 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_235850_packet",
         )
     )
+    current_digest_20260709T025529_pass3_validation_packet = (
+        _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260709T025529.673051Z",
+                "github-growth-20260709T025529Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260709T025529_pass3_validation_packet"
+            ),
+            source_digest_fallback="github-growth-20260709T025529.673051Z",
+            proposal_specs=(
+                {
+                    "proposal_id": "p1-skill-route-discovery-codex-workflow",
+                    "proposal_kind": "test",
+                    "proposal_track": "reverse_flow_workflow_gate_route_discovery",
+                    "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                    "candidate_name_terms": ("reverse-flow-skill",),
+                    "selected_local_lane": "test",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": (
+                        "reverse_flow_codex_skill_workflow_remains_bounded_discovery_only"
+                    ),
+                    "require_uncertainty_reasons": False,
+                },
+                {
+                    "proposal_id": "p2-generic-skill-workflow-discovery",
+                    "proposal_kind": "documentation",
+                    "proposal_track": "generic_skill_workflow_route_documentation",
+                    "route_profiles": ("generic_skill_workflow",),
+                    "candidate_name_terms": ("rnskill",),
+                    "selected_local_lane": "documentation",
+                    "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                    "validation_target": (
+                        "generic_skill_workflow_matches_bounded_documentation_lane"
+                    ),
+                    "require_uncertainty_reasons": True,
+                },
+                {
+                    "proposal_id": "p3-cognitive-core-benchmark-route",
+                    "proposal_kind": "test",
+                    "proposal_track": "skill_benchmark_route_discovery_before_harness_eval",
+                    "route_profiles": ("generic_skill_workflow",),
+                    "candidate_name_terms": ("cognitive-core-skills",),
+                    "selected_local_lane": "test",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": (
+                        "skill_benchmark_repository_stays_skill_route_first_before_harness_eval"
+                    ),
+                    "require_uncertainty_reasons": True,
+                },
+            ),
+            proposal_ids=(
+                "p1-skill-route-discovery-codex-workflow",
+                "p2-generic-skill-workflow-discovery",
+                "p3-cognitive-core-benchmark-route",
+                "p4-agent-project-harness-eval",
+            ),
+            adjacent_proposal_id="p4-agent-project-harness-eval",
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/blackhole-rollback/20260709T025608-skill-route-discovery-pass3"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260709T025608Z-skill-route-discovery-pass3/rollback-point.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/blackhole-runs/"
+                    "20260709T025608Z-skill-route-discovery-pass3.md"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+            },
+            ready_decision=(
+                "current_digest_pass3_skill_routes_ready_for_bounded_local_validation"
+            ),
+            blocked_decision="repair_current_digest_025529_pass3_validation_packet",
+            ready_next_action=(
+                "replay_current_digest_025529_pass3_packet_then_continue_to_pass4"
+            ),
+            blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_025529_packet",
+        )
+    )
 
     return {
         "schema_version": 1,
@@ -2536,6 +2621,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260708T235850_pass3_operator_validation_packet": (
             current_digest_20260708T235850_pass3_operator_validation_packet
+        ),
+        "current_digest_20260709T025529_pass3_validation_packet": (
+            current_digest_20260709T025529_pass3_validation_packet
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
