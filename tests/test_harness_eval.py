@@ -1156,6 +1156,75 @@ def test_skill_route_discovery_lane_exports_20260709T071527_pass4_completion_han
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260709T083527_pass4_completion_handoff():
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "skill_route_discovery_current_digest_20260709T083527_pass4_completion_handoff.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    handoff = output["current_digest_pass4_completion_handoff"]
+    lane_rows = {
+        row["candidate_name"]: row
+        for row in output["lane_map"]["local_lane_matrix"]["rows"]
+    }
+    adjacent = {row["item_id"]: row for row in handoff["adjacent_general_agent_rows"]}
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert output["lane_map"]["local_lane_matrix"]["status"] == "ready"
+    assert handoff["status"] == "blocked"
+    assert handoff["capability_slice_complete"] is False
+    assert handoff["operator_next_action"] == "repair_blocked_pass4_completion_rows_before_supervisor_handoff"
+    assert lane_rows["reverse-flow-skill"]["selected_local_lane"] == "test"
+    assert lane_rows["reverse-flow-skill"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert lane_rows["reverse-flow-skill"]["runtime_action"] == "none"
+    assert lane_rows["rnskill"]["selected_local_lane"] == "documentation"
+    assert lane_rows["rnskill"]["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert lane_rows["rnskill"]["runtime_action"] == "none"
+    assert set(adjacent) == {
+        "trend:SmileLikeYe/agent-chief-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    }
+    assert all(
+        row["evaluation_lane"] == "agent_harness_eval_required"
+        and row["direct_runtime_route_allowed"] is False
+        and row["direct_code_patch_route_allowed"] is False
+        and row["skill_route_discovery_inherited"] is False
+        and row["runtime_action"] == "none"
+        for row in adjacent.values()
+    )
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert output["capability_window_completion"]["status"] == "blocked"
+    assert output["capability_window_completion"]["planned_window_complete"] is True
+    assert output["capability_window_completion"]["runtime_action_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"install"' not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs():
     report = run_local_harness_eval(
         sorted(LOCAL_EVAL_FIXTURE_DIR.glob("*.json")),
@@ -1166,8 +1235,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 195
-    assert payload["pass_count"] == 194
+    assert payload["fixture_count"] == 196
+    assert payload["pass_count"] == 195
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [

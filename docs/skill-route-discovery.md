@@ -5,6 +5,29 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T083527.869539Z`, pass 4 now has a
+fixture-backed completion/recovery handoff:
+`skill_route_discovery_current_digest_20260709T083527_pass4_completion_handoff`.
+It replays the current reverse-flow/rnskill slice through the shared local
+`skill_route_discovery_lane` evaluator. `reverse-flow-skill` selects the local
+test lane because the public evidence is a Codex/AI Agent skill workflow with
+`skills/reverse-flow/SKILL.md`, local sandbox framing, staged workflow text,
+and diagnostic scripts. `rnskill` selects the documentation lane because the
+public evidence is a generic SKILL.md-compatible skills collection with docs,
+tools, and marketplace/plugin metadata.
+
+`agent-chief` and `Hy3` remain adjacent `agent_harness_eval_required` rows.
+They inherit no skill-route lane, expose no direct local lane before harness
+evaluation, and may only produce documentation, test, or code_patch follow-up
+after that local gate. Because this pass adds documentation and test proof
+only, the final generic pass-4 activation handoff intentionally remains
+blocked until missing local artifact proof for other activation lanes is
+repaired. The fixture records rollback metadata and validation intent only;
+raw evidence URLs, upstream bodies, install, run, provider launch, external
+harness execution, promotion, restart, remote execution, and runtime action
+remain disabled. Replay with `python -m pytest tests/test_harness_eval.py -q
+-k 20260709T083527`.
+
 For source digest `github-growth-20260709T081527.210846Z`, pass 3 exposes
 `skill_route_discovery_current_digest_20260709T081527_pass3_supervisor_activation_gate`.
 The gate is the operator-visible continuation of the reverse-flow/rnskill
