@@ -503,6 +503,26 @@ def test_skill_route_discovery_doc_records_bounded_matrix():
     assert missing == []
 
 
+def test_skill_route_discovery_doc_records_20260709T005850_pass2_checkpoint():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "`github-growth-20260709T005850.776521Z`",
+        "`current_pass2_skill_benchmark_checkpoint`",
+        "`reverse-flow-skill` remains a Codex workflow-gate skill route",
+        "`rnskill` remains a generic SKILL.md-compatible collection",
+        "`Cognitive-Core-Skills` remains a skill repository\nfirst",
+        "blocked secondary hint toward\nagent-harness evaluation",
+        "after skill-route\nvalidation only through documentation, test, or code_patch lanes",
+        "Runtime action, external skill\nactivation, external harness execution",
+        "`python -m pytest tests/test_skill_routing.py -q -k 20260709T005850`",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
+
+
 def test_skill_route_discovery_doc_records_route_discovery_catalog():
     doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
 

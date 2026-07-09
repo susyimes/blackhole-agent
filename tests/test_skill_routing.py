@@ -350,6 +350,136 @@ def test_skill_route_discovery_current_digest_20260709T003850_routes_skill_bench
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260709T005850_pass2_checkpoint():
+    source_digest = "github-growth-20260709T005850.776521Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "lingbol088-spec-reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "title": "Reverse-flow Codex skill workflow",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with skills/reverse-flow, "
+                "SKILL.md, local sandbox framing, staged workflow, and diagnostic scripts."
+            ),
+            "topics": ["agent", "codex", "skill", "workflow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "source_layout_signals": ["skill_markdown", "skill_directory", "validation_script"],
+                "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-2",
+            "item_kind": "repository",
+            "name": "Pluviobyte-rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "title": "rnskill generic SKILL.md collection",
+            "summary": (
+                "AI Agent Skills collection for Codex and Claude workflows with a skills "
+                "directory, docs, tools, and marketplace metadata."
+            ),
+            "topics": ["agent", "codex", "skill", "skills"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "observed_paths": ["skills/rn-renhua/SKILL.md", "docs/rn-renhua.md"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown"],
+                "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:eli-labz/Cognitive-Core-Skills-1",
+            "item_kind": "repository",
+            "name": "Cognitive-Core-Skills",
+            "source_url": "https://github.com/eli-labz/Cognitive-Core-Skills",
+            "title": "Cognitive Core Skills taxonomy with benchmarks",
+            "summary": (
+                "Universal taxonomy of cognitive core skills for LLMs, SLMs, AI agents, "
+                "and world models with schemas, skill cards, benchmarks, and CI."
+            ),
+            "topics": ["agent", "benchmark", "skill", "skills", "evaluation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "agent_harness_eval"],
+            "observed_paths": ["Skills/index.md", "benchmarks/rubric-task-traces.json"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                "source_metadata_signals": ["skill_registry_metadata"],
+            },
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    checkpoint = packet["current_pass2_skill_benchmark_checkpoint"]
+    rows = {row["proposal_id"]: row for row in checkpoint["rows"]}
+    serialized = json.dumps(checkpoint, sort_keys=True)
+
+    assert checkpoint["controller_surface"] == (
+        "skill_route_discovery_current_pass2_skill_benchmark_checkpoint"
+    )
+    assert checkpoint["status"] == "ready"
+    assert checkpoint["capability_pass"] == 2
+    assert checkpoint["proposal_ids"] == [
+        "p1_reverse_flow_skill_route_discovery",
+        "p2_generic_skill_workflow_discovery_fixture",
+        "p3_cognitive_core_skill_and_harness_lane_split",
+    ]
+    assert checkpoint["activation_blockers"] == []
+    assert checkpoint["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert checkpoint["direct_agent_harness_lanes_before_skill_route_validation"] == []
+    assert checkpoint["allowed_agent_lanes_after_skill_route_validation"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert checkpoint["skill_route_discovery_first"] is True
+
+    reverse_flow = rows["p1_reverse_flow_skill_route_discovery"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert reverse_flow["skill_route_discovery_first"] is True
+
+    rnskill = rows["p2_generic_skill_workflow_discovery_fixture"]
+    assert rnskill["candidate_name"] == "Pluviobyte-rnskill"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    cognitive_core = rows["p3_cognitive_core_skill_and_harness_lane_split"]
+    assert cognitive_core["candidate_name"] == "Cognitive-Core-Skills"
+    assert cognitive_core["benchmark_signal_detected"] is True
+    assert cognitive_core["secondary_validation_hint"] == (
+        "agent_harness_eval_after_skill_route_discovery"
+    )
+    assert cognitive_core["secondary_validation_hint_status"] == (
+        "blocked_until_skill_route_local_validation"
+    )
+    assert cognitive_core["agent_harness_eval_may_follow_after"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert cognitive_core["agent_harness_eval_allowed_before_skill_route_validation"] is False
+
+    assert checkpoint["run_artifact_contract"]["material_actions_logged"] is True
+    assert checkpoint["self_model_decision"]["changed"] is False
+    assert checkpoint["runtime_action"] == "none"
+    assert checkpoint["external_skill_activation_allowed"] is False
+    assert checkpoint["external_harness_execution_allowed"] is False
+    assert checkpoint["provider_runtime_launch_allowed"] is False
+    assert checkpoint["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T040637_pass1_routes_current_window():
     fixture_path = (
         Path(__file__).parent

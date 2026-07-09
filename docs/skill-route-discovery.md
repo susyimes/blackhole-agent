@@ -5,6 +5,26 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T005850.776521Z`, pass 2 exposes
+`current_pass2_skill_benchmark_checkpoint` on the validation route packet. The
+checkpoint is the operator-visible continuation of the prior focused review:
+`reverse-flow-skill` remains a Codex workflow-gate skill route in the local
+test lane, `rnskill` remains a generic SKILL.md-compatible collection in the
+documentation lane, and `Cognitive-Core-Skills` remains a skill repository
+first even though its public shape also includes benchmarks, schemas, skill
+cards, validation tests, and CI.
+
+The benchmark-bearing skill row may carry only a blocked secondary hint toward
+agent-harness evaluation. That follow-up is allowed after skill-route
+validation only through documentation, test, or code_patch lanes; it does not
+open a direct harness, provider, runtime, install, or activation path. The
+checkpoint records rollback metadata, the self-model decision, selected item
+IDs, lane names, and source hashes only. Runtime action, external skill
+activation, external harness execution, provider launch, remote execution, raw
+source URLs, raw evidence URLs, replay commands, target paths, upstream bodies,
+promotion, and restart remain disabled. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260709T005850`.
+
 For source digest `github-growth-20260709T003850.757195Z`, pass 1 exposes the
 active skill-route slice through `current_pass1_focused_review_lane` on the
 validation route packet. The lane keeps `reverse-flow-skill` in the local test

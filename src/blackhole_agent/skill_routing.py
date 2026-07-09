@@ -2801,6 +2801,10 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
             source_digest=source_digest,
             route_rows=ordered_rows,
         ),
+        **_skill_route_discovery_current_pass2_skill_benchmark_checkpoint(
+            source_digest=source_digest,
+            route_rows=ordered_rows,
+        ),
         **_skill_route_discovery_current_pass1_focused_review_lane(
             source_digest=source_digest,
             route_rows=ordered_rows,
@@ -2809,6 +2813,237 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
             source_digest=source_digest,
             route_rows=ordered_rows,
         ),
+    }
+
+
+def _skill_route_discovery_current_pass2_skill_benchmark_checkpoint(
+    *,
+    source_digest: str,
+    route_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Expose the active pass-2 skill/benchmark split before activation."""
+
+    if source_digest != "github-growth-20260709T005850.776521Z":
+        return {}
+
+    skill_rows = [
+        row for row in route_rows if str(row.get("route_kind") or "") == "skill_workflow"
+    ]
+    reverse_flow_rows = [
+        row
+        for row in skill_rows
+        if "codex_workflow_gate" in _string_list(row.get("route_profiles"))
+    ]
+    rnskill_rows = [
+        row
+        for row in skill_rows
+        if "rnskill" in str(row.get("candidate_name") or "").casefold()
+        and "generic_skill_workflow" in _string_list(row.get("route_profiles"))
+    ]
+    cognitive_core_rows = [
+        row
+        for row in skill_rows
+        if row.get("benchmark_signal_detected") is True
+        and str(row.get("secondary_validation_hint") or "")
+        == "agent_harness_eval_after_skill_route_discovery"
+    ]
+
+    proposal_specs = [
+        (
+            "p1_reverse_flow_skill_route_discovery",
+            "test",
+            "reverse_flow_codex_workflow_gate_requires_bounded_local_validation",
+            reverse_flow_rows,
+        ),
+        (
+            "p2_generic_skill_workflow_discovery_fixture",
+            "documentation",
+            "generic_skill_collection_requires_bounded_local_documentation_validation",
+            rnskill_rows,
+        ),
+        (
+            "p3_cognitive_core_skill_and_harness_lane_split",
+            "test",
+            "skill_benchmark_repository_validates_skill_route_first_then_harness_hint",
+            cognitive_core_rows,
+        ),
+    ]
+
+    checkpoint_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    for proposal_id, selected_lane, validation_target, matched_rows in proposal_specs:
+        if not matched_rows:
+            blockers.append(f"{proposal_id}:route_row_missing")
+            continue
+        row = matched_rows[0]
+        allowed_lanes = [
+            lane
+            for lane in _string_list(row.get("allowed_local_lanes"))
+            if lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+        ]
+        if set(allowed_lanes) != set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES):
+            blockers.append(f"{proposal_id}:bounded_lane_set_incomplete")
+        if str(row.get("runtime_action") or "none") != "none":
+            blockers.append(f"{proposal_id}:runtime_action_requested")
+        if row.get("external_skill_activation_allowed") is not False:
+            blockers.append(f"{proposal_id}:external_skill_activation_not_denied")
+        if row.get("external_harness_execution_allowed") is not False:
+            blockers.append(f"{proposal_id}:external_harness_execution_not_denied")
+
+        benchmark_signal = row.get("benchmark_signal_detected") is True
+        checkpoint_rows.append(
+            {
+                "proposal_id": proposal_id,
+                "route_id": str(row.get("route_id") or ""),
+                "candidate_name": str(row.get("candidate_name") or ""),
+                "candidate_source_hash": str(row.get("candidate_source_hash") or ""),
+                "route_hint": SKILL_ROUTE_DISCOVERY_HINT,
+                "route_class": SKILL_ROUTE_DISCOVERY_ROUTE_CLASS,
+                "route_profiles": _string_list(row.get("route_profiles")),
+                "evaluation_lane": "skill_route_discovery",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": allowed_lanes,
+                "queued_local_lanes": [lane for lane in allowed_lanes if lane != selected_lane],
+                "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
+                "validation_gate": "focused-evidence-review",
+                "validation_target": validation_target,
+                "benchmark_signal_detected": benchmark_signal,
+                "secondary_validation_hint": str(row.get("secondary_validation_hint") or ""),
+                "secondary_validation_hint_status": str(
+                    row.get("secondary_validation_hint_status") or ""
+                ),
+                "agent_harness_eval_may_follow_after": (
+                    ["documentation", "test", "code_patch"]
+                    if benchmark_signal
+                    else []
+                ),
+                "agent_harness_eval_allowed_before_skill_route_validation": False,
+                "skill_route_discovery_first": True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_replay_commands_exported": False,
+                "raw_target_paths_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
+    if any(
+        set(_string_list(row.get("allowed_local_lanes"))) - set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        for row in checkpoint_rows
+    ):
+        blockers.append("unbounded_skill_route_lane")
+    if not any(row.get("benchmark_signal_detected") is True for row in checkpoint_rows):
+        blockers.append("skill_benchmark_secondary_hint_missing")
+    if any(
+        str(row.get("secondary_validation_hint_status") or "")
+        not in ("", "blocked_until_skill_route_local_validation")
+        for row in checkpoint_rows
+    ):
+        blockers.append("secondary_agent_harness_hint_unblocked_too_early")
+
+    ready = bool(checkpoint_rows) and not blockers
+    return {
+        "current_pass2_skill_benchmark_checkpoint": {
+            "controller_surface": (
+                "skill_route_discovery_current_pass2_skill_benchmark_checkpoint"
+            ),
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_pass2_skill_routes_ready_for_bounded_local_checkpoint"
+                if ready
+                else "repair_current_pass2_skill_benchmark_checkpoint_before_activation"
+            ),
+            "source_digest": source_digest,
+            "capability_pass": 2,
+            "total_passes": 4,
+            "anchoring_proposal_ids": [
+                "p1-skill-route-discovery-fixture",
+                "p2-skill-discovery-docs",
+                "p3-cognitive-core-benchmark-route",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:Pluviobyte/rnskill-2",
+                "trend:eli-labz/Cognitive-Core-Skills-1",
+                "p1_reverse_flow_skill_route_discovery",
+                "p2_generic_skill_workflow_discovery_fixture",
+                "p3_cognitive_core_skill_and_harness_lane_split",
+            ],
+            "proposal_ids": [
+                "p1_reverse_flow_skill_route_discovery",
+                "p2_generic_skill_workflow_discovery_fixture",
+                "p3_cognitive_core_skill_and_harness_lane_split",
+            ],
+            "blocked_proposal_ids": (
+                [
+                    "p1_reverse_flow_skill_route_discovery",
+                    "p2_generic_skill_workflow_discovery_fixture",
+                    "p3_cognitive_core_skill_and_harness_lane_split",
+                ]
+                if blockers
+                else []
+            ),
+            "activation_blockers": blockers,
+            "allowed_skill_route_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "allowed_agent_lanes_after_skill_route_validation": [
+                "documentation",
+                "test",
+                "code_patch",
+            ],
+            "direct_agent_harness_lanes_before_skill_route_validation": [],
+            "skill_route_discovery_first": True,
+            "operator_visible_behavior": (
+                "checkpoint_skill_route_lanes_before_any_secondary_agent_harness_eval"
+            ),
+            "operator_next_action": (
+                "run_current_pass2_skill_route_checkpoint_then_continue_to_pass3"
+                if ready
+                else "repair_current_pass2_skill_route_checkpoint"
+            ),
+            "run_artifact_contract": {
+                "rollback_ref": "refs/rollback/20260709T005850Z-skill-route-discovery-pass2",
+                "rollback_artifact": (
+                    "artifacts/rollback/20260709T005850Z-skill-route-discovery-pass2/"
+                    "rollback-point.md"
+                ),
+                "evolution_artifact": (
+                    "artifacts/self-evolution/"
+                    "github-growth-20260709T005850Z-skill-route-pass2-checkpoint.md"
+                ),
+                "material_actions_logged": True,
+                "external_evidence_reviewed": True,
+                "promotion_or_push_performed": False,
+                "restart_performed": False,
+            },
+            "self_model_decision": {
+                "path": "docs/self-model.md",
+                "changed": False,
+                "reason": (
+                    "the current self-model already favors rollback-backed local "
+                    "behavior improvements over ornamental edits"
+                ),
+            },
+            "local_validation_required": True,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "kernel_restart_allowed": False,
+            "promotion_or_push_performed": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_replay_commands_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+            "rows": checkpoint_rows,
+        }
     }
 
 
