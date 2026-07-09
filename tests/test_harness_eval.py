@@ -922,6 +922,118 @@ def test_skill_route_discovery_lane_exports_20260709T055528_pass4_completion_han
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_lane_exports_20260709T071527_pass4_completion_handoff():
+    source_digest = "github-growth-20260709T071527.122161Z"
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "current-digest-20260709T071527-pass4",
+            "source_kind": "evidence_items",
+            "source_digest": source_digest,
+            "evidence_items": [
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "item_kind": "repository",
+                    "name": "reverse-flow-skill",
+                    "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                    "summary": (
+                        "Codex and AI Agent reverse-flow skill package with activation phrase, "
+                        "skills directory, local sandbox framing, staged workflow, diagnostic scripts, "
+                        "install, and run examples."
+                    ),
+                    "topics": ["agent", "codex", "skill", "workflow"],
+                    "route_hints": ["skill_route_discovery"],
+                    "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                    "route_classification": {
+                        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                        "source_layout_signals": [
+                            "skill_directory",
+                            "skill_markdown",
+                            "validation_script",
+                        ],
+                        "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+                    },
+                },
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:Pluviobyte/rnskill-1",
+                    "item_kind": "repository",
+                    "name": "rnskill",
+                    "source_url": "https://github.com/Pluviobyte/rnskill",
+                    "summary": (
+                        "AI Agent Skills collection with SKILL.md-compatible skills, docs, "
+                        "tools, workflow examples, marketplace metadata, and manual install."
+                    ),
+                    "topics": ["agent", "skill", "skills", "workflow"],
+                    "route_hints": ["skill_route_discovery"],
+                    "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                    "observed_paths": ["skills/rn-renhua/SKILL.md", "docs/rn-renhua.md"],
+                    "route_classification": {
+                        "route_profiles": ["generic_skill_workflow"],
+                        "source_layout_signals": ["skill_directory", "skill_markdown"],
+                        "source_metadata_signals": [
+                            "agent_plugin_marketplace",
+                            "skill_registry_metadata",
+                        ],
+                    },
+                },
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:SmileLikeYe/agent-chief-1",
+                    "item_kind": "repository",
+                    "name": "agent-chief",
+                    "source_url": "https://github.com/SmileLikeYe/agent-chief",
+                    "summary": "General local-first agent orchestration project without skill package evidence.",
+                    "topics": ["agent", "workflow", "orchestration", "harness"],
+                    "route_hints": [],
+                    "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+                },
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+                    "item_kind": "repository",
+                    "name": "Hy3",
+                    "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+                    "summary": "General reasoning and agent model project without skill package evidence.",
+                    "topics": ["agent", "model", "reasoning", "api"],
+                    "route_hints": [],
+                    "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime"],
+                },
+            ],
+        },
+        source_path=Path("current-digest-20260709T071527.json"),
+    )
+    handoff = output["current_digest_20260709T071527_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["item_id"]: row for row in handoff["adjacent_general_agent_rows"]}
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert handoff["status"] == "ready"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert rows["p1_skill_route_discovery_reverse_flow"]["selected_local_lane"] == "test"
+    assert rows["p2_generic_skill_workflow_probe_rnskill"]["selected_local_lane"] == "documentation"
+    assert handoff["route_decision_contract"]["skill_route_discovery_first_required"] is True
+    assert handoff["route_decision_contract"]["general_agent_direct_lanes_before_eval"] == []
+    assert set(adjacent) == {"trend:SmileLikeYe/agent-chief-1", "trend:Tencent-Hunyuan/Hy3-1"}
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["implementation_lane_selected"] is False for row in adjacent.values())
+    assert handoff["final_operator_handoff"]["status"] == "ready"
+    assert handoff["final_operator_handoff"]["activation_authority"] == "external_supervisor_only"
+    assert handoff["operator_next_action"] == (
+        "handoff_completed_skill_route_slice_to_supervisor_without_activation"
+    )
+    assert handoff["promotion_allowed"] is False
+    assert handoff["restart_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"install"' not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs():
     report = run_local_harness_eval(
         sorted(LOCAL_EVAL_FIXTURE_DIR.glob("*.json")),

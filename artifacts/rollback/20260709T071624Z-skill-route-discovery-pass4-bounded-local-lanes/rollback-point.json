@@ -1,0 +1,12 @@
+{
+  "run_id": "20260709T071624Z-skill-route-discovery-pass4-bounded-local-lanes",
+  "original_branch": "codex/blackhole-evolve/20260709T071624.826455-run-a-bounded-local-skill-route-discovery-evalua",
+  "original_head": "010ca275c69d0a348e7cb38e09ac875211f27c4a",
+  "local_rollback_ref": "refs/blackhole/rollback/20260709T071624Z-skill-route-discovery-pass4-bounded-local-lanes",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260709T071624.826455-run-a-bounded-local-skill-route-discovery-evalua",
+    "git reset --hard refs/blackhole/rollback/20260709T071624Z-skill-route-discovery-pass4-bounded-local-lanes",
+    "git clean -fd"
+  ],
+  "destructive_rollback_requires_explicit_operator_choice": true
+}
