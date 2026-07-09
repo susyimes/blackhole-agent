@@ -1,0 +1,14 @@
+{
+  "created_at": "2026-07-09T04:55:25Z",
+  "original_branch": "codex/blackhole-evolve/20260709T045618.014438-add-or-run-a-local-skill-route-discovery-validat",
+  "head": "a8a6d93716f4bcdc53f08a40baf78d6f0eb63fd4",
+  "rollback_ref": "refs/rollback/blackhole-agent/20260709T045525Z-skill-route-discovery-pass1-current-window",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260709T045618.014438-add-or-run-a-local-skill-route-discovery-validat",
+    "git reset --hard a8a6d93716f4bcdc53f08a40baf78d6f0eb63fd4",
+    "git clean -fd"
+  ],
+  "source_digest": "github-growth-20260709T045527.410777Z",
+  "capability_slice": "skill-route-discovery",
+  "note": "Rollback point created before pass-1 skill-route-discovery self-modification."
+}
