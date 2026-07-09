@@ -1,0 +1,11 @@
+{
+  "run": "20260709T053525Z-skill-route-discovery-pass3-validation-lane",
+  "original_branch": "codex/blackhole-evolve/20260709T053612.587409-run-a-bounded-skill-route-discovery-validation-l",
+  "original_head": "156a121d6687c1d82e613c6ddc37c4a9545b52a1",
+  "rollback_ref": "refs/blackhole-rollback/20260709T053525Z-skill-route-discovery-pass3-validation-lane",
+  "created_at": "2026-07-09T05:35:25Z",
+  "recovery_commands": [
+    "git reset --hard 156a121d6687c1d82e613c6ddc37c4a9545b52a1",
+    "git clean -fd"
+  ]
+}

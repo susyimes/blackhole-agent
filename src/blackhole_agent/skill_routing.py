@@ -2494,6 +2494,83 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_digest_20260709T053527_pass3_validation_packet = (
+        _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+            selected_source_digests=(
+                "github-growth-20260709T053527.306621Z",
+                "github-growth-20260709T053527Z",
+            ),
+            controller_surface=(
+                "skill_route_discovery_current_digest_20260709T053527_pass3_validation_packet"
+            ),
+            source_digest_fallback="github-growth-20260709T053527.306621Z",
+            proposal_specs=(
+                {
+                    "proposal_id": "p1-reverse-flow-skill-route-discovery",
+                    "proposal_kind": "test",
+                    "proposal_track": "reverse_flow_skill_route_discovery_validation_lane",
+                    "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                    "candidate_name_terms": ("reverse-flow-skill",),
+                    "selected_local_lane": "test",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": (
+                        "reverse_flow_skill_workflow_maps_to_bounded_local_test_lane"
+                    ),
+                    "require_uncertainty_reasons": False,
+                },
+                {
+                    "proposal_id": "p2-rnskill-skill-route-discovery",
+                    "proposal_kind": "documentation",
+                    "proposal_track": "generic_skill_workflow_route_documentation_probe",
+                    "route_profiles": ("generic_skill_workflow",),
+                    "candidate_name_terms": ("rnskill",),
+                    "selected_local_lane": "documentation",
+                    "validation_gate": "focused-evidence-review",
+                    "validation_target": (
+                        "rnskill_skill_collection_maps_to_documented_bounded_lanes"
+                    ),
+                    "require_uncertainty_reasons": True,
+                },
+            ),
+            proposal_ids=(
+                "p1-reverse-flow-skill-route-discovery",
+                "p2-rnskill-skill-route-discovery",
+                "p3-general-agent-harness-eval",
+            ),
+            adjacent_proposal_id="p3-general-agent-harness-eval",
+            run_artifact_contract={
+                "rollback_ref": (
+                    "refs/blackhole-rollback/"
+                    "20260709T053525Z-skill-route-discovery-pass3-validation-lane"
+                ),
+                "rollback_artifact": (
+                    "artifacts/rollback/"
+                    "20260709T053525Z-skill-route-discovery-pass3-validation-lane/"
+                    "rollback-point.md"
+                ),
+                "run_note_artifact": (
+                    "artifacts/evolution-20260709T053525Z-"
+                    "skill-route-discovery-pass3-validation-lane.md"
+                ),
+                "validation_command_hash": _stable_hash(
+                    "python -m pytest tests/test_skill_routing.py -q -k 20260709T053527"
+                ),
+                "rollback_execution": "explicit_destructive_operator_action_only",
+                "raw_validation_command_exported": False,
+            },
+            ready_decision=(
+                "current_digest_pass3_skill_route_validation_lane_ready_for_bounded_replay"
+            ),
+            blocked_decision="repair_current_digest_053527_pass3_validation_packet",
+            ready_next_action=(
+                "replay_current_digest_053527_pass3_validation_packet_then_continue_to_pass4"
+            ),
+            blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_053527_packet",
+        )
+    )
 
     return {
         "schema_version": 1,
@@ -2674,6 +2751,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260709T045527_pass1_validation_lane": (
             current_digest_20260709T045527_pass1_validation_lane
+        ),
+        "current_digest_20260709T053527_pass3_validation_packet": (
+            current_digest_20260709T053527_pass3_validation_packet
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,

@@ -480,6 +480,145 @@ def test_skill_route_discovery_current_digest_20260709T005850_pass2_checkpoint()
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260709T053527_pass3_validation_packet():
+    source_digest = "github-growth-20260709T053527.306621Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "lingbol088-spec-reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "title": "Reverse-flow Codex skill workflow",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with skills/reverse-flow, "
+                "SKILL.md, local sandbox framing, staged workflow, diagnostic scripts, "
+                "install examples, and run pressure that must remain discovery evidence."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent", "codex", "skill", "workflow", "reverse-flow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "run"],
+            "route_classification": {
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-1",
+            "item_kind": "repository",
+            "name": "Pluviobyte-rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "title": "Generic AI Agent SKILL.md collection",
+            "summary": (
+                "AI Agent Skills collection for Codex and Claude workflows with skills, "
+                "docs, tools, marketplace metadata, and manual install examples; repository "
+                "internals have not been locally inspected."
+            ),
+            "route_hints": ["skill_route_discovery"],
+            "topics": ["agent", "codex", "skill", "skills", "workflow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install", "enable"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "skill_manifest"],
+                "source_metadata_signals": ["skill_collection", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:SmileLikeYe/agent-chief-1",
+            "item_kind": "repository",
+            "name": "agent-chief",
+            "source_url": "https://github.com/SmileLikeYe/agent-chief",
+            "title": "Local-first agent attention router",
+            "summary": (
+                "General agent project that classifies agent, alert, and feed activity into "
+                "interrupt-or-not decisions. It is not a skill package and needs local harness "
+                "evaluation before controller or workflow changes."
+            ),
+            "topics": ["agent", "workflow", "local-first", "routing"],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+            "item_kind": "repository",
+            "name": "Hy3",
+            "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+            "title": "Hy3 reasoning and agent model project",
+            "summary": (
+                "Reasoning and agent model project with API, deployment, model serving, MCP, "
+                "and provider pressure. It is model/provider evidence, not a skill activation lane."
+            ),
+            "topics": ["agent", "model", "reasoning", "mcp", "api"],
+            "suggested_lanes": [
+                "documentation",
+                "test",
+                "code_patch",
+                "provider_runtime",
+                "runtime_execution",
+            ],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    packet = lane_map["current_digest_20260709T053527_pass3_validation_packet"]
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    adjacent = {row["name"]: row for row in packet["adjacent_general_agent_rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert registry["source_digest"] == source_digest
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 2
+    assert packet["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260709T053527_pass3_validation_packet"
+    )
+    assert packet["status"] == "ready"
+    assert packet["capability_pass"] == 3
+    assert packet["proposal_ids"] == [
+        "p1-reverse-flow-skill-route-discovery",
+        "p2-rnskill-skill-route-discovery",
+        "p3-general-agent-harness-eval",
+    ]
+    assert packet["blocked_proposal_ids"] == []
+    assert packet["selected_skill_local_lanes"] == ["documentation", "test"]
+
+    reverse_flow = rows["p1-reverse-flow-skill-route-discovery"]
+    assert reverse_flow["candidate_names"] == ["lingbol088-spec-reverse-flow-skill"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    rnskill = rows["p2-rnskill-skill-route-discovery"]
+    assert rnskill["candidate_names"] == ["Pluviobyte-rnskill"]
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["uncertainty_reasons"] == [
+        "unvalidated_external_skill_evidence",
+        "single_repository_level_source",
+        "missing_detail_risk",
+    ]
+
+    assert set(adjacent) == {"agent-chief", "Hy3"}
+    assert all(row["proposal_id"] == "p3-general-agent-harness-eval" for row in adjacent.values())
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent.values())
+    assert all(
+        row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        for row in adjacent.values()
+    )
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert packet["external_skill_activation_allowed"] is False
+    assert packet["external_harness_execution_allowed"] is False
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T040637_pass1_routes_current_window():
     fixture_path = (
         Path(__file__).parent
