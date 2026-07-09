@@ -1,0 +1,10 @@
+{
+  "timestamp": "20260709T091525Z-provider-runtime-control-pass2",
+  "original_branch": "codex/blackhole-evolve/20260709T091619.374826-add-or-run-a-local-validation-lane-for-codex-ori",
+  "head": "3415f5385122c19297a76fd2b97b14f21d796067",
+  "rollback_ref": "refs/blackhole/rollback/20260709T091525Z-provider-runtime-control-pass2",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260709T091619.374826-add-or-run-a-local-validation-lane-for-codex-ori",
+    "git reset --hard refs/blackhole/rollback/20260709T091525Z-provider-runtime-control-pass2"
+  ]
+}

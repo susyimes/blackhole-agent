@@ -89,6 +89,134 @@ def test_at_prefixed_skill_name_counts_as_explicit_invocation():
     assert ranked[0].reasons == ("skill_name:codex-fable5", "validation:experimental")
 
 
+def test_skill_route_discovery_current_digest_20260709T091527_pass2_classifier_regression():
+    source_digest = "github-growth-20260709T091527.196858Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with activation phrase, "
+                "local sandbox framing, staged workflow, diagnostic scripts, install, and run examples."
+            ),
+            "topics": ["agent", "codex", "skill", "workflow"],
+            "route_hints": ["skill_route_discovery"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-1",
+            "item_kind": "repository",
+            "name": "rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "summary": (
+                "AI Agent Skills collection for Codex, Claude Code, and Agent workflows "
+                "that support SKILL.md with skills, docs, tools, marketplace metadata, "
+                "and manual install notes."
+            ),
+            "topics": ["agent", "skill", "skills", "workflow"],
+            "route_hints": ["skill_route_discovery"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "observed_paths": ["skills/rn-renhua/SKILL.md", "docs/rn-renhua.md"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown"],
+                "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "item_kind": "repository",
+            "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+            "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+            "summary": "Workflow usecase collection without SKILL.md package evidence.",
+            "topics": ["workflow", "agent", "usecases", "blender"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch"],
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:SmileLikeYe/agent-chief-1",
+            "item_kind": "repository",
+            "name": "agent-chief",
+            "source_url": "https://github.com/SmileLikeYe/agent-chief",
+            "summary": "Local-first general agent orchestration project without skill package evidence.",
+            "topics": ["agent", "workflow", "orchestration", "eval"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+            "item_kind": "repository",
+            "name": "Hy3",
+            "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+            "summary": (
+                "General reasoning and agent model project with API quickstart and MCP server "
+                "evidence but no skill package evidence."
+            ),
+            "topics": ["agent", "model", "reasoning", "api", "mcp"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime"],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    packet = lane_map["current_digest_20260709T091527_pass2_validation_lane"]
+    rows = {row["proposal_id"]: row for row in packet["rows"]}
+    adjacent = {row["item_id"]: row for row in packet["adjacent_general_agent_rows"]}
+    serialized = json.dumps(packet, sort_keys=True)
+
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert packet["status"] == "ready"
+    assert packet["capability_pass"] == 2
+    assert packet["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260709T091527_pass2_validation_lane"
+    )
+    assert rows["p1-skill-route-discovery-codex-gate"]["selected_local_lane"] == "test"
+    assert rows["p2-generic-skill-route-doc-config"]["selected_local_lane"] == "documentation"
+    assert all(
+        set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        for row in rows.values()
+    )
+    assert set(adjacent) == {
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "trend:SmileLikeYe/agent-chief-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    }
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    hy3 = adjacent["trend:Tencent-Hunyuan/Hy3-1"]
+    assert hy3["proposal_track"] == "provider_runtime_preflight_control"
+    assert hy3["provider_runtime_preflight_context"]["status"] == "held_for_local_preflight"
+    assert hy3["provider_runtime_preflight_context"]["provider_launch_allowed"] is False
+    assert hy3["provider_runtime_preflight_context"]["mcp_server_launch_allowed"] is False
+    assert hy3["provider_runtime_preflight_context"]["network_call_allowed"] is False
+    assert packet["route_decision_contract"]["general_agent_direct_lanes_before_eval"] == []
+    assert packet["provider_runtime_launch_allowed"] is False
+    assert packet["remote_execution_allowed"] is False
+    assert packet["run_artifact_contract"]["rollback_ref"] == (
+        "refs/blackhole/rollback/20260709T091525Z-provider-runtime-control-pass2"
+    )
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"install"' not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260709T071527_pass4_completion_handoff():
     source_digest = "github-growth-20260709T071527.122161Z"
     items = [
