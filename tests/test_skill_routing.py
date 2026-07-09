@@ -217,6 +217,139 @@ def test_skill_route_discovery_current_digest_20260707T172109_pass1_routes_sheph
     assert "runtime_execution" not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260709T003850_routes_skill_benchmark_secondary_hint():
+    source_digest = "github-growth-20260709T003850.757195Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "lingbol088-spec-reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "title": "Reverse-flow Codex skill workflow",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with skills/reverse-flow, "
+                "SKILL.md, local sandbox framing, staged workflow, and diagnostic scripts."
+            ),
+            "topics": ["agent", "codex", "skill", "workflow"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "source_layout_signals": ["skill_markdown", "skill_directory", "validation_script"],
+                "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-2",
+            "item_kind": "repository",
+            "name": "Pluviobyte-rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "title": "rnskill generic SKILL.md collection",
+            "summary": (
+                "AI Agent Skills collection for Codex and Claude workflows with a skills "
+                "directory, docs, tools, and marketplace metadata."
+            ),
+            "topics": ["agent", "codex", "skill", "skills"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "observed_paths": ["skills/rn-renhua/SKILL.md", "docs/rn-renhua.md"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown"],
+                "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:eli-labz/Cognitive-Core-Skills-1",
+            "item_kind": "repository",
+            "name": "Cognitive-Core-Skills",
+            "source_url": "https://github.com/eli-labz/Cognitive-Core-Skills",
+            "title": "Cognitive Core Skills taxonomy with benchmarks",
+            "summary": (
+                "Universal taxonomy of cognitive core skills for LLMs, SLMs, AI agents, "
+                "and world models with schemas, skill cards, benchmarks, and CI."
+            ),
+            "topics": ["agent", "benchmark", "skill", "skills", "evaluation"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "agent_harness_eval"],
+            "observed_paths": ["skills/perception/SKILL.md", "benchmarks/core-skills.json"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                "source_metadata_signals": ["skill_registry_metadata"],
+            },
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    packet = build_skill_route_discovery_validation_route_packet(registry)
+    lane = packet["current_pass1_focused_review_lane"]
+    rows = {row["proposal_id"]: row for row in lane["skill_route_rows"]}
+    serialized = json.dumps({"lane": lane, "packet": packet}, sort_keys=True)
+
+    assert registry["source_digest"] == source_digest
+    assert registry["candidate_count"] == 3
+    assert registry["ignored_evidence_item_count"] == 0
+    candidate_inventory = {
+        row["candidate_name"]: row for row in lane_map["candidate_lane_inventory"]
+    }
+    assert candidate_inventory["Cognitive-Core-Skills"]["benchmark_signal_detected"] is True
+
+    assert lane["status"] == "ready"
+    assert lane["capability_pass"] == 1
+    assert lane["anchoring_proposal_ids"] == [
+        "p1-skill-route-discovery-fixture",
+        "p2-skill-discovery-docs",
+        "p3-cognitive-core-benchmark-route",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-2",
+        "trend:eli-labz/Cognitive-Core-Skills-1",
+    ]
+    assert lane["agent_harness_eval_required_count"] == 0
+    assert lane["selected_skill_local_lanes"] == ["documentation", "test"]
+
+    reverse_flow = rows["p1-skill-route-discovery-fixture"]
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    rnskill = rows["p2-skill-discovery-docs"]
+    assert rnskill["candidate_name"] == "Pluviobyte-rnskill"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    cognitive_core = rows["p3-cognitive-core-benchmark-route"]
+    assert cognitive_core["candidate_name"] == "Cognitive-Core-Skills"
+    assert cognitive_core["selected_local_lane"] == "test"
+    assert cognitive_core["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert cognitive_core["benchmark_signal_detected"] is True
+    assert cognitive_core["secondary_validation_hint"] == "agent_harness_eval_after_skill_route_discovery"
+    assert cognitive_core["secondary_validation_hint_status"] == (
+        "blocked_until_skill_route_local_validation"
+    )
+    assert cognitive_core["agent_harness_eval_allowed_after"] == (
+        "skill_route_discovery_local_validation"
+    )
+
+    queue = packet["route_validation_queue"]
+    assert [row["route_kind"] for row in queue] == [
+        "skill_workflow",
+        "skill_workflow",
+        "skill_workflow",
+    ]
+    assert packet["allowed_skill_route_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+    assert packet["agent_harness_eval_required"] is False
+    assert "agent_harness_eval" not in json.dumps(
+        [row["allowed_local_lanes"] for row in lane["skill_route_rows"]],
+        sort_keys=True,
+    )
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert "install" not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T040637_pass1_routes_current_window():
     fixture_path = (
         Path(__file__).parent

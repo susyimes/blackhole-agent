@@ -1425,6 +1425,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             allowed_lanes,
             handoff_scope="candidate_inventory",
         )
+        secondary_benchmark_hint = _skill_route_discovery_secondary_benchmark_hint(candidate)
         candidate_lane_inventory.append(
             {
                 "candidate_name": name,
@@ -1455,6 +1456,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                     "source_metadata_signals",
                     _string_list(candidate.get("source_metadata_signals")),
                 ),
+                **secondary_benchmark_hint,
                 **probe_metadata,
                 **state_boundary_metadata,
                 **domain_research_boundary_metadata,
@@ -1502,6 +1504,7 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
                         "source_metadata_signals",
                         _string_list(candidate.get("source_metadata_signals")),
                     ),
+                    **secondary_benchmark_hint,
                     **probe_metadata,
                     **state_boundary_metadata,
                     **domain_research_boundary_metadata,
@@ -2635,6 +2638,14 @@ def build_skill_route_discovery_validation_route_packet(registry: Mapping[str, A
                 "validation_target": "skill_workflow_route_discovery_before_implementation",
                 "status": "ready" if not blockers else "blocked",
                 "activation_blockers": blockers,
+                "benchmark_signal_detected": candidate.get("benchmark_signal_detected") is True,
+                "secondary_validation_hint": str(candidate.get("secondary_validation_hint") or ""),
+                "secondary_validation_hint_status": str(
+                    candidate.get("secondary_validation_hint_status") or ""
+                ),
+                "agent_harness_eval_allowed_after": str(
+                    candidate.get("agent_harness_eval_allowed_after") or ""
+                ),
                 "local_validation_required": True,
                 "runtime_action": "none",
                 "external_skill_activation_allowed": False,
@@ -2814,6 +2825,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     current_200110_window = source_digest == "github-growth-20260707T200110.283498Z"
     current_212110_window = source_digest == "github-growth-20260707T212110.239635Z"
     current_20260708_000200_window = source_digest == "github-growth-20260708T000200.125943Z"
+    current_20260709_003850_window = source_digest == "github-growth-20260709T003850.757195Z"
     if not (
         current_052834_window
         or current_094834_window
@@ -2821,6 +2833,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         or current_200110_window
         or current_212110_window
         or current_20260708_000200_window
+        or current_20260709_003850_window
     ):
         return {}
 
@@ -2842,6 +2855,15 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             "issue:Tencent-Hunyuan/Hy3-3",
         ]
         if current_20260708_000200_window
+        else [
+            "p1-skill-route-discovery-fixture",
+            "p2-skill-discovery-docs",
+            "p3-cognitive-core-benchmark-route",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-2",
+            "trend:eli-labz/Cognitive-Core-Skills-1",
+        ]
+        if current_20260709_003850_window
         else [
             "p1-skill-route-discovery-reverse-flow",
             "p2-skill-route-discovery-rnskill",
@@ -2887,6 +2909,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         "p2-skill-route-docs"
         if current_20260708_000200_window
         else
+        "p1-skill-route-discovery-fixture"
+        if current_20260709_003850_window
+        else
         "p1-skill-route-discovery-reverse-flow"
         if current_184110_window or current_200110_window or current_212110_window
         else
@@ -2897,6 +2922,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     generic_skill_proposal_id = (
         "p2-skill-route-docs"
         if current_20260708_000200_window
+        else
+        "p2-skill-discovery-docs"
+        if current_20260709_003850_window
         else
         "p2-generic-skill-workflow-discovery-rnskill"
         if current_200110_window
@@ -2940,6 +2968,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         "11473712336-1"
         if current_20260708_000200_window
         else
+        "p3-cognitive-core-benchmark-route"
+        if current_20260709_003850_window
+        else
         "p3-bionemo-skill-routing-domain-guard"
         if current_212110_window
         else
@@ -2964,6 +2995,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             "pytest tests/test_skill_routing.py -q -k 20260708T000200"
             if current_20260708_000200_window
             else
+            "pytest tests/test_skill_routing.py -q -k 20260709T003850"
+            if current_20260709_003850_window
+            else
             "pytest tests/test_skill_routing.py -q -k 20260707T200110"
             if current_200110_window
             else
@@ -2980,6 +3014,9 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             else
             "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260708T000200"
             if current_20260708_000200_window
+            else
+            "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260709T003850"
+            if current_20260709_003850_window
             else
             "pytest tests/test_docs_contracts.py -q -k skill_route_discovery_doc_records_20260707T200110"
             if current_200110_window
@@ -2998,19 +3035,23 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         route_profiles = _string_list(row.get("route_profiles"))
         is_reverse_flow = "codex_workflow_gate" in route_profiles
         is_domain_specific = "source_cited_domain_research" in route_profiles
-        selected_lane = "test" if is_reverse_flow else "documentation"
+        is_benchmark_skill = row.get("benchmark_signal_detected") is True
+        candidate_name = str(row.get("candidate_name") or "")
+        selected_lane = "test" if is_reverse_flow or is_benchmark_skill else "documentation"
         allowed_lanes = _string_list(row.get("allowed_local_lanes"))
         skill_route_rows.append(
             {
                 "proposal_id": (
                     reverse_flow_proposal_id
                     if is_reverse_flow
+                    else "p3-cognitive-core-benchmark-route"
+                    if current_20260709_003850_window and is_benchmark_skill
                     else "p3-bionemo-skill-routing-domain-guard"
                     if current_212110_window and is_domain_specific
                     else generic_skill_proposal_id
                 ),
                 "route_id": str(row.get("route_id") or ""),
-                "candidate_name": str(row.get("candidate_name") or ""),
+                "candidate_name": candidate_name,
                 "candidate_source_hash": str(row.get("candidate_source_hash") or ""),
                 "route_profiles": route_profiles,
                 "selected_local_lane": selected_lane,
@@ -3020,6 +3061,14 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
                 <= set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
                 "domain_specific_skill_toolkit_guard": bool(
                     current_212110_window and is_domain_specific
+                ),
+                "benchmark_signal_detected": is_benchmark_skill,
+                "secondary_validation_hint": str(row.get("secondary_validation_hint") or ""),
+                "secondary_validation_hint_status": str(
+                    row.get("secondary_validation_hint_status") or ""
+                ),
+                "agent_harness_eval_allowed_after": str(
+                    row.get("agent_harness_eval_allowed_after") or ""
                 ),
                 "selected_evidence_item_ids": _string_list(row.get("selected_evidence_item_ids")),
                 "validation_gates": _string_list(row.get("validation_gates")),
@@ -3068,7 +3117,7 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
     if not any("codex_workflow_gate" in _string_list(row.get("route_profiles")) for row in skill_rows):
         blockers.append("reverse_flow_codex_workflow_gate_missing")
     if not any(
-        str(row.get("candidate_name") or "") == "rnskill"
+        "rnskill" in str(row.get("candidate_name") or "").casefold()
         and "generic_skill_workflow" in _string_list(row.get("route_profiles"))
         for row in skill_rows
     ):
@@ -3079,7 +3128,19 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
         for row in skill_rows
     ):
         blockers.append("domain_specific_bionemo_skill_guard_missing")
+    if current_20260709_003850_window and not any(
+        row.get("benchmark_signal_detected") is True
+        and str(row.get("secondary_validation_hint") or "")
+        == "agent_harness_eval_after_skill_route_discovery"
+        and str(row.get("secondary_validation_hint_status") or "")
+        == "blocked_until_skill_route_local_validation"
+        for row in skill_rows
+    ):
+        blockers.append("cognitive_core_secondary_benchmark_hint_missing")
     minimum_agent_rows = (
+        0
+        if current_20260709_003850_window
+        else
         1
         if current_20260708_000200_window
         else 2
@@ -3170,6 +3231,20 @@ def _skill_route_discovery_current_pass1_focused_review_lane(
             ),
             "evolution_artifact": (
                 "artifacts/evolution-20260708T000158Z-skill-route-discovery-pass1-hy3-preflight.md"
+            ),
+            "material_actions_logged": True,
+            "external_evidence_reviewed": True,
+            "promotion_or_push_performed": False,
+            "restart_performed": False,
+        }
+    elif current_20260709_003850_window:
+        run_artifact_contract = {
+            "rollback_ref": "refs/blackhole-rollback/20260709T003936Z-skill-route-discovery-pass1",
+            "rollback_artifact": (
+                "artifacts/rollback/20260709T003936Z-skill-route-discovery-pass1.md"
+            ),
+            "evolution_artifact": (
+                "artifacts/blackhole-runs/20260709T003936Z-skill-route-discovery-pass1.md"
             ),
             "material_actions_logged": True,
             "external_evidence_reviewed": True,
@@ -4822,6 +4897,43 @@ def _skill_route_discovery_mixed_probe_metadata(
         "agent_harness_eval_allowed_after": "local_corroboration_or_general_agent_project_claim",
         "full_mixed_signal": bool(matched_terms & set(SKILL_ROUTE_DISCOVERY_MIXED_AGENT_TERMS)),
         "recommended_local_lane_order": recommended_order,
+    }
+
+
+def _skill_route_discovery_secondary_benchmark_hint(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep benchmark/eval wording secondary when it appears inside a skill repo."""
+
+    text = " ".join(
+        part
+        for part in (
+            str(candidate.get("name") or ""),
+            str(candidate.get("evidence_summary") or ""),
+            " ".join(_string_list(candidate.get("matched_route_terms"))),
+            " ".join(_string_list(candidate.get("source_layout_signals"))),
+            " ".join(_string_list(candidate.get("source_metadata_signals"))),
+        )
+        if part
+    ).casefold()
+    if not any(
+        marker in text
+        for marker in (
+            "agent benchmark",
+            "benchmark",
+            "benchmarks",
+            "cognitive-core-skills",
+            "evaluation",
+            "evals",
+            "skill cards",
+        )
+    ):
+        return {}
+    return {
+        "benchmark_signal_detected": True,
+        "primary_route": SKILL_ROUTE_DISCOVERY_HINT,
+        "route_probe_decision": "skill_route_discovery_first",
+        "secondary_validation_hint": "agent_harness_eval_after_skill_route_discovery",
+        "secondary_validation_hint_status": "blocked_until_skill_route_local_validation",
+        "agent_harness_eval_allowed_after": "skill_route_discovery_local_validation",
     }
 
 

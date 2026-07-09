@@ -5,6 +5,24 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T003850.757195Z`, pass 1 exposes the
+active skill-route slice through `current_pass1_focused_review_lane` on the
+validation route packet. The lane keeps `reverse-flow-skill` in the local test
+lane as Codex workflow-gate evidence, keeps `rnskill` documentation-first as a
+generic SKILL.md collection, and treats `Cognitive-Core-Skills` as a skill
+repository first even though it also mentions benchmarks, evaluations, schemas,
+and skill cards. That mixed skill/benchmark row may expose only a blocked
+secondary hint, `agent_harness_eval_after_skill_route_discovery`, after local
+skill-route validation; it does not become a general-agent harness row or open
+any direct implementation lane before skill discovery passes.
+
+The pass-1 surface is metadata-only: skill rows stay bounded to documentation,
+config, test, or code_patch, runtime action is none, and install, enable, run,
+external skill activation, external harness execution, provider launch, remote
+execution, raw source URLs, raw evidence URLs, replay commands, target paths,
+upstream bodies, promotion, and restart remain disabled. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260709T003850`.
+
 For source digest `github-growth-20260709T001850.976378Z`, pass 4 exposes
 `skill_route_discovery_current_digest_20260709T001850_pass4_completion_matrix`.
 The matrix completes the current skill-route slice by making the route order
