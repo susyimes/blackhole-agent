@@ -337,6 +337,153 @@ def test_skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260709T111527_pass4_completion_handoff():
+    source_digest = "github-growth-20260709T111527.170620Z"
+    items = [
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+            "item_kind": "repository",
+            "name": "reverse-flow-skill",
+            "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+            "summary": (
+                "Codex and AI Agent reverse-flow skill package with skills/reverse-flow/SKILL.md, "
+                "local sandbox framing, staged workflow, diagnostic scripts, install, and run examples."
+            ),
+            "topics": ["agent", "codex", "skill", "workflow"],
+            "route_hints": ["skill_route_discovery"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "route_classification": {
+                "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown", "validation_script"],
+                "source_metadata_signals": ["activation_phrase", "local_sandbox_boundary"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Pluviobyte/rnskill-1",
+            "item_kind": "repository",
+            "name": "rnskill",
+            "source_url": "https://github.com/Pluviobyte/rnskill",
+            "summary": (
+                "AI Agent Skills collection with SKILL.md-compatible skill directories, docs, "
+                "tools, workflow examples, marketplace metadata, and manual install notes."
+            ),
+            "topics": ["agent", "skill", "skills", "workflow"],
+            "route_hints": ["skill_route_discovery"],
+            "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+            "observed_paths": ["skills/rn-renhua/SKILL.md", ".claude-plugin/plugin.json"],
+            "route_classification": {
+                "route_profiles": ["generic_skill_workflow"],
+                "source_layout_signals": ["skill_directory", "skill_markdown"],
+                "source_metadata_signals": ["agent_plugin_marketplace", "skill_registry_metadata"],
+            },
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "item_kind": "repository",
+            "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+            "source_url": "https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases",
+            "summary": "Curated Blender plus Seedance workflow use cases without SKILL.md package evidence.",
+            "topics": ["workflow", "agent", "usecases", "blender"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch"],
+        },
+        {
+            "source_digest": source_digest,
+            "item_id": "trend:SmileLikeYe/agent-chief-1",
+            "item_kind": "repository",
+            "name": "agent-chief",
+            "source_url": "https://github.com/SmileLikeYe/agent-chief",
+            "summary": "Local-first general agent orchestration project without selected skill package evidence.",
+            "topics": ["agent", "workflow", "orchestration", "eval"],
+            "route_hints": [],
+            "suggested_lanes": ["documentation", "test", "code_patch", "runtime_execution"],
+        },
+    ]
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(items)
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    handoff = lane_map["current_digest_20260709T111527_pass4_completion_handoff"]
+    rows = {row["proposal_id"]: row for row in handoff["rows"]}
+    adjacent = {row["item_id"]: row for row in handoff["adjacent_general_agent_rows"]}
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert registry["source_digest"] == source_digest
+    assert handoff["status"] == "ready"
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260709T111527_pass4_completion_handoff"
+    )
+    assert handoff["capability_theme"] == "skill-route-discovery"
+    assert handoff["capability_pass"] == 4
+    assert handoff["capability_slice_complete"] is True
+    assert handoff["planned_window_complete"] is True
+    assert rows["p1-skill-route-discovery-benchmark"]["selected_local_lane"] == "test"
+    assert rows["p2-skill-route-discovery-docs"]["selected_local_lane"] == "documentation"
+    assert all(
+        set(row["allowed_local_lanes"]) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        for row in rows.values()
+    )
+    assert all(row["runtime_action"] == "none" for row in rows.values())
+    assert all(row["external_skill_activation_allowed"] is False for row in rows.values())
+
+    assert set(adjacent) == {
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "trend:SmileLikeYe/agent-chief-1",
+    }
+    assert all(row["proposal_id"] == "p3-agent-harness-eval-fixtures" for row in adjacent.values())
+    assert all(row["evaluation_lane"] == "agent_harness_eval_required" for row in adjacent.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in adjacent.values())
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in adjacent.values())
+    assert all(row["accepted_outputs_before_eval"] == [] for row in adjacent.values())
+    assert all(
+        row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        for row in adjacent.values()
+    )
+    assert all(row["implementation_lane_selected"] is False for row in adjacent.values())
+    assert all(row["implementation_patch_allowed_before_eval"] is False for row in adjacent.values())
+
+    assert handoff["route_decision_contract"] == {
+        "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "external_skill_repositories_allowed_outputs": [
+            "documentation",
+            "config",
+            "test",
+            "code_patch",
+        ],
+        "reverse_flow_workflow_selected_lane": "test",
+        "generic_skill_collection_selected_lane": "documentation",
+        "external_skill_repositories_are_runtime_evidence": False,
+        "route_hints_grant_permissions": False,
+        "general_agent_project_evaluation_lane": "agent_harness_eval_required",
+        "general_agent_direct_lanes_before_eval": [],
+        "agent_harness_eval_allowed_lanes_after_eval": ["documentation", "test", "code_patch"],
+        "activation_before_validation_allowed": False,
+        "local_validation_required": True,
+        "runtime_action": "none",
+    }
+    assert handoff["final_operator_handoff"]["activation_authority"] == "external_supervisor_only"
+    assert handoff["run_artifact_contract"]["rollback_ref"] == (
+        "refs/blackhole-rollback/"
+        "20260709T111525Z-skill-route-discovery-pass4-current-window"
+    )
+    assert handoff["self_model_decision"]["changed"] is False
+    assert handoff["promotion_allowed"] is False
+    assert handoff["push_allowed"] is False
+    assert handoff["restart_allowed"] is False
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_activation_allowed"] is False
+    assert handoff["external_harness_execution_allowed"] is False
+    assert handoff["provider_runtime_launch_allowed"] is False
+    assert handoff["remote_execution_allowed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"install"' not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260709T091527_pass2_classifier_regression():
     source_digest = "github-growth-20260709T091527.196858Z"
     items = [

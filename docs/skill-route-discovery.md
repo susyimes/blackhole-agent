@@ -11506,3 +11506,32 @@ activation, external agent activation, external harness execution, provider
 launch, remote execution, profile writes, memory writes, promotion, push, and
 restart authority stay denied. Replay with
 `python -m pytest tests/test_proposal_eval.py -q -k sparse_issue_movement`.
+
+## Source Digest 20260709T111527 Pass 4 Completion
+
+The `github-growth-20260709T111527.170620Z` completion handoff exposes
+`skill_route_discovery_current_digest_20260709T111527_pass4_completion_handoff`
+for the final skill-route-discovery pass. It closes the current reverse-flow
+and rnskill lane as bounded local validation metadata and leaves activation to
+the external supervisor.
+
+`lingbol088-spec/reverse-flow-skill` remains a Codex workflow-gate skill row
+and selects the local test lane. `Pluviobyte/rnskill` remains generic
+`SKILL.md` collection evidence and selects the documentation lane. Both may
+produce only documentation, config, test, or code_patch candidates; install,
+copy, run, plugin marketplace, provider, runtime, and remote-execution pressure
+is diagnostic only.
+
+`Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases` and
+`SmileLikeYe/agent-chief` remain adjacent `agent_harness_eval_required` rows.
+They inherit no skill-route lane, expose no direct implementation lane before
+local harness evaluation, and may only continue to documentation, test, or
+code_patch after a bounded local agent-harness route exists.
+
+The handoff records rollback metadata, selected item IDs, lane names, route
+profiles, evidence URL hashes, and final operator status while denying raw
+source URLs, raw evidence URLs, raw replay commands, upstream bodies, external
+skill activation, external agent activation, external harness execution,
+provider launch, remote execution, promotion, push, restart, and runtime
+action. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260709T111527`.

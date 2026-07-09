@@ -2655,6 +2655,13 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
             source_digest=_skill_route_discovery_source_digest(registry),
         )
     )
+    current_digest_20260709T111527_pass4_completion_handoff = (
+        _skill_route_discovery_current_digest_20260709T111527_pass4_completion_handoff(
+            candidate_lane_inventory,
+            ignored_evidence_items,
+            source_digest=_skill_route_discovery_source_digest(registry),
+        )
+    )
 
     return {
         "schema_version": 1,
@@ -2874,6 +2881,9 @@ def build_skill_route_discovery_proposal_lane_map(registry: Mapping[str, Any]) -
         ),
         "current_digest_20260709T103527_pass2_skill_route_validation_lane": (
             current_digest_20260709T103527_pass2_skill_route_validation_lane
+        ),
+        "current_digest_20260709T111527_pass4_completion_handoff": (
+            current_digest_20260709T111527_pass4_completion_handoff
         ),
         "active_pass4_completion_matrix": active_pass4_completion_matrix,
         "active_pass4_operator_activation_packet": active_pass4_operator_activation_packet,
@@ -19885,6 +19895,279 @@ def _skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_vali
                 "replay_current_digest_103527_pass2_skill_route_validation_then_continue_to_pass3"
                 if ready
                 else "repair_current_digest_103527_pass2_skill_route_validation_before_pass3"
+            ),
+            "promotion_allowed": False,
+            "push_allowed": False,
+            "restart_allowed": False,
+            "rows": rows,
+            "adjacent_general_agent_rows": adjacent_rows,
+            "runtime_action": "none",
+            "external_skill_activation_allowed": False,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_replay_commands_exported": False,
+            "raw_source_url_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_target_paths_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+    )
+    return packet
+
+
+def _skill_route_discovery_current_digest_20260709T111527_pass4_completion_handoff(
+    candidate_lane_inventory: Sequence[Mapping[str, Any]],
+    ignored_evidence_items: Sequence[Mapping[str, Any]] = (),
+    *,
+    source_digest: str = "",
+) -> dict[str, Any]:
+    """Complete the skill-route-discovery slice with bounded final-lane routing."""
+
+    packet = _skill_route_discovery_current_digest_20260708T183850_pass3_activation_packet(
+        candidate_lane_inventory,
+        ignored_evidence_items,
+        source_digest=source_digest,
+        selected_source_digests=(
+            "github-growth-20260709T111527.170620Z",
+            "github-growth-20260709T111527Z",
+        ),
+        controller_surface=(
+            "skill_route_discovery_current_digest_20260709T111527_"
+            "pass4_completion_handoff"
+        ),
+        source_digest_fallback="github-growth-20260709T111527.170620Z",
+        proposal_specs=(
+            {
+                "proposal_id": "p1-skill-route-discovery-benchmark",
+                "proposal_kind": "test",
+                "proposal_track": "skill_workflow_route_discovery_benchmark",
+                "route_profiles": ("codex_workflow_gate", "generic_skill_workflow"),
+                "candidate_name_terms": ("reverse-flow-skill",),
+                "selected_local_lane": "test",
+                "validation_gate": "focused-evidence-review",
+                "validation_target": (
+                    "reverse_flow_skill_repository_routes_to_bounded_local_validation"
+                ),
+                "require_uncertainty_reasons": False,
+            },
+            {
+                "proposal_id": "p2-skill-route-discovery-docs",
+                "proposal_kind": "documentation",
+                "proposal_track": "generic_skill_workflow_route_policy",
+                "route_profiles": ("generic_skill_workflow",),
+                "candidate_name_terms": ("rnskill",),
+                "selected_local_lane": "documentation",
+                "validation_gate": "generic_skill_workflow_local_validation_before_activation",
+                "validation_target": (
+                    "rnskill_style_skill_collection_documents_bounded_local_lanes"
+                ),
+                "require_uncertainty_reasons": True,
+            },
+        ),
+        proposal_ids=(
+            "p1-skill-route-discovery-benchmark",
+            "p2-skill-route-discovery-docs",
+            "p3-agent-harness-eval-fixtures",
+            "p4-route-classification-regression",
+            "trend:lingbol088-spec/reverse-flow-skill-1",
+            "trend:Pluviobyte/rnskill-1",
+            "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+            "trend:SmileLikeYe/agent-chief-1",
+        ),
+        adjacent_proposal_id="p3-agent-harness-eval-fixtures",
+        run_artifact_contract={
+            "rollback_ref": (
+                "refs/blackhole-rollback/"
+                "20260709T111525Z-skill-route-discovery-pass4-current-window"
+            ),
+            "rollback_artifact": (
+                "artifacts/rollback/"
+                "20260709T111525Z-skill-route-discovery-pass4-current-window/"
+                "rollback-point.md"
+            ),
+            "run_note_artifact": (
+                "artifacts/blackhole-runs/"
+                "20260709T111525Z-skill-route-discovery-pass4-current-window.md"
+            ),
+            "validation_command_hash": _stable_hash(
+                "python -m pytest tests/test_skill_routing.py -q -k 20260709T111527"
+            ),
+            "rollback_execution": "explicit_destructive_operator_action_only",
+            "raw_validation_command_exported": False,
+        },
+        ready_decision=(
+            "current_digest_pass4_skill_route_discovery_complete_for_supervisor_handoff"
+        ),
+        blocked_decision="repair_current_digest_111527_pass4_completion_handoff",
+        ready_next_action=(
+            "record_current_digest_111527_completion_handoff_for_external_supervisor"
+        ),
+        blocked_next_action="repair_blocked_rows_then_rebuild_current_digest_111527_handoff",
+    )
+
+    rows = [dict(row) for row in _mapping_list(packet.get("rows"))]
+    adjacent_rows: list[dict[str, Any]] = []
+    for row in _mapping_list(packet.get("adjacent_general_agent_rows")):
+        adjacent = dict(row)
+        name = str(adjacent.get("name") or "").casefold()
+        item_id = str(adjacent.get("item_id") or "").casefold()
+        if "seedance" in name or "blender" in name or "workflow-usecases" in item_id:
+            adjacent["proposal_track"] = "workflow_usecase_agent_harness_eval_fixture"
+        elif "agent-chief" in name or "agent-chief" in item_id:
+            adjacent["proposal_track"] = "general_agent_orchestration_harness_eval_fixture"
+        else:
+            adjacent["proposal_track"] = "general_agent_project_harness_eval_fixture"
+        adjacent["proposal_id"] = "p3-agent-harness-eval-fixtures"
+        adjacent["route_class"] = "general_agent_project"
+        adjacent["primary_route"] = "agent_harness_eval_required"
+        adjacent["evaluation_lane"] = "agent_harness_eval_required"
+        adjacent["selected_local_lane"] = "agent_harness_eval_required"
+        adjacent["direct_allowed_lanes_before_eval"] = []
+        adjacent["accepted_outputs_before_eval"] = []
+        adjacent["allowed_local_lanes_after_eval"] = ["documentation", "test", "code_patch"]
+        adjacent["accepted_outputs_after_eval"] = ["documentation", "test", "code_patch"]
+        adjacent["implementation_lane_selected"] = False
+        adjacent["implementation_patch_allowed_before_eval"] = False
+        adjacent["validation_gate"] = "local_agent_harness_eval_required_before_followup_lanes"
+        adjacent["validation_target"] = "general_agent_or_workflow_project_requires_harness_eval_first"
+        adjacent_rows.append(adjacent)
+
+    skill_rows_ready = len(rows) == 2 and all(
+        row.get("status") == "ready"
+        and set(_string_list(row.get("allowed_local_lanes"))) == set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        and row.get("selected_local_lane") in set(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        and row.get("local_validation_required") is True
+        and row.get("runtime_action") == "none"
+        and row.get("external_skill_activation_allowed") is False
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        and row.get("remote_execution_allowed") is False
+        for row in rows
+    )
+    adjacent_rows_ready = len(adjacent_rows) == 2 and all(
+        row.get("evaluation_lane") == "agent_harness_eval_required"
+        and row.get("skill_route_discovery_inherited") is False
+        and row.get("direct_allowed_lanes_before_eval") == []
+        and row.get("accepted_outputs_before_eval") == []
+        and row.get("allowed_local_lanes_after_eval") == ["documentation", "test", "code_patch"]
+        and row.get("implementation_lane_selected") is False
+        and row.get("implementation_patch_allowed_before_eval") is False
+        and row.get("local_validation_required") is True
+        and row.get("runtime_action") == "none"
+        and row.get("external_harness_execution_allowed") is False
+        and row.get("provider_runtime_launch_allowed") is False
+        and row.get("remote_execution_allowed") is False
+        for row in adjacent_rows
+    )
+    ready = packet.get("status") == "ready" and skill_rows_ready and adjacent_rows_ready
+    packet.update(
+        {
+            "status": "ready" if ready else "blocked",
+            "decision": (
+                "current_digest_pass4_skill_route_discovery_complete_for_supervisor_handoff"
+                if ready
+                else "repair_current_digest_111527_pass4_completion_handoff"
+            ),
+            "capability_theme": "skill-route-discovery",
+            "capability_pass": 4,
+            "total_passes": 4,
+            "capability_slice_complete": ready,
+            "planned_window_complete": True,
+            "anchoring_proposal_ids": [
+                "p1-skill-route-discovery-scan",
+                "p2-skill-route-policy-doc",
+                "p3-agent-harness-eval-queue",
+                "p4-route-classification-regression",
+                "trend:lingbol088-spec/reverse-flow-skill-1",
+                "trend:Pluviobyte/rnskill-1",
+                "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                "trend:SmileLikeYe/agent-chief-1",
+            ],
+            "route_decision_contract": {
+                "skill_route_discovery_allowed_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+                "external_skill_repositories_allowed_outputs": [
+                    "documentation",
+                    "config",
+                    "test",
+                    "code_patch",
+                ],
+                "reverse_flow_workflow_selected_lane": "test",
+                "generic_skill_collection_selected_lane": "documentation",
+                "external_skill_repositories_are_runtime_evidence": False,
+                "route_hints_grant_permissions": False,
+                "general_agent_project_evaluation_lane": "agent_harness_eval_required",
+                "general_agent_direct_lanes_before_eval": [],
+                "agent_harness_eval_allowed_lanes_after_eval": [
+                    "documentation",
+                    "test",
+                    "code_patch",
+                ],
+                "activation_before_validation_allowed": False,
+                "local_validation_required": True,
+                "runtime_action": "none",
+            },
+            "final_operator_handoff": {
+                "controller_surface": (
+                    "skill_route_discovery_current_digest_20260709T111527_final_handoff"
+                ),
+                "status": "ready" if ready else "blocked",
+                "operator_visible_behavior": (
+                    "complete_skill_route_discovery_with_bounded_lanes_and_eval_queue"
+                ),
+                "skill_route_rows_ready": skill_rows_ready,
+                "agent_harness_eval_queue_ready": adjacent_rows_ready,
+                "activation_authority": "external_supervisor_only",
+                "rollback_ref_required": True,
+                "rollback_artifact_required": True,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_replay_commands_exported": False,
+                "raw_upstream_body_exported": False,
+            },
+            "focused_evidence_review": {
+                "source_digest": source_digest or "github-growth-20260709T111527.170620Z",
+                "evidence_item_ids": [
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "trend:Pluviobyte/rnskill-1",
+                    "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+                    "trend:SmileLikeYe/agent-chief-1",
+                ],
+                "reviewed_evidence_url_hashes": [
+                    _stable_hash("https://github.com/lingbol088-spec/reverse-flow-skill"),
+                    _stable_hash("https://github.com/Pluviobyte/rnskill"),
+                    _stable_hash("https://github.com/Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases"),
+                    _stable_hash("https://github.com/SmileLikeYe/agent-chief"),
+                ],
+                "lesson": (
+                    "reverse-flow-skill and rnskill are skill-route evidence only; "
+                    "Seedance workflow use cases and agent-chief stay in the agent "
+                    "harness eval queue until a bounded local validation route exists"
+                ),
+                "raw_source_urls_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            },
+            "self_model_decision": {
+                "path": "docs/self-model.md",
+                "changed": False,
+                "reason": (
+                    "the self-model already supports rollback-backed local evolution "
+                    "while keeping runtime policy external; no rewrite was needed"
+                ),
+            },
+            "operator_next_action": (
+                "record_current_digest_111527_completion_handoff_for_external_supervisor"
+                if ready
+                else "repair_current_digest_111527_pass4_completion_before_handoff"
             ),
             "promotion_allowed": False,
             "push_allowed": False,
