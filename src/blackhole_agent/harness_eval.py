@@ -19813,6 +19813,9 @@ def skill_route_discovery_validation_lane_gate(
     unsupported_lanes = sorted(set(proposal_kinds) - allowed_lanes)
     runtime_actions = sorted({str(lane.get("runtime_action") or "") for lane in proposal_lanes})
     validation_commands = skill_route_discovery_preactivation_validation_commands()
+    activation_by_kind = {
+        str(lane.get("proposal_kind") or ""): lane for lane in activation_lanes if str(lane.get("proposal_kind") or "")
+    }
     validation_present = all(lane.get("required_validation") == validation_commands for lane in activation_lanes)
     local_validation_required = bool(proposal_lanes) and all(
         lane.get("local_validation_required") is True for lane in proposal_lanes
@@ -19840,6 +19843,44 @@ def skill_route_discovery_validation_lane_gate(
     if not activation_ready:
         diagnostics.append("activation_lanes_not_ready")
 
+    rows: list[dict[str, Any]] = []
+    for index, lane in enumerate(proposal_lanes):
+        proposal_kind = str(lane.get("proposal_kind") or "")
+        activation_lane = activation_by_kind.get(proposal_kind, {})
+        source_hashes = string_list(lane.get("evidence_url_hashes"))
+        if not source_hashes and str(lane.get("source_url") or ""):
+            source_hashes = [stable_text_hash(str(lane.get("source_url") or ""))]
+        row_local_validation_required = lane.get("local_validation_required") is True
+        row_runtime_action = str(lane.get("runtime_action") or "none")
+        row_activation_ready = activation_lane.get("activation_ready") is True
+        rows.append(
+            {
+                "row_index": index,
+                "proposal_kind": proposal_kind,
+                "route_hint": str(lane.get("route_hint") or "skill_route_discovery"),
+                "bounded_validation_lane": proposal_kind in allowed_lanes,
+                "selected_local_lane": proposal_kind if proposal_kind in allowed_lanes else "",
+                "route_profiles": string_list(lane.get("route_profiles")),
+                "matched_route_terms": string_list(lane.get("matched_route_terms")),
+                "evidence_item_id_count": len(set(string_list(lane.get("evidence_item_ids")))),
+                "source_hashes": source_hashes,
+                "source_hash_count": len(set(source_hashes)),
+                "candidate_name_hash": stable_text_hash(str(lane.get("candidate_name") or "")),
+                "local_validation_required": row_local_validation_required,
+                "required_validation_present": activation_lane.get("required_validation") == validation_commands,
+                "activation_ready": row_activation_ready,
+                "runtime_action": row_runtime_action,
+                "runtime_action_allowed": False,
+                "external_skill_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_urls_exported": False,
+                "raw_evidence_urls_exported": False,
+                "raw_upstream_body_exported": False,
+            }
+        )
+
     status = "ready" if supervisor_ready and not diagnostics else "blocked"
     return {
         "controller_surface": "skill_route_discovery_validation_lane_gate",
@@ -19863,6 +19904,10 @@ def skill_route_discovery_validation_lane_gate(
         "local_artifact_proof_ready": local_artifact_proof_ready,
         "trust_boundary_passed": trust_boundary_passed,
         "supervisor_decision": str(supervisor_readiness.get("decision") or ""),
+        "row_count": len(rows),
+        "bounded_row_count": sum(1 for row in rows if row["bounded_validation_lane"]),
+        "local_validation_required_row_count": sum(1 for row in rows if row["local_validation_required"]),
+        "rows": rows,
         "diagnostics": diagnostics,
         "runtime_action": "none",
         "runtime_action_allowed": False,

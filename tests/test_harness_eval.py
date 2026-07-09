@@ -191,6 +191,159 @@ def test_skill_route_discovery_lane_exposes_20260709T033527_pass1_validation_sur
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_validation_gate_bounds_20260709T035527_pass2_skill_routes():
+    source_digest = "github-growth-20260709T035527.234626Z"
+    output = evaluate_harness_behavior(
+        "skill_route_discovery_lane",
+        {
+            "task_id": "current-digest-20260709T035527-pass2",
+            "source_kind": "evidence_items",
+            "source_digest": source_digest,
+            "capability_window": {
+                "theme": "skill-route-discovery",
+                "current_pass": 2,
+                "total_passes": 4,
+                "source_digest": source_digest,
+                "anchoring_proposals": [
+                    "p1-skill-route-discovery-gate",
+                    "p2-skill-route-discovery-docs",
+                    "p3-general-agent-harness-followup",
+                    "trend:lingbol088-spec/reverse-flow-skill-1",
+                ],
+            },
+            "evidence_items": [
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                    "item_kind": "repository",
+                    "name": "reverse-flow-skill",
+                    "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                    "summary": (
+                        "Codex and AI Agent reverse-flow skill package with "
+                        "skills/reverse-flow/SKILL.md, local sandbox and CTF framing, "
+                        "staged workflow language, scripts, install, and run examples."
+                    ),
+                    "topics": ["agent", "codex", "skill", "workflow"],
+                    "route_hints": ["skill_route_discovery"],
+                    "suggested_lanes": [
+                        "documentation",
+                        "config",
+                        "test",
+                        "code_patch",
+                        "install",
+                        "runtime_execution",
+                    ],
+                    "route_classification": {
+                        "route_profiles": ["codex_workflow_gate", "generic_skill_workflow"],
+                        "source_layout_signals": [
+                            "skill_directory",
+                            "skill_markdown",
+                            "validation_script",
+                        ],
+                        "source_metadata_signals": [
+                            "local_sandbox_boundary",
+                            "ctf_training_context",
+                        ],
+                        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    },
+                },
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:Pluviobyte/rnskill-1",
+                    "item_kind": "repository",
+                    "name": "rnskill",
+                    "source_url": "https://github.com/Pluviobyte/rnskill",
+                    "summary": (
+                        "AI Agent Skills collection for Codex and Claude workflows "
+                        "with SKILL.md-compatible skills directories, docs, tools, "
+                        "and marketplace metadata."
+                    ),
+                    "topics": ["agent", "skill", "skills"],
+                    "route_hints": ["skill_route_discovery"],
+                    "suggested_lanes": ["documentation", "config", "test", "code_patch", "install"],
+                    "observed_paths": ["skills/rn-renhua/SKILL.md"],
+                    "route_classification": {
+                        "route_profiles": ["generic_skill_workflow"],
+                        "source_layout_signals": ["skill_directory", "skill_markdown"],
+                        "source_metadata_signals": [
+                            "agent_plugin_marketplace",
+                            "skill_registry_metadata",
+                        ],
+                        "candidate_lanes": ["documentation", "config", "test", "code_patch"],
+                    },
+                },
+                {
+                    "source_digest": source_digest,
+                    "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+                    "item_kind": "repository",
+                    "name": "Hy3",
+                    "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+                    "summary": (
+                        "Reasoning and agent model project with API, deployment, "
+                        "tool-call, provider, and runtime pressure."
+                    ),
+                    "topics": ["agent", "model", "reasoning", "api"],
+                    "route_hints": [],
+                    "suggested_lanes": ["documentation", "test", "code_patch", "provider_runtime"],
+                },
+                {
+                    "source_digest": source_digest,
+                    "item_id": (
+                        "trend:Evolink-AI/"
+                        "Awesome-Blender-Seedance-Workflow-Usecases-1"
+                    ),
+                    "item_kind": "repository",
+                    "name": "Awesome-Blender-Seedance-Workflow-Usecases",
+                    "source_url": (
+                        "https://github.com/Evolink-AI/"
+                        "Awesome-Blender-Seedance-Workflow-Usecases"
+                    ),
+                    "summary": "Workflow usecase collection without a skill-route package signal.",
+                    "topics": ["workflow", "examples"],
+                    "route_hints": [],
+                    "suggested_lanes": ["documentation", "test", "code_patch"],
+                },
+            ],
+        },
+        source_path=Path("current-digest-20260709T035527.json"),
+    )
+    gate = output["validation_lane_gate"]
+    rows = gate["rows"]
+    serialized = json.dumps(gate, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert output["registry"]["candidate_count"] == 2
+    assert output["registry"]["ignored_evidence_item_count"] == 2
+    assert output["lane_map"]["proposal_kinds"] == ["code_patch", "config", "documentation", "test"]
+    assert output["lane_map"]["proposal_lane_count"] == 8
+    assert gate["status"] == "blocked"
+    assert gate["decision"] == "keep_runtime_action_none_until_local_validation_passes"
+    assert gate["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert gate["selected_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert gate["unsupported_lanes"] == []
+    assert gate["row_count"] == 8
+    assert gate["bounded_row_count"] == 8
+    assert gate["local_validation_required_row_count"] == 8
+    assert gate["local_validation_required"] is True
+    assert gate["runtime_action"] == "none"
+    assert gate["runtime_action_allowed"] is False
+    assert gate["external_skill_activation_allowed"] is False
+    assert gate["provider_runtime_launch_allowed"] is False
+    assert gate["remote_execution_allowed"] is False
+    assert all(row["route_hint"] == "skill_route_discovery" for row in rows)
+    assert all(row["proposal_kind"] in gate["allowed_local_lanes"] for row in rows)
+    assert all(row["bounded_validation_lane"] is True for row in rows)
+    assert all(row["local_validation_required"] is True for row in rows)
+    assert all(row["runtime_action"] == "none" for row in rows)
+    assert all(row["source_hash_count"] == 1 for row in rows)
+    assert output["route_family_eval_matrix"]["general_agent_project_count"] == 2
+    assert output["route_family_eval_matrix"]["general_agent_direct_allowed_lanes_before_eval"] == []
+    assert "https://github.com/" not in serialized
+    assert '"install"' not in serialized
+    assert "runtime_execution" not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs():
     report = run_local_harness_eval(
         sorted(LOCAL_EVAL_FIXTURE_DIR.glob("*.json")),
@@ -4227,7 +4380,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
     }
-    assert output["validation_lane_gate"] == {
+    validation_lane_gate = dict(output["validation_lane_gate"])
+    validation_lane_gate_rows = validation_lane_gate.pop("rows")
+    assert validation_lane_gate == {
         "controller_surface": "skill_route_discovery_validation_lane_gate",
         "status": "ready",
         "decision": "validated_local_lanes_ready_for_supervisor_promotion",
@@ -4243,6 +4398,9 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "local_artifact_proof_ready": True,
         "trust_boundary_passed": True,
         "supervisor_decision": "ready_for_supervisor_promotion",
+        "row_count": 4,
+        "bounded_row_count": 4,
+        "local_validation_required_row_count": 4,
         "diagnostics": [],
         "runtime_action": "none",
         "runtime_action_allowed": False,
@@ -4254,6 +4412,21 @@ def test_skill_route_discovery_lane_fixture_bounds_evidence_before_activation():
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,
     }
+    assert [row["proposal_kind"] for row in validation_lane_gate_rows] == [
+        "documentation",
+        "test",
+        "config",
+        "code_patch",
+    ]
+    assert all(row["route_hint"] == "skill_route_discovery" for row in validation_lane_gate_rows)
+    assert all(row["bounded_validation_lane"] is True for row in validation_lane_gate_rows)
+    assert all(row["local_validation_required"] is True for row in validation_lane_gate_rows)
+    assert all(row["required_validation_present"] is True for row in validation_lane_gate_rows)
+    assert all(row["activation_ready"] is True for row in validation_lane_gate_rows)
+    assert all(row["runtime_action"] == "none" for row in validation_lane_gate_rows)
+    assert all(row["source_hash_count"] == 1 for row in validation_lane_gate_rows)
+    assert all(row["raw_source_urls_exported"] is False for row in validation_lane_gate_rows)
+    assert all(row["raw_evidence_urls_exported"] is False for row in validation_lane_gate_rows)
     assert output["implementation_intake_preflight"] == {
         "status": "ready",
         "implementation_allowed": True,
