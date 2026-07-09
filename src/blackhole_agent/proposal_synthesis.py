@@ -69,6 +69,8 @@ NEGATED_SKILL_WORKFLOW_TERMS = (
     "not a skill",
     "not skill",
     "not a codex skill",
+    "not a skill package",
+    "not a skill repository",
     "without skill",
 )
 STRONG_NEGATED_SKILL_WORKFLOW_TERMS = (
@@ -77,6 +79,8 @@ STRONG_NEGATED_SKILL_WORKFLOW_TERMS = (
     "no skill package",
     "no skill.md evidence",
     "not a codex skill package",
+    "not a skill package",
+    "not a skill repository",
 )
 CONCRETE_SKILL_WORKFLOW_TERMS = (
     "agent skill",
@@ -673,6 +677,10 @@ def build_route_hint_lane_map(evidence_package: dict[str, Any]) -> dict[str, Any
             context_budget=evidence_package.get("context_budget"),
             digest_id=str(evidence_package.get("digest_id") or ""),
         ),
+        "current_pass2_skill_workflow_interpretation_path": build_current_pass2_skill_workflow_interpretation_path(
+            package_items,
+            context_budget=evidence_package.get("context_budget"),
+        ),
         "current_pass2_activation_checkpoint": build_current_pass2_activation_checkpoint(
             package_items,
             context_budget=evidence_package.get("context_budget"),
@@ -1238,6 +1246,10 @@ def build_current_pass2_lane_handoff(
         items,
         context_budget=context_budget,
     )
+    skill_workflow_interpretation_path = build_current_pass2_skill_workflow_interpretation_path(
+        items,
+        context_budget=context_budget,
+    )
     general_eval = build_general_agent_project_eval_lane(items)
     secondary_harness_checklist = build_current_pass2_secondary_harness_checklist(items)
     selected_item_ids = sorted(
@@ -1354,6 +1366,7 @@ def build_current_pass2_lane_handoff(
         "general_agent_project_count": len(general_rows),
         "blocked_general_agent_item_ids": blocked_item_ids,
         "route_evidence_lane_source": route_evidence_lane_source,
+        "skill_workflow_interpretation_path": skill_workflow_interpretation_path,
         "secondary_harness_checklist": secondary_harness_checklist,
         "skill_route_rows": skill_rows,
         "general_agent_rows": general_rows,
@@ -1989,6 +2002,109 @@ def build_current_pass2_route_evidence_lane_source(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+        "raw_source_url_export_allowed": False,
+        "upstream_body_export_allowed": False,
+    }
+
+
+def build_current_pass2_skill_workflow_interpretation_path(
+    items: list[Any],
+    *,
+    context_budget: Any = None,
+) -> dict[str, Any]:
+    """Render skill/workflow evidence as a bounded interpretation path."""
+
+    implementation_preflight = build_skill_route_implementation_preflight(
+        items,
+        context_budget=context_budget,
+    )
+    rows: list[dict[str, Any]] = []
+    diagnostics: list[str] = []
+    allowed_lanes = ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
+    for row in implementation_preflight.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        item_id = str(row.get("item_id") or "")
+        route_profiles = [
+            str(profile)
+            for profile in row.get("route_profiles", [])
+            if str(profile).strip()
+        ]
+        selected_lane = str(row.get("selected_local_lane") or "")
+        row_allowed_lanes = [
+            str(lane)
+            for lane in row.get("allowed_local_lanes", [])
+            if str(lane).strip()
+        ]
+        lanes_bounded = (
+            bool(selected_lane)
+            and selected_lane in row_allowed_lanes
+            and set(row_allowed_lanes).issubset(allowed_lanes)
+            and bool(row.get("implementation_route_allowed"))
+        )
+        if not lanes_bounded:
+            diagnostics.append(f"{item_id}:skill_workflow_interpretation_unbounded")
+        rows.append(
+            {
+                "item_id": item_id,
+                "source_url_hash": str(row.get("source_url_hash") or ""),
+                "route_class": "skill_workflow",
+                "route_profile_kind": (
+                    "codex_specific"
+                    if "codex_workflow_gate" in route_profiles
+                    else "generic_skill_workflow"
+                ),
+                "route_profiles": route_profiles,
+                "primary_route": "skill_route_discovery",
+                "selected_local_lane": selected_lane,
+                "allowed_local_lanes": row_allowed_lanes,
+                "accepted_outputs_before_validation": [],
+                "accepted_outputs_after_validation": list(allowed_lanes),
+                "controller_approval_required_before_activation": True,
+                "lanes_bounded": lanes_bounded,
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_export_allowed": False,
+                "upstream_body_export_allowed": False,
+            }
+        )
+
+    rows_bounded = bool(rows) and all(row["lanes_bounded"] for row in rows)
+    return {
+        "controller_surface": "current_pass2_skill_workflow_interpretation_path",
+        "status": "ready" if rows_bounded else "blocked" if rows else "not_applicable",
+        "decision": (
+            "classify_skill_workflow_evidence_into_bounded_local_lanes_before_activation"
+            if rows_bounded
+            else "repair_skill_workflow_interpretation_before_activation"
+            if rows
+            else "no_skill_workflow_evidence_selected"
+        ),
+        "capability_pass": "2_of_4",
+        "interpretation_steps": [
+            "classify_public_skill_or_workflow_signal",
+            "bind_to_documentation_config_test_or_code_patch_lane",
+            "run_focused_local_validation",
+            "require_controller_approval_before_runtime_action",
+        ],
+        "skill_workflow_count": len(rows),
+        "allowed_local_lanes": list(allowed_lanes),
+        "rows": rows,
+        "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "profile_write_allowed": False,
+        "memory_write_allowed": False,
         "raw_source_url_export_allowed": False,
         "upstream_body_export_allowed": False,
     }

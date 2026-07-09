@@ -2485,6 +2485,141 @@ def test_current_pass2_skill_route_window_gates_codex_generic_and_general_agent_
     assert "Fundamental-Ava" not in serialized
 
 
+def test_current_pass2_skill_workflow_interpretation_path_bounds_active_reverse_flow_window():
+    digest = {
+        "digest_id": "github-growth-20260709T051527.252839Z",
+        "generated_at": "2026-07-09T05:15:27.252839Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "reverse-flow-skill is a Codex AI Agent skill workflow with SKILL.md, "
+                    "skills/reverse-flow structure, workflow gate language, local scripts, "
+                    "and install/run wording that must remain validation-only."
+                ),
+                "relevance_reason": (
+                    "Codex workflow-gate skill evidence should enter skill_route_discovery "
+                    "before any runtime action."
+                ),
+                "recommended_action": (
+                    "Create a local test lane that maps skill workflow evidence only to "
+                    "documentation, config, test, or code_patch outputs."
+                ),
+                "risk_flags": [],
+                "confidence": 0.78,
+            },
+            {
+                "item_id": "trend:Pluviobyte/rnskill-1",
+                "source_url": "https://github.com/Pluviobyte/rnskill",
+                "event_kind": "RepositoryTrend",
+                "summary": (
+                    "rnskill is a generic skills collection with SKILL.md-compatible "
+                    "workflow documentation and plugin-style skill routing examples."
+                ),
+                "relevance_reason": (
+                    "Generic skill workflow repositories should be classified as local "
+                    "skill-route evidence, not installable packages."
+                ),
+                "recommended_action": (
+                    "Document how generic skill workflow signals are bounded before "
+                    "implementation changes."
+                ),
+                "risk_flags": [],
+                "confidence": 0.71,
+            },
+            {
+                "item_id": "trend:SmileLikeYe/agent-chief-1",
+                "source_url": "https://github.com/SmileLikeYe/agent-chief",
+                "event_kind": "PushEvent",
+                "summary": (
+                    "agent-chief shows general agent project movement through branch "
+                    "creation, README media documentation, issue comments, and pushes."
+                ),
+                "relevance_reason": (
+                    "General agent movement should queue a local agent_harness_eval lane "
+                    "without granting runtime action."
+                ),
+                "risk_flags": [],
+                "confidence": 0.66,
+            },
+            {
+                "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+                "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+                "event_kind": "RepositoryTrend",
+                "summary": "Hy3 is a general model and agent-adjacent project, not a skill package.",
+                "relevance_reason": "Model or agent-adjacent movement stays behind harness evaluation.",
+                "risk_flags": [],
+                "confidence": 0.62,
+            },
+        ],
+    }
+
+    evidence_package = build_proposal_evidence_package(digest, max_items=4, max_item_text_chars=520)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    handoff = lane_map["current_pass2_lane_handoff"]
+    interpretation = lane_map["current_pass2_skill_workflow_interpretation_path"]
+    serialized = json.dumps(handoff, sort_keys=True)
+
+    assert handoff["source_digest"] == "github-growth-20260709T051527.252839Z"
+    assert handoff["skill_workflow_interpretation_path"] == interpretation
+    assert interpretation["controller_surface"] == "current_pass2_skill_workflow_interpretation_path"
+    assert interpretation["status"] == "ready"
+    assert interpretation["interpretation_steps"] == [
+        "classify_public_skill_or_workflow_signal",
+        "bind_to_documentation_config_test_or_code_patch_lane",
+        "run_focused_local_validation",
+        "require_controller_approval_before_runtime_action",
+    ]
+    assert interpretation["allowed_local_lanes"] == ["documentation", "config", "test", "code_patch"]
+    assert interpretation["runtime_action"] == "none"
+    assert interpretation["external_skill_activation_allowed"] is False
+    assert interpretation["external_agent_activation_allowed"] is False
+    assert interpretation["external_harness_execution_allowed"] is False
+    assert interpretation["provider_runtime_launch_allowed"] is False
+    assert interpretation["remote_execution_allowed"] is False
+    assert interpretation["profile_write_allowed"] is False
+    assert interpretation["memory_write_allowed"] is False
+
+    interpretation_rows = {row["item_id"]: row for row in interpretation["rows"]}
+    assert sorted(interpretation_rows) == [
+        "trend:Pluviobyte/rnskill-1",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+    ]
+    reverse_flow = interpretation_rows["trend:lingbol088-spec/reverse-flow-skill-1"]
+    assert reverse_flow["route_profile_kind"] == "codex_specific"
+    assert reverse_flow["selected_local_lane"] == "test"
+    assert reverse_flow["accepted_outputs_before_validation"] == []
+    assert reverse_flow["accepted_outputs_after_validation"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert reverse_flow["controller_approval_required_before_activation"] is True
+    assert reverse_flow["runtime_action"] == "none"
+
+    rnskill = interpretation_rows["trend:Pluviobyte/rnskill-1"]
+    assert rnskill["route_profile_kind"] == "generic_skill_workflow"
+    assert rnskill["selected_local_lane"] == "documentation"
+    assert rnskill["accepted_outputs_before_validation"] == []
+    assert rnskill["controller_approval_required_before_activation"] is True
+    assert all(row["lanes_bounded"] is True for row in interpretation_rows.values())
+
+    general_rows = {row["item_id"]: row for row in handoff["general_agent_rows"]}
+    assert sorted(general_rows) == [
+        "trend:SmileLikeYe/agent-chief-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    ]
+    assert all(row["primary_route"] == "agent_harness_eval_required" for row in general_rows.values())
+    assert all(row["skill_route_discovery_inherited"] is False for row in general_rows.values())
+    assert all(row["implementation_lanes_enabled"] is False for row in general_rows.values())
+    assert all(row["runtime_action"] == "none" for row in general_rows.values())
+
+    assert "https://github.com/" not in serialized
+
+
 def test_current_pass1_skill_route_validation_matrix_pairs_codex_and_generic_skill_profiles():
     digest = {
         "digest_id": "github-growth-20260705T054818.762095Z",
