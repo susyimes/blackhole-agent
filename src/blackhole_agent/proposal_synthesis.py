@@ -101,6 +101,12 @@ SKILL_ROUTE_ACTIVITY_EVENT_KINDS = {
     "PushEvent",
     "RepositoryTrend",
 }
+SKILL_ROUTE_UPSTREAM_MOVEMENT_EVENT_KINDS = {
+    "Issue",
+    "IssueComment",
+    "IssuesEvent",
+    "IssueCommentEvent",
+}
 GENERAL_AGENT_PROJECT_ROUTE_TERMS = (
     "agent",
     "agents",
@@ -134,6 +140,19 @@ CURRENT_PASS2_SKILL_ROUTE_20260707T162109_PROPOSAL_IDS = [
     "trend:Pluviobyte/rnskill-1",
     "trend:InternScience/Agents-A1-1",
     "trend:shepherd-agents/shepherd-1",
+]
+CURRENT_PASS2_SKILL_ROUTE_20260709T063527_DIGEST_IDS = {
+    "github-growth-20260709T063527.172428Z",
+    "github-growth-20260709T063527Z",
+}
+CURRENT_PASS2_SKILL_ROUTE_20260709T063527_PROPOSAL_IDS = [
+    "p1_skill_route_discovery_reverse_flow",
+    "p2_generic_skill_workflow_fixture",
+    "p3_agent_harness_eval_backlog",
+    "p5_skill_route_allowed_lane_docs",
+    "trend:lingbol088-spec/reverse-flow-skill-1",
+    "trend:Pluviobyte/rnskill-1",
+    "11548534249-1",
 ]
 PASS2_AGENT_HARNESS_FIXTURE_FIELDS = [
     "fixture_path",
@@ -1668,6 +1687,7 @@ def build_current_pass2_skill_route_operator_lane(
         for item_id in pass1_matrix.get("selected_item_ids", [])
         if str(item_id).strip()
     ]
+    upstream_movement_rows = build_current_pass2_skill_route_upstream_movement_rows(items)
     skill_rows: list[dict[str, Any]] = []
     blocked_reasons: list[str] = []
     for row in pass1_matrix.get("skill_route_rows", []):
@@ -1775,7 +1795,9 @@ def build_current_pass2_skill_route_operator_lane(
         for blocker in pass2_handoff.get("blocked_general_agent_item_ids", [])
         if str(blocker).strip()
     ]
-    if digest_id in CURRENT_PASS2_SKILL_ROUTE_20260707T162109_DIGEST_IDS:
+    if digest_id in CURRENT_PASS2_SKILL_ROUTE_20260709T063527_DIGEST_IDS:
+        active_proposal_ids = list(CURRENT_PASS2_SKILL_ROUTE_20260709T063527_PROPOSAL_IDS)
+    elif digest_id in CURRENT_PASS2_SKILL_ROUTE_20260707T162109_DIGEST_IDS:
         active_proposal_ids = list(CURRENT_PASS2_SKILL_ROUTE_20260707T162109_PROPOSAL_IDS)
     elif digest_id in CURRENT_PASS2_SKILL_ROUTE_20260705T124958_DIGEST_IDS:
         active_proposal_ids = [
@@ -1817,10 +1839,12 @@ def build_current_pass2_skill_route_operator_lane(
         "active_proposal_ids": active_proposal_ids,
         "selected_item_ids": selected_item_ids,
         "skill_workflow_count": len(skill_rows),
+        "upstream_movement_count": len(upstream_movement_rows),
         "adjacent_general_agent_count": len(adjacent_rows),
         "allowed_skill_route_lanes": list(ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]),
         "allowed_general_agent_lanes_after_eval": list(GENERAL_AGENT_PROJECT_EVAL_LANES),
         "skill_route_rows": skill_rows,
+        "upstream_movement_rows": upstream_movement_rows,
         "adjacent_general_agent_rows": adjacent_rows,
         "activation_blockers": sorted(dict.fromkeys(blocked_reasons)),
         "adjacent_agent_eval_blockers": pass2_blockers,
@@ -1844,6 +1868,55 @@ def build_current_pass2_skill_route_operator_lane(
         "raw_target_path_export_allowed": False,
         "upstream_body_export_allowed": False,
     }
+
+
+def build_current_pass2_skill_route_upstream_movement_rows(items: list[Any]) -> list[dict[str, Any]]:
+    """Expose sparse skill-repository issue/comment movement without opening lanes."""
+
+    rows: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        event_kind = str(item.get("event_kind") or "")
+        if event_kind not in SKILL_ROUTE_UPSTREAM_MOVEMENT_EVENT_KINDS:
+            continue
+        classification = item.get("route_classification")
+        if not isinstance(classification, dict):
+            classification = route_metadata_for_digest_item(item)["route_classification"]
+        if classification.get("route_class") != "skill_workflow":
+            continue
+        item_id = str(item.get("item_id") or "")
+        source_url = str(item.get("source_url") or "")
+        rows.append(
+            {
+                "item_id": item_id,
+                "event_kind": event_kind,
+                "primary_route": "skill_route_discovery",
+                "route_class": "skill_workflow_upstream_movement",
+                "evidence_tier": "low_confidence_upstream_movement",
+                "route_profiles": [str(profile) for profile in classification.get("route_profiles", [])],
+                "route_hints": [str(route_hint) for route_hint in classification.get("route_hints", [])],
+                "source_url_hash": stable_hash({"source_url": source_url}) if source_url else "",
+                "accepted_outputs_before_validation": [],
+                "accepted_outputs_after_validation": [],
+                "allowed_local_lanes": [],
+                "selected_local_lane": "",
+                "local_lane_ready": False,
+                "local_corroboration_required": True,
+                "activation_blocker": "sparse_upstream_movement_requires_repository_level_evidence",
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "external_skill_activation_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+                "raw_source_url_export_allowed": False,
+                "raw_evidence_url_export_allowed": False,
+                "upstream_body_export_allowed": False,
+            }
+        )
+    return rows
 
 
 def current_pass2_route_uncertainty_for_item(
@@ -3416,6 +3489,8 @@ def build_skill_route_local_lane_candidates(items: list[Any]) -> dict[str, Any]:
     allowed_lanes = ROUTE_HINT_VALIDATION_LANES["skill_route_discovery"]
     for item in items:
         if not isinstance(item, dict):
+            continue
+        if str(item.get("event_kind") or "") in SKILL_ROUTE_UPSTREAM_MOVEMENT_EVENT_KINDS:
             continue
         classification = item.get("route_classification")
         if not isinstance(classification, dict):

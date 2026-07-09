@@ -538,6 +538,129 @@ def test_current_pass2_operator_lane_binds_20260707T162109_digest_to_recovery_wo
     assert "runtime_execution" not in recovery_serialized
 
 
+def test_current_pass2_operator_lane_keeps_sparse_issue_movement_out_of_activation_lanes():
+    digest = {
+        "digest_id": "github-growth-20260709T063527.172428Z",
+        "generated_at": "2026-07-09T06:35:27.172428Z",
+        "items": [
+            {
+                "item_id": "trend:lingbol088-spec/reverse-flow-skill-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "summary": (
+                    "Public Codex AI Agent skill workflow with skills/reverse-flow/SKILL.md, "
+                    "local sandbox framing, scripts, install examples, CTF and crackme route "
+                    "language, and staged reverse-analysis workflow."
+                ),
+                "relevance_reason": "Codex skill workflow evidence must validate skill_route_discovery first.",
+            },
+            {
+                "item_id": "trend:Pluviobyte/rnskill-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/Pluviobyte/rnskill",
+                "summary": (
+                    "AI Agent Skills collection for project-level Agent workflows that "
+                    "support SKILL.md, with skills, docs, tools, and manual install examples."
+                ),
+                "relevance_reason": "Generic SKILL.md collection evidence maps to bounded local documentation.",
+            },
+            {
+                "item_id": "11548534249-1",
+                "event_kind": "IssueComment",
+                "source_url": "https://github.com/lingbol088-spec/reverse-flow-skill/issues/1",
+                "summary": (
+                    "Sparse issue-comment movement on a Codex AI Agent skill workflow asks "
+                    "about authorization refusal removal, without repository-level design "
+                    "detail or local corroboration."
+                ),
+                "relevance_reason": "Low-confidence upstream movement only; do not grant runtime action.",
+            },
+            {
+                "item_id": "trend:SmileLikeYe/agent-chief-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/SmileLikeYe/agent-chief",
+                "summary": (
+                    "General agent project and workflow orchestration signal without selected "
+                    "route package shape, collection evidence, or route-specific local fixture."
+                ),
+                "relevance_reason": "Requires agent_harness_eval before implementation lanes.",
+            },
+            {
+                "item_id": "trend:Tencent-Hunyuan/Hy3-1",
+                "event_kind": "RepositoryTrend",
+                "source_url": "https://github.com/Tencent-Hunyuan/Hy3",
+                "summary": (
+                    "General project trend with model workflow examples and no explicit agent "
+                    "route package or project-level collection."
+                ),
+                "relevance_reason": "Requires documentation or harness evaluation before any code route.",
+            },
+        ],
+    }
+    evidence_package = build_proposal_evidence_package(digest, max_items=5, max_item_text_chars=650)
+    lane_map = build_route_hint_lane_map(evidence_package)
+    operator_lane = lane_map["current_pass2_skill_route_operator_lane"]
+    serialized = json.dumps(operator_lane, sort_keys=True)
+
+    assert operator_lane["source_digest"] == "github-growth-20260709T063527.172428Z"
+    assert operator_lane["active_proposal_ids"] == [
+        "p1_skill_route_discovery_reverse_flow",
+        "p2_generic_skill_workflow_fixture",
+        "p3_agent_harness_eval_backlog",
+        "p5_skill_route_allowed_lane_docs",
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+        "11548534249-1",
+    ]
+    assert operator_lane["status"] == "ready_with_adjacent_agent_eval_gated"
+    assert {row["item_id"] for row in operator_lane["skill_route_rows"]} == {
+        "trend:lingbol088-spec/reverse-flow-skill-1",
+        "trend:Pluviobyte/rnskill-1",
+    }
+    skill_rows_by_id = {row["item_id"]: row for row in operator_lane["skill_route_rows"]}
+    assert skill_rows_by_id["trend:lingbol088-spec/reverse-flow-skill-1"]["selected_local_lane"] == "test"
+    assert skill_rows_by_id["trend:Pluviobyte/rnskill-1"]["selected_local_lane"] == "documentation"
+    assert operator_lane["upstream_movement_count"] == 1
+    movement_row = operator_lane["upstream_movement_rows"][0]
+    assert movement_row["item_id"] == "11548534249-1"
+    assert movement_row["event_kind"] == "IssueComment"
+    assert movement_row["route_class"] == "skill_workflow_upstream_movement"
+    assert movement_row["evidence_tier"] == "low_confidence_upstream_movement"
+    assert movement_row["allowed_local_lanes"] == []
+    assert movement_row["accepted_outputs_after_validation"] == []
+    assert movement_row["local_lane_ready"] is False
+    assert movement_row["local_corroboration_required"] is True
+    assert movement_row["activation_blocker"] == "sparse_upstream_movement_requires_repository_level_evidence"
+    assert movement_row["runtime_action"] == "none"
+    assert movement_row["external_skill_activation_allowed"] is False
+    assert movement_row["external_agent_activation_allowed"] is False
+    assert movement_row["external_harness_execution_allowed"] is False
+    assert movement_row["provider_runtime_launch_allowed"] is False
+    assert movement_row["remote_execution_allowed"] is False
+    assert movement_row["raw_source_url_export_allowed"] is False
+    assert movement_row["raw_evidence_url_export_allowed"] is False
+    assert movement_row["upstream_body_export_allowed"] is False
+    assert len(movement_row["source_url_hash"]) == 64
+    assert {row["item_id"] for row in operator_lane["adjacent_general_agent_rows"]} == {
+        "trend:SmileLikeYe/agent-chief-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+    }
+    assert all(
+        set(row["allowed_local_lanes"]).issubset({"documentation", "config", "test", "code_patch"})
+        for row in operator_lane["skill_route_rows"]
+    )
+    assert all(row["direct_allowed_lanes_before_eval"] == [] for row in operator_lane["adjacent_general_agent_rows"])
+    assert "https://github.com/" not in serialized
+    assert "authorization refusal removal" not in serialized
+    assert operator_lane["runtime_action"] == "none"
+    assert operator_lane["external_skill_activation_allowed"] is False
+    assert operator_lane["external_agent_activation_allowed"] is False
+    assert operator_lane["external_harness_execution_allowed"] is False
+    assert operator_lane["provider_runtime_launch_allowed"] is False
+    assert operator_lane["remote_execution_allowed"] is False
+    assert operator_lane["upstream_body_export_allowed"] is False
+
+
 def test_proposal_replay_manifest_detects_evidence_source_drift(tmp_path):
     manifest = load_proposal_replay_case(MANIFEST_PATH)
     manifest["cases"][0]["evidence_urls"] = ["https://github.com/example/not-in-fixture"]

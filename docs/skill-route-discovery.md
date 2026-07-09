@@ -11287,3 +11287,28 @@ target paths, raw replay commands, or activation authority, and it keeps
 external skill activation, external harness execution, provider launch, memory
 writes, and remote execution denied. Replay with
 `python -m pytest tests/test_skill_routing.py -q -k 20260708T090635`.
+
+## Source Digest 20260709T063527 Pass 2
+
+The `github-growth-20260709T063527.172428Z` pass-2 operator lane reuses
+`current_pass2_skill_route_operator_lane` for the active reverse-flow,
+rnskill, and adjacent general-agent window. `lingbol088-spec/reverse-flow-skill`
+stays in the local test lane as Codex workflow-gate skill evidence, and
+`Pluviobyte/rnskill` stays in the bounded documentation lane as generic
+`SKILL.md` collection evidence.
+
+Sparse issue/comment movement from `lingbol088-spec/reverse-flow-skill` is now
+reported separately in `upstream_movement_rows` with
+`low_confidence_upstream_movement`. It opens no local lane, accepts no outputs
+after validation, requires local corroboration, and grants no runtime action.
+General agent or workflow repositories without skill-package evidence, such as
+Agent Chief or Hy3-style project trends, remain adjacent
+`agent_harness_eval_required` rows with no direct implementation lane before
+local harness evaluation.
+
+The surface remains body-free and metadata-only: source URLs and upstream
+bodies are not exported, replay commands are not exported, and external skill
+activation, external agent activation, external harness execution, provider
+launch, remote execution, profile writes, memory writes, promotion, push, and
+restart authority stay denied. Replay with
+`python -m pytest tests/test_proposal_eval.py -q -k sparse_issue_movement`.
