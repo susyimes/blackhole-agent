@@ -1,0 +1,10 @@
+{
+  "original_branch": "codex/blackhole-evolve/20260709T031630.701848-add-or-update-a-local-skill-route-discovery-note",
+  "original_head": "be4f45f91759f940cefff11a0769bb59d7bb3b00",
+  "rollback_ref": "refs/rollback/20260709T031525Z-skill-route-discovery-pass4-completion",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260709T031630.701848-add-or-update-a-local-skill-route-discovery-note",
+    "git reset --hard refs/rollback/20260709T031525Z-skill-route-discovery-pass4-completion"
+  ],
+  "source_digest": "github-growth-20260709T031527.227185Z"
+}
