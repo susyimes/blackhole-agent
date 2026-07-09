@@ -42653,6 +42653,105 @@ def test_skill_route_discovery_current_digest_20260708T233850_pass2_local_route_
     assert '"provider_runtime"' not in serialized
 
 
+def test_skill_route_discovery_current_digest_20260709T001850_pass4_completion_matrix():
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "skill_route_discovery"
+        / "current_digest_20260708T233850_pass2_validation_lane.json"
+    )
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    source_digest = "github-growth-20260709T001850.976378Z"
+    for item in payload["items"]:
+        item["source_digest"] = source_digest
+    selected_item_ids = {item["item_id"] for item in payload["items"]}
+
+    registry = build_skill_route_discovery_registry_from_evidence_items(payload["items"])
+    lane_map = build_skill_route_discovery_proposal_lane_map(registry)
+    matrix_lane = lane_map["current_digest_20260709T001850_pass4_completion_matrix"]
+    completion_matrix = matrix_lane["completion_matrix"]
+    rows = {row["proposal_id"]: row for row in matrix_lane["rows"]}
+    adjacent = {row["item_id"]: row for row in matrix_lane["adjacent_general_agent_rows"]}
+    skill_matrix_rows = {
+        row["proposal_id"]: row for row in completion_matrix["skill_route_rows"]
+    }
+    serialized = json.dumps(matrix_lane, sort_keys=True)
+
+    assert registry["source_digest"] == source_digest
+    assert registry["candidate_count"] == 2
+    assert registry["ignored_evidence_item_count"] == 3
+    assert matrix_lane["controller_surface"] == (
+        "skill_route_discovery_current_digest_20260709T001850_pass4_completion_matrix"
+    )
+    assert matrix_lane["status"] == "ready"
+    assert matrix_lane["capability_pass"] == 4
+    assert matrix_lane["total_passes"] == 4
+    assert matrix_lane["capability_slice_complete"] is True
+    assert matrix_lane["proposal_ids"] == [
+        "p1_skill_route_discovery_matrix",
+        "p2_skill_route_probe_tests",
+        "p3_cognitive_core_dual_route_eval",
+    ]
+    assert matrix_lane["selected_local_lanes"] == ["documentation", "test"]
+    assert matrix_lane["completion_rule"] == (
+        "skill_route_discovery_first_then_agent_harness_eval_after_local_criteria"
+    )
+
+    assert rows["p1-skill-route-discovery-reverse-flow"]["selected_local_lane"] == "test"
+    assert rows["p1-skill-route-discovery-reverse-flow"]["skill_route_discovery_first"] is True
+    assert rows["p2-generic-skill-route-discovery"]["selected_local_lane"] == "documentation"
+    for row in rows.values():
+        assert row["allowed_local_lanes"] == list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        assert set(row["selected_evidence_item_ids"]) <= selected_item_ids
+        assert row["runtime_action"] == "none"
+        assert row["external_skill_activation_allowed"] is False
+
+    assert skill_matrix_rows["p1-skill-route-discovery-reverse-flow"]["route_family"] == (
+        "codex_workflow_gate"
+    )
+    assert skill_matrix_rows["p1-skill-route-discovery-reverse-flow"][
+        "skill_route_discovery_first"
+    ] is True
+    assert skill_matrix_rows["p2-generic-skill-route-discovery"]["route_family"] == (
+        "generic_skill_workflow"
+    )
+    assert completion_matrix["agent_harness_eval_required_before_implementation"] is True
+    assert completion_matrix["activation_allowed"] is False
+
+    assert set(adjacent) == {
+        "trend:Evolink-AI/Awesome-Blender-Seedance-Workflow-Usecases-1",
+        "trend:Tencent-Hunyuan/Hy3-1",
+        "trend:shepherd-agents/shepherd-1",
+    }
+    for row in adjacent.values():
+        assert row["evaluation_lane"] == "agent_harness_eval_required"
+        assert row["skill_route_discovery_inherited"] is False
+        assert row["direct_allowed_lanes_before_eval"] == []
+        assert row["allowed_local_lanes_after_eval"] == ["documentation", "test", "code_patch"]
+        assert row["implementation_lane_selected"] is False
+        assert row["runtime_action"] == "none"
+        assert row["external_harness_execution_allowed"] is False
+        assert row["provider_runtime_launch_allowed"] is False
+        assert row["remote_execution_allowed"] is False
+
+    assert matrix_lane["run_artifact_contract"]["rollback_ref"] == (
+        "refs/rollback/blackhole-agent/20260709T001848Z-skill-route-discovery-pass4"
+    )
+    assert matrix_lane["run_artifact_contract"]["rollback_artifact"] == (
+        "artifacts/rollback/20260709T001848Z-skill-route-discovery-pass4.md"
+    )
+    assert matrix_lane["run_artifact_contract"]["run_note_artifact"] == (
+        "artifacts/blackhole-runs/20260709T001848Z-skill-route-discovery-pass4.md"
+    )
+    assert matrix_lane["self_model_decision"]["changed"] is False
+    assert "https://github.com/" not in serialized
+    assert "python -m pytest" not in serialized
+    assert '"install"' not in serialized
+    assert '"enable"' not in serialized
+    assert '"runtime_execution"' not in serialized
+    assert '"provider_runtime"' not in serialized
+
+
 def test_skill_route_discovery_current_digest_20260708T235850_pass3_operator_validation_packet():
     source_digest = "github-growth-20260708T235850.635642Z"
     items = [

@@ -5,6 +5,31 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T001850.976378Z`, pass 4 exposes
+`skill_route_discovery_current_digest_20260709T001850_pass4_completion_matrix`.
+The matrix completes the current skill-route slice by making the route order
+operator-visible: skill-package evidence is evaluated first, then adjacent
+general-agent or workflow/model evidence remains queued for agent-harness
+evaluation only after local skill criteria pass. This closes the lane without
+installing, running, cloning, enabling, or activating upstream repositories.
+
+The pass-4 matrix maps `reverse-flow-skill` to the local test lane because its
+Codex workflow-gate and generic skill workflow signals must prove
+`skill_route_discovery_first` before any workflow-gate adoption. It maps
+`rnskill` to the documentation lane as a generic SKILL.md-compatible collection.
+Both rows are bounded to documentation, config, test, or code_patch lanes with
+runtime action set to none.
+
+`shepherd`, `Hy3`, and the Blender/Seedance workflow-usecase repository remain
+`agent_harness_eval_required` rows. They inherit no `skill_route_discovery`
+lane, expose no direct implementation lane before local harness evaluation, and
+may only produce documentation, test, or code_patch follow-up after that gate.
+The matrix records rollback/run artifacts and command hashes only; raw source
+URLs, evidence URLs, replay commands, upstream bodies, install, enable, run,
+provider launch, external harness execution, remote execution, promotion, and
+restart remain disabled. Replay with
+`python -m pytest tests/test_skill_routing.py -q -k 20260709T001850`.
+
 For source digest `github-growth-20260708T233850.660413Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260708T233850_pass2_validation_lane`
 and its nested `skill_route_discovery_pass2_local_route_eval_gate`. The gate
