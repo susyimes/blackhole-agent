@@ -5,6 +5,24 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T093527.363752Z`, pass 3 exposes
+`skill_route_discovery_current_digest_20260709T093527_pass3_provider_runtime_operator_packet`.
+The packet keeps `reverse-flow-skill` in the local test lane as Codex/AI Agent
+skill-workflow evidence and keeps `rnskill` in the documentation lane as
+generic SKILL.md-compatible workflow evidence. Both rows remain limited to
+documentation, config, test, or code_patch and require local validation before
+activation.
+
+`agent-chief` and `Hy3` remain adjacent `agent_harness_eval_required` rows with
+no direct local lane before harness evaluation. Hy3's API quickstart and MCP
+server evidence is represented only as body-free provider preflight control:
+the operator packet records recovery hint codes for missing provider preflight
+samples and MCP harness evaluation, but exports no raw provider config, secret
+values, source URLs, evidence URLs, replay commands, upstream bodies, provider
+launch, MCP server launch, network call, remote execution, promotion, push, or
+restart authority. Replay with `python -m pytest tests/test_skill_routing.py
+-q -k 20260709T093527`.
+
 For source digest `github-growth-20260709T091527.196858Z`, pass 2 now exposes
 `skill_route_discovery_current_digest_20260709T091527_pass2_validation_lane`.
 The lane is a classifier regression for the provider-runtime-control slice:

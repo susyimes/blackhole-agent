@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-07-09T09:36:17Z",
+  "source_digest": "github-growth-20260709T093527.363752Z",
+  "capability_theme": "provider-runtime-control",
+  "capability_pass": 3,
+  "original_branch": "codex/blackhole-evolve/20260709T093617.942654-add-or-extend-local-validation-for-codex-oriente",
+  "head": "cd05e244afcf4852bbe022c100fbc64716a91dcc",
+  "rollback_ref": "refs/heads/codex/blackhole-evolve/20260709T093617.942654-add-or-extend-local-validation-for-codex-oriente",
+  "recovery_commands": [
+    "git switch codex/blackhole-evolve/20260709T093617.942654-add-or-extend-local-validation-for-codex-oriente",
+    "git reset --hard cd05e244afcf4852bbe022c100fbc64716a91dcc"
+  ],
+  "notes": [
+    "Rollback execution is explicit and destructive; external supervisor or human operator must choose it.",
+    "This pass is scoped to body-free provider/runtime preflight control for skill-route discovery."
+  ]
+}
