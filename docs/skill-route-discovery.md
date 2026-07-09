@@ -5,6 +5,25 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+For source digest `github-growth-20260709T081527.210846Z`, pass 3 exposes
+`skill_route_discovery_current_digest_20260709T081527_pass3_supervisor_activation_gate`.
+The gate is the operator-visible continuation of the reverse-flow/rnskill
+slice before pass 4: `reverse-flow-skill` maps to the local test lane because
+the evidence is a Codex/AI Agent skill workflow with a SKILL.md directory,
+local sandbox framing, staged workflow, references, and diagnostic scripts;
+`rnskill` maps to documentation as a generic SKILL.md-compatible collection
+with docs, tools, and plugin/marketplace metadata. Both rows remain limited to
+documentation, config, test, or code_patch lanes and keep local validation
+required.
+
+`agent-chief` and `Hy3` remain adjacent `agent_harness_eval_required` rows
+with no direct local lane before harness evaluation. Hy3 provider preflight is
+kept review-only for the privacy boundary: no provider launch, network call,
+raw provider config, secret value, token, API key, evidence URL, source URL,
+replay command, target path, upstream body, promotion, push, restart, or remote
+execution is exported or enabled. Replay with `python -m pytest
+tests/test_skill_routing.py -q -k 20260709T081527`.
+
 For source digest `github-growth-20260709T075527.280528Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T075527_pass2_validation_lane`.
 The lane continues the reverse-flow/rnskill route-discovery slice as a bounded
