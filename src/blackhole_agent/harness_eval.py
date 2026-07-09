@@ -23274,6 +23274,10 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     browser_preflight = evaluate_provider_browser_preflight(raw_input, provider=provider)
     prompt_preflight = evaluate_provider_prompt_scan_preflight(raw_input, provider=provider)
     auth_header_preflight = evaluate_provider_auth_header_preflight(provider=provider, runtime=runtime)
+    provider_config_shape_preflight = evaluate_provider_config_shape_preflight(
+        provider=provider,
+        runtime=runtime,
+    )
     model_command_preflight = evaluate_provider_model_command_preflight(provider=provider, runtime=runtime)
     model_inventory_preflight = evaluate_provider_model_inventory_preflight(provider=provider, runtime=runtime)
     request_parameters_preflight = evaluate_provider_request_parameters_preflight(provider=provider, runtime=runtime)
@@ -23389,6 +23393,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         or not runner_compat_preflight["ok"]
         or not kubernetes_sandbox_preflight["ok"]
         or not auth_header_preflight["ok"]
+        or not provider_config_shape_preflight["ok"]
         or not model_command_preflight["ok"]
         or not model_inventory_preflight["ok"]
         or not request_parameters_preflight["ok"]
@@ -23426,6 +23431,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
     diagnostics.extend(runner_compat_preflight["diagnostics"])
     diagnostics.extend(kubernetes_sandbox_preflight["diagnostics"])
     diagnostics.extend(auth_header_preflight["diagnostics"])
+    diagnostics.extend(provider_config_shape_preflight["diagnostics"])
     diagnostics.extend(model_command_preflight["diagnostics"])
     diagnostics.extend(model_inventory_preflight["diagnostics"])
     diagnostics.extend(request_parameters_preflight["diagnostics"])
@@ -23472,6 +23478,8 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
             if not kubernetes_sandbox_preflight["ok"]
             else auth_header_preflight["failure_mode"]
             if not auth_header_preflight["ok"]
+            else provider_config_shape_preflight["failure_mode"]
+            if not provider_config_shape_preflight["ok"]
             else model_command_preflight["failure_mode"]
             if not model_command_preflight["ok"]
             else model_inventory_preflight["failure_mode"]
@@ -23595,6 +23603,7 @@ def evaluate_provider_runtime_preflight(raw_input: dict[str, Any], *, source_pat
         "runner_compat": runner_compat_preflight,
         "kubernetes_sandbox": kubernetes_sandbox_preflight,
         "auth_header": auth_header_preflight,
+        "provider_config_shape": provider_config_shape_preflight,
         "model_command": model_command_preflight,
         "model_inventory": model_inventory_preflight,
         "request_parameters": request_parameters_preflight,
@@ -25635,6 +25644,188 @@ def normalize_http_header_name(value: Any) -> str:
     return text.strip().lower()
 
 
+def evaluate_provider_config_shape_preflight(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate provider config shape before API or MCP integration is enabled.
+
+    Hy3 MCP evidence is OpenAI-compatible provider pressure: endpoint, model,
+    and key-variable metadata must exist before any runtime launch path. This
+    check records only booleans, counts, and hashes.
+    """
+
+    provider_name = optional_string(provider.get("name")) or ""
+    harness = optional_string(provider.get("harness")) or provider_name
+    provider_family = normalize_provider_family(
+        provider.get("model_provider")
+        or provider.get("provider_family")
+        or provider.get("backend")
+        or runtime.get("model_provider")
+        or runtime.get("provider_family")
+    )
+    openai_compatible = truthy(provider.get("openai_compatible")) or truthy(
+        runtime.get("openai_compatible")
+    ) or provider_family == "openai" or "openai" in f"{provider_name} {harness}".lower()
+    hy3_candidate = "hy3" in f"{provider_name} {harness}".lower() or truthy(provider.get("hy3_provider"))
+    mcp_integration = truthy(provider.get("mcp_server")) or truthy(runtime.get("mcp_server"))
+    raw_policy = provider.get("provider_config_shape", runtime.get("provider_config_shape"))
+    policy = raw_policy if isinstance(raw_policy, dict) else {}
+    required = (
+        truthy(policy.get("required"))
+        or truthy(provider.get("provider_config_shape_required"))
+        or truthy(runtime.get("provider_config_shape_required"))
+        or hy3_candidate
+        or (mcp_integration and openai_compatible)
+    )
+
+    endpoint = resolve_provider_config_endpoint(provider=provider, runtime=runtime, policy=policy)
+    model = resolve_provider_config_model(provider=provider, runtime=runtime, policy=policy)
+    key_env = resolve_provider_config_key_env(provider=provider, runtime=runtime, policy=policy)
+    endpoint_configured = bool(endpoint)
+    model_configured = bool(model)
+    key_env_configured = bool(key_env)
+    missing_fields = sorted(
+        field
+        for field, configured in {
+            "endpoint": endpoint_configured,
+            "key_variable": key_env_configured,
+            "model": model_configured,
+        }.items()
+        if required and not configured
+    )
+    ok = not missing_fields
+    diagnostics = (
+        ["provider config shape is missing required endpoint, model, or key-variable metadata"]
+        if missing_fields
+        else []
+    )
+
+    return {
+        "required": required,
+        "ok": ok,
+        "failure_mode": "none" if ok else "provider_config_shape_missing",
+        "provider_family": provider_family,
+        "openai_compatible": openai_compatible,
+        "hy3_candidate": hy3_candidate,
+        "mcp_integration": mcp_integration,
+        "endpoint_configured": endpoint_configured,
+        "endpoint_hash": stable_text_hash(endpoint) if endpoint else None,
+        "model_configured": model_configured,
+        "model_hash": stable_text_hash(model) if model else None,
+        "key_variable_configured": key_env_configured,
+        "key_variable_hash": stable_text_hash(key_env) if key_env else None,
+        "missing_field_count": len(missing_fields),
+        "missing_field_hashes": [stable_text_hash(field) for field in missing_fields],
+        "raw_endpoint_exported": False,
+        "raw_model_exported": False,
+        "raw_key_variable_exported": False,
+        "key_values_exported": False,
+        "raw_provider_config_exported": False,
+        "diagnostics": diagnostics,
+    }
+
+
+def resolve_provider_config_endpoint(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    policy: dict[str, Any],
+) -> str:
+    return optional_string(
+        policy.get("endpoint")
+        or policy.get("base_url")
+        or policy.get("api_base")
+        or provider.get("endpoint")
+        or provider.get("base_url")
+        or provider.get("api_base")
+        or runtime.get("endpoint")
+        or runtime.get("base_url")
+        or runtime.get("api_base")
+        or nested_provider_config_value(provider, "endpoint")
+        or nested_provider_config_value(provider, "base_url")
+        or nested_provider_config_value(provider, "api_base")
+        or nested_provider_config_value(runtime, "endpoint")
+        or nested_provider_config_value(runtime, "base_url")
+        or nested_provider_config_value(runtime, "api_base")
+    ) or ""
+
+
+def resolve_provider_config_model(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    policy: dict[str, Any],
+) -> str:
+    return optional_string(
+        policy.get("model")
+        or policy.get("model_id")
+        or provider.get("model")
+        or provider.get("model_id")
+        or runtime.get("model")
+        or runtime.get("model_id")
+        or nested_provider_config_value(provider, "model")
+        or nested_provider_config_value(provider, "model_id")
+        or nested_provider_config_value(runtime, "model")
+        or nested_provider_config_value(runtime, "model_id")
+    ) or ""
+
+
+def resolve_provider_config_key_env(
+    *,
+    provider: dict[str, Any],
+    runtime: dict[str, Any],
+    policy: dict[str, Any],
+) -> str:
+    return optional_string(
+        policy.get("key_env")
+        or policy.get("key_variable")
+        or policy.get("api_key_env")
+        or policy.get("auth_env_key")
+        or provider.get("key_env")
+        or provider.get("key_variable")
+        or provider.get("api_key_env")
+        or provider.get("auth_env_key")
+        or runtime.get("key_env")
+        or runtime.get("key_variable")
+        or runtime.get("api_key_env")
+        or runtime.get("auth_env_key")
+        or nested_provider_config_value(provider, "key_env")
+        or nested_provider_config_value(provider, "key_variable")
+        or nested_provider_config_value(provider, "api_key_env")
+        or nested_provider_config_value(provider, "auth_env_key")
+        or nested_provider_config_value(runtime, "key_env")
+        or nested_provider_config_value(runtime, "key_variable")
+        or nested_provider_config_value(runtime, "api_key_env")
+        or nested_provider_config_value(runtime, "auth_env_key")
+    ) or ""
+
+
+def nested_provider_config_value(container: dict[str, Any], key: str) -> Any:
+    for config_key in ("provider_config", "openai", "config"):
+        value = container.get(config_key)
+        if not isinstance(value, dict):
+            continue
+        if key in value:
+            return value.get(key)
+        openai_config = value.get("openai")
+        if isinstance(openai_config, dict) and key in openai_config:
+            return openai_config.get(key)
+        if key in {"model", "model_id"} and isinstance(openai_config, dict):
+            openai_models = openai_config.get("models")
+            if isinstance(openai_models, dict):
+                for model_key in ("default", "chat", "model"):
+                    if model_key in openai_models:
+                        return openai_models.get(model_key)
+        models = value.get("models")
+        if key in {"model", "model_id"} and isinstance(models, dict):
+            for model_key in ("default", "chat", "model"):
+                if model_key in models:
+                    return models.get(model_key)
+    return None
+
+
 def evaluate_provider_wire_api_preflight(
     *,
     provider: dict[str, Any],
@@ -26486,6 +26677,11 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
         preflight.get("kubernetes_sandbox") if isinstance(preflight.get("kubernetes_sandbox"), dict) else {}
     )
     auth_header = preflight.get("auth_header") if isinstance(preflight.get("auth_header"), dict) else {}
+    provider_config_shape = (
+        preflight.get("provider_config_shape")
+        if isinstance(preflight.get("provider_config_shape"), dict)
+        else {}
+    )
     model_command = preflight.get("model_command") if isinstance(preflight.get("model_command"), dict) else {}
     model_inventory = preflight.get("model_inventory") if isinstance(preflight.get("model_inventory"), dict) else {}
     request_parameters = (
@@ -26723,6 +26919,31 @@ def provider_runtime_recovery_hints_for_preflight(preflight: dict[str, Any]) -> 
                 "raw_header_name_exported": False,
                 "raw_header_value_exported": False,
                 "env_name_recorded": False,
+            }
+        )
+    elif failure_mode == "provider_config_shape_missing":
+        hints.append(
+            {
+                **base_hint,
+                "code": "provider_config_shape_missing",
+                "scope": "provider_config_shape",
+                "severity": "blocker",
+                "action": (
+                    "configure endpoint, model, and key-variable metadata before enabling a provider API "
+                    "or MCP integration path"
+                ),
+                "openai_compatible": bool(provider_config_shape.get("openai_compatible")),
+                "hy3_candidate": bool(provider_config_shape.get("hy3_candidate")),
+                "mcp_integration": bool(provider_config_shape.get("mcp_integration")),
+                "endpoint_configured": bool(provider_config_shape.get("endpoint_configured")),
+                "model_configured": bool(provider_config_shape.get("model_configured")),
+                "key_variable_configured": bool(provider_config_shape.get("key_variable_configured")),
+                "missing_field_count": int(provider_config_shape.get("missing_field_count") or 0),
+                "raw_endpoint_exported": False,
+                "raw_model_exported": False,
+                "raw_key_variable_exported": False,
+                "key_values_exported": False,
+                "raw_provider_config_exported": False,
             }
         )
     elif failure_mode in {

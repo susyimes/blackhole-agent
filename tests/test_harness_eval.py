@@ -2843,6 +2843,152 @@ def test_provider_runtime_preflight_requires_chat_wire_api_route_evidence_before
     assert "PRIVATE" not in serialized
 
 
+def test_provider_runtime_preflight_blocks_hy3_provider_config_shape_before_mcp_launch():
+    blocked = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-hy3-config-missing",
+            "provider": {
+                "name": "hy3-openai-compatible",
+                "harness": "hy3-mcp-server",
+                "openai_compatible": True,
+                "mcp_server": True,
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "stdio",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_hy3_config_missing_inline.json",
+    )
+    ready = evaluate_harness_behavior(
+        "provider_runtime_preflight",
+        {
+            "task_id": "fixture-provider-runtime-preflight-hy3-config-ready",
+            "provider": {
+                "name": "hy3-openai-compatible",
+                "harness": "hy3-mcp-server",
+                "openai_compatible": True,
+                "mcp_server": True,
+                "provider_config": {
+                    "openai": {
+                        "base_url": "PRIVATE_HY3_ENDPOINT_DO_NOT_EXPORT",
+                        "models": {"default": "PRIVATE_HY3_MODEL_DO_NOT_EXPORT"},
+                        "key_env": "PRIVATE_HY3_KEY_VARIABLE_DO_NOT_EXPORT",
+                    }
+                },
+            },
+            "runtime": {
+                "platform": "linux",
+                "launch_transport": "stdio",
+            },
+            "runner_env": {
+                "parent_env_keys": ["PATH"],
+                "allowlist": ["PATH"],
+            },
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_preflight_hy3_config_ready_inline.json",
+    )
+    serialized = json.dumps({"blocked": blocked, "ready": ready}, sort_keys=True)
+
+    assert blocked["route_status"] == "blocked"
+    assert blocked["failure_mode"] == "provider_config_shape_missing"
+    assert blocked["runtime"]["runner_invoked"] is False
+    assert blocked["provider_config_shape"]["required"] is True
+    assert blocked["provider_config_shape"]["hy3_candidate"] is True
+    assert blocked["provider_config_shape"]["mcp_integration"] is True
+    assert blocked["provider_config_shape"]["endpoint_configured"] is False
+    assert blocked["provider_config_shape"]["model_configured"] is False
+    assert blocked["provider_config_shape"]["key_variable_configured"] is False
+    assert blocked["provider_config_shape"]["missing_field_count"] == 3
+    assert blocked["provider_config_shape"]["raw_endpoint_exported"] is False
+    assert blocked["provider_config_shape"]["raw_model_exported"] is False
+    assert blocked["provider_config_shape"]["raw_key_variable_exported"] is False
+    assert blocked["provider_config_shape"]["key_values_exported"] is False
+    assert blocked["provider_config_shape"]["raw_provider_config_exported"] is False
+    assert blocked["recovery_hints"] == [
+        {
+            "affected_preflight_count": 1,
+            "provider_harnesses": ["hy3-mcp-server"],
+            "value_recorded": False,
+            "code": "provider_config_shape_missing",
+            "scope": "provider_config_shape",
+            "severity": "blocker",
+            "action": (
+                "configure endpoint, model, and key-variable metadata before enabling a provider API "
+                "or MCP integration path"
+            ),
+            "openai_compatible": True,
+            "hy3_candidate": True,
+            "mcp_integration": True,
+            "endpoint_configured": False,
+            "model_configured": False,
+            "key_variable_configured": False,
+            "missing_field_count": 3,
+            "raw_endpoint_exported": False,
+            "raw_model_exported": False,
+            "raw_key_variable_exported": False,
+            "key_values_exported": False,
+            "raw_provider_config_exported": False,
+        }
+    ]
+    assert blocked["diagnostic_manifest"]["decision"] == "blocked_before_provider_launch"
+    assert blocked["supervisor_replay"]["recovery_hint_codes"] == ["provider_config_shape_missing"]
+
+    assert ready["route_status"] == "passed"
+    assert ready["failure_mode"] == "none"
+    assert ready["provider_config_shape"]["endpoint_configured"] is True
+    assert ready["provider_config_shape"]["model_configured"] is True
+    assert ready["provider_config_shape"]["key_variable_configured"] is True
+    assert ready["provider_config_shape"]["missing_field_count"] == 0
+    assert ready["runtime"]["runner_invoked"] is True
+
+    assert "PRIVATE_HY3_ENDPOINT_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HY3_MODEL_DO_NOT_EXPORT" not in serialized
+    assert "PRIVATE_HY3_KEY_VARIABLE_DO_NOT_EXPORT" not in serialized
+
+
+def test_provider_runtime_recovery_summary_includes_hy3_config_shape_hint_body_free():
+    output = evaluate_harness_behavior(
+        "provider_runtime_recovery_summary",
+        {
+            "task_id": "fixture-provider-runtime-recovery-hy3-config-missing",
+            "preflights": [
+                {
+                    "provider": {
+                        "name": "hy3-openai-compatible",
+                        "harness": "hy3-mcp-server",
+                        "openai_compatible": True,
+                        "mcp_server": True,
+                    },
+                    "runtime": {
+                        "platform": "linux",
+                        "launch_transport": "stdio",
+                    },
+                    "runner_env": {
+                        "parent_env_keys": ["PATH"],
+                        "allowlist": ["PATH"],
+                    },
+                }
+            ],
+        },
+        source_path=LOCAL_EVAL_FIXTURE_DIR / "provider_runtime_recovery_hy3_config_missing_inline.json",
+    )
+    serialized = json.dumps(output, sort_keys=True)
+
+    assert output["route_status"] == "blocked"
+    assert output["blocked_failure_modes"] == ["provider_config_shape_missing"]
+    assert output["diagnostic_manifest"]["recovery_hint_codes"] == ["provider_config_shape_missing"]
+    assert output["operator_recovery_plan"]["recovery_steps"][0]["code"] == "provider_config_shape_missing"
+    assert output["privacy"]["raw_preflight_inputs_exported"] is False
+    assert output["privacy"]["secret_values_exported"] is False
+    assert "PRIVATE" not in serialized
+
+
 def test_provider_runtime_preflight_blocks_non_openai_web_search_without_dispatch_handler():
     blocked = evaluate_harness_behavior(
         "provider_runtime_preflight",
