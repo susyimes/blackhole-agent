@@ -1,0 +1,13 @@
+{
+  "run_id": "20260709T041525Z-skill-route-discovery-pass3",
+  "original_branch": "codex/blackhole-evolve/20260709T041627.420706-add-or-extend-local-fixtures-for-skill-route-dis",
+  "original_head": "1370016d8b31034d63140779f2136cd5cd99a354",
+  "rollback_ref": "refs/rollback/blackhole-agent/20260709T041525Z-skill-route-discovery-pass3",
+  "source_digest": "github-growth-20260709T041527.127710Z",
+  "capability_theme": "skill-route-discovery",
+  "recovery_commands": [
+    "git fetch --all --prune",
+    "git reset --hard refs/rollback/blackhole-agent/20260709T041525Z-skill-route-discovery-pass3",
+    "git clean -fd"
+  ]
+}
