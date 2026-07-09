@@ -1,0 +1,12 @@
+{
+  "created_at": "2026-07-09T00:00:01Z",
+  "original_branch": "codex/blackhole-evolve/20260708T235940.903923-add-a-local-skill-route-discovery-validation-for",
+  "original_head": "87910c7578a799e92f5c068e9194853f80a9db82",
+  "rollback_ref": "refs/rollback/20260709T000001Z-skill-route-discovery-pass3",
+  "source_digest": "github-growth-20260708T235850.635642Z",
+  "recovery_commands": [
+    "git reset --hard refs/rollback/20260709T000001Z-skill-route-discovery-pass3",
+    "git clean -fd"
+  ],
+  "rollback_execution": "explicit_destructive_operator_action_only"
+}
