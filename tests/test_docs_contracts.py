@@ -84,6 +84,12 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
         "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply"
         in architecture
     )
+    assert "agent_harness_eval_cluster_local_apply_completion" in architecture
+    assert (
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply_completion"
+        in architecture
+    )
+    assert "prop-hy3-harness-eval-local-apply" in architecture
 
 
 def test_upstream_evidence_interpretation_doc_records_capability_step_contract():
@@ -112,6 +118,11 @@ def test_upstream_evidence_interpretation_doc_records_capability_step_contract()
         "`agent_harness_eval_cluster_local_apply`",
         "`apply_one_local_validation_candidate`",
         "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply",
+        "## Agent Harness Eval Cluster Local Apply Completion",
+        "Source digest: `github-growth-20260712T183309.245000Z`",
+        "`agent_harness_eval_cluster_local_apply_completion`",
+        "`prop-hy3-harness-eval-local-apply`",
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply_completion",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]

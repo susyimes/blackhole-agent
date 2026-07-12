@@ -1235,8 +1235,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 198
-    assert payload["pass_count"] == 197
+    assert payload["fixture_count"] == 199
+    assert payload["pass_count"] == 198
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -5005,6 +5005,147 @@ def test_agent_harness_eval_cluster_local_apply_blocks_privacy_selected_candidat
     assert apply_packet["runtime_action"] == "none"
     assert apply_packet["foreign_agent_behavior_adoption_allowed"] is False
     assert apply_packet["behavior_patch_from_star_count_allowed"] is False
+
+
+def test_agent_harness_eval_cluster_local_apply_selects_hy3_from_proposal_token():
+    """Pass 4: prop-hy3-harness-eval-local-apply resolves to the Hy3 cluster row."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T183309_agent_harness_eval_cluster_local_apply_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    apply_packet = output["agent_harness_eval_cluster_local_apply"]
+
+    assert output["route_status"] == "passed"
+    assert apply_packet["status"] == "ready"
+    assert apply_packet["proposal_id"] == "prop-hy3-harness-eval-local-apply"
+    assert apply_packet["selected_item_id"] == "trend:Tencent-Hunyuan/Hy3-1"
+    assert apply_packet["selection_reason"] == "matched_selected_proposal_project_key"
+    assert apply_packet["local_comparison_passed"] is True
+    assert apply_packet["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert apply_packet["runtime_action"] == "none"
+    assert apply_packet["foreign_agent_behavior_adoption_allowed"] is False
+    assert apply_packet["behavior_patch_from_star_count_allowed"] is False
+    assert apply_packet["retained_review_only_item_ids"] == [
+        "trend:SmileLikeYe/agent-chief-1"
+    ]
+
+
+def test_agent_harness_eval_cluster_local_apply_completion_closes_upstream_theme():
+    """Pass 4 complete: local apply unlock produces an operator-visible theme handoff."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T183309_agent_harness_eval_cluster_local_apply_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    completion = output["agent_harness_eval_cluster_local_apply_completion"]
+    serialized = json.dumps(completion, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert completion["controller_surface"] == (
+        "agent_harness_eval_cluster_local_apply_completion"
+    )
+    assert completion["theme_id"] == "upstream-evidence-capability"
+    assert completion["status"] == "complete"
+    assert completion["theme_complete"] is True
+    assert completion["decision"] == (
+        "complete_upstream_evidence_capability_slice_after_hy3_local_apply"
+    )
+    assert completion["selected_item_id"] == "trend:Tencent-Hunyuan/Hy3-1"
+    assert completion["selected_proposal_id"] == "prop-hy3-harness-eval-local-apply"
+    assert completion["capability_pipeline"] == [
+        "upstream_evidence_capability_step",
+        "agent_harness_eval_cluster",
+        "agent_harness_eval_cluster_local_apply",
+        "agent_harness_eval_cluster_local_apply_completion",
+    ]
+    assert completion["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert completion["supervisor_next_action"] == (
+        "apply_unlocked_documentation_test_or_code_patch_with_focused_validation"
+    )
+    assert completion["theme_pass"]["current_pass"] == 4
+    assert completion["theme_pass"]["planned_passes"] == 4
+    assert completion["theme_pass"]["is_final_pass"] is True
+    assert completion["theme_pass"]["status"] == "complete"
+    assert completion["runtime_action"] == "none"
+    assert completion["runtime_action_auto_opened"] is False
+    assert completion["supervisor_activation_allowed"] is False
+    assert completion["push_or_promotion_allowed"] is False
+    assert completion["kernel_restart_allowed"] is False
+    assert completion["foreign_agent_behavior_adoption_allowed"] is False
+    assert completion["behavior_patch_from_star_count_allowed"] is False
+    assert completion["star_count_alone_unlocks_behavior_patch"] is False
+    assert completion["retained_review_only_item_ids"] == [
+        "trend:SmileLikeYe/agent-chief-1"
+    ]
+    assert completion["external_agent_activation_allowed"] is False
+    assert completion["external_harness_execution_allowed"] is False
+    assert completion["provider_runtime_launch_allowed"] is False
+    assert completion["remote_execution_allowed"] is False
+    assert completion["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "token" not in serialized.lower()
+    assert '"runtime_execution"' not in serialized
+
+
+def test_agent_harness_eval_cluster_local_apply_completion_blocks_when_apply_fails():
+    """Theme completion fails closed when the selected local-apply candidate is blocked."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T183309_agent_harness_eval_cluster_local_apply_completion.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    payload = dict(fixture["input"])
+    payload["selected_proposal_id"] = "prop-agent-chief-privacy-review-hold"
+    payload["selected_local_validation_candidate"] = {
+        "proposal_id": "prop-agent-chief-privacy-review-hold",
+        "item_id": "trend:SmileLikeYe/agent-chief-1",
+        "capability_action": "apply_one_local_validation_candidate",
+    }
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        payload,
+        source_path=fixture_path,
+    )
+    apply_packet = output["agent_harness_eval_cluster_local_apply"]
+    completion = output["agent_harness_eval_cluster_local_apply_completion"]
+
+    assert apply_packet["status"] == "blocked"
+    assert completion["status"] == "blocked"
+    assert completion["theme_complete"] is False
+    assert completion["unlocked_local_lanes"] == []
+    assert completion["decision"] == (
+        "hold_theme_completion_until_local_apply_unlocks_bounded_lanes"
+    )
+    assert completion["supervisor_next_action"] == (
+        "repair_local_comparison_or_select_safe_eval_ready_row"
+    )
+    assert completion["runtime_action"] == "none"
+    assert completion["supervisor_activation_allowed"] is False
 
 
 def test_agent_harness_eval_lane_exposes_benchmark_meta_agent_probe():

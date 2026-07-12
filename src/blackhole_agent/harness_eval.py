@@ -299,8 +299,51 @@ AGENT_HARNESS_EVAL_EXPECTED_OUTPUT_FIELDS = (
     "implementation_readiness_contract",
     "agent_harness_eval_cluster",
     "agent_harness_eval_cluster_local_apply",
+    "agent_harness_eval_cluster_local_apply_completion",
     "benchmark_meta_agent_probe_lane",
     "privacy",
+)
+AGENT_HARNESS_EVAL_CLUSTER_SELECTOR_STOP_TOKENS = frozenset(
+    {
+        "apply",
+        "before",
+        "boundary",
+        "capability",
+        "candidate",
+        "cluster",
+        "discovery",
+        "eval",
+        "gap",
+        "harness",
+        "hold",
+        "local",
+        "only",
+        "privacy",
+        "project",
+        "prop",
+        "proposal",
+        "required",
+        "review",
+        "route",
+        "skill",
+        "the",
+        "validation",
+    }
+)
+AGENT_HARNESS_EVAL_CLUSTER_GENERIC_SELECTOR_TOKENS = frozenset(
+    {
+        "agent",
+        "framework",
+        "general",
+        "model",
+        "runtime",
+    }
+)
+AGENT_HARNESS_EVAL_CLUSTER_GENERIC_PROPOSAL_IDS = frozenset(
+    {
+        "prop-agent-harness-eval",
+        "prop-agent-harness-eval-cluster",
+    }
 )
 EXTERNAL_HARNESS_ADAPTER_REQUIRED_CONFIG_FIELDS = (
     "adapter_name",
@@ -1326,6 +1369,15 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         selected_proposal_id=optional_string(raw_input.get("selected_proposal_id")),
         capability_action=optional_string(raw_input.get("capability_action")),
     )
+    agent_harness_eval_cluster_local_apply_completion = (
+        build_agent_harness_eval_cluster_local_apply_completion(
+            agent_harness_eval_cluster_local_apply,
+            cluster=agent_harness_eval_cluster,
+            source_digest=optional_string(raw_input.get("source_digest")),
+            theme_pass=optional_int(raw_input.get("theme_pass")) or 4,
+            planned_passes=optional_int(raw_input.get("planned_passes")) or 4,
+        )
+    )
     workflow_orchestration_eval_lane = build_workflow_orchestration_eval_lane(
         records,
         project_intake_probe=project_intake_probe,
@@ -1366,6 +1418,9 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "general_agent_project_route_plan": general_agent_project_route_plan,
         "agent_harness_eval_cluster": agent_harness_eval_cluster,
         "agent_harness_eval_cluster_local_apply": agent_harness_eval_cluster_local_apply,
+        "agent_harness_eval_cluster_local_apply_completion": (
+            agent_harness_eval_cluster_local_apply_completion
+        ),
         "workflow_orchestration_eval_lane": workflow_orchestration_eval_lane,
         "benchmark_meta_agent_probe_lane": benchmark_meta_agent_probe_lane,
         "claim_evaluation": claim_evaluation,
@@ -1743,6 +1798,86 @@ def agent_harness_eval_item_repo_key(item_id: str) -> str:
     return re.sub(r"-\d+$", "", text)
 
 
+def agent_harness_eval_cluster_selector_tokens(value: str | None) -> set[str]:
+    """Tokenize proposal or item selectors for body-free cluster row matching."""
+
+    text = str(value or "").strip().lower()
+    if not text:
+        return set()
+    for prefix in ("prop-", "proposal_", "trend:"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+    parts = [part for part in re.split(r"[^a-z0-9]+", text) if part]
+    tokens = {
+        part
+        for part in parts
+        if len(part) >= 3 and part not in AGENT_HARNESS_EVAL_CLUSTER_SELECTOR_STOP_TOKENS
+    }
+    # Keep compound project tokens such as agent-chief when present in the selector.
+    for left, right in zip(parts, parts[1:]):
+        if left in AGENT_HARNESS_EVAL_CLUSTER_SELECTOR_STOP_TOKENS:
+            continue
+        if right in AGENT_HARNESS_EVAL_CLUSTER_SELECTOR_STOP_TOKENS:
+            continue
+        compound = f"{left}-{right}"
+        if len(compound) >= 5:
+            tokens.add(compound)
+    return tokens
+
+
+def agent_harness_eval_cluster_distinctive_selector_tokens(value: str | None) -> set[str]:
+    """Return project-distinctive selector tokens, ignoring generic cluster labels."""
+
+    return agent_harness_eval_cluster_selector_tokens(value) - (
+        AGENT_HARNESS_EVAL_CLUSTER_GENERIC_SELECTOR_TOKENS
+    )
+
+
+def agent_harness_eval_cluster_effective_proposal_selector(value: str | None) -> str:
+    """Return a proposal selector only when it names a concrete project token."""
+
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.lower() in AGENT_HARNESS_EVAL_CLUSTER_GENERIC_PROPOSAL_IDS:
+        return ""
+    if agent_harness_eval_looks_like_item_selector(text):
+        return text
+    if agent_harness_eval_cluster_distinctive_selector_tokens(text):
+        return text
+    return ""
+
+
+def agent_harness_eval_cluster_row_matches_selector(
+    item_id: str,
+    *,
+    selected_item: str = "",
+    selected_proposal: str = "",
+    requested_keys: set[str] | None = None,
+) -> bool:
+    """Return True when a cluster row matches an explicit item or proposal selector."""
+
+    if not item_id:
+        return False
+    if selected_item and item_id == selected_item:
+        return True
+    if selected_proposal and item_id == selected_proposal:
+        return True
+    item_key = agent_harness_eval_item_repo_key(item_id)
+    keys = requested_keys or set()
+    if item_key and item_key in keys:
+        return True
+    row_tokens = agent_harness_eval_cluster_selector_tokens(item_id)
+    for selector in (selected_item, selected_proposal):
+        if not selector or agent_harness_eval_looks_like_item_selector(selector):
+            # Exact and repo-key matching above already handled item-like selectors.
+            continue
+        selector_tokens = agent_harness_eval_cluster_distinctive_selector_tokens(selector)
+        if selector_tokens and selector_tokens & row_tokens:
+            return True
+    return False
+
+
 def agent_harness_eval_looks_like_item_selector(value: str | None) -> bool:
     """Return True when a proposal/item id can select a cluster row."""
 
@@ -1758,28 +1893,42 @@ def select_agent_harness_eval_cluster_apply_target(
     selected_item_id: str | None = None,
     selected_proposal_id: str | None = None,
 ) -> dict[str, Any]:
-    """Pick one cluster row for local comparison apply without selecting review-only rows."""
+    """Pick one cluster row for local comparison apply without selecting review-only rows.
+
+    Selectors may be trend item ids (with or without event ordinals) or proposal ids
+    such as ``prop-hy3-harness-eval-local-apply``. Proposal tokens match owner/repo
+    keys without exporting raw source URLs. Safety-boundary review-only rows can be
+    matched for an explicit block, but they never unlock local lanes.
+    """
 
     rows = [row for row in cluster.get("rows", []) if isinstance(row, dict)]
     review_only_rows = [
         row for row in cluster.get("review_only_rows", []) if isinstance(row, dict)
     ]
     selected_item = str(selected_item_id or "").strip()
-    selected_proposal = str(selected_proposal_id or "").strip()
+    selected_proposal = agent_harness_eval_cluster_effective_proposal_selector(
+        selected_proposal_id
+    )
     requested_keys = {
         key
         for key in (
             agent_harness_eval_item_repo_key(selected_item) if selected_item else "",
-            agent_harness_eval_item_repo_key(selected_proposal) if selected_proposal else "",
+            agent_harness_eval_item_repo_key(selected_proposal)
+            if selected_proposal and agent_harness_eval_looks_like_item_selector(selected_proposal)
+            else "",
         )
         if key
     }
+    has_selector = bool(selected_item or selected_proposal)
 
-    if selected_item or selected_proposal:
+    if has_selector:
         for row in review_only_rows:
             item_id = str(row.get("item_id") or "")
-            if item_id in {selected_item, selected_proposal} or (
-                agent_harness_eval_item_repo_key(item_id) in requested_keys
+            if agent_harness_eval_cluster_row_matches_selector(
+                item_id,
+                selected_item=selected_item,
+                selected_proposal=selected_proposal,
+                requested_keys=requested_keys,
             ):
                 return {
                     "status": "blocked",
@@ -1788,19 +1937,47 @@ def select_agent_harness_eval_cluster_apply_target(
                     "row": row,
                 }
 
-        for row in rows:
-            item_id = str(row.get("item_id") or "")
-            if item_id in {selected_item, selected_proposal} or (
-                agent_harness_eval_item_repo_key(item_id) in requested_keys
-            ):
-                return {
-                    "status": "selected",
-                    "reason": "matched_selected_local_validation_candidate",
-                    "item_id": item_id,
-                    "row": row,
-                }
+        matches = [
+            row
+            for row in rows
+            if agent_harness_eval_cluster_row_matches_selector(
+                str(row.get("item_id") or ""),
+                selected_item=selected_item,
+                selected_proposal=selected_proposal,
+                requested_keys=requested_keys,
+            )
+        ]
+        if matches:
+            # Prefer exact item id, then repo-key, then stable item id order.
+            def _match_rank(row: dict[str, Any]) -> tuple[int, str]:
+                item_id = str(row.get("item_id") or "")
+                if selected_item and item_id == selected_item:
+                    return (0, item_id)
+                if selected_proposal and item_id == selected_proposal:
+                    return (0, item_id)
+                if agent_harness_eval_item_repo_key(item_id) in requested_keys:
+                    return (1, item_id)
+                return (2, item_id)
 
-        if requested_keys:
+            row = sorted(matches, key=_match_rank)[0]
+            item_id = str(row.get("item_id") or "")
+            reason = (
+                "matched_selected_local_validation_candidate"
+                if selected_item
+                or (
+                    selected_proposal
+                    and agent_harness_eval_looks_like_item_selector(selected_proposal)
+                )
+                else "matched_selected_proposal_project_key"
+            )
+            return {
+                "status": "selected",
+                "reason": reason,
+                "item_id": item_id,
+                "row": row,
+            }
+
+        if requested_keys or selected_proposal or selected_item:
             return {
                 "status": "blocked",
                 "reason": "selected_item_not_present_in_eval_ready_cluster_rows",
@@ -1815,10 +1992,21 @@ def select_agent_harness_eval_cluster_apply_target(
         and row.get("local_comparison_status") == "ready_for_local_comparison"
     ]
     if queued:
-        row = queued[0]
+        # Prefer Hy3-style ready rows when no explicit selector is provided so the
+        # operator-visible default aligns with the primary local-apply candidate.
+        preferred = [
+            row
+            for row in queued
+            if "hy3" in agent_harness_eval_cluster_selector_tokens(str(row.get("item_id") or ""))
+        ]
+        row = preferred[0] if preferred else queued[0]
         return {
             "status": "selected",
-            "reason": "first_eval_ready_cluster_row",
+            "reason": (
+                "preferred_hy3_eval_ready_cluster_row"
+                if preferred
+                else "first_eval_ready_cluster_row"
+            ),
             "item_id": str(row.get("item_id") or ""),
             "row": row,
         }
@@ -2011,6 +2199,10 @@ def build_agent_harness_eval_cluster_local_apply(
     unlock only documentation, test, or code_patch after the comparison passes.
     Runtime action stays none. Star-count evidence never drafts a behavioral
     patch. Privacy-leakage and offensive-behavior rows remain review-only.
+
+    Pass 4 deepens selection so proposal ids such as
+    ``prop-hy3-harness-eval-local-apply`` resolve to the matching cluster row by
+    project token when ordinals or item ids differ.
     """
 
     validation_command = (
@@ -2019,6 +2211,14 @@ def build_agent_harness_eval_cluster_local_apply(
     candidate = selected_candidate if isinstance(selected_candidate, dict) else {}
     candidate_item_hint = optional_string(candidate.get("item_id")) or optional_string(
         candidate.get("proposal_id")
+    )
+    candidate_proposal_hint = optional_string(candidate.get("selected_proposal_id")) or (
+        optional_string(candidate.get("proposal_id"))
+        if optional_string(candidate.get("proposal_id"))
+        and not agent_harness_eval_looks_like_item_selector(
+            optional_string(candidate.get("proposal_id"))
+        )
+        else None
     )
     resolved_item_id = optional_string(selected_item_id)
     if not resolved_item_id and agent_harness_eval_looks_like_item_selector(candidate_item_hint):
@@ -2031,15 +2231,7 @@ def build_agent_harness_eval_cluster_local_apply(
         and not agent_harness_eval_looks_like_item_selector(selected_proposal_id)
         else None
     ) or (
-        optional_string(candidate.get("selected_proposal_id"))
-        or (
-            optional_string(candidate.get("proposal_id"))
-            if optional_string(candidate.get("proposal_id"))
-            and not agent_harness_eval_looks_like_item_selector(
-                optional_string(candidate.get("proposal_id"))
-            )
-            else None
-        )
+        candidate_proposal_hint
         or "prop-agent-harness-eval-cluster"
     )
     resolved_capability_action = (
@@ -2047,10 +2239,12 @@ def build_agent_harness_eval_cluster_local_apply(
         or optional_string(candidate.get("capability_action"))
         or "apply_one_local_validation_candidate"
     )
+    # Proposal ids (prop-hy3-...) are first-class selectors so local-apply can
+    # choose Hy3 without requiring the exact trend ordinal in selected_item_id.
     target = select_agent_harness_eval_cluster_apply_target(
         cluster,
         selected_item_id=resolved_item_id,
-        selected_proposal_id=resolved_item_id,
+        selected_proposal_id=resolved_proposal_id,
     )
     retained_review_only_item_ids = sorted(
         {
@@ -2063,7 +2257,7 @@ def build_agent_harness_eval_cluster_local_apply(
     if target["status"] == "not_applicable":
         return {
             "controller_surface": "agent_harness_eval_cluster_local_apply",
-            "proposal_id": "prop-agent-harness-eval-cluster",
+            "proposal_id": resolved_proposal_id,
             "status": "not_applicable",
             "decision": "no_general_agent_project_candidate_for_local_apply",
             "capability_action": resolved_capability_action,
@@ -2099,7 +2293,7 @@ def build_agent_harness_eval_cluster_local_apply(
     if target["status"] == "blocked" or not isinstance(target.get("row"), dict):
         return {
             "controller_surface": "agent_harness_eval_cluster_local_apply",
-            "proposal_id": "prop-agent-harness-eval-cluster",
+            "proposal_id": resolved_proposal_id,
             "status": "blocked",
             "decision": "hold_selected_candidate_until_safe_eval_ready_row_exists",
             "capability_action": resolved_capability_action,
@@ -2159,7 +2353,7 @@ def build_agent_harness_eval_cluster_local_apply(
 
     return {
         "controller_surface": "agent_harness_eval_cluster_local_apply",
-        "proposal_id": "prop-agent-harness-eval-cluster",
+        "proposal_id": resolved_proposal_id,
         "status": status,
         "decision": decision,
         "capability_action": resolved_capability_action,
@@ -2207,6 +2401,134 @@ def build_agent_harness_eval_cluster_local_apply(
         "external_harness_execution_allowed": False,
         "provider_runtime_launch_allowed": False,
         "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def build_agent_harness_eval_cluster_local_apply_completion(
+    local_apply: dict[str, Any],
+    *,
+    cluster: dict[str, Any] | None = None,
+    source_digest: str | None = None,
+    theme_pass: int = 4,
+    planned_passes: int = 4,
+) -> dict[str, Any]:
+    """Close the upstream-evidence-capability slice after one local apply.
+
+    Pass 4 of 4: once ``agent_harness_eval_cluster_local_apply`` unlocks
+    documentation/test/code_patch for a selected general-agent row (Hy3 by
+    default), emit an operator-visible completion handoff. The handoff binds the
+    capability pipeline, unlocked lanes, retained privacy boundaries, and the
+    next supervisor action. It never opens runtime_action, provider launch,
+    external harness execution, remote execution, push, promotion, or restart.
+    """
+
+    validation_command = (
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply_completion"
+    )
+    apply = local_apply if isinstance(local_apply, dict) else {}
+    cluster_packet = cluster if isinstance(cluster, dict) else {}
+    apply_status = str(apply.get("status") or "")
+    comparison_passed = apply.get("local_comparison_passed") is True
+    unlocked = [
+        lane
+        for lane in string_list(apply.get("unlocked_local_lanes"))
+        if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+    ]
+    retained_review_only_item_ids = sorted(
+        {
+            *string_list(apply.get("retained_review_only_item_ids")),
+            *[
+                str(row.get("item_id") or "")
+                for row in cluster_packet.get("review_only_rows", [])
+                if isinstance(row, dict) and str(row.get("item_id") or "").strip()
+            ],
+        }
+    )
+    selected_item_id = str(apply.get("selected_item_id") or "")
+    selected_proposal_id = str(
+        apply.get("selected_proposal_id") or "prop-agent-harness-eval-cluster"
+    )
+    capability_action = str(
+        apply.get("capability_action") or "apply_one_local_validation_candidate"
+    )
+    theme_complete = (
+        apply_status == "ready"
+        and comparison_passed
+        and bool(unlocked)
+        and apply.get("runtime_action") == "none"
+        and apply.get("foreign_agent_behavior_adoption_allowed") is not True
+        and apply.get("behavior_patch_from_star_count_allowed") is not True
+        and apply.get("star_count_alone_unlocks_behavior_patch") is not True
+    )
+    if apply_status in {"", "not_applicable"} and not selected_item_id:
+        status = "not_applicable"
+        decision = "no_local_apply_candidate_to_complete_theme"
+        supervisor_next_action = "wait_for_agent_harness_eval_cluster_local_apply"
+    elif theme_complete:
+        status = "complete"
+        decision = "complete_upstream_evidence_capability_slice_after_hy3_local_apply"
+        supervisor_next_action = (
+            "apply_unlocked_documentation_test_or_code_patch_with_focused_validation"
+        )
+    else:
+        status = "blocked"
+        decision = "hold_theme_completion_until_local_apply_unlocks_bounded_lanes"
+        supervisor_next_action = "repair_local_comparison_or_select_safe_eval_ready_row"
+
+    return {
+        "controller_surface": "agent_harness_eval_cluster_local_apply_completion",
+        "proposal_id": selected_proposal_id,
+        "theme_id": "upstream-evidence-capability",
+        "theme_pass": {
+            "planned_passes": planned_passes,
+            "current_pass": theme_pass,
+            "status": "complete" if theme_complete else status,
+            "is_final_pass": theme_pass >= planned_passes and planned_passes > 0,
+        },
+        "source_digest": source_digest or "",
+        "status": status,
+        "decision": decision,
+        "capability_action": capability_action,
+        "capability_pipeline": [
+            "upstream_evidence_capability_step",
+            "agent_harness_eval_cluster",
+            "agent_harness_eval_cluster_local_apply",
+            "agent_harness_eval_cluster_local_apply_completion",
+        ],
+        "selected_item_id": selected_item_id,
+        "selected_proposal_id": selected_proposal_id,
+        "selection_reason": str(apply.get("selection_reason") or ""),
+        "local_apply_status": apply_status,
+        "local_comparison_passed": comparison_passed,
+        "local_comparison_status": str(apply.get("local_comparison_status") or ""),
+        "unlocked_local_lanes": unlocked,
+        "direct_allowed_lanes_before_eval": [],
+        "evaluation_lane": "agent_harness_eval_required",
+        "local_validation_required": True,
+        "runtime_action": "none",
+        "runtime_action_auto_opened": False,
+        "implementation_patch_allowed_before_eval": False,
+        "behavior_patch_from_star_count_allowed": False,
+        "star_count_alone_unlocks_behavior_patch": False,
+        "foreign_agent_behavior_adoption_allowed": False,
+        "theme_complete": theme_complete,
+        "supervisor_next_action": supervisor_next_action,
+        "supervisor_activation_allowed": False,
+        "retained_review_only_item_ids": retained_review_only_item_ids,
+        "required_validation": [
+            "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply",
+            validation_command,
+        ],
+        "body_free": True,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
         "raw_source_urls_exported": False,
         "raw_evidence_urls_exported": False,
         "raw_upstream_body_exported": False,

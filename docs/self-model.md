@@ -28,14 +28,17 @@ touches multiple files or behavior paths.
 
 ## Upstream Evidence Habit
 
-Observed this run (pass 3 of `upstream-evidence-capability`): agent-chief privacy evidence stays review-only and
-cannot be selected as a local-apply target. Hy3 and fortress remain general_agent_project rows behind
-`agent_harness_eval_cluster`. Pass 3 deepens the slice by applying one local validation candidate through
-`agent_harness_eval_cluster_local_apply`: evaluate comparison criteria for the selected Hy3-style row, unlock only
-documentation/test/code_patch when comparison passes, keep `runtime_action=none`, and never draft foreign agent
-behavior from star-count evidence.
+Observed this run (pass 4 of 4 of `upstream-evidence-capability`, complete): agent-chief privacy evidence stays
+review-only and cannot be selected as a local-apply target. Fortress remains a general_agent_project row in the
+cluster queue. Hy3 is the selected local-apply candidate via `prop-hy3-harness-eval-local-apply`.
 
-Prefer translating mixed public signals into one local capability step
-(`upstream_evidence_capability_step` → cluster queue → selected local apply) rather than another isolated note.
-Pass 1 established the one-step classifier; pass 2 added the operator-visible harness-eval cluster and comparison
-criteria; pass 3 wires the selected candidate into an unlock path after local comparison.
+Pass 4 completes the slice through `agent_harness_eval_cluster_local_apply_completion`: resolve the Hy3 proposal
+token to the matching cluster row, require local comparison before unlock, open only documentation/test/code_patch,
+keep `runtime_action=none`, and emit a body-free supervisor handoff that marks the theme complete without granting
+activation, push, promotion, provider launch, external harness execution, remote execution, or restart.
+
+Prefer translating mixed public signals into one local capability pipeline
+(`upstream_evidence_capability_step` → cluster queue → selected local apply → completion handoff) rather than
+another isolated note. Pass 1 established the one-step classifier; pass 2 added the operator-visible harness-eval
+cluster and comparison criteria; pass 3 wired selected local apply after comparison; pass 4 closes the window with
+an operator-visible completion handoff for the selected Hy3 candidate.

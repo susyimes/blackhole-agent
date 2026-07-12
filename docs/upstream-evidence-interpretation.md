@@ -117,6 +117,34 @@ Validation command for this surface:
 
 `pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply`
 
+## Agent Harness Eval Cluster Local Apply Completion
+
+Source digest: `github-growth-20260712T183309.245000Z` (pass 4 of 4 of the
+`upstream-evidence-capability` window; selected proposal
+`prop-hy3-harness-eval-local-apply`).
+
+After local apply unlocks bounded lanes for one general-agent project, the lane
+emits `agent_harness_eval_cluster_local_apply_completion`. That operator-visible
+completion handoff:
+
+- resolves `prop-hy3-harness-eval-local-apply` to the Hy3 cluster row by project
+  token when exact trend ordinals differ
+- marks the theme complete only when local comparison passed and unlocked lanes
+  are limited to `documentation`, `test`, or `code_patch`
+- keeps `runtime_action=none` and denies supervisor activation, push, promotion,
+  provider launch, external harness execution, remote execution, and kernel
+  restart from this surface
+- records the capability pipeline
+  (`upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
+  `agent_harness_eval_cluster_local_apply` →
+  `agent_harness_eval_cluster_local_apply_completion`)
+- retains agent-chief-style privacy-leakage rows as review-only and fails closed
+  when the selected local-apply candidate is blocked
+
+Validation command for this surface:
+
+`pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply_completion`
+
 The proposal interpreter may summarize and rank candidate lessons, but it must
 not add evidence URLs, remove risk flags, grant permissions, or decide final
 validation gates. Deterministic review and local validation keep ownership of
