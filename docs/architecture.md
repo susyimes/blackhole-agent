@@ -159,6 +159,11 @@ retained privacy and general-agent boundaries, and the external supervisor next
 action (`apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`).
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
+When residual fortress-style general-agent proposals are selected after
+skill-route reverse-flow work is exhausted, the pipeline emits
+`skill_route_discovery_adjacent_harness_eval_handoff` and defers to
+`agent_harness_eval_cluster_local_apply` instead of failing skill-route
+comparison or requesting reverse-flow repair.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
 Runtime action stays `none`; external skill execution, provider launch, remote
 apply, push or promotion, and kernel restart remain denied. The packet exports

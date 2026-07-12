@@ -31,6 +31,35 @@ Adjacent fortress-style general-agent projects remain
 privacy evidence stays review-only. External skill execution, provider launch,
 remote apply, raw evidence URLs, and upstream bodies stay denied.
 
+### Adjacent fortress harness-eval handoff
+
+When reverse-flow skill-route candidates are absent and the selected residual
+row is a fortress-style `general_agent_project`
+(`prop-harness-fortress-local-eval`), the pipeline must **not** fail
+`skill_route_discovery_local_comparison` or demand reverse-flow repair. It
+emits `skill_route_discovery_adjacent_harness_eval_handoff`:
+
+1. Skill-route local comparison is `not_applicable` for
+   `agent_harness_eval_required` selections
+2. Config gates stay `ready` when isolation holds
+   (`adjacent_general_agent_row_does_not_inherit_skill_unlocks`)
+3. Local apply / completion become `deferred_adjacent_harness_eval`
+4. Supervisor next action is
+   `run_agent_harness_eval_local_comparison_for_selected_general_agent_row`
+5. Handoff targets `agent_harness_eval_cluster_local_apply`, which resolves
+   `prop-harness-fortress-local-eval` to the fortress cluster row and unlocks
+   only documentation, test, or code_patch after criteria pass
+6. Skill unlocks, runtime action, provider launch, remote apply, push,
+   promotion, and restart stay denied; body-free export only
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_adjacent_fortress_handoff`
+
+and:
+
+`pytest tests/test_harness_eval.py -q -k fortress_from_proposal_token`
+
 Validation command for this surface:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`

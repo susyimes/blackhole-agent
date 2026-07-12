@@ -28,13 +28,30 @@ touches multiple files or behavior paths.
 
 ## Skill Route Discovery Habit
 
-Observed this run (pass 4 of 4 of `skill-route-discovery`, complete): reverse-flow-skill and rnskill skill-workflow
-signals closed on one local `skill_route_discovery_capability_pipeline` rather than isolated fixtures. Pass 2 locked
-reverse-flow into a bounded local test validation lane through criteria-driven local comparison. Pass 3 packaged that
-unlocked lane into a body-free local apply handoff with rnskill documentation companion and config-gate boundaries.
-Pass 4 completes the slice with `skill_route_discovery_local_apply_completion` — an operator-visible theme close that
-binds the full capability path, unlocked local `test` lane, retained privacy/general-agent boundaries, and the
-external supervisor next action.
+Reverse-flow skill-route discovery closed on the shared
+`skill_route_discovery_capability_pipeline` (classifier → route_profiles →
+bounded_local_apply_lanes → local comparison → reverse-flow test lane → rnskill
+docs companion → config gates → local apply → completion). Residual work this
+run: when the selected step is an adjacent fortress-style
+`general_agent_project` (`prop-harness-fortress-local-eval`) rather than a
+reverse-flow skill row, do not fail skill-route local comparison or demand
+`repair_skill_route_discovery_local_apply_before_theme_completion`.
+
+Observed this run (adjacent harness-eval handoff repair):
+
+- Fortress / Hy3 classify as `agent_harness_eval_required`
+- Agent-chief remains `privacy_boundary_review_only`
+- Skill-route local comparison for adjacent selections is `not_applicable`, not
+  `failed`
+- Config gates stay ready when isolation holds
+- Local apply / completion become `deferred_adjacent_harness_eval`
+- New operator surface:
+  `skill_route_discovery_adjacent_harness_eval_handoff` queues
+  `agent_harness_eval_cluster_local_apply` for the selected general-agent row
+- Supervisor next action:
+  `run_agent_harness_eval_local_comparison_for_selected_general_agent_row`
+- `prop-harness-fortress-local-eval` resolves to the fortress cluster row and
+  unlocks only documentation / test / code_patch after harness criteria pass
 
 Pipeline stages remain:
 
@@ -43,28 +60,10 @@ Pipeline stages remain:
    `generic_skill_workflow`
 3. bounded_local_apply_lanes — reverse-flow prefers `test`, rnskill prefers `documentation`; only
    documentation/config/test/code_patch; local comparison required before unlock; `runtime_action=none`
+4. adjacent handoff — fortress-style residuals go to agent harness-eval local comparison; skill unlocks stay closed
 
-Operator surfaces on the completed pipeline:
-
-- `skill_route_discovery_local_comparison` — compares selected skill-route probe rows to classifier /
-  route_profiles / bounded_local_apply_lanes criteria
-- `skill_route_discovery_reverse_flow_test_validation_lane` — unlocks only the local `test` lane when
-  reverse-flow criteria pass
-- `skill_route_discovery_rnskill_docs_validation_lane` — body-free `generic_skill_workflow` documentation
-  companion (`prop-skill-pipeline-rnskill-docs`) after reverse-flow comparison; may be `not_applicable`
-- `skill_route_discovery_config_gate_boundary` — keeps general_agent and privacy rows out of skill unlocks
-  (`prop-skill-pipeline-config-gates`)
-- `skill_route_discovery_local_apply` — applies the reverse-flow local test validation candidate only when
-  reverse-flow, rnskill docs, and config gates are ready
-- `skill_route_discovery_local_apply_completion` — pass-4 theme close after reverse-flow local apply unlocks;
-  supervisor next action
-  `apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external`
-
-Selected local candidate: `prop-skill-pipeline-reverse-flow-test`. Fortress remains an adjacent
-general_agent_project harness-eval row. Agent-chief privacy evidence stays review-only and cannot be selected for
-local apply. External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
-
-This theme window is complete. Prefer a new capability slice on the next wake unless residual repair work is required.
+External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
+Prefer this handoff over treating adjacent general-agent residual rows as reverse-flow theme failures.
 
 ## Upstream Evidence Habit
 

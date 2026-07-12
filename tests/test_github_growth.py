@@ -4956,6 +4956,183 @@ def test_skill_route_discovery_capability_pipeline_pass4_local_apply_completion(
     assert chief_url not in dumped
 
 
+def test_skill_route_discovery_adjacent_fortress_handoff_does_not_fail_skill_comparison():
+    """Residual fortress selection hands off to agent harness-eval instead of reverse-flow repair."""
+
+    fortress_url = "https://github.com/tiliondev/fortress"
+    chief_url = "https://github.com/SmileLikeYe/agent-chief"
+    hy3_url = "https://github.com/Tencent-Hunyuan/Hy3"
+    proposals = [
+        {
+            "proposal_id": "prop-harness-fortress-local-eval",
+            "kind": "test",
+            "summary": (
+                "Run a bounded agent_harness_eval local comparison for tiliondev/fortress "
+                "as the remaining named general_agent_project row."
+            ),
+            "evidence_urls": [fortress_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": (
+                "Define and execute a local harness-eval checklist for fortress "
+                "(general_agent_project, agent_harness_eval_required, no skill route_hints)."
+            ),
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-harness-agent-chief-local-eval",
+            "kind": "documentation",
+            "summary": (
+                "Locally evaluate SmileLikeYe/agent-chief under agent_harness_eval with "
+                "explicit privacy/boundary check before any apply-lane unlock."
+            ),
+            "evidence_urls": [chief_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Criteria-driven local harness comparison for agent-chief.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-harness-hy3-local-eval",
+            "kind": "test",
+            "summary": (
+                "Bounded agent_harness_eval local validation for Tencent-Hunyuan/Hy3 as a "
+                "general_agent_project without skill_term/workflow probe."
+            ),
+            "evidence_urls": [hy3_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Compare Hy3 trend signals to agent_harness_eval criteria.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-harness-eval-config-boundary",
+            "kind": "config",
+            "summary": "Keep privacy and offensive rows review-only for harness eval config boundary.",
+            "evidence_urls": [],
+            "risk_flags": [],
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Config boundary.",
+            "requires_approval": False,
+        },
+    ]
+    theme = {
+        "theme_id": "skill-route-discovery",
+        "planned_passes": 1,
+        "target_passes": 4,
+        "status": "active",
+    }
+    pipeline = build_skill_route_discovery_capability_pipeline(proposals, theme_window=theme)
+
+    selected = pipeline["selected_step"]
+    comparison = pipeline["local_comparison"]
+    config_gates = pipeline["config_gate_boundary"]
+    local_apply = pipeline["local_apply"]
+    completion = pipeline["local_apply_completion"]
+    handoff = pipeline["adjacent_agent_harness_eval_handoff"]
+    reverse_lane = pipeline["reverse_flow_test_validation_lane"]
+
+    assert pipeline["status"] == "adjacent_harness_eval"
+    assert selected["proposal_id"] == "prop-harness-fortress-local-eval"
+    assert selected["route_class"] == "agent_harness_eval_required"
+    assert selected["capability_action"] == "queue_general_agent_project_for_harness_eval"
+    assert selected["selected_local_lane"] == "none"
+    assert selected["unlocked_local_lanes"] == []
+    assert selected["local_comparison_required"] is False
+    assert selected["local_comparison_status"] == "not_applicable"
+    assert selected["autonomous_local_apply"] is False
+
+    assert comparison["controller_surface"] == "skill_route_discovery_local_comparison"
+    assert comparison["status"] == "not_applicable"
+    assert comparison["decision"] == (
+        "selected_adjacent_harness_eval_requires_agent_harness_local_comparison"
+    )
+    assert comparison["failed_criteria"] == []
+    assert comparison["local_comparison_passed"] is False
+    assert comparison["unlocked_local_lanes"] == []
+    assert comparison["handoff_controller_surface"] == "agent_harness_eval_cluster_local_apply"
+    assert comparison["handoff_allowed_local_lanes"] == ["documentation", "test", "code_patch"]
+    assert comparison["runtime_action"] == "none"
+
+    assert reverse_lane["status"] == "deferred_non_reverse_flow_selection"
+    assert config_gates["status"] == "ready"
+    assert config_gates["decision"] == (
+        "adjacent_general_agent_row_does_not_inherit_skill_unlocks"
+    )
+    assert config_gates["general_agent_inherits_skill_unlock"] is False
+    assert config_gates["privacy_rows_selectable_for_local_apply"] is False
+
+    assert local_apply["status"] == "deferred_adjacent_harness_eval"
+    assert local_apply["decision"] == (
+        "selected_step_is_adjacent_agent_harness_eval_not_skill_local_apply"
+    )
+    assert local_apply["unlocked_local_lanes"] == []
+    assert local_apply["supervisor_next_action"] == (
+        "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+    )
+
+    assert completion["status"] == "deferred_adjacent_harness_eval"
+    assert completion["theme_complete"] is False
+    assert completion["decision"] == (
+        "hand_off_selected_adjacent_row_to_agent_harness_eval_local_comparison"
+    )
+    assert completion["supervisor_next_action"] == (
+        "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+    )
+    assert completion["adjacent_harness_eval_handoff_required"] is True
+    assert completion["supervisor_next_action"] != (
+        "repair_skill_route_discovery_local_apply_before_theme_completion"
+    )
+
+    assert handoff["controller_surface"] == (
+        "skill_route_discovery_adjacent_harness_eval_handoff"
+    )
+    assert handoff["status"] == "ready"
+    assert handoff["decision"] == (
+        "queue_selected_general_agent_row_for_agent_harness_eval_local_comparison"
+    )
+    assert handoff["selected_proposal_id"] == "prop-harness-fortress-local-eval"
+    assert handoff["route_class"] == "agent_harness_eval_required"
+    assert handoff["evaluation_lane"] == "agent_harness_eval_required"
+    assert handoff["handoff_controller_surface"] == "agent_harness_eval_cluster_local_apply"
+    assert handoff["allowed_local_lanes_after_local_comparison"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert handoff["direct_allowed_lanes_before_eval"] == []
+    assert handoff["skill_route_discovery_inherited"] is False
+    assert handoff["skill_route_unlocks_closed"] is True
+    assert handoff["runtime_action"] == "none"
+    assert handoff["external_skill_execution_allowed"] is False
+    assert handoff["provider_launch_allowed"] is False
+    assert handoff["remote_apply_allowed"] is False
+    assert handoff["supervisor_next_action"] == (
+        "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+    )
+    assert (
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply"
+        in handoff["required_validation"]
+    )
+
+    adjacent_ids = {row["proposal_id"] for row in pipeline["adjacent_general_agent_rows"]}
+    assert "prop-harness-fortress-local-eval" in adjacent_ids
+    assert "prop-harness-hy3-local-eval" in adjacent_ids
+    assert pipeline["bounded_local_apply"]["status"] == (
+        "deferred_to_agent_harness_eval_local_comparison"
+    )
+    assert pipeline["runtime_action"] == "none"
+
+    dumped = json.dumps(pipeline)
+    assert fortress_url not in dumped
+    assert chief_url not in dumped
+    assert hy3_url not in dumped
+
+
 def test_skill_route_discovery_local_apply_completion_blocks_when_apply_not_ready():
     """Completion stays blocked until reverse-flow local apply unlocks the test lane."""
 

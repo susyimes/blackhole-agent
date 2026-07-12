@@ -5042,6 +5042,81 @@ def test_agent_harness_eval_cluster_local_apply_selects_hy3_from_proposal_token(
     ]
 
 
+def test_agent_harness_eval_cluster_local_apply_selects_fortress_from_proposal_token():
+    """prop-harness-fortress-local-eval unlocks fortress after criteria-driven local comparison."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T181308_agent_harness_eval_cluster_local_apply.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    # Keep the shared cluster fixture, but select fortress as the residual named row.
+    fixture_input = dict(fixture["input"])
+    fixture_input["selected_proposal_id"] = "prop-harness-fortress-local-eval"
+    fixture_input["selected_item_id"] = None
+    fixture_input["selected_local_validation_candidate"] = {
+        "proposal_id": "prop-harness-fortress-local-eval",
+        "capability_action": "queue_general_agent_project_for_harness_eval",
+        "route_class": "general_agent_project",
+        "selected_proposal_id": "prop-harness-fortress-local-eval",
+    }
+    fixture_input["capability_action"] = "queue_general_agent_project_for_harness_eval"
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture_input,
+        source_path=fixture_path,
+    )
+    cluster = output["agent_harness_eval_cluster"]
+    apply_packet = output["agent_harness_eval_cluster_local_apply"]
+    serialized = json.dumps(apply_packet, sort_keys=True)
+
+    assert output["route_status"] == "passed"
+    assert cluster["status"] == "ready_with_review_boundaries"
+    assert apply_packet["controller_surface"] == "agent_harness_eval_cluster_local_apply"
+    assert apply_packet["status"] == "ready"
+    assert apply_packet["decision"] == (
+        "unlock_documentation_test_or_code_patch_after_local_comparison"
+    )
+    assert apply_packet["proposal_id"] == "prop-harness-fortress-local-eval"
+    assert apply_packet["selected_proposal_id"] == "prop-harness-fortress-local-eval"
+    assert apply_packet["selected_item_id"] == "trend:tiliondev/fortress-1"
+    assert apply_packet["selection_reason"] == "matched_selected_proposal_project_key"
+    assert apply_packet["evaluation_lane"] == "agent_harness_eval_required"
+    assert apply_packet["local_validation_required"] is True
+    assert apply_packet["local_comparison_required"] is True
+    assert apply_packet["local_comparison_passed"] is True
+    assert apply_packet["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert apply_packet["direct_allowed_lanes_before_eval"] == []
+    assert apply_packet["runtime_action"] == "none"
+    assert apply_packet["runtime_action_auto_opened"] is False
+    assert apply_packet["implementation_patch_allowed_before_eval"] is False
+    assert apply_packet["behavior_patch_from_star_count_allowed"] is False
+    assert apply_packet["star_count_alone_unlocks_behavior_patch"] is False
+    assert apply_packet["foreign_agent_behavior_adoption_allowed"] is False
+    assert apply_packet["retained_review_only_item_ids"] == [
+        "trend:SmileLikeYe/agent-chief-1"
+    ]
+    assert apply_packet["external_agent_activation_allowed"] is False
+    assert apply_packet["external_harness_execution_allowed"] is False
+    assert apply_packet["provider_runtime_launch_allowed"] is False
+    assert apply_packet["remote_execution_allowed"] is False
+    assert apply_packet["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    # Skill-route inheritance must stay closed for fortress residual work.
+    fortress_rows = [
+        row
+        for row in cluster["rows"]
+        if row.get("item_id") == "trend:tiliondev/fortress-1"
+    ]
+    assert fortress_rows
+    assert fortress_rows[0].get("skill_route_discovery_inherited") is False
+
+
 def test_agent_harness_eval_cluster_local_apply_completion_closes_upstream_theme():
     """Pass 4 complete: local apply unlock produces an operator-visible theme handoff."""
 

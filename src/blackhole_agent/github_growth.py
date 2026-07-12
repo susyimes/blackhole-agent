@@ -2715,10 +2715,25 @@ _SKILL_ROUTE_FORTRESS_MARKERS = (
     "fortress",
     "tiliondev/fortress",
 )
+_SKILL_ROUTE_HY3_MARKERS = (
+    "hy3",
+    "tencent-hunyuan/hy3",
+    "tencent-hunyuan",
+)
 _SKILL_ROUTE_AGENT_CHIEF_MARKERS = (
     "agent-chief",
     "agent_chief",
     "smilelikeye/agent-chief",
+)
+_SKILL_ROUTE_GENERAL_AGENT_HARNESS_MARKERS = (
+    "agent_harness_eval",
+    "agent harness eval",
+    "general_agent_project",
+    "general agent project",
+    "prop-harness-fortress",
+    "prop-harness-hy3",
+    "prop-hy3-harness",
+    "prop-fortress",
 )
 _SKILL_ROUTE_GENERIC_SKILL_MARKERS = (
     "skill_route_discovery",
@@ -2728,6 +2743,10 @@ _SKILL_ROUTE_GENERIC_SKILL_MARKERS = (
     "skills/",
     "agent skill",
     "codex skill",
+)
+AGENT_HARNESS_EVAL_POST_COMPARE_LANES = ("documentation", "test", "code_patch")
+ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND = (
+    "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply"
 )
 
 
@@ -2861,7 +2880,11 @@ def build_skill_route_discovery_capability_pipeline(
             "selection_reason": "no_skill_route_capability_step_selected",
         }
         bounded_status = "not_applicable"
+        selected_is_adjacent_harness = False
     else:
+        selected_is_adjacent_harness = (
+            str(selected.get("route_class") or "") == "agent_harness_eval_required"
+        )
         local_comparison = evaluate_skill_route_discovery_local_comparison(
             selected,
             candidate_rows=candidate_rows,
@@ -2869,24 +2892,38 @@ def build_skill_route_discovery_capability_pipeline(
             retained_boundaries=retained_boundaries,
         )
         criteria_passed = bool(local_comparison.get("local_comparison_passed"))
+        comparison_not_applicable = str(local_comparison.get("status") or "") == "not_applicable"
         # Explicit override remains available for replay fixtures; pass 2 defaults
         # to criteria-driven comparison so reverse-flow unlock is evidence-backed.
-        comparison_passed = bool(local_comparison_passed) or (
-            apply_local_comparison and criteria_passed
-        )
-        comparison_status = (
-            "passed"
-            if comparison_passed
-            else ("failed" if apply_local_comparison and not criteria_passed else "required_before_unlock")
-        )
+        # Adjacent general-agent selections never unlock skill-route lanes.
+        if selected_is_adjacent_harness or comparison_not_applicable:
+            comparison_passed = False
+            comparison_status = "not_applicable"
+        else:
+            comparison_passed = bool(local_comparison_passed) or (
+                apply_local_comparison and criteria_passed
+            )
+            comparison_status = (
+                "passed"
+                if comparison_passed
+                else (
+                    "failed"
+                    if apply_local_comparison and not criteria_passed
+                    else "required_before_unlock"
+                )
+            )
         preferred_lane = str(selected["preferred_local_lane"] or "")
         unlocked_lanes = (
             [preferred_lane]
-            if comparison_passed and preferred_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            if comparison_passed
+            and preferred_lane in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            and not selected_is_adjacent_harness
             else []
         )
         status = "ready" if selected["status"] == "ready" else str(selected["status"])
-        if status == "ready" and not comparison_passed:
+        if selected_is_adjacent_harness:
+            status = "adjacent_harness_eval"
+        elif status == "ready" and not comparison_passed:
             status = "ready_for_local_comparison"
         elif status == "ready" and comparison_passed:
             status = "ready"
@@ -2897,32 +2934,38 @@ def build_skill_route_discovery_capability_pipeline(
             "route_class": selected["route_class"],
             "capability_action": selected["capability_action"],
             "route_profiles": list(selected["route_profiles"]),
-            "selected_local_lane": preferred_lane,
+            "selected_local_lane": preferred_lane if preferred_lane else "none",
             "allowed_local_lanes": list(selected["allowed_local_lanes"]),
             "unlocked_local_lanes": unlocked_lanes,
-            "local_comparison_required": True,
+            "local_comparison_required": not selected_is_adjacent_harness,
             "local_comparison_status": comparison_status,
             "skill_route_discovery_first": bool(selected["skill_route_discovery_first"]),
             "validation_gate": selected["validation_gate"],
-            "autonomous_local_apply": bool(selected["autonomous_local_apply_allowed"]),
+            "autonomous_local_apply": bool(selected["autonomous_local_apply_allowed"])
+            and not selected_is_adjacent_harness,
             "selection_reason": selected["selection_reason"],
         }
         for row in candidate_rows:
             row["selected"] = row["proposal_id"] == selected_step["proposal_id"] and bool(
                 selected_step["proposal_id"]
             )
-        bounded_status = (
-            "lanes_unlocked_after_local_comparison"
-            if unlocked_lanes
-            else (
-                "local_comparison_failed"
-                if comparison_status == "failed"
-                else "local_comparison_required_before_unlock"
+        if selected_is_adjacent_harness:
+            bounded_status = "deferred_to_agent_harness_eval_local_comparison"
+        else:
+            bounded_status = (
+                "lanes_unlocked_after_local_comparison"
+                if unlocked_lanes
+                else (
+                    "local_comparison_failed"
+                    if comparison_status == "failed"
+                    else "local_comparison_required_before_unlock"
+                )
             )
-        )
         local_comparison["unlocked_local_lanes"] = list(unlocked_lanes)
-        local_comparison["applied"] = bool(apply_local_comparison or local_comparison_passed)
-        local_comparison["selected_local_lane"] = preferred_lane
+        local_comparison["applied"] = bool(
+            (apply_local_comparison or local_comparison_passed) and not selected_is_adjacent_harness
+        )
+        local_comparison["selected_local_lane"] = preferred_lane if preferred_lane else "none"
 
     classifier_status = (
         "ready"
@@ -2968,6 +3011,21 @@ def build_skill_route_discovery_capability_pipeline(
         adjacent_general_agent_rows=adjacent_general_agent_rows,
         theme_window=theme,
     )
+    adjacent_harness_eval_handoff = build_skill_route_discovery_adjacent_harness_eval_handoff(
+        selected_step=selected_step,
+        adjacent_general_agent_rows=adjacent_general_agent_rows,
+        retained_boundaries=retained_boundaries,
+        local_comparison=local_comparison,
+        local_apply=local_apply,
+        local_apply_completion=local_apply_completion,
+        theme_window=theme,
+    )
+    # Adjacent general-agent residual work is a deliberate handoff, not a failed reverse-flow theme.
+    if (
+        str(adjacent_harness_eval_handoff.get("status") or "") == "ready"
+        and str(selected_step.get("route_class") or "") == "agent_harness_eval_required"
+    ):
+        status = "adjacent_harness_eval"
     # Pass 4 closes the window when the reverse-flow local apply completion is ready.
     if (
         str(local_apply_completion.get("status") or "") == "complete"
@@ -3040,6 +3098,7 @@ def build_skill_route_discovery_capability_pipeline(
         "config_gate_boundary": config_gate_boundary,
         "local_apply": local_apply,
         "local_apply_completion": local_apply_completion,
+        "adjacent_agent_harness_eval_handoff": adjacent_harness_eval_handoff,
         "selected_step": selected_step,
         "retained_boundaries": retained_boundaries,
         "adjacent_general_agent_rows": adjacent_general_agent_rows,
@@ -3052,7 +3111,9 @@ def build_skill_route_discovery_capability_pipeline(
         "promotion_rule": (
             "Classify skill/workflow signals into route profiles, require local comparison "
             "before unlocking documentation/config/test/code_patch lanes, keep runtime_action "
-            "none, and retain privacy/offensive rows review-only without exporting raw evidence URLs."
+            "none, and retain privacy/offensive rows review-only without exporting raw evidence URLs. "
+            "Adjacent general_agent_project rows (for example fortress) hand off to "
+            "agent_harness_eval_cluster_local_apply instead of failing skill-route comparison."
         ),
     }
 
@@ -3089,6 +3150,42 @@ def evaluate_skill_route_discovery_local_comparison(
             "passed": passed,
             "required": required,
             "detail": detail,
+        }
+
+    # Adjacent general-agent rows (fortress/Hy3) are not skill-route candidates.
+    # Do not fail skill-route comparison; hand off to agent_harness_eval instead.
+    if route_class == "agent_harness_eval_required":
+        return {
+            "schema_version": 1,
+            "controller_surface": "skill_route_discovery_local_comparison",
+            "status": "not_applicable",
+            "decision": (
+                "selected_adjacent_harness_eval_requires_agent_harness_local_comparison"
+            ),
+            "selected_proposal_id": str(selected.get("proposal_id") or ""),
+            "route_class": route_class,
+            "route_profiles": list(profiles),
+            "skill_route_discovery_first": skill_first,
+            "selected_local_lane": preferred_lane or "none",
+            "allowed_local_lanes": list(allowed_lanes),
+            "criteria_ids": list(SKILL_ROUTE_DISCOVERY_LOCAL_COMPARISON_CRITERIA),
+            "criteria_results": [],
+            "failed_criteria": [],
+            "local_comparison_passed": False,
+            "unlocked_local_lanes": [],
+            "handoff_controller_surface": "agent_harness_eval_cluster_local_apply",
+            "handoff_allowed_local_lanes": list(AGENT_HARNESS_EVAL_POST_COMPARE_LANES),
+            "runtime_action": "none",
+            "external_skill_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_apply_allowed": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_bodies_exported": False,
+            "required_validation": [
+                "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline",
+                ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND,
+            ],
+            "body_free": True,
         }
 
     if "codex_workflow_gate" in profiles:
@@ -3440,16 +3537,26 @@ def build_skill_route_discovery_config_gate_boundary(
     )
     skill_unlocked = list(selected_step.get("unlocked_local_lanes") or [])
     profiles_separated = bool(codex_rows) or bool(generic_only_rows) or not profiles
-    gates_pass = (
-        general_agent_isolated
-        and privacy_isolated
-        and profiles_separated
-        and str(selected_step.get("route_class") or "")
-        not in {"privacy_boundary_review_only", "offensive_boundary_review_only", "agent_harness_eval_required"}
-    )
+    selected_route_class = str(selected_step.get("route_class") or "")
+    selected_is_adjacent_harness = selected_route_class == "agent_harness_eval_required"
+    selected_is_safety_boundary = selected_route_class in {
+        "privacy_boundary_review_only",
+        "offensive_boundary_review_only",
+    }
+    isolation_holds = general_agent_isolated and privacy_isolated and profiles_separated
+    # Skill-route apply is only allowed for skill_route_discovery rows. Adjacent
+    # harness-eval selections keep isolation ready without pretending to be a
+    # skill unlock failure that needs repair.
+    gates_pass = isolation_holds and not selected_is_safety_boundary and not selected_is_adjacent_harness
     if not selected_step.get("proposal_id"):
         status = "not_applicable"
         decision = "no_selected_skill_route_step_for_config_gates"
+    elif selected_is_adjacent_harness and isolation_holds:
+        status = "ready"
+        decision = "adjacent_general_agent_row_does_not_inherit_skill_unlocks"
+    elif selected_is_adjacent_harness:
+        status = "blocked"
+        decision = "repair_config_gate_isolation_before_adjacent_harness_handoff"
     elif gates_pass and bool(comparison.get("local_comparison_passed")):
         status = "ready"
         decision = "config_gates_hold_adjacent_rows_out_of_skill_unlocks"
@@ -3533,9 +3640,14 @@ def build_skill_route_discovery_local_apply(
         selected_step.get("skill_route_discovery_first")
     )
 
+    selected_route_class = str(selected_step.get("route_class") or "none")
+    selected_is_adjacent_harness = selected_route_class == "agent_harness_eval_required"
     if not selected_step.get("proposal_id"):
         status = "not_applicable"
         decision = "no_selected_skill_route_step_for_local_apply"
+    elif selected_is_adjacent_harness:
+        status = "deferred_adjacent_harness_eval"
+        decision = "selected_step_is_adjacent_agent_harness_eval_not_skill_local_apply"
     elif not is_reverse_flow:
         status = "deferred_non_reverse_flow_selection"
         decision = "selected_step_is_not_reverse_flow_local_apply"
@@ -3559,10 +3671,25 @@ def build_skill_route_discovery_local_apply(
         status = "blocked_until_local_comparison"
         decision = "hold_local_apply_until_pipeline_stage_comparison_passes"
 
+    if status == "ready":
+        supervisor_next_action = "replay_skill_route_discovery_local_apply_then_continue_to_pass4"
+    elif status == "deferred_adjacent_harness_eval":
+        supervisor_next_action = (
+            "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+        )
+    elif status in {"deferred_non_reverse_flow_selection", "not_applicable"}:
+        supervisor_next_action = "wait_for_skill_route_discovery_reverse_flow_selection"
+    else:
+        supervisor_next_action = "repair_skill_route_discovery_local_apply_before_pass4"
+
     return {
         "schema_version": 1,
         "controller_surface": "skill_route_discovery_local_apply",
-        "proposal_track": "prop-skill-pipeline-reverse-flow-test",
+        "proposal_track": (
+            str(selected_step.get("proposal_id") or "prop-skill-pipeline-reverse-flow-test")
+            if selected_is_adjacent_harness
+            else "prop-skill-pipeline-reverse-flow-test"
+        ),
         "companion_tracks": [
             "prop-skill-pipeline-rnskill-docs",
             "prop-skill-pipeline-config-gates",
@@ -3574,13 +3701,17 @@ def build_skill_route_discovery_local_apply(
             or "apply_one_local_skill_route_validation_candidate"
         ),
         "selected_proposal_id": str(selected_step.get("proposal_id") or ""),
-        "route_class": str(selected_step.get("route_class") or "none"),
+        "route_class": selected_route_class,
         "route_profiles": profiles,
         "skill_route_discovery_first": bool(selected_step.get("skill_route_discovery_first")),
-        "selected_local_lane": selected_lane,
-        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "selected_local_lane": selected_lane if selected_lane else "none",
+        "allowed_local_lanes": (
+            list(AGENT_HARNESS_EVAL_POST_COMPARE_LANES)
+            if selected_is_adjacent_harness
+            else list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        ),
         "unlocked_local_lanes": unlocked if status == "ready" else [],
-        "local_comparison_required": True,
+        "local_comparison_required": not selected_is_adjacent_harness,
         "local_comparison_passed": comparison_passed,
         "local_comparison_status": str(
             selected_step.get("local_comparison_status")
@@ -3624,15 +3755,16 @@ def build_skill_route_discovery_local_apply(
         },
         "required_validation": [
             "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
-        ],
+        ]
+        + (
+            [ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND]
+            if selected_is_adjacent_harness
+            else []
+        ),
         "body_free": True,
         "raw_evidence_urls_exported": False,
         "raw_upstream_bodies_exported": False,
-        "supervisor_next_action": (
-            "replay_skill_route_discovery_local_apply_then_continue_to_pass4"
-            if status == "ready"
-            else "repair_skill_route_discovery_local_apply_before_pass4"
-        ),
+        "supervisor_next_action": supervisor_next_action,
     }
 
 
@@ -3726,6 +3858,11 @@ def build_skill_route_discovery_local_apply_completion(
         for row in retained
     ) if retained else True
 
+    apply_route_class = str(apply.get("route_class") or "")
+    selected_is_adjacent_harness = (
+        apply_route_class == "agent_harness_eval_required"
+        or apply_status == "deferred_adjacent_harness_eval"
+    )
     theme_complete = (
         apply_status == "ready"
         and comparison_passed
@@ -3744,12 +3881,23 @@ def build_skill_route_discovery_local_apply_completion(
         and privacy_isolated
         and config_gates.get("general_agent_inherits_skill_unlock") is not True
         and config_gates.get("privacy_rows_selectable_for_local_apply") is not True
+        and not selected_is_adjacent_harness
     )
 
     if apply_status in {"", "not_applicable"} and not selected_proposal_id:
         status = "not_applicable"
         decision = "no_skill_route_local_apply_candidate_to_complete_theme"
         supervisor_next_action = "wait_for_skill_route_discovery_local_apply"
+    elif selected_is_adjacent_harness and general_agent_isolated and privacy_isolated:
+        # Residual fortress-style general-agent work is a deliberate handoff, not
+        # a reverse-flow theme repair signal.
+        status = "deferred_adjacent_harness_eval"
+        decision = (
+            "hand_off_selected_adjacent_row_to_agent_harness_eval_local_comparison"
+        )
+        supervisor_next_action = (
+            "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+        )
     elif theme_complete:
         status = "complete"
         decision = (
@@ -3798,6 +3946,7 @@ def build_skill_route_discovery_local_apply_completion(
             "skill_route_discovery_config_gate_boundary",
             "skill_route_discovery_local_apply",
             "skill_route_discovery_local_apply_completion",
+            "skill_route_discovery_adjacent_harness_eval_handoff",
         ],
         "local_apply_status": apply_status,
         "local_comparison_passed": comparison_passed,
@@ -3807,14 +3956,19 @@ def build_skill_route_discovery_local_apply_completion(
         "reverse_flow_test_validation_lane_status": str(reverse_lane.get("status") or "none"),
         "rnskill_docs_validation_lane_status": str(rnskill_lane.get("status") or "none"),
         "config_gate_boundary_status": str(config_gates.get("status") or "none"),
-        "selected_local_lane": selected_lane,
+        "selected_local_lane": selected_lane if selected_lane else "none",
         "unlocked_local_lanes": unlocked if theme_complete else [],
-        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        "allowed_local_lanes": (
+            list(AGENT_HARNESS_EVAL_POST_COMPARE_LANES)
+            if selected_is_adjacent_harness
+            else list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+        ),
         "route_class": str(apply.get("route_class") or "skill_route_discovery"),
         "route_profiles": list(apply.get("route_profiles") or []),
         "skill_route_discovery_first": bool(apply.get("skill_route_discovery_first")),
         "local_validation_required": True,
         "theme_complete": theme_complete,
+        "adjacent_harness_eval_handoff_required": selected_is_adjacent_harness,
         "retained_boundary_proposal_ids": retained_ids,
         "adjacent_general_agent_proposal_ids": adjacent_ids,
         "general_agent_inherits_skill_unlock": False,
@@ -3850,6 +4004,153 @@ def build_skill_route_discovery_local_apply_completion(
         "supervisor_next_action": supervisor_next_action,
         "required_validation": [
             "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
+        ]
+        + (
+            [ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND]
+            if selected_is_adjacent_harness
+            else []
+        ),
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+    }
+
+
+def build_skill_route_discovery_adjacent_harness_eval_handoff(
+    *,
+    selected_step: dict[str, Any],
+    adjacent_general_agent_rows: list[dict[str, Any]] | None = None,
+    retained_boundaries: list[dict[str, Any]] | None = None,
+    local_comparison: dict[str, Any] | None = None,
+    local_apply: dict[str, Any] | None = None,
+    local_apply_completion: dict[str, Any] | None = None,
+    theme_window: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Operator-visible handoff from skill-route residual rows to agent harness-eval.
+
+    When the skill-route pipeline selects a fortress-style
+    ``agent_harness_eval_required`` row (no reverse-flow skill candidate remains),
+    do not fail skill-route local comparison or demand reverse-flow repair. Instead
+    emit a body-free handoff that queues
+    ``agent_harness_eval_cluster_local_apply`` for documentation/test/code_patch
+    after harness-eval criteria pass. Privacy/offensive rows stay review-only;
+    runtime action, provider launch, remote apply, and skill unlocks stay denied.
+    """
+
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    selected = selected_step if isinstance(selected_step, dict) else {}
+    adjacent = list(adjacent_general_agent_rows or [])
+    retained = list(retained_boundaries or [])
+    comparison = local_comparison if isinstance(local_comparison, dict) else {}
+    apply = local_apply if isinstance(local_apply, dict) else {}
+    completion = local_apply_completion if isinstance(local_apply_completion, dict) else {}
+
+    selected_route_class = str(selected.get("route_class") or "")
+    selected_proposal_id = str(selected.get("proposal_id") or "")
+    selected_is_adjacent = selected_route_class == "agent_harness_eval_required"
+    general_agent_isolated = all(
+        row.get("skill_route_discovery_inherited") is False
+        and list(row.get("direct_allowed_lanes_before_eval") or []) == []
+        for row in adjacent
+    ) if adjacent else True
+    privacy_isolated = all(
+        str(row.get("route_class") or "")
+        in {"privacy_boundary_review_only", "offensive_boundary_review_only"}
+        for row in retained
+    ) if retained else True
+    skill_unlocks_closed = list(selected.get("unlocked_local_lanes") or []) == [] and list(
+        apply.get("unlocked_local_lanes") or []
+    ) == []
+
+    if not selected_proposal_id:
+        status = "not_applicable"
+        decision = "no_selected_step_for_adjacent_harness_eval_handoff"
+        supervisor_next_action = "wait_for_skill_route_or_adjacent_harness_selection"
+    elif not selected_is_adjacent:
+        status = "not_applicable"
+        decision = "selected_step_is_not_adjacent_agent_harness_eval"
+        supervisor_next_action = "continue_skill_route_discovery_pipeline"
+    elif not general_agent_isolated or not privacy_isolated:
+        status = "blocked"
+        decision = "repair_adjacent_isolation_before_harness_eval_handoff"
+        supervisor_next_action = "repair_skill_route_config_gate_isolation"
+    elif not skill_unlocks_closed:
+        status = "blocked"
+        decision = "close_skill_route_unlocks_before_adjacent_harness_handoff"
+        supervisor_next_action = "repair_skill_route_discovery_local_apply_before_handoff"
+    else:
+        status = "ready"
+        decision = (
+            "queue_selected_general_agent_row_for_agent_harness_eval_local_comparison"
+        )
+        supervisor_next_action = (
+            "run_agent_harness_eval_local_comparison_for_selected_general_agent_row"
+        )
+
+    retained_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in retained
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+    )
+    adjacent_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in adjacent
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+    )
+
+    return {
+        "schema_version": 1,
+        "controller_surface": "skill_route_discovery_adjacent_harness_eval_handoff",
+        "proposal_track": selected_proposal_id or "prop-harness-fortress-local-eval",
+        "status": status,
+        "decision": decision,
+        "selected_proposal_id": selected_proposal_id,
+        "route_class": selected_route_class or "none",
+        "capability_action": str(
+            selected.get("capability_action")
+            or "queue_general_agent_project_for_harness_eval"
+        ),
+        "evaluation_lane": "agent_harness_eval_required",
+        "handoff_controller_surface": "agent_harness_eval_cluster_local_apply",
+        "handoff_completion_surface": "agent_harness_eval_cluster_local_apply_completion",
+        "allowed_local_lanes_after_local_comparison": list(AGENT_HARNESS_EVAL_POST_COMPARE_LANES),
+        "direct_allowed_lanes_before_eval": [],
+        "skill_route_discovery_inherited": False,
+        "skill_route_unlocks_closed": skill_unlocks_closed,
+        "local_comparison_required": True,
+        "local_comparison_status": str(
+            selected.get("local_comparison_status")
+            or comparison.get("status")
+            or "not_applicable"
+        ),
+        "skill_route_local_comparison_status": str(comparison.get("status") or "none"),
+        "skill_route_local_apply_status": str(apply.get("status") or "none"),
+        "skill_route_local_apply_completion_status": str(completion.get("status") or "none"),
+        "general_agent_isolation_passed": general_agent_isolated,
+        "privacy_isolation_passed": privacy_isolated,
+        "adjacent_general_agent_proposal_ids": adjacent_ids,
+        "retained_boundary_proposal_ids": retained_ids,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "supervisor_activation_allowed": False,
+        "supervisor_next_action": supervisor_next_action,
+        "theme_id": str(theme.get("theme_id") or "skill-route-discovery"),
+        "theme_pass": {
+            "planned_passes": int(theme.get("planned_passes") or 0),
+            "target_passes": int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES),
+            "status": str(theme.get("status") or ""),
+        },
+        "required_validation": [
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline",
+            ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND,
         ],
         "body_free": True,
         "raw_evidence_urls_exported": False,
@@ -3919,13 +4220,21 @@ def classify_skill_route_discovery_capability_route(proposal: dict[str, Any]) ->
         selection_reason = "privacy_leakage_or_agent_chief_remains_review_only"
         status = "blocked_by_safety_boundary"
         autonomous_allowed = False
-    elif any(marker in blob for marker in _SKILL_ROUTE_FORTRESS_MARKERS) or (
-        "general_agent" in blob and "skill" not in blob
+    elif (
+        any(marker in blob for marker in _SKILL_ROUTE_FORTRESS_MARKERS)
+        or any(marker in blob for marker in _SKILL_ROUTE_HY3_MARKERS)
+        or any(marker in blob for marker in _SKILL_ROUTE_GENERAL_AGENT_HARNESS_MARKERS)
+        or (
+            "general_agent" in blob
+            and not any(marker in blob for marker in _SKILL_ROUTE_REVERSE_FLOW_MARKERS)
+            and not any(marker in blob for marker in _SKILL_ROUTE_RNSKILL_MARKERS)
+            and not any(marker in blob for marker in _SKILL_ROUTE_GENERIC_SKILL_MARKERS)
+        )
     ):
         route_class = "agent_harness_eval_required"
         capability_action = "queue_general_agent_project_for_harness_eval"
         preferred_lane = "none"
-        allowed_lanes = ["documentation", "test", "code_patch"]
+        allowed_lanes = list(AGENT_HARNESS_EVAL_POST_COMPARE_LANES)
         route_profiles = []
         skill_route_discovery_first = False
         selection_reason = "general_agent_project_requires_agent_harness_eval"
@@ -4468,8 +4777,20 @@ def render_skill_route_discovery_capability_pipeline_lines(
         if isinstance(pipeline.get("local_apply_completion"), dict)
         else {}
     )
+    adjacent_handoff = (
+        pipeline.get("adjacent_agent_harness_eval_handoff")
+        if isinstance(pipeline.get("adjacent_agent_harness_eval_handoff"), dict)
+        else {}
+    )
     stages = ", ".join(str(stage) for stage in pipeline.get("pipeline_stages") or [])
     profiles = ", ".join(str(profile) for profile in selected.get("route_profiles") or [])
+    supervisor_next = (
+        adjacent_handoff.get("supervisor_next_action")
+        if str(adjacent_handoff.get("status") or "") == "ready"
+        else None
+    ) or local_apply_completion.get("supervisor_next_action") or local_apply.get(
+        "supervisor_next_action"
+    ) or "none"
     lines = [
         "Skill route discovery capability pipeline:",
         f"- Status: `{pipeline.get('status', '')}`",
@@ -4490,8 +4811,10 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"- Local apply decision: `{local_apply.get('decision') or 'none'}`",
         f"- Local apply completion: `{local_apply_completion.get('status') or 'none'}`",
         f"- Local apply completion decision: `{local_apply_completion.get('decision') or 'none'}`",
+        f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
+        f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
-        f"- Supervisor next action: `{local_apply_completion.get('supervisor_next_action') or local_apply.get('supervisor_next_action') or 'none'}`",
+        f"- Supervisor next action: `{supervisor_next}`",
         f"- Skill route discovery first: `{bool(selected.get('skill_route_discovery_first'))}`",
         f"- Autonomous local apply for selected step: `{bool(selected.get('autonomous_local_apply'))}`",
         f"- Runtime action: `{pipeline.get('runtime_action', 'none')}`",
@@ -4501,6 +4824,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- Pass 2 locks reverse-flow codex_workflow_gate into a bounded local test lane only after pipeline-stage comparison.",
         "- Pass 3 packages reverse-flow local apply with body-free rnskill docs companion and config-gate boundaries.",
         "- Pass 4 completes the reverse-flow local test validation lane via skill_route_discovery_local_apply_completion.",
+        "- Residual fortress-style general_agent_project rows hand off to agent_harness_eval_cluster_local_apply instead of failing skill-route comparison.",
     ]
     retained = pipeline.get("retained_boundaries") or []
     if retained:
