@@ -28,9 +28,11 @@ touches multiple files or behavior paths.
 
 ## Skill Route Discovery Habit
 
-Observed this run (pass 2 of 4 of `skill-route-discovery`, active): reverse-flow-skill and rnskill skill-workflow
-signals stay on one local `skill_route_discovery_capability_pipeline`. Pass 2 locks reverse-flow into a bounded
-local test validation lane through criteria-driven local comparison rather than a free unlock boolean.
+Observed this run (pass 3 of 4 of `skill-route-discovery`, active): reverse-flow-skill and rnskill skill-workflow
+signals stay on one local `skill_route_discovery_capability_pipeline`. Pass 2 locked reverse-flow into a bounded
+local test validation lane through criteria-driven local comparison. Pass 3 packages that unlocked lane into a
+body-free local apply handoff with rnskill documentation companion and config-gate boundaries — still one pipeline,
+not isolated fixtures.
 
 Pipeline stages remain:
 
@@ -40,18 +42,24 @@ Pipeline stages remain:
 3. bounded_local_apply_lanes — reverse-flow prefers `test`, rnskill prefers `documentation`; only
    documentation/config/test/code_patch; local comparison required before unlock; `runtime_action=none`
 
-Pass 2 additions (operator-visible on the same pipeline):
+Pass 2–3 operator surfaces on the same pipeline:
 
 - `skill_route_discovery_local_comparison` — compares selected skill-route probe rows to classifier /
   route_profiles / bounded_local_apply_lanes criteria
 - `skill_route_discovery_reverse_flow_test_validation_lane` — unlocks only the local `test` lane when
-  reverse-flow criteria pass; companion rnskill docs profiles remain body-free on the same path
+  reverse-flow criteria pass
+- `skill_route_discovery_rnskill_docs_validation_lane` — body-free `generic_skill_workflow` documentation
+  companion (`prop-skill-pipeline-rnskill-docs`) after reverse-flow comparison
+- `skill_route_discovery_config_gate_boundary` — keeps general_agent and privacy rows out of skill unlocks
+  (`prop-skill-pipeline-config-gates`)
+- `skill_route_discovery_local_apply` — pass-3 handoff that applies the reverse-flow local test validation
+  candidate only when reverse-flow, rnskill docs, and config gates are ready
 
 Selected local candidate: `prop-skill-pipeline-reverse-flow-test`. Fortress remains an adjacent
 general_agent_project harness-eval row. Agent-chief privacy evidence stays review-only and cannot be selected for
 local apply. External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
 
-Prefer compounding this pipeline across the remaining passes over another per-digest fixture.
+Prefer completing this pipeline on pass 4 over another per-digest fixture.
 
 ## Upstream Evidence Habit
 

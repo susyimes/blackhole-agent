@@ -147,6 +147,11 @@ reverse-flow probe and exposes
 `skill_route_discovery_reverse_flow_test_validation_lane` so the preferred
 `test` lane unlocks only after pipeline-stage comparison; companion rnskill
 rows remain documentation-preferring profiles on the same path.
+Pass 3 packages the unlocked reverse-flow lane into
+`skill_route_discovery_local_apply` with
+`skill_route_discovery_rnskill_docs_validation_lane` (body-free documentation
+companion) and `skill_route_discovery_config_gate_boundary` (keeps
+general-agent and privacy rows out of skill unlocks) on the same pipeline.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.

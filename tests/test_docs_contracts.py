@@ -96,6 +96,9 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "bounded_local_apply_lanes" in architecture
     assert "skill_route_discovery_local_comparison" in architecture
     assert "skill_route_discovery_reverse_flow_test_validation_lane" in architecture
+    assert "skill_route_discovery_local_apply" in architecture
+    assert "skill_route_discovery_rnskill_docs_validation_lane" in architecture
+    assert "skill_route_discovery_config_gate_boundary" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
         in architecture
@@ -292,6 +295,12 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "`reverse_flow_test_validation_lane`",
         "`prop-skill-pipeline-rnskill-docs`",
         "`prop-skill-pipeline-config-gates`",
+        "### Pass 3 local apply handoff (rnskill docs + config gates)",
+        "Source digest: `github-growth-20260712T193308.312710Z`",
+        "`skill_route_discovery_local_apply`",
+        "`skill_route_discovery_rnskill_docs_validation_lane`",
+        "`skill_route_discovery_config_gate_boundary`",
+        "replay_skill_route_discovery_local_apply_then_continue_to_pass4",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in doc]
     assert missing == []

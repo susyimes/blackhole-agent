@@ -66,6 +66,35 @@ Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
 
+### Pass 3 local apply handoff (rnskill docs + config gates)
+
+Source digest: `github-growth-20260712T193308.312710Z` (pass 3 of 4; selected
+proposal `prop-skill-pipeline-reverse-flow-test` with companions
+`prop-skill-pipeline-rnskill-docs` and `prop-skill-pipeline-config-gates`).
+
+Pass 3 packages the unlocked reverse-flow test lane into one operator-visible
+`skill_route_discovery_local_apply` handoff on the shared pipeline:
+
+1. `skill_route_discovery_rnskill_docs_validation_lane` — body-free
+   `generic_skill_workflow` documentation companion; unlocks only
+   `documentation` after reverse-flow local comparison succeeds
+2. `skill_route_discovery_config_gate_boundary` — keeps
+   `codex_workflow_gate` vs `generic_skill_workflow` separated; fortress-style
+   general-agent rows never inherit skill unlocks; agent-chief privacy rows stay
+   non-selectable for local apply
+3. `skill_route_discovery_local_apply` — applies the selected reverse-flow
+   local `test` validation candidate only when reverse-flow lane, rnskill docs
+   companion, and config gates are ready; `runtime_action=none`; external skill
+   execution, provider launch, remote apply, push, promotion, and restart stay
+   denied
+
+Supervisor next action when ready:
+`replay_skill_route_discovery_local_apply_then_continue_to_pass4`.
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow
