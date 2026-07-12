@@ -348,6 +348,42 @@ adjacent proposal IDs remain, the pipeline emits
    `skill_route_discovery_adjacent_harness_eval_handoff`, which fires only when
    the selected pipeline step is itself an adjacent harness-eval row
 
+### Residual adjacent harness-eval local apply after residual queue
+
+Source digest: `github-growth-20260712T223308.255959Z` (selected residual
+proposal track `prop-residual-adjacent-fortress-harness-eval`).
+
+After residual adjacent queue is `ready`, the pipeline emits
+`skill_route_discovery_residual_adjacent_harness_eval_local_apply`:
+
+1. Selects one residual adjacent proposal ID (prefer fortress, then Hy3)
+2. Decision is
+   `hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply`
+3. Supervisor next action is
+   `run_agent_harness_eval_local_comparison_for_residual_adjacent_row`
+4. Handoff targets `agent_harness_eval_cluster_local_apply` with local comparison
+   required; only documentation/test/code_patch may unlock after harness-eval
+   criteria pass
+5. Reverse-flow skill unlocks stay closed
+   (`skill_route_discovery_inherited=false`, `unlocked_local_lanes=[]`)
+6. While residual queue is still blocked, this surface stays
+   `blocked_until_residual_adjacent_queue_ready`
+7. When residual queue is `not_applicable`, this surface is `not_applicable`
+8. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; agent-chief privacy rows stay
+   review-only
+9. Distinct from selected-step
+   `skill_route_discovery_adjacent_harness_eval_handoff`: reverse-flow can remain
+   selected while a residual fortress/Hy3 row is handed to harness-eval
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_apply`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent`
+
 Replay with:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`

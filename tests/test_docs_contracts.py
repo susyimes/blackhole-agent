@@ -105,6 +105,7 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "skill_route_discovery_focused_validation_activation_external_handoff" in architecture
     assert "skill_route_discovery_focused_validation_activation_external_acceptance" in architecture
     assert "skill_route_discovery_focused_validation_residual_adjacent_queue" in architecture
+    assert "skill_route_discovery_residual_adjacent_harness_eval_local_apply" in architecture
     assert "skill_route_discovery_adjacent_harness_eval_handoff" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
@@ -364,6 +365,14 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply",
         "blocked_until_activation_external_acceptance",
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent",
+        "### Residual adjacent harness-eval local apply after residual queue",
+        "Source digest: `github-growth-20260712T223308.255959Z`",
+        "`prop-residual-adjacent-fortress-harness-eval`",
+        "`skill_route_discovery_residual_adjacent_harness_eval_local_apply`",
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply",
+        "run_agent_harness_eval_local_comparison_for_residual_adjacent_row",
+        "blocked_until_residual_adjacent_queue_ready",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_residual_adjacent_harness_eval_local_apply",
         "### Adjacent fortress harness-eval handoff",
         "`skill_route_discovery_adjacent_harness_eval_handoff`",
         "`prop-harness-fortress-local-eval`",

@@ -34,6 +34,7 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_focused_validation_activation_external_handoff,
     build_skill_route_discovery_focused_validation_body_free_command_results,
     build_skill_route_discovery_focused_validation_residual_adjacent_queue,
+    build_skill_route_discovery_residual_adjacent_harness_eval_local_apply,
     close_skill_route_discovery_focused_local_test_validation_with_outcome,
     normalize_skill_route_discovery_focused_validation_command_results,
     record_skill_route_discovery_focused_local_test_validation_results,
@@ -5387,6 +5388,20 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert residual_blocked["controller_surface"] == (
         "skill_route_discovery_focused_validation_residual_adjacent_queue"
     )
+    residual_apply_blocked = pipeline["residual_adjacent_harness_eval_local_apply"]
+    assert residual_apply_blocked["controller_surface"] == (
+        "skill_route_discovery_residual_adjacent_harness_eval_local_apply"
+    )
+    assert residual_apply_blocked["status"] == (
+        "blocked_until_residual_adjacent_queue_ready"
+    )
+    assert residual_apply_blocked["decision"] == (
+        "hold_residual_adjacent_harness_eval_local_apply_until_queue_ready"
+    )
+    assert residual_apply_blocked["activation_external_only"] is True
+    assert residual_apply_blocked["supervisor_activation_allowed"] is False
+    assert residual_apply_blocked["unlocked_local_lanes"] == []
+    assert residual_apply_blocked["skill_route_discovery_inherited"] is False
     assert residual_blocked["proposal_track"] == (
         "prop-skill-reverse-flow-continue-local-validation"
     )
@@ -5580,6 +5595,65 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "skill_route_discovery_focused_validation_residual_adjacent_queue" in residual_ready[
         "capability_pipeline"
     ]
+    assert "skill_route_discovery_residual_adjacent_harness_eval_local_apply" in residual_ready[
+        "capability_pipeline"
+    ]
+
+    # Ready residual queue hands one fortress/Hy3 row to harness-eval local apply.
+    residual_apply_ready = build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
+        focused_validation_residual_adjacent_queue=residual_ready,
+        adjacent_general_agent_rows=pipeline["adjacent_general_agent_rows"],
+        retained_boundaries=pipeline["retained_boundaries"],
+        theme_window=theme,
+        source_digest="github-growth-20260712T223308.255959Z",
+    )
+    assert residual_apply_ready["status"] == "ready"
+    assert residual_apply_ready["source_digest"] == "github-growth-20260712T223308.255959Z"
+    assert residual_apply_ready["controller_surface"] == (
+        "skill_route_discovery_residual_adjacent_harness_eval_local_apply"
+    )
+    assert residual_apply_ready["proposal_track"] == (
+        "prop-residual-adjacent-fortress-harness-eval"
+    )
+    assert residual_apply_ready["decision"] == (
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+    )
+    assert residual_apply_ready["supervisor_next_action"] == (
+        "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
+    )
+    assert residual_apply_ready["handoff_controller_surface"] == (
+        "agent_harness_eval_cluster_local_apply"
+    )
+    assert residual_apply_ready["selected_residual_proposal_id"]
+    assert "fortress" in residual_apply_ready["selected_residual_proposal_id"]
+    assert residual_apply_ready["unlocked_local_lanes"] == []
+    assert residual_apply_ready["skill_route_discovery_inherited"] is False
+    assert residual_apply_ready["skill_route_unlocks_closed_for_residual"] is True
+    assert residual_apply_ready["local_comparison_required"] is True
+    assert residual_apply_ready["local_comparison_status"] == (
+        "ready_for_agent_harness_eval_local_comparison"
+    )
+    assert residual_apply_ready["allowed_local_lanes_after_local_comparison"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert residual_apply_ready["direct_allowed_lanes_before_eval"] == []
+    assert residual_apply_ready["activation_external_only"] is True
+    assert residual_apply_ready["supervisor_activation_allowed"] is False
+    assert residual_apply_ready["runtime_action"] == "none"
+    assert residual_apply_ready["external_skill_execution_allowed"] is False
+    assert residual_apply_ready["provider_launch_allowed"] is False
+    assert residual_apply_ready["remote_apply_allowed"] is False
+    assert residual_apply_ready["push_or_promotion_allowed"] is False
+    assert residual_apply_ready["kernel_restart_allowed"] is False
+    assert residual_apply_ready["body_free"] is True
+    assert residual_apply_ready["raw_evidence_urls_exported"] is False
+    assert residual_apply_ready["general_agent_inherits_skill_unlock"] is False
+    assert residual_apply_ready["local_comparison_notes"]
+    for note in residual_apply_ready["local_comparison_notes"]:
+        assert set(note.keys()) <= {"criterion_id", "required", "passed"}
+        assert note["passed"] is True
 
     # Body-free materializer + close-with-outcome close ready focused validation.
     materialized = build_skill_route_discovery_focused_validation_body_free_command_results(
@@ -5630,6 +5704,22 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert closed["focused_validation_residual_adjacent_queue"][
         "unlocked_local_lanes"
     ] == []
+    assert closed["residual_adjacent_harness_eval_local_apply"]["status"] == "ready"
+    assert closed["residual_adjacent_harness_eval_local_apply"]["decision"] == (
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+    )
+    assert closed["residual_adjacent_harness_eval_local_apply"][
+        "supervisor_next_action"
+    ] == ("run_agent_harness_eval_local_comparison_for_residual_adjacent_row")
+    assert closed["residual_adjacent_harness_eval_local_apply"][
+        "supervisor_activation_allowed"
+    ] is False
+    assert closed["residual_adjacent_harness_eval_local_apply"][
+        "unlocked_local_lanes"
+    ] == []
+    assert "fortress" in closed["residual_adjacent_harness_eval_local_apply"][
+        "selected_residual_proposal_id"
+    ]
     for row in closed["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ]:
@@ -5678,6 +5768,17 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert pipeline_passed["focused_validation_residual_adjacent_queue"][
         "supervisor_activation_allowed"
     ] is False
+    assert pipeline_passed["residual_adjacent_harness_eval_local_apply"][
+        "status"
+    ] == "ready"
+    assert pipeline_passed["residual_adjacent_harness_eval_local_apply"][
+        "decision"
+    ] == (
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+    )
+    assert pipeline_passed["residual_adjacent_harness_eval_local_apply"][
+        "supervisor_activation_allowed"
+    ] is False
 
     recorded = record_skill_route_discovery_focused_local_test_validation_results(
         pipeline,
@@ -5717,6 +5818,16 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert recorded["focused_validation_residual_adjacent_queue"][
         "supervisor_next_action"
     ] == ("hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply")
+    assert recorded["residual_adjacent_harness_eval_local_apply"]["status"] == "ready"
+    assert recorded["residual_adjacent_harness_eval_local_apply"]["decision"] == (
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+    )
+    assert recorded["residual_adjacent_harness_eval_local_apply"][
+        "supervisor_next_action"
+    ] == ("run_agent_harness_eval_local_comparison_for_residual_adjacent_row")
+    assert recorded["residual_adjacent_harness_eval_local_apply"][
+        "unlocked_local_lanes"
+    ] == []
     for row in recorded["focused_local_test_validation"]["focused_validation"][
         "command_results"
     ]:
@@ -5799,6 +5910,7 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert "Focused validation activation-external handoff: `ready`" in rendered_passed
     assert "Focused validation activation-external acceptance: `accepted`" in rendered_passed
     assert "Focused validation residual adjacent queue: `ready`" in rendered_passed
+    assert "Residual adjacent harness-eval local apply: `ready`" in rendered_passed
     assert (
         "package_activation_external_handoff_after_focused_validation_pass"
         in rendered_passed
@@ -5809,6 +5921,14 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     )
     assert (
         "queue_residual_adjacent_harness_eval_after_focused_validation_acceptance"
+        in rendered_passed
+    )
+    assert (
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+        in rendered_passed
+    )
+    assert (
+        "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
         in rendered_passed
     )
     assert (
@@ -5832,7 +5952,11 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         in rendered_passed
     )
     assert (
-        "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+        "skill_route_discovery_residual_adjacent_harness_eval_local_apply"
+        in rendered_passed
+    )
+    assert (
+        "queue_residual_adjacent_harness_eval_after_focused_validation_acceptance"
         in rendered_passed
     )
 
@@ -5888,6 +6012,12 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     assert closed_failed["focused_validation_residual_adjacent_queue"][
         "supervisor_activation_allowed"
     ] is False
+    assert closed_failed["residual_adjacent_harness_eval_local_apply"]["status"] == (
+        "blocked_until_residual_adjacent_queue_ready"
+    )
+    assert closed_failed["residual_adjacent_harness_eval_local_apply"][
+        "supervisor_activation_allowed"
+    ] is False
 
     # No residual rows after acceptance keeps residual queue not_applicable.
     residual_none = build_skill_route_discovery_focused_validation_residual_adjacent_queue(
@@ -5914,6 +6044,18 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
         "keep_activation_external_after_focused_local_test_validation"
     )
     assert residual_none["supervisor_activation_allowed"] is False
+    residual_apply_none = build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
+        focused_validation_residual_adjacent_queue=residual_none,
+        adjacent_general_agent_rows=[],
+        retained_boundaries=pipeline["retained_boundaries"],
+        theme_window=theme,
+    )
+    assert residual_apply_none["status"] == "not_applicable"
+    assert residual_apply_none["decision"] == (
+        "no_residual_adjacent_queue_for_harness_eval_local_apply"
+    )
+    assert residual_apply_none["supervisor_activation_allowed"] is False
+    assert residual_apply_none["unlocked_local_lanes"] == []
 
     dumped = json.dumps(pipeline)
     assert reverse_url not in dumped
@@ -5937,6 +6079,10 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     dumped_closed = json.dumps(closed)
     assert reverse_url not in dumped_closed
     assert fortress_url not in dumped_closed
+    dumped_residual_apply = json.dumps(residual_apply_ready)
+    assert reverse_url not in dumped_residual_apply
+    assert fortress_url not in dumped_residual_apply
+    assert rnskill_url not in dumped_residual_apply
     # Operator-supplied command text is normalized away from command_results.
     for row in recorded["focused_local_test_validation"]["focused_validation"][
         "command_results"
@@ -5949,6 +6095,95 @@ def test_skill_route_discovery_focused_local_test_validation_after_unlocked_appl
     for row in acceptance_ready["focused_validation"]["command_results"]:
         assert "command" not in row
         assert "stdout" not in row
+
+
+def test_skill_route_discovery_residual_adjacent_harness_eval_local_apply_prefers_fortress():
+    """Ready residual queue selects fortress before Hy3 for harness-eval local apply."""
+
+    residual_queue = {
+        "status": "ready",
+        "decision": "queue_residual_adjacent_harness_eval_after_focused_validation_acceptance",
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "unlocked_local_lanes": [],
+        "skill_route_discovery_inherited": False,
+        "skill_route_unlocks_closed_for_residual": True,
+        "general_agent_isolation_passed": True,
+        "privacy_isolation_passed": True,
+        "adjacent_general_agent_proposal_ids": [
+            "prop-harness-hy3-adjacent-eval",
+            "prop-harness-fortress-local-eval",
+        ],
+        "retained_boundary_proposal_ids": ["prop-agent-chief-privacy-review-only"],
+        "source_digest": "github-growth-20260712T223308.255959Z",
+        "theme_id": "skill-route-discovery",
+        "theme_pass": {"planned_passes": 4, "target_passes": 4, "status": "complete"},
+    }
+    adjacent_rows = [
+        {
+            "proposal_id": "prop-harness-hy3-adjacent-eval",
+            "route_class": "agent_harness_eval_required",
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "direct_allowed_lanes_before_eval": [],
+            "reason": "general_agent_project_requires_agent_harness_eval",
+        },
+        {
+            "proposal_id": "prop-harness-fortress-local-eval",
+            "route_class": "agent_harness_eval_required",
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "direct_allowed_lanes_before_eval": [],
+            "reason": "general_agent_project_requires_agent_harness_eval",
+        },
+    ]
+    retained = [
+        {
+            "proposal_id": "prop-agent-chief-privacy-review-only",
+            "route_class": "privacy_boundary_review_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "reason": "privacy_leakage_or_agent_chief_remains_review_only",
+        }
+    ]
+
+    packet = build_skill_route_discovery_residual_adjacent_harness_eval_local_apply(
+        focused_validation_residual_adjacent_queue=residual_queue,
+        adjacent_general_agent_rows=adjacent_rows,
+        retained_boundaries=retained,
+        theme_window={
+            "theme_id": "skill-route-discovery",
+            "planned_passes": 4,
+            "target_passes": 4,
+            "status": "complete",
+        },
+        source_digest="github-growth-20260712T223308.255959Z",
+    )
+
+    assert packet["status"] == "ready"
+    assert packet["selected_residual_proposal_id"] == "prop-harness-fortress-local-eval"
+    assert packet["proposal_id"] == "prop-harness-fortress-local-eval"
+    assert packet["decision"] == (
+        "hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply"
+    )
+    assert packet["supervisor_next_action"] == (
+        "run_agent_harness_eval_local_comparison_for_residual_adjacent_row"
+    )
+    assert packet["handoff_controller_surface"] == "agent_harness_eval_cluster_local_apply"
+    assert packet["unlocked_local_lanes"] == []
+    assert packet["skill_route_discovery_inherited"] is False
+    assert packet["activation_external_only"] is True
+    assert packet["supervisor_activation_allowed"] is False
+    assert packet["runtime_action"] == "none"
+    assert packet["body_free"] is True
+    dumped = json.dumps(packet)
+    assert "https://github.com/" not in dumped
+    assert "tiliondev" not in dumped
 
 
 def test_skill_route_discovery_adjacent_fortress_handoff_does_not_fail_skill_comparison():

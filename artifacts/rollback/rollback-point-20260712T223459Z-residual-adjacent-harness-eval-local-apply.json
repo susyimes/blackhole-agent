@@ -1,0 +1,9 @@
+{
+  "original_branch": "grok/blackhole-evolve/20260712T223348.625095-continue-skill-route-discovery-for-reverse-flow-",
+  "proposal": "prop-residual-adjacent-fortress-harness-eval",
+  "improvement": "skill_route_discovery_residual_adjacent_harness_eval_local_apply",
+  "created_at": "2026-07-12T22:34:59Z",
+  "original_head": "ed3c3b814fd0c49f85f9abf3f34970d0c9d5e8d5",
+  "rollback_ref": "refs/blackhole-agent/rollback/20260712T223459Z-residual-adjacent-harness-eval-local-apply",
+  "digest": "github-growth-20260712T223308.255959Z"
+}

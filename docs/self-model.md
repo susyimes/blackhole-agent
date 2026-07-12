@@ -30,61 +30,51 @@ touches multiple files or behavior paths.
 
 Shared pipeline
 `skill_route_discovery_capability_pipeline` now ends with an operator-visible
-**residual adjacent harness-eval queue** after reverse-flow focused validation
-records, activation-external handoff, and activation-external acceptance:
+**residual adjacent harness-eval local apply** after reverse-flow focused
+validation records, activation-external handoff/acceptance, and residual
+adjacent queue:
 
 classifier → route_profiles → bounded_local_apply_lanes → local comparison →
 reverse-flow test lane → rnskill docs companion → config gates → local apply →
 local apply completion → unlocked local test lane apply →
 focused local test validation → record / close body-free command-hash results →
 activation-external handoff → activation-external acceptance →
-**residual adjacent queue** → (optional) selected-step adjacent harness-eval.
+residual adjacent queue → **residual adjacent harness-eval local apply** →
+(optional) selected-step adjacent harness-eval.
 
-Observed this run (`prop-skill-reverse-flow-continue-local-validation` /
-`lingbol088-spec/reverse-flow-skill`, digest
-`github-growth-20260712T221308.618244Z`):
+Observed this run (`prop-residual-adjacent-fortress-harness-eval` /
+`tiliondev/fortress` residual after reverse-flow acceptance, digest
+`github-growth-20260712T223308.255959Z`):
 
-- Classifies as `skill_route_discovery` with
+- Reverse-flow still classifies as `skill_route_discovery` with
   `codex_workflow_gate` + `skill_route_discovery_first`
-- Preferred / unlocked lane is local `test` only after comparison
-- Focused surface
-  `skill_route_discovery_focused_local_test_validation` stays `ready` until
-  command-hash results arrive
-- Supervisors close the loop with any of:
-  - `focused_validation_command_results` on the pipeline builder
-  - `record_skill_route_discovery_focused_local_test_validation_results` on an
-    existing pipeline packet
-  - `close_skill_route_discovery_focused_local_test_validation_with_outcome`
-    which materializes body-free expected-hash rows via
-    `build_skill_route_discovery_focused_validation_body_free_command_results`
-    then records + refreshes handoff/acceptance/**residual queue**
-- On recorded pass, pipeline emits
-  `skill_route_discovery_focused_validation_activation_external_handoff` with
-  decision `package_activation_external_handoff_after_focused_validation_pass`
-- When that handoff is ready, pipeline emits
-  `skill_route_discovery_focused_validation_activation_external_acceptance`
-  with decision `accept_activation_external_package_after_focused_validation_pass`
-- When acceptance is `accepted` and residual fortress/Hy3 proposal IDs remain,
-  pipeline emits
-  `skill_route_discovery_focused_validation_residual_adjacent_queue` with
+- Preferred / unlocked reverse-flow lane remains local `test` only after
+  comparison; focused validation still closes via body-free command-hash rows
+- After acceptance, residual fortress/Hy3 IDs enter
+  `skill_route_discovery_focused_validation_residual_adjacent_queue`
+- When that queue is `ready`, pipeline emits
+  `skill_route_discovery_residual_adjacent_harness_eval_local_apply` with
   decision
-  `queue_residual_adjacent_harness_eval_after_focused_validation_acceptance`
-  and supervisor next
-  `hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply`
-- While unrecorded, handoff stays
-  `blocked_until_focused_validation_recorded`, acceptance stays
-  `blocked_until_activation_external_handoff_ready`, and residual queue stays
-  `blocked_until_activation_external_acceptance`
-- Residual queue is distinct from selected-step
+  `hand_off_selected_residual_adjacent_row_to_agent_harness_eval_cluster_local_apply`
+- Selection prefers fortress residual proposal IDs, then Hy3, then first residual
+  ID; supervisor next becomes
+  `run_agent_harness_eval_local_comparison_for_residual_adjacent_row`
+- Handoff targets `agent_harness_eval_cluster_local_apply` with local comparison
+  required; only documentation/test/code_patch may unlock after harness criteria
+- Reverse-flow skill unlocks stay closed on residual rows
+  (`skill_route_discovery_inherited=false`, `unlocked_local_lanes=[]`)
+- While residual queue is blocked, residual local apply stays
+  `blocked_until_residual_adjacent_queue_ready`
+- Residual local apply is distinct from selected-step
   `skill_route_discovery_adjacent_harness_eval_handoff`: reverse-flow can stay
-  selected while fortress/Hy3 IDs are queued without skill unlock inheritance
+  selected while a residual fortress row is handed to harness-eval
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
 - agent-chief remains privacy review-only
 
 Pipeline stages remain the three classifier stages plus post-completion unlock,
 focused validation, result recording/close, activation-external handoff,
-acceptance, and residual adjacent queue:
+acceptance, residual adjacent queue, and residual harness-eval local apply:
 
 1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
 2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
@@ -106,14 +96,17 @@ acceptance, and residual adjacent queue:
    `skill_route_discovery_focused_validation_activation_external_acceptance`; still
    non-activating
 9. residual adjacent queue — on accepted package with residual fortress/Hy3 IDs emit
-   `skill_route_discovery_focused_validation_residual_adjacent_queue`; hand off to
-   `agent_harness_eval_cluster_local_apply` without skill unlock inheritance
-10. selected-step adjacent residual — fortress-style selected rows stay available for
+   `skill_route_discovery_focused_validation_residual_adjacent_queue`; package IDs
+   without skill unlock inheritance
+10. residual harness-eval local apply — on ready residual queue emit
+    `skill_route_discovery_residual_adjacent_harness_eval_local_apply`; select one
+    residual row and hand off to `agent_harness_eval_cluster_local_apply`
+11. selected-step adjacent residual — fortress-style selected rows stay available for
     agent harness-eval handoff; skill unlocks stay closed
 
 External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
-Prefer closing ready focused validation through activation-external acceptance into residual
-adjacent queue over re-emitting unlock notes forever.
+Prefer closing ready residual queue into residual harness-eval local apply over re-emitting
+queue notes forever.
 
 ## Upstream Evidence Habit
 
@@ -121,6 +114,6 @@ Previous theme (`upstream-evidence-capability`, complete): mixed public agent si
 `upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
 `agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
 the template the skill-route pipeline followed: one operator-visible capability path, body-free exports, narrow
-safety boundary, and a final local-apply completion handoff. The reverse-flow residual adjacent queue after
-focused-validation acceptance is the skill-route analogue of “hand residual general-agent rows to harness-eval
-while the primary reverse-flow validation package stays activation-external.”
+safety boundary, and a final local-apply completion handoff. Residual adjacent harness-eval local apply is the
+skill-route analogue of “after reverse-flow validation is accepted externally, select one residual general-agent
+row and run harness-eval local comparison without inheriting skill unlocks.”
