@@ -30,6 +30,33 @@ records a confirming detail such as an inspected PR body, commit diff, release
 note, failing local test, or repository file that maps the upstream movement to
 a specific local behavior.
 
+## Upstream Evidence Capability Step
+
+Source digest: `github-growth-20260712T173308.992902Z` (pass 1 of the
+`upstream-evidence-capability` window).
+
+Public agent signals must become one local capability step, not another isolated
+note. The growth controller attaches `upstream_evidence_capability_step` to each
+digest and self-evolution plan. That packet:
+
+- classifies every proposal into a route such as
+  `privacy_boundary_review_only`, `local_pr_compare_before_draft`,
+  `local_validation_ready`, `local_validation_gap`, or `follow_up_only`
+- selects exactly one next local action for operators and supervisors
+- keeps agent-chief-style privacy-leakage release evidence review-only, with no
+  artifact export of tokens, credentials, secrets, private keys, private chats,
+  PII, or personal data
+- maps Hy3-style untitled or low-detail pull request movement to
+  `compare_pull_request_approach_with_local_agent_behavior_before_draft`
+  before any draft or autonomous apply decision
+- exports proposal IDs, route classes, validation gates, evidence URL hashes,
+  counts, and booleans only; raw evidence URLs and upstream bodies stay out of
+  the packet
+
+Validation command for this surface:
+
+`pytest tests/test_github_growth.py -q -k upstream_evidence_capability_step`
+
 The proposal interpreter may summarize and rank candidate lessons, but it must
 not add evidence URLs, remove risk flags, grant permissions, or decide final
 validation gates. Deterministic review and local validation keep ownership of

@@ -25,3 +25,11 @@ should be chosen by evidence strength, expected benefit, rollback coverage, and 
 toward small diffs. Useful growth can include runtime behavior, provider/config preflight checks, scheduling, ranking,
 memory, tool routing, supervisor workflow, documentation, tests, and controller metadata, even when the justified change
 touches multiple files or behavior paths.
+
+## Upstream Evidence Habit
+
+Observed this run: agent-chief privacy release evidence stays review-only, while Hy3-style untitled pull request
+movement is not proof of a patch. Prefer translating mixed public signals into one local capability step
+(`upstream_evidence_capability_step`) that either compares the PR approach with local behavior before drafting or
+retains a hard privacy boundary. Do not treat another isolated note as progress on the upstream-evidence-capability
+slice.

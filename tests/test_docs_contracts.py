@@ -74,6 +74,29 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "agent_harness_provider_registration" in architecture
     assert "required_provider_config_missing" in architecture
     assert "pytest tests/test_harness_eval.py -q -k agent_harness_provider_registration" in architecture
+    assert "upstream_evidence_capability_step" in architecture
+    assert "compare_pull_request_approach_with_local_agent_behavior_before_draft" in architecture
+    assert "privacy_boundary_review_only" in architecture
+
+
+def test_upstream_evidence_interpretation_doc_records_capability_step_contract():
+    doc = (REPO_ROOT / "docs" / "upstream-evidence-interpretation.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "## Upstream Evidence Capability Step",
+        "Source digest: `github-growth-20260712T173308.992902Z`",
+        "`upstream_evidence_capability_step`",
+        "`privacy_boundary_review_only`",
+        "`local_pr_compare_before_draft`",
+        "`compare_pull_request_approach_with_local_agent_behavior_before_draft`",
+        "pytest tests/test_github_growth.py -q -k upstream_evidence_capability_step",
+        "raw evidence URLs and upstream bodies stay out of",
+        "the packet",
+    ]
+
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+
+    assert missing == []
 
 
 def test_upstream_evidence_interpretation_doc_records_claude_prompt_scan_contract():

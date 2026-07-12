@@ -21,6 +21,7 @@ from blackhole_agent.github_growth import (
     build_proposals,
     build_replayable_validation_report,
     build_self_evolution_plan,
+    build_upstream_evidence_capability_step,
     build_trending_repository_query_for_date,
     extract_growth_signals,
     normalize_event,
@@ -3921,6 +3922,209 @@ def test_proposal_preflight_requires_confirmation_for_low_detail_upstream_moveme
 
     assert preflight["status"] == "validation_gap"
     assert preflight["validation_gaps"] == ["missing_upstream_movement_confirmation"]
+
+
+def test_upstream_evidence_capability_step_prefers_pr_compare_and_retains_privacy_boundary():
+    """Hy3-style weak PRs become one local compare step; agent-chief privacy stays review-only."""
+
+    privacy_url = "https://github.com/SmileLikeYe/agent-chief/releases/tag/v0.4.0"
+    hy3_url = "https://github.com/Tencent-Hunyuan/Hy3"
+    proposals = [
+        {
+            "proposal_id": "11604932169-1",
+            "kind": "follow_up_issue",
+            "summary": (
+                "Borrow cautiously from SmileLikeYe/agent-chief: published release: v0.4.0. "
+                "record the privacy-leakage boundary and keep sensitive data out of artifacts."
+            ),
+            "evidence_urls": [privacy_url],
+            "risk_flags": ["privacy-leakage"],
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "validation_task": (
+                "Keep privacy-leakage behavior review-only; do not expose tokens or personal data."
+            ),
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "11678823206-2",
+            "kind": "code_patch",
+            "summary": (
+                "Borrow cautiously from Tencent-Hunyuan/Hy3: opened pull request: untitled pull request. "
+                "compare the pull request approach with local agent behavior before drafting a change."
+            ),
+            "evidence_urls": [hy3_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "narrow-local-verification",
+            "validation_task": "Verify the proposed lesson with a local test sized to the changed behavior.",
+            "requires_approval": False,
+            "upstream_movement_evidence": {
+                "status": "needs_triage",
+                "confirmation_level": "low_detail",
+                "branch": "unknown",
+                "merge_timing": "pre_merge",
+                "subsystem": "unknown",
+                "missing_details": ["branch", "subsystem", "specific_title_or_body"],
+            },
+        },
+    ]
+
+    step = build_upstream_evidence_capability_step(
+        proposals,
+        theme_window={
+            "theme_id": "upstream-evidence-capability",
+            "planned_passes": 1,
+            "target_passes": 4,
+            "status": "active",
+        },
+    )
+
+    assert step["schema_version"] == 1
+    assert step["theme_id"] == "upstream-evidence-capability"
+    assert step["status"] == "compare_before_draft"
+    assert step["runtime_action"] == "none"
+    assert step["privacy_export_allowed"] is False
+    assert step["raw_evidence_urls_exported"] is False
+    assert step["raw_upstream_bodies_exported"] is False
+    assert "provider_launch" in step["denied_actions"]
+    assert "privacy_data_export" in step["denied_actions"]
+    assert step["selected_step"] == {
+        "proposal_id": "11678823206-2",
+        "route_class": "local_pr_compare_before_draft",
+        "capability_action": "compare_pull_request_approach_with_local_agent_behavior_before_draft",
+        "local_lane": "code_patch",
+        "validation_gate": "narrow-local-verification",
+        "requires_local_compare_before_draft": True,
+        "autonomous_local_apply": False,
+        "selection_reason": "weak_or_untitled_pull_request_evidence_requires_local_compare_before_draft",
+    }
+    assert step["retained_boundaries"] == [
+        {
+            "proposal_id": "11604932169-1",
+            "route_class": "privacy_boundary_review_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "reason": "privacy_leakage_remains_review_only",
+        }
+    ]
+    rows_by_id = {row["proposal_id"]: row for row in step["candidate_rows"]}
+    assert rows_by_id["11604932169-1"]["selected"] is False
+    assert rows_by_id["11604932169-1"]["route_class"] == "privacy_boundary_review_only"
+    assert rows_by_id["11678823206-2"]["selected"] is True
+    assert rows_by_id["11678823206-2"]["evidence_url_hashes"] == [
+        hashlib.sha256(hy3_url.encode("utf-8")).hexdigest()[:16]
+    ]
+    assert privacy_url not in json.dumps(step)
+    assert hy3_url not in json.dumps(step)
+
+
+def test_build_digest_attaches_upstream_evidence_capability_step_for_current_window():
+    signals = [
+        GrowthSignal(
+            event_id="11604932169",
+            repo="SmileLikeYe/agent-chief",
+            kind="ReleaseEvent",
+            title="published release: v0.4.0",
+            url="https://github.com/SmileLikeYe/agent-chief/releases/tag/v0.4.0",
+            relevance_reason="privacy-sensitive release notes stay review-gated",
+            risk_flags=["privacy-leakage"],
+            recommended_action=(
+                "record the privacy-leakage boundary and keep sensitive data out of artifacts "
+                "and runtime changes"
+            ),
+            confidence=0.91,
+        ),
+        GrowthSignal(
+            event_id="11678823206",
+            repo="Tencent-Hunyuan/Hy3",
+            kind="PullRequestEvent",
+            title="opened pull request: untitled pull request",
+            url="https://github.com/Tencent-Hunyuan/Hy3",
+            relevance_reason="generic PullRequestEvent item with missing PR details",
+            risk_flags=[],
+            recommended_action=(
+                "compare the pull request approach with local agent behavior before drafting a change"
+            ),
+            confidence=0.88,
+        ),
+    ]
+
+    digest = build_digest(
+        ["SmileLikeYe/agent-chief", "Tencent-Hunyuan/Hy3"],
+        signals,
+        state=GrowthState(),
+        generated_at="2026-07-12T17:33:08.992902Z",
+    )
+    step = digest["upstream_evidence_capability_step"]
+    markdown = render_markdown_digest(digest)
+
+    assert step["status"] == "compare_before_draft"
+    assert step["selected_step"]["route_class"] == "local_pr_compare_before_draft"
+    assert step["selected_step"]["requires_local_compare_before_draft"] is True
+    assert any(
+        row["route_class"] == "privacy_boundary_review_only" for row in step["candidate_rows"]
+    )
+    assert "## Upstream Evidence Capability Step" in markdown
+    assert "compare_pull_request_approach_with_local_agent_behavior_before_draft" in markdown
+    assert "privacy_boundary_review_only" in markdown
+    assert "https://github.com/Tencent-Hunyuan/Hy3" not in json.dumps(step)
+
+
+def test_self_evolution_plan_carries_upstream_evidence_capability_step(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "docs").mkdir()
+    (repo / "docs" / "self-model.md").write_text("# Self Model\n\nblank\n", encoding="utf-8")
+    proposals = [
+        {
+            "proposal_id": "11678823206-2",
+            "kind": "code_patch",
+            "summary": (
+                "Borrow cautiously from Tencent-Hunyuan/Hy3: opened pull request: untitled pull request. "
+                "compare the pull request approach with local agent behavior before drafting a change."
+            ),
+            "evidence_urls": ["https://github.com/Tencent-Hunyuan/Hy3"],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "narrow-local-verification",
+            "validation_task": "Verify the proposed lesson with a local test.",
+            "requires_approval": False,
+            "upstream_movement_evidence": {
+                "status": "needs_triage",
+                "confirmation_level": "low_detail",
+            },
+        }
+    ]
+    digest = {
+        "digest_id": "github-growth-20260712T173308.992902Z",
+        "generated_at": "2026-07-12T17:33:08.992902Z",
+        "proposals": proposals,
+        "items": [],
+        "capability_theme_window": {
+            "theme_id": "upstream-evidence-capability",
+            "title": "Upstream evidence to capability",
+            "capability_slice": (
+                "Translate public agent-ecosystem signals into one local capability step "
+                "rather than another isolated note."
+            ),
+            "planned_passes": 1,
+            "target_passes": 4,
+            "status": "active",
+            "proposal_ids": ["11678823206-2"],
+            "evidence_urls": ["https://github.com/Tencent-Hunyuan/Hy3"],
+        },
+    }
+
+    plan = build_self_evolution_plan(digest, repo_path=repo)
+
+    assert plan is not None
+    assert plan.upstream_evidence_capability_step["status"] == "compare_before_draft"
+    assert (
+        plan.upstream_evidence_capability_step["selected_step"]["capability_action"]
+        == "compare_pull_request_approach_with_local_agent_behavior_before_draft"
+    )
+    assert "Upstream evidence capability step:" in plan.task
+    assert "local_pr_compare_before_draft" in plan.task
 
 
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():

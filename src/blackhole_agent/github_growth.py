@@ -582,6 +582,7 @@ class SelfEvolutionPlan:
     source_digest_id: str
     source_digest_generated_at: str
     capability_theme_window: dict[str, Any] = field(default_factory=dict)
+    upstream_evidence_capability_step: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -792,6 +793,7 @@ def update_memory_from_digest(memory: GrowthMemory, digest: dict[str, Any], *, l
     )
     if memory.theme_window:
         digest["capability_theme_window"] = dict(memory.theme_window)
+    attach_upstream_evidence_capability_step(digest)
 
 
 def build_capability_theme_window(
@@ -1223,6 +1225,7 @@ def build_digest(
         digest["upstream_movement_triage"] = upstream_triage
     if source is not None:
         digest["source"] = source
+    attach_upstream_evidence_capability_step(digest)
     return digest
 
 
@@ -2369,6 +2372,295 @@ def sanitize_upstream_group_value(value: str) -> str:
     return sanitized[:80] or "unknown"
 
 
+UPSTREAM_EVIDENCE_CAPABILITY_DENIED_ACTIONS = (
+    "provider_launch",
+    "external_harness_execution",
+    "remote_execution",
+    "upstream_skill_activation",
+    "privacy_data_export",
+    "credential_access",
+    "push_or_promotion",
+    "kernel_restart",
+)
+
+_UPSTREAM_PR_COMPARE_MARKERS = (
+    "untitled pull request",
+    "compare the pull request approach",
+    "pull request approach with local",
+    "opened pull request",
+    "generic pull request",
+)
+
+
+def attach_upstream_evidence_capability_step(digest: dict[str, Any]) -> dict[str, Any]:
+    """Attach the operator-visible one-step capability translation for this digest."""
+
+    step = build_upstream_evidence_capability_step(
+        list(digest.get("proposals") or []),
+        theme_window=digest.get("capability_theme_window")
+        if isinstance(digest.get("capability_theme_window"), dict)
+        else {},
+        items=list(digest.get("items") or []),
+    )
+    digest["upstream_evidence_capability_step"] = step
+    return digest
+
+
+def build_upstream_evidence_capability_step(
+    proposals: list[dict[str, Any]],
+    *,
+    theme_window: dict[str, Any] | None = None,
+    items: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Translate mixed upstream proposals into one local capability step.
+
+    Public agent-ecosystem signals stay evidence. This surface picks a single
+    next local action for operators and supervisors: compare weak PR movement
+    with local behavior before drafting, keep privacy/offensive routes
+    review-only, and never export raw evidence URLs or sensitive bodies.
+    """
+
+    del items  # reserved for future item-level corroboration without URL export
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    candidate_rows = [classify_upstream_evidence_capability_route(proposal) for proposal in proposals]
+    selected = select_upstream_evidence_capability_step(candidate_rows)
+    retained_boundaries = [
+        {
+            "proposal_id": row["proposal_id"],
+            "route_class": row["route_class"],
+            "validation_gate": row["validation_gate"],
+            "reason": row["selection_reason"],
+        }
+        for row in candidate_rows
+        if row["route_class"]
+        in {
+            "privacy_boundary_review_only",
+            "offensive_boundary_review_only",
+        }
+    ]
+    if selected is None:
+        status = "no_proposals" if not candidate_rows else "no_selectable_local_step"
+        selected_step = {
+            "proposal_id": "",
+            "route_class": "none",
+            "capability_action": "record_upstream_evidence_without_local_capability_step",
+            "local_lane": "none",
+            "validation_gate": "",
+            "requires_local_compare_before_draft": False,
+            "autonomous_local_apply": False,
+            "selection_reason": "no_local_capability_step_selected",
+        }
+    else:
+        status = str(selected["status"])
+        selected_step = {
+            "proposal_id": selected["proposal_id"],
+            "route_class": selected["route_class"],
+            "capability_action": selected["capability_action"],
+            "local_lane": selected["local_lane"],
+            "validation_gate": selected["validation_gate"],
+            "requires_local_compare_before_draft": selected["requires_local_compare_before_draft"],
+            "autonomous_local_apply": selected["autonomous_local_apply_allowed"],
+            "selection_reason": selected["selection_reason"],
+        }
+        selected = {**selected, "selected": True}
+        for row in candidate_rows:
+            row["selected"] = row["proposal_id"] == selected_step["proposal_id"] and bool(
+                selected_step["proposal_id"]
+            )
+
+    return {
+        "schema_version": 1,
+        "policy": "translate_upstream_evidence_into_one_local_capability_step",
+        "theme_id": str(theme.get("theme_id") or "upstream-evidence-capability"),
+        "theme_pass": {
+            "planned_passes": int(theme.get("planned_passes") or 0),
+            "target_passes": int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES),
+            "status": str(theme.get("status") or ""),
+        },
+        "status": status,
+        "selected_step": selected_step,
+        "candidate_rows": candidate_rows,
+        "retained_boundaries": retained_boundaries,
+        "denied_actions": list(UPSTREAM_EVIDENCE_CAPABILITY_DENIED_ACTIONS),
+        "runtime_action": "none",
+        "privacy_export_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "promotion_rule": (
+            "Select one local capability step after comparing weak PR or release evidence with local "
+            "behavior; keep privacy leakage and offensive routes review-only; require focused local "
+            "validation before code adoption."
+        ),
+    }
+
+
+def classify_upstream_evidence_capability_route(proposal: dict[str, Any]) -> dict[str, Any]:
+    """Classify one proposal into a local capability route without exporting raw URLs."""
+
+    proposal_id = str(proposal.get("proposal_id") or "").strip()
+    kind = str(proposal.get("kind") or "no_action").strip() or "no_action"
+    implementation_scope = str(proposal.get("implementation_scope") or "").strip()
+    validation_gate = str(proposal.get("validation_gate") or "").strip()
+    risk_flags = sorted({str(flag) for flag in proposal.get("risk_flags", []) if str(flag).strip()})
+    evidence_url_hashes = sorted(
+        {
+            hashlib.sha256(str(url).strip().encode("utf-8")).hexdigest()[:16]
+            for url in proposal.get("evidence_urls", [])
+            if str(url).strip()
+        }
+    )
+    summary_text = " ".join(
+        str(proposal.get(key) or "")
+        for key in ("summary", "kind", "validation_task", "rationale", "recommended_action")
+    ).lower()
+    upstream_movement = proposal.get("upstream_movement_evidence")
+    upstream_status = "not_applicable"
+    upstream_confirmation = "not_applicable"
+    if isinstance(upstream_movement, dict):
+        upstream_status = str(upstream_movement.get("status") or "needs_triage")
+        upstream_confirmation = str(upstream_movement.get("confirmation_level") or "low_detail")
+
+    preflight = proposal_validation_preflight(proposal)
+    autonomous_text = autonomous_local_apply_text(proposal)
+    autonomous_allowed = autonomous_text == "True" and preflight.get("status") == "ready"
+
+    if "offensive-behavior" in risk_flags or validation_gate == "offensive-behavior-human-review":
+        route_class = "offensive_boundary_review_only"
+        capability_action = "retain_offensive_behavior_review_boundary"
+        local_lane = "none"
+        requires_compare = False
+        selection_reason = "offensive_behavior_remains_review_only"
+        status = "blocked_by_safety_boundary"
+        autonomous_allowed = False
+    elif "privacy-leakage" in risk_flags or validation_gate == "privacy-leakage-human-review":
+        route_class = "privacy_boundary_review_only"
+        capability_action = "retain_privacy_leakage_review_boundary"
+        local_lane = "none"
+        requires_compare = False
+        selection_reason = "privacy_leakage_remains_review_only"
+        status = "blocked_by_safety_boundary"
+        autonomous_allowed = False
+    elif risk_flags or implementation_scope == "risk_review_before_local_change":
+        route_class = "risk_review"
+        capability_action = "summarize_risk_pattern_as_reviewable_local_note"
+        local_lane = "documentation" if kind in {"documentation", "docs"} else "test"
+        requires_compare = False
+        selection_reason = "non_hard_risk_flags_require_reviewable_local_summary"
+        status = "risk_review"
+        autonomous_allowed = False
+    elif (
+        any(marker in summary_text for marker in _UPSTREAM_PR_COMPARE_MARKERS)
+        or upstream_status == "needs_triage"
+        or upstream_confirmation == "low_detail"
+    ):
+        route_class = "local_pr_compare_before_draft"
+        capability_action = "compare_pull_request_approach_with_local_agent_behavior_before_draft"
+        local_lane = _local_lane_from_proposal_kind(kind)
+        requires_compare = True
+        selection_reason = "weak_or_untitled_pull_request_evidence_requires_local_compare_before_draft"
+        status = "compare_before_draft"
+        # Compare-before-draft is an operator-visible capability step, not an apply grant.
+        autonomous_allowed = False
+    elif implementation_scope == "local_validation_candidate" and preflight.get("status") == "ready":
+        route_class = "local_validation_ready"
+        capability_action = "apply_one_local_validation_candidate"
+        local_lane = _local_lane_from_proposal_kind(kind)
+        requires_compare = False
+        selection_reason = "confirmed_local_validation_candidate_ready"
+        status = "ready"
+    elif implementation_scope == "local_validation_candidate":
+        route_class = "local_validation_gap"
+        capability_action = "close_local_validation_gap_before_capability_apply"
+        local_lane = _local_lane_from_proposal_kind(kind)
+        requires_compare = upstream_status == "needs_triage"
+        selection_reason = "local_validation_candidate_has_preflight_gaps"
+        status = "validation_gap"
+        autonomous_allowed = False
+    elif implementation_scope == "reviewable_proposal_only" or kind in {"follow_up_issue", "no_action"}:
+        route_class = "follow_up_only"
+        capability_action = "preserve_follow_up_without_local_capability_apply"
+        local_lane = "none"
+        requires_compare = False
+        selection_reason = "proposal_is_follow_up_or_reviewable_only"
+        status = "follow_up_only"
+        autonomous_allowed = False
+    else:
+        route_class = "follow_up_only"
+        capability_action = "preserve_follow_up_without_local_capability_apply"
+        local_lane = _local_lane_from_proposal_kind(kind)
+        requires_compare = False
+        selection_reason = "no_mapped_local_capability_route"
+        status = "follow_up_only"
+        autonomous_allowed = False
+
+    return {
+        "proposal_id": proposal_id,
+        "route_class": route_class,
+        "capability_action": capability_action,
+        "local_lane": local_lane,
+        "kind": kind,
+        "implementation_scope": implementation_scope,
+        "validation_gate": validation_gate,
+        "risk_flags": risk_flags,
+        "evidence_url_hashes": evidence_url_hashes,
+        "upstream_confirmation": upstream_confirmation,
+        "upstream_movement_status": upstream_status,
+        "requires_local_compare_before_draft": requires_compare,
+        "autonomous_local_apply_allowed": autonomous_allowed,
+        "autonomous_local_apply_text": autonomous_text,
+        "validation_preflight_status": str(preflight.get("status") or ""),
+        "validation_gaps": list(preflight.get("validation_gaps") or []),
+        "selection_reason": selection_reason,
+        "status": status,
+        "selected": False,
+    }
+
+
+def select_upstream_evidence_capability_step(
+    candidate_rows: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Pick one next local capability step from classified proposal rows."""
+
+    if not candidate_rows:
+        return None
+
+    priority = {
+        "local_validation_ready": 0,
+        "local_pr_compare_before_draft": 1,
+        "local_validation_gap": 2,
+        "risk_review": 3,
+        "follow_up_only": 4,
+        "privacy_boundary_review_only": 5,
+        "offensive_boundary_review_only": 6,
+    }
+    ranked = sorted(
+        candidate_rows,
+        key=lambda row: (
+            priority.get(str(row.get("route_class") or ""), 99),
+            str(row.get("proposal_id") or ""),
+        ),
+    )
+    selected = ranked[0]
+    # If the only rows are hard safety boundaries, still surface one retained boundary
+    # as the selected step so operators see an explicit non-apply outcome.
+    return selected
+
+
+def _local_lane_from_proposal_kind(kind: str) -> str:
+    normalized = kind.strip().lower()
+    if normalized in {"code_patch", "code", "patch"}:
+        return "code_patch"
+    if normalized in {"test", "tests"}:
+        return "test"
+    if normalized in {"documentation", "docs", "doc"}:
+        return "documentation"
+    if normalized in {"config", "configuration"}:
+        return "config"
+    if normalized in {"follow_up_issue", "no_action"}:
+        return "none"
+    return "test"
+
+
 def push_message_text(signal: GrowthSignal) -> str:
     return " ".join(f"{signal.title} {signal.relevance_reason}".lower().split())
 
@@ -2457,6 +2749,38 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
         validation_task = str(proposal.get("validation_task") or "").strip()
         if validation_task:
             lines.append(f"  - Validation task: {validation_task}")
+    capability_step = digest.get("upstream_evidence_capability_step")
+    if isinstance(capability_step, dict):
+        lines.extend(["", "## Upstream Evidence Capability Step", ""])
+        selected = capability_step.get("selected_step") if isinstance(capability_step.get("selected_step"), dict) else {}
+        lines.extend(
+            [
+                f"- Status: `{capability_step.get('status', '')}`",
+                f"- Theme: `{capability_step.get('theme_id', '')}`",
+                f"- Selected proposal: `{selected.get('proposal_id') or 'none'}`",
+                f"- Route class: `{selected.get('route_class') or 'none'}`",
+                f"- Capability action: `{selected.get('capability_action') or 'none'}`",
+                f"- Local lane: `{selected.get('local_lane') or 'none'}`",
+                f"- Requires local compare before draft: `{bool(selected.get('requires_local_compare_before_draft'))}`",
+                f"- Autonomous local apply: `{bool(selected.get('autonomous_local_apply'))}`",
+                f"- Runtime action: `{capability_step.get('runtime_action', 'none')}`",
+                f"- Raw evidence URLs exported: `{bool(capability_step.get('raw_evidence_urls_exported'))}`",
+                f"- Privacy export allowed: `{bool(capability_step.get('privacy_export_allowed'))}`",
+            ]
+        )
+        retained = capability_step.get("retained_boundaries") or []
+        if retained:
+            lines.append("- Retained review-only boundaries:")
+            for boundary in retained:
+                if not isinstance(boundary, dict):
+                    continue
+                lines.append(
+                    "  - "
+                    f"`{boundary.get('proposal_id') or 'unknown'}` "
+                    f"(`{boundary.get('route_class') or 'unknown'}` / "
+                    f"`{boundary.get('validation_gate') or 'none'}`)"
+                )
+        lines.append(f"- Promotion rule: {capability_step.get('promotion_rule', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -2493,6 +2817,13 @@ def build_self_evolution_plan(
             generated_at=str(digest.get("generated_at") or ""),
         )
     )
+    capability_step = digest.get("upstream_evidence_capability_step")
+    if not isinstance(capability_step, dict) or not capability_step:
+        capability_step = build_upstream_evidence_capability_step(
+            proposals,
+            theme_window=capability_theme_window,
+            items=list(digest.get("items") or []),
+        )
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     self_model_before = read_self_model_snapshot(repo_path, self_model_path)
     branch_name = build_evolution_branch_name(branch_prefix, generated_at, proposals[0]["summary"])
@@ -2504,6 +2835,7 @@ def build_self_evolution_plan(
         digest_id=str(digest.get("digest_id", "")),
         digest_generated_at=str(digest.get("generated_at", "")),
         capability_theme_window=capability_theme_window,
+        upstream_evidence_capability_step=capability_step,
         extra_instructions=extra_instructions,
     )
     return SelfEvolutionPlan(
@@ -2517,6 +2849,7 @@ def build_self_evolution_plan(
         source_digest_id=str(digest.get("digest_id", "")),
         source_digest_generated_at=str(digest.get("generated_at", "")),
         capability_theme_window=capability_theme_window,
+        upstream_evidence_capability_step=dict(capability_step),
     )
 
 
@@ -2563,6 +2896,36 @@ def render_capability_theme_window_lines(theme_window: dict[str, Any]) -> list[s
     ]
 
 
+def render_upstream_evidence_capability_step_lines(capability_step: dict[str, Any]) -> list[str]:
+    """Render the selected upstream-evidence capability step for kernel tasks."""
+
+    if not capability_step:
+        return []
+    selected = capability_step.get("selected_step") if isinstance(capability_step.get("selected_step"), dict) else {}
+    lines = [
+        "Upstream evidence capability step:",
+        f"- Status: `{capability_step.get('status', '')}`",
+        f"- Selected proposal: `{selected.get('proposal_id') or 'none'}`",
+        f"- Route class: `{selected.get('route_class') or 'none'}`",
+        f"- Capability action: `{selected.get('capability_action') or 'none'}`",
+        f"- Local lane: `{selected.get('local_lane') or 'none'}`",
+        f"- Requires local compare before draft: `{bool(selected.get('requires_local_compare_before_draft'))}`",
+        f"- Autonomous local apply for selected step: `{bool(selected.get('autonomous_local_apply'))}`",
+        f"- Runtime action: `{capability_step.get('runtime_action', 'none')}`",
+        "- Prefer this selected local capability step over isolated notes when the theme window is active.",
+        "- Keep privacy-leakage and offensive-behavior rows review-only; do not export raw evidence URLs or sensitive bodies.",
+    ]
+    retained = capability_step.get("retained_boundaries") or []
+    if retained:
+        retained_ids = ", ".join(
+            str(row.get("proposal_id") or "unknown")
+            for row in retained
+            if isinstance(row, dict)
+        )
+        lines.append(f"- Retained review-only boundaries: {retained_ids or 'none'}")
+    return lines
+
+
 def render_self_evolution_task(
     proposals: list[dict[str, Any]],
     *,
@@ -2572,6 +2935,7 @@ def render_self_evolution_task(
     digest_id: str,
     digest_generated_at: str,
     capability_theme_window: dict[str, Any] | None = None,
+    upstream_evidence_capability_step: dict[str, Any] | None = None,
     extra_instructions: str = "",
 ) -> str:
     proposal_lines: list[str] = []
@@ -2596,7 +2960,15 @@ def render_self_evolution_task(
         if validation_task:
             proposal_lines.append(f"   Validation task: {validation_task}")
     theme_lines = render_capability_theme_window_lines(capability_theme_window or {})
+    capability_step_lines = render_upstream_evidence_capability_step_lines(
+        upstream_evidence_capability_step or {}
+    )
     extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
+    capability_step_block = (
+        ["", "Capability theme window already selected this local step:", *capability_step_lines]
+        if capability_step_lines
+        else []
+    )
     return "\n".join(
         [
             "You are Codex running as the local kernel for blackhole-agent.",
@@ -2632,6 +3004,7 @@ def render_self_evolution_task(
             "",
             "Capability theme window:",
             *theme_lines,
+            *capability_step_block,
             "",
             "Digest evidence policy:",
             "- Treat the Source digest and proposal Evidence URLs as the primary context for this run.",
@@ -2686,6 +3059,12 @@ def write_self_evolution_plan(output_dir: Path, plan: SelfEvolutionPlan) -> tupl
             f"Repository: `{plan.repo_path}`",
             f"Source digest: `{plan.source_digest_id}`",
             f"Capability theme: `{plan.capability_theme_window.get('theme_id', '')}`",
+            (
+                f"Upstream evidence capability step: "
+                f"`{(plan.upstream_evidence_capability_step.get('selected_step') or {}).get('capability_action', '')}`"
+                if plan.upstream_evidence_capability_step
+                else "Upstream evidence capability step: none"
+            ),
             "",
             "## Task",
             "",
@@ -2928,6 +3307,7 @@ def run_self_evolution_codex(
         "source_digest_id": plan.source_digest_id,
         "source_digest_generated_at": plan.source_digest_generated_at,
         "capability_theme_window": dict(plan.capability_theme_window),
+        "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
         "repo_path": plan.repo_path,
         "branch_name": plan.branch_name,
         "target_head": current_head,
@@ -3063,6 +3443,7 @@ def run_self_evolution_grok(
         "source_digest_id": plan.source_digest_id,
         "source_digest_generated_at": plan.source_digest_generated_at,
         "capability_theme_window": dict(plan.capability_theme_window),
+        "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
         "repo_path": plan.repo_path,
         "branch_name": plan.branch_name,
         "target_head": current_head,
@@ -3211,6 +3592,7 @@ def run_intake_once(
             timeout_seconds=proposal_timeout_seconds,
             command_runner=command_runner,
         )
+        attach_upstream_evidence_capability_step(digest)
     update_memory_from_digest(memory, digest)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

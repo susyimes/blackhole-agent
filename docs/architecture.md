@@ -133,6 +133,21 @@ Before a self-evolution task is rendered, the controller derives a small `capabi
 
 The window is not a permission source and does not override safety review. It is continuity pressure: each pass should deepen the same capability slice with behavior, controller surfaces, recovery workflows, tests, and docs until the window completes or the evidence shows the theme is exhausted or unsafe. The current window is written into `memory.json`, `latest.json`, `latest-self-evolution-plan.json`, the plan markdown, and the self-evolution manifest.
 
+For the `upstream-evidence-capability` theme, digests also emit
+`upstream_evidence_capability_step`: one operator-visible local step derived from
+the current proposals. The packet classifies each proposal (privacy or offensive
+review-only boundaries, weak/untitled PR compare-before-draft routes, ready
+local validation candidates, and follow-up-only rows), then selects a single
+next capability action. Weak Hy3-style untitled pull request evidence maps to
+`compare_pull_request_approach_with_local_agent_behavior_before_draft` rather
+than direct code adoption. Agent-chief-style privacy-leakage signals stay
+`privacy_boundary_review_only`. The packet exports proposal IDs, route classes,
+hashed evidence URLs, gates, and booleans only; raw evidence URLs, upstream
+bodies, credentials, and personal data remain omitted. Runtime action stays
+`none`; provider launch, external harness execution, remote execution, push or
+promotion, and kernel restart remain denied until a supervisor path permits
+them.
+
 ### Selectable Local CLI Kernel
 
 Runs only when explicitly selected with `--evolution-mode codex`. The `--kernel codex|grok` selector chooses the local execution backend without changing the surrounding rollback and promotion protocol.
