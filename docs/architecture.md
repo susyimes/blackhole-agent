@@ -160,9 +160,14 @@ action (`apply_unlocked_local_test_lane_with_focused_validation_and_keep_activat
 After completion, `skill_route_discovery_unlocked_local_test_lane_apply`
 packages that supervisor action into a body-free focused local test validation
 apply for reverse-flow (`prop-skill-reverse-flow-test-lane`) while keeping
-activation external. Use
+activation external. When that apply is ready,
+`skill_route_discovery_focused_local_test_validation` records body-free
+command-hash results (`ready` → `passed`/`failed`) and keeps activation
+external. Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
-for the unlocked-lane apply regression.
+and
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
+for the unlocked-lane apply and focused-validation regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after

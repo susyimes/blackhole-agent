@@ -29,6 +29,7 @@ from blackhole_agent.github_growth import (
     build_skill_route_discovery_reverse_flow_test_validation_lane,
     build_skill_route_discovery_rnskill_docs_validation_lane,
     build_skill_route_discovery_unlocked_local_test_lane_apply,
+    build_skill_route_discovery_focused_local_test_validation,
     evaluate_skill_route_discovery_local_comparison,
     build_trending_repository_query_for_date,
     extract_growth_signals,
@@ -5166,6 +5167,7 @@ def test_skill_route_discovery_unlocked_local_test_lane_apply_after_completion()
         github_growth.render_skill_route_discovery_capability_pipeline_lines(pipeline)
     )
     assert "Unlocked local test lane apply: `ready`" in rendered
+    assert "Focused local test validation: `ready`" in rendered
     assert (
         "apply_unlocked_local_test_lane_with_focused_validation_and_keep_activation_external"
         in rendered
@@ -5177,6 +5179,227 @@ def test_skill_route_discovery_unlocked_local_test_lane_apply_after_completion()
     assert rnskill_url not in dumped
     assert fortress_url not in dumped
     assert chief_url not in dumped
+
+
+def test_skill_route_discovery_focused_local_test_validation_after_unlocked_apply():
+    """After unlocked test-lane apply, record body-free focused validation results."""
+
+    reverse_url = "https://github.com/lingbol088-spec/reverse-flow-skill"
+    rnskill_url = "https://github.com/Pluviobyte/rnskill"
+    fortress_url = "https://github.com/tiliondev/fortress"
+    chief_url = "https://github.com/SmileLikeYe/agent-chief"
+    proposals = [
+        {
+            "proposal_id": "prop-skill-reverse-flow-test-lane",
+            "kind": "test",
+            "summary": (
+                "Run skill_route_discovery for lingbol088-spec/reverse-flow-skill under "
+                "codex_workflow_gate, preferring the reverse-flow bounded test lane."
+            ),
+            "evidence_urls": [reverse_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": (
+                "Locally classify reverse-flow-skill via skill_route_discovery_first; "
+                "confirm route_profiles include codex_workflow_gate; run reverse-flow "
+                "skill-route local comparison and test-lane probes only; keep "
+                "runtime_action=none; deny external skill execution and remote apply."
+            ),
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-skill-rnskill-docs-companion",
+            "kind": "documentation",
+            "summary": (
+                "Run skill_route_discovery for Pluviobyte/rnskill under generic_skill_workflow, "
+                "preferring the rnskill documentation companion lane after local comparison."
+            ),
+            "evidence_urls": [rnskill_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": (
+                "Locally classify rnskill via skill_route_discovery; confirm "
+                "generic_skill_workflow profile; documentation-first companion with local test "
+                "lane isolation for reverse-flow."
+            ),
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-harness-fortress-local-eval",
+            "kind": "test",
+            "summary": "tiliondev/fortress general_agent_project harness-eval residual.",
+            "evidence_urls": [fortress_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Queue fortress for agent_harness_eval local comparison.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-harness-agent-chief-local-eval",
+            "kind": "follow_up_issue",
+            "summary": "agent-chief privacy/governance evidence stays review-only.",
+            "evidence_urls": [chief_url],
+            "risk_flags": ["privacy-leakage"],
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "validation_task": "Do not select agent-chief for local apply.",
+            "requires_approval": False,
+        },
+    ]
+    theme = {
+        "theme_id": "skill-route-discovery",
+        "planned_passes": 2,
+        "target_passes": 4,
+        "status": "active",
+    }
+
+    pipeline = build_skill_route_discovery_capability_pipeline(proposals, theme_window=theme)
+    deferred = build_skill_route_discovery_capability_pipeline(
+        proposals,
+        theme_window=theme,
+        apply_local_comparison=False,
+    )
+    unlocked_apply = pipeline["unlocked_local_test_lane_apply"]
+    focused = pipeline["focused_local_test_validation"]
+
+    assert unlocked_apply["status"] == "ready"
+    assert focused["controller_surface"] == (
+        "skill_route_discovery_focused_local_test_validation"
+    )
+    assert focused["proposal_track"] == "prop-skill-reverse-flow-test-lane"
+    assert focused["selected_proposal_id"] == "prop-skill-reverse-flow-test-lane"
+    assert focused["status"] == "ready"
+    assert focused["decision"] == (
+        "run_focused_local_test_validation_with_body_free_command_hashes"
+    )
+    assert focused["supervisor_next_action"] == (
+        "run_focused_local_test_validation_then_keep_activation_external"
+    )
+    assert focused["selected_local_lane"] == "test"
+    assert focused["unlocked_local_lanes"] == ["test"]
+    assert focused["skill_route_discovery_first"] is True
+    assert "codex_workflow_gate" in focused["route_profiles"]
+    assert focused["unlocked_local_test_lane_apply_status"] == "ready"
+    assert focused["theme_complete"] is True
+    assert focused["activation_external_only"] is True
+    assert focused["supervisor_activation_allowed"] is False
+    assert focused["runtime_action"] == "none"
+    assert focused["external_skill_execution_allowed"] is False
+    assert focused["provider_launch_allowed"] is False
+    assert focused["remote_apply_allowed"] is False
+    assert focused["push_or_promotion_allowed"] is False
+    assert focused["kernel_restart_allowed"] is False
+    assert focused["body_free"] is True
+    assert focused["raw_evidence_urls_exported"] is False
+    assert focused["raw_command_stdout_exported"] is False
+    assert focused["focused_validation"]["status"] == "ready"
+    assert focused["focused_validation"]["lane"] == "test"
+    assert focused["focused_validation"]["unit_test_signal"] is True
+    assert focused["focused_validation"]["commands"]
+    assert focused["focused_validation"]["command_hashes"]
+    assert focused["focused_validation"]["command_results"] == []
+    assert "skill_route_discovery_focused_local_test_validation" in focused[
+        "capability_pipeline"
+    ]
+    assert "skill_route_discovery_unlocked_local_test_lane_apply" in focused[
+        "capability_pipeline"
+    ]
+    assert focused["general_agent_inherits_skill_unlock"] is False
+    assert focused["privacy_rows_selectable_for_local_apply"] is False
+
+    # Deferred comparison keeps focused validation blocked.
+    assert deferred["focused_local_test_validation"]["status"] in {
+        "blocked_until_unlocked_local_test_lane_apply",
+        "not_applicable",
+    }
+    assert deferred["focused_local_test_validation"]["unlocked_local_lanes"] == []
+    assert deferred["focused_local_test_validation"]["focused_validation"]["commands"] == []
+
+    # Passing command-hash results closes validation while activation stays external.
+    command_hashes = list(focused["focused_validation"]["command_hashes"])
+    passed = build_skill_route_discovery_focused_local_test_validation(
+        unlocked_local_test_lane_apply=unlocked_apply,
+        command_results=[
+            {"command_hash": command_hash, "passed": True} for command_hash in command_hashes
+        ],
+        theme_window=theme,
+        source_digest="github-growth-20260712T205308.160735Z",
+    )
+    assert passed["status"] == "passed"
+    assert passed["source_digest"] == "github-growth-20260712T205308.160735Z"
+    assert passed["decision"] == (
+        "record_focused_local_test_validation_pass_and_keep_activation_external"
+    )
+    assert passed["supervisor_next_action"] == (
+        "keep_activation_external_after_focused_local_test_validation"
+    )
+    assert passed["focused_validation"]["results_cover_expected"] is True
+    assert passed["focused_validation"]["all_expected_passed"] is True
+    assert passed["supervisor_activation_allowed"] is False
+    assert passed["activation_external_only"] is True
+
+    # A failed expected hash stays body-free and does not unlock activation.
+    failed = build_skill_route_discovery_focused_local_test_validation(
+        unlocked_local_test_lane_apply=unlocked_apply,
+        command_results=[
+            {
+                "command_hash": command_hashes[0],
+                "passed": False,
+            },
+            *[{"command_hash": h, "passed": True} for h in command_hashes[1:]],
+        ],
+        theme_window=theme,
+    )
+    assert failed["status"] == "failed"
+    assert failed["decision"] == (
+        "repair_focused_local_test_validation_before_activation_review"
+    )
+    assert failed["supervisor_next_action"] == (
+        "repair_failed_focused_local_test_validation_commands"
+    )
+    assert failed["supervisor_activation_allowed"] is False
+    for row in failed["focused_validation"]["command_results"]:
+        assert set(row.keys()) <= {"command_hash", "passed", "in_expected_set"}
+        assert "command" not in row
+
+    # Blocked unlocked apply keeps focused validation blocked.
+    blocked = build_skill_route_discovery_focused_local_test_validation(
+        unlocked_local_test_lane_apply={
+            "status": "blocked_until_local_apply_completion",
+            "selected_proposal_id": "prop-skill-reverse-flow-test-lane",
+            "selected_local_lane": "test",
+            "unlocked_local_lanes": [],
+            "route_profiles": ["codex_workflow_gate"],
+            "skill_route_discovery_first": True,
+            "runtime_action": "none",
+            "body_free": True,
+            "focused_validation": {"commands": [], "command_hashes": []},
+        },
+        theme_window=theme,
+    )
+    assert blocked["status"] == "blocked_until_unlocked_local_test_lane_apply"
+    assert blocked["unlocked_local_lanes"] == []
+    assert blocked["supervisor_activation_allowed"] is False
+
+    rendered = "\n".join(
+        github_growth.render_skill_route_discovery_capability_pipeline_lines(pipeline)
+    )
+    assert "Focused local test validation: `ready`" in rendered
+    assert "run_focused_local_test_validation_with_body_free_command_hashes" in rendered or (
+        "run_focused_local_test_validation_then_keep_activation_external" in rendered
+    )
+
+    dumped = json.dumps(pipeline)
+    assert reverse_url not in dumped
+    assert rnskill_url not in dumped
+    assert fortress_url not in dumped
+    assert chief_url not in dumped
+    dumped_passed = json.dumps(passed)
+    assert reverse_url not in dumped_passed
+    assert fortress_url not in dumped_passed
 
 
 def test_skill_route_discovery_adjacent_fortress_handoff_does_not_fail_skill_comparison():

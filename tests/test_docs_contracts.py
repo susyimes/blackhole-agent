@@ -101,6 +101,7 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "skill_route_discovery_config_gate_boundary" in architecture
     assert "skill_route_discovery_local_apply_completion" in architecture
     assert "skill_route_discovery_unlocked_local_test_lane_apply" in architecture
+    assert "skill_route_discovery_focused_local_test_validation" in architecture
     assert "skill_route_discovery_adjacent_harness_eval_handoff" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
@@ -108,6 +109,10 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     )
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply"
+        in architecture
+    )
+    assert (
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation"
         in architecture
     )
 
@@ -318,6 +323,13 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "`prop-skill-reverse-flow-test-lane`",
         "run_focused_local_test_validation_then_keep_activation_external",
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply",
+        "### Focused local test validation (body-free result surface)",
+        "Source digest: `github-growth-20260712T205308.160735Z`",
+        "`skill_route_discovery_focused_local_test_validation`",
+        "run_focused_local_test_validation_with_body_free_command_hashes",
+        "record_focused_local_test_validation_pass_and_keep_activation_external",
+        "keep_activation_external_after_focused_local_test_validation",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation",
         "### Adjacent fortress harness-eval handoff",
         "`skill_route_discovery_adjacent_harness_eval_handoff`",
         "`prop-harness-fortress-local-eval`",
