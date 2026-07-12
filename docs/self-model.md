@@ -26,19 +26,29 @@ toward small diffs. Useful growth can include runtime behavior, provider/config 
 memory, tool routing, supervisor workflow, documentation, tests, and controller metadata, even when the justified change
 touches multiple files or behavior paths.
 
+## Skill Route Discovery Habit
+
+Observed this run (pass 1 of 4 of `skill-route-discovery`, active): reverse-flow-skill and rnskill skill-workflow
+signals enter one local `skill_route_discovery_capability_pipeline` rather than isolated notes.
+
+Pass 1 establishes the pipeline stages:
+
+1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
+2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
+   `generic_skill_workflow`
+3. bounded_local_apply_lanes — reverse-flow prefers `test`, rnskill prefers `documentation`; only
+   documentation/config/test/code_patch; local comparison required before unlock; `runtime_action=none`
+
+Selected local candidate: `trend:lingbol088-spec/reverse-flow-skill-2`. Fortress remains an adjacent
+general_agent_project harness-eval row. Agent-chief privacy evidence stays review-only and cannot be selected for
+local apply. External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
+
+Prefer compounding this pipeline across the remaining passes over another per-digest fixture.
+
 ## Upstream Evidence Habit
 
-Observed this run (pass 4 of 4 of `upstream-evidence-capability`, complete): agent-chief privacy evidence stays
-review-only and cannot be selected as a local-apply target. Fortress remains a general_agent_project row in the
-cluster queue. Hy3 is the selected local-apply candidate via `prop-hy3-harness-eval-local-apply`.
-
-Pass 4 completes the slice through `agent_harness_eval_cluster_local_apply_completion`: resolve the Hy3 proposal
-token to the matching cluster row, require local comparison before unlock, open only documentation/test/code_patch,
-keep `runtime_action=none`, and emit a body-free supervisor handoff that marks the theme complete without granting
-activation, push, promotion, provider launch, external harness execution, remote execution, or restart.
-
-Prefer translating mixed public signals into one local capability pipeline
-(`upstream_evidence_capability_step` → cluster queue → selected local apply → completion handoff) rather than
-another isolated note. Pass 1 established the one-step classifier; pass 2 added the operator-visible harness-eval
-cluster and comparison criteria; pass 3 wired selected local apply after comparison; pass 4 closes the window with
-an operator-visible completion handoff for the selected Hy3 candidate.
+Previous theme (`upstream-evidence-capability`, complete): mixed public agent signals became
+`upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
+`agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
+the template for the active skill-route pipeline: one operator-visible capability path, body-free exports, and a
+narrow safety boundary.

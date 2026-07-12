@@ -583,6 +583,7 @@ class SelfEvolutionPlan:
     source_digest_generated_at: str
     capability_theme_window: dict[str, Any] = field(default_factory=dict)
     upstream_evidence_capability_step: dict[str, Any] = field(default_factory=dict)
+    skill_route_discovery_capability_pipeline: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -794,6 +795,7 @@ def update_memory_from_digest(memory: GrowthMemory, digest: dict[str, Any], *, l
     if memory.theme_window:
         digest["capability_theme_window"] = dict(memory.theme_window)
     attach_upstream_evidence_capability_step(digest)
+    attach_skill_route_discovery_capability_pipeline(digest)
 
 
 def build_capability_theme_window(
@@ -1226,6 +1228,7 @@ def build_digest(
     if source is not None:
         digest["source"] = source
     attach_upstream_evidence_capability_step(digest)
+    attach_skill_route_discovery_capability_pipeline(digest)
     return digest
 
 
@@ -2661,6 +2664,505 @@ def _local_lane_from_proposal_kind(kind: str) -> str:
     return "test"
 
 
+SKILL_ROUTE_DISCOVERY_CAPABILITY_DENIED_ACTIONS = (
+    "external_skill_execution",
+    "external_skill_activation",
+    "provider_launch",
+    "external_harness_execution",
+    "remote_apply",
+    "remote_execution",
+    "privacy_data_export",
+    "credential_access",
+    "push_or_promotion",
+    "kernel_restart",
+)
+SKILL_ROUTE_DISCOVERY_ALLOWED_LANES = ("documentation", "config", "test", "code_patch")
+SKILL_ROUTE_DISCOVERY_PIPELINE_STAGES = (
+    "classifier",
+    "route_profiles",
+    "bounded_local_apply_lanes",
+)
+_SKILL_ROUTE_REVERSE_FLOW_MARKERS = (
+    "reverse-flow",
+    "reverse_flow",
+    "reverse flow",
+    "codex_workflow_gate",
+    "skill_route_discovery_first",
+    "lingbol088-spec/reverse-flow-skill",
+)
+_SKILL_ROUTE_RNSKILL_MARKERS = (
+    "rnskill",
+    "pluviobyte/rnskill",
+    "generic_skill_workflow",
+    "skill.md collection",
+    "skills collection",
+    "skill collection",
+)
+_SKILL_ROUTE_FORTRESS_MARKERS = (
+    "fortress",
+    "tiliondev/fortress",
+)
+_SKILL_ROUTE_AGENT_CHIEF_MARKERS = (
+    "agent-chief",
+    "agent_chief",
+    "smilelikeye/agent-chief",
+)
+_SKILL_ROUTE_GENERIC_SKILL_MARKERS = (
+    "skill_route_discovery",
+    "skill workflow",
+    "skill_workflow",
+    "skill.md",
+    "skills/",
+    "agent skill",
+    "codex skill",
+)
+
+
+def attach_skill_route_discovery_capability_pipeline(digest: dict[str, Any]) -> dict[str, Any]:
+    """Attach the operator-visible skill-route capability pipeline for this digest."""
+
+    pipeline = build_skill_route_discovery_capability_pipeline(
+        list(digest.get("proposals") or []),
+        theme_window=digest.get("capability_theme_window")
+        if isinstance(digest.get("capability_theme_window"), dict)
+        else {},
+        items=list(digest.get("items") or []),
+    )
+    digest["skill_route_discovery_capability_pipeline"] = pipeline
+    return digest
+
+
+def build_skill_route_discovery_capability_pipeline(
+    proposals: list[dict[str, Any]],
+    *,
+    theme_window: dict[str, Any] | None = None,
+    items: list[dict[str, Any]] | None = None,
+    local_comparison_passed: bool = False,
+) -> dict[str, Any]:
+    """Translate skill/workflow trend signals into one local capability pipeline.
+
+    Pass 1 of skill-route-discovery: classifier → route profiles → bounded local
+    apply lanes. reverse-flow-skill maps to codex_workflow_gate /
+    skill_route_discovery_first; rnskill maps to generic_skill_workflow. Lanes
+    stay limited to documentation, config, test, or code_patch. Local comparison
+    is required before any lane unlock. Runtime action stays none. Privacy and
+    offensive rows remain review-only; general-agent projects stay adjacent
+    harness-eval candidates without inheriting skill-route lanes.
+    """
+
+    del items  # reserved for future item-level corroboration without URL export
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    candidate_rows = [
+        classify_skill_route_discovery_capability_route(proposal) for proposal in proposals
+    ]
+    selected = select_skill_route_discovery_capability_step(candidate_rows)
+    retained_boundaries = [
+        {
+            "proposal_id": row["proposal_id"],
+            "route_class": row["route_class"],
+            "validation_gate": row["validation_gate"],
+            "reason": row["selection_reason"],
+        }
+        for row in candidate_rows
+        if row["route_class"]
+        in {
+            "privacy_boundary_review_only",
+            "offensive_boundary_review_only",
+        }
+    ]
+    adjacent_general_agent_rows = [
+        {
+            "proposal_id": row["proposal_id"],
+            "route_class": row["route_class"],
+            "evaluation_lane": "agent_harness_eval_required",
+            "skill_route_discovery_inherited": False,
+            "allowed_local_lanes_after_eval": ["documentation", "test", "code_patch"],
+            "direct_allowed_lanes_before_eval": [],
+            "runtime_action": "none",
+            "reason": row["selection_reason"],
+        }
+        for row in candidate_rows
+        if row["route_class"] == "agent_harness_eval_required"
+    ]
+    skill_route_rows = [
+        row for row in candidate_rows if row["route_class"] == "skill_route_discovery"
+    ]
+    route_profile_rows = [
+        {
+            "proposal_id": row["proposal_id"],
+            "route_profiles": list(row["route_profiles"]),
+            "skill_route_discovery_first": bool(row["skill_route_discovery_first"]),
+            "preferred_local_lane": row["preferred_local_lane"],
+            "allowed_local_lanes": list(row["allowed_local_lanes"]),
+        }
+        for row in skill_route_rows
+    ]
+
+    if selected is None:
+        status = "no_proposals" if not candidate_rows else "no_selectable_skill_route_step"
+        selected_step = {
+            "proposal_id": "",
+            "route_class": "none",
+            "capability_action": "record_skill_route_evidence_without_local_apply",
+            "route_profiles": [],
+            "selected_local_lane": "none",
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "unlocked_local_lanes": [],
+            "local_comparison_required": True,
+            "local_comparison_status": "not_applicable",
+            "skill_route_discovery_first": False,
+            "validation_gate": "",
+            "autonomous_local_apply": False,
+            "selection_reason": "no_skill_route_capability_step_selected",
+        }
+        bounded_status = "not_applicable"
+    else:
+        comparison_status = (
+            "passed"
+            if local_comparison_passed
+            else "required_before_unlock"
+        )
+        unlocked_lanes = (
+            [selected["preferred_local_lane"]]
+            if local_comparison_passed
+            and selected["preferred_local_lane"] in SKILL_ROUTE_DISCOVERY_ALLOWED_LANES
+            else []
+        )
+        status = "ready" if selected["status"] == "ready" else str(selected["status"])
+        if status == "ready" and not local_comparison_passed:
+            status = "ready_for_local_comparison"
+        selected_step = {
+            "proposal_id": selected["proposal_id"],
+            "route_class": selected["route_class"],
+            "capability_action": selected["capability_action"],
+            "route_profiles": list(selected["route_profiles"]),
+            "selected_local_lane": selected["preferred_local_lane"],
+            "allowed_local_lanes": list(selected["allowed_local_lanes"]),
+            "unlocked_local_lanes": unlocked_lanes,
+            "local_comparison_required": True,
+            "local_comparison_status": comparison_status,
+            "skill_route_discovery_first": bool(selected["skill_route_discovery_first"]),
+            "validation_gate": selected["validation_gate"],
+            "autonomous_local_apply": bool(selected["autonomous_local_apply_allowed"]),
+            "selection_reason": selected["selection_reason"],
+        }
+        for row in candidate_rows:
+            row["selected"] = row["proposal_id"] == selected_step["proposal_id"] and bool(
+                selected_step["proposal_id"]
+            )
+        bounded_status = (
+            "lanes_unlocked_after_local_comparison"
+            if unlocked_lanes
+            else "local_comparison_required_before_unlock"
+        )
+
+    classifier_status = (
+        "ready"
+        if skill_route_rows or retained_boundaries or adjacent_general_agent_rows
+        else status
+    )
+    route_profiles_status = "ready" if route_profile_rows else "no_skill_route_profiles"
+    return {
+        "schema_version": 1,
+        "controller_surface": "skill_route_discovery_capability_pipeline",
+        "policy": "translate_skill_workflow_signals_into_bounded_local_lanes",
+        "theme_id": str(theme.get("theme_id") or "skill-route-discovery"),
+        "theme_pass": {
+            "planned_passes": int(theme.get("planned_passes") or 0),
+            "target_passes": int(theme.get("target_passes") or DEFAULT_THEME_WINDOW_TARGET_PASSES),
+            "status": str(theme.get("status") or ""),
+        },
+        "pipeline_stages": list(SKILL_ROUTE_DISCOVERY_PIPELINE_STAGES),
+        "status": status,
+        "classifier": {
+            "status": classifier_status,
+            "candidate_count": len(candidate_rows),
+            "skill_route_count": len(skill_route_rows),
+            "privacy_boundary_count": len(
+                [row for row in candidate_rows if row["route_class"] == "privacy_boundary_review_only"]
+            ),
+            "general_agent_count": len(adjacent_general_agent_rows),
+            "candidate_rows": candidate_rows,
+        },
+        "route_profiles": {
+            "status": route_profiles_status,
+            "rows": route_profile_rows,
+            "codex_workflow_gate_count": len(
+                [
+                    row
+                    for row in route_profile_rows
+                    if "codex_workflow_gate" in row["route_profiles"]
+                ]
+            ),
+            "generic_skill_workflow_count": len(
+                [
+                    row
+                    for row in route_profile_rows
+                    if "generic_skill_workflow" in row["route_profiles"]
+                    and "codex_workflow_gate" not in row["route_profiles"]
+                ]
+            ),
+        },
+        "bounded_local_apply": {
+            "status": bounded_status,
+            "local_comparison_required": True,
+            "local_comparison_status": selected_step["local_comparison_status"],
+            "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+            "selected_local_lane": selected_step["selected_local_lane"],
+            "unlocked_local_lanes": list(selected_step["unlocked_local_lanes"]),
+            "runtime_action": "none",
+            "external_skill_execution_allowed": False,
+            "provider_launch_allowed": False,
+            "remote_apply_allowed": False,
+        },
+        "selected_step": selected_step,
+        "retained_boundaries": retained_boundaries,
+        "adjacent_general_agent_rows": adjacent_general_agent_rows,
+        "denied_actions": list(SKILL_ROUTE_DISCOVERY_CAPABILITY_DENIED_ACTIONS),
+        "runtime_action": "none",
+        "privacy_export_allowed": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "external_skill_activation_allowed": False,
+        "promotion_rule": (
+            "Classify skill/workflow signals into route profiles, require local comparison "
+            "before unlocking documentation/config/test/code_patch lanes, keep runtime_action "
+            "none, and retain privacy/offensive rows review-only without exporting raw evidence URLs."
+        ),
+    }
+
+
+def classify_skill_route_discovery_capability_route(proposal: dict[str, Any]) -> dict[str, Any]:
+    """Classify one proposal into the skill-route capability pipeline without raw URL export."""
+
+    proposal_id = str(proposal.get("proposal_id") or "").strip()
+    kind = str(proposal.get("kind") or "no_action").strip() or "no_action"
+    implementation_scope = str(proposal.get("implementation_scope") or "").strip()
+    validation_gate = str(proposal.get("validation_gate") or "").strip()
+    risk_flags = sorted({str(flag) for flag in proposal.get("risk_flags", []) if str(flag).strip()})
+    evidence_url_hashes = sorted(
+        {
+            hashlib.sha256(str(url).strip().encode("utf-8")).hexdigest()[:16]
+            for url in proposal.get("evidence_urls", [])
+            if str(url).strip()
+        }
+    )
+    summary_text = " ".join(
+        str(proposal.get(key) or "")
+        for key in (
+            "summary",
+            "kind",
+            "validation_task",
+            "rationale",
+            "recommended_action",
+            "proposal_id",
+        )
+    ).lower()
+    evidence_blob = " ".join(str(url).lower() for url in proposal.get("evidence_urls", []) if str(url).strip())
+    blob = f"{proposal_id.lower()} {summary_text} {evidence_blob}"
+
+    preflight = proposal_validation_preflight(proposal)
+    autonomous_text = autonomous_local_apply_text(proposal)
+    autonomous_allowed = autonomous_text == "True" and preflight.get("status") == "ready"
+
+    route_profiles = skill_route_discovery_route_profiles_for_text(blob)
+    skill_route_discovery_first = "codex_workflow_gate" in route_profiles
+    preferred_lane = skill_route_discovery_preferred_lane(route_profiles, kind)
+    allowed_lanes = list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES)
+
+    if "offensive-behavior" in risk_flags or validation_gate == "offensive-behavior-human-review":
+        route_class = "offensive_boundary_review_only"
+        capability_action = "retain_offensive_behavior_review_boundary"
+        preferred_lane = "none"
+        allowed_lanes = []
+        route_profiles = []
+        skill_route_discovery_first = False
+        selection_reason = "offensive_behavior_remains_review_only"
+        status = "blocked_by_safety_boundary"
+        autonomous_allowed = False
+    elif (
+        "privacy-leakage" in risk_flags
+        or validation_gate == "privacy-leakage-human-review"
+        or any(marker in blob for marker in _SKILL_ROUTE_AGENT_CHIEF_MARKERS)
+    ):
+        route_class = "privacy_boundary_review_only"
+        capability_action = "retain_privacy_leakage_review_boundary"
+        preferred_lane = "none"
+        allowed_lanes = []
+        route_profiles = []
+        skill_route_discovery_first = False
+        selection_reason = "privacy_leakage_or_agent_chief_remains_review_only"
+        status = "blocked_by_safety_boundary"
+        autonomous_allowed = False
+    elif any(marker in blob for marker in _SKILL_ROUTE_FORTRESS_MARKERS) or (
+        "general_agent" in blob and "skill" not in blob
+    ):
+        route_class = "agent_harness_eval_required"
+        capability_action = "queue_general_agent_project_for_harness_eval"
+        preferred_lane = "none"
+        allowed_lanes = ["documentation", "test", "code_patch"]
+        route_profiles = []
+        skill_route_discovery_first = False
+        selection_reason = "general_agent_project_requires_agent_harness_eval"
+        status = "adjacent_harness_eval"
+        autonomous_allowed = False
+    elif route_profiles or any(marker in blob for marker in _SKILL_ROUTE_GENERIC_SKILL_MARKERS):
+        if not route_profiles:
+            route_profiles = ["generic_skill_workflow"]
+            preferred_lane = skill_route_discovery_preferred_lane(route_profiles, kind)
+        route_class = "skill_route_discovery"
+        capability_action = "apply_one_local_skill_route_validation_candidate"
+        selection_reason = (
+            "codex_workflow_gate_skill_route_discovery_first"
+            if skill_route_discovery_first
+            else "generic_skill_workflow_skill_route_discovery"
+        )
+        if implementation_scope == "local_validation_candidate" and preflight.get("status") == "ready":
+            status = "ready"
+        elif implementation_scope == "local_validation_candidate":
+            status = "validation_gap"
+            autonomous_allowed = False
+            selection_reason = "skill_route_candidate_has_preflight_gaps"
+        else:
+            status = "ready" if not risk_flags else "risk_review"
+            if risk_flags:
+                autonomous_allowed = False
+                selection_reason = "skill_route_candidate_has_non_hard_risk_flags"
+    elif implementation_scope == "reviewable_proposal_only" or kind in {"follow_up_issue", "no_action"}:
+        route_class = "follow_up_only"
+        capability_action = "preserve_follow_up_without_skill_route_apply"
+        preferred_lane = "none"
+        allowed_lanes = []
+        route_profiles = []
+        skill_route_discovery_first = False
+        selection_reason = "proposal_is_follow_up_or_reviewable_only"
+        status = "follow_up_only"
+        autonomous_allowed = False
+    else:
+        route_class = "follow_up_only"
+        capability_action = "preserve_follow_up_without_skill_route_apply"
+        preferred_lane = _local_lane_from_proposal_kind(kind)
+        allowed_lanes = []
+        route_profiles = []
+        skill_route_discovery_first = False
+        selection_reason = "no_mapped_skill_route_capability"
+        status = "follow_up_only"
+        autonomous_allowed = False
+
+    return {
+        "proposal_id": proposal_id,
+        "route_class": route_class,
+        "capability_action": capability_action,
+        "route_profiles": list(route_profiles),
+        "preferred_local_lane": preferred_lane,
+        "allowed_local_lanes": list(allowed_lanes),
+        "skill_route_discovery_first": skill_route_discovery_first,
+        "kind": kind,
+        "implementation_scope": implementation_scope,
+        "validation_gate": validation_gate,
+        "risk_flags": risk_flags,
+        "evidence_url_hashes": evidence_url_hashes,
+        "local_comparison_required": route_class == "skill_route_discovery",
+        "autonomous_local_apply_allowed": autonomous_allowed,
+        "autonomous_local_apply_text": autonomous_text,
+        "validation_preflight_status": str(preflight.get("status") or ""),
+        "validation_gaps": list(preflight.get("validation_gaps") or []),
+        "selection_reason": selection_reason,
+        "status": status,
+        "selected": False,
+        "runtime_action": "none",
+        "external_skill_activation_allowed": False,
+    }
+
+
+def skill_route_discovery_route_profiles_for_text(blob: str) -> list[str]:
+    """Infer route profiles from proposal text and evidence refs without exporting URLs."""
+
+    profiles: list[str] = []
+    if any(marker in blob for marker in _SKILL_ROUTE_REVERSE_FLOW_MARKERS):
+        profiles.append("codex_workflow_gate")
+    if any(marker in blob for marker in _SKILL_ROUTE_RNSKILL_MARKERS):
+        profiles.append("generic_skill_workflow")
+    if "codex_workflow_gate" in profiles and "generic_skill_workflow" not in profiles:
+        # reverse-flow also carries generic skill-workflow framing in public evidence
+        if "reverse-flow" in blob or "reverse_flow" in blob or "reverse flow" in blob:
+            profiles.append("generic_skill_workflow")
+    if not profiles and any(marker in blob for marker in _SKILL_ROUTE_GENERIC_SKILL_MARKERS):
+        profiles.append("generic_skill_workflow")
+    # stable unique order
+    ordered = []
+    for profile in ("codex_workflow_gate", "generic_skill_workflow"):
+        if profile in profiles and profile not in ordered:
+            ordered.append(profile)
+    for profile in profiles:
+        if profile not in ordered:
+            ordered.append(profile)
+    return ordered
+
+
+def skill_route_discovery_preferred_lane(route_profiles: list[str], kind: str = "") -> str:
+    """Prefer test for codex workflow gates and documentation for generic skill collections."""
+
+    _ = kind  # profile preference is authoritative for skill-route local lanes
+    if "codex_workflow_gate" in route_profiles:
+        return "test"
+    return "documentation"
+
+
+def select_skill_route_discovery_capability_step(
+    candidate_rows: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Pick one next skill-route local apply candidate from classified rows."""
+
+    if not candidate_rows:
+        return None
+
+    priority = {
+        "skill_route_discovery": 0,
+        "agent_harness_eval_required": 1,
+        "follow_up_only": 2,
+        "privacy_boundary_review_only": 3,
+        "offensive_boundary_review_only": 4,
+    }
+
+    def _specificity_rank(row: dict[str, Any]) -> int:
+        proposal_id = str(row.get("proposal_id") or "").casefold()
+        # Prefer concrete reverse-flow/rnskill trend tokens over umbrella pipeline props.
+        if "reverse-flow-skill" in proposal_id or "reverse_flow_skill" in proposal_id:
+            return 0
+        if "rnskill" in proposal_id:
+            return 1
+        if "skill-route-discovery" in proposal_id or "skill_route_discovery" in proposal_id:
+            return 2
+        return 3
+
+    def _row_rank(row: dict[str, Any]) -> tuple[Any, ...]:
+        profiles = list(row.get("route_profiles") or [])
+        # Prefer reverse-flow / codex_workflow_gate over generic rnskill collections.
+        codex_rank = 0 if "codex_workflow_gate" in profiles else 1
+        status_rank = 0 if row.get("status") == "ready" else 1
+        return (
+            priority.get(str(row.get("route_class") or ""), 99),
+            codex_rank,
+            status_rank,
+            _specificity_rank(row),
+            str(row.get("proposal_id") or ""),
+        )
+
+    ranked = sorted(candidate_rows, key=_row_rank)
+    selected = ranked[0]
+    # Only select skill-route rows for local apply; otherwise surface the top
+    # non-apply outcome (adjacent harness eval or retained boundary).
+    skill_ready = [
+        row
+        for row in ranked
+        if row.get("route_class") == "skill_route_discovery" and row.get("status") in {"ready", "validation_gap", "risk_review"}
+    ]
+    if skill_ready:
+        return skill_ready[0]
+    return selected
+
+
 def push_message_text(signal: GrowthSignal) -> str:
     return " ".join(f"{signal.title} {signal.relevance_reason}".lower().split())
 
@@ -2781,6 +3283,54 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
                     f"`{boundary.get('validation_gate') or 'none'}`)"
                 )
         lines.append(f"- Promotion rule: {capability_step.get('promotion_rule', '')}")
+    skill_pipeline = digest.get("skill_route_discovery_capability_pipeline")
+    if isinstance(skill_pipeline, dict) and skill_pipeline:
+        lines.extend(["", "## Skill Route Discovery Capability Pipeline", ""])
+        selected = (
+            skill_pipeline.get("selected_step")
+            if isinstance(skill_pipeline.get("selected_step"), dict)
+            else {}
+        )
+        lines.extend(
+            [
+                f"- Status: `{skill_pipeline.get('status', '')}`",
+                f"- Theme: `{skill_pipeline.get('theme_id', '')}`",
+                f"- Pipeline stages: `{', '.join(skill_pipeline.get('pipeline_stages') or [])}`",
+                f"- Selected proposal: `{selected.get('proposal_id') or 'none'}`",
+                f"- Route class: `{selected.get('route_class') or 'none'}`",
+                f"- Capability action: `{selected.get('capability_action') or 'none'}`",
+                f"- Route profiles: `{', '.join(selected.get('route_profiles') or []) or 'none'}`",
+                f"- Selected local lane: `{selected.get('selected_local_lane') or 'none'}`",
+                f"- Unlocked local lanes: `{', '.join(selected.get('unlocked_local_lanes') or []) or 'none'}`",
+                f"- Local comparison required: `{bool(selected.get('local_comparison_required'))}`",
+                f"- Local comparison status: `{selected.get('local_comparison_status') or 'none'}`",
+                f"- Runtime action: `{skill_pipeline.get('runtime_action', 'none')}`",
+                f"- Raw evidence URLs exported: `{bool(skill_pipeline.get('raw_evidence_urls_exported'))}`",
+            ]
+        )
+        retained = skill_pipeline.get("retained_boundaries") or []
+        if retained:
+            lines.append("- Retained review-only boundaries:")
+            for boundary in retained:
+                if not isinstance(boundary, dict):
+                    continue
+                lines.append(
+                    "  - "
+                    f"`{boundary.get('proposal_id') or 'unknown'}` "
+                    f"(`{boundary.get('route_class') or 'unknown'}`)"
+                )
+        adjacent = skill_pipeline.get("adjacent_general_agent_rows") or []
+        if adjacent:
+            lines.append("- Adjacent general-agent harness-eval rows:")
+            for row in adjacent:
+                if not isinstance(row, dict):
+                    continue
+                lines.append(
+                    "  - "
+                    f"`{row.get('proposal_id') or 'unknown'}` "
+                    f"(`{row.get('evaluation_lane') or 'agent_harness_eval_required'}`)"
+                )
+        lines.append(f"- Promotion rule: {skill_pipeline.get('promotion_rule', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -2824,6 +3374,13 @@ def build_self_evolution_plan(
             theme_window=capability_theme_window,
             items=list(digest.get("items") or []),
         )
+    skill_pipeline = digest.get("skill_route_discovery_capability_pipeline")
+    if not isinstance(skill_pipeline, dict) or not skill_pipeline:
+        skill_pipeline = build_skill_route_discovery_capability_pipeline(
+            proposals,
+            theme_window=capability_theme_window,
+            items=list(digest.get("items") or []),
+        )
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     self_model_before = read_self_model_snapshot(repo_path, self_model_path)
     branch_name = build_evolution_branch_name(branch_prefix, generated_at, proposals[0]["summary"])
@@ -2836,6 +3393,7 @@ def build_self_evolution_plan(
         digest_generated_at=str(digest.get("generated_at", "")),
         capability_theme_window=capability_theme_window,
         upstream_evidence_capability_step=capability_step,
+        skill_route_discovery_capability_pipeline=skill_pipeline,
         extra_instructions=extra_instructions,
     )
     return SelfEvolutionPlan(
@@ -2850,6 +3408,7 @@ def build_self_evolution_plan(
         source_digest_generated_at=str(digest.get("generated_at", "")),
         capability_theme_window=capability_theme_window,
         upstream_evidence_capability_step=dict(capability_step),
+        skill_route_discovery_capability_pipeline=dict(skill_pipeline),
     )
 
 
@@ -2926,6 +3485,54 @@ def render_upstream_evidence_capability_step_lines(capability_step: dict[str, An
     return lines
 
 
+def render_skill_route_discovery_capability_pipeline_lines(
+    pipeline: dict[str, Any],
+) -> list[str]:
+    """Render the skill-route capability pipeline for kernel tasks."""
+
+    if not pipeline:
+        return []
+    selected = pipeline.get("selected_step") if isinstance(pipeline.get("selected_step"), dict) else {}
+    stages = ", ".join(str(stage) for stage in pipeline.get("pipeline_stages") or [])
+    profiles = ", ".join(str(profile) for profile in selected.get("route_profiles") or [])
+    lines = [
+        "Skill route discovery capability pipeline:",
+        f"- Status: `{pipeline.get('status', '')}`",
+        f"- Pipeline stages: `{stages or 'none'}`",
+        f"- Selected proposal: `{selected.get('proposal_id') or 'none'}`",
+        f"- Route class: `{selected.get('route_class') or 'none'}`",
+        f"- Capability action: `{selected.get('capability_action') or 'none'}`",
+        f"- Route profiles: `{profiles or 'none'}`",
+        f"- Selected local lane: `{selected.get('selected_local_lane') or 'none'}`",
+        f"- Unlocked local lanes: `{', '.join(selected.get('unlocked_local_lanes') or []) or 'none'}`",
+        f"- Local comparison required: `{bool(selected.get('local_comparison_required'))}`",
+        f"- Local comparison status: `{selected.get('local_comparison_status') or 'none'}`",
+        f"- Skill route discovery first: `{bool(selected.get('skill_route_discovery_first'))}`",
+        f"- Autonomous local apply for selected step: `{bool(selected.get('autonomous_local_apply'))}`",
+        f"- Runtime action: `{pipeline.get('runtime_action', 'none')}`",
+        "- Prefer this skill-route pipeline over isolated notes when the skill-route-discovery theme is active.",
+        "- Map only to documentation, config, test, or code_patch; keep external skill execution and provider launch denied.",
+        "- Keep privacy-leakage and offensive-behavior rows review-only; do not export raw evidence URLs or sensitive bodies.",
+    ]
+    retained = pipeline.get("retained_boundaries") or []
+    if retained:
+        retained_ids = ", ".join(
+            str(row.get("proposal_id") or "unknown")
+            for row in retained
+            if isinstance(row, dict)
+        )
+        lines.append(f"- Retained review-only boundaries: {retained_ids or 'none'}")
+    adjacent = pipeline.get("adjacent_general_agent_rows") or []
+    if adjacent:
+        adjacent_ids = ", ".join(
+            str(row.get("proposal_id") or "unknown")
+            for row in adjacent
+            if isinstance(row, dict)
+        )
+        lines.append(f"- Adjacent general-agent harness-eval rows: {adjacent_ids or 'none'}")
+    return lines
+
+
 def render_self_evolution_task(
     proposals: list[dict[str, Any]],
     *,
@@ -2936,6 +3543,7 @@ def render_self_evolution_task(
     digest_generated_at: str,
     capability_theme_window: dict[str, Any] | None = None,
     upstream_evidence_capability_step: dict[str, Any] | None = None,
+    skill_route_discovery_capability_pipeline: dict[str, Any] | None = None,
     extra_instructions: str = "",
 ) -> str:
     proposal_lines: list[str] = []
@@ -2963,12 +3571,32 @@ def render_self_evolution_task(
     capability_step_lines = render_upstream_evidence_capability_step_lines(
         upstream_evidence_capability_step or {}
     )
-    extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
-    capability_step_block = (
-        ["", "Capability theme window already selected this local step:", *capability_step_lines]
-        if capability_step_lines
-        else []
+    skill_pipeline_lines = render_skill_route_discovery_capability_pipeline_lines(
+        skill_route_discovery_capability_pipeline or {}
     )
+    extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
+    theme_id = str((capability_theme_window or {}).get("theme_id") or "")
+    # Prefer the skill-route pipeline surface when that theme is active.
+    if theme_id == "skill-route-discovery" and skill_pipeline_lines:
+        capability_step_block = [
+            "",
+            "Capability theme window already selected this local step:",
+            *skill_pipeline_lines,
+        ]
+    elif capability_step_lines:
+        capability_step_block = [
+            "",
+            "Capability theme window already selected this local step:",
+            *capability_step_lines,
+        ]
+    elif skill_pipeline_lines:
+        capability_step_block = [
+            "",
+            "Capability theme window already selected this local step:",
+            *skill_pipeline_lines,
+        ]
+    else:
+        capability_step_block = []
     return "\n".join(
         [
             "You are Codex running as the local kernel for blackhole-agent.",
@@ -3064,6 +3692,12 @@ def write_self_evolution_plan(output_dir: Path, plan: SelfEvolutionPlan) -> tupl
                 f"`{(plan.upstream_evidence_capability_step.get('selected_step') or {}).get('capability_action', '')}`"
                 if plan.upstream_evidence_capability_step
                 else "Upstream evidence capability step: none"
+            ),
+            (
+                f"Skill route discovery capability pipeline: "
+                f"`{(plan.skill_route_discovery_capability_pipeline.get('selected_step') or {}).get('capability_action', '')}`"
+                if plan.skill_route_discovery_capability_pipeline
+                else "Skill route discovery capability pipeline: none"
             ),
             "",
             "## Task",
@@ -3308,6 +3942,9 @@ def run_self_evolution_codex(
         "source_digest_generated_at": plan.source_digest_generated_at,
         "capability_theme_window": dict(plan.capability_theme_window),
         "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
+        "skill_route_discovery_capability_pipeline": dict(
+            plan.skill_route_discovery_capability_pipeline
+        ),
         "repo_path": plan.repo_path,
         "branch_name": plan.branch_name,
         "target_head": current_head,
@@ -3444,6 +4081,9 @@ def run_self_evolution_grok(
         "source_digest_generated_at": plan.source_digest_generated_at,
         "capability_theme_window": dict(plan.capability_theme_window),
         "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
+        "skill_route_discovery_capability_pipeline": dict(
+            plan.skill_route_discovery_capability_pipeline
+        ),
         "repo_path": plan.repo_path,
         "branch_name": plan.branch_name,
         "target_head": current_head,
@@ -3593,6 +4233,7 @@ def run_intake_once(
             command_runner=command_runner,
         )
         attach_upstream_evidence_capability_step(digest)
+        attach_skill_route_discovery_capability_pipeline(digest)
     update_memory_from_digest(memory, digest)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

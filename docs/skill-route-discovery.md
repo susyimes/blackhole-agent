@@ -5,6 +5,36 @@ packages to import during the same run. Discovery records should classify the
 observed repository shape into review lanes that blackhole-agent can validate
 locally: documentation, config, test, or code patch.
 
+## Skill Route Discovery Capability Pipeline
+
+Source digest: `github-growth-20260712T185308.158673Z` (pass 1 of 4 of the
+`skill-route-discovery` window; selected proposal
+`trend:lingbol088-spec/reverse-flow-skill-2` /
+`prop-skill-route-discovery-pipeline-reverse-flow-rnskill`).
+
+Public skill/workflow signals must become one local capability pipeline, not
+another isolated note. Digests and self-evolution plans attach
+`skill_route_discovery_capability_pipeline` with three stages:
+
+1. `classifier` — route each proposal into `skill_route_discovery`,
+   `agent_harness_eval_required`, `privacy_boundary_review_only`,
+   `offensive_boundary_review_only`, or `follow_up_only`
+2. `route_profiles` — map reverse-flow-skill to `codex_workflow_gate` with
+   `skill_route_discovery_first`, and map rnskill to `generic_skill_workflow`
+3. `bounded_local_apply_lanes` — prefer local `test` for reverse-flow and
+   `documentation` for rnskill; allow only documentation, config, test, or
+   code_patch; require local comparison before any unlock; keep
+   `runtime_action=none`
+
+Adjacent fortress-style general-agent projects remain
+`agent_harness_eval_required` with no skill-route inheritance. Agent-chief
+privacy evidence stays review-only. External skill execution, provider launch,
+remote apply, raw evidence URLs, and upstream bodies stay denied.
+
+Validation command for this surface:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow

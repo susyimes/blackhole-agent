@@ -90,6 +90,14 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
         in architecture
     )
     assert "prop-hy3-harness-eval-local-apply" in architecture
+    assert "skill_route_discovery_capability_pipeline" in architecture
+    assert "classifier" in architecture
+    assert "route_profiles" in architecture
+    assert "bounded_local_apply_lanes" in architecture
+    assert (
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
+        in architecture
+    )
 
 
 def test_upstream_evidence_interpretation_doc_records_capability_step_contract():
@@ -257,6 +265,27 @@ def test_kubernetes_sandbox_provider_preflight_contract_is_documented():
     missing_architecture = [phrase for phrase in required_phrases if phrase not in architecture]
 
     assert missing_architecture == []
+
+
+def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
+    doc = (REPO_ROOT / "docs" / "skill-route-discovery.md").read_text(encoding="utf-8")
+
+    required_phrases = [
+        "## Skill Route Discovery Capability Pipeline",
+        "Source digest: `github-growth-20260712T185308.158673Z`",
+        "`skill_route_discovery_capability_pipeline`",
+        "`classifier`",
+        "`route_profiles`",
+        "`bounded_local_apply_lanes`",
+        "`codex_workflow_gate`",
+        "`skill_route_discovery_first`",
+        "`generic_skill_workflow`",
+        "local comparison before any unlock",
+        "`runtime_action=none`",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline",
+    ]
+    missing = [phrase for phrase in required_phrases if phrase not in doc]
+    assert missing == []
 
 
 def test_skill_route_discovery_doc_records_bounded_matrix():

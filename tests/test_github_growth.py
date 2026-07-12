@@ -22,6 +22,7 @@ from blackhole_agent.github_growth import (
     build_replayable_validation_report,
     build_self_evolution_plan,
     build_upstream_evidence_capability_step,
+    build_skill_route_discovery_capability_pipeline,
     build_trending_repository_query_for_date,
     extract_growth_signals,
     normalize_event,
@@ -4125,6 +4126,291 @@ def test_self_evolution_plan_carries_upstream_evidence_capability_step(tmp_path:
     )
     assert "Upstream evidence capability step:" in plan.task
     assert "local_pr_compare_before_draft" in plan.task
+
+
+def test_skill_route_discovery_capability_pipeline_classifies_reverse_flow_and_rnskill():
+    """Pass 1 pipeline: reverse-flow → codex gate/test; rnskill → generic/docs; privacy hold."""
+
+    reverse_url = "https://github.com/lingbol088-spec/reverse-flow-skill"
+    rnskill_url = "https://github.com/Pluviobyte/rnskill"
+    fortress_url = "https://github.com/tiliondev/fortress"
+    chief_url = "https://github.com/SmileLikeYe/agent-chief"
+    proposals = [
+        {
+            "proposal_id": "prop-skill-route-discovery-pipeline-reverse-flow-rnskill",
+            "kind": "code_patch",
+            "summary": (
+                "Translate reverse-flow-skill and rnskill skill_workflow trend signals into one "
+                "local skill_route_discovery capability pipeline."
+            ),
+            "evidence_urls": [reverse_url, rnskill_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": (
+                "Locally validate skill_route_discovery against reverse-flow-skill "
+                "(codex_workflow_gate / skill_route_discovery_first) and rnskill "
+                "(generic_skill_workflow / skill_route_discovery)."
+            ),
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "trend:lingbol088-spec/reverse-flow-skill-2",
+            "kind": "test",
+            "summary": (
+                "reverse-flow-skill is a Codex workflow skill with skill_route_discovery_first "
+                "and codex_workflow_gate evidence."
+            ),
+            "evidence_urls": [reverse_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Map reverse-flow-skill to a local test lane after comparison.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "trend:Pluviobyte/rnskill-2",
+            "kind": "documentation",
+            "summary": (
+                "rnskill is a generic_skill_workflow SKILL.md collection for skill_route_discovery."
+            ),
+            "evidence_urls": [rnskill_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Map rnskill to a documentation lane after comparison.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-fortress-agent-harness-eval-local-candidate",
+            "kind": "test",
+            "summary": (
+                "Advance tiliondev/fortress as a general_agent_project harness-eval candidate."
+            ),
+            "evidence_urls": [fortress_url],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Keep fortress behind agent_harness_eval_required.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "prop-agent-chief-privacy-review-only",
+            "kind": "follow_up_issue",
+            "summary": (
+                "Hold SmileLikeYe/agent-chief as review-only privacy/governance evidence."
+            ),
+            "evidence_urls": [chief_url],
+            "risk_flags": ["privacy-leakage"],
+            "implementation_scope": "reviewable_proposal_only",
+            "validation_gate": "privacy-leakage-human-review",
+            "validation_task": "Do not select agent-chief for local apply.",
+            "requires_approval": False,
+        },
+    ]
+
+    pipeline = build_skill_route_discovery_capability_pipeline(
+        proposals,
+        theme_window={
+            "theme_id": "skill-route-discovery",
+            "planned_passes": 1,
+            "target_passes": 4,
+            "status": "active",
+        },
+    )
+    unlocked = build_skill_route_discovery_capability_pipeline(
+        proposals,
+        theme_window={
+            "theme_id": "skill-route-discovery",
+            "planned_passes": 1,
+            "target_passes": 4,
+            "status": "active",
+        },
+        local_comparison_passed=True,
+    )
+
+    assert pipeline["schema_version"] == 1
+    assert pipeline["controller_surface"] == "skill_route_discovery_capability_pipeline"
+    assert pipeline["theme_id"] == "skill-route-discovery"
+    assert pipeline["pipeline_stages"] == [
+        "classifier",
+        "route_profiles",
+        "bounded_local_apply_lanes",
+    ]
+    assert pipeline["status"] == "ready_for_local_comparison"
+    assert pipeline["runtime_action"] == "none"
+    assert pipeline["privacy_export_allowed"] is False
+    assert pipeline["raw_evidence_urls_exported"] is False
+    assert pipeline["external_skill_activation_allowed"] is False
+    assert "external_skill_execution" in pipeline["denied_actions"]
+    assert "provider_launch" in pipeline["denied_actions"]
+
+    selected = pipeline["selected_step"]
+    assert selected["proposal_id"] == "trend:lingbol088-spec/reverse-flow-skill-2"
+    assert selected["route_class"] == "skill_route_discovery"
+    assert selected["capability_action"] == "apply_one_local_skill_route_validation_candidate"
+    assert "codex_workflow_gate" in selected["route_profiles"]
+    assert selected["skill_route_discovery_first"] is True
+    assert selected["selected_local_lane"] == "test"
+    assert selected["allowed_local_lanes"] == [
+        "documentation",
+        "config",
+        "test",
+        "code_patch",
+    ]
+    assert selected["unlocked_local_lanes"] == []
+    assert selected["local_comparison_required"] is True
+    assert selected["local_comparison_status"] == "required_before_unlock"
+    assert unlocked["selected_step"]["unlocked_local_lanes"] == ["test"]
+    assert unlocked["selected_step"]["local_comparison_status"] == "passed"
+    assert unlocked["status"] == "ready"
+
+    rows_by_id = {row["proposal_id"]: row for row in pipeline["classifier"]["candidate_rows"]}
+    assert rows_by_id["trend:lingbol088-spec/reverse-flow-skill-2"]["selected"] is True
+    assert rows_by_id["trend:Pluviobyte/rnskill-2"]["route_class"] == "skill_route_discovery"
+    assert rows_by_id["trend:Pluviobyte/rnskill-2"]["preferred_local_lane"] == "documentation"
+    assert "generic_skill_workflow" in rows_by_id["trend:Pluviobyte/rnskill-2"]["route_profiles"]
+    assert rows_by_id["prop-fortress-agent-harness-eval-local-candidate"]["route_class"] == (
+        "agent_harness_eval_required"
+    )
+    assert rows_by_id["prop-agent-chief-privacy-review-only"]["route_class"] == (
+        "privacy_boundary_review_only"
+    )
+    assert pipeline["retained_boundaries"]
+    assert pipeline["adjacent_general_agent_rows"]
+    assert reverse_url not in json.dumps(pipeline)
+    assert rnskill_url not in json.dumps(pipeline)
+    assert chief_url not in json.dumps(pipeline)
+    assert fortress_url not in json.dumps(pipeline)
+
+
+def test_build_digest_attaches_skill_route_discovery_capability_pipeline_for_current_window():
+    signals = [
+        GrowthSignal(
+            event_id="trend:lingbol088-spec/reverse-flow-skill-2",
+            repo="lingbol088-spec/reverse-flow-skill",
+            kind="RepositoryTrend",
+            title="reverse-flow-skill Codex workflow skill route discovery",
+            url="https://github.com/lingbol088-spec/reverse-flow-skill",
+            relevance_reason="codex_workflow_gate skill_route_discovery_first candidate",
+            risk_flags=[],
+            recommended_action="map to local test lane after skill_route_discovery comparison",
+            confidence=0.91,
+        ),
+        GrowthSignal(
+            event_id="trend:Pluviobyte/rnskill-2",
+            repo="Pluviobyte/rnskill",
+            kind="RepositoryTrend",
+            title="rnskill generic skill workflow collection",
+            url="https://github.com/Pluviobyte/rnskill",
+            relevance_reason="generic_skill_workflow skill.md collection",
+            risk_flags=[],
+            recommended_action="map to documentation lane for skill_route_discovery",
+            confidence=0.88,
+        ),
+        GrowthSignal(
+            event_id="trend:SmileLikeYe/agent-chief-2",
+            repo="SmileLikeYe/agent-chief",
+            kind="ReleaseEvent",
+            title="published release: privacy-sensitive notes",
+            url="https://github.com/SmileLikeYe/agent-chief",
+            relevance_reason="privacy-leakage boundary remains review-only",
+            risk_flags=["privacy-leakage"],
+            recommended_action="retain privacy review boundary without local apply",
+            confidence=0.9,
+        ),
+    ]
+
+    digest = build_digest(
+        [
+            "lingbol088-spec/reverse-flow-skill",
+            "Pluviobyte/rnskill",
+            "SmileLikeYe/agent-chief",
+        ],
+        signals,
+        state=GrowthState(),
+        generated_at="2026-07-12T18:53:08.158673Z",
+    )
+    pipeline = digest["skill_route_discovery_capability_pipeline"]
+    markdown = render_markdown_digest(digest)
+
+    assert pipeline["controller_surface"] == "skill_route_discovery_capability_pipeline"
+    assert pipeline["selected_step"]["route_class"] in {
+        "skill_route_discovery",
+        "privacy_boundary_review_only",
+        "none",
+    }
+    assert "## Skill Route Discovery Capability Pipeline" in markdown
+    assert "https://github.com/lingbol088-spec/reverse-flow-skill" not in json.dumps(pipeline)
+
+
+def test_self_evolution_plan_carries_skill_route_discovery_capability_pipeline(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "docs").mkdir()
+    (repo / "docs" / "self-model.md").write_text("# Self Model\n\nblank\n", encoding="utf-8")
+    proposals = [
+        {
+            "proposal_id": "trend:lingbol088-spec/reverse-flow-skill-2",
+            "kind": "test",
+            "summary": (
+                "reverse-flow-skill codex_workflow_gate skill_route_discovery_first local validation"
+            ),
+            "evidence_urls": ["https://github.com/lingbol088-spec/reverse-flow-skill"],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Validate reverse-flow skill route with a local test.",
+            "requires_approval": False,
+        },
+        {
+            "proposal_id": "trend:Pluviobyte/rnskill-2",
+            "kind": "documentation",
+            "summary": "rnskill generic_skill_workflow skill collection documentation lane",
+            "evidence_urls": ["https://github.com/Pluviobyte/rnskill"],
+            "risk_flags": [],
+            "implementation_scope": "local_validation_candidate",
+            "validation_gate": "focused-evidence-review",
+            "validation_task": "Document rnskill skill_route_discovery classification.",
+            "requires_approval": False,
+        },
+    ]
+    digest = {
+        "digest_id": "github-growth-20260712T185308.158673Z",
+        "generated_at": "2026-07-12T18:53:08.158673Z",
+        "proposals": proposals,
+        "items": [],
+        "capability_theme_window": {
+            "theme_id": "skill-route-discovery",
+            "title": "Skill route discovery",
+            "capability_slice": (
+                "Convert skill and route evidence into bounded local lanes that can be "
+                "validated before activation."
+            ),
+            "planned_passes": 1,
+            "target_passes": 4,
+            "status": "active",
+            "proposal_ids": [
+                "trend:lingbol088-spec/reverse-flow-skill-2",
+                "trend:Pluviobyte/rnskill-2",
+            ],
+            "evidence_urls": [
+                "https://github.com/lingbol088-spec/reverse-flow-skill",
+                "https://github.com/Pluviobyte/rnskill",
+            ],
+        },
+    }
+
+    plan = build_self_evolution_plan(digest, repo_path=repo)
+
+    assert plan is not None
+    pipeline = plan.skill_route_discovery_capability_pipeline
+    assert pipeline["status"] == "ready_for_local_comparison"
+    assert pipeline["selected_step"]["proposal_id"] == "trend:lingbol088-spec/reverse-flow-skill-2"
+    assert pipeline["selected_step"]["selected_local_lane"] == "test"
+    assert "Skill route discovery capability pipeline:" in plan.task
+    assert "apply_one_local_skill_route_validation_candidate" in plan.task
+    assert "codex_workflow_gate" in plan.task
 
 
 def test_context_budget_preflight_reports_non_truncated_local_metadata_only():

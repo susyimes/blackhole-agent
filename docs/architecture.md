@@ -133,6 +133,24 @@ Before a self-evolution task is rendered, the controller derives a small `capabi
 
 The window is not a permission source and does not override safety review. It is continuity pressure: each pass should deepen the same capability slice with behavior, controller surfaces, recovery workflows, tests, and docs until the window completes or the evidence shows the theme is exhausted or unsafe. The current window is written into `memory.json`, `latest.json`, `latest-self-evolution-plan.json`, the plan markdown, and the self-evolution manifest.
 
+For the `skill-route-discovery` theme, digests also emit
+`skill_route_discovery_capability_pipeline`: one operator-visible local pipeline
+with stages `classifier` → `route_profiles` → `bounded_local_apply_lanes`.
+Pass 1 translates reverse-flow-skill and rnskill skill-workflow trend signals
+into that pipeline rather than isolated notes. reverse-flow-skill maps to
+`codex_workflow_gate` with `skill_route_discovery_first` and a preferred local
+`test` lane; rnskill maps to `generic_skill_workflow` with a preferred
+`documentation` lane. Allowed lanes stay limited to documentation, config,
+test, or code_patch. Local comparison is required before any lane unlock.
+Fortress-style general-agent projects remain adjacent
+`agent_harness_eval_required` rows without skill-route inheritance.
+Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
+Runtime action stays `none`; external skill execution, provider launch, remote
+apply, push or promotion, and kernel restart remain denied. The packet exports
+proposal IDs, route profiles, lane names, hashes, and booleans only. Use
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline`
+for the current regression.
+
 For the `upstream-evidence-capability` theme, digests also emit
 `upstream_evidence_capability_step`: one operator-visible local step derived from
 the current proposals. The packet classifies each proposal (privacy or offensive
