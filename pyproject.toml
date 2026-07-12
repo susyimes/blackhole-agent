@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "blackhole-agent"
 dynamic = ["version"]
-description = "A review-gated GitHub growth agent with a local Codex CLI kernel"
+description = "A review-gated GitHub growth agent with selectable local Codex and Grok CLI kernels"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

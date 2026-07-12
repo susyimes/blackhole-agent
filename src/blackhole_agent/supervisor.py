@@ -24,6 +24,7 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight, token_quality
+from blackhole_agent.kernels.grok_cli import GrokCliConfig, build_grok_provider_preflight
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 from blackhole_agent.tool_routing import (
@@ -68,6 +69,7 @@ class SupervisorConfig:
     exit_on_failure: bool = False
     pass_timeout_seconds: int = 5400
     evolution_mode: str = "codex"
+    kernel: str = "codex"
     repos: str = ""
     trend_query: str = "agent language:Python"
     trend_window_days: int = 14
@@ -281,6 +283,8 @@ def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = Non
         str(config.proposal_timeout_seconds),
         "--evolution-mode",
         config.evolution_mode,
+        "--kernel",
+        config.kernel,
         "--repo-path",
         str(child_repo_path),
     ]
@@ -1154,6 +1158,8 @@ def validate_supervisor_config(config: SupervisorConfig) -> None:
         raise ValueError("restart_exit_code cannot be negative")
     if config.evolution_mode not in SUPPORTED_EVOLUTION_MODES:
         raise ValueError("evolution_mode must be one of: digest, plan, codex")
+    if config.kernel not in {"codex", "grok"}:
+        raise ValueError("kernel must be one of: codex, grok")
     if config.proposal_mode not in PROPOSAL_MODES:
         raise ValueError("proposal_mode must be one of: heuristic, llm, hybrid")
     if config.proposal_timeout_seconds < 1:
@@ -1190,7 +1196,20 @@ def build_provider_config_preflight(
         CodexCliConfig(
             model=config.model,
             profile=config.profile,
-            require_explicit_route=config.require_codex_route and config.evolution_mode == "codex",
+            require_explicit_route=(
+                config.require_codex_route and config.evolution_mode == "codex" and config.kernel == "codex"
+            ),
+        ),
+        env=environment,
+    )
+    grok_preflight = build_grok_provider_preflight(
+        GrokCliConfig(
+            model=config.model,
+            require_explicit_route=(
+                config.require_codex_route and config.evolution_mode == "codex" and config.kernel == "grok"
+            ),
+            sandbox=config.sandbox,
+            permission_mode=("bypassPermissions" if config.bypass_approvals_and_sandbox else "dontAsk"),
         ),
         env=environment,
     )
@@ -1199,8 +1218,10 @@ def build_provider_config_preflight(
         allow_auto_mode=config.allow_claude_sdk_auto_permission_mode,
         env=environment,
     )
-    if config.evolution_mode == "codex" and not codex_preflight["ok"]:
+    if config.evolution_mode == "codex" and config.kernel == "codex" and not codex_preflight["ok"]:
         diagnostics.extend(str(item) for item in codex_preflight["diagnostics"])
+    if config.evolution_mode == "codex" and config.kernel == "grok" and not grok_preflight["ok"]:
+        diagnostics.extend(str(item) for item in grok_preflight["diagnostics"])
     if not claude_sdk_preflight["ok"]:
         diagnostics.extend(str(item) for item in claude_sdk_preflight["diagnostics"])
     recovery_hints = build_provider_config_recovery_hints(
@@ -1219,6 +1240,7 @@ def build_provider_config_preflight(
         "diagnostics": diagnostics,
         "recovery_hints": recovery_hints,
         "provider": "github",
+        "kernel": config.kernel,
         "token_env_name": token_env_name if token_env_valid else None,
         "token_env_name_recorded": token_env_valid,
         "token_env_valid": token_env_valid,
@@ -1228,6 +1250,7 @@ def build_provider_config_preflight(
         "token_env_quality": github_token_quality,
         "token_value_recorded": False,
         "codex": codex_preflight,
+        "grok": grok_preflight,
         "claude_sdk": claude_sdk_preflight,
     }
 
@@ -1958,6 +1981,7 @@ def main(
     exit_on_failure: bool = typer.Option(False, "--exit-on-failure", help="Stop the supervisor after a failed pass."),
     pass_timeout_seconds: int = typer.Option(5400, "--pass-timeout-seconds", min=1, help="Timeout for one child pass."),
     evolution_mode: str = typer.Option("codex", "--evolution-mode", help="One of: digest, plan, codex."),
+    kernel: str = typer.Option("codex", "--kernel", help="CLI kernel for proposal interpretation and mutation."),
     repos: str = typer.Option("", "--repos", "-r", help="Optional comma-separated repositories."),
     trend_query: str = typer.Option("agent language:Python", "--trend-query", help="GitHub trend search terms."),
     trend_window_days: int = typer.Option(14, "--trend-window-days", min=1, help="Trend creation window."),
@@ -1994,8 +2018,8 @@ def main(
         help="Repository-relative self-model file passed into every evolution task.",
     ),
     force_evolve: bool = typer.Option(True, "--force-evolve/--no-force-evolve", help="Create fallback evolution tasks."),
-    allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow codex mode to start from a dirty worktree."),
-    model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to Codex CLI."),
+    allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow mutation mode to start from a dirty worktree."),
+    model: str | None = typer.Option(None, "-m", "--model", help="Model to pass to the selected CLI kernel."),
     profile: str | None = typer.Option(None, "--profile", help="Codex config profile."),
     require_codex_route: bool = typer.Option(True, "--require-codex-route/--allow-default-codex-route", help="Require codex mode to pass an explicit --model or --profile instead of relying on the CLI default route."),
     sandbox: str = typer.Option("workspace-write", "--sandbox", help="Codex sandbox mode."),
@@ -2008,7 +2032,7 @@ def main(
     bypass_approvals_and_sandbox: bool = typer.Option(
         False,
         "--bypass-approvals-and-sandbox",
-        help="Forward Codex's dangerous full-access bypass flag.",
+        help="Enable the selected kernel's explicit autonomous full-access permission mode.",
     ),
     claude_sdk_permission_mode: str | None = typer.Option(
         None,
@@ -2020,17 +2044,17 @@ def main(
         "--allow-claude-sdk-auto-permission-mode/--disallow-claude-sdk-auto-permission-mode",
         help="Permit Claude SDK auto permission mode during supervisor preflight.",
     ),
-    codex_timeout_seconds: int = typer.Option(3600, "--codex-timeout-seconds", min=1, help="Codex kernel timeout."),
+    codex_timeout_seconds: int = typer.Option(3600, "--codex-timeout-seconds", min=1, help="Selected CLI kernel timeout."),
     extra_instruction: str = typer.Option("", "--extra-instruction", help="Extra instruction appended to evolution tasks."),
     commit_successful_changes: bool = typer.Option(
         True,
         "--commit-successful-changes/--no-commit-successful-changes",
-        help="Commit dirty source changes after a successful codex pass.",
+        help="Commit dirty source changes after a successful mutation pass.",
     ),
     use_candidate_worktree: bool = typer.Option(
         True,
         "--candidate-worktree/--same-worktree",
-        help="Run codex evolution inside an isolated candidate git worktree.",
+        help="Run evolution inside an isolated candidate git worktree.",
     ),
     cleanup_candidate_worktree: bool = typer.Option(
         True,
@@ -2093,6 +2117,7 @@ def main(
         exit_on_failure=exit_on_failure,
         pass_timeout_seconds=pass_timeout_seconds,
         evolution_mode=evolution_mode,
+        kernel=kernel,
         repos=repos,
         trend_query=trend_query,
         trend_window_days=trend_window_days,

@@ -133,9 +133,9 @@ Before a self-evolution task is rendered, the controller derives a small `capabi
 
 The window is not a permission source and does not override safety review. It is continuity pressure: each pass should deepen the same capability slice with behavior, controller surfaces, recovery workflows, tests, and docs until the window completes or the evidence shows the theme is exhausted or unsafe. The current window is written into `memory.json`, `latest.json`, `latest-self-evolution-plan.json`, the plan markdown, and the self-evolution manifest.
 
-### Local Codex CLI Kernel
+### Selectable Local CLI Kernel
 
-Runs only when explicitly selected with `--evolution-mode codex`.
+Runs only when explicitly selected with `--evolution-mode codex`. The `--kernel codex|grok` selector chooses the local execution backend without changing the surrounding rollback and promotion protocol.
 
 The controller creates a coherent task from the digest proposals, writes a rollback point, prepares a local branch, and invokes:
 
@@ -145,6 +145,14 @@ codex exec --cd <repo> --ignore-user-config --sandbox workspace-write --ephemera
 
 The task is passed through stdin, and Codex writes its final response to an output artifact with `--output-last-message`.
 Operators that want the autonomous loop to mutate without the Codex sandbox can pass `--bypass-approvals-and-sandbox`, which forwards Codex's explicit full-access bypass flag.
+
+The Grok route invokes the equivalent headless contract:
+
+```text
+grok --cwd <repo> --output-format json --permission-mode bypassPermissions --sandbox workspace --prompt-file <task>
+```
+
+Grok tasks are stored in a prompt file so long controller tasks do not enter the process command line. Cross-session memory, subagents, and Grok-hosted web search are disabled for bounded supervisor children; the supervisor remains responsible for commit, health gates, promotion, push, and restart handoff.
 
 The kernel is intentionally local:
 

@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-111827?style=for-the-badge&logo=python)](https://www.python.org/)
 [![Runtime](https://img.shields.io/badge/runtime-uv-111827?style=for-the-badge)](https://github.com/astral-sh/uv)
-[![Kernel](https://img.shields.io/badge/kernel-Codex_CLI-111827?style=for-the-badge)](https://github.com/openai/codex)
+[![Kernel](https://img.shields.io/badge/kernel-Codex_or_Grok_CLI-111827?style=for-the-badge)](#cli-kernels)
 [![Mode](https://img.shields.io/badge/mode-autonomous_local_evolution-111827?style=for-the-badge)](#autonomy-model)
 
 > A GitHub trend-eating growth agent.
@@ -20,7 +20,7 @@
 - convert noisy repository activity into compact learning digests
 - select useful patterns that could improve this agent
 - create autonomous self-evolution tasks
-- run a local Codex CLI kernel when explicitly requested
+- run a selected local Codex or Grok CLI kernel when explicitly requested
 - preserve a rollback point before source mutation
 - keep every material action traceable through artifacts
 
@@ -88,6 +88,19 @@ uv run blackhole \
   --branch-prefix codex/blackhole-evolve
 ```
 
+Run the same bounded evolution path through Grok Build:
+
+```bash
+uv run blackhole \
+  --trend-query "agent language:Python" \
+  --evolution-mode codex \
+  --kernel grok \
+  --model grok-4.5 \
+  --repo-path . \
+  --branch-prefix grok/blackhole-evolve \
+  --bypass-approvals-and-sandbox
+```
+
 Run the native hourly wake loop:
 
 ```bash
@@ -132,6 +145,7 @@ uv run blackhole \
 | Self-model layer | `docs/self-model.md` | Blank, revisable self-description maintained by the agent itself |
 | Local memory tool | `blackhole_agent.local_memory` | First-party non-secret memory store for local tool routes |
 | Codex kernel | `blackhole_agent.kernels.codex_cli` | Bounded `codex exec` wrapper |
+| Grok kernel | `blackhole_agent.kernels.grok_cli` | Bounded headless `grok --prompt-file` wrapper |
 | Digest schema | `schemas/hourly-digest.schema.json` | Structured output contract |
 | Architecture docs | `docs/architecture.md` | Component boundaries and runtime policy |
 
@@ -201,7 +215,7 @@ uv run blackhole-supervisor \
 The preflight records valid env var names and boolean presence; token values are not written to diagnostics or artifacts.
 Malformed `--token-env` input is rejected without echoing the raw input into startup diagnostics.
 
-Codex mutation routes are also checked before execution. By default, `codex` mode requires either `--model` or `--profile` so a wake cannot silently use an unintended CLI default provider. Operators who intentionally want the Codex CLI default route can pass `--allow-default-codex-route`; the preflight artifact still records that the route was implicit without recording secrets or profile values. Ambient OpenAI env discovery is summarized as presence booleans and an endpoint-source hint, so `OPENAI_API_KEY` plus `OPENAI_BASE_URL` can be distinguished from the default OpenAI endpoint without writing either value. Failed provider/runtime preflights include `recovery_hints` with stable codes, scopes, safe action text, and env-var names only; token bodies, URL bodies, credential paths, and profile values remain omitted.
+Kernel routes are checked before execution. Codex keeps its explicit model/profile checks; Grok requires the local executable plus an explicit model when strict routing is enabled and can authenticate through its cached login or `XAI_API_KEY`. Preflight artifacts record only route and presence metadata, never token values.
 
 For a half-hour local experiment:
 
@@ -376,6 +390,7 @@ One run can write:
 | `latest-rollback-point.json` | machine-readable recovery anchor |
 | `latest-rollback-point.md` | human-readable rollback instructions |
 | `latest-codex-run.json` | Codex kernel run metadata |
+| `latest-grok-run.json` | Grok kernel run metadata |
 | `latest-self-evolution-manifest.json` | replay metadata for a Codex self-evolution run, including source digest, branch, target HEAD, evidence URLs, validation gates, task path, timing, proposal controls, and `replayable_validation_report` with pre-adoption risk review, startup/import health checks, runtime capability-change fields, completion requirements, completion status, and a pending adoption decision |
 | `latest-supervisor-pass.json` | latest native wake pass record, including start and finish branch/HEAD |
 | `latest-supervisor-heartbeat.json` | latest supervisor heartbeat with pass metadata and derived `runner_liveness` for asleep, active child sessions, disconnected, failed, or unavailable runner states |
