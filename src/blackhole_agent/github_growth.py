@@ -2826,8 +2826,13 @@ def build_skill_route_discovery_capability_pipeline(
     recorded pass,
     ``skill_route_discovery_focused_validation_activation_external_acceptance``
     packages terminal acceptance while residual fortress/Hy3 rows stay adjacent
-    harness-eval only. External skill execution, provider launch, remote apply,
-    push, promotion, and kernel restart stay denied; activation remains external.
+    harness-eval only. After acceptance is ``accepted`` and residual adjacent
+    rows remain,
+    ``skill_route_discovery_focused_validation_residual_adjacent_queue`` packages
+    those proposal IDs for ``agent_harness_eval_cluster_local_apply`` without
+    inheriting skill unlocks. External skill execution, provider launch, remote
+    apply, push, promotion, and kernel restart stay denied; activation remains
+    external.
     """
 
     del items  # reserved for future item-level corroboration without URL export
@@ -3082,6 +3087,21 @@ def build_skill_route_discovery_capability_pipeline(
             source_digest=source_digest,
         )
     )
+    focused_validation_residual_adjacent_queue = (
+        build_skill_route_discovery_focused_validation_residual_adjacent_queue(
+            focused_validation_activation_external_acceptance=(
+                focused_validation_activation_external_acceptance
+            ),
+            focused_validation_activation_external_handoff=(
+                focused_validation_activation_external_handoff
+            ),
+            focused_local_test_validation=focused_local_test_validation,
+            adjacent_general_agent_rows=adjacent_general_agent_rows,
+            retained_boundaries=retained_boundaries,
+            theme_window=theme,
+            source_digest=source_digest,
+        )
+    )
     adjacent_harness_eval_handoff = build_skill_route_discovery_adjacent_harness_eval_handoff(
         selected_step=selected_step,
         adjacent_general_agent_rows=adjacent_general_agent_rows,
@@ -3176,6 +3196,9 @@ def build_skill_route_discovery_capability_pipeline(
         ),
         "focused_validation_activation_external_acceptance": (
             focused_validation_activation_external_acceptance
+        ),
+        "focused_validation_residual_adjacent_queue": (
+            focused_validation_residual_adjacent_queue
         ),
         "focused_local_test_validation_recorded": focused_local_test_validation.get(
             "focused_validation_recorded"
@@ -4410,7 +4433,9 @@ def record_skill_route_discovery_focused_local_test_validation_results(
     with command-hash/boolean rows (or raw command text + ``passed``) to close
     ``skill_route_discovery_focused_local_test_validation`` from ``ready`` to
     ``passed``/``failed`` and refresh
-    ``skill_route_discovery_focused_validation_activation_external_handoff``
+    ``skill_route_discovery_focused_validation_activation_external_handoff``,
+    ``skill_route_discovery_focused_validation_activation_external_acceptance``,
+    and ``skill_route_discovery_focused_validation_residual_adjacent_queue``
     without enabling activation, push, promotion, provider launch, remote apply,
     external skill execution, or kernel restart.
     """
@@ -4491,6 +4516,19 @@ def record_skill_route_discovery_focused_local_test_validation_results(
             source_digest=digest,
         )
     )
+    residual_adjacent_queue = (
+        build_skill_route_discovery_focused_validation_residual_adjacent_queue(
+            focused_validation_activation_external_acceptance=(
+                activation_external_acceptance
+            ),
+            focused_validation_activation_external_handoff=activation_external,
+            focused_local_test_validation=focused,
+            adjacent_general_agent_rows=adjacent_rows,
+            retained_boundaries=retained_rows,
+            theme_window=theme,
+            source_digest=digest,
+        )
+    )
     updated = dict(pipeline)
     updated["focused_local_test_validation"] = focused
     updated["focused_local_test_validation_recorded"] = focused.get("status") in {
@@ -4501,6 +4539,7 @@ def record_skill_route_discovery_focused_local_test_validation_results(
     updated["focused_validation_activation_external_acceptance"] = (
         activation_external_acceptance
     )
+    updated["focused_validation_residual_adjacent_queue"] = residual_adjacent_queue
     return updated
 
 
@@ -4756,6 +4795,7 @@ def build_skill_route_discovery_focused_local_test_validation(
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
             "skill_route_discovery_focused_validation_activation_external_handoff",
             "skill_route_discovery_focused_validation_activation_external_acceptance",
+            "skill_route_discovery_focused_validation_residual_adjacent_queue",
         ],
         "unlocked_local_test_lane_apply_status": unlocked_status or "none",
         "unlocked_local_test_lane_apply_decision": str(unlocked_apply.get("decision") or ""),
@@ -5027,6 +5067,7 @@ def build_skill_route_discovery_focused_validation_activation_external_handoff(
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
             "skill_route_discovery_focused_validation_activation_external_handoff",
             "skill_route_discovery_focused_validation_activation_external_acceptance",
+            "skill_route_discovery_focused_validation_residual_adjacent_queue",
         ],
         "focused_local_test_validation_status": focused_status or "none",
         "focused_local_test_validation_decision": str(focused.get("decision") or ""),
@@ -5382,6 +5423,7 @@ def build_skill_route_discovery_focused_validation_activation_external_acceptanc
             "close_skill_route_discovery_focused_local_test_validation_with_outcome",
             "skill_route_discovery_focused_validation_activation_external_handoff",
             "skill_route_discovery_focused_validation_activation_external_acceptance",
+            "skill_route_discovery_focused_validation_residual_adjacent_queue",
         ],
         "focused_validation_activation_external_handoff_status": handoff_status or "none",
         "focused_validation_activation_external_handoff_decision": str(
@@ -5523,6 +5565,353 @@ def build_skill_route_discovery_focused_validation_activation_external_acceptanc
         "required_validation": [
             "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation",
             "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_activation_external",
+        ],
+        "body_free": True,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_bodies_exported": False,
+        "raw_command_stdout_exported": False,
+        "raw_command_text_exported": False,
+    }
+
+
+def build_skill_route_discovery_focused_validation_residual_adjacent_queue(
+    *,
+    focused_validation_activation_external_acceptance: dict[str, Any] | None = None,
+    focused_validation_activation_external_handoff: dict[str, Any] | None = None,
+    focused_local_test_validation: dict[str, Any] | None = None,
+    adjacent_general_agent_rows: list[dict[str, Any]] | None = None,
+    retained_boundaries: list[dict[str, Any]] | None = None,
+    theme_window: dict[str, Any] | None = None,
+    source_digest: str | None = None,
+) -> dict[str, Any]:
+    """Queue residual fortress/Hy3 rows after reverse-flow activation-external acceptance.
+
+    After ``skill_route_discovery_focused_validation_activation_external_acceptance``
+    is ``accepted``, residual adjacent general-agent proposal IDs are packaged for
+    ``agent_harness_eval_cluster_local_apply`` without inheriting reverse-flow skill
+    unlocks. This is distinct from
+    ``skill_route_discovery_adjacent_harness_eval_handoff``, which fires only when
+    the selected pipeline step is itself an adjacent harness-eval row. Push,
+    promotion, provider launch, remote apply, external skill execution, and kernel
+    restart stay denied; activation remains external. Privacy/offensive rows stay
+    review-only.
+    """
+
+    theme = theme_window if isinstance(theme_window, dict) else {}
+    acceptance = (
+        focused_validation_activation_external_acceptance
+        if isinstance(focused_validation_activation_external_acceptance, dict)
+        else {}
+    )
+    handoff = (
+        focused_validation_activation_external_handoff
+        if isinstance(focused_validation_activation_external_handoff, dict)
+        else {}
+    )
+    focused = (
+        focused_local_test_validation
+        if isinstance(focused_local_test_validation, dict)
+        else {}
+    )
+    adjacent = list(adjacent_general_agent_rows or [])
+    retained = list(retained_boundaries or [])
+    acceptance_status = str(acceptance.get("status") or "")
+    acceptance_decision = str(acceptance.get("decision") or "")
+    focused_status = str(
+        focused.get("status")
+        or acceptance.get("focused_local_test_validation_status")
+        or handoff.get("focused_local_test_validation_status")
+        or ""
+    )
+    def _proposal_id_list(*candidates: Any) -> list[str]:
+        for candidate in candidates:
+            if isinstance(candidate, list):
+                return [
+                    str(item)
+                    for item in candidate
+                    if str(item).strip()
+                ]
+        return []
+
+    retained_ids = sorted(
+        {
+            str(row.get("proposal_id") or "")
+            for row in retained
+            if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+        }
+        | set(
+            _proposal_id_list(
+                acceptance.get("retained_boundary_proposal_ids"),
+                handoff.get("retained_boundary_proposal_ids"),
+                focused.get("retained_boundary_proposal_ids"),
+            )
+        )
+    )
+    # Prefer explicit adjacent rows / packet lists (including empty) so callers can
+    # clear residual availability after acceptance without inheriting focused IDs.
+    if adjacent:
+        adjacent_ids = sorted(
+            {
+                str(row.get("proposal_id") or "")
+                for row in adjacent
+                if isinstance(row, dict) and str(row.get("proposal_id") or "").strip()
+            }
+        )
+    else:
+        adjacent_ids = sorted(
+            set(
+                _proposal_id_list(
+                    acceptance.get("adjacent_general_agent_proposal_ids"),
+                    handoff.get("adjacent_general_agent_proposal_ids"),
+                    focused.get("adjacent_general_agent_proposal_ids"),
+                )
+            )
+        )
+    if "residual_adjacent_harness_eval_available" in acceptance:
+        residual_available = bool(acceptance.get("residual_adjacent_harness_eval_available")) and bool(
+            adjacent_ids
+        )
+    elif "residual_adjacent_harness_eval_available" in handoff:
+        residual_available = bool(handoff.get("residual_adjacent_harness_eval_available")) and bool(
+            adjacent_ids
+        )
+    else:
+        residual_available = bool(adjacent_ids)
+    selected_proposal_id = str(
+        acceptance.get("selected_proposal_id")
+        or acceptance.get("proposal_id")
+        or handoff.get("selected_proposal_id")
+        or focused.get("selected_proposal_id")
+        or "prop-skill-reverse-flow-continue-local-validation"
+    )
+    profiles = [
+        str(profile)
+        for profile in list(
+            acceptance.get("route_profiles")
+            or handoff.get("route_profiles")
+            or focused.get("route_profiles")
+            or []
+        )
+    ]
+    skill_first = bool(
+        acceptance.get(
+            "skill_route_discovery_first",
+            handoff.get(
+                "skill_route_discovery_first",
+                focused.get("skill_route_discovery_first"),
+            ),
+        )
+    )
+    selected_lane = str(
+        acceptance.get("selected_local_lane")
+        or handoff.get("selected_local_lane")
+        or focused.get("selected_local_lane")
+        or ""
+    )
+    general_agent_isolated = all(
+        row.get("skill_route_discovery_inherited") is False
+        and list(row.get("direct_allowed_lanes_before_eval") or []) == []
+        for row in adjacent
+        if isinstance(row, dict)
+    ) if adjacent else True
+    privacy_isolated = all(
+        str(row.get("route_class") or "")
+        in {"privacy_boundary_review_only", "offensive_boundary_review_only"}
+        for row in retained
+        if isinstance(row, dict)
+    ) if retained else True
+    acceptance_ready = (
+        acceptance_status == "accepted"
+        and acceptance_decision
+        == "accept_activation_external_package_after_focused_validation_pass"
+        and bool(acceptance.get("activation_external_only", True))
+        and acceptance.get("supervisor_activation_allowed") is not True
+        and acceptance.get("runtime_action") == "none"
+        and acceptance.get("external_skill_execution_allowed") is not True
+        and acceptance.get("provider_launch_allowed") is not True
+        and acceptance.get("remote_apply_allowed") is not True
+        and acceptance.get("push_or_promotion_allowed") is not True
+        and acceptance.get("kernel_restart_allowed") is not True
+        and focused_status == "passed"
+    )
+
+    if acceptance_status in {"", "not_applicable"}:
+        status = "not_applicable"
+        decision = "no_activation_external_acceptance_for_residual_adjacent_queue"
+        supervisor_next_action = (
+            "wait_for_skill_route_discovery_focused_validation_activation_external_acceptance"
+        )
+    elif acceptance_status.startswith("blocked"):
+        status = "blocked_until_activation_external_acceptance"
+        decision = "hold_residual_adjacent_queue_until_activation_external_acceptance"
+        if acceptance.get("supervisor_next_action"):
+            supervisor_next_action = str(acceptance.get("supervisor_next_action"))
+        else:
+            supervisor_next_action = (
+                "run_focused_local_test_validation_then_keep_activation_external"
+            )
+    elif not acceptance_ready:
+        status = "blocked_until_activation_external_acceptance"
+        decision = "hold_residual_adjacent_queue_until_body_free_acceptance"
+        supervisor_next_action = (
+            "run_focused_local_test_validation_then_keep_activation_external"
+        )
+    elif not residual_available:
+        status = "not_applicable"
+        decision = "no_residual_adjacent_rows_after_focused_validation_acceptance"
+        supervisor_next_action = (
+            "keep_activation_external_after_focused_local_test_validation"
+        )
+    elif not general_agent_isolated or not privacy_isolated:
+        status = "blocked"
+        decision = "repair_residual_adjacent_isolation_before_queue"
+        supervisor_next_action = "repair_skill_route_config_gate_isolation"
+    else:
+        status = "ready"
+        decision = (
+            "queue_residual_adjacent_harness_eval_after_focused_validation_acceptance"
+        )
+        supervisor_next_action = (
+            "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply"
+        )
+
+    export_adjacent_ids = adjacent_ids if status == "ready" else []
+    export_retained_ids = retained_ids if status in {"ready", "blocked", "not_applicable"} else []
+
+    return {
+        "schema_version": 1,
+        "controller_surface": (
+            "skill_route_discovery_focused_validation_residual_adjacent_queue"
+        ),
+        "proposal_track": "prop-skill-reverse-flow-continue-local-validation",
+        "legacy_proposal_track": "prop-skill-reverse-flow-focused-test-validation",
+        "companion_tracks": [
+            "prop-skill-reverse-flow-continue-local-validation",
+            "prop-skill-reverse-flow-focused-test-validation",
+            "prop-harness-residual-hy3-fortress",
+            "prop-harness-fortress-hy3-adjacent-eval",
+            "prop-skill-rnskill-docs-companion",
+            "prop-skill-pipeline-config-gates",
+        ],
+        "proposal_id": selected_proposal_id,
+        "selected_proposal_id": selected_proposal_id,
+        "status": status,
+        "decision": decision,
+        "capability_action": "queue_residual_adjacent_harness_eval_after_local_validation",
+        "capability_pipeline": [
+            "skill_route_discovery_capability_pipeline",
+            "skill_route_discovery_local_comparison",
+            "skill_route_discovery_reverse_flow_test_validation_lane",
+            "skill_route_discovery_rnskill_docs_validation_lane",
+            "skill_route_discovery_config_gate_boundary",
+            "skill_route_discovery_local_apply",
+            "skill_route_discovery_local_apply_completion",
+            "skill_route_discovery_unlocked_local_test_lane_apply",
+            "skill_route_discovery_focused_local_test_validation",
+            "record_skill_route_discovery_focused_local_test_validation_results",
+            "close_skill_route_discovery_focused_local_test_validation_with_outcome",
+            "skill_route_discovery_focused_validation_activation_external_handoff",
+            "skill_route_discovery_focused_validation_activation_external_acceptance",
+            "skill_route_discovery_focused_validation_residual_adjacent_queue",
+        ],
+        "focused_validation_activation_external_acceptance_status": (
+            acceptance_status or "none"
+        ),
+        "focused_validation_activation_external_acceptance_decision": acceptance_decision,
+        "focused_validation_activation_external_handoff_status": str(
+            handoff.get("status")
+            or acceptance.get("focused_validation_activation_external_handoff_status")
+            or "none"
+        ),
+        "focused_local_test_validation_status": focused_status or "none",
+        "focused_local_test_validation_recorded": focused_status in {"passed", "failed"}
+        or bool(
+            focused.get("focused_validation_recorded")
+            or acceptance.get("focused_local_test_validation_recorded")
+        ),
+        "route_class": str(
+            acceptance.get("route_class")
+            or handoff.get("route_class")
+            or focused.get("route_class")
+            or "none"
+        ),
+        "route_profiles": profiles,
+        "skill_route_discovery_first": skill_first,
+        "selected_local_lane": selected_lane if selected_lane else "none",
+        "preferred_local_lane": "test",
+        "allowed_local_lanes": list(SKILL_ROUTE_DISCOVERY_ALLOWED_LANES),
+        # Residual queue never re-exports reverse-flow skill unlocks.
+        "unlocked_local_lanes": [],
+        "skill_route_discovery_inherited": False,
+        "skill_route_unlocks_closed_for_residual": True,
+        "evaluation_lane": "agent_harness_eval_required",
+        "handoff_controller_surface": "agent_harness_eval_cluster_local_apply",
+        "handoff_completion_surface": "agent_harness_eval_cluster_local_apply_completion",
+        "allowed_local_lanes_after_local_comparison": list(
+            AGENT_HARNESS_EVAL_POST_COMPARE_LANES
+        ),
+        "direct_allowed_lanes_before_eval": [],
+        "local_validation_required": True,
+        "activation_external_only": True,
+        "supervisor_activation_allowed": False,
+        "retained_boundary_proposal_ids": export_retained_ids,
+        "adjacent_general_agent_proposal_ids": export_adjacent_ids,
+        "residual_adjacent_harness_eval_available": residual_available,
+        "residual_adjacent_handoff_surface": (
+            "agent_harness_eval_cluster_local_apply" if residual_available else "none"
+        ),
+        "general_agent_inherits_skill_unlock": False,
+        "privacy_rows_selectable_for_local_apply": False,
+        "general_agent_isolation_passed": general_agent_isolated,
+        "privacy_isolation_passed": privacy_isolated,
+        "runtime_action": "none",
+        "external_skill_execution_allowed": False,
+        "provider_launch_allowed": False,
+        "remote_apply_allowed": False,
+        "push_or_promotion_allowed": False,
+        "kernel_restart_allowed": False,
+        "theme_id": str(
+            theme.get("theme_id")
+            or acceptance.get("theme_id")
+            or handoff.get("theme_id")
+            or focused.get("theme_id")
+            or "skill-route-discovery"
+        ),
+        "theme_pass": {
+            "planned_passes": int(
+                theme.get("planned_passes")
+                or (acceptance.get("theme_pass") or {}).get("planned_passes")
+                or (handoff.get("theme_pass") or {}).get("planned_passes")
+                or (focused.get("theme_pass") or {}).get("planned_passes")
+                or 0
+            ),
+            "target_passes": int(
+                theme.get("target_passes")
+                or (acceptance.get("theme_pass") or {}).get("target_passes")
+                or (handoff.get("theme_pass") or {}).get("target_passes")
+                or (focused.get("theme_pass") or {}).get("target_passes")
+                or DEFAULT_THEME_WINDOW_TARGET_PASSES
+            ),
+            "status": str(
+                theme.get("status")
+                or (acceptance.get("theme_pass") or {}).get("status")
+                or (handoff.get("theme_pass") or {}).get("status")
+                or (focused.get("theme_pass") or {}).get("status")
+                or ""
+            ),
+        },
+        "source_digest": source_digest
+        or str(
+            acceptance.get("source_digest")
+            or handoff.get("source_digest")
+            or focused.get("source_digest")
+            or ""
+        ),
+        "supervisor_next_action": supervisor_next_action,
+        "required_validation": [
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation",
+            "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent",
+            ADJACENT_HARNESS_EVAL_VALIDATION_COMMAND,
         ],
         "body_free": True,
         "raw_evidence_urls_exported": False,
@@ -6315,6 +6704,11 @@ def render_skill_route_discovery_capability_pipeline_lines(
         if isinstance(pipeline.get("focused_validation_activation_external_acceptance"), dict)
         else {}
     )
+    residual_adjacent_queue = (
+        pipeline.get("focused_validation_residual_adjacent_queue")
+        if isinstance(pipeline.get("focused_validation_residual_adjacent_queue"), dict)
+        else {}
+    )
     adjacent_handoff = (
         pipeline.get("adjacent_agent_harness_eval_handoff")
         if isinstance(pipeline.get("adjacent_agent_harness_eval_handoff"), dict)
@@ -6327,10 +6721,20 @@ def render_skill_route_discovery_capability_pipeline_lines(
     activation_external_acceptance_status = str(
         activation_external_acceptance.get("status") or ""
     )
+    residual_adjacent_queue_status = str(residual_adjacent_queue.get("status") or "")
     unlocked_status = str(unlocked_test_lane_apply.get("status") or "")
     supervisor_next = (
         adjacent_handoff.get("supervisor_next_action")
         if str(adjacent_handoff.get("status") or "") == "ready"
+        else None
+    ) or (
+        residual_adjacent_queue.get("supervisor_next_action")
+        if residual_adjacent_queue_status
+        in {
+            "ready",
+            "blocked_until_activation_external_acceptance",
+            "blocked",
+        }
         else None
     ) or (
         activation_external_acceptance.get("supervisor_next_action")
@@ -6398,6 +6802,10 @@ def render_skill_route_discovery_capability_pipeline_lines(
         f"{activation_external_acceptance.get('status') or 'none'}`",
         f"- Focused validation activation-external acceptance decision: `"
         f"{activation_external_acceptance.get('decision') or 'none'}`",
+        f"- Focused validation residual adjacent queue: `"
+        f"{residual_adjacent_queue.get('status') or 'none'}`",
+        f"- Focused validation residual adjacent queue decision: `"
+        f"{residual_adjacent_queue.get('decision') or 'none'}`",
         f"- Adjacent agent harness-eval handoff: `{adjacent_handoff.get('status') or 'none'}`",
         f"- Adjacent handoff decision: `{adjacent_handoff.get('decision') or 'none'}`",
         f"- Theme complete: `{bool(local_apply_completion.get('theme_complete'))}`",
@@ -6417,6 +6825,7 @@ def render_skill_route_discovery_capability_pipeline_lines(
         "- After ready, close_skill_route_discovery_focused_local_test_validation_with_outcome materializes body-free expected-hash outcomes and refreshes activation-external handoff/acceptance.",
         "- After recorded pass, skill_route_discovery_focused_validation_activation_external_handoff packages keep_activation_external while push/promotion/restart stay denied.",
         "- After ready handoff, skill_route_discovery_focused_validation_activation_external_acceptance accepts the package while activation stays external.",
+        "- After acceptance, skill_route_discovery_focused_validation_residual_adjacent_queue packages residual fortress/Hy3 rows for agent_harness_eval_cluster_local_apply without skill unlock inheritance.",
         "- Residual fortress-style general_agent_project rows hand off to agent_harness_eval_cluster_local_apply instead of failing skill-route comparison.",
     ]
     retained = pipeline.get("retained_boundaries") or []

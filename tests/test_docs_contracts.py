@@ -104,6 +104,7 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "skill_route_discovery_focused_local_test_validation" in architecture
     assert "skill_route_discovery_focused_validation_activation_external_handoff" in architecture
     assert "skill_route_discovery_focused_validation_activation_external_acceptance" in architecture
+    assert "skill_route_discovery_focused_validation_residual_adjacent_queue" in architecture
     assert "skill_route_discovery_adjacent_harness_eval_handoff" in architecture
     assert (
         "pytest tests/test_github_growth.py -q -k skill_route_discovery_capability_pipeline"
@@ -355,6 +356,14 @@ def test_skill_route_discovery_doc_records_capability_pipeline_pass1():
         "accept_activation_external_package_after_focused_validation_pass",
         "blocked_until_activation_external_handoff_ready",
         "keep_activation_external_and_queue_residual_adjacent_harness_eval",
+        "### Focused validation residual adjacent queue after acceptance",
+        "Source digest: `github-growth-20260712T221308.618244Z`",
+        "`prop-skill-reverse-flow-continue-local-validation`",
+        "`skill_route_discovery_focused_validation_residual_adjacent_queue`",
+        "queue_residual_adjacent_harness_eval_after_focused_validation_acceptance",
+        "hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply",
+        "blocked_until_activation_external_acceptance",
+        "pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent",
         "### Adjacent fortress harness-eval handoff",
         "`skill_route_discovery_adjacent_harness_eval_handoff`",
         "`prop-harness-fortress-local-eval`",

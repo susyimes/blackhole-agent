@@ -181,19 +181,26 @@ recorded pass,
 `skill_route_discovery_focused_validation_activation_external_acceptance` accepts
 the package (`accept_activation_external_package_after_focused_validation_pass`)
 while residual fortress/Hy3 rows stay adjacent harness-eval only and activation
-stays external. Use
+stays external. After acceptance is `accepted` and residual adjacent proposal IDs
+remain, `skill_route_discovery_focused_validation_residual_adjacent_queue`
+packages those rows for `agent_harness_eval_cluster_local_apply` without skill
+unlock inheritance (`queue_residual_adjacent_harness_eval_after_focused_validation_acceptance`).
+Use
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_unlocked_local_test_lane_apply`
 and
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
 for the unlocked-lane apply, focused-validation, activation-external handoff,
-and acceptance regressions.
+acceptance, and residual-adjacent queue regressions.
 Fortress-style general-agent projects remain adjacent
 `agent_harness_eval_required` rows without skill-route inheritance.
 When residual fortress-style general-agent proposals are selected after
 skill-route reverse-flow work is exhausted, the pipeline emits
 `skill_route_discovery_adjacent_harness_eval_handoff` and defers to
 `agent_harness_eval_cluster_local_apply` instead of failing skill-route
-comparison or requesting reverse-flow repair.
+comparison or requesting reverse-flow repair. The residual-adjacent queue after
+focused-validation acceptance is the reverse-flow companion path: it queues
+fortress/Hy3 proposal IDs while reverse-flow remains the selected step and
+activation stays external.
 Agent-chief-style privacy evidence stays `privacy_boundary_review_only`.
 Runtime action stays `none`; external skill execution, provider launch, remote
 apply, push or promotion, and kernel restart remain denied. The packet exports

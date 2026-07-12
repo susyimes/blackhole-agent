@@ -319,6 +319,43 @@ and:
 
 `pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_activation_external`
 
+### Focused validation residual adjacent queue after acceptance
+
+Source digest: `github-growth-20260712T221308.618244Z` (selected proposal
+`prop-skill-reverse-flow-continue-local-validation`).
+
+After activation-external acceptance is `accepted` and residual fortress/Hy3
+adjacent proposal IDs remain, the pipeline emits
+`skill_route_discovery_focused_validation_residual_adjacent_queue`:
+
+1. Decision is
+   `queue_residual_adjacent_harness_eval_after_focused_validation_acceptance`
+2. Supervisor next action is
+   `hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply`
+3. The packet exports residual proposal IDs and isolation flags only; raw
+   evidence URLs, upstream bodies, command text, and stdout stay out
+4. Reverse-flow skill unlocks do not transfer
+   (`skill_route_discovery_inherited=false`, `unlocked_local_lanes=[]`)
+5. While acceptance is still blocked (unrecorded focused validation), residual
+   queue stays `blocked_until_activation_external_acceptance`
+6. When acceptance is accepted with no residual adjacent rows, status is
+   `not_applicable` with decision
+   `no_residual_adjacent_rows_after_focused_validation_acceptance`
+7. Activation, push, promotion, provider launch, remote apply, external skill
+   execution, and kernel restart stay denied; agent-chief privacy rows stay
+   review-only
+8. This surface is distinct from
+   `skill_route_discovery_adjacent_harness_eval_handoff`, which fires only when
+   the selected pipeline step is itself an adjacent harness-eval row
+
+Replay with:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_local_test_validation`
+
+and:
+
+`pytest tests/test_github_growth.py -q -k skill_route_discovery_focused_validation_residual_adjacent`
+
 For source digest `github-growth-20260709T103527.169759Z`, pass 2 exposes
 `skill_route_discovery_current_digest_20260709T103527_pass2_skill_route_validation_lane`.
 The lane keeps `reverse-flow-skill` in the local test lane as Codex workflow

@@ -30,19 +30,19 @@ touches multiple files or behavior paths.
 
 Shared pipeline
 `skill_route_discovery_capability_pipeline` now ends with an operator-visible
-**activation-external acceptance** after reverse-flow focused validation records
-and the activation-external handoff is ready:
+**residual adjacent harness-eval queue** after reverse-flow focused validation
+records, activation-external handoff, and activation-external acceptance:
 
 classifier → route_profiles → bounded_local_apply_lanes → local comparison →
 reverse-flow test lane → rnskill docs companion → config gates → local apply →
 local apply completion → unlocked local test lane apply →
 focused local test validation → record / close body-free command-hash results →
-activation-external handoff → **activation-external acceptance** →
-(optional) adjacent harness-eval residual.
+activation-external handoff → activation-external acceptance →
+**residual adjacent queue** → (optional) selected-step adjacent harness-eval.
 
-Observed this run (`prop-skill-reverse-flow-focused-test-validation` /
+Observed this run (`prop-skill-reverse-flow-continue-local-validation` /
 `lingbol088-spec/reverse-flow-skill`, digest
-`github-growth-20260712T215308.239488Z`):
+`github-growth-20260712T221308.618244Z`):
 
 - Classifies as `skill_route_discovery` with
   `codex_workflow_gate` + `skill_route_discovery_first`
@@ -57,28 +57,34 @@ Observed this run (`prop-skill-reverse-flow-focused-test-validation` /
   - `close_skill_route_discovery_focused_local_test_validation_with_outcome`
     which materializes body-free expected-hash rows via
     `build_skill_route_discovery_focused_validation_body_free_command_results`
-    then records + refreshes handoff/acceptance
+    then records + refreshes handoff/acceptance/**residual queue**
 - On recorded pass, pipeline emits
   `skill_route_discovery_focused_validation_activation_external_handoff` with
   decision `package_activation_external_handoff_after_focused_validation_pass`
 - When that handoff is ready, pipeline emits
   `skill_route_discovery_focused_validation_activation_external_acceptance`
   with decision `accept_activation_external_package_after_focused_validation_pass`
+- When acceptance is `accepted` and residual fortress/Hy3 proposal IDs remain,
+  pipeline emits
+  `skill_route_discovery_focused_validation_residual_adjacent_queue` with
+  decision
+  `queue_residual_adjacent_harness_eval_after_focused_validation_acceptance`
+  and supervisor next
+  `hand_off_residual_adjacent_rows_to_agent_harness_eval_cluster_local_apply`
 - While unrecorded, handoff stays
-  `blocked_until_focused_validation_recorded` and acceptance stays
-  `blocked_until_activation_external_handoff_ready`
-- On accepted package: supervisor next remains activation-external
-  (`keep_activation_external_after_focused_local_test_validation`, or with
-  residual fortress/Hy3 rows
-  `keep_activation_external_and_queue_residual_adjacent_harness_eval`)
+  `blocked_until_focused_validation_recorded`, acceptance stays
+  `blocked_until_activation_external_handoff_ready`, and residual queue stays
+  `blocked_until_activation_external_acceptance`
+- Residual queue is distinct from selected-step
+  `skill_route_discovery_adjacent_harness_eval_handoff`: reverse-flow can stay
+  selected while fortress/Hy3 IDs are queued without skill unlock inheritance
 - Activation, push, promotion, provider launch, remote apply, external skill
   execution, and kernel restart stay denied
-- Residual fortress/Hy3 rows may be noted as adjacent harness-eval without
-  inheriting skill unlocks; agent-chief remains privacy review-only
+- agent-chief remains privacy review-only
 
 Pipeline stages remain the three classifier stages plus post-completion unlock,
-focused validation, result recording/close, activation-external handoff, and
-acceptance:
+focused validation, result recording/close, activation-external handoff,
+acceptance, and residual adjacent queue:
 
 1. classifier — skill_route_discovery vs agent_harness_eval_required vs privacy/offensive review-only
 2. route_profiles — reverse-flow → `codex_workflow_gate` + `skill_route_discovery_first`; rnskill →
@@ -99,10 +105,15 @@ acceptance:
 8. activation-external acceptance — on ready handoff emit
    `skill_route_discovery_focused_validation_activation_external_acceptance`; still
    non-activating
-9. adjacent residual — fortress-style rows stay available for agent harness-eval; skill unlocks stay closed
+9. residual adjacent queue — on accepted package with residual fortress/Hy3 IDs emit
+   `skill_route_discovery_focused_validation_residual_adjacent_queue`; hand off to
+   `agent_harness_eval_cluster_local_apply` without skill unlock inheritance
+10. selected-step adjacent residual — fortress-style selected rows stay available for
+    agent harness-eval handoff; skill unlocks stay closed
 
 External skill execution, provider launch, remote apply, push, promotion, and restart stay denied.
-Prefer closing ready focused validation into activation-external acceptance over re-emitting unlock notes forever.
+Prefer closing ready focused validation through activation-external acceptance into residual
+adjacent queue over re-emitting unlock notes forever.
 
 ## Upstream Evidence Habit
 
@@ -110,6 +121,6 @@ Previous theme (`upstream-evidence-capability`, complete): mixed public agent si
 `upstream_evidence_capability_step` → `agent_harness_eval_cluster` →
 `agent_harness_eval_cluster_local_apply` → `agent_harness_eval_cluster_local_apply_completion`. That pattern is
 the template the skill-route pipeline followed: one operator-visible capability path, body-free exports, narrow
-safety boundary, and a final local-apply completion handoff. The reverse-flow focused validation
-activation-external acceptance is the skill-route analogue of “close recorded validation outcomes while activation
-stays external.”
+safety boundary, and a final local-apply completion handoff. The reverse-flow residual adjacent queue after
+focused-validation acceptance is the skill-route analogue of “hand residual general-agent rows to harness-eval
+while the primary reverse-flow validation package stays activation-external.”
