@@ -94,6 +94,29 @@ Validation command for this surface:
 
 `pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster`
 
+## Agent Harness Eval Cluster Local Apply
+
+Source digest: `github-growth-20260712T181308.938536Z` (pass 3 of the
+`upstream-evidence-capability` window; selected capability action
+`apply_one_local_validation_candidate` for `trend:Tencent-Hunyuan/Hy3-3`).
+
+After the cluster queues general-agent projects, the lane emits
+`agent_harness_eval_cluster_local_apply`. That operator-visible integration path:
+
+- selects exactly one eval-ready cluster row (matching the selected Hy3-style
+  item id by owner/repo key when ordinals differ)
+- evaluates every required comparison criterion for that row
+- unlocks only `documentation`, `test`, or `code_patch` when comparison passes
+- keeps `runtime_action=none` and never auto-opens provider launch, external
+  harness execution, remote execution, or foreign agent behavior adoption
+- keeps star-count or trend-rank alone insufficient for a behavior patch
+- retains agent-chief-style privacy-leakage rows as review-only and blocks any
+  attempt to select them as the local-apply target
+
+Validation command for this surface:
+
+`pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply`
+
 The proposal interpreter may summarize and rank candidate lessons, but it must
 not add evidence URLs, remove risk flags, grant permissions, or decide final
 validation gates. Deterministic review and local validation keep ownership of

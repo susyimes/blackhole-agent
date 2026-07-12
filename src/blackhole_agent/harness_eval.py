@@ -298,6 +298,7 @@ AGENT_HARNESS_EVAL_EXPECTED_OUTPUT_FIELDS = (
     "general_agent_route_review_queue",
     "implementation_readiness_contract",
     "agent_harness_eval_cluster",
+    "agent_harness_eval_cluster_local_apply",
     "benchmark_meta_agent_probe_lane",
     "privacy",
 )
@@ -1312,6 +1313,19 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         project_intake_probe=project_intake_probe,
         review_notes=review_notes,
     )
+    selected_local_validation_candidate = (
+        raw_input.get("selected_local_validation_candidate")
+        if isinstance(raw_input.get("selected_local_validation_candidate"), dict)
+        else {}
+    )
+    agent_harness_eval_cluster_local_apply = build_agent_harness_eval_cluster_local_apply(
+        agent_harness_eval_cluster,
+        claim_evaluation=claim_evaluation,
+        selected_candidate=selected_local_validation_candidate,
+        selected_item_id=optional_string(raw_input.get("selected_item_id")),
+        selected_proposal_id=optional_string(raw_input.get("selected_proposal_id")),
+        capability_action=optional_string(raw_input.get("capability_action")),
+    )
     workflow_orchestration_eval_lane = build_workflow_orchestration_eval_lane(
         records,
         project_intake_probe=project_intake_probe,
@@ -1351,6 +1365,7 @@ def evaluate_agent_harness_eval_lane(raw_input: dict[str, Any], *, source_path: 
         "implementation_readiness_contract": implementation_readiness_contract,
         "general_agent_project_route_plan": general_agent_project_route_plan,
         "agent_harness_eval_cluster": agent_harness_eval_cluster,
+        "agent_harness_eval_cluster_local_apply": agent_harness_eval_cluster_local_apply,
         "workflow_orchestration_eval_lane": workflow_orchestration_eval_lane,
         "benchmark_meta_agent_probe_lane": benchmark_meta_agent_probe_lane,
         "claim_evaluation": claim_evaluation,
@@ -1708,6 +1723,485 @@ def build_agent_harness_eval_cluster(
         "rows": rows,
         "review_only_rows": review_only_rows,
         "diagnostics": sorted(dict.fromkeys(diagnostics)),
+        "body_free": True,
+        "external_agent_activation_allowed": False,
+        "external_harness_execution_allowed": False,
+        "provider_runtime_launch_allowed": False,
+        "remote_execution_allowed": False,
+        "raw_source_urls_exported": False,
+        "raw_evidence_urls_exported": False,
+        "raw_upstream_body_exported": False,
+    }
+
+
+def agent_harness_eval_item_repo_key(item_id: str) -> str:
+    """Normalize trend item ids to an owner/repo key without event ordinals."""
+
+    text = str(item_id or "").strip().lower()
+    if text.startswith("trend:"):
+        text = text[len("trend:") :]
+    return re.sub(r"-\d+$", "", text)
+
+
+def agent_harness_eval_looks_like_item_selector(value: str | None) -> bool:
+    """Return True when a proposal/item id can select a cluster row."""
+
+    text = str(value or "").strip().lower()
+    if not text or text.startswith("prop-") or text.startswith("proposal_"):
+        return False
+    return text.startswith("trend:") or "/" in text
+
+
+def select_agent_harness_eval_cluster_apply_target(
+    cluster: dict[str, Any],
+    *,
+    selected_item_id: str | None = None,
+    selected_proposal_id: str | None = None,
+) -> dict[str, Any]:
+    """Pick one cluster row for local comparison apply without selecting review-only rows."""
+
+    rows = [row for row in cluster.get("rows", []) if isinstance(row, dict)]
+    review_only_rows = [
+        row for row in cluster.get("review_only_rows", []) if isinstance(row, dict)
+    ]
+    selected_item = str(selected_item_id or "").strip()
+    selected_proposal = str(selected_proposal_id or "").strip()
+    requested_keys = {
+        key
+        for key in (
+            agent_harness_eval_item_repo_key(selected_item) if selected_item else "",
+            agent_harness_eval_item_repo_key(selected_proposal) if selected_proposal else "",
+        )
+        if key
+    }
+
+    if selected_item or selected_proposal:
+        for row in review_only_rows:
+            item_id = str(row.get("item_id") or "")
+            if item_id in {selected_item, selected_proposal} or (
+                agent_harness_eval_item_repo_key(item_id) in requested_keys
+            ):
+                return {
+                    "status": "blocked",
+                    "reason": "selected_item_is_safety_boundary_review_only",
+                    "item_id": item_id,
+                    "row": row,
+                }
+
+        for row in rows:
+            item_id = str(row.get("item_id") or "")
+            if item_id in {selected_item, selected_proposal} or (
+                agent_harness_eval_item_repo_key(item_id) in requested_keys
+            ):
+                return {
+                    "status": "selected",
+                    "reason": "matched_selected_local_validation_candidate",
+                    "item_id": item_id,
+                    "row": row,
+                }
+
+        if requested_keys:
+            return {
+                "status": "blocked",
+                "reason": "selected_item_not_present_in_eval_ready_cluster_rows",
+                "item_id": selected_item or selected_proposal,
+                "row": None,
+            }
+
+    queued = [
+        row
+        for row in rows
+        if row.get("status") == "queued"
+        and row.get("local_comparison_status") == "ready_for_local_comparison"
+    ]
+    if queued:
+        row = queued[0]
+        return {
+            "status": "selected",
+            "reason": "first_eval_ready_cluster_row",
+            "item_id": str(row.get("item_id") or ""),
+            "row": row,
+        }
+    if rows:
+        row = rows[0]
+        return {
+            "status": "selected",
+            "reason": "first_cluster_row_not_ready",
+            "item_id": str(row.get("item_id") or ""),
+            "row": row,
+        }
+    if review_only_rows:
+        row = review_only_rows[0]
+        return {
+            "status": "blocked",
+            "reason": "only_safety_boundary_review_rows_present",
+            "item_id": str(row.get("item_id") or ""),
+            "row": row,
+        }
+    return {
+        "status": "not_applicable",
+        "reason": "no_general_agent_project_cluster_rows",
+        "item_id": "",
+        "row": None,
+    }
+
+
+def evaluate_agent_harness_eval_cluster_comparison_criteria(
+    row: dict[str, Any],
+    *,
+    cluster: dict[str, Any],
+    claim_evaluation: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Evaluate operator-visible comparison criteria for one selected cluster row."""
+
+    claim_eval = claim_evaluation if isinstance(claim_evaluation, dict) else {}
+    item_id = str(row.get("item_id") or "")
+    item_key = agent_harness_eval_item_repo_key(item_id)
+    claim_rows = [
+        claim
+        for claim in claim_eval.get("rows", [])
+        if isinstance(claim, dict)
+        and (
+            str(claim.get("item_id") or "") == item_id
+            or agent_harness_eval_item_repo_key(str(claim.get("item_id") or "")) == item_key
+        )
+    ]
+    unmapped_claim_ids = sorted(
+        {
+            str(claim.get("claim_id") or "")
+            for claim in claim_rows
+            if claim.get("mapped") is not True and str(claim.get("claim_id") or "").strip()
+        }
+    )
+    mapped_claim_ids = sorted(
+        {
+            str(claim.get("claim_id") or "")
+            for claim in claim_rows
+            if claim.get("mapped") is True and str(claim.get("claim_id") or "").strip()
+        }
+    )
+    allowed_after = [
+        lane
+        for lane in string_list(row.get("allowed_local_lanes_after_local_comparison"))
+        if lane
+    ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+    rejected_lanes = [
+        lane for lane in allowed_after if lane not in AGENT_HARNESS_EVAL_ALLOWED_LANES
+    ]
+    cluster_status = str(cluster.get("status") or "")
+    probe_ready = row.get("probe_ready") is True and not string_list(row.get("missing_probe_fields"))
+    claim_mapping_pass = not unmapped_claim_ids
+    harness_replay_pass = (
+        row.get("status") == "queued"
+        and str(row.get("local_comparison_status") or "") == "ready_for_local_comparison"
+        and cluster_status in {"ready", "ready_with_review_boundaries"}
+    )
+    runtime_none_pass = str(row.get("runtime_action") or "none") == "none" and str(
+        cluster.get("runtime_action") or "none"
+    ) == "none"
+    lanes_bounded_pass = not rejected_lanes and all(
+        lane in AGENT_HARNESS_EVAL_ALLOWED_LANES for lane in allowed_after
+    )
+    star_count_pass = (
+        row.get("star_count_alone_unlocks_behavior_patch") is not True
+        and row.get("behavior_patch_from_star_count_allowed") is not True
+        and cluster.get("star_count_alone_unlocks_behavior_patch") is not True
+        and cluster.get("behavior_patch_from_star_count_allowed") is not True
+    )
+    privacy_pass = str(row.get("status") or "") != "review_only" and not string_list(
+        row.get("risk_flags")
+    )
+
+    evaluations = [
+        {
+            "criterion_id": "project_shape_probe_fields",
+            "required": True,
+            "passed": probe_ready,
+            "detail": (
+                "probe_fields_declared"
+                if probe_ready
+                else "missing_agent_harness_probe_fields"
+            ),
+            "missing_probe_fields": string_list(row.get("missing_probe_fields")),
+        },
+        {
+            "criterion_id": "local_claim_mapping",
+            "required": True,
+            "passed": claim_mapping_pass,
+            "detail": (
+                "claims_mapped_or_none_unmapped"
+                if claim_mapping_pass
+                else "unmapped_claims_block_local_apply"
+            ),
+            "mapped_claim_ids": mapped_claim_ids,
+            "unmapped_claim_ids": unmapped_claim_ids,
+        },
+        {
+            "criterion_id": "local_harness_replay",
+            "required": True,
+            "passed": harness_replay_pass,
+            "detail": (
+                "cluster_row_ready_for_local_comparison"
+                if harness_replay_pass
+                else "cluster_row_not_ready_for_local_comparison"
+            ),
+            "cluster_status": cluster_status,
+            "row_status": str(row.get("status") or ""),
+            "local_comparison_status": str(row.get("local_comparison_status") or ""),
+        },
+        {
+            "criterion_id": "runtime_action_stays_none",
+            "required": True,
+            "passed": runtime_none_pass,
+            "detail": "runtime_action_none" if runtime_none_pass else "runtime_action_not_none",
+            "runtime_action": str(row.get("runtime_action") or "none"),
+        },
+        {
+            "criterion_id": "post_eval_lanes_bounded",
+            "required": True,
+            "passed": lanes_bounded_pass,
+            "detail": (
+                "post_eval_lanes_bounded_to_documentation_test_code_patch"
+                if lanes_bounded_pass
+                else "unsupported_post_eval_lane_present"
+            ),
+            "allowed_local_lanes_after_local_comparison": allowed_after,
+            "rejected_lanes": rejected_lanes,
+        },
+        {
+            "criterion_id": "star_count_alone_insufficient",
+            "required": True,
+            "passed": star_count_pass,
+            "detail": (
+                "star_count_alone_does_not_unlock_behavior_patch"
+                if star_count_pass
+                else "star_count_behavior_patch_path_detected"
+            ),
+            "star_count_alone_unlocks_behavior_patch": False,
+            "behavior_patch_from_star_count_allowed": False,
+        },
+        {
+            "criterion_id": "privacy_and_offensive_review_only",
+            "required": True,
+            "passed": privacy_pass,
+            "detail": (
+                "selected_row_outside_safety_boundary"
+                if privacy_pass
+                else "selected_row_is_safety_boundary_review_only"
+            ),
+            "risk_flags": string_list(row.get("risk_flags")),
+        },
+    ]
+    return evaluations
+
+
+def build_agent_harness_eval_cluster_local_apply(
+    cluster: dict[str, Any],
+    *,
+    claim_evaluation: dict[str, Any] | None = None,
+    selected_candidate: dict[str, Any] | None = None,
+    selected_item_id: str | None = None,
+    selected_proposal_id: str | None = None,
+    capability_action: str | None = None,
+) -> dict[str, Any]:
+    """Apply one local validation candidate from the harness-eval cluster.
+
+    Pass 3 of upstream-evidence-capability: once the cluster queues general-agent
+    projects, evaluate comparison criteria for exactly one selected candidate and
+    unlock only documentation, test, or code_patch after the comparison passes.
+    Runtime action stays none. Star-count evidence never drafts a behavioral
+    patch. Privacy-leakage and offensive-behavior rows remain review-only.
+    """
+
+    validation_command = (
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply"
+    )
+    candidate = selected_candidate if isinstance(selected_candidate, dict) else {}
+    candidate_item_hint = optional_string(candidate.get("item_id")) or optional_string(
+        candidate.get("proposal_id")
+    )
+    resolved_item_id = optional_string(selected_item_id)
+    if not resolved_item_id and agent_harness_eval_looks_like_item_selector(candidate_item_hint):
+        resolved_item_id = candidate_item_hint
+    if not resolved_item_id and agent_harness_eval_looks_like_item_selector(selected_proposal_id):
+        resolved_item_id = optional_string(selected_proposal_id)
+    resolved_proposal_id = (
+        optional_string(selected_proposal_id)
+        if optional_string(selected_proposal_id)
+        and not agent_harness_eval_looks_like_item_selector(selected_proposal_id)
+        else None
+    ) or (
+        optional_string(candidate.get("selected_proposal_id"))
+        or (
+            optional_string(candidate.get("proposal_id"))
+            if optional_string(candidate.get("proposal_id"))
+            and not agent_harness_eval_looks_like_item_selector(
+                optional_string(candidate.get("proposal_id"))
+            )
+            else None
+        )
+        or "prop-agent-harness-eval-cluster"
+    )
+    resolved_capability_action = (
+        optional_string(capability_action)
+        or optional_string(candidate.get("capability_action"))
+        or "apply_one_local_validation_candidate"
+    )
+    target = select_agent_harness_eval_cluster_apply_target(
+        cluster,
+        selected_item_id=resolved_item_id,
+        selected_proposal_id=resolved_item_id,
+    )
+    retained_review_only_item_ids = sorted(
+        {
+            str(row.get("item_id") or "")
+            for row in cluster.get("review_only_rows", [])
+            if isinstance(row, dict) and str(row.get("item_id") or "").strip()
+        }
+    )
+
+    if target["status"] == "not_applicable":
+        return {
+            "controller_surface": "agent_harness_eval_cluster_local_apply",
+            "proposal_id": "prop-agent-harness-eval-cluster",
+            "status": "not_applicable",
+            "decision": "no_general_agent_project_candidate_for_local_apply",
+            "capability_action": resolved_capability_action,
+            "selected_item_id": "",
+            "selected_proposal_id": resolved_proposal_id,
+            "selection_reason": target["reason"],
+            "evaluation_lane": "agent_harness_eval_required",
+            "local_validation_required": True,
+            "local_comparison_required": True,
+            "local_comparison_passed": False,
+            "comparison_criteria_results": [],
+            "failed_criteria": [],
+            "unlocked_local_lanes": [],
+            "direct_allowed_lanes_before_eval": [],
+            "runtime_action": "none",
+            "runtime_action_auto_opened": False,
+            "implementation_patch_allowed_before_eval": False,
+            "behavior_patch_from_star_count_allowed": False,
+            "star_count_alone_unlocks_behavior_patch": False,
+            "foreign_agent_behavior_adoption_allowed": False,
+            "retained_review_only_item_ids": retained_review_only_item_ids,
+            "required_validation": [validation_command],
+            "body_free": True,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+
+    if target["status"] == "blocked" or not isinstance(target.get("row"), dict):
+        return {
+            "controller_surface": "agent_harness_eval_cluster_local_apply",
+            "proposal_id": "prop-agent-harness-eval-cluster",
+            "status": "blocked",
+            "decision": "hold_selected_candidate_until_safe_eval_ready_row_exists",
+            "capability_action": resolved_capability_action,
+            "selected_item_id": str(target.get("item_id") or resolved_item_id or ""),
+            "selected_proposal_id": resolved_proposal_id,
+            "selection_reason": str(target.get("reason") or "selected_candidate_blocked"),
+            "evaluation_lane": "agent_harness_eval_required",
+            "local_validation_required": True,
+            "local_comparison_required": True,
+            "local_comparison_passed": False,
+            "comparison_criteria_results": [],
+            "failed_criteria": [str(target.get("reason") or "selected_candidate_blocked")],
+            "unlocked_local_lanes": [],
+            "direct_allowed_lanes_before_eval": [],
+            "runtime_action": "none",
+            "runtime_action_auto_opened": False,
+            "implementation_patch_allowed_before_eval": False,
+            "behavior_patch_from_star_count_allowed": False,
+            "star_count_alone_unlocks_behavior_patch": False,
+            "foreign_agent_behavior_adoption_allowed": False,
+            "retained_review_only_item_ids": retained_review_only_item_ids,
+            "required_validation": [validation_command],
+            "body_free": True,
+            "external_agent_activation_allowed": False,
+            "external_harness_execution_allowed": False,
+            "provider_runtime_launch_allowed": False,
+            "remote_execution_allowed": False,
+            "raw_source_urls_exported": False,
+            "raw_evidence_urls_exported": False,
+            "raw_upstream_body_exported": False,
+        }
+
+    row = target["row"]
+    criteria_results = evaluate_agent_harness_eval_cluster_comparison_criteria(
+        row,
+        cluster=cluster,
+        claim_evaluation=claim_evaluation,
+    )
+    failed_criteria = [
+        str(result["criterion_id"])
+        for result in criteria_results
+        if result.get("required") is True and result.get("passed") is not True
+    ]
+    comparison_passed = not failed_criteria
+    allowed_after = [
+        lane
+        for lane in string_list(row.get("allowed_local_lanes_after_local_comparison"))
+        if lane in AGENT_HARNESS_EVAL_ALLOWED_LANES
+    ] or list(AGENT_HARNESS_EVAL_ALLOWED_LANES)
+    unlocked_local_lanes = allowed_after if comparison_passed else []
+    if comparison_passed:
+        status = "ready"
+        decision = "unlock_documentation_test_or_code_patch_after_local_comparison"
+    else:
+        status = "blocked"
+        decision = "hold_selected_candidate_until_comparison_criteria_pass"
+
+    return {
+        "controller_surface": "agent_harness_eval_cluster_local_apply",
+        "proposal_id": "prop-agent-harness-eval-cluster",
+        "status": status,
+        "decision": decision,
+        "capability_action": resolved_capability_action,
+        "selected_item_id": str(row.get("item_id") or ""),
+        "selected_proposal_id": resolved_proposal_id,
+        "selection_reason": str(target.get("reason") or ""),
+        "route_class": "general_agent_project",
+        "evaluation_lane": "agent_harness_eval_required",
+        "local_validation_required": True,
+        "local_comparison_required": True,
+        "local_comparison_passed": comparison_passed,
+        "local_comparison_status": (
+            "passed_local_comparison" if comparison_passed else "failed_local_comparison"
+        ),
+        "comparison_criteria_results": criteria_results,
+        "failed_criteria": failed_criteria,
+        "unlocked_local_lanes": unlocked_local_lanes,
+        "unlocked_lane_routes": [
+            {
+                "lane": lane,
+                "status": "unlocked_after_local_comparison",
+                "required_validation": [validation_command],
+                "local_validation_required": True,
+                "runtime_action": "none",
+                "star_count_alone_unlocks_lane": False,
+                "foreign_agent_behavior_adoption_allowed": False,
+                "external_agent_activation_allowed": False,
+                "external_harness_execution_allowed": False,
+                "provider_runtime_launch_allowed": False,
+                "remote_execution_allowed": False,
+            }
+            for lane in unlocked_local_lanes
+        ],
+        "direct_allowed_lanes_before_eval": [],
+        "runtime_action": "none",
+        "runtime_action_auto_opened": False,
+        "implementation_patch_allowed_before_eval": False,
+        "behavior_patch_from_star_count_allowed": False,
+        "star_count_alone_unlocks_behavior_patch": False,
+        "foreign_agent_behavior_adoption_allowed": False,
+        "retained_review_only_item_ids": retained_review_only_item_ids,
+        "required_validation": [validation_command],
         "body_free": True,
         "external_agent_activation_allowed": False,
         "external_harness_execution_allowed": False,

@@ -28,13 +28,14 @@ touches multiple files or behavior paths.
 
 ## Upstream Evidence Habit
 
-Observed this run (pass 2 of `upstream-evidence-capability`): agent-chief privacy release evidence stays
-review-only; Hy3 and fortress general-agent movement belong in `agent_harness_eval_cluster`, not direct
-behavior adoption. For each general_agent_project item, record `evaluation_lane=agent_harness_eval_required`
-and `local_validation_required=true`, keep `runtime_action=none`, unlock only documentation/test/code_patch
-after local comparison, and never draft a behavioral patch from star-count evidence alone.
+Observed this run (pass 3 of `upstream-evidence-capability`): agent-chief privacy evidence stays review-only and
+cannot be selected as a local-apply target. Hy3 and fortress remain general_agent_project rows behind
+`agent_harness_eval_cluster`. Pass 3 deepens the slice by applying one local validation candidate through
+`agent_harness_eval_cluster_local_apply`: evaluate comparison criteria for the selected Hy3-style row, unlock only
+documentation/test/code_patch when comparison passes, keep `runtime_action=none`, and never draft foreign agent
+behavior from star-count evidence.
 
 Prefer translating mixed public signals into one local capability step
-(`upstream_evidence_capability_step` → selected local validation candidate such as
-`prop-agent-harness-eval-cluster`) rather than another isolated note. Pass 1 established the one-step
-classifier; pass 2 deepens it with an operator-visible harness-eval cluster and comparison criteria.
+(`upstream_evidence_capability_step` → cluster queue → selected local apply) rather than another isolated note.
+Pass 1 established the one-step classifier; pass 2 added the operator-visible harness-eval cluster and comparison
+criteria; pass 3 wires the selected candidate into an unlock path after local comparison.

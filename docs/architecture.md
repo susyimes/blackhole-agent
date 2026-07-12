@@ -159,6 +159,16 @@ privacy-class rows review-only. Use
 `pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster` for the
 current regression.
 
+Pass 3 applies one selected local validation candidate through
+`agent_harness_eval_cluster_local_apply`. When the capability step is
+`apply_one_local_validation_candidate` (for example Hy3), the lane evaluates the
+cluster comparison criteria for that one row, unlocks only documentation, test,
+or code_patch after the comparison passes, keeps `runtime_action=none`, never
+adopts foreign agent behavior from stars, and refuses privacy-class selected
+rows such as agent-chief. Use
+`pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply`
+for the current regression.
+
 ### Selectable Local CLI Kernel
 
 Runs only when explicitly selected with `--evolution-mode codex`. The `--kernel codex|grok` selector chooses the local execution backend without changing the surrounding rollback and promotion protocol.
@@ -297,6 +307,8 @@ The same lane emits `skill_route_discovery_route_family_eval_matrix` for mixed e
 `agent_harness_eval_lane` also emits `general_agent_project_route_plan` after project-shape probe fields are present. This plan is the ready-state companion to the intake queue: it classifies broad public agent projects as `general_agent_project`, selects `agent_harness_eval_required` before behavior adoption, keeps direct pre-eval lanes empty, and limits post-eval follow-up to documentation, test, or code_patch. Use `pytest tests/test_harness_eval.py -q -k "agent_harness_eval_lane or current_window_general_agent_projects"` for the current ready-state route-plan regression.
 
 The same lane emits `agent_harness_eval_cluster` for mixed general-agent project windows (for example agent-chief, Hy3, and fortress). The cluster is the operator-visible comparison surface for `prop-agent-harness-eval-cluster`: every non-boundary row records `evaluation_lane=agent_harness_eval_required`, `local_validation_required=true`, and `local_comparison_required=true`; `runtime_action` stays `none`; star count alone never unlocks a behavior patch; documentation, test, or code_patch are candidates only after local comparison; privacy-leakage rows remain review-only with hashed source refs and no raw URL export. Use `pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster` for the current cluster regression.
+
+The same lane also emits `agent_harness_eval_cluster_local_apply` when a selected local validation candidate is present or when the cluster has eval-ready rows. That surface evaluates the comparison criteria for exactly one selected general-agent project, unlocks only documentation, test, or code_patch after the comparison passes, keeps `runtime_action=none`, denies foreign agent behavior adoption and star-count behavior patches, and blocks privacy-leakage or offensive selected rows as review-only. Use `pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply` for the current local-apply regression.
 
 The pass-4 skill-route completion handoff for `github-growth-20260707T170109.447884Z` adds a route-hint policy regression packet. Reverse-flow skill repositories and `rnskill` stay in `skill_route_discovery` with only documentation, config, test, or code_patch lanes; Shepherd and Agents-A1 activity stay in `agent_harness_eval_required` with no direct lanes before local harness evaluation and only documentation, test, or code_patch after evaluation. Route hints remain metadata and never grant permissions, runtime action, external skill activation, external harness execution, provider launch, remote execution, promotion, or restart authority. Use `python -m pytest tests/test_skill_routing.py -q -k 20260707T170109` for the current completion-lane regression.
 

@@ -1235,8 +1235,8 @@ def test_local_harness_eval_runs_pass_and_fail_fixtures_without_exporting_inputs
     serialized = json.dumps(payload, sort_keys=True)
 
     assert payload["suite_name"] == "fixture-local-harness-eval"
-    assert payload["fixture_count"] == 197
-    assert payload["pass_count"] == 196
+    assert payload["fixture_count"] == 198
+    assert payload["pass_count"] == 197
     assert payload["fail_count"] == 1
     assert payload["privacy"]["fixture_inputs_exported"] is False
     assert payload["privacy"]["supported_behaviors"] == [
@@ -4888,6 +4888,123 @@ def test_agent_harness_eval_cluster_queues_agent_chief_hy3_fortress_without_runt
     assert '"runtime_execution"' not in serialized
     assert '"provider_runtime"' not in serialized
     assert '"install"' not in serialized
+
+
+def test_agent_harness_eval_cluster_local_apply_unlocks_hy3_after_comparison():
+    """Pass 3: apply one local validation candidate from the harness-eval cluster."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T181308_agent_harness_eval_cluster_local_apply.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        fixture["input"],
+        source_path=fixture_path,
+    )
+    cluster = output["agent_harness_eval_cluster"]
+    apply_packet = output["agent_harness_eval_cluster_local_apply"]
+    serialized = json.dumps(apply_packet, sort_keys=True)
+    criterion_ids = [
+        result["criterion_id"] for result in apply_packet["comparison_criteria_results"]
+    ]
+
+    assert output["route_status"] == "passed"
+    assert output["failure_mode"] == "none"
+    assert cluster["status"] == "ready_with_review_boundaries"
+    assert apply_packet["controller_surface"] == "agent_harness_eval_cluster_local_apply"
+    assert apply_packet["proposal_id"] == "prop-agent-harness-eval-cluster"
+    assert apply_packet["status"] == "ready"
+    assert apply_packet["decision"] == (
+        "unlock_documentation_test_or_code_patch_after_local_comparison"
+    )
+    assert apply_packet["capability_action"] == "apply_one_local_validation_candidate"
+    assert apply_packet["selected_item_id"] == "trend:Tencent-Hunyuan/Hy3-1"
+    assert apply_packet["selection_reason"] == "matched_selected_local_validation_candidate"
+    assert apply_packet["evaluation_lane"] == "agent_harness_eval_required"
+    assert apply_packet["local_validation_required"] is True
+    assert apply_packet["local_comparison_required"] is True
+    assert apply_packet["local_comparison_passed"] is True
+    assert apply_packet["local_comparison_status"] == "passed_local_comparison"
+    assert apply_packet["failed_criteria"] == []
+    assert apply_packet["unlocked_local_lanes"] == [
+        "documentation",
+        "test",
+        "code_patch",
+    ]
+    assert apply_packet["direct_allowed_lanes_before_eval"] == []
+    assert apply_packet["runtime_action"] == "none"
+    assert apply_packet["runtime_action_auto_opened"] is False
+    assert apply_packet["implementation_patch_allowed_before_eval"] is False
+    assert apply_packet["behavior_patch_from_star_count_allowed"] is False
+    assert apply_packet["star_count_alone_unlocks_behavior_patch"] is False
+    assert apply_packet["foreign_agent_behavior_adoption_allowed"] is False
+    assert apply_packet["retained_review_only_item_ids"] == [
+        "trend:SmileLikeYe/agent-chief-1"
+    ]
+    assert set(criterion_ids) == {
+        "project_shape_probe_fields",
+        "local_claim_mapping",
+        "local_harness_replay",
+        "runtime_action_stays_none",
+        "post_eval_lanes_bounded",
+        "star_count_alone_insufficient",
+        "privacy_and_offensive_review_only",
+    }
+    assert all(result["passed"] is True for result in apply_packet["comparison_criteria_results"])
+    assert all(
+        route["lane"] in {"documentation", "test", "code_patch"}
+        and route["status"] == "unlocked_after_local_comparison"
+        and route["runtime_action"] == "none"
+        and route["star_count_alone_unlocks_lane"] is False
+        and route["foreign_agent_behavior_adoption_allowed"] is False
+        for route in apply_packet["unlocked_lane_routes"]
+    )
+    assert apply_packet["external_agent_activation_allowed"] is False
+    assert apply_packet["external_harness_execution_allowed"] is False
+    assert apply_packet["provider_runtime_launch_allowed"] is False
+    assert apply_packet["remote_execution_allowed"] is False
+    assert apply_packet["raw_source_urls_exported"] is False
+    assert "https://github.com/" not in serialized
+    assert "token" not in serialized.lower()
+    assert '"runtime_execution"' not in serialized
+
+
+def test_agent_harness_eval_cluster_local_apply_blocks_privacy_selected_candidate():
+    """Privacy-adjacent agent-chief evidence stays review-only and cannot unlock lanes."""
+
+    fixture_path = (
+        LOCAL_EVAL_FIXTURE_DIR
+        / "agent_harness_eval_lane_20260712T181308_agent_harness_eval_cluster_local_apply.json"
+    )
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    payload = dict(fixture["input"])
+    payload["selected_local_validation_candidate"] = {
+        "proposal_id": "prop-agent-chief-privacy-review-hold",
+        "item_id": "trend:SmileLikeYe/agent-chief-1",
+        "capability_action": "apply_one_local_validation_candidate",
+    }
+
+    output = evaluate_harness_behavior(
+        str(fixture["behavior"]),
+        payload,
+        source_path=fixture_path,
+    )
+    apply_packet = output["agent_harness_eval_cluster_local_apply"]
+
+    assert apply_packet["status"] == "blocked"
+    assert apply_packet["decision"] == (
+        "hold_selected_candidate_until_safe_eval_ready_row_exists"
+    )
+    assert apply_packet["selection_reason"] == "selected_item_is_safety_boundary_review_only"
+    assert apply_packet["selected_item_id"] == "trend:SmileLikeYe/agent-chief-1"
+    assert apply_packet["unlocked_local_lanes"] == []
+    assert apply_packet["local_comparison_passed"] is False
+    assert apply_packet["runtime_action"] == "none"
+    assert apply_packet["foreign_agent_behavior_adoption_allowed"] is False
+    assert apply_packet["behavior_patch_from_star_count_allowed"] is False
 
 
 def test_agent_harness_eval_lane_exposes_benchmark_meta_agent_probe():

@@ -79,6 +79,11 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "privacy_boundary_review_only" in architecture
     assert "agent_harness_eval_cluster" in architecture
     assert "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster" in architecture
+    assert "agent_harness_eval_cluster_local_apply" in architecture
+    assert (
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply"
+        in architecture
+    )
 
 
 def test_upstream_evidence_interpretation_doc_records_capability_step_contract():
@@ -102,6 +107,11 @@ def test_upstream_evidence_interpretation_doc_records_capability_step_contract()
         "local_validation_required=true",
         "Star count, trend rank, or popularity alone never unlocks",
         "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster",
+        "## Agent Harness Eval Cluster Local Apply",
+        "Source digest: `github-growth-20260712T181308.938536Z`",
+        "`agent_harness_eval_cluster_local_apply`",
+        "`apply_one_local_validation_candidate`",
+        "pytest tests/test_harness_eval.py -q -k agent_harness_eval_cluster_local_apply",
     ]
 
     missing = [phrase for phrase in required_phrases if phrase not in doc]
